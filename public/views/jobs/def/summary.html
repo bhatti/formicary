@@ -1,0 +1,136 @@
+<section class="group">
+    <header class="group-header">
+        <h3 class="group-title">Job Definition: {{ .JobType}}</h3>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <tr class="table-primary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd class="col-sm-8">{{ .ID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Version:</b></dt>
+                        <dd class="col-sm-8">{{ .Version }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Type:</b></dt>
+                        <dd class="col-sm-8">{{ .JobType}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Description:</b></dt>
+                        <dd class="col-sm-8">{{ .Description }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>User:</b></dt>
+                        <dd class="col-sm-8">{{ .UserID}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Organization:</b></dt>
+                        <dd class="col-sm-8">{{ .OrganizationID}}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Platform:</b></dt>
+                        <dd class="col-sm-8">{{ .Platform }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>MaxConcurrency:</b></dt>
+                        <dd class="col-sm-8">{{ .MaxConcurrency }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Methods:</b></dt>
+                        <dd class="col-sm-8">{{ .Methods }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Tags:</b></dt>
+                        <dd class="col-sm-8">{{ .Tags }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Cron Schedule:</b></dt>
+                        <dd class="col-sm-8">{{ .CronAndScheduleTime }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Filter:</b></dt>
+                        <dd class="col-sm-8">{{ .Filter }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>MaxConcurrency:</b></dt>
+                        <dd class="col-sm-8">{{ .MaxConcurrency }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Retry:</b></dt>
+                        <dd class="col-sm-8">{{ .Retry }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Timeout:</b></dt>
+                        <dd class="col-sm-8">{{ .Timeout }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Delay between retries:</b></dt>
+                        <dd class="col-sm-8">{{ .DelayBetweenRetries }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Created At:</b></dt>
+                        <dd class="col-sm-8">{{ .CreatedAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Updated At:</b></dt>
+                        <dd class="col-sm-8">{{ .UpdatedAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {{ template "jobs/def/configs/list" . }}
+</section>

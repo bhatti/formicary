@@ -1,0 +1,47 @@
+job_type: node_build
+max_concurrency: 1
+tasks:
+- task_type: build
+  host_network: true
+  method: KUBERNETES
+  working_dir: /sample
+  container:
+    image: node:16-buster
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/node-crud.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+    - npm ci --cache .npm --prefer-offline
+  script:
+    - echo branch {{.GitBranch}}, Commit {{.GitCommitID}}
+    - npm install
+    - tar -czf all.tgz *
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - all.tgz
+  cache:
+    key_paths:
+      - package.json
+    paths:
+      - node_modules
+      - .npm
+  environment:
+    GIT_TERMINAL_PROMPT: 0
+    GIT_SSH_COMMAND: 'ssh -oBatchMode=yes'
+    GIT_ASKPASS: echo
+    SSH_ASKPASS: echo
+    GCM_INTERACTIVE: never
+  on_completed: test
+- task_type: test
+  method: KUBERNETES
+  container:
+    image: node:16-buster
+  working_dir: /sample
+  script:
+    - pwd && ls -ld
+    - tar -xzf all.tgz
+    - npm install mocha chai supertest
+    - chmod 755 ./node_modules/.bin/* && npm test
+  dependencies:
+    - build

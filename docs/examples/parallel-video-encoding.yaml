@@ -1,0 +1,72 @@
+job_type: parallel-video-encoding
+description: Parallel example of video encoding
+max_concurrency: 1
+tasks:
+- task_type: validate
+  script:
+    - echo request must have URL {{.URL}}, InputEncoding {{.InputEncoding}} and OutputEncoding {{.OutputEncoding}}
+  method: KUBERNETES
+  container:
+    image: alpine
+  on_completed: download
+- task_type: download
+  method: KUBERNETES
+  container:
+    image: python:3.8-buster
+  host_network: true
+  script:
+    - curl -o video_file.{{.InputEncoding}} {{.URL}}
+  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}
+  on_completed: split
+- task_type: split
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.1
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.2
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.3
+  dependencies:
+    - download
+  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}.1
+      - video_file.{{.InputEncoding}}.2
+  on_completed: fork-encode1
+- task_type: fork-encode1
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: {{.split_ArtifactURL_1}}
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+  on_completed: fork-encode2
+- task_type: fork-encode2
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: {{.split_ArtifactURL_2}}
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+  on_completed: fork-await
+- task_type: fork-await
+  method: AWAIT_FORKED_JOB
+  on_completed: combine
+  await_forked_tasks:
+    - fork-encode1
+    - fork-encode2
+- task_type: combine
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - cat video_file.{{.InputEncoding}}* >  video_file.{{.OutputEncoding}}
+  dependencies:
+    - fork-await
+  artifacts:
+    paths:
+      - video_file.{{.OutputEncoding}}

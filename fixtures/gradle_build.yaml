@@ -1,0 +1,28 @@
+job_type: gradle-build
+max_concurrency: 1
+tasks:
+- task_type: build
+  tags:
+  - builder
+  - pulsar
+  host_network: true
+  artifacts:
+    paths:
+      - find1.txt
+      - find2.txt
+  cache:
+    keys:
+      - build.gradle
+    paths:
+      - .gradle
+  before_script:
+    - mkdir -p .gradle
+    - git clone https://github.com/gothinkster/spring-boot-realworld-example-app.git sample
+  script:
+    - pwd
+    - cd sample && ./gradlew --gradle-user-home .. test
+    - find ~/.gradle | head -100 > find1.txt
+    - find .gradle | head -100 > find2.txt
+  method: KUBERNETES
+  container:
+    image: gradle:7.0.0-jdk11

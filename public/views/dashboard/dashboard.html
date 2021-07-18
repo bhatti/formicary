@@ -1,0 +1,256 @@
+{{ template "layouts/header" . }}
+<div class="content-inner">
+    <header class="group-header">
+        <h4 class="group-title">Formicary Dashboard</h4>
+    </header>
+    <!-- Dashboard Counts Section-->
+    <section class="dashboard-counts no-padding-bottom">
+        <div class="container-fluid">
+            <div class="row bg-white has-shadow">
+                <!-- Org counts -->
+                {{if .Admin }}
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-blue"><i class="fa fa-building"></i></div>
+                        <div class="title"><span>Organizations</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-blue"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.OrgCounts}}</strong></div>
+                    </div>
+                </div>
+                {{end}}
+                <!-- User counts -->
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-violet"><i class="fa fa-user"></i></div>
+                        <div class="title"><span>Users</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-violet"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.UserCounts}}</strong></div>
+                    </div>
+                </div>
+                <!-- Ants -->
+                {{if .AntRegistrationsCount}}
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-info"><i class="fa fa-microchip"></i></div>
+                        <div class="title"><span>Ants</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-green"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.AntRegistrationsCount}}</strong></div>
+                    </div>
+                </div>
+                {{end}}
+                <!-- Job Definitions -->
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-orange"><i class="fa fa-sticky-note"></i></div>
+                        <div class="title"><span>Job Definitions</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-red"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.JobDefinitionCounts}}</strong></div>
+                    </div>
+                </div>
+                <!-- Running Jobs -->
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-green"><i class="fa fa-smile"></i></div>
+                        <div class="title"><span>Succeeded<br>Jobs</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-orange"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.SucceededJobsCount}}</strong></div>
+                    </div>
+                </div>
+                <!-- Pending Jobs -->
+                <div class="col-xl-4 col-sm-6">
+                    <div class="item d-flex align-items-center">
+                        <div class="icon bg-danger"><i class="fa fa-frown"></i></div>
+                        <div class="title"><span>Failed<br>Jobs</span>
+                            <div class="progress">
+                                <div role="progressbar" style="width: 100%; height: 4px;" aria-valuenow="100"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-orange"></div>
+                            </div>
+                        </div>
+                        <div class="number"><strong>{{.FailedJobsCount}}</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Dashboard Header Section    -->
+    <section class="dashboard-header">
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Statistics -->
+                <div class="statistics col-lg-3 col-12">
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        <div class="icon bg-red"><i class="fa fa-tasks"></i></div>
+                        <div class="text"><strong>{{.WaitingJobsCount}}</strong><br><small>Pending Jobs</small></div>
+                    </div>
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        <div class="icon bg-green"><i class="fa fa-truck"></i></div>
+                        <div class="text"><strong>{{.RunningJobsCount}}</strong><br><small>Running Jobs</small></div>
+                    </div>
+                </div>
+                <!-- Line Chart            -->
+                <div class="chart col-lg-6 col-12">
+                    <div class="line-chart bg-white d-flex align-items-center justify-content-center has-shadow">
+                        <canvas id="jobsHistoryGraph"></canvas>
+                    </div>
+                </div>
+                <div class="chart col-lg-3 col-12">
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        {{if .Health.OverallStatus.Healthy}}
+                        <div class="icon bg-green">✓</i></div>
+                        {{else}}
+                        <div class="icon bg-red">✘</i></div>
+                        {{end}}
+                        <div class="text"><small>Overall Health</small></div>
+                    </div>
+                    <!-- Success rate -->
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        <div class="icon bg-green"><i class="fa fa-thumbs-up"></i></div>
+                        <div class="text"><strong>{{.SuccessPercentage}}%</strong><br><small>Success Rate</small></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <!-- Statistics -->
+                <div class="statistics col-lg-3 col-12">
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        <div class="icon bg-orange"><i class="fa fa-folder"></i></div>
+                        <div class="text"><strong>{{.DoneJobsCount}}</strong><br><small>Archived Jobs</small></div>
+                    </div>
+                </div>
+                <!-- Line Chart            -->
+                <div class="chart col-lg-6 col-12">
+                    <div class="line-chart bg-white d-flex align-items-center justify-content-center has-shadow">
+                        <canvas id="resourceUsageGraph"></canvas>
+                    </div>
+                </div>
+                <div class="chart col-lg-3 col-12">
+                    <!-- Bar Chart   -->
+                    <div class="bar-chart has-shadow bg-white">
+                        <div class="title"><strong
+                                class="text-violet">{{.TotalExecutors}}</strong><br><small>Executors</small>
+                        </div>
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects Section-->
+    <section class="projects no-padding-top">
+        <div class="container-fluid">
+            {{range .JobStats}}
+            <!-- Project-->
+            <div class="project">
+                <div class="row bg-white has-shadow">
+                    <div class="left-col col-lg-6 d-flex align-items-center justify-content-between">
+                        <div class="project-title d-flex align-items-center">
+                            <h3 class="h4">{{.JobKey.GetJobType}}</h3>
+                            <!--
+                            <div class="image has-shadow"><img
+                                    src="https://d19m59y37dris4.cloudfront.net/admin/1-4-5/img/project-1.jpg" alt="..."
+                                    class="img-fluid"></div>
+                            -->
+                        </div>
+                        &nbsp; &nbsp; &nbsp;
+                        <div class="text project-progress">
+                            <small>Ants: {{.AntsCapacity}}</small>
+                            <br>
+                            <small>Paused: {{.JobPaused}}</small>
+                            <br>
+                            <small>Executing: {{.ExecutingJobs}}</small>
+                        </div>
+                        <div class="project-date">
+                            <span class="hidden-sm-down">&nbsp;<small>First: {{.FirstJobAtString}}</small></span>
+                            <span class="hidden-sm-down">&nbsp;<small>Last: {{.LastJobAtString}}</small></span>
+                        </div>
+                    </div>
+                    <div class="right-col col-lg-6 d-flex align-items-center">
+                        <!--
+                        <div class="time"><i class="fa fa-clock-o"></i>PM</div>
+                        -->
+                        <div class="comment">
+                            {{if .SucceededJobs}}
+                            <i class="fa fa-comment-o col-sm-5">Succeeded: <small>&nbsp;{{.SucceededJobs}}</small></i>
+                            <i class="fa fa-comment-o col-sm-5">Latency:
+                                <small>&nbsp;{{.SucceededJobsAverageString}}</small></i>
+                            <br>
+                            {{end}}
+                            {{if .FailedJobs}}
+                            <i class="fa fa-comment-o col-sm-5">Failed: <small><br>&nbsp;{{.FailedJobs}}</small></i>
+                            <i class="fa fa-comment-o col-sm-5">Latency:
+                                <small>&nbsp;{{.FailedJobsAverageString}}</small></i>
+                            {{end}}
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress">
+                                <div role="progressbar" style="width: {{.SucceededJobsPercentages}}%; height: 6px;"
+                                     aria-valuenow="{{.SucceededJobsPercentages}}"
+                                     aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-green"></div>
+                                <br>
+                            </div>
+                            {{.SucceededJobsPercentages}}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.1.1/dist/chart.min.js"></script>
+    <script>
+        new Chart(document.getElementById("jobsHistoryGraph"), {
+            type: 'line',
+            data: JSON.parse({{.JobCountsByDays}}),
+        options: {
+            title: {
+                display: true,
+                    text: 'Jobs History'
+            }
+        }});
+
+        new Chart(document.getElementById("resourceUsageGraph"), {
+            type: 'line',
+            data: JSON.parse({{.ResourcesUsage}}),
+        options: {
+            title: {
+                display: true,
+                text: 'CPU & Storage Usage'
+            }
+        }});
+
+        new Chart(document.getElementById("barChart"), {
+            type: 'bar',
+            data: JSON.parse({{.ContainerCounts}}),
+        options: {
+            legend: {
+                display: false
+            },
+            title: {
+                display: true,
+                text: 'Executors by Methods'
+            }
+        }});
+    </script>
+    {{ template "layouts/footer" }}
+</div>

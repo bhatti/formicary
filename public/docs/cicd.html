@@ -1,0 +1,47 @@
+<h2 id="ci-cd-pipelines">CI/CD Pipelines</h2>
+<h3 id="code-repository">Code Repository</h3>
+<p>The source code repository provides a single source of truth for the software code and manages code versions, branches and users who can update the code.</p>
+<h3 id="artifact-management">Artifact Management</h3>
+<p>A build process may generate several artifacts that are needed for the CI/CD pipeline or for deploying software.</p>
+<h3 id="continuous-integration">Continuous Integration</h3>
+<p>The CI is a software development process where new code changes are regularly built, tested and merged into source code repository by the engineering team. The code checkin to the source code kicks an automated process to validate build using automated tests to identify bugs and integration issues. Thus, it reduces amount of time for manual testing and expedites shipping high quality code to the production environment.</p>
+<h3 id="continuous-delivery-and-deployment">Continuous Delivery and Deployment</h3>
+<p>The continuous delivery &amp; deployment automates the release to production instead of manual approval and deployment process.</p>
+<h2 id="building-ci-cd-with-formicary">Building CI/CD with Formicary</h2>
+<p>You can implement CI/CD by defining a <a href="definition_options.html#job">job configuration</a> and then uploading it to the server. The steps in a build processes can be mapped to the tasks in the job configuration where each task can map to the stage in build process such as <code>compile</code>, <code>test</code>, <code>deploy</code>, etc.</p>
+<h3 id="job-parameters-and-variables">Job Parameters and Variables</h3>
+<p>See <a href="definition_options.html#variables">Variables</a> and <a href="definition_options.html#Params">Request Parameters</a> for setting up variables and parameters for the job configuration and request parameters, e.g.</p>
+<pre><code class="lang-yaml">job_variables:
+  Target: world
+</code></pre>
+<p>The job configuration uses GO templates, so you can use parameters or variables to replace the values, e.g.</p>
+<pre><code class="lang-yaml">    - echo &quot;{{.Target}}&quot; &gt; world.txt
+</code></pre>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>See <a href="definition_options.html#environment">Environment Variables</a> for configuring environment variables that you can access them inside the container, e.g.</p>
+<pre><code class="lang-yaml">   environment:
+     REGION: seattle
+</code></pre>
+<h3 id="job-organization-configs">Job / Organization Configs</h3>
+<p>See <a href="howto.html#Configs">Job / Organization Configs</a> for managing secure configurations at job and organization level.</p>
+<h3 id="access-tokens-for-source-code-repositories">Access Tokens for Source Code Repositories</h3>
+<p>See <a href="howto.html#Repositories_Access_Tokens">Accessing Source Code Repositories</a> for accessing source code repositories.</p>
+<h3 id="starting-job-manually">Starting Job Manually</h3>
+<p>See <a href="howto.html#Scheduling">Scheduling Manually</a> for scheduling job manually. You can submit a job as follows:</p>
+<h3 id="scheduling-job-in-future">Scheduling Job in future</h3>
+<p>See <a href="howto.html#Scheduling_Future">Job Scheduling</a> for submitting a job at scheduled.</p>
+<h3 id="scheduling-job-with-regular-interval">Scheduling Job with regular interval</h3>
+<p>See <a href="definition_options.html#cron_trigger">Job Filtering</a> for scheduling job at a regular interval.</p>
+<h3 id="github-webhooks">Github-Webhooks</h3>
+<p>See <a href="howto.html#Webhooks">Github-Webhooks</a> for scheduling job using GitHub webhooks.</p>
+<h3 id="postcommit-hooks">PostCommit Hooks</h3>
+<p>See <a href="howto.html#PostCommit">Post-commit hooks</a> for scheduling job using git post-commit hooks.</p>
+<h3 id="filtering-job-request">Filtering Job Request</h3>
+<p>See <a href="definition_options.html#filter">Job Filtering</a> for filtering scheduled job.</p>
+<h3 id="ci-cd-pipelines-with-formicary">CI/CD Pipelines with Formicary</h3>
+<p>Following examples show how you can use artifact-store, docker/kubernetes and job management support in formicary to build CI/CD solutions:</p>
+<ul>
+<li><a href="node_ci.html">Node.js CI/CD</a></li>
+<li><a href="go_ci.html">GO CI/CD</a></li>
+<li><a href="python_ci.html">Python CI/CD</a></li>
+</ul>

@@ -1,0 +1,3459 @@
+basePath: /api
+consumes:
+- application/json
+definitions:
+  AntRegistration:
+    properties:
+      allocations:
+        x-go-name: Allocations
+      ant_id:
+        type: string
+        x-go-name: AntID
+      ant_started_at:
+        format: date-time
+        type: string
+        x-go-name: AntStartedAt
+      ant_topic:
+        type: string
+        x-go-name: AntTopic
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      current_load:
+        format: int64
+        type: integer
+        x-go-name: CurrentLoad
+      max_capacity:
+        format: int64
+        type: integer
+        x-go-name: MaxCapacity
+      methods:
+        items:
+          $ref: '#/definitions/TaskMethod'
+        type: array
+        x-go-name: Methods
+      tags:
+        items:
+          type: string
+        type: array
+        x-go-name: Tags
+    title: AntRegistration is used to register remote ants with the resource manager
+      so that tasks can be routed to them based on their capacity.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
+  Artifact:
+    description: |-
+      The metadata defines properties to associate artifact with a task or job and can be used to query artifacts
+      related for a job or an organization.
+    properties:
+      artifact_order:
+        description: ArtifactOrder of artifact in group
+        format: int64
+        type: integer
+        x-go-name: ArtifactOrder
+      bucket:
+        description: Bucket defines bucket where artifact is stored
+        type: string
+        x-go-name: Bucket
+      content_length:
+        description: ContentLength refers to content-length of artifact
+        format: int64
+        type: integer
+        x-go-name: ContentLength
+      content_type:
+        description: ContentType refers to content-type of artifact
+        type: string
+        x-go-name: ContentType
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      etag:
+        description: ETag stores ETag from underlying storage such as Minio/S3
+        type: string
+        x-go-name: ETag
+      expires_at:
+        description: ExpiresAt - expiration time
+        format: date-time
+        type: string
+        x-go-name: ExpiresAt
+      group:
+        description: Group of artifact
+        type: string
+        x-go-name: Group
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_execution_id:
+        description: JobExecutionID refers to job-execution-id being processed
+        type: string
+        x-go-name: JobExecutionID
+      job_request_id:
+        description: JobRequestID refers to request-id being processed
+        format: uint64
+        type: integer
+        x-go-name: JobRequestID
+      kind:
+        description: Kind of artifact
+        type: string
+        x-go-name: Kind
+      metadata:
+        additionalProperties:
+          type: string
+        description: MetadataMap - transient map of properties - deserialized from
+          MetadataSerialized
+        type: object
+        x-go-name: Metadata
+      name:
+        description: Name defines name of artifact for display
+        type: string
+        x-go-name: Name
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      permissions:
+        description: Permissions of artifact
+        format: int32
+        type: integer
+        x-go-name: Permissions
+      sha256:
+        description: SHA256 defines hash of the contents using SHA-256 algorithm
+        type: string
+        x-go-name: SHA256
+      tags:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: Tags
+      task_execution_id:
+        description: TaskExecutionID refers to task-execution-id being processed
+        type: string
+        x-go-name: TaskExecutionID
+      task_type:
+        description: TaskType defines type of task
+        type: string
+        x-go-name: TaskType
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      url:
+        type: string
+        x-go-name: URL
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+    title: Artifact defines metadata of artifact that is uploaded by a job such as
+      task logs, task results, etc.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
+  AuditKind:
+    description: AuditKind defines enum for state of request or execution
+    type: string
+    x-go-package: plexobject.com/formicary/queen/types
+  AuditRecord:
+    description: AuditRecord defines audit-record
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      error:
+        description: Error message
+        type: string
+        x-go-name: Error
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_type:
+        description: JobType - job-type
+        type: string
+        x-go-name: JobType
+      kind:
+        $ref: '#/definitions/AuditKind'
+      message:
+        description: Message defines audit message
+        type: string
+        x-go-name: Message
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      remote_ip:
+        description: RemoteIP defines remote ip-address
+        type: string
+        x-go-name: RemoteIP
+      target_id:
+        description: TargetID defines target id
+        type: string
+        x-go-name: TargetID
+      url:
+        description: URL defines access url
+        type: string
+        x-go-name: URL
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  BasicResource:
+    description: |-
+      These mutex/semaphores can represent external resources that job requires and can be used to determine
+      concurrency of jobs. For example, a job may need a license key to connect to a third party service and
+      it may only accept upto five connections that can be allocated via resources.
+    properties:
+      category:
+        description: Category can be used to represent grouping of resources
+        type: string
+        x-go-name: Category
+      description:
+        description: Description of resource
+        type: string
+        x-go-name: Description
+      extract_config:
+        $ref: '#/definitions/ResourceCriteriaConfig'
+      platform:
+        description: Platform can be OS platform or target runtime
+        type: string
+        x-go-name: Platform
+      resource_type:
+        description: ResourceType defines type of resource such as Device, CPU, Memory
+        type: string
+        x-go-name: ResourceType
+      tags:
+        description: Tags can be used as tags for resource matching
+        items:
+          type: string
+        type: array
+        x-go-name: Tags
+      value:
+        description: Value consumed, e.g. it will be 1 for mutex, semaphore but can
+          be higher number for other quota system
+        format: int64
+        type: integer
+        x-go-name: Value
+    title: BasicResource defines common properties of a resource, which can be used
+      to implement mutex/semaphores for a job.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  ContainerLifecycleEvent:
+    properties:
+      ant_id:
+        type: string
+        x-go-name: AntID
+      container_id:
+        description: ContainerID
+        type: string
+        x-go-name: ContainerID
+      container_name:
+        description: ContainerName
+        type: string
+        x-go-name: ContainerName
+      container_state:
+        $ref: '#/definitions/RequestState'
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      ended_at:
+        description: EndedAt
+        format: date-time
+        type: string
+        x-go-name: EndedAt
+      event_type:
+        type: string
+        x-go-name: EventType
+      id:
+        type: string
+        x-go-name: ID
+      labels:
+        additionalProperties:
+          type: string
+        description: Labels
+        type: object
+        x-go-name: Labels
+      method:
+        $ref: '#/definitions/TaskMethod'
+      source:
+        type: string
+        x-go-name: Source
+      started_at:
+        description: StartedAt
+        format: date-time
+        type: string
+        x-go-name: StartedAt
+      user_id:
+        type: string
+        x-go-name: UserID
+    title: ContainerLifecycleEvent is a lifecycle event used to update state of the
+      containers.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/events
+  Duration:
+    description: |-
+      A Duration represents the elapsed time between two instants
+      as an int64 nanosecond count. The representation limits the
+      largest representable duration to approximately 290 years.
+    format: int64
+    type: integer
+    x-go-package: time
+  ErrorCode:
+    properties:
+      action:
+        $ref: '#/definitions/ErrorCodeAction'
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      description:
+        description: Description of error
+        type: string
+        x-go-name: Description
+      display_code:
+        description: DisplayCode defines user code for error
+        type: string
+        x-go-name: DisplayCode
+      display_message:
+        description: DisplayMessage defines user message for error
+        type: string
+        x-go-name: DisplayMessage
+      error_code:
+        description: ErrorCode defines error code
+        type: string
+        x-go-name: ErrorCode
+      exit_code:
+        description: ExitCode defines exit-code for error
+        format: int64
+        type: integer
+        x-go-name: ExitCode
+      hard_failure:
+        description: HardFailure determines if this error can be retried or is hard
+          failure
+        type: boolean
+        x-go-name: HardFailure
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_type:
+        description: JobType defines type for the job
+        type: string
+        x-go-name: JobType
+      platform_scope:
+        description: PlatformScope only applies error code for platform
+        type: string
+        x-go-name: PlatformScope
+      regex:
+        description: Regex matches error-code
+        type: string
+        x-go-name: Regex
+      retry:
+        description: Retry defines number of tries if task is failed with this error
+          code
+        format: int64
+        type: integer
+        x-go-name: Retry
+      task_type_scope:
+        description: TaskTypeScope only applies error code for task_type
+        type: string
+        x-go-name: TaskTypeScope
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    title: ErrorCode defines codes for tracking different types of errors.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
+  ErrorCodeAction:
+    title: ErrorCodeAction defines enum for actions that can be taken based on the
+      error-code.
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
+  HealthQueryResponse:
+    properties:
+      dependent_service_statuses:
+        items:
+          $ref: '#/definitions/ServiceStatus'
+        type: array
+        x-go-name: DependentServiceStatuses
+      overall_status:
+        $ref: '#/definitions/ServiceStatus'
+    title: HealthQueryResponse defines health Status for overall and dependent services.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/controller
+  JobCounts:
+    properties:
+      counts:
+        description: Counts defines total number of records matching stats
+        format: int64
+        type: integer
+        x-go-name: Counts
+      end_time:
+        description: EndTime stores last occurrence of the stats
+        format: date-time
+        type: string
+        x-go-name: EndTime
+      end_time_string:
+        description: EndTime stores last occurrence of the stats for sqlite
+        type: string
+        x-go-name: EndTimeString
+      error_code:
+        description: ErrorCode defines error code if job failed
+        type: string
+        x-go-name: ErrorCode
+      job_state:
+        $ref: '#/definitions/RequestState'
+      job_type:
+        description: JobType defines type for the job
+        type: string
+        x-go-name: JobType
+      start_time:
+        description: StartTime stores first occurrence of the stats
+        format: date-time
+        type: string
+        x-go-name: StartTime
+      start_time_stirng:
+        description: StartTime stores first occurrence of the stats for sqlite
+        type: string
+        x-go-name: StartTimeString
+    title: JobCounts defines counts on job types by state and error code.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobDefinition:
+    description: |-
+      The workflow of job uses task exit codes to define next task to execute. The task definition
+      represents definition of a job and instance of the job is created using JobExecution when a new job request is
+      submitted.
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      cron_trigger:
+        description: CronTrigger can be used to run the job periodically
+        type: string
+        x-go-name: CronTrigger
+      delay_between_retries:
+        $ref: '#/definitions/Duration'
+      description:
+        description: Description of job
+        type: string
+        x-go-name: Description
+      hard_reset_after_retries:
+        description: HardResetAfterRetries defines retry config when job is rerun
+          and as opposed to re-running only failed tasks, all tasks are executed.
+        format: int64
+        type: integer
+        x-go-name: HardResetAfterRetries
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_type:
+        description: JobType defines a unique type of job
+        type: string
+        x-go-name: JobType
+      job_variables:
+        description: Following are transient properties -- these are populated when
+          AfterLoad or Validate is called
+        type: object
+        x-go-name: NameValueVariables
+      max_concurrency:
+        description: MaxConcurrency defines max number of jobs that can be run concurrently
+        format: int64
+        type: integer
+        x-go-name: MaxConcurrency
+      methods:
+        description: Methods is aggregation of task methods
+        type: string
+        x-go-name: Methods
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      paused:
+        description: Paused is used to stop further processing of job and it can be
+          used during maintenance, upgrade or debugging.
+        type: boolean
+        x-go-name: Paused
+      platform:
+        description: Platform can be OS platform or target runtime and a job can be
+          targeted for specific platform that can be used for filtering
+        type: string
+        x-go-name: Platform
+      public_plugin:
+        description: PublicPlugin means job is public plugin
+        type: boolean
+        x-go-name: PublicPlugin
+      required_params:
+        description: RequiredParams from job request (and plugin)
+        items:
+          type: string
+        type: array
+        x-go-name: RequiredParams
+      resources:
+        $ref: '#/definitions/BasicResource'
+      retry:
+        description: Retry defines max number of tries a job can be retried where
+          it re-runs failed job
+        format: int64
+        type: integer
+        x-go-name: Retry
+      sem_version:
+        description: SemVersion - semantic version is used for external version, which
+          can be used for public plugins.
+        type: string
+        x-go-name: SemVersion
+      tags:
+        description: |-
+          Tags are used to use specific followers that support the tags defined by ants.
+          Tags is aggregation of task tags
+        type: string
+        x-go-name: Tags
+      tasks:
+        description: |-
+          Tasks defines one to many relationships between job and tasks, where tasks defines a
+          directed acyclic graph of tasks that are executed for the job.
+        items:
+          $ref: '#/definitions/TaskDefinition'
+        type: array
+        x-go-name: Tasks
+      timeout:
+        $ref: '#/definitions/Duration'
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      url:
+        description: URL defines url for job
+        type: string
+        x-go-name: URL
+      user_id:
+        description: UserID defines user who updated the job
+        type: string
+        x-go-name: UserID
+    title: JobDefinition defines a DAG (directed acyclic graph) of tasks, which are
+      executed by the ant followers.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobDefinitionConfig:
+    description: JobDefinitionConfig defines variables for job definition
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_definition_id:
+        description: JobDefinitionID defines foreign key for JobDefinition
+        type: string
+        x-go-name: JobDefinitionID
+      name:
+        description: Name defines name of property
+        type: string
+        x-go-name: Name
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      type:
+        description: Type defines type of property value
+        type: string
+        x-go-name: Type
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      value:
+        description: Value defines value of property that can be string, number, boolean
+          or JSON structure
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobExecution:
+    properties:
+      contexts:
+        description: Contexts defines context variables of job
+        items:
+          $ref: '#/definitions/JobExecutionContext'
+        type: array
+        x-go-name: Contexts
+      cpu_secs:
+        description: CPUSecs execution time
+        format: uint64
+        type: integer
+        x-go-name: CPUSecs
+      ended_at:
+        description: EndedAt job execution end time
+        format: date-time
+        type: string
+        x-go-name: EndedAt
+      error_code:
+        description: ErrorCode captures error code at the end of job execution if
+          it fails
+        type: string
+        x-go-name: ErrorCode
+      error_message:
+        description: ErrorMessage captures error message at the end of job execution
+          if it fails
+        type: string
+        x-go-name: ErrorMessage
+      exit_code:
+        description: ExitCode defines exit status from the job execution
+        type: string
+        x-go-name: ExitCode
+      exit_message:
+        description: ExitMessage defines exit message from the job execution
+        type: string
+        x-go-name: ExitMessage
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_request_id:
+        description: JobRequestID defines foreign key for job request
+        format: uint64
+        type: integer
+        x-go-name: JobRequestID
+      job_state:
+        $ref: '#/definitions/RequestState'
+      job_type:
+        description: JobType defines type for the job
+        type: string
+        x-go-name: JobType
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      started_at:
+        description: StartedAt job execution start time
+        format: date-time
+        type: string
+        x-go-name: StartedAt
+      tasks:
+        description: Tasks defines list of tasks that are executed for the job
+        items:
+          $ref: '#/definitions/TaskExecution'
+        type: array
+        x-go-name: Tasks
+      updated_at:
+        description: UpdatedAt job execution last update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+    title: JobExecution represents instance of job-definition and captures state of
+      job-execution when a job-request is processed.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobExecutionContext:
+    properties:
+      created_at:
+        description: CreatedAt job context creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_execution_id:
+        description: |-
+          gorm.Model
+          JobExecutionID defines foreign key for JobExecution
+        type: string
+        x-go-name: JobExecutionID
+      name:
+        description: Name defines name of property
+        type: string
+        x-go-name: Name
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      type:
+        description: Type defines type of property value
+        type: string
+        x-go-name: Type
+      value:
+        description: Value defines value of property that can be string, number, boolean
+          or JSON structure
+        type: string
+        x-go-name: Value
+    title: JobExecutionContext defines context for the job execution.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobRequest:
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      cron_triggered:
+        description: CronTriggered is true if request was triggered by cron
+        type: boolean
+        x-go-name: CronTriggered
+      description:
+        description: Description of the request
+        type: string
+        x-go-name: Description
+      error_code:
+        description: ErrorCode captures error code at the end of job execution if
+          it fails
+        type: string
+        x-go-name: ErrorCode
+      error_message:
+        description: ErrorMessage captures error message at the end of job execution
+          if it fails
+        type: string
+        x-go-name: ErrorMessage
+      execution:
+        $ref: '#/definitions/JobExecution'
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        format: uint64
+        type: integer
+        x-go-name: ID
+      job_definition_id:
+        description: JobDefinitionID points to the job-definition version
+        type: string
+        x-go-name: JobDefinitionID
+      job_execution_id:
+        description: JobExecutionID defines foreign key for JobExecution
+        type: string
+        x-go-name: JobExecutionID
+      job_group:
+        description: JobGroup defines a property for grouping related job
+        type: string
+        x-go-name: JobGroup
+      job_priority:
+        description: JobPriority defines priority of the job
+        format: int64
+        type: integer
+        x-go-name: JobPriority
+      job_state:
+        $ref: '#/definitions/RequestState'
+      job_type:
+        description: JobType defines type for the job
+        type: string
+        x-go-name: JobType
+      last_job_execution_id:
+        description: LastJobExecutionID defines foreign key for JobExecution
+        type: string
+        x-go-name: LastJobExecutionID
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      params:
+        additionalProperties:
+          type: object
+        type: object
+        x-go-name: NameValueParams
+      parent_id:
+        description: ParentID defines id for parent job
+        format: uint64
+        type: integer
+        x-go-name: ParentID
+      permissions:
+        description: Permissions provides who can access this request 0 - all, 1 -
+          Org must match, 2 - UserID must match from authentication
+        format: int64
+        type: integer
+        x-go-name: Permissions
+      platform:
+        description: Platform overrides platform property for targeting job to a specific
+          follower
+        type: string
+        x-go-name: Platform
+      quick_search:
+        description: QuickSearch provides quick search to search a request by params
+        type: string
+        x-go-name: QuickSearch
+      retried:
+        description: Retried keeps track of retry attempts
+        format: int64
+        type: integer
+        x-go-name: Retried
+      schedule_attempts:
+        description: ScheduleAttempts defines attempts of schedule
+        format: int64
+        type: integer
+        x-go-name: ScheduleAttempts
+      scheduled_at:
+        description: |-
+          ScheduledAt defines schedule time when job will be submitted so that you can submit a job
+          that will be executed later
+        format: date-time
+        type: string
+        x-go-name: ScheduledAt
+      timeout:
+        $ref: '#/definitions/Duration'
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+      user_key:
+        description: UserKey defines user-defined UUID and can be used to detect duplicate
+          jobs
+        type: string
+        x-go-name: UserKey
+    title: JobRequest defines user request to process a job, which is saved in the
+      database as PENDING and is then scheduled for job execution.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobRequestInfo:
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      cron_triggered:
+        description: CronTriggered is true if request was triggered by cron
+        type: boolean
+        x-go-name: CronTriggered
+      id:
+        description: ID defines UUID for primary key
+        format: uint64
+        type: integer
+        x-go-name: ID
+      job_execution_id:
+        description: JobExecutionID
+        type: string
+        x-go-name: JobExecutionID
+      job_priority:
+        description: JobPriority defines priority of the job
+        format: int64
+        type: integer
+        x-go-name: JobPriority
+      job_state:
+        $ref: '#/definitions/RequestState'
+      job_type:
+        description: JobType defines type for the job
+        type: string
+        x-go-name: JobType
+      last_job_execution_id:
+        description: LastJobExecutionID defines foreign key for JobExecution
+        type: string
+        x-go-name: LastJobExecutionID
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      schedule_attempts:
+        description: ScheduleAttempts defines attempts of schedule
+        format: int64
+        type: integer
+        x-go-name: ScheduleAttempts
+      scheduled_at:
+        description: ScheduledAt defines schedule time
+        format: date-time
+        type: string
+        x-go-name: ScheduledAt
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+    title: JobRequestInfo defines basic id/state of the job request.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobResource:
+    description: |-
+      Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc.
+      You can use them as mutex, semaphores or quota system to determine concurrency of jobs.
+      For example, a job may need a license key to connect to a third party service and it may only accept upto
+      five connections that can be allocated via resources.
+    properties:
+      category:
+        description: Category can be used to represent grouping of resources
+        type: string
+        x-go-name: Category
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      description:
+        description: Description of resource
+        type: string
+        x-go-name: Description
+      external_id:
+        description: ExternalID defines external-id of the resource if exists
+        type: string
+        x-go-name: ExternalID
+      extract_config:
+        $ref: '#/definitions/ResourceCriteriaConfig'
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      lease_timeout:
+        $ref: '#/definitions/Duration'
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
+      paused:
+        description: Paused is used to stop further processing of job and it can be
+          used during maintenance, upgrade or debugging.
+        type: boolean
+        x-go-name: Paused
+      platform:
+        description: Platform can be OS platform or target runtime
+        type: string
+        x-go-name: Platform
+      quota:
+        description: |-
+          Quota can be used to represent mutex (max 1), semaphores (max limit) or other kind of quota.
+          Note: mutex/semaphores can only take one resource by quota may take any value
+        format: int64
+        type: integer
+        x-go-name: Quota
+      resource_type:
+        description: ResourceType defines type of resource such as Device, CPU, Memory
+        type: string
+        x-go-name: ResourceType
+      resource_variables:
+        additionalProperties:
+          type: object
+        description: Following are transient properties
+        type: object
+        x-go-name: NameValueConfigs
+      tags:
+        description: Tags can be used as tags for resource matching
+        items:
+          type: string
+        type: array
+        x-go-name: Tags
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
+      valid_status:
+        description: ValidStatus - health status of resource
+        type: boolean
+        x-go-name: ValidStatus
+      value:
+        description: Value consumed, e.g. it will be 1 for mutex, semaphore but can
+          be higher number for other quota system
+        format: int64
+        type: integer
+        x-go-name: Value
+    title: JobResource represents a virtual resource, which can be used to implement
+      mutex/semaphores for a job.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobResourceConfig:
+    description: JobResourceConfig defines configuration for job resource
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_resource_id:
+        description: JobResourceID defines foreign key for JobResource
+        type: string
+        x-go-name: JobResourceID
+      name:
+        description: Name defines name of property
+        type: string
+        x-go-name: Name
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      type:
+        description: Type defines type of property value
+        type: string
+        x-go-name: Type
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      value:
+        description: Value defines value of property that can be string, number, boolean
+          or JSON structure
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  JobStats:
+    properties:
+      ant_unavailable_error:
+        description: AntUnavailableError error
+        type: string
+        x-go-name: AntUnavailableError
+      ants_available:
+        description: AntsAvailable flag
+        type: boolean
+        x-go-name: AntsAvailable
+      ants_capacity:
+        description: AntsCapacity
+        format: int64
+        type: integer
+        x-go-name: AntsCapacity
+      executing_jobs:
+        description: ExecutingJobs count
+        format: int32
+        type: integer
+        x-go-name: ExecutingJobs
+      failed_jobs:
+        description: FailedJobs count
+        format: int64
+        type: integer
+        x-go-name: FailedJobs
+      failed_jobs_average_latency:
+        description: FailedJobsAverage average
+        format: double
+        type: number
+        x-go-name: FailedJobsAverage
+      failed_jobs_max_latency:
+        description: FailedJobsMax max
+        format: int64
+        type: integer
+        x-go-name: FailedJobsMax
+      failed_jobs_min_latency:
+        description: SailedJobsMin min
+        format: int64
+        type: integer
+        x-go-name: FailedJobsMin
+      first_job_at:
+        description: FirstJobAt time of job start
+        format: date-time
+        type: string
+        x-go-name: FirstJobAt
+      job_paused:
+        description: JobPaused paused flag
+        type: boolean
+        x-go-name: JobPaused
+      job_type:
+        description: JobType defines type of job
+        type: string
+        x-go-name: JobType
+      last_job_at:
+        description: LastJobAt update time of last job
+        format: date-time
+        type: string
+        x-go-name: LastJobAt
+      succeeded_jobs:
+        description: SucceededJobs count
+        format: int64
+        type: integer
+        x-go-name: SucceededJobs
+      succeeded_jobs_average_latency:
+        description: SucceededJobsAverage average
+        format: double
+        type: number
+        x-go-name: SucceededJobsAverage
+      succeeded_jobs_max_latency:
+        description: SucceededJobsMax max
+        format: int64
+        type: integer
+        x-go-name: SucceededJobsMax
+      succeeded_jobs_min_latency:
+        description: SucceededJobsMin min
+        format: int64
+        type: integer
+        x-go-name: SucceededJobsMin
+      succeeded_jobs_percentage:
+        description: SucceededJobsPercentages
+        format: int64
+        type: integer
+        x-go-name: SucceededJobsPercentages
+    title: JobStats captures usage statistics for each job-type.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/stats
+  JobWaitEstimate:
+    properties:
+      JobRequest:
+        $ref: '#/definitions/JobRequestInfo'
+      JobStats:
+        $ref: '#/definitions/JobStats'
+      error_message:
+        description: ErrorMessage
+        type: string
+        x-go-name: ErrorMessage
+      estimated_wait:
+        $ref: '#/definitions/Duration'
+      pending_job_ids:
+        description: PendingJobIDs
+        items:
+          format: uint64
+          type: integer
+        type: array
+        x-go-name: PendingJobIDs
+      queue_number:
+        description: QueueNumber number in queue
+        format: int64
+        type: integer
+        x-go-name: QueueNumber
+      scheduled_at:
+        description: ScheduledAt - schedule time
+        format: date-time
+        type: string
+        x-go-name: ScheduledAt
+    title: JobWaitEstimate stores estimated wait times for given job-request.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/stats
+  Monitorable:
+    properties:
+      Name:
+        type: string
+    title: Monitorable defines interface for services that can be monitored for health-check.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/health
+  Organization:
+    description: It is used multi-tenancy support in the platform.
+    properties:
+      bundle_id:
+        description: BundleID defines package or bundle
+        type: string
+        x-go-name: BundleID
+      created_at:
+        description: CreatedAt created time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      license_policy:
+        description: LicensePolicy defines license policy
+        type: string
+        x-go-name: LicensePolicy
+      max_concurrency:
+        description: MaxConcurrency defines max number of jobs that can be run concurrently
+          by org
+        format: int64
+        type: integer
+        x-go-name: MaxConcurrency
+      org_unit:
+        description: OrgUnit defines org-unit
+        type: string
+        x-go-name: OrgUnit
+      owner_user_id:
+        description: OwnerUserID defines owner user
+        type: string
+        x-go-name: OwnerUserID
+      parent_id:
+        description: ParentID defines parent org
+        type: string
+        x-go-name: ParentID
+      updated_at:
+        description: UpdatedAt update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    title: Organization represents a user organization that may have one or more users.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  OrganizationConfig:
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      name:
+        description: Name defines name of property
+        type: string
+        x-go-name: Name
+      organization_id:
+        description: OrganizationID defines foreign key for Organization
+        type: string
+        x-go-name: OrganizationID
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      type:
+        description: Type defines type of property value
+        type: string
+        x-go-name: Type
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      value:
+        description: Value defines value of property that can be string, number, boolean
+          or JSON structure
+        type: string
+        x-go-name: Value
+    title: OrganizationConfig defines common configuration for the organization that
+      can be shared by all jobs defined by users within that organization.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  RequestState:
+    title: RequestState defines enum for the state of request or execution such as
+      pending/completed/failed.
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
+  ResourceCriteriaConfig:
+    title: ResourceCriteriaConfig defines properties to extract from a resource into
+      job variables.
+  ServiceStatus:
+    properties:
+      ConsecutiveFailures:
+        format: uint64
+        type: integer
+      ConsecutiveSuccess:
+        format: uint64
+        type: integer
+      HealthError:
+        type: string
+      LastCheck:
+        format: date-time
+        type: string
+      Monitored:
+        $ref: '#/definitions/Monitorable'
+      TotalFailures:
+        format: uint64
+        type: integer
+      TotalSuccess:
+        format: uint64
+        type: integer
+    title: ServiceStatus structure for health metrics.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/health
+  SystemConfig:
+    properties:
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      kind:
+        description: Kind defines kind of config property
+        type: string
+        x-go-name: Kind
+      name:
+        description: Name defines name of config property
+        type: string
+        x-go-name: Name
+      scope:
+        description: Scope defines scope such as default or org-unit
+        type: string
+        x-go-name: Scope
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      value:
+        description: Value defines value of config property
+        type: string
+        x-go-name: Value
+    title: SystemConfig defines internal configuration shared by the formicary platform.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  TaskDefinition:
+    description: |-
+      The task definition represents definition of the task and instance of the task uses TaskExecution when a new
+      job is submitted and executed. Based on the definition, a task request is sent to remote ant follower
+      that supports method and tags of the task. A task response is then received and results are saved in
+      the database.
+    properties:
+      after_script:
+        items:
+          type: string
+        type: array
+        x-go-name: AfterScript
+      allow_failure:
+        description: AllowFailure means the task is optional and can fail without
+          failing entire job
+        type: boolean
+        x-go-name: AllowFailure
+      allow_start_if_completed:
+        description: AllowStartIfCompleted  means the task is always run on retry
+          even if it was completed successfully
+        type: boolean
+        x-go-name: AllowStartIfCompleted
+      always_run:
+        description: |-
+          AlwaysRun means the task is always run on execution even if the job fails. For example, a required task fails (without
+          AllowFailure), the job is aborted and remaining tasks are skipped but a task defined as `AlwaysRun` is run even if the job fails.
+        type: boolean
+        x-go-name: AlwaysRun
+      artifact_ids:
+        items:
+          type: string
+        type: array
+        x-go-name: ArtifactIDs
+      before_script:
+        items:
+          type: string
+        type: array
+        x-go-name: BeforeScript
+      created_at:
+        description: CreatedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      delay_between_retries:
+        $ref: '#/definitions/Duration'
+      dependencies:
+        items:
+          type: string
+        type: array
+        x-go-name: Dependencies
+      description:
+        description: Description of task
+        type: string
+        x-go-name: Description
+      except:
+        type: string
+        x-go-name: Except
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: Headers
+      host_network:
+        type: string
+        x-go-name: HostNetwork
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_definition_id:
+        description: JobDefinitionID defines foreign key for JobDefinition
+        type: string
+        x-go-name: JobDefinitionID
+      method:
+        $ref: '#/definitions/TaskMethod'
+      on_completed:
+        type: string
+        x-go-name: OnCompleted
+      on_exit_code:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: OnExitCode
+      on_failed:
+        type: string
+        x-go-name: OnFailed
+      resources:
+        $ref: '#/definitions/BasicResource'
+      retry:
+        description: Retry defines max number of tries a task can be retried where
+          it re-runs failed tasks
+        format: int64
+        type: integer
+        x-go-name: Retry
+      script:
+        items:
+          type: string
+        type: array
+        x-go-name: Script
+      tags:
+        description: |-
+          Tags are used to use specific followers that support the tags defined by ants.
+          For example, you may start a follower that processes payments and the task will be routed to that follower
+        items:
+          type: string
+        type: array
+        x-go-name: Tags
+      task_type:
+        description: TaskType defines type of task
+        type: string
+        x-go-name: TaskType
+      timeout:
+        $ref: '#/definitions/Duration'
+      updated_at:
+        description: UpdatedAt job update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      variables:
+        description: Transient properties -- these are populated when AfterLoad or
+          Validate is called
+        type: object
+        x-go-name: NameValueVariables
+    title: TaskDefinition defines a unit of work that is processed by the ant followers.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  TaskExecution:
+    properties:
+      ant_host:
+        description: AntHost - host where ant ran the task
+        type: string
+        x-go-name: AntHost
+      ant_id:
+        description: AntID - id of ant with version
+        type: string
+        x-go-name: AntID
+      artifacts:
+        description: Artifacts defines list of artifacts that are generated for the
+          task
+        items:
+          $ref: '#/definitions/Artifact'
+        type: array
+        x-go-name: Artifacts
+      contexts:
+        description: Contexts defines context variables of task
+        items:
+          $ref: '#/definitions/TaskExecutionContext'
+        type: array
+        x-go-name: Contexts
+      ended_at:
+        description: EndedAt job update time
+        format: date-time
+        type: string
+        x-go-name: EndedAt
+      error_code:
+        description: ErrorCode captures error code at the end of job execution if
+          it fails
+        type: string
+        x-go-name: ErrorCode
+      error_message:
+        description: ErrorMessage captures error message at the end of job execution
+          if it fails
+        type: string
+        x-go-name: ErrorMessage
+      exit_code:
+        description: ExitCode defines exit status from the job execution
+        type: string
+        x-go-name: ExitCode
+      exit_message:
+        description: ExitMessage defines exit message from the job execution
+        type: string
+        x-go-name: ExitMessage
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      job_execution_id:
+        description: JobExecutionID defines foreign key for JobExecution
+        type: string
+        x-go-name: JobExecutionID
+      method:
+        $ref: '#/definitions/TaskMethod'
+      retried:
+        description: Retried keeps track of retry attempts
+        format: int64
+        type: integer
+        x-go-name: Retried
+      started_at:
+        description: StartedAt job creation time
+        format: date-time
+        type: string
+        x-go-name: StartedAt
+      task_order:
+        description: TaskOrder
+        format: int64
+        type: integer
+        x-go-name: TaskOrder
+      task_state:
+        $ref: '#/definitions/RequestState'
+      task_type:
+        description: TaskType defines type of task
+        type: string
+        x-go-name: TaskType
+      updated_at:
+        description: UpdatedAt job execution last update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    title: TaskExecution defines specification of a task that will be processed by
+      followers.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  TaskExecutionContext:
+    properties:
+      created_at:
+        description: CreatedAt task context creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      id:
+        description: ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      name:
+        description: Name defines name of property
+        type: string
+        x-go-name: Name
+      secret:
+        description: Secret for encryption
+        type: boolean
+        x-go-name: Secret
+      task_execution_id:
+        description: TaskExecutionID defines foreign key for task-execution
+        type: string
+        x-go-name: TaskExecutionID
+      type:
+        description: Type defines type of property value
+        type: string
+        x-go-name: Type
+      value:
+        description: Value defines value of property that can be string, number, boolean
+          or JSON structure
+        type: string
+        x-go-name: Value
+    title: TaskExecutionContext defines context variables for the task execution that
+      are captured by the task executor.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  TaskMethod:
+    description: |-
+      The ant followers registers with the methods that they support and the task is then routed
+      based on method, tags and concurrency of the ant follower.
+    title: TaskMethod defines enum for method of task when communicating with remote
+      ant follower.
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
+  User:
+    properties:
+      admin:
+        description: Admin is used for admin role
+        type: boolean
+        x-go-name: Admin
+      bundle_id:
+        description: BundleID defines package or bundle
+        type: string
+        x-go-name: BundleID
+      created_at:
+        description: CreatedAt created time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      email:
+        description: Email defines email
+        type: string
+        x-go-name: Email
+      email_verified:
+        description: EmailVerified for email
+        type: boolean
+        x-go-name: EmailVerified
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      locked:
+        description: Locked account
+        type: boolean
+        x-go-name: Locked
+      name:
+        description: Name of user
+        type: string
+        x-go-name: Name
+      oauth_id:
+        description: OAuthID defines id from external oauth provider
+        type: string
+        x-go-name: OAuthID
+      oauth_provider:
+        description: OAuthProvider defines provider for external oauth provider
+        type: string
+        x-go-name: OAuthProvider
+      organization_id:
+        description: OrganizationID defines foreign key for Organization
+        type: string
+        x-go-name: OrganizationID
+      perms:
+        description: Perms defines permissions
+        type: string
+        x-go-name: Perms
+      picture_url:
+        description: PictureURL defines URL for picture
+        type: string
+        x-go-name: PictureURL
+      updated_at:
+        description: UpdatedAt update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      url:
+        description: URL defines url
+        type: string
+        x-go-name: URL
+      username:
+        description: Username defines username
+        type: string
+        x-go-name: Username
+    title: User represents a user of the system with multi-tenancy support.
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
+  UserInvitation:
+    description: UserInvitation represents a user session
+    properties:
+      accepted_at:
+        description: ExpiresAt expiration time
+        format: date-time
+        type: string
+        x-go-name: AcceptedAt
+      created_at:
+        description: CreatedAt created time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      email:
+        description: Email defines invitee
+        type: string
+        x-go-name: Email
+      expires_at:
+        description: ExpiresAt expiration time
+        format: date-time
+        type: string
+        x-go-name: ExpiresAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      invitation_code:
+        description: InvitationCode defines code
+        type: string
+        x-go-name: InvitationCode
+      invited_by_user_id:
+        description: InvitedByUserID defines foreign key
+        type: string
+        x-go-name: InvitedByUserID
+      organization_id:
+        description: OrganizationID defines foreign key
+        type: string
+        x-go-name: OrganizationID
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  UserToken:
+    description: |-
+      Note: The JWT token is not directly stored in the database, just its hash and expiration.
+      Also, this can be used to revoke API tokens.
+    properties:
+      created_at:
+        description: CreatedAt created time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      expires_at:
+        description: ExpiresAt expiration time
+        format: date-time
+        type: string
+        x-go-name: ExpiresAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      organization_id:
+        description: OrganizationID defines foreign key
+        type: string
+        x-go-name: OrganizationID
+      sha256:
+        description: SHA256 defines sha of token
+        type: string
+        x-go-name: SHA256
+      token_name:
+        description: TokenName defines name of token
+        type: string
+        x-go-name: TokenName
+      user_id:
+        description: UserID `defines foreign key
+        type: string
+        x-go-name: UserID
+    title: UserToken defines JWT tokens to access the API.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+host: localhost:7777
+info:
+  contact:
+    email: support@formicary.io
+    name: Support
+    url: http://formicary.io
+  description: |-
+    The formicary is a distributed job management system based on leader/follower design for executing a directed acyclic graph
+    of tasks.
+  license:
+    name: AGPL
+    url: https://opensource.org/licenses/AGPL-3.0
+  title: Formicary API.
+  version: 0.0.1
+paths:
+  /api/ants:
+    get:
+      description: '`This requires admin access`'
+      operationId: queryAntRegistrations
+      responses:
+        "200":
+          $ref: '#/responses/antRegistrationsQueryResponse'
+      summary: Queries ant registration.
+      tags:
+      - ant-registrations
+  /api/ants/{id}:
+    get:
+      description: '`This requires admin access`'
+      operationId: getAntRegistration
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/antRegistrationResponse'
+      summary: Retrieves ant-registration by its id.
+      tags:
+      - ant-registrations
+  /api/artifacts:
+    get:
+      operationId: queryArtifacts
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: Name - name of artifact for display
+        in: query
+        name: name
+        type: string
+        x-go-name: Name
+      - description: Group of artifact
+        in: query
+        name: group
+        type: string
+        x-go-name: Group
+      - description: Kind of artifact
+        in: query
+        name: kind
+        type: string
+        x-go-name: Kind
+      - description: JobRequestID refers to request-id being processed
+        format: uint64
+        in: query
+        name: job_request_id
+        type: integer
+        x-go-name: JobRequestID
+      - description: TaskType defines type of task
+        in: query
+        name: task_type
+        type: string
+        x-go-name: TaskType
+      - description: SHA256 refers hash of the contents
+        in: query
+        name: sha256
+        type: string
+        x-go-name: SHA256
+      - description: ContentType refers to content-type of artifact
+        in: query
+        name: content_type
+        type: string
+        x-go-name: ContentType
+      - description: ContentLength refers to content-length of artifact
+        format: int64
+        in: query
+        name: content_length
+        type: integer
+        x-go-name: ContentLength
+      responses:
+        "200":
+          $ref: '#/responses/artifactsQueryResponse'
+      summary: Queries artifacts by name, task-type, etc.
+      tags:
+      - artifacts
+    post:
+      operationId: uploadArtifact
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          items:
+            format: uint8
+            type: integer
+          type: array
+      responses:
+        "200":
+          $ref: '#/responses/artifactResponse'
+      summary: Uploads artifact data from the request body and returns metadata for
+        the uploaded data.
+      tags:
+      - artifacts
+  /api/artifacts/{id}:
+    delete:
+      description: Deletes artifact by its id
+      operationId: getArtifact
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - artifacts
+    get:
+      description: Deletes artifact by its id
+      operationId: getArtifact
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - artifacts
+  /api/audits:
+    get:
+      operationId: queryAudits
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: TargetID defines target id
+        in: query
+        name: target_id
+        type: string
+        x-go-name: TargetID
+      - description: UserID defines user who submitted the job
+        in: query
+        name: user_id
+        type: string
+        x-go-name: UserID
+      - description: OrganizationID defines org who submitted the job
+        in: query
+        name: organization_id
+        type: string
+        x-go-name: OrganizationID
+      - description: Kind defines type of audit record
+        in: query
+        name: kind
+        type: string
+        x-go-name: Kind
+      - description: JobType - job-type
+        in: query
+        name: job_type
+        type: string
+        x-go-name: JobType
+      responses:
+        "200":
+          $ref: '#/responses/auditQueryResponse'
+      summary: Queries audits within the organization that is allowed.
+      tags:
+      - audits
+  /api/configs:
+    get:
+      description: |-
+        Queries system configs
+        `This requires admin access`
+      operationId: querySystemConfigs
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: Scope defines scope such as default or org-unit
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: Kind defines kind of config property
+        in: query
+        name: kind
+        type: string
+        x-go-name: Kind
+      - description: Name defines name of config property
+        in: query
+        name: name
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/sysConfigQueryResponse'
+      tags:
+      - system-configs
+    post:
+      description: '`This requires admin access`'
+      operationId: postSystemConfig
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/SystemConfig'
+      responses:
+        "200":
+          $ref: '#/responses/sysConfigResponse'
+      summary: Creates new system config based on request body.
+      tags:
+      - system-configs
+  /api/configs/{id}:
+    delete:
+      description: '`This requires admin access`'
+      operationId: getSystemConfig
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes an existing system config based on id.
+      tags:
+      - system-configs
+    get:
+      description: '`This requires admin access`'
+      operationId: getSystemConfig
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes an existing system config based on id.
+      tags:
+      - system-configs
+    put:
+      description: '`This requires admin access`'
+      operationId: putSystemConfig
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/SystemConfig'
+      responses:
+        "200":
+          $ref: '#/responses/sysConfigResponse'
+      summary: Updates an existing system config based on request body.
+      tags:
+      - system-configs
+  /api/errors:
+    get:
+      description: '`This requires admin access`'
+      operationId: queryErrorCodes
+      parameters:
+      - in: query
+        name: regex
+        type: string
+        x-go-name: Regex
+      - description: ExitCode defines exit-code for error
+        format: int64
+        in: query
+        name: exit_code
+        type: integer
+        x-go-name: ExitCode
+      - description: ErrorCode defines error code
+        in: query
+        name: error_code
+        type: string
+        x-go-name: ErrorCode
+      - description: JobType defines type for the job
+        in: query
+        name: job_type
+        type: string
+        x-go-name: JobType
+      - description: TaskTypeScope only applies error code for task_type
+        in: query
+        name: task_type_scope
+        type: string
+        x-go-name: TaskTypeScope
+      - description: PlatformScope only applies error code for platform
+        in: query
+        name: platform_scope
+        type: string
+        x-go-name: PlatformScope
+      - description: HardFailure determines if this error can be retried or is hard
+          failure
+        in: query
+        name: hard_failure
+        type: boolean
+        x-go-name: HardFailure
+      responses:
+        "200":
+          $ref: '#/responses/errorCodesQueryResponse'
+      summary: Queries error-codes by type, regex.
+      tags:
+      - error-codes
+    post:
+      description: '`This requires admin access`'
+      operationId: postErrorCode
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/ErrorCode'
+      responses:
+        "200":
+          $ref: '#/responses/errorCodeResponse'
+      summary: Creates new error code based on request body.
+      tags:
+      - error-codes
+    put:
+      description: '`This requires admin access`'
+      operationId: putErrorCode
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/ErrorCode'
+      responses:
+        "200":
+          $ref: '#/responses/errorCodeResponse'
+      summary: Updates new error code based on request body.
+      tags:
+      - error-codes
+  /api/errors/{id}:
+    delete:
+      description: '`This requires admin access`'
+      operationId: deleteErrorCode
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes error code by id.
+      tags:
+      - error-codes
+    get:
+      description: '`This requires admin access`'
+      operationId: getErrorCode
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/errorCodeResponse'
+      summary: Finds error code by id.
+      tags:
+      - error-codes
+  /api/executors:
+    get:
+      description: '`This requires admin access`'
+      operationId: queryContainerExecutions
+      responses:
+        "200":
+          $ref: '#/responses/containerExecutionsQueryResponse'
+      summary: Queries container executions.
+      tags:
+      - container-executions
+  /api/executors/{id}:
+    get:
+      description: '`This requires admin access`'
+      operationId: deleteContainerExecution
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes container-executor by its id.
+      tags:
+      - container-executions
+  /api/health:
+    get:
+      description: '`This requires admin access`'
+      operationId: getHealth
+      responses:
+        "200":
+          $ref: '#/responses/healthQueryResponse'
+      summary: Returns health status.
+      tags:
+      - health-metrics
+  /api/jobs/definitions:
+    get:
+      operationId: queryJobDefinitions
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: JobType defines a unique type of job
+        in: query
+        name: job_type
+        type: string
+        x-go-name: JobType
+      - description: Platform can be OS platform or target runtime and a job can be
+          targeted for specific platform that can be used for filtering
+        in: query
+        name: platform
+        type: string
+        x-go-name: Platform
+      - description: Paused is used to stop further processing of job and it can be
+          used during maintenance, upgrade or debugging.
+        in: query
+        name: paused
+        type: boolean
+        x-go-name: Paused
+      - description: PublicPlugin means job is public plugin
+        in: query
+        name: public_plugin
+        type: boolean
+        x-go-name: PublicPlugin
+      - description: Tags is aggregation of task tags and it can be searched via `tags:in`
+        in: query
+        name: tags
+        type: string
+        x-go-name: Tags
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinitionQueryResponse'
+      summary: Queries job definitions by criteria such as type, platform, etc.
+      tags:
+      - job-definitions
+    post:
+      operationId: postJobDefinition
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobDefinition'
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinition'
+      summary: Uploads job definitions using JSON or YAML body based on content-type
+        header.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}:
+    delete:
+      operationId: deleteJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes the job-definition by id.
+      tags:
+      - job-definitions
+    get:
+      operationId: getJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinition'
+      summary: Finds the job-definition by id.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/concurrency:
+    put:
+      operationId: updateConcurrencyJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - format: int64
+        in: formData
+        name: concurrency
+        type: integer
+        x-go-name: Concurrency
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Updates the concurrency for job-definition by id to limit the maximum
+        jobs that can be executed at the same time.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/dot:
+    get:
+      operationId: dotJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/stringResponse'
+      summary: Returns Graphviz DOT definition for the graph of tasks defined in the
+        job.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/dot.png:
+    get:
+      operationId: statsJobDefinition
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinitionStatsResponse'
+      summary: Returns Real-time statistics of jobs running.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/pause:
+    post:
+      operationId: pauseJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Pauses job-definition so that no new requests are executed while in-progress
+        jobs are allowed to complete.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/unpause:
+    post:
+      operationId: unpauseJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Unpauses job-definition so that new requests can start processing.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{jobId}/configs:
+    get:
+      operationId: queryJobConfigs
+      responses:
+        "200":
+          $ref: '#/responses/jobConfigQueryResponse'
+      summary: Queries job configs by criteria such as name, type, etc.
+      tags:
+      - job-configs
+    post:
+      operationId: postJobConfig
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobDefinitionConfig'
+      responses:
+        "200":
+          $ref: '#/responses/jobConfig'
+      summary: Adds a config for the job.
+      tags:
+      - job-configs
+  /api/jobs/definitions/{jobId}/configs/{id}:
+    delete:
+      operationId: deleteJobConfig
+      parameters:
+      - in: path
+        name: jobId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes a config for the job by id.
+      tags:
+      - job-configs
+    get:
+      operationId: getJobConfig
+      parameters:
+      - in: path
+        name: jobId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/jobConfig'
+      summary: Finds a config for the job by id.
+      tags:
+      - job-configs
+    put:
+      operationId: putJobConfig
+      parameters:
+      - in: path
+        name: jobId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobDefinitionConfig'
+      responses:
+        "200":
+          $ref: '#/responses/jobConfig'
+      summary: Updates a config for the job.
+      tags:
+      - job-configs
+  /api/jobs/definitions/{type}/yaml:
+    get:
+      operationId: getYamlJobDefinition
+      parameters:
+      - in: path
+        name: type
+        required: true
+        type: string
+        x-go-name: Type
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinition'
+      summary: Finds job-definition by type and returns response YAML format.
+      tags:
+      - job-definitions
+  /api/jobs/requests:
+    get:
+      operationId: queryJobRequests
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: JobType defines a unique type of job
+        in: query
+        name: job_type
+        type: string
+        x-go-name: JobType
+      - description: Platform can be OS platform or target runtime and a job can be
+          targeted for specific platform that can be used for filtering
+        in: query
+        name: platform
+        type: string
+        x-go-name: Platform
+      - description: JobState defines state of job that is maintained throughout the
+          lifecycle of a job
+        in: query
+        name: job_state
+        type: string
+        x-go-name: JobState
+      - description: JobGroup defines a property for grouping related job
+        in: query
+        name: job_group
+        type: string
+        x-go-name: JobGroup
+      responses:
+        "200":
+          $ref: '#/responses/jobRequestQueryResponse'
+      summary: Queries job requests by criteria such as type, platform, etc.
+      tags:
+      - job-requests
+    post:
+      operationId: submitJobRequest
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobRequest'
+      responses:
+        "200":
+          $ref: '#/responses/jobRequest'
+      summary: Submits a job-request for processing, which is saved in the database
+        and is then scheduled for execution.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}:
+    get:
+      operationId: getJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/jobRequest'
+      summary: Finds the job-request by id.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/cancel:
+    post:
+      operationId: cancelJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Cancels a job-request that is pending for execution or already executing.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/dot:
+    get:
+      operationId: dotJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/stringResponse'
+      summary: Returns Graphviz DOT request for the graph of tasks defined in the
+        job request.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/dot.png:
+    get:
+      operationId: dotImageJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/byteResponse'
+      summary: Returns Graphviz DOT image for the graph of tasks defined in the job.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/restart:
+    post:
+      description: |-
+        Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
+        failed tasks are executed or hard-restart where all tasks are executed.
+      operationId: restartJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/wait_time:
+    get:
+      operationId: getWaitTimeJobRequest
+      responses:
+        "200":
+          $ref: '#/responses/jobRequestWaitTimes'
+      summary: Returns wait time for the job-request.
+      tags:
+      - job-requests
+  /api/jobs/requests/dead_ids:
+    get:
+      operationId: getDeadIDs
+      responses:
+        "200":
+          $ref: '#/responses/jobRequestIDs'
+      summary: Returns job-request ids for recently completed jobs.
+      tags:
+      - job-requests
+  /api/jobs/requests/stats:
+    get:
+      description: '`This requires admin access`'
+      operationId: statsJobRequests
+      responses:
+        "200":
+          $ref: '#/responses/jobRequestStats'
+      summary: Returns statistics for the job-request such as success rate, latency,
+        etc.
+      tags:
+      - job-requests
+  /api/jobs/resources:
+    get:
+      operationId: queryJobResources
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: ResourceType defines type of resource such as Device, CPU, Memory
+        in: query
+        name: resource_type
+        type: string
+        x-go-name: ResourceType
+      - description: Description of resource
+        in: query
+        name: description
+        type: string
+        x-go-name: Description
+      - description: Platform can be OS platform or target runtime
+        in: query
+        name: platform
+        type: string
+        x-go-name: Platform
+      responses:
+        "200":
+          $ref: '#/responses/jobResourceQueryResponse'
+      summary: Queries job resources by criteria such as type, platform, etc.
+      tags:
+      - job-resources
+    post:
+      operationId: postJobResource
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobResource'
+      responses:
+        "200":
+          $ref: '#/responses/jobResource'
+      summary: Adds a job-resource that can be used for managing internal or external
+        constraints.
+      tags:
+      - job-resources
+  /api/jobs/resources/{id}:
+    get:
+      operationId: getJobResource
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/jobResource'
+      summary: Finds the job-resource by id.
+      tags:
+      - job-resources
+    put:
+      operationId: putJobResource
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/JobResource'
+      responses:
+        "200":
+          $ref: '#/responses/jobResource'
+      summary: Updates a job-resource that can be used for managing internal or external
+        constraints.
+      tags:
+      - job-resources
+  /api/jobs/resources/{id}/configs:
+    post:
+      description: Save the job-resource config
+      operationId: saveJobResourceConfig
+      responses:
+        "200":
+          $ref: '#/responses/jobResourceConfig'
+      tags:
+      - job-resources
+  /api/jobs/resources/{id}/configs/{configId}:
+    delete:
+      description: Deletes the job-resource config by id of job-resource and config-id
+      operationId: deleteJobResourceConfig
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: path
+        name: config_id
+        required: true
+        type: string
+        x-go-name: ConfigID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - job-resources
+  /api/jobs/resources/{id}/pause:
+    post:
+      description: Deletes the job-resource by id
+      operationId: deleteJobResource
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - job-resources
+  /api/metrics:
+    get:
+      description: '`This requires admin access`'
+      operationId: prometheusMetrics
+      responses:
+        "200":
+          $ref: '#/responses/metricsQueryResponse'
+      summary: Returns prometheus health metrics.
+      tags:
+      - health-metrics
+  /api/orgs:
+    get:
+      description: '`This requires admin access`'
+      operationId: queryOrganizations
+      responses:
+        "200":
+          $ref: '#/responses/orgQueryResponse'
+      summary: Queries organizations by criteria such as org-unit, bundle, etc.
+      tags:
+      - organizations
+    post:
+      description: '`This requires admin access`'
+      operationId: postOrganization
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/Organization'
+      responses:
+        "200":
+          $ref: '#/responses/orgResponse'
+      summary: Creates new organization.
+      tags:
+      - organizations
+  /api/orgs/{id}:
+    delete:
+      operationId: deleteOrganization
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes the organization by its id.
+      tags:
+      - organizations
+    get:
+      operationId: getOrganization
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/orgResponse'
+      summary: Finds the organization by its id.
+      tags:
+      - organizations
+    put:
+      operationId: putOrganization
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/Organization'
+      responses:
+        "200":
+          $ref: '#/responses/orgResponse'
+      summary: Updates the organization profile.
+      tags:
+      - organizations
+  /api/orgs/{id}/invite:
+    post:
+      description: Invite user to the organization
+      operationId: inviteUser
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/userInvitationResponse'
+      tags:
+      - organizations
+  /api/orgs/{orgId}/configs:
+    get:
+      operationId: queryOrganizationConfigs
+      responses:
+        "200":
+          $ref: '#/responses/orgConfigQueryResponse'
+      summary: Queries organization configs by criteria such as name, type, etc.
+      tags:
+      - organization-configs
+    post:
+      operationId: postOrganizationConfig
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/OrganizationConfig'
+      responses:
+        "200":
+          $ref: '#/responses/orgConfig'
+      summary: Adds a config for the organization.
+      tags:
+      - organization-configs
+  /api/orgs/{orgId}/configs/{id}:
+    delete:
+      operationId: deleteOrganizationConfig
+      parameters:
+      - in: path
+        name: orgId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes a config for the organization by id.
+      tags:
+      - organization-configs
+    get:
+      operationId: getOrganizationConfig
+      parameters:
+      - in: path
+        name: orgId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/orgConfig'
+      summary: Finds a config for the organization by id.
+      tags:
+      - organization-configs
+    put:
+      operationId: putOrganizationConfig
+      parameters:
+      - in: path
+        name: orgId
+        required: true
+        type: string
+        x-go-name: OrgID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/OrganizationConfig'
+      responses:
+        "200":
+          $ref: '#/responses/orgConfig'
+      summary: Updates a config for the organization.
+      tags:
+      - organization-configs
+  /api/users:
+    get:
+      operationId: queryUsers
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: Name of user
+        in: query
+        name: name
+        type: string
+        x-go-name: Name
+      - description: Username defines username
+        in: query
+        name: username
+        type: string
+        x-go-name: Username
+      - description: Email defines email
+        in: query
+        name: email
+        type: string
+        x-go-name: Email
+      responses:
+        "200":
+          $ref: '#/responses/userQueryResponse'
+      summary: Queries users within the organization that is allowed.
+      tags:
+      - users
+    post:
+      description: '`This requires admin access`'
+      operationId: postUser
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "200":
+          $ref: '#/responses/userResponse'
+      summary: Creates new user.
+      tags:
+      - users
+  /api/users/{id}:
+    delete:
+      operationId: deleteUser
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes the user profile by its id.
+      tags:
+      - users
+    get:
+      operationId: getUser
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/userResponse'
+      summary: Finds user profile by its id.
+      tags:
+      - users
+    put:
+      operationId: putUser
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "200":
+          $ref: '#/responses/userResponse'
+      summary: Updates user profile.
+      tags:
+      - users
+  /api/users/{userId}/tokens:
+    get:
+      operationId: queryUserTokens
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        type: string
+        x-go-name: UserID
+      responses:
+        "200":
+          $ref: '#/responses/userTokenQueryResponse'
+      summary: Queries user-tokens for the API access.
+      tags:
+      - user-tokens
+    post:
+      operationId: createUserToken
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        type: string
+        x-go-name: UserID
+      responses:
+        "200":
+          $ref: '#/responses/userTokenResponse'
+      summary: Creates new user-token for the API access.
+      tags:
+      - user-tokens
+  /api/users/{userId}/tokens/{id}:
+    delete:
+      operationId: deleteUserToken
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        type: string
+        x-go-name: UserID
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes user-token by its id so that it cannot be used for the API
+        access.
+      tags:
+      - user-tokens
+produces:
+- application/json
+responses:
+  antRegistrationResponse:
+    description: Ant Registration body
+    schema:
+      $ref: '#/definitions/AntRegistration'
+  antRegistrationsQueryResponse:
+    description: Paginated results of ant-registrations matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/AntRegistration'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  artifactResponse:
+    description: Artifact body
+    schema:
+      $ref: '#/definitions/Artifact'
+  artifactsQueryResponse:
+    description: Paginated results of artifacts matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/Artifact'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  auditQueryResponse:
+    description: Paginated results of audits matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/AuditRecord'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  byteResponse:
+    description: Byte Array response body
+    schema:
+      items:
+        format: uint8
+        type: integer
+      type: array
+  containerExecutionsQueryResponse:
+    description: Paginated results of container-executions matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/ContainerLifecycleEvent'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  emptyResponse:
+    description: Empty response body
+  errorCodeResponse:
+    description: ErrorCode body for update
+    schema:
+      $ref: '#/definitions/ErrorCode'
+  errorCodesQueryResponse:
+    description: Query results of error-codes
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/ErrorCode'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  healthQueryResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/HealthQueryResponse'
+  jobConfig:
+    description: OrgConfig defines user request to process a job, which is saved in
+      the database as PENDING and is then scheduled for job execution.
+    schema:
+      $ref: '#/definitions/JobDefinitionConfig'
+  jobConfigQueryResponse:
+    description: Paginated results of jobConfigs matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/JobDefinitionConfig'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  jobDefinition:
+    description: |-
+      The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by
+      ant followers. The workflow of job uses task exit codes to define next task to execute.
+    schema:
+      $ref: '#/definitions/JobDefinition'
+  jobDefinitionQueryResponse:
+    description: Paginated results of jobDefinitions matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/JobDefinition'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  jobDefinitionStatsResponse:
+    description: ""
+    schema:
+      items:
+        $ref: '#/definitions/JobStats'
+      type: array
+  jobRequest:
+    description: JobRequest defines user request to process a job, which is saved
+      in the database as PENDING and is then scheduled for job execution.
+    schema:
+      $ref: '#/definitions/JobRequest'
+  jobRequestIDs:
+    description: The job-request ids
+    schema:
+      items:
+        format: uint64
+        type: integer
+      type: array
+  jobRequestQueryResponse:
+    description: Paginated results of jobRequests matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/JobRequest'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  jobRequestStats:
+    description: The job-request statistics about success-rate, latency, etc.
+    schema:
+      items:
+        $ref: '#/definitions/JobCounts'
+      type: array
+  jobRequestWaitTimes:
+    description: The job-request wait times based on average of previously executed
+      jobs and pending jobs in the queue.
+    schema:
+      $ref: '#/definitions/JobWaitEstimate'
+  jobResource:
+    description: JobResource represents a virtual resource, which can be used to implement
+      mutex/semaphores for a job.
+    schema:
+      $ref: '#/definitions/JobResource'
+  jobResourceConfig:
+    description: jobResourceConfig represents config for the resource
+    schema:
+      $ref: '#/definitions/JobResourceConfig'
+  jobResourceQueryResponse:
+    description: Paginated results of jobResources matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/JobResource'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  metricsQueryResponse:
+    description: Results of prometheus-metrics
+    schema:
+      items:
+        type: string
+      type: array
+  orgConfig:
+    description: OrgConfig defines user request to process a job, which is saved in
+      the database as PENDING and is then scheduled for job execution.
+    schema:
+      $ref: '#/definitions/OrganizationConfig'
+  orgConfigQueryResponse:
+    description: Paginated results of orgConfigs matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/OrganizationConfig'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  orgQueryResponse:
+    description: Paginated results of orgs matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/Organization'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  orgResponse:
+    description: Org defines user request to process a job, which is saved in the
+      database as PENDING and is then scheduled for job execution.
+    schema:
+      $ref: '#/definitions/Organization'
+  stringResponse:
+    description: String response body
+  sysConfigQueryResponse:
+    description: Query results of system-configs
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/SystemConfig'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  sysConfigResponse:
+    description: SystemConfig body for update
+    schema:
+      $ref: '#/definitions/SystemConfig'
+  userInvitationResponse:
+    description: User invitation
+    schema:
+      $ref: '#/definitions/UserInvitation'
+  userQueryResponse:
+    description: Paginated results of users matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/User'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  userResponse:
+    description: User of the system who can create job-definitions, submit and execute
+      jobs.
+    schema:
+      $ref: '#/definitions/User'
+  userTokenQueryResponse:
+    description: Results of user-tokens
+    schema:
+      items:
+        $ref: '#/definitions/UserToken'
+      type: array
+  userTokenResponse:
+    description: User-token for the API access.
+    schema:
+      $ref: '#/definitions/UserToken'
+schemes:
+- http
+- https
+security:
+- api_key: []
+securityDefinitions:
+  api_key:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+x-meta-value: value

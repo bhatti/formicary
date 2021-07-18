@@ -1,0 +1,91 @@
+<div class="form-group">
+    {{ with .Errors.Error }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+</div>
+<div class="form-group">
+    {{ with .Errors.ResourceType}}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="resourceType" class="col-sm-2 col-form-label">Resource Type: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="resourceType" id="resourceType"
+                   value="{{ .ResourceType }}" placeholder="resource type">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Quota }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="quota" class="col-sm-2 col-form-label">Max Quota: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="quota" id="quota" value="{{ .Quota }}"
+                   placeholder="maximum quota">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Platform }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="platform" class="col-sm-2 col-form-label">Platform: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="platform" id="platform" value="{{ .Platform }}"
+                   placeholder="optional platform of the resource">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Category }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="category" class="col-sm-2 col-form-label">Category: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="category" id="category" value="{{ .Category }}"
+                   placeholder="optional category of the resource">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Tags }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="tags" class="col-sm-2 col-form-label">Tags: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="tags" id="tags"
+                   value="{{ .Tags }}"
+                   placeholder="optional tags or tags for matching the resource">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.LeaseTimeout }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="leaseTimeout" class="col-sm-2 col-form-label">Max Lease Timeout (duration): </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="leaseTimeout" id="leaseTimeout"
+                   value="{{ .LeaseTimeout}}"
+                   placeholder="lease timeout such as 1m, 5s to release resource">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.ExternalID }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="externalID" class="col-sm-2 col-form-label">External ID: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="externalID" id="externalID"
+                   value="{{ .ExternalID }}" placeholder="external-id optional">
+        </div>
+    </div>
+</div>

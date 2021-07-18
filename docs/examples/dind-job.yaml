@@ -1,0 +1,28 @@
+job_type: dind-job
+max_concurrency: 1
+tasks:
+- task_type: build
+  working_dir: /sample
+  variables:
+    xDOCKER_HOST: unix:///var/run/docker.sock
+    DOCKER_HOST: tcp://localhost:2375
+    DOCKER_TLS_CERTDIR: ""
+  container:
+    image: docker:20.10-git
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+  before_script:
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - mkdir -p /root/.docker/
+    - echo curl -o /root/.docker/ca.pem https://gist.githubusercontent.com/bhatti/8a37691361c09afbef751cb168715867/raw/118f47230adec566cef72661e66370cf95ba1be8/ca.pem
+    - sleep 10
+    - netstat -an
+    - docker info
+  script:
+    # Build image
+    - docker build -t my-image .

@@ -1,0 +1,58 @@
+job_type: fork-job
+max_concurrency: 1
+tasks:
+- task_type: init
+  method: SHELL
+  except: {{if gt .JobID 5}} true {{end}}
+  script:
+    - pwd
+  on_completed: build
+- task_type: build
+  method: SHELL
+  tags:
+  - builder
+  - pulsar
+  artifacts:
+    paths:
+      - {{.JobID}}_env.txt
+      - {{.JobID}}_ls.txt
+  script:
+    - pwd
+    - ls -l / > {{.JobID}}_ls.txt
+    - env > {{.JobID}}_env.txt
+    - pwd
+  host_network: true
+  on_completed: unit-tests
+- task_type: unit-tests
+  method: SHELL
+  on_completed: fork-task
+  dependencies:
+    - build
+  tags:
+  - builder
+  - pulsar
+  script:
+    - cat *.txt > {{.JobID}}_all.txt
+  artifacts:
+    paths:
+      - {{.JobID}}_all.txt
+- task_type: fork-task
+  method: FORK_JOB
+  fork_job_type: http-job
+  variables:
+    f1: 1000
+    f2: mykey
+  on_completed: fork-wait
+- task_type: fork-wait
+  method: AWAIT_FORKED_JOB
+  on_completed: notify
+  await_forked_tasks:
+    - fork-task
+- task_type: notify
+  method: SHELL
+  always_run: true
+  tags:
+  - builder
+  - pulsar
+  script:
+    - ls -l

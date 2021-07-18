@@ -1,0 +1,349 @@
+<h3 id="comparison-with-other-actions-dag-jobs-pipeline-or-workflow-solutions">Comparison with other Actions, DAG, Jobs, Pipeline or Workflow Solutions</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Airwatch</th>
+<th>Azure</th>
+<th>CircleCI</th>
+<th>Formicary</th>
+<th>GitHub</th>
+<th>Gitlab</th>
+<th>Jenkins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tool Category</strong></td>
+<td>DAG</td>
+<td>CI/CD</td>
+<td>CD/CD</td>
+<td>DAG-Workflow / CI/CD</td>
+<td>CI/CD     / CI/CD</td>
+</tr>
+<tr>
+<td><strong>Docker Images</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Indirectly</td>
+</tr>
+<tr>
+<td><strong>Definition Format</strong></td>
+<td>Python</td>
+<td>API</td>
+<td>YAML</td>
+<td>YAML</td>
+<td>YAML</td>
+<td>TOML</td>
+<td>DSL</td>
+</tr>
+<tr>
+<td><strong>Artifacts</strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>NPM/Maven/etc Caching</strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job Priority</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Task/Workers Tags</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes (Agents)</td>
+</tr>
+<tr>
+<td><strong>Conditional Flow</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Cron/Scheduling</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Job/Task API</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Limit CPU/Memory</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Request Params</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Task Variables</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>NO</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job Config/Secrets</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Org Config/Secrets</strong></td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Encrypted Config</strong></td>
+<td>Yes/Fernet</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Template Support</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Shell Execution</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>HTTP Execution</strong></td>
+<td>via Python</td>
+<td>via Script</td>
+<td>via Script</td>
+<td>Native Exec.</td>
+<td>via Script</td>
+<td>via Script</td>
+<td>via Script</td>
+</tr>
+<tr>
+<td><strong>Queuing Library</strong></td>
+<td>Celery</td>
+<td>Internal</td>
+<td>Internal</td>
+<td>Redis, Kafka or Pulsar</td>
+<td>Internal</td>
+<td>Internal</td>
+<td>NA</td>
+</tr>
+<tr>
+<td><strong>Lifecycle Events</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job Retries</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job/Task Filtering</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job Timeout</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Task Retries</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Task Timeout</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Optional Tasks</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Always-run Tasks</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Delay before Retry</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>JWT Auth</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>User Mgmt</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Plugins</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Multi-tenancy</strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="migrating-from-jenkins">Migrating from Jenkins</h3>
+<p><a href="jenkins.html">Jenkins</a></p>
+<h3 id="migrating-from-circleci">Migrating from CircleCI</h3>
+<p> <a href="circleci.html">CircleCI</a></p>

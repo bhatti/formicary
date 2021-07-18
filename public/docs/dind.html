@@ -1,0 +1,144 @@
+<h2 id="building-docker-images-using-docker-in-docker-dind-">Building Docker images using Docker in Docker (dind)</h2>
+<h3 id="using-tls">Using TLS</h3>
+<p>Following example shows using docker in docker (dind) using TLS to build images:</p>
+<pre><code class="lang-yaml">job_type: dind-tls-job
+max_concurrency: 1
+tasks:
+- task_type: build
+  working_dir: /sample
+  variables:
+    DOCKER_HOST: tcp://localhost:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_TLS: 1
+    DOCKER_TLS_CERTDIR: &quot;/mycerts&quot;
+  container:
+    image: docker:20.10-git
+    volumes:
+      empty_dir:
+        - name: certs
+          mount_path: /mycerts/client
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: [&quot;env&quot;, &quot;-u&quot;, &quot;DOCKER_HOST&quot;]
+      command: [&quot;dockerd-entrypoint.sh&quot;]
+      volumes:
+        empty_dir:
+          - name: certs
+            mount_path: /mycerts/client
+  before_script:
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - mkdir -p /root/.docker/ &amp;&amp; cp /mycerts/client/* /root/.docker
+    - apk --no-cache add ca-certificates
+    - docker info
+  script:
+    # Build image
+    - docker build -t my-image .
+</code></pre>
+<h3 id="without-tls">Without TLS</h3>
+<p>Following example shows using docker in docker (dind) without TLS to build images:</p>
+<pre><code class="lang-yaml">job_type: dind-job
+max_concurrency: 1
+tasks:
+- task_type: build
+  working_dir: /sample
+  variables:
+    DOCKER_HOST: tcp://localhost:2375
+    DOCKER_TLS_CERTDIR: &quot;&quot;
+  container:
+    image: docker:20.10-git
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: [&quot;env&quot;, &quot;-u&quot;, &quot;DOCKER_HOST&quot;]
+      command: [&quot;dockerd-entrypoint.sh&quot;]
+  before_script:
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - mkdir -p /root/.docker/
+    - docker info
+  script:
+    # Build image
+    - docker build -t my-image .
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: dind-tls-job
+</code></pre>
+<h4 id="concurrency">Concurrency</h4>
+<p>The <code>max_concurrency</code> defines maximum jobs that can be executed concurrently, e.g.,</p>
+<pre><code class="lang-yaml">max_concurrency: 1
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: build
+</code></pre>
+<h5 id="working-directory">Working Directory</h5>
+<p>The <code>working_dir</code> defines default directory for the scripts, e.g.,</p>
+<pre><code class="lang-yaml">  working_dir: /sample
+</code></pre>
+<h5 id="variables">Variables</h5>
+<p>The <code>variables</code> defines variables used by the task, e.g.,</p>
+<pre><code class="lang-yaml">  variables:
+    DOCKER_HOST: tcp://localhost:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_TLS: 1
+    DOCKER_TLS_CERTDIR: &quot;/mycerts&quot;
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, e.g.,</p>
+<pre><code class="lang-yaml">  container:
+    image: docker:20.10-git
+</code></pre>
+<h5 id="privileged">Privileged</h5>
+<p>The <code>privileged</code> tag enables executing docker in privileged root because docker in docker requires it, e.g.,</p>
+<pre><code class="lang-yaml">  privileged: true
+</code></pre>
+<h5 id="services">Services</h5>
+<p>The <code>services</code> tag defines Kubernetes services, which will launch docker-in-docker (dind) service, e.g.,</p>
+<pre><code class="lang-yaml">  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: [&quot;env&quot;, &quot;-u&quot;, &quot;DOCKER_HOST&quot;]
+      command: [&quot;dockerd-entrypoint.sh&quot;]
+      volumes:
+        empty_dir:
+          - name: certs
+            mount_path: /mycerts/client
+</code></pre>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g.,</p>
+<pre><code class="lang-yaml">    before_script:
+      - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+      - mkdir -p /root/.docker/ &amp;&amp; cp /mycerts/client/* /root/.docker
+      - apk --no-cache add ca-certificates
+      - docker info
+</code></pre>
+<p>Above script clones a test container and then downloads trivy package.</p>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    # Build image
+    - docker build -t my-image .
+</code></pre>
+<p>Above script creates docker image and then uses trivy to scan for vulnerabilities.</p>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @dind-tls-job.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+   -H &quot;Content-Type: application/json&quot; \
+   --data &#39;{&quot;job_type&quot;: &quot;dind-tls-job&quot; }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>dind-tls-job</code> job that you can see on the dashboard UI.</p>

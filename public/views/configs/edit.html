@@ -1,0 +1,19 @@
+{{ template "layouts/header" . }}
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Edit Configuration</h4>
+    </header>
+    <form action="/dashboard/configs/{{ .Config.ID }}" method="POST">
+    {{ template "configs/form" .Config }}
+        <div class="form-group row">
+            <div class="col-sm-10 offset-sm-2">
+                <button type="submit" class="btn btn-primary">Update Config</button>
+            </div>
+        </div>
+    </form>
+
+    <footer class="group-footer">
+    </footer>
+
+</section>
+{{ template "layouts/footer" }}

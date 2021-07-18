@@ -1,0 +1,30 @@
+{{ template "layouts/header" . }}
+
+<section class="group">
+    <header class="group-header">
+        <h3 class="group-title">Error Code</h3>
+    </header>
+    {{ with .Error }}
+    <div align="right">
+        <a href="/dashboard/errors/{{.ID}}/edit">Edit</a>
+    </div>
+    <dl class="row">
+        <dt class="col-sm-4"><b>ID:</b></dt>
+        <dd class="col-sm-8">{{ .ID }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Regex:</b></dt>
+        <dd class="col-sm-8">{{ .Regex }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Exit Code:</b></dt>
+        <dd class="col-sm-8">{{ .ExitCode}}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Error Code:</b></dt>
+        <dd class="col-sm-8">{{ .ErrorCode}}</dd>
+    </dl>
+    {{ end }}
+</section>
+
+{{ template "layouts/footer" }}

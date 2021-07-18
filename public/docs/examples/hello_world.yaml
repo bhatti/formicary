@@ -1,0 +1,41 @@
+job_type: hello_world
+description: A hello world example
+max_concurrency: 1
+tasks:
+- task_type: hello
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - date
+    - echo "hello" > hello.txt
+  artifacts:
+    paths:
+      - hello.txt
+  on_completed: world
+- task_type: world
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - date
+    - echo "{{.Target}}" > world.txt
+  artifacts:
+    paths:
+      - world.txt
+  on_completed: combine
+- task_type: combine
+  method: KUBERNETES
+  container:
+    image: alpine
+  dependencies:
+    - hello
+    - world
+  script:
+    - date
+    - cat hello.txt world.txt > output.txt
+  artifacts:
+    paths:
+      - output.txt
+job_variables:
+    Target: world

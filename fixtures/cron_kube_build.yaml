@@ -1,0 +1,142 @@
+job_type: cron-kube-build
+cron_trigger: 0 * * * * * *
+max_concurrency: 1
+tasks:
+- task_type: build
+  headers:
+      t1_h1: 1
+      t1_h2: true
+  tags:
+  - builder
+  - pulsar
+  artifacts:
+    paths:
+      - env.txt
+      - ls.txt
+      - whoami.txt
+  script:
+    - pwd
+    - ls -l / > ls.txt
+    - env > env.txt
+    - whoami > whoami.txt
+    - sleep 30
+  method: KUBERNETES
+  host_network: true
+  container:
+    image: alpine
+  variables:
+    repo: https://github.com/bhatti/formicary.git
+    t1_extra: 10
+  resources:
+    resource_type: NetworkBandwidth
+    platform: LINUX
+    tags: 
+    - gig 
+    - network
+    value: 10
+    extract_config:
+      properties:
+      - network-id
+      - route
+      context_prefix: connection
+  on_exit_code:
+    COMPLETED: unit-tests
+- task_type: unit-tests
+  on_exit_code:
+    COMPLETED: int-tests
+  dependencies:
+    - build
+  tags:
+  - builder
+  - pulsar
+  script:
+    - cat *.txt > all.txt
+    - sleep 30
+  method: KUBERNETES
+  container:
+    image: alpine
+  artifacts:
+    paths:
+      - all.txt
+  variables:
+    t2k2:
+    - i
+    - j
+    - k
+    t2k3: v3
+    t2k4: 14.123
+- task_type: int-tests
+  allow_failure: true
+  on_exit_code:
+    COMPLETED: deploy
+  tags:
+  - builder
+  - pulsar
+  script:
+    - pwd
+    - env
+    - echo nonce {{.Nonce}}
+    - sleep 30
+  method: KUBERNETES
+  host_network: true
+  container:
+    image: alpine
+  variables:
+    t3k1: true
+    t3k2: 50
+    t3k3:
+      i: a
+      j: b
+      k: c
+    t3k4: 4.881
+- task_type: deploy
+  on_exit_code:
+    COMPLETED: notify
+  tags:
+  - builder
+  - pulsar
+  script:
+    - find /tmp
+    - sleep 30
+  method: KUBERNETES
+  container:
+    image: alpine
+  variables:
+    t3k1: true
+    t3k2: 50
+    t3k3:
+      i: a
+      j: b
+      k: c
+    t3k4: 4.881
+- task_type: notify
+  always_run: true
+  tags:
+  - builder
+  - pulsar
+  script:
+    - ls -l
+    - sleep 30
+  method: KUBERNETES
+  container:
+    image: alpine
+  variables:
+    t3k1: true
+    t3k2: 50
+job_variables:
+  jk1: jv1
+  jk2:
+    a: 1
+    b: 2
+  jk3: jv3
+resources:
+  resource_type: License
+  platform: Vendor
+  tags: 
+  - vendor-a-api
+  value: 2
+  extract_config:
+    properties:
+    - license-id
+    - expiration
+    context_prefix: my-job

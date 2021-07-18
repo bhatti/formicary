@@ -1,0 +1,145 @@
+<h2 id="node-js-ci-cd-examples">Node.jS CI/CD Examples</h2>
+<h3 id="ci-job-configuration">CI Job Configuration</h3>
+<p>Following is an example of job configuration for a simple Node.js project:</p>
+<pre><code class="lang-yaml">job_type: node_build
+max_concurrency: 1
+tasks:
+- task_type: build
+  host_network: true
+  method: KUBERNETES
+  working_dir: /sample
+  container:
+    image: node:16-buster
+  before_script:
+    - git clone https://{{.GitToken}}@github.com/bhatti/node-crud.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+    - npm ci --cache .npm --prefer-offline
+  script:
+    - npm install
+    - tar -czf all.tgz *
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - all.tgz
+  cache:
+    key_paths:
+      - package.json
+    paths:
+      - node_modules
+      - .npm
+  environment:
+    GIT_TERMINAL_PROMPT: 0
+    GIT_SSH_COMMAND: &#39;ssh -oBatchMode=yes&#39;
+    GIT_ASKPASS: echo
+    SSH_ASKPASS: echo
+    GCM_INTERACTIVE: never
+  on_completed: test
+- task_type: test
+  method: KUBERNETES
+  container:
+    image: node:16-buster
+  working_dir: /sample
+  script:
+    - tar -xzf all.tgz
+    - npm install mocha chai supertest
+    - chmod 755 ./node_modules/.bin/* &amp;&amp; npm test
+  dependencies:
+    - build
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: build
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>node:16-buster</code> for node application, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: node:16-buster
+</code></pre>
+<h5 id="working-directory">Working Directory</h5>
+<p>The <code>working_dir</code> tag specifies the working directory within the container, e.g.,</p>
+<pre><code class="lang-yaml">  working_dir: /sample
+</code></pre>
+<h5 id="after-script-commands">After Script Commands</h5>
+<p>The <code>after_script</code> defines an array of shell commands that are executed after the main script whether the task fails or succeeds, e.g., </p>
+<pre><code class="lang-yaml">  after_script:
+    - ls -l
+</code></pre>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g. <code>build</code> task checks out code in the <code>before_script</code>. </p>
+<pre><code class="lang-yaml">  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/node-crud.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+    - npm ci --cache .npm --prefer-offline
+</code></pre>
+<p>Note: We will store <code>GitToken</code> as a configuration variable for the job such as:</p>
+<pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: application/yaml&quot; \
+  $SERVER/api/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;GitToken&quot;, &quot;Value&quot;: &quot;&lt;myvalue&gt;&quot;, &quot;Secret&quot;: true}&#39;
+</code></pre>
+<p>The value of <code>GitToken</code> will be encrypted before storing in the database and any reference of this value in logs will be masked or redacted.</p>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container. Though, we could define entire build commands in one task, but we separated <code>test</code> task for demo, e.g.</p>
+<pre><code class="lang-yaml">  script:
+    - npm install
+</code></pre>
+<p>Note: As we stored <code>GitToken</code> as a secured configuration property, the echo command above will be printed as <code>[MASKED]</code>.</p>
+<h5 id="artifacts">Artifacts</h5>
+<p>The output of commands can be stored in an artifact-store so that you can easily download it, e.g., build task will store <code>all.tgz</code> in the artifact-store.</p>
+<pre><code class="lang-yaml">  artifacts:
+    paths:
+      - all.tgz
+</code></pre>
+<h5 id="npm-caching">NPM Caching</h5>
+<p>Formicary also provides caching for directories that store 3rd party dependencies such as NPM, Gradle, Maven, etc. Following example shows how all node_modules will be cached:</p>
+<pre><code class="lang-yaml">  cache:
+    key_paths:
+      - package.json
+    paths:
+      - node_modules
+      - .npm
+</code></pre>
+<p>In above example <code>node_modules</code> and <code>.npm</code> folders will be cached between the runs of the job.</p>
+<h5 id="environment-variables">Environment Variables</h5>
+<p>The <code>environment</code> section defines environment variables to disable interactive git session so that git checkout won&#39;t ask for the user prompt.</p>
+<pre><code class="lang-yaml">  environment:
+    GIT_TERMINAL_PROMPT: 0
+    GIT_SSH_COMMAND: &#39;ssh -oBatchMode=yes&#39;
+    GIT_ASKPASS: echo
+    SSH_ASKPASS: echo
+    GCM_INTERACTIVE: never
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">on_completed: test
+</code></pre>
+<p>Above task defines <code>test</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h5 id="dependent-artifacts">Dependent Artifacts</h5>
+<p>The artifacts from one task can be used by other tasks, e.g. <code>test</code> task is listing <code>build</code> tasks under <code>dependencies</code> so all artifacts from those tasks are automatically made available for the task.</p>
+<pre><code class="lang-yaml">- task_type: test
+  dependencies:
+    - build
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @node_build.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: {&quot;Platform&quot;: &quot;Ubuntu&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>node_build</code> job that you can see on the dashboard UI.</p>
+<h3 id="github-webhooks">Github-Webhooks</h3>
+<p>See <a href="howto.html#Webhooks">Github-Webhooks</a> for scheduling above job using GitHub webhooks.</p>
+<h3 id="postcommit-hooks">PostCommit Hooks</h3>
+<p>See <a href="howto.html#PostCommit">Post-commit hooks</a> for scheduling above job using git post-commit hooks.</p>

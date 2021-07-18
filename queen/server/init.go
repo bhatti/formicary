@@ -1,0 +1,168 @@
+package server
+
+import (
+	"context"
+	"plexobject.com/formicary/internal/auth"
+	"plexobject.com/formicary/internal/health"
+	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/internal/web"
+	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/controller"
+	"plexobject.com/formicary/queen/controller/admin"
+	"plexobject.com/formicary/queen/gateway"
+	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/resource"
+	"plexobject.com/formicary/queen/security"
+	"plexobject.com/formicary/queen/stats"
+	"strconv"
+)
+
+// StartWebServer starts controllers that register REST APIs and admin dashboard
+func StartWebServer(
+	_ context.Context,
+	serverCfg *config.ServerConfig,
+	repoFactory *repository.Factory,
+	jobManager *manager.JobManager,
+	dashboardStats *manager.DashboardManager,
+	resourceManager resource.Manager,
+	artifactManager *manager.ArtifactManager,
+	statsRegistry *stats.JobStatsRegistry,
+	heathMonitor *health.Monitor,
+	queueClient queue.Client,
+	webServer web.Server,
+) error {
+	authProviders := make([]auth.Provider, 0)
+	if googleAuthProvider, err := security.NewGoogleAuth(&serverCfg.CommonConfig); err == nil {
+		authProviders = append(authProviders, googleAuthProvider)
+	}
+
+	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager); err == nil {
+		authProviders = append(authProviders, githubAuthProvider)
+	}
+
+	if err := startWebsocket(serverCfg, queueClient, repoFactory.LogEventRepository, webServer); err != nil {
+		return err
+	}
+
+	startControllers(
+		serverCfg,
+		repoFactory,
+		jobManager,
+		resourceManager,
+		artifactManager,
+		statsRegistry,
+		heathMonitor,
+		webServer)
+
+	startAdminControllers(
+		serverCfg,
+		repoFactory,
+		jobManager,
+		dashboardStats,
+		resourceManager,
+		artifactManager,
+		statsRegistry,
+		heathMonitor,
+		authProviders,
+		webServer)
+
+	webServer.Start(":" + strconv.Itoa(serverCfg.CommonConfig.HTTPPort))
+	return nil
+}
+
+/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func startWebsocket(
+	serverCfg *config.ServerConfig,
+	queueClient queue.Client,
+	logsArchiver repository.LogEventRepository,
+	webServer web.Server) error {
+	return gateway.New(serverCfg, queueClient, logsArchiver, webServer).Start(context.Background())
+}
+
+func startControllers(
+	serverCfg *config.ServerConfig,
+	repoFactory *repository.Factory,
+	jobManager *manager.JobManager,
+	resourceManager resource.Manager,
+	artifactManager *manager.ArtifactManager,
+	statsRegistry *stats.JobStatsRegistry,
+	heathMonitor *health.Monitor,
+	webServer web.Server) {
+	controller.NewAuditController(repoFactory.AuditRecordRepository, webServer)
+	controller.NewUserController(&serverCfg.CommonConfig, repoFactory.AuditRecordRepository, repoFactory.UserRepository, webServer)
+	controller.NewOrganizationController(repoFactory.AuditRecordRepository, repoFactory.OrgRepository, webServer)
+	controller.NewOrganizationConfigController(repoFactory.AuditRecordRepository, repoFactory.OrgConfigRepository, webServer)
+	controller.NewJobDefinitionController(jobManager, statsRegistry, webServer)
+	controller.NewJobConfigController(repoFactory.AuditRecordRepository, repoFactory.JobDefinitionRepository, webServer)
+	controller.NewJobResourceController(repoFactory.AuditRecordRepository, repoFactory.JobResourceRepository, webServer)
+	controller.NewSystemConfigController(repoFactory.SystemConfigRepository, webServer)
+	controller.NewErrorCodeController(repoFactory.ErrorCodeRepository, webServer)
+	controller.NewJobRequestController(jobManager, webServer)
+	controller.NewAntRegistrationController(resourceManager, webServer)
+	controller.NewArtifactController(artifactManager, webServer)
+	controller.NewContainerExecutionController(resourceManager, webServer)
+	controller.NewHealthController(heathMonitor, webServer)
+}
+
+func startAdminControllers(
+	serverCfg *config.ServerConfig,
+	repoFactory *repository.Factory,
+	jobManager *manager.JobManager,
+	dashboardStats *manager.DashboardManager,
+	resourceManager resource.Manager,
+	artifactManager *manager.ArtifactManager,
+	statsRegistry *stats.JobStatsRegistry,
+	heathMonitor *health.Monitor,
+	authProviders []auth.Provider,
+	webServer web.Server) {
+	admin.NewAuditAdminController(repoFactory.AuditRecordRepository, webServer)
+	admin.NewAuthController(
+		&serverCfg.CommonConfig,
+		authProviders,
+		repoFactory.AuditRecordRepository,
+		repoFactory.UserRepository,
+		repoFactory.OrgRepository,
+		webServer)
+	admin.NewUserAdminController(
+		&serverCfg.CommonConfig,
+		repoFactory.AuditRecordRepository,
+		repoFactory.UserRepository,
+		repoFactory.OrgRepository,
+		repoFactory.JobExecutionRepository,
+		repoFactory.ArtifactRepository,
+		webServer)
+	admin.NewOrganizationConfigAdminController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.OrgConfigRepository,
+		webServer)
+	admin.NewOrganizationAdminController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.OrgRepository,
+		repoFactory.JobExecutionRepository,
+		repoFactory.ArtifactRepository,
+		webServer)
+	admin.NewJobDefinitionAdminController(
+		jobManager,
+		resourceManager,
+		statsRegistry,
+		webServer)
+	admin.NewJobConfigAdminController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.JobDefinitionRepository,
+		webServer)
+	admin.NewJobResourceAdminController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.JobResourceRepository, webServer)
+	admin.NewSystemConfigAdminController(
+		repoFactory.SystemConfigRepository, webServer)
+	admin.NewErrorCodeAdminController(
+		repoFactory.ErrorCodeRepository, webServer)
+	admin.NewJobRequestAdminController(jobManager, webServer)
+	admin.NewAntAdminController(resourceManager, webServer)
+	admin.NewArtifactAdminController(artifactManager, webServer)
+	admin.NewDashboardAdminController(dashboardStats, webServer)
+	admin.NewExecutionContainerAdminController(resourceManager, webServer)
+	admin.NewHealthAdminController(heathMonitor, webServer)
+
+}

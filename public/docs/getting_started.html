@@ -1,0 +1,128 @@
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="job-definition">Job Definition</h3>
+<p>The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the execution specifications are defined in a job configuration. A job defines directed acyclic graph (DAG) of tasks for the order of execution, which can also be considered as a workflow for the execution path of tasks. The tasks defined in the job configuration can choose supported executors such as DOCKER, KUBERNETES, HTTP, SHELL, etc. </p>
+<p><em>Note:</em> The formicary uses job-definition to define specification or metadata of the job and an instance of job-definition called <code>job-execution</code> is created upon submitting job-request.</p>
+<h3 id="job-configuration">Job Configuration</h3>
+<p>Following is an example of job configuration:</p>
+<pre><code class="lang-yaml">job_type: hello_world
+description: A hello world example
+max_concurrency: 1
+tasks:
+- task_type: hello
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - date
+    - echo &quot;hello &quot; &gt; hello.txt
+  artifacts:
+    paths:
+      - hello.txt
+  on_completed: world
+- task_type: world
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - date
+    - echo &quot;{{.Target}}&quot; &gt; world.txt
+  artifacts:
+    paths:
+      - world.txt
+  on_completed: combine
+- task_type: combine
+  method: KUBERNETES
+  container:
+    image: alpine
+  dependencies:
+    - hello
+    - world
+  script:
+    - date
+    - cat hello.txt world.txt &gt; output.txt
+  artifacts:
+    paths:
+      - output.txt
+job_variables:
+    Target: world
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job that will be used when submitting a job for new execution.</p>
+<pre><code class="lang-yaml">job_type: hello_world
+</code></pre>
+<h4 id="description">Description</h4>
+<p>You can optionally add <code>description</code> of the job, e.g.</p>
+<pre><code class="lang-yaml">description: A hello world example
+</code></pre>
+<h4 id="concurrency">Concurrency</h4>
+<p>You can optionally add <code>max_concurrency</code> to limit maximum instances of the job, e.g.</p>
+<pre><code class="lang-yaml">max_concurrency: 1
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks define the DAG or workflow of the job where each specifies details of how the task will run and what to do upon completion of the task such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: hello
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBERNETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: alpine
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of commands that are executed inside container, e.g.</p>
+<pre><code class="lang-yaml">  script:
+    - date
+    - echo &quot;hello &quot; &gt; hello.txt
+</code></pre>
+<p>Above example will execute <code>date</code> command first and then execute <code>echo</code> command where the output is stored in a text file.</p>
+<h5 id="artifacts">Artifacts</h5>
+<p>The output of commands can be stored in an artifact-store so that you can easily download it, e.g.</p>
+<pre><code class="lang-yaml">  artifacts:
+    paths:
+      - hello.txt
+</code></pre>
+<p>Above definition defines <code>hello.txt</code> in <code>paths</code> under <code>artifacts</code>, which will be uploaded to the artifact-store.</p>
+<p>The artifacts from one task can be used by other tasks, e.g. <code>combine</code> task is listing <code>hello</code> and <code>world</code> tasks under <code>dependencies</code> so all artifacts from those tasks are automatically made available for the task.</p>
+<pre><code class="lang-yaml">- task_type: combine
+  dependencies:
+    - hello
+    - world
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">on_completed: world
+</code></pre>
+<p>Above task defines <code>world</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h5 id="job-parameters-and-variables">Job Parameters and Variables</h5>
+<p>A job can use a template variables in the job configuration that can be initialized using variables in the configuration or can be passed with job request, e.g.</p>
+<pre><code class="lang-yaml">    - echo &quot;{{.Target}}&quot; &gt; world.txt
+</code></pre>
+<pre><code class="lang-yaml">job_variables:
+    Target: world
+</code></pre>
+<p>The job configuration uses GO templates for initializing variables that can be defined under <code>job_variables</code>.</p>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard UI or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary hello_world.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: {&quot;Target&quot;: &quot;bob&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>hello_world</code> job and passes <code>bob</code> as parameter to replace <code>Target</code> variable in the job definition.</p>
+<h3 id="scheduling-job-in-future">Scheduling Job in future</h3>
+<p>See <a href="howto.html#Scheduling_Future">Job Scheduling</a> for submitting a job at scheduled.</p>
+<h3 id="scheduling-job-request-with-regular-interval">Scheduling Job Request with regular interval</h3>
+<p>See <a href="howto.html#Cron">Regular Scheduling</a> for submitting a job at scheduled interval.</p>
+<h3 id="filtering-job-request">Filtering Job Request</h3>
+<p>See <a href="definition_options.html#filter">Job Filtering</a> for filtering scheduled job.</p>

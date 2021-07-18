@@ -1,0 +1,48 @@
+{{ template "layouts/header" . }}
+<div class="row" align="center">
+    <h3>Health Status:</h3> &nbsp;
+    {{if .OverallStatus.Healthy}}
+    <div class="icon bg-green">✓ Healthy &nbsp;</div>
+    {{else}}
+    <div class="icon bg-red">✘ UnHealthy &nbsp;</div>
+    {{end}}
+</div>
+Following is the health status of dependent services:
+
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Successes</th>
+            <th>Failures</th>
+            <th>LastCheck</th>
+            <th>Error</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Statuses}}
+        <tr>
+            <td>
+                {{if .Healthy}}
+                <div class="icon bg-green">✓</i> {{.Monitored.Name}}</div>
+                {{else}}
+                <div class="icon bg-red">✘</i> {{.Monitored.Name}}</div>
+                {{end}}
+            </td>
+            <td>{{.TotalSuccess}} / {{.ConsecutiveSuccess}}</td>
+            <td>{{.TotalFailures}} / {{.ConsecutiveFailures}}</td>
+            <td>{{.LastCheckString}}</td>
+            {{if .Healthy}}
+            <td>
+                {{else}}
+            <td class="table-danger">
+                {{end}}
+                {{.HealthError}}
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/footer" }}

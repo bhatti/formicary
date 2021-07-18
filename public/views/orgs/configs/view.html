@@ -1,0 +1,30 @@
+{{ template "layouts/header" . }}
+
+<section class="group">
+    <header class="group-header">
+        <h3 class="group-title">Configuration</h3>
+    </header>
+    {{ with .Config }}
+    <div align="right">
+        <a href="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}/edit">Edit</a>
+    </div>
+    <dl class="row">
+        <dt class="col-sm-4"><b>ID:</b></dt>
+        <dd class="col-sm-8">{{ .ID }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Name:</b></dt>
+        <dd class="col-sm-8">{{ .Name }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Secret:</b></dt>
+        <dd class="col-sm-8">{{ .Secret }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Value:</b></dt>
+        <dd class="col-sm-8"><textarea cols="60" rows="3" readonly>{{ .Value }}</textarea> </dd>
+    </dl>
+    {{ end }}
+</section>
+
+{{ template "layouts/footer" }}

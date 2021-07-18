@@ -1,0 +1,110 @@
+<h2 id="pipelines">Pipelines</h2>
+<p>A pipeline abstracts stages of data processing that can be used for various use cases such as CI/CD pipeline for software development, ETL for importing/exporting data or other form of batch processing. The formicary provides support of pipelines via tasks and jobs where task defines a unit of work and job defines directed acyclic graph of tasks. The tasks within a job are executed serially, and the order of tasks is determined by the exit status of prior task. </p>
+<h3 id="simple-pipeline-job">Simple Pipeline Job</h3>
+<p>Following example shows a simple pipeline example:</p>
+<p><img src="examples/video-pipeline.png" alt="DataFlow"></p>
+<h4 id="job-configuration">Job Configuration</h4>
+<p>Following example defines job-definition with a simple pipeline:</p>
+<pre><code class="lang-yaml">job_type: video-encoding
+description: Simple example of video encoding
+max_concurrency: 1
+tasks:
+- task_type: validate
+  script:
+    - echo request must have URL {{.URL}}, InputEncoding {{.InputEncoding}} and OutputEncoding {{.OutputEncoding}}
+  method: KUBERNETES
+  container:
+    image: alpine
+  on_completed: download
+- task_type: download
+  method: KUBERNETES
+  container:
+    image: python:3.8-buster
+  host_network: true
+  script:
+    - curl -o video_file.{{.InputEncoding}} {{.URL}}
+  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}
+  on_completed: encode
+- task_type: encode
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - mv video_file.{{.InputEncoding}} video_file.{{.OutputEncoding}}
+  dependencies:
+    - download
+  artifacts:
+    paths:
+      - video_file.{{.OutputEncoding}}
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines <code>video-encoding</code> for the job type.</p>
+<pre><code class="lang-yaml">job_type: video-encoding
+</code></pre>
+<h4 id="description">Description</h4>
+<p>THe <code>description</code> defines description of the job, e.g.</p>
+<pre><code class="lang-yaml">description: Simple example of video encoding
+</code></pre>
+<h4 id="concurrency">Concurrency</h4>
+<p>You can optionally add <code>max_concurrency</code> to limit maximum instances of the job, e.g.</p>
+<pre><code class="lang-yaml">max_concurrency: 1
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks define the DAG that are executed for <code>video-encoding</code> job.</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: validate
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: alpine
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of commands that are executed inside container, e.g.</p>
+<pre><code class="lang-yaml">  script:
+    - curl -o video_file.{{.InputEncoding}} {{.URL}}
+</code></pre>
+<p>Above example will execute <code>curl</code> command to download a file and store it locally.</p>
+<h5 id="artifacts">Artifacts</h5>
+<p>The output of commands can be stored in an artifact-store so that you can easily download it, e.g.</p>
+<pre><code class="lang-yaml">  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}
+</code></pre>
+<p>In above definition, video file will be uploaded to the artifact-store.</p>
+<p>The artifacts from one task can be used by other tasks, e.g. <code>encode</code> task is listing <code>download</code> under <code>dependencies</code> so it will be automatically made available for the <code>encode</code> task.</p>
+<pre><code class="lang-yaml">- task_type: encode
+  dependencies:
+    - download
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">on_completed: download
+</code></pre>
+<p>Above task defines <code>download</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h5 id="job-parameters">Job Parameters</h5>
+<p>You can pass job parameters when submitting a job that can be used by the job configuration such as <code>URL</code>, <code>InputEncoding</code>, and <code>OutputEncoding</code>.</p>
+<pre><code class="lang-yaml">    - echo request must have URL {{.URL}}, InputEncoding {{.InputEncoding}} and OutputEncoding {{.OutputEncoding}}
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard UI or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @video-encoding.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;video-encoding&quot;, &quot;params&quot;: {&quot;InputEncoding&quot;: &quot;MP4&quot;, &quot;OutputEncoding&quot;: &quot;WebM&quot;, &quot;URL&quot;: &quot;https://github.com&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>video-encoding</code> job and passes <code>URL</code>, <code>InputEncoding</code>, and <code>OutputEncoding</code> as parameters.</p>

@@ -1,0 +1,166 @@
+<h2 id="scanning-containers-using-trivy">Scanning containers using Trivy</h2>
+<p>Trivy is a simple and comprehensive vulnerability/misconfiguration scanner for containers and other artifacts. Following example shows scanning a docker in docker (dind) using Trivy:</p>
+<pre><code class="lang-yaml">job_type: trivy-scan-job
+description: vulnerability/misconfiguration scanner for containers using Trivy
+url: https://aquasecurity.github.io/trivy/v0.19.0/
+max_concurrency: 1
+job_variables:
+  CI_COMMIT_SHA: db65c90a07e753e71db5143c877940f4c11a33e1
+tasks:
+  - task_type: scan
+    working_dir: /trivy-ci-test
+    variables:
+      DOCKER_HOST: tcp://localhost:2375
+      DOCKER_TLS_CERTDIR: &quot;&quot;
+      IMAGE: trivy-ci-test:{{.CI_COMMIT_SHA}}
+    container:
+      image: docker:20.10-git
+    privileged: true
+    services:
+      - name: docker-dind
+        alias: docker
+        image: docker:20.10-dind
+        entrypoint: [ &quot;env&quot;, &quot;-u&quot;, &quot;DOCKER_HOST&quot; ]
+        command: [ &quot;dockerd-entrypoint.sh&quot; ]
+    allow_failure: true
+    before_script:
+      - echo image $IMAGE
+      - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+      - wget -qO - &quot;https://api.github.com/repos/aquasecurity/trivy/releases/latest&quot; | grep &#39;&quot;tag_name&quot;:&#39; | sed -E &#39;s/.*&quot;v([^&quot;]+)&quot;.*/\1/&#39;
+      - export TRIVY_VERSION=$(wget -qO - &quot;https://api.github.com/repos/aquasecurity/trivy/releases/latest&quot; | grep &#39;&quot;tag_name&quot;:&#39; | sed -E &#39;s/.*&quot;v([^&quot;]+)&quot;.*/\1/&#39;)
+      - echo $TRIVY_VERSION
+      - apk add --update-cache --upgrade curl
+      - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - mkdir -p /root/.docker/
+      - curl -o /root/.docker/ca.pem https://gist.githubusercontent.com/bhatti/8a37691361c09afbef751cb168715867/raw/118f47230adec566cef72661e66370cf95ba1be8/ca.pem
+    script:
+      # Build image
+      - docker build -t $IMAGE .
+      - curl -o tmpl.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/gitlab-codequality.tpl
+      # Build report
+      - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template &quot;tmpl.tpl&quot; -o gl-container-scanning-report.json $IMAGE
+      # Print report
+      - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --severity HIGH $IMAGE
+      # Fail on severe vulnerabilities
+      - trivy --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress $IMAGE
+    cache:
+      paths:
+        - .trivycache/
+    artifacts:
+      paths:
+        - gl-container-scanning-report.json
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: trivy-scan-job
+</code></pre>
+<h4 id="description">Description</h4>
+<p>The <code>description</code> defines explanation of the job, e.g.,</p>
+<pre><code class="lang-yaml">description: vulnerability/misconfiguration scanner for containers using Trivy
+</code></pre>
+<h4 id="url">URL</h4>
+<p>The <code>url</code> defines external URL about the job, e.g.,</p>
+<pre><code class="lang-yaml">url: https://aquasecurity.github.io/trivy/v0.19.0/
+</code></pre>
+<h4 id="concurrency">Concurrency</h4>
+<p>The <code>max_concurrency</code> defines maximum jobs that can be executed concurrently, e.g.,</p>
+<pre><code class="lang-yaml">max_concurrency: 1
+</code></pre>
+<h4 id="job-variables">Job Variables</h4>
+<p>The <code>job_variables</code> defines variables that are accessible for entire job and can be used in template variables, e.g.,</p>
+<pre><code class="lang-yaml">job_variables:
+CI_COMMIT_SHA: db65c90a07e753e71db5143c877940f4c11a33e1
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: scan
+</code></pre>
+<h5 id="working-directory">Working Directory</h5>
+<p>The <code>working_dir</code> defines default directory for the scripts, e.g.,</p>
+<pre><code class="lang-yaml">  working_dir: /trivy-ci-test
+</code></pre>
+<h5 id="variables">Variables</h5>
+<p>The <code>variables</code> defines variables used by the task, e.g.,</p>
+<pre><code class="lang-yaml">  variables:
+  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_TLS_CERTDIR: &quot;&quot;
+  IMAGE: trivy-ci-test:{{.CI_COMMIT_SHA}}
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, e.g.,</p>
+<pre><code class="lang-yaml">  container:
+    image: docker:20.10-git
+</code></pre>
+<h5 id="allow-failure-optional-">Allow Failure (optional)</h5>
+<p>The <code>allow_failure</code> tag defines the task as optional so that it can fail without failing entire job, e.g.,</p>
+<pre><code class="lang-yaml">  allow_failure: true
+</code></pre>
+<h5 id="privileged">Privileged</h5>
+<p>The <code>privileged</code> tag enables executing docker in privileged root because docker in docker requires it, e.g.,</p>
+<pre><code class="lang-yaml">  privileged: true
+</code></pre>
+<h5 id="services">Services</h5>
+<p>The <code>services</code> tag defines Kubernetes services, which will launch docker-in-docker (dind) service, e.g.,</p>
+<pre><code class="lang-yaml">  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: [ &quot;env&quot;, &quot;-u&quot;, &quot;DOCKER_HOST&quot; ]
+      command: [ &quot;dockerd-entrypoint.sh&quot; ]
+</code></pre>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g.,</p>
+<pre><code class="lang-yaml">    before_script:
+      - echo image $IMAGE
+      - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+      - wget -qO - &quot;https://api.github.com/repos/aquasecurity/trivy/releases/latest&quot; | grep &#39;&quot;tag_name&quot;:&#39; | sed -E &#39;s/.*&quot;v([^&quot;]+)&quot;.*/\1/&#39;
+      - export TRIVY_VERSION=$(wget -qO - &quot;https://api.github.com/repos/aquasecurity/trivy/releases/latest&quot; | grep &#39;&quot;tag_name&quot;:&#39; | sed -E &#39;s/.*&quot;v([^&quot;]+)&quot;.*/\1/&#39;)
+      - echo $TRIVY_VERSION
+      - apk add --update-cache --upgrade curl
+      - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - mkdir -p /root/.docker/
+      - curl -o /root/.docker/ca.pem https://gist.githubusercontent.com/bhatti/8a37691361c09afbef751cb168715867/raw/118f47230adec566cef72661e66370cf95ba1be8/ca.pem
+</code></pre>
+<p>Above script clones a test container and then downloads trivy package.</p>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    # Build image
+    - docker build -t $IMAGE .
+    - curl -o tmpl.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/gitlab-codequality.tpl
+    # Build report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template &quot;tmpl.tpl&quot; -o gl-container-scanning-report.json $IMAGE
+    # Print report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --severity HIGH $IMAGE
+    # Fail on severe vulnerabilities
+    - trivy --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress $IMAGE
+</code></pre>
+<p>Above script creates docker image and then uses trivy to scan for vulnerabilities.</p>
+<h5 id="caching">Caching</h5>
+<p>Formicary also provides caching for directories that store 3rd party dependencies, e.g. following example shows how all python libraries can be cached:</p>
+<pre><code class="lang-yaml">    cache:
+      paths:
+        - .trivycache/
+</code></pre>
+<h5 id="artifacts">Artifacts</h5>
+<p>Formicary allows uploading artifacts from the task output, e.g.</p>
+<pre><code class="lang-yaml">    artifacts:
+      paths:
+        - gl-container-scanning-report.json
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @trivy-scan-job.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+   -H &quot;Content-Type: application/json&quot; \
+   --data &#39;{&quot;job_type&quot;: &quot;trivy-scan-job&quot; }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>trivy-scan-job</code> job that you can see on the dashboard UI.</p>

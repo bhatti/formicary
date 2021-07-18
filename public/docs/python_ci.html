@@ -1,0 +1,148 @@
+<h2 id="python-ci-cd-examples">Python CI/CD Examples</h2>
+<h3 id="ci-job-configuration">CI Job Configuration</h3>
+<p>Following is an example of job configuration for a simple Python project:</p>
+<pre><code class="lang-yaml">job_type: python-ci
+max_concurrency: 1
+# only run on main branch
+filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+tasks:
+- task_type: test
+  method: KUBERNETES
+  working_dir: /
+  container:
+    image: python:3.9-buster
+  environment:
+    PIP_CACHE_DIR: /.cache/pip
+  before_script:
+    - python -V
+    - pip install virtualenv
+    - virtualenv venv
+    - chmod 755 venv/bin/activate
+    - venv/bin/activate
+    - git clone https://github.com/pypa/sampleproject.git sample
+  script:
+    - cd sample &amp;&amp; python setup.py test
+  after_script:
+    - ls -l
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+  on_completed: release
+- task_type: release
+  method: KUBERNETES
+  working_dir: /
+  container:
+    image: python:3.9-buster
+  environment:
+    PIP_CACHE_DIR: /.cache/pip
+  script:
+    - ls -al .cache/pip venv
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: python-ci
+</code></pre>
+<h4 id="filtering">Filtering</h4>
+<p>The <code>filter</code> will not execute the ci/cd job if branch is not main, e.g.,</p>
+<pre><code class="lang-yaml">filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: test
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>golang:1.16-buster</code> for node application, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: python:3.9-buster
+</code></pre>
+<h5 id="working-directory">Working Directory</h5>
+<p>The <code>working_dir</code> tag specifies the working directory within the container, e.g.,</p>
+<pre><code class="lang-yaml">  working_dir: /
+</code></pre>
+<h5 id="after-script-commands">After Script Commands</h5>
+<p>The <code>after_script</code> defines an array of shell commands that are executed after the main script whether the task fails or succeeds, e.g., </p>
+<pre><code class="lang-yaml">  after_script:
+    - ls -l
+</code></pre>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g. <code>build</code> task checks out code in the <code>before_script</code>.</p>
+<pre><code class="lang-yaml">  before_script:
+    - python -V
+    - pip install virtualenv
+    - virtualenv venv
+    - chmod 755 venv/bin/activate
+    - venv/bin/activate
+    - git clone https://github.com/pypa/sampleproject.git sample
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    - cd sample &amp;&amp; python setup.py test
+</code></pre>
+<p>Note: As we stored <code>GitToken</code> as a secured configuration property, the echo command above will be printed as <code>[MASKED]</code>.</p>
+<h5 id="vendor-caching">Vendor Caching</h5>
+<p>Formicary also provides caching for directories that store 3rd party dependencies, e.g. following example shows how all python libraries can be cached:</p>
+<pre><code class="lang-yaml">  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+</code></pre>
+<p>In above example <code>.cache/pip</code> and <code>venv</code> folders will be cached between the runs of the job. This key allows sharing cache between tasks, e.g., <code>release</code> tag is reusing this cache with the same key:</p>
+<pre><code class="lang-yaml">- task_type: release
+  method: KUBERNETES
+  working_dir: /
+  container:
+    image: python:3.9-buster
+  environment:
+    PIP_CACHE_DIR: /.cache/pip
+  script:
+    - ls -al .cache/pip venv
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+</code></pre>
+<h5 id="environment-variables">Environment Variables</h5>
+<p>The <code>environment</code> section defines environment variables to disable interactive git session so that git checkout won&#39;t ask for the user prompt.</p>
+<pre><code class="lang-yaml">   environment:
+     GO111MODULE: on
+     CGO_ENABLED: 0
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">on_completed: test
+</code></pre>
+<p>Above task defines <code>test</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @go-build-ci.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;go-build-ci&quot;, &quot;params&quot;: {&quot;GitCommitID&quot;: &quot;$COMMIT&quot;, &quot;GitBranch&quot;: &quot;$BRANCH&quot;, &quot;GitCommitMessage&quot;: &quot;$COMMIT_MESSAGE&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>go-build-ci</code> job that you can see on the dashboard UI.</p>
+<h3 id="github-webhooks">Github-Webhooks</h3>
+<p>See <a href="howto.html#Webhooks">Github-Webhooks</a> for scheduling above job using GitHub webhooks.</p>
+<h3 id="postcommit-hooks">PostCommit Hooks</h3>
+<p>See <a href="howto.html#PostCommit">Post-commit hooks</a> for scheduling above job using git post-commit hooks.</p>

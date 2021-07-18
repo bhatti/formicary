@@ -1,0 +1,47 @@
+<nav>
+    <ul class="pagination">
+        {{ with .PrevPagesDot}}
+        <li class="page-item disabled"><a href="#" class="page-link disabled" tabindex="-1">{{.}}</a></li>
+        {{end}}
+
+        {{if .HasPrevPage }}
+        <li class="page-item">
+            <a href='{{.BaseURL}}page={{.PrevPage}}'
+               class="page-link" tabindex="-1">Previous</a>
+        </li>
+        {{else}}
+        <li class="page-item disabled"><a href='{{.BaseURL}}page={{.PrevPage}}'
+                                          class="page-link" tabindex="-1">Previous</a></li>
+        {{end}}
+
+        {{ range .PrevPages }}
+        <li class="page-item"><a href='{{.BaseURL}}page={{.Page}}'
+                                 class="page-link" tabindex="-1">{{.DisplayPage}}</a></li>
+        {{ end}}
+
+
+        <li class="page-item active"><a href='{{.BaseURL}}page={{.Page}}'
+                                        class="page-link" tabindex="-1">{{.DisplayPage}}</a></li>
+
+        {{ range .NextPages }}
+            <li class="page-item"><a href='{{.BaseURL}}page={{.Page}}'
+                                 class="page-link" tabindex="-1">{{.DisplayPage}}</a></li>
+        {{ end}}
+
+        {{if .HasNextPage}}
+        <li class="page-item"><a href='{{.BaseURL}}page={{.NextPage}}'
+                                 class="page-link" tabindex="-1">Next</a></li>
+        {{else}}
+        <li class="page-item disabled"><a href='{{.BaseURL}}page={{.NextPage}}'
+                                          class="page-link" tabindex="-1">Next</a></li>
+        {{end}}
+
+        {{with .NextPagesDot}}
+        <li class="page-item disabled"><a href="#" class="page-link disabled" tabindex="-1">{{.}}</a></li>
+        {{end}}
+
+        <li class="page-item disabled"><a href='#'
+                                          class="page-link" tabindex="-1">({{.TotalRecords}} records)</a>
+        </li>
+    </ul>
+</nav>

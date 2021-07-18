@@ -1,0 +1,183 @@
+{{ template "layouts/header" . }}
+<h3 class="group-title">Pending Job Wait Times</h3>
+<section class="group">
+    <header class="group-header">
+        <table class="table table-sm">
+            <tr>
+                <td>
+                    <h4 class="group-title">Job Request</h4>
+                </td>
+            </tr>
+        </table>
+    </header>
+    <div class="table-responsive">
+        {{ with .JobRequest }}
+        <table class="table table-sm">
+            <tr class="table-primary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd id="requestID" class="col-sm-8">{{ .ID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>State:</b></dt>
+                        <dd class="col-sm-8">{{ .JobState }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Type:</b></dt>
+                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobType}}</a></dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Priority:</b></dt>
+                        <dd class="col-sm-8">{{ .JobPriority }}</dd>
+                    </dl>
+
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Organization:</b></dt>
+                        <dd class="col-sm-8">{{ .OrganizationID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>User:</b></dt>
+                        <dd class="col-sm-8">{{ .UserID}}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+        {{ end }}
+    </div>
+
+    <header class="group-header">
+        <h4 class="group-title">Job Stats</h4>
+        {{ with .JobStats }}
+        <table class="table table-sm">
+            <tr class="table-primary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>First Job At:</b></dt>
+                        <dd class="col-sm-8">{{.FirstJobAtString}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Last Job At:</b></dt>
+                        <dd class="col-sm-8">{{ .LastJobAtString }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Succeeded Jobs:</b></dt>
+                        <dd class="col-sm-8">{{ .SucceededJobs }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Succeeded Jobs Average Time:</b></dt>
+                        <dd class="col-sm-8">{{ .SucceededJobsAverageString }}</dd>
+                    </dl>
+
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Failed Jobs:</b></dt>
+                        <dd class="col-sm-8">{{ .FailedJobs }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Failed Jobs Average Time:</b></dt>
+                        <dd class="col-sm-8">{{ .FailedJobsAverageString }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Paused Jobs:</b></dt>
+                        <dd class="col-sm-8">{{ .JobPaused }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Executing Jobs:</b></dt>
+                        <dd class="col-sm-8">{{ .ExecutingJobs }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ants Available:</b></dt>
+                        <dd class="col-sm-8">{{ .AntsAvailable}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ants Capacity:</b></dt>
+                        <dd class="col-sm-8">{{ .AntsCapacity }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+        {{ end }}
+    </header>
+    <header class="group-header">
+        <h4 class="group-title">Wait Times</h4>
+        <table class="table table-sm">
+            <tr class="table-primary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Queue Number:</b></dt>
+                        <dd class="col-sm-8">{{ .QueueNumber }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Pending Jobs:</b></dt>
+                        <dd class="col-sm-8">{{ .PendingJobs }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Scheduled At:</b></dt>
+                        <dd class="col-sm-8">{{ .ScheduledAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Estimated Wait:</b></dt>
+                        <dd class="col-sm-8">{{ .EstimatedWait }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Error Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ErrorMessage }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </header>
+</section>
+{{ template "layouts/footer" }}

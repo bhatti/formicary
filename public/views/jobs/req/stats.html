@@ -1,0 +1,38 @@
+{{ template "layouts/header" . }}
+<h3>Historical Job Stats</h3>
+<div align="right"><b>Range:</b> {{.FromDate}} - {{.ToDate}}</div>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th class="col-sm-1">Job</th>
+            <th class="col-sm-1">State</th>
+            <th class="col-sm-1">ErrorCode</th>
+            <th class="col-sm-1">Counts</th>
+            <th class="col-sm-1">First Date</th>
+            <th class="col-sm-1">Last Date</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Stats}}
+        <tr>
+            <td class="col-sm-1"><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobType}}</a></td>
+            {{if .Completed }}
+            <td class="table-success col-sm-1">{{.JobState}}</td>
+            {{end}}
+            {{if .Failed }}
+            <td class="table-danger col-sm-1">{{.JobState}}</td>
+            {{end}}
+            {{if .NotTerminal }}
+            <td class="col-sm-1">{{.JobState}}</td>
+            {{end}}
+            <td class="col-sm-1">{{.ErrorCode}}</td>
+            <td class="col-sm-1">{{.Counts}}</td>
+            <td class="col-sm-1">{{.GetStartTimeString}}</td>
+            <td class="col-sm-1">{{.GetEndTimeString}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/footer" }}

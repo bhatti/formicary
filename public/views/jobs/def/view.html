@@ -1,0 +1,115 @@
+{{ template "layouts/header" . }}
+
+<section class="group">
+    {{ with .Definition }}
+    <!-- Tabs navs -->
+    <ul class="nav nav-tabs nav-justified mb-3" id="job-details" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active"
+               id="job-context-tab-1"
+               data-mdb-toggle="tab"
+               href="#job-context-tabs-1"
+               role="tab"
+               aria-controls="job-context-tabs-1"
+               aria-selected="true"
+            >Job Summary</a>
+        </li>
+        {{ range .Tasks }}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link btn-sm"
+               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
+               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+        </li>
+        {{ end }}
+        &nbsp;
+        <li class="nav-item" role="presentation">
+            <a class="nav-link"
+               id="job-yaml-tab"
+               data-mdb-toggle="tab"
+               href="#job-yaml-tabs"
+               role="tab"
+               aria-controls="job-yaml-tabs"
+               aria-selected="false"
+            >YAML</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link"
+               id="job-graph-tab"
+               data-mdb-toggle="tab"
+               href="#job-graph-tabs"
+               role="tab"
+               aria-controls="job-graph-tabs"
+               aria-selected="false"
+            >Job Graph</a>
+        </li>
+    </ul>
+    <!-- Tabs navs -->
+    {{ end }} <!-- Definition -->
+
+    <!-- Tabs content -->
+    <div class="tab-content" id="ex2-content">
+        <div class="tab-pane fade show active"
+             id="job-context-tabs-1"
+             role="tabpanel"
+             aria-labelledby="job-context-tab-1">
+
+            {{ with .Definition }}
+            {{ template "jobs/def/summary" . }}
+            {{ end }} <!-- Definition -->
+
+            {{ if $.Admin}}
+            {{ template "jobs/def/ants" dict "Allocations" .Allocations "AllocationError" .AllocationError }}
+            {{end}}
+        </div>
+        {{ with .Definition }}
+        {{range .Tasks}}
+        <div class="tab-pane fade"
+             id="job-tabs-{{.ID}}"
+             role="tabpanel"
+             aria-labelledby="job-tab-{{.ID}}">
+            {{ template "jobs/def/task" . }}
+        </div>
+        {{ end }}
+        {{ end }} <!-- Definition -->
+        <div class="tab-pane fade"
+             id="job-yaml-tabs"
+             role="tabpanel"
+             aria-labelledby="job-yaml-tab">
+            <div class="table-responsive">
+                <table class="table table-striped ">
+                    <tr>
+                        <td>
+                            {{ with .Definition }}
+                            <pre>{{ .Yaml }}</pre>
+                            {{ end }} <!-- Definition -->
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {{ with .Definition }}
+        <div class="tab-pane fade"
+             id="job-graph-tabs"
+             role="tabpanel"
+             aria-labelledby="job-graph-tab">
+            <img src="/dashboard/jobs/definitions/{{.ID}}/dot.png">
+        </div>
+        {{ end }} <!-- Definition -->
+    </div>
+    <!-- Tabs content -->
+</section>
+<script type="text/javascript">
+    window.addEventListener("load", function () {
+        const triggerTabList = [].slice.call(document.querySelectorAll('#job-details a'));
+        triggerTabList.forEach((triggerEl) => {
+            const tabTrigger = new mdb.Tab(triggerEl);
+
+            triggerEl.addEventListener('click', (event) => {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+    })
+</script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
+{{ template "layouts/footer" }}

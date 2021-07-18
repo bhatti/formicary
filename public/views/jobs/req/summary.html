@@ -1,0 +1,389 @@
+<section class="group">
+    <header class="group-header">
+        <table class="table table-sm">
+            <tr>
+                <td>
+                    <h3 class="group-title">Job: {{.JobType}} - {{.ID}}</h3>
+                </td>
+                <td class="text-right">
+                    {{if .CanRestart }}
+                    <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
+                        <input type="submit" class="btn btn-secondary" value="Restart"></form>
+                    {{end}}
+                    {{if .Pending}}
+                    &nbsp;
+                    <form action="/dashboard/jobs/requests/{{.ID}}/wait_time" method="GET">
+                        <input type="submit" class="btn btn-secondary" value="Wait Time"></form>
+                    {{end}}
+
+                    {{if .CanCancel }}
+                    &nbsp;
+                    <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"
+                          onsubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
+                        <input type="submit" class="btn btn-danger" value="Cancel">
+                        <input type="hidden" name="id" value="{{.ID}}"></form>
+                    {{end}}
+                </td>
+            </tr>
+        </table>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <tr class="table-primary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd id="requestID" class="col-sm-8">{{ .ID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Parent ID:</b></dt>
+                        <dd class="col-sm-8">{{ .ParentID }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>User:</b></dt>
+                        <dd class="col-sm-8">{{ .UserID}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Organization:</b></dt>
+                        <dd class="col-sm-8">{{ .OrganizationID }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{if .Completed }}
+            <tr class="table-success">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-secondary">
+                {{end}}
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>State:</b></dt>
+                        <dd class="col-sm-8">{{ .JobState }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Type:</b></dt>
+                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobType}}</a></dd>
+                    </dl>
+                </td>
+            </tr>
+            {{if .Completed }}
+            <tr class="table-success">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-secondary">
+                {{end}}
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Error Code:</b></dt>
+                        <dd class="col-sm-8">{{ .ErrorCode }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Priority:</b></dt>
+                        <dd class="col-sm-8">{{ .JobPriority }}</dd>
+                    </dl>
+
+                </td>
+            </tr>
+            {{if .Failed }}
+            <tr class="table-danger">
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Error Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ErrorMessage }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{end}}
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Description:</b></dt>
+                        <dd class="col-sm-8">{{ .Description }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Scheduled At:</b></dt>
+                        <dd class="col-sm-8">{{ .ScheduledAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Schedule Retry Attempts:</b></dt>
+                        <dd class="col-sm-8">{{ .ScheduleAttempts }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Failure Retries:</b></dt>
+                        <dd class="col-sm-8">{{ .Retried }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>User Key:</b></dt>
+                        <dd class="col-sm-8">{{ .UserKey}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Cron Triggered:</b></dt>
+                        <dd class="col-sm-8">{{ .CronTriggered}}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Group:</b></dt>
+                        <dd class="col-sm-8">{{ .JobGroup }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Platform:</b></dt>
+                        <dd class="col-sm-8">{{ .Platform }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Job Definition:</b></dt>
+                        <dd class="col-sm-8">{{ .JobDefinitionID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Job Execution:</b></dt>
+                        <dd class="col-sm-8">{{ .JobExecutionID }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Created At:</b></dt>
+                        <dd class="col-sm-8">{{ .CreatedAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Updated At:</b></dt>
+                        <dd class="col-sm-8">{{ .UpdatedAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <header class="group-header">
+        <h4 class="group-title">Job Params</h4>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                <th class="col-sm-4">Name</th>
+                <th class="col-sm-8">Value</th>
+            </tr>
+            </thead>
+            {{range .Params}}
+            <tr scope="row">
+                <td>
+                    <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
+                </td>
+                <td>
+                    <dd class="col-sm-8">{{ .Value }}</dd>
+                </td>
+            </tr>
+            {{ end }}
+        </table>
+    </div>
+
+    {{ with .Execution }}
+    <header class="group-header">
+        <h4 class="group-title">Job Execution</h4>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            {{if .Completed }}
+            <tr class="table-success">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-secondary">
+                {{end}}
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd class="col-sm-8">{{ .ID}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>State:</b></dt>
+                        <dd class="col-sm-8">{{ .JobState }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Started At:</b></dt>
+                        <dd class="col-sm-8">{{ .StartedAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ended At:</b></dt>
+                        <dd class="col-sm-8">{{ .EndedAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Duration:</b></dt>
+                        <dd class="col-sm-8">{{ .ElapsedDuration }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Exit Code:</b></dt>
+                        <dd class="col-sm-8">{{ .ExitCode }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Total Cost:</b></dt>
+                        <dd class="col-sm-8">{{ .ExecutionCostSecs }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Cost Factor:</b></dt>
+                        <dd class="col-sm-8">{{ .CostFactor }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Methods:</b></dt>
+                        <dd class="col-sm-8">{{ .Methods }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Exit Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ExitMessage }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <header class="group-header">
+        <h5 class="group-title">Job Artifacts</h5>
+    </header>
+    <div class="table-responsive">
+        {{range .Tasks}}
+        {{$taskExecutinID := .ID}}
+        {{if .Artifacts }}
+        <header class="group-header">
+            <b class="group-title">{{.TaskType}}</b>
+        </header>
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                {{if false}}
+                <th class="col-sm-4">Task ID</th>
+                {{end}}
+                <th class="col-sm-4">Task Type</th>
+                <th class="col-sm-4">Bucket</th>
+                <th class="col-sm-4">Kind</th>
+                <th class="col-sm-8">URL</th>
+            </tr>
+            </thead>
+            {{range .Artifacts }}
+            <tr scope="row">
+                {{if false}}
+                <td>
+                    <dd class="col-sm-4">{{ $taskExecutinID }}</dd>
+                </td>
+                {{end}}
+                <td>
+                    <dd class="col-sm-4">{{ .TaskType }}</dd>
+                </td>
+                <td>
+                    <dd class="col-sm-4">{{ .Bucket }}</dd>
+                </td>
+                <td>
+                    <dd class="col-sm-4">{{ .Kind }}</dd>
+                </td>
+                <td>
+                    <dd class="col-sm-8"><a href="{{ .DashboardURL }}">{{.Name}}</a></dd>
+                </td>
+            </tr>
+            {{ end }}
+        </table>
+        {{ end }}
+        {{ end }}
+    </div>
+
+    <header class="group-header">
+        <h5 class="group-title">Job Execution Context</h5>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                <th class="col-sm-4">Name</th>
+                <th class="col-sm-8">Value</th>
+            </tr>
+            </thead>
+            {{range .Contexts }}
+            {{if .IsNameRegular}}
+            <tr scope="row">
+                <td>
+                    <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
+                </td>
+                <td>
+                    <dd class="col-sm-8">{{ .Value }}</dd>
+                </td>
+            </tr>
+            {{ end }}
+            {{ end }}
+        </table>
+    </div>
+    {{ end }}
+</section>

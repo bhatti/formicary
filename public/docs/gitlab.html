@@ -1,0 +1,43 @@
+<h1 id="migrating-from-gitlab">Migrating from Gitlab</h1>
+<p>CGitlab is a popular solution for building CI/CD pipelines and following mapping shows mapping between Gitlab and Formicary:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">CircleCI</th>
+<th style="text-align:center">Formicary</th>
+<th style="text-align:center">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">runner</td>
+<td style="text-align:center"><a href="executors.html">executor</a></td>
+<td style="text-align:center"><a href="https://docs.gitlab.com/runner/">Gitlab</a> supports runner for execution and Formicary uses executor ants to accept remote work and execute them based on method.</td>
+</tr>
+<tr>
+<td style="text-align:center">filters</td>
+<td style="text-align:center"><a href="definition_options#filter">filter</a>, <a href="definition_options.html#except">except</a>, <a href="definition_options.html#allow_failure">allow_failure</a>, <a href="definition_options.html#always_run">always_run</a> and <a href="definition_options.html#templates">templates</a></td>
+<td style="text-align:center">Gitlab allows filtering <a href="https://docs.gitlab.com/ee/ci/pipelines/">pipelines</a> by branch, status &amp; tag and formicary uses <code>filter</code>, <code>except</code>, <code>allow_failure</code>, <code>always_run</code> and GO templates to execute any conditional or post-processing tasks.</td>
+</tr>
+<tr>
+<td style="text-align:center">environment</td>
+<td style="text-align:center"><a href="definition_options.html#environment">environment</a></td>
+<td style="text-align:center">Gitlab uses <a href="https://docs.gitlab.com/ee/ci/environments/">environment</a> to pass environment variables and a formicary job can define environment or configuration options to set properties/variables before executing a task.</td>
+</tr>
+<tr>
+<td style="text-align:center">variables</td>
+<td style="text-align:center"><a href="definition_options.html#variables">variables</a></td>
+<td style="text-align:center">Gitlab uses <a href="https://docs.gitlab.com/ee/ci/variables/">variables</a> to pass variables and a formicary job can define variables, request parameters or configuration for passing parameters to a task.</td>
+</tr>
+<tr>
+<td style="text-align:center">scheduling</td>
+<td style="text-align:center"><a href="definition_options.html#cron_trigger">cron_trigger</a></td>
+<td style="text-align:center">Gitlab uses <a href="https://docs.gitlab.com/ee/ci/pipelines/schedules.html">schedule</a> to execute a schedule job and formicary uses cron_trigger for similar feature.</td>
+</tr>
+<tr>
+<td style="text-align:center">pipeline</td>
+<td style="text-align:center"><a href="definition_options.html#Job">Job</a></td>
+<td style="text-align:center">Gitlab uses <a href="https://docs.gitlab.com/ee/ci/pipelines/">pipeline</a> to define a jobs &amp; stages and formicary uses job and workflow to define a directed-acyclic-graph of tasks to execute.</td>
+</tr>
+</tbody>
+</table>

@@ -1,0 +1,103 @@
+<h1 id="formicary">formicary</h1>
+<p>The formicary is a distributed &quot;job management system&quot; that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell or http executors.</p>
+<h2 id="overview">Overview</h2>
+<p>The formicary is a distributed &quot;job management system&quot; for executing background jobs that are executed remotely using Docker/Kubernetes/Shell/HTTP and other protocols. A job is comprises directed acyclic graph of tasks and job definition is defined in a yaml configuration file. The architecture is based on a queen (leader) and ant (follower/worker) pattern where queen node schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant workers that match tags specified by the task and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen server encompasses resource-manager, job-scheduler, job-launcher, job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off job to job-launcher, which then uses job-supervisor to orchestrate the job. The job-supervisor delegates job-execution to task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using Pipes and Filter pattern, where artifacts and variables can be passed from one task to another.</p>
+<h2 id="features-">Features:</h2>
+<ul>
+<li>Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.</li>
+<li>GO based templates for job-definitions so that you can define customized variables and actions. </li>
+<li>Persistence of artifacts from tasks that can be used by other tasks or used as output of jobs.</li>
+<li>Caching of dependencies such as npm, maven, gradle, python, etc.</li>
+<li>Encryption for storing secured configuration in the database or while in network communication.</li>
+<li>Cron based scheduled processing where jobs can be executed at specific times or run periodically.</li>
+<li>Optional tasks that can fail without failing entire job.</li>
+<li>Finalized or always-run task that are executed regardless if the job fails or succeeds.</li>
+<li>Child jobs using fork/await so that a job can spawn other jobs that are executed asynchronously and then joins the results later in the job workflow.</li>
+<li>Job/Task retries where a failed job or task can be rerun for a specified number of times or based on error/exit codes. The job rety supports partial restart so that only failed tasks are rerun upon retries.</li>
+<li>Filtering of jobs/task execution based on user-defined conditions or parameters.</li>
+<li>Job priority, where higher priority jobs are executed before the low priority jobs.</li>
+<li>Job cancellation that can cleanly stop job and task execution.</li>
+<li>Resource constraints based scheduling where ants register with tags that support special annotations and tasks are routed based on tags defined in the job definition.</li>
+<li>Ant executors with support of multiple protocols that ants can use to connect to queen node such as queue, http, etc.</li>
+<li>Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.</li>
+<li>Streaming of real-time Logs to the UI as job/tasks are processed.  </li>
+<li>Authentication and authorization using OAuth and JWT standards.</li>
+<li>Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work is handled by the ant worker, no worker is lost.</li>
+<li>Metrics/auditing/usage of jobs and user actions.</li>
+</ul>
+<h2 id="requirements-">Requirements:</h2>
+<ul>
+<li>GO 1.15+</li>
+<li>Install Docker <a href="https://hub.docker.com/search?type=edition&amp;offering=community">https://hub.docker.com/search?type=edition&amp;offering=community</a></li>
+<li>Kubernetes, e.g. Install minikube - <a href="https://minikube.sigs.k8s.io/docs/start/">https://minikube.sigs.k8s.io/docs/start/</a></li>
+<li>Uses Redis <a href="https://redis.io/">https://redis.io/</a> or Apache pulsar <a href="https://pulsar.apache.org">https://pulsar.apache.org</a> for messaging</li>
+<li>Install Minio that is used for object-store and artifacts storage - <a href="https://min.io/download">https://min.io/download</a></li>
+</ul>
+<h3 id="3rd-party-libraries">3rd party Libraries</h3>
+<ul>
+<li>GORM for O/R mapping - <a href="https://gorm.io/index.html">https://gorm.io/index.html</a></li>
+<li>Echo for web framework - <a href="https://echo.labstack.com/">https://echo.labstack.com/</a></li>
+<li>Goose for database migration - <a href="https://github.com/pressly/goose">https://github.com/pressly/goose</a></li>
+<li>Viper for configuration - <a href="https://github.com/spf13/viper">https://github.com/spf13/viper</a></li>
+</ul>
+<h2 id="version">Version</h2>
+<ul>
+<li>0.1</li>
+</ul>
+<h2 id="license">License</h2>
+<ul>
+<li>AGPLv3 (GNU Affero General Public License)</li>
+</ul>
+<h2 id="docs">Docs</h2>
+<h3 id="operations">Operations</h3>
+<h4 id="installation">Installation</h4>
+<p><a href="docs/installation.md">Installation</a></p>
+<h4 id="running">Running</h4>
+<p><a href="docs/running.md">Running</a></p>
+<h4 id="queen-ants-configuration">Queen/Ants Configuration</h4>
+<p><a href="docs/configuration.md">Configuration</a></p>
+<h3 id="user-guides">User Guides</h3>
+<h4 id="getting-started">Getting Started</h4>
+<p><a href="docs/getting_started.md">Tutorial</a></p>
+<h4 id="building-pipelines">Building Pipelines</h4>
+<p><a href="docs/pipelines.md">Pipelines</a></p>
+<h4 id="parallel-pipelines-with-parent-child">Parallel Pipelines with parent/child</h4>
+<p><a href="docs/parallel_pipelines.md">Parallel Pipelines</a></p>
+<h4 id="cd-cd-pipelines">CD/CD Pipelines</h4>
+<p><a href="docs/cicd.md">CI/CD Pipelines</a></p>
+<ul>
+<li><a href="docs/node_ci.md">Node.js CI/CD</a></li>
+<li><a href="docs/go_ci.md">GO CI/CD</a></li>
+<li><a href="docs/python_ci.md">Python CI/CD</a></li>
+</ul>
+<h3 id="simple-etl-job">Simple ETL Job</h3>
+<p><a href="docs/etl_examples.md">ETL Examples</a></p>
+<h4 id="public-plugins">Public Plugins</h4>
+<p><a href="docs/plugins.md">Plugins</a></p>
+<h3 id="kubernetes-jobs">Kubernetes Jobs</h3>
+<p><a href="docs/advanced_k8.md">Kubernetes Examples</a></p>
+<h4 id="how-to-guides">How-To Guides</h4>
+<p><a href="docs/howto.md">How-to Guides</a></p>
+<ul>
+<li><a href="docs/howto.md#Scheduling">Scheduling Jobs</a></li>
+<li><a href="docs/howto.md#Configs">Job/Organization Configs</a></li>
+<li><a href="docs/howto.md#Caching">Caching</a></li>
+<li><a href="docs/howto.md#Webhooks">Webhooks</a></li>
+<li><a href="docs/howto.md#PostCommit">PostCommit</a></li>
+<li><a href="docs/dind.md">Building Docker images Using Docker-in-Docker</a></li>
+<li><a href="docs/trivy-scan.md">Scanning containers using Trivy</a> for scanning containers.</li>
+<li><a href="docs/advanced_k8.md">Advanced Kubernetes</a></li>
+</ul>
+<h4 id="job-task-definition-options">Job / Task Definition Options</h4>
+<p><a href="docs/definition_options.md">Job / Task Definition Options</a></p>
+<h4 id="api-docs">API Docs</h4>
+<p><a href="docs/apidocs.md">API Docs</a></p>
+<h4 id="comparison-with-other-frameworks-and-solutions">Comparison with other frameworks and solutions</h4>
+<p><a href="docs/comparison.md">Comparison</a></p>
+<h3 id="code-and-design">Code and Design</h3>
+<h4 id="architecture">Architecture</h4>
+<p><a href="docs/architecture.md">Architecture</a></p>
+<h4 id="ant-executors">Ant Executors</h4>
+<p><a href="docs/executors.md">Ant Executors</a></p>
+<h4 id="development">Development</h4>
+<p><a href="docs/development.md">Development</a></p>

@@ -1,0 +1,50 @@
+job_type: trivy-scan-job
+description: vulnerability/misconfiguration scanner for containers using Trivy. See https://aquasecurity.github.io/trivy/v0.19.0/advanced/integrations/
+url: https://aquasecurity.github.io/trivy/v0.19.0/
+max_concurrency: 1
+job_variables:
+  CI_COMMIT_SHA: db65c90a07e753e71db5143c877940f4c11a33e1
+tasks:
+- task_type: scan
+  working_dir: /trivy-ci-test
+  variables:
+    DOCKER_HOST: tcp://localhost:2375
+    DOCKER_TLS_CERTDIR: ""
+    IMAGE: trivy-ci-test:{{.CI_COMMIT_SHA}}
+  container:
+    image: docker:20.10-git
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+  before_script:
+    - echo image $IMAGE
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/'
+    - export TRIVY_VERSION=$(wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    - echo $TRIVY_VERSION
+    - apk add --update-cache --upgrade curl
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    - mkdir -p /root/.docker/
+    - curl -o /root/.docker/ca.pem https://gist.githubusercontent.com/bhatti/8a37691361c09afbef751cb168715867/raw/118f47230adec566cef72661e66370cf95ba1be8/ca.pem
+    - sleep 5
+  allow_failure: true
+  script:
+    # Build image
+    - docker build -t $IMAGE .
+    - curl -o tmpl.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/gitlab-codequality.tpl
+    # Build report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template "tmpl.tpl" -o gl-container-scanning-report.json $IMAGE
+    # Print report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --severity HIGH $IMAGE
+    # Fail on severe vulnerabilities
+    - trivy --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress $IMAGE
+  cache:
+    paths:
+      - .trivycache/
+  artifacts:
+    paths:
+      - gl-container-scanning-report.json

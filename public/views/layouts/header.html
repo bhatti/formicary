@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+<script language="JavaScript">
+    function search(event) {
+        if (event.keyCode == 13) {
+            const q = document.getElementById("q").value;
+            window.location = "/dashboard/jobs/requests?q=" + q;
+        }
+    }
+</script>
+</head>
+
+<body>
+<nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
+    <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="/dashboard">Formicary</a>
+    <form action="/dashboard/search">
+    </form>
+    <input id="q" name="q" class="form-control form-control-dark" type="text" placeholder="Search Jobs"
+           aria-label="Search" onkeypress="search(event)">
+    <ul class="navbar-nav px-30">
+        <li class="nav-item text-nowrap">
+            <a class="nav-link" href="#">&nbsp;
+                {{ with .DBUser }}
+                {{.Username}}
+                {{ end }}
+                &nbsp;
+            </a>
+        </li>
+    </ul>
+</nav>
+<!-- See https://feathericons.com/ -->
+<div class="container-fluid">
+    <div class="row">
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">
+                            <span data-feather="home"></span>
+                            Formicary<span class="sr-only">(current)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/requests?job_state=RUNNING">
+                            <span data-feather="aperture"></span>
+                            Running Jobs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/requests?job_state=WAITING">
+                            <span data-feather="list"></span>
+                            Pending Jobs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/requests?job_state=DONE">
+                            <span data-feather="archive"></span>
+                            Jobs History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/definitions">
+                            <span data-feather="package"></span>
+                            Job Definitions
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/artifacts">
+                            <span data-feather="download-cloud"></span>
+                            Job Artifacts
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/resources">
+                            <span data-feather="layers"></span>
+                            Job Resources
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/jobs/plugins">
+                            <span data-feather="package"></span>
+                            Public Plugins
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/docs" target="new_resource">
+                            <span data-feather="list"></span>
+                            Documentation
+                        </a>
+                    </li>
+                    {{ with .DBUser }}
+                    {{ if .HasOrganization}}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/orgs/{{.OrganizationID}}/configs">
+                            <span data-feather="settings"></span>
+                            Configurations
+                        </a>
+                    </li>
+                    {{ end }}
+                    {{ end }}
+                    {{ if $.Admin }}
+                    <li class="nav-item">
+                        <a class="nav-link" aria-expanded="false" href="#admin" data-toggle="collapse">
+                            <span data-feather="file-text"></span>
+                            Admin
+                            <span data-feather="chevron-right"></span>
+                        </a>
+                        <ul id="admin" class="collapse list-group">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/users">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="codesandbox"></span>
+                                    Users
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/orgs">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="codesandbox"></span>
+                                    Organizations
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/ants">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="cpu"></span>
+                                    Ant Workers
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/executors">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="codesandbox"></span>
+                                    Ant Executors
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/configs">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="settings"></span>
+                                    Sys Configs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/errors">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="alert-triangle"></span>
+                                    Error Codes
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" aria-expanded="false" href="#reports" data-toggle="collapse">
+                            <span data-feather="file-text"></span>
+                            Reports
+                            <span data-feather="chevron-right"></span>
+                        </a>
+                        <ul id="reports" class="collapse list-group">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/jobs/definitions/stats">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="activity"></span>
+                                    Realtime Job Stats
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/jobs/requests/stats">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="database"></span>
+                                    Historical Job Stats
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/health">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="alert-triangle"></span>
+                                    Health Status
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/audits">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="alert-triangle"></span>
+                                    Audit Logs
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {{end}}
+                </ul>
+                <div class="footer" align="center">
+                    <p>&nbsp;</p>
+                    <p>&nbsp;</p>
+                    {{ with .DBUser }}
+                    <a href="/dashboard/users/{{.ID}}"><img width="100" height="100" src="{{.PictureURL}}"
+                                                            style="border-radius: 50%;"></a>
+                    <ul class="navbar-nav px-30">
+                        <li class="nav-item text-nowrap"><a href="/dashboard/users/{{.ID}}">{{.Name}}</a></li>
+                        <li class="nav-item text-nowrap">
+                            <a class="nav-link" href="/logout">&nbsp;Sign out</a>
+                        </li>
+                    </ul>
+                    {{ end }}
+                </div>
+            </div>
+        </nav>
+
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
+            <!--
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+                <h1 class="h2">Dashboard</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group mr-2">
+                        <button class="btn btn-sm btn-outline-secondary">Share</button>
+                        <button class="btn btn-sm btn-outline-secondary">Export</button>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle">
+                        <span data-feather="calendar"></span>
+                        This week
+                    </button>
+                </div>
+            </div>
+            -->
+

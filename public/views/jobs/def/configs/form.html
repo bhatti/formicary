@@ -1,0 +1,45 @@
+<div class="form-group">
+    {{ with .Errors.Error }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+</div>
+<div class="form-group">
+    {{ with .Errors.Name }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="name" class="col-sm-2 col-form-label">Name:</label>
+        <div class="col-sm-6">
+            <input type="text" class="form-control col-sm-6" name="name" id="name" value="{{ .Name }}"
+                   placeholder="name of the config">
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Value }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="value" class="col-sm-2 col-form-label">Value</label>
+        <div class="col-sm-6">
+            <textarea class="form-control md-textarea" name="value" id="value" cols="60" rows="3"
+                      placeholder="value of the config">{{.Value}}</textarea>
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Errors.Secret }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label class="form-check-label col-sm-2" for="secret">Secret</label>
+        <div class="col-sm-6 form-check form-switch">
+            {{if .Secret}}
+            <input class="form-check-input" type="checkbox" name="secret" id="secret" checked>
+            {{else}}
+            <input class="form-check-input" type="checkbox" name="secret" id="secret">
+            {{end}}
+            <label class="form-check-label">(will be encrypted)</label>
+        </div>
+    </div>
+</div>

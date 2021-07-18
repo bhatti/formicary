@@ -1,0 +1,43 @@
+job_type: python-ci
+max_concurrency: 1
+# only run on main branch
+filter: {{if ne .GitBranch "main"}} true {{end}}
+tasks:
+- task_type: test
+  method: KUBERNETES
+  working_dir: /
+  container:
+    image: python:3.9-buster
+  environment:
+    PIP_CACHE_DIR: /.cache/pip
+  before_script:
+    - python -V
+    - pip install virtualenv
+    - virtualenv venv
+    - chmod 755 venv/bin/activate
+    - venv/bin/activate
+    - git clone https://github.com/pypa/sampleproject.git sample
+  script:
+    - cd sample && python setup.py test
+  after_script:
+    - ls -ltr sample
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+  on_completed: release
+- task_type: release
+  method: KUBERNETES
+  working_dir: /
+  container:
+    image: python:3.9-buster
+  environment:
+    PIP_CACHE_DIR: /.cache/pip
+  script:
+    - ls -al .cache/pip venv
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv

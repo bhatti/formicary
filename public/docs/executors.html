@@ -1,0 +1,219 @@
+<h2 id="executors">Executors</h2>
+<h3 id="shell-or-local-executor">Shell or Local Executor</h3>
+<p>The shell executor forks a shell process from ant work for executing commands defined under <code>script</code>. It does not require any additional configuration, but it&#39;s recommended to use a unique user for the ant worker with proper permissions because a user may invoke any command on the machine.</p>
+<h3 id="docker-executor">Docker Executor</h3>
+<h3 id="kubernetes-executor">Kubernetes Executor</h3>
+<p>The Kubernetes executor starts a main container for executing script named after job/task name and a helper container wth <code>-helper</code> suffix for managing artifacts. A task may define dependent services that will start with <code>svc-</code> prefix. The initial kubernetes config are defined by the ant config that are available for all jobs such as:</p>
+<ul>
+<li>namespace - namespace of Kubernetes environment</li>
+<li>helper_image - helper image</li>
+<li>bearer_token - bearer token for launching pods</li>
+<li>host - Kubernetes api server (optional)</li>
+<li>cert_file - api server cert</li>
+<li>key_file - api server key</li>
+<li>ca_file - api server ca</li>
+<li>service_account - array of accounts to use for pods</li>
+<li>image_pull_secrets - array of secrets for pulling docker images</li>
+<li>dns_policy such as <code>none</code>, <code>default</code>, <code>cluster-first</code>, <code>cluster-first-with-host-net</code>.</li>
+<li>dns_config such as <code>nameservers</code>, <code>options</code>, <code>searches</code></li>
+<li>volumes - to mount on pods</li>
+<li>pod_security_context</li>
+<li>host_aliases - array of host aliases</li>
+<li>cap_add - array of linux capabilities to add for pods</li>
+<li>cap_drop - array of linux capabilities to drop for pods</li>
+<li>environment - environment variables</li>
+<li>pull_policy - image pull policy such as <code>never</code>, <code>always</code>, <code>if-not-present</code>.</li>
+</ul>
+<pre><code class="lang-yaml">common:
+  id: test-id
+  messaging_provider: &quot;REDIS_MESSAGING&quot;
+tags:
+  - tag1
+  - tag2
+methods:
+  - DOCKER
+  - KUBERNETES
+kubernetes:
+  registry:
+    registry: docker-registry-server
+    username: docker-registry-user
+    password: docker-registry-pass
+    pull_policy: if-not-present
+  host: kubernetes-host
+  bearer_token: kubernetes-bearer
+  cert_file: kubernetes-cert
+  key_file: kubernetes-key
+  ca_file: kubernetes-cafile
+  namespace: default
+  service_account: my-svc-account
+  image_pull_secrets:
+    - image-pull-secret
+  dns_policy: none
+  pod_security_context:
+    fs_group: 100
+    run_as_group: 100
+    run_as_non_root: true
+    run_as_user: 1000
+    supplemental_groups:
+      - 200
+      - 300
+  cap_add:
+    - NET_RAW
+    - CAP1
+  cap_drop:
+    - CAP2
+</code></pre>
+<p>Above configuration applies to all jobs, but a kubernetes task can define following properties for each job-definition:</p>
+<ul>
+<li>name - the name of task that is used for pod-name</li>
+<li>environment - environment variables to set within the container</li>
+<li>working_directory - for script execution</li>
+<li>container - main container to execute, which defines:<ul>
+<li>image</li>
+<li>image_definition</li>
+<li>volumes based on host, pvc, config_map, secret and empty<ul>
+<li>host mounts folder from the host path</li>
+<li>pvc uses persistent volume claim defined in the kubernetes cluster</li>
+<li>config_map uses config map defined in the kubernetes cluster, it defines <code>items</code> to add keys and relative path</li>
+<li>secret mounts secret as a volume, it defines <code>items</code> to add keys and relative path</li>
+<li>empty mounts an empty volume</li>
+</ul>
+</li>
+<li>volume_driver</li>
+<li>devices - array of devices</li>
+<li>bind_directory</li>
+<li>cpu_limit - cpu allocation given</li>
+<li>cpu_request - cpu allocation requested</li>
+<li>memory_limit - memory allocated</li>
+<li>memory_request - memory requested</li>
+</ul>
+</li>
+<li>services - array of services<ul>
+<li>name - service name</li>
+<li>image - service image</li>
+<li>command - service command</li>
+<li>entrypoint - service entrypoint</li>
+<li>volumes - volumes</li>
+<li>cpu_limit - cpu allocation given</li>
+<li>cpu_request - cpu allocation requested</li>
+<li>memory_limit - memory allocated</li>
+<li>memory_request - memory requested</li>
+</ul>
+</li>
+<li>affinity - affinity for specifying nodes to use for execution</li>
+<li>node_selector - key/value pairs for selecting node with matching tolerated tainted nodes</li>
+<li>node_tolerations</li>
+<li>pod_label - key/value pairs</li>
+<li>pod_annotations - key/value pairs</li>
+<li>network_mode</li>
+<li>host_network e.g.,</li>
+</ul>
+<pre><code class="lang-yaml">name: task1
+method: KUBERNETES
+environment:
+  AWS-KEY: Mykey
+container:
+  image: ubuntu:16.04
+  volumes:
+    host_path:
+      - name: mount1
+        mount_path: /shared
+        host_path: /host/shared
+    pvc:
+      - name: mount2
+        mount_path: /mnt/sh1
+    config_map:
+      - name: mount3
+        mount_path: /mnt/sh2
+        items:
+          item1: val1
+    secret:
+      - name: mount4
+        mount_path: /mnt/sh3
+        items:
+          item1: val1
+    empty_dir:
+      - name: mount4
+        mount_path: /mnt/sh3
+  volume_driver: voldriver
+  devices:
+    - devices
+  bind_dir: /shared
+  cpu_limit: &quot;1&quot;
+  cpu_request: 500m
+  memory_limit: 1Gi
+  memory_request: 1Gi
+services:
+  - name: svc-name
+    image: ubuntu:16.04
+    command:
+      - cmd1
+    entrypoint:
+      - /bin/bash
+    volumes:
+      host_path:
+        - name: svc-mount1
+          mount_path: /shared
+          host_path: /host/shared
+          read_only: false
+      pvc:
+        - name: svc-mount2
+          mount_path: /mnt/sh1
+          read_only: true
+      config_map:
+        - name: svc-mount3
+          mount_path: /mnt/sh2
+          read_only: true
+          items:
+            item1: val1
+      secret:
+        - name: svc-mount4
+          mount_path: /mnt/sh3
+          items:
+            mysecret: file-name
+      empty_dir:
+        - name: svc-mount5
+          mount_path: /mnt/sh3
+    cpu_limit: &quot;1&quot;
+    cpu_request: 500m
+    memory_limit: 1Gi
+    memory_request: 1Gi
+privileged: true
+affinity:
+  required_during_scheduling_ignored_during_execution:
+    node_selector_terms:
+      - match_expressions:
+          - key: datacenter
+            operator: In
+            values:
+              - seattle
+        match_fields:
+          - key: key2
+            operator: In
+            values:
+              - val2
+  preferred_during_scheduling_ignored_during_execution:
+    - weight: 1
+      preference:
+        match_expressions:
+          - key: datacenter
+            operator: In
+            values:
+              - chicago
+        match_fields:
+          - key: color
+            operator: In
+            values:
+              - blue
+node_selector:
+  formicary: &quot;true&quot;
+node_tolerations:
+  empty: PreferNoSchedule
+  myrole: NoSchedule
+pod_labels:
+  foo: bar
+pod_annotations:
+  ann1: val
+network_mode: mod1
+host_network: true
+</code></pre>

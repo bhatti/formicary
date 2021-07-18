@@ -1,0 +1,110 @@
+<h2 id="formicary-plugins">Formicary Plugins</h2>
+<p>A plugin is a public job definition that can be invoked by other jobs. The plugin may define a variety of functionality such as security testing, data analysis, etc. Though, A job definition can be shared by anyone in the organization but public plugin allows you to define a job that can be shared by any other user. A plugin can be uploaded by an organization by defining a job definition where the job-type begins with the organization bundle and it defines a semantic version such as 1.0 or 1.2.1.</p>
+<h3 id="example-plugin-">Example Plugin:</h3>
+<pre><code class="lang-yaml">job_type: io.formicary.stock-plugin
+description: Simple Plugin example
+public_plugin: true
+sem_version: 1.0-dev
+max_concurrency: 1
+tasks:
+  - task_type: extract
+    method: KUBERNETES
+    container:
+      image: python:3.8-buster
+    before_script:
+      - pip install yfinance --upgrade --no-cache-dir
+    script:
+      - python -c &#39;import yfinance as yf;import json;stock = yf.Ticker(&quot;{{.Symbol}}&quot;);j = json.dumps(stock.info);print(j);&#39; &gt; stock.json
+    artifacts:
+      paths:
+        - stock.json
+    on_completed: transform
+  - task_type: transform
+    method: KUBERNETES
+    tags:
+      - builder
+    container:
+      image: alpine
+    dependencies:
+      - extract
+    before_script:
+      - apk --update add jq &amp;&amp; rm -rf /var/lib/apt/lists/* &amp;&amp; rm /var/cache/apk/*
+    script:
+      - jq &#39;.ask,.bid&#39; &gt; askbid.txt
+    artifacts:
+      paths:
+        - askbid.txt
+    on_completed: load
+  - task_type: load
+    method: KUBERNETES
+    tags:
+      - builder
+    dependencies:
+      - transform
+    script:
+      - awk &#39;{ sum += $1; n++ } END { if (n &gt; 0) print sum / n; }&#39; askbid.txt &gt; avg.txt
+    after_script:
+      - ls -l
+    container:
+      image: alpine
+    artifacts:
+      paths:
+        - avg.txt
+</code></pre>
+<h3 id="plugin-name">Plugin Name</h3>
+<p>The plugin name must start with the bundle id of the organization such as io.formicary.stock-plugin.</p>
+<h3 id="plugin-version">Plugin Version</h3>
+<p>The plugin is identified by its name and a version. The plugin version uses semantic format such as major.minor.patch, such as 1.2.5 for production release or 1.2-dev or 1.4.5-rc1 for the test release.</p>
+<h3 id="spawning-plugin-job">Spawning Plugin Job</h3>
+<p>The formicary allows spawning other plugins from a job using <code>FORK_JOB</code> method, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: spawn-plugin
+   method: FORK_JOB
+   fork_job_type: io.formicary.stock-plugin
+   variables:
+     Symbol: {{.Symbol}}
+   on_completed: wait-plugin
+</code></pre>
+<h3 id="waiting-for-completion-of-plugin-job">Waiting for completion of Plugin Job</h3>
+<p>The formicary allows waiting for the plugins from a job using <code></code>AWAIT_FORKED_JOB`, e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: wait-plugin
+   method: AWAIT_FORKED_JOB
+   await_forked_tasks:
+     - spawn-plugin
+</code></pre>
+<h3 id="uploading-plugin">Uploading Plugin</h3>
+<p>The plugin can be uploaded just like any other job such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @io.formicary.stock-plugin.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<h3 id="invoking-public-plugin">Invoking public plugin</h3>
+<p>Here is a sample job that invokes above public plugin:</p>
+<pre><code class="lang-yaml">job_type: plugin-client
+description: Client of a public plugin
+max_concurrency: 1
+tasks:
+- task_type: call-plugin
+  method: FORK_JOB
+  fork_job_type: io.formicary.stock-plugin
+  variables:
+    Symbol: {{.Symbol}}
+  on_completed: wait-plugin
+- task_type: wait-plugin
+  method: AWAIT_FORKED_JOB
+  await_forked_tasks:
+    - call-pulugin
+</code></pre>
+<p>In above example, <code>call-plugin</code> task spawns a job for <code>io.formicary.stock-plugin</code> passing symbol as a parameter and then <code>wait-plugin</code> waits for its completion. <em>Note</em>: The artifacts of child or plugin jobs are automatically added to the parent job so that you can access them easily.</p>
+<h3 id="uploading-client-job">Uploading Client Job</h3>
+<p>You can upload above client job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @plugin-client.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-client-job">Submitting Client Job</h3>
+<p>You can then submit the client job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;plugin-client&quot;, &quot;params&quot;: {&quot;Symbol&quot;: &quot;MSFT&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>

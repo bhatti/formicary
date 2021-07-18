@@ -1,0 +1,150 @@
+{{ template "layouts/header" . }}
+<h3>{{.Title}}</h3>
+<div align="right">
+    <a href="/dashboard/jobs/requests/new">New Request</a>
+</div>
+<div class="form-group">
+    <p class="error_id" align="center"></p>
+</div>
+<div class="table-responsive">
+    <table id="jobs_table" class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Job Type</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Updated</th>
+            <th>Error</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Requests}}
+        <tr id="jobs_row_{{.ID}}">
+            <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ID}}</a></td>
+            <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobType}}</a></td>
+            <td>{{.UserID}}</td>
+            {{if .Completed }}
+            <td id="jobs_status_{{.ID}}" class="table-success">{{.JobState}}</td>
+            {{end}}
+            {{if .Failed }}
+            <td id="jobs_status_{{.ID}}" class="table-danger">{{.JobState}}</td>
+            {{end}}
+            {{if .NotTerminal }}
+            <td id="jobs_status_{{.ID}}">{{.JobState}}</td>
+            {{end}}
+            <td>{{.JobPriority}}</td>
+            <td id="jobs_updated_{{.ID}}">{{.UpdatedAtString}}</td>
+            <td id="jobs_error_{{.ID}}">{{.ErrorCode}}</td>
+            <td id="jobs_action_{{.ID}}" class="group row">
+                <form action="/dashboard/jobs/requests/{{.ID}}" method="GET">
+                    <input type="submit" class="btn btn-primary" value="View">
+                </form>
+                {{if .CanRestart }}
+                &nbsp;
+                <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-secondary" value="Restart"></form>
+                {{end}}
+                {{if .CanCancel }}
+                &nbsp;
+                <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"
+                      onsubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
+                    <input type="submit" class="btn btn-danger" value="Cancel">
+                    <input type="hidden" name="id" value="{{.ID}}"></form>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+
+<script>
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
+    console.log({uri}, 'Connecting')
+
+    const ws = new WebSocket(uri);
+    ws.onopen = function () {
+        console.log({uri}, 'Connected');
+        const intervalId = setInterval(function () {
+            ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
+        }, 15000);
+        ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
+    }
+
+    const formatDate = (str) => {
+        const months = ["Jan", "Feb", "Mar","Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const d = new Date(Date.parse(str));
+        return months[d.getMonth()] + " " + d.getDate() + ", " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds() ;// d.getFullYear()
+        // .getTimezoneOffset()
+    }
+
+    ws.onmessage = function (evt) {
+        console.log(evt);
+        const event = JSON.parse(evt.data);
+        if (event.event_type === "ErrorEvent") {
+            const row = document.getElementById(`error_id`);
+            if (row != null) {
+                row.innerText = event.message;
+            }
+            return;
+        }
+        const row = document.getElementById(`jobs_row_${event.job_request_id}`);
+        if (row == null) {
+            const tbodyRef = document.getElementById('jobs_table').getElementsByTagName('tbody')[0];
+            const newRow = tbodyRef.insertRow();
+            newRow.id = `jobs_row_${event.job_request_id}`;
+            newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}">${event.job_request_id}</a>`;
+            newRow.insertCell().innerHTML = event.job_type;
+            newRow.insertCell().innerHTML = event.user_id;
+            {
+                const col = newRow.insertCell();
+                col.id=`jobs_status_${event.job_request_id}`;
+                col.innerHTML = event.job_state;
+            }
+            newRow.insertCell().innerHTML = event.job_priority;
+            {
+                const col = newRow.insertCell();
+                col.id=`jobs_updated_${event.job_request_id}`;
+                col.innerHTML = formatDate(event.created_at);
+            }
+            newRow.insertCell().innerHTML = '';
+            {
+                const col = newRow.insertCell();
+                col.id=`jobs_action_${event.job_request_id}`;
+                col.className = 'group row';
+                col.innerHTML = `
+                    <form action="/dashboard/jobs/requests/${event.job_request_id}" method="GET">
+                        <input type="submit" class="btn btn-primary" value="View">
+                    </form>
+                    &nbsp;
+                    <form action="/dashboard/jobs/requests/${event.job_request_id}/cancel" method="POST" encType="multipart/form-data"
+                      onSubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
+                        <input type="submit" class="btn btn-danger" value="Cancel">
+                        <input type="hidden" name="id" value="${event.job_request_id}">
+                    </form>
+                    `;
+            }
+        } else {
+            const status = document.getElementById(`jobs_status_${event.job_request_id}`);
+            if (status != null) {
+                status.innerHTML = event.job_state;
+            }
+            const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
+            if (updated != null) {
+                updated.innerHTML = formatDate(event.created_at);
+            }
+            const action = document.getElementById(`jobs_action_${event.job_request_id}`);
+            if (action != null) {
+                // TODO
+            }
+        }
+    }
+
+</script>
+
+{{ template "layouts/footer" }}

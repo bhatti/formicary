@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+    <title>Formicary Signin</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        body        { padding-top:70px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="jumbotron text-center">
+        <h1 class="text-success"><span class="fa fa-lock"></span> Welcome to Formicary</h1>
+        <h5 class="text-bold"><span class="fa fa-id-card"></span> a distributed job management system</h5>
+        <p class="text-blue">Login or Register with:</p>
+        {{if .HasGoogleOAuth}}
+        <a href="/auth/google" class="btn btn-primary"><span class="fa fa-google"></span> SignIn with Google</a>
+        {{end}}
+        {{if .HasGithubOAuth}}
+        <a href="/auth/github" class="btn btn-secondary"><span class="fa fa-github"></span> SignIn with Github</a>
+        {{end}}
+    </div>
+</div>
+</body>
+</html> 

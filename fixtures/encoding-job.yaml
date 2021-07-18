@@ -1,0 +1,154 @@
+job_type: encoding-job
+max_concurrency: 1
+tasks:
+- task_type: validate
+  headers:
+      t1_h1: 1
+      t1_h2: true
+      t1_h3: {{ .Token }}
+  tags:
+  - aws-lambda
+  - pulsar
+  script:
+    - ls -l
+    - du -sk *
+    - sleep 1
+  method: KUBERNETES
+  container:
+    image: alpine
+  variables:
+    format: {{ .EncodingFormat  }}
+  on_exit_code:
+    COMPLETED: download-files
+- task_type: download-files
+  on_exit_code:
+    COMPLETED: split-files
+  resources:
+    resource_type: NetworkBandwidth
+    platform: LINUX
+    tags: 
+    - gig 
+    - network
+    value: 1
+    extract_config:
+      properties:
+      - network-id
+      - route
+      context_prefix: connection
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - echo nonce {{.Nonce}}
+  {{if lt .Nonce 2757814270777357683}}
+    - blah
+  {{else}}
+    - echo sleep {{ .SleepSecs }}
+  {{end}}
+    - find /tmp
+    - du -sk *
+    - sleep 1
+  variables:
+    max-size-gb: 5
+    formats:
+    - mpeg4
+    - avi
+    - mp3
+- task_type: split-files
+  allow_failure: true
+  on_exit_code:
+    COMPLETED: encode-videos
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - find /tmp
+    - du -sk *
+    - sleep 1
+  variables:
+    max-files: 5
+    {{ if .IsMpeg4 }}
+    t3k3:
+      i: a
+      j: b
+      k: c
+    {{ end }}
+- task_type: encode-videos
+  on_exit_code:
+    COMPLETED: package-output
+  tags:
+  - aws-lambda
+  - pulsar
+  script:
+    {{ if .IsMpeg4 }}
+    - ls -l
+    {{ else }}
+    - find /tmp
+    {{ end }}
+    - sleep 1
+  method: KUBERNETES
+  container:
+    image: alpine
+  variables:
+    video-quality: {{ .VideoQuality }}
+    t3k3:
+      i: a
+      j: b
+      k: c
+    t3k4: 4.881
+- task_type: package-output
+  on_exit_code:
+    COMPLETED: upload-files
+  always_run: true
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - find /tmp
+    - du -sk *
+    - sleep 1
+  variables:
+    t3k1: true
+    t3k2: 50
+    {{ if .IsMpeg4 }}
+    t3k3:
+      i: a
+      j: b
+      k: c
+    {{ end }}
+    t3k4: {{ .EncodingFormat  }}
+- task_type: upload-files
+  always_run: true
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - du -sk *
+    - sleep 1
+  variables:
+    t3k1: true
+    t3k2: 50
+    {{ if .IsMpeg4 }}
+    t3k3:
+      i: a
+      j: b
+      k: c
+    {{ end }}
+    t3k4: {{ .EncodingFormat  }}
+job_variables:
+  jk1: jv1
+  jk2:
+    a: 1
+    b: 2
+  jk3: jv3
+resources:
+  resource_type: video-license
+  tags: 
+  - video
+  value: 1
+  extract_config:
+    properties:
+    - license-id
+    - expiration
+    context_prefix: enc-job

@@ -1,0 +1,111 @@
+job_type: test-job
+max_concurrency: 1
+methods: DOCKER
+retry: 2
+tasks:
+  - task_type: task1
+    method: DOCKER
+    container:
+        image: alpine
+    on_exit_code:
+        COMPLETED: task2
+    variables: {}
+    headers:
+        t1_h1: 1
+        t1_h2: true
+        t1_h3: three
+    script:
+      - echo nonce {{.Nonce}}
+    {{if lt .Nonce 2757814270777357683}}
+      - echo blah
+    {{else}}
+      - echo sleep {{ .SleepSecs }}
+    {{end}}
+      {{ if .IsWindowsPlatform }}
+      - ls -l > out.txt
+      {{ else }}
+      - find /tmp > out.txt
+      {{ end }}
+      - sleep 1
+    artifacts:
+        paths:
+          - out.txt
+    resources:
+        resource_type: NetworkBandwidth
+        platform: LINUX
+        tags:
+          - gig
+          - network
+        value: 10
+        extract_config:
+            properties:
+              - network-id
+              - route
+            context_prefix: connection
+  - task_type: task2
+    method: DOCKER
+    container:
+        image: alpine
+    retry: 2
+    allow_failure: true
+    on_exit_code:
+        COMPLETED: task3
+        FAILED: task3
+    variables:
+        t2k1: v1
+        t2k2:
+          - i
+          - j
+          - k
+        t2k3: v3
+        t2k4: 14.123
+    script:
+      {{ if .IsWindowsPlatform }}
+      - du -sm * > du.txt
+      {{ else }}
+      - du -sk * > du.txt
+      {{ end }}
+      - sleep 1
+    artifacts:
+        paths:
+          - du.txt
+  - task_type: task3
+    method: DOCKER
+    container:
+        image: alpine
+    always_run: true
+    dependencies:
+        - task1
+        - task2
+    variables:
+        t3k1: true
+        t3k2: 50
+        t3k3:
+            i: a
+            j: b
+            k: c
+        t3k4: 4.881
+    script:
+      - cat *.txt > all.txt
+      - pwd
+      - sleep 5
+    artifacts:
+      paths:
+        - all.txt
+job_variables:
+    jk1: jv1
+    jk2:
+        a: 1
+        b: 2
+    jk3: jv3
+resources:
+    resource_type: License
+    platform: Vendor
+    tags:
+      - vendor-a-api
+    value: 2
+    extract_config:
+        properties:
+          - license-id
+          - expiration
+        context_prefix: my-job

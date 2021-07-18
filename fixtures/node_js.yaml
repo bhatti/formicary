@@ -1,0 +1,31 @@
+job_type: node-js
+max_concurrency: 1
+tasks:
+- task_type: build2
+  tags:
+  - builder
+  - pulsar
+  host_network: true
+  artifacts:
+    paths:
+      - find1.txt
+      - find2.txt
+  working_dir: /sample
+  cache:
+    keys:
+      - package.json
+    paths:
+      - node_modules
+  before_script:
+    - apk --update add git less openssh && rm -rf /var/lib/apt/lists/* && rm /var/cache/apk/*
+    - git clone https://github.com/microsoft/TypeScript-Node-Starter.git .
+  script:
+    - pwd
+    - find . |head -100 > find1.txt
+    - npm install
+    - find . |head -100 > find2.txt
+  method: KUBERNETES
+  container:
+    image: node:10.24.1-alpine3.11
+  variables:
+    t1_extra: 10

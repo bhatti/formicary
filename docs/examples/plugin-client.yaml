@@ -1,0 +1,14 @@
+job_type: plugin-client
+description: Client of a public plugin
+max_concurrency: 1
+tasks:
+- task_type: call-plugin
+  method: FORK_JOB
+  fork_job_type: io.formicary.stock-plugin
+  variables:
+    Symbol: {{.Symbol}}
+  on_completed: wait-plugin
+- task_type: wait-plugin
+  method: AWAIT_FORKED_JOB
+  await_forked_tasks:
+    - call-plugin

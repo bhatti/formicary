@@ -1,0 +1,39 @@
+<div class="form-group">
+    {{ with .Request.Errors.Error }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+</div>
+<div class="form-group">
+    {{ with .Request.Errors.JobType}}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="jobType" class="col-sm-2 col-form-label">Job Type: </label>
+        <div class="col-sm-10">
+            <select class="form-control col-sm-6" id="jobType" name="jobType">
+                {{range .JobTypes }}
+                <option> {{.}}</option>
+                {{end}}
+            </select>
+        </div>
+    </div>
+</div>
+<div class="form-group">
+    {{ with .Request.Errors.Platform }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+    <div class="row">
+        <label for="platform" class="col-sm-2 col-form-label">Platform: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="platform" id="platform" value="{{ .Request.Platform }}"
+                   placeholder="optional platform of the request">
+        </div>
+    </div>
+    <div class="row">
+        <label for="params" class="col-sm-2 col-form-label">Params: </label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control col-sm-6" name="params" id="params" value="{{ .Request.ParamsJSON }}"
+                   placeholder="JSON parameters">
+        </div>
+    </div>
+</div>

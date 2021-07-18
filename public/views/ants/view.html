@@ -1,0 +1,62 @@
+{{ template "layouts/header" . }}
+
+{{ with .Ant }}
+<section class="group">
+    <header class="group-header">
+        <h3 class="group-title">Ant Registration</h3>
+    </header>
+    <dl class="row">
+        <dt class="col-sm-4"><b>ID:</b></dt>
+        <dd class="col-sm-8">{{ .AntID }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Topic:</b></dt>
+        <dd class="col-sm-8">{{ .AntTopic }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Methods:</b></dt>
+        <dd class="col-sm-8">{{ .Methods }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Tags:</b></dt>
+        <dd class="col-sm-8">{{ .Tags }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Capacity:</b></dt>
+        <dd class="col-sm-8">{{ .MaxCapacity }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Load:</b></dt>
+        <dd class="col-sm-8">{{ .CurrentLoad }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Updated At:</b></dt>
+        <dd class="col-sm-8">{{ .UpdatedAtString }}</dd>
+    </dl>
+</section>
+
+<header class="group-header">
+    <h3 class="group-title">Job Allocations</h3>
+</header>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>Request ID</th>
+            <th>Task Types</th>
+            <th>Updated</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Allocations }}
+        <tr>
+            <td>{{.JobRequestID}}</td>
+            <td>{{.TaskTypes}}</td>
+            <td>{{.AllocatedAtString}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ end }}
+{{ template "layouts/footer" }}

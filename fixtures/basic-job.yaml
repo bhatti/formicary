@@ -1,0 +1,177 @@
+job_type: basic-job
+max_concurrency: 1
+methods: SHELL
+tasks:
+- task_type: task1
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task2
+  variables:
+    t1k1: v1
+    t1k8: 4.881
+  headers:
+    t1_h1: 1
+  tags:
+  - builder
+  script:
+  - ls -l
+  - echo nonce
+  - du -sk * > du.txt
+  - sleep 1
+  artifacts:
+    paths:
+      - du.txt
+  container:
+    image: alpine
+  resources:
+    resource_type: NetworkBandwidth
+    platform: LINUX
+    tags: 
+    - gig 
+    - network
+    value: 10
+    extract_config:
+      properties:
+      - network-id
+      - route
+      context_prefix: connection
+- task_type: task2
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task3
+  variables:
+    t2k1: v1
+    t2k2:
+    - i
+    - j
+    - k
+    t2k3: v3
+    t2k4: 14.123
+    t2k5: true
+    t2k6: 50
+    t2k7:
+      i: a
+      j: b
+      k: c
+    t2k8: 4.881
+  headers:
+    t2_h1: 1
+    t2_h2: true
+    t2_h3: three
+  tags:
+  - builder
+  script:
+  - whoami
+  - hostname
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task3
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task4
+  variables:
+    t3k1: v1
+    t3k3: v3
+    t3k4: 14.123
+  tags:
+  - builder
+  script:
+  - find /tmp
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task4
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task5
+  variables:
+    t4k1: v1
+  tags:
+  - builder
+  script:
+  - pwd
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task5
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task6
+  variables:
+    t5k1: v1
+  tags:
+  - builder
+  script:
+  - ls -l
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task6
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task7
+  variables:
+    t6k1: v1
+    t6k6: 50
+  tags:
+  - builder
+  script:
+  - last
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task7
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task8
+  variables:
+    t7k1: v1
+  headers:
+    t7_h1: 1
+  tags:
+  - builder
+  script:
+  - finger
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task8
+  method: SHELL
+  on_exit_code:
+    COMPLETED: task9
+  variables:
+    t8k1: v1
+    t8k8: 4.881
+  headers:
+    t8_h1: 1
+    t8_h3: three
+  tags:
+  - builder
+  script:
+  - ls -l
+  - sleep 1
+  container:
+    image: alpine
+- task_type: task9
+  method: SHELL
+  always_run: true
+  variables:
+    t9k1: v1
+    t9k2:
+    - i
+    - j
+    - k
+  tags:
+  - builder
+  script:
+  - ls -l
+  - sleep 1
+  container:
+    image: alpine
+job_variables:
+  jk1: jv1
+  jk2:
+    a: 1
+    b: 2
+  jk3: jv3

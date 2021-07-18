@@ -1,0 +1,76 @@
+<h2 id="installation">Installation</h2>
+<h3 id="setup-database">Setup Database</h3>
+<p>The formicary by default uses sqlite3 but supports other relational database such as postgres, mysql and mssql. You don&#39;t need to setup anything if you are using sqlite but other databases will require you to create the database, users and permissions, e.g.</p>
+<h4 id="create-database">Create Database</h4>
+<ul>
+<li>Use database specific commands to create database, users and permission.</li>
+</ul>
+<h4 id="db-migrations">DB Migrations</h4>
+<p>The migrations are automatically run when using sqlite3, however other databases will require running migrations explicitly. The formicary uses <code>goose</code> for db migration that can be installed via:</p>
+<pre><code> go get -u github.com/pressly/goose/cmd/goose
+</code></pre><p>Then you can run migrations such as:</p>
+<pre><code>goose mysql &quot;formicary_user_dev:formicary_pass@/formicary_dev?parseTime=true&quot; up
+</code></pre><h3 id="start-minio">Start Minio</h3>
+<p>The formicary uses Minio for objecto-store that you can install from <code>https://docs.min.io/minio/baremetal/tutorials/minio-installation.html</code>. Then start Minio server as:</p>
+<ul>
+<li>mkdir -p minio-data</li>
+<li>MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=password ./minio server minio-data</li>
+</ul>
+<h3 id="messaging">Messaging</h3>
+<p>The formicary uses messaging queues to communication between queen server and ant workers, you can use Redis or Apache Pulsar for messaging, e.g.</p>
+<h4 id="redis">Redis</h4>
+<p>Start Redis</p>
+<ul>
+<li>redis-server</li>
+</ul>
+<h4 id="apache-kafka-optional-">Apache Kafka (Optional)</h4>
+<p>If you choose to use Apache Kafka as messaging middleware, you can start t as follows:</p>
+<ul>
+<li>zookeeper-server-start zookeeper.properties</li>
+<li>kafka-server-start server.properties</li>
+</ul>
+<h4 id="apache-pulsar-optional-">Apache Pulsar (Optional)</h4>
+<p>If you choose to use Apache Pulsar as messaging middleware, you can start t as follows:</p>
+<ul>
+<li>bin/pulsar standalone</li>
+</ul>
+<p><em>Note</em>: You will need to change configuration to provide the messaging provider to <code>messaging_provider: REDIS_MESSAGING</code>, <code>messaging_provider: PULSAR_MESSAGING</code> or <code>messaging_provider: KAFKA_MESSAGING</code></p>
+<h3 id="containers-execution">Containers Execution</h3>
+<p>The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. You don&#39;t need to install anything for HTTP and Shell executors but Docker and Kubernetes require access to the server environment.</p>
+<h4 id="install-docker">Install Docker</h4>
+<ul>
+<li>Install Docker-Community-Edition from <a href="https://docs.docker.com/engine/installation/">https://docs.docker.com/engine/installation/</a> or find installer for your OS on <a href="https://docs.docker.com/get-docker/">https://docs.docker.com/get-docker/</a>.</li>
+<li>Install Docker-Compose from <a href="https://docs.docker.com/compose/install/">https://docs.docker.com/compose/install/</a>.</li>
+</ul>
+<h4 id="install-kubernetes">Install Kubernetes</h4>
+<ul>
+<li>You can use Minikube for Kubernetes by installing it from <a href="https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/">https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/</a>, MicroK8s from <a href="https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview">https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview</a> or other implementation.</li>
+</ul>
+<h5 id="starting-kubernetes-docker-env">Starting Kubernetes/Docker env</h5>
+<ul>
+<li>minikube start --driver=docker</li>
+<li>minikube dashboard</li>
+<li>minikube status</li>
+<li>minikube ssh</li>
+<li>minikube stop</li>
+<li>minikube delete</li>
+<li>minikube addons list</li>
+</ul>
+<h5 id="starting-microk8-on-ubuntu">Starting Microk8 on Ubuntu</h5>
+<ul>
+<li>microk8s.status</li>
+<li>microk8s.kubectl</li>
+<li>microk8s.kubectl config view --raw &gt; $HOME/.kube/config</li>
+<li>copy above config to your local ~/.kube/config</li>
+</ul>
+<h4 id="miscellaneous-pod-commands">Miscellaneous POD Commands</h4>
+<ul>
+<li>kubectl config view</li>
+<li>kubectl cluster-info</li>
+<li>kubectl get nodes</li>
+<li>kubectl delete -n default pod &lt;pod-name&gt;</li>
+<li>kubectl get pod</li>
+<li>kubectl describe pod &lt;pod-name&gt;</li>
+</ul>
+<h3 id="define-test-config">Define Test config</h3>
+<p>See <a href="configuration.html">Configuration</a> for configuration of queen server and ant-workers.</p>

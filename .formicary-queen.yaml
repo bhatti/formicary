@@ -1,0 +1,30 @@
+id: queen-server-id
+db:
+  db_type: sqlite
+  data_source: .formicary_db.sqlite
+  _db_type: mysql
+  _data_source: formicary_user_dev:formicary_pass@tcp(localhost:3306)/formicary_dev?charset=utf8mb4&parseTime=true&loc=Local
+common:
+  development: true
+  user_agent: ""
+  proxy_url: ""
+  messaging_provider: REDIS_MESSAGING
+  http_port: 0
+  xmonitoring_urls:
+    docker: "localhost:2375"
+  disabled_pulsar:
+    url: "pulsar://localhost:6650"
+    connection_timeout: 30
+  redis:
+    host: "192.168.1.102"
+    port: 6379
+  s3:
+    endpoint: "192.168.1.102:9000"
+    accessKeyID: "admin"
+    secretAccessKey: "password"
+    region: "us-west-2"
+    bucket: "formicary-artifacts"
+    prefix: "formicary/"
+  auth:
+    enabled: true
+    jwt_secret: D60B594xLJ0aY7SIltFqj9YCNslfunuQdcKJ87NJDAdmFHnAVk4jhQ3x0tp6

@@ -1,0 +1,78 @@
+<h2 id="development">Development</h2>
+<h3 id="code-structure">Code Structure</h3>
+<h4 id="common">Common</h4>
+<ul>
+<li>common/artifacts: abstracts artifact upload and download</li>
+<li>common/async: common async library</li>
+<li>common/cache: defines caching interfaces on top of redis </li>
+<li>common/crypto: defines crypto helper functions</li>
+<li>common/events: defines lifecycle and other events for jobs, tasks, containers, etc. </li>
+<li>common/health: monitors health of dependent services</li>
+<li>common/queue: abstracts messaging communication between sender/receiver or pub/sub</li>
+<li>common/tasklet: abstracts base classes of tasklet for serving requests</li>
+<li>common/types: common domain classes</li>
+<li>common/utils: common utility</li>
+<li>common/web: abstracts HTTP client and server</li>
+</ul>
+<h4 id="queen-server">Queen Server</h4>
+<ul>
+<li>queen/config: defines configuration of server</li>
+<li>queen/controller: defines API controllers</li>
+<li>queen/controller/admin: defines Dashboard controllers for administration</li>
+<li>queen/fsm: defines state machines for jobs and tasks</li>
+<li>queen/gateway: defines event gateway</li>
+<li>queen/launcher: defines job launcher</li>
+<li>queen/manager: defines managers for artifacts and jobs</li>
+<li>queen/repository: defines data access repositories</li>
+<li>queen/resource: defines resource manager</li>
+<li>queen/scheduler: defines job launcher</li>
+<li>queen/stats: manages job metrics</li>
+<li>queen/supervisor: defines job and task supervisors</li>
+<li>queen/tasklet: defines implementation of server tasklets such as fork/await</li>
+<li>queen/types: defines server domain classes</li>
+<li>queen/utils: defines server utility functions</li>
+</ul>
+<h4 id="ant-worker">Ant Worker</h4>
+<ul>
+<li>ants/config: defines configuration of ant worker</li>
+<li>ants/controller: defines API controllers for ant worker</li>
+<li>ants/executor: defines common executor interfaces and structures</li>
+<li>ants/executor/docker: implements executor for docker</li>
+<li>ants/executor/http: implements executor for HTTP</li>
+<li>ants/executor/kubernetes: implements executor for Kubernetes</li>
+<li>ants/executor/shell: implements executor for docker Shell</li>
+<li>ants/handler: defines request handler for incoming requests</li>
+<li>ants/registry: defines registry of containers</li>
+<li>ants/transfer: manages object download and uploads for artifacts and caching</li>
+</ul>
+<h4 id="html-views-assets">HTML Views/Assets</h4>
+<ul>
+<li>public/assets: assets for css, images, javascript</li>
+<li>public/views: HTML views</li>
+</ul>
+<h4 id="docs">Docs</h4>
+<ul>
+<li>docs: general documentation</li>
+<li>docs/examples: examples of job definitions</li>
+</ul>
+<h3 id="run-tests">Run Tests</h3>
+<pre><code>CGO_ENABLED=1 go test -p 1  -mod vendor ./... -json &gt; go-test-report.json
+CGO_ENABLED=1 go test -p 1  -mod vendor ./... -coverprofile=go-test-coverage.out
+</code></pre><ul>
+<li><p>Run Test Coverage</p>
+<pre><code>go tool cover -html=go-test-coverage.out
+</code></pre></li>
+<li><p>Lint Errors</p>
+<pre><code>go get -u golang.org/x/lint/golint
+~/go/bin/golint -set_exit_status ./..
+</code></pre></li>
+<li><p>Vet Errors</p>
+<pre><code>go vet ./... 2&gt; go-vet-report.out
+</code></pre></li>
+<li><p>Adding vendor dependencies</p>
+<pre><code>go mod vendor
+</code></pre></li>
+<li><p>Executable</p>
+<pre><code>go build -o formicary -mod vendor ./...
+</code></pre></li>
+</ul>

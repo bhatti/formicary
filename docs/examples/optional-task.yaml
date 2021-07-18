@@ -1,0 +1,21 @@
+job_type: optional-task
+max_concurrency: 1
+tasks:
+- task_type: first
+  container:
+    image: alpine
+  script:
+    - date
+  on_completed: second
+- task_type: second
+  container:
+    image: alpine
+  script:
+    - fail
+  allow_failure: true
+  on_completed: third
+- task_type: third
+  container:
+    image: alpine
+  script:
+    - pwd

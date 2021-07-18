@@ -1,0 +1,113 @@
+<h2 id="parallel-pipelines-with-parent-child">Parallel Pipelines with parent/child</h2>
+<p>See <a href="pipelines.html">Simple Pipeline</a> for an example of building a basic pipeline. You can then extend these pipelines with multiple jobs that can be spawned from the parent job that are executed concurrently in background.</p>
+<p>For example, the video-encoding job can parallelize encoding of videos by spawning multiple jobs as follows:</p>
+<p><img src="examples/parallel-video-pipeline.png" alt="DataFlow"></p>
+<h4 id="job-configuration">Job Configuration</h4>
+<p>Following example defines job-definition with a simple pipeline:</p>
+<pre><code class="lang-yaml">job_type: parallel-video-encoding
+description: Parallel example of video encoding
+max_concurrency: 1
+tasks:
+- task_type: validate
+  script:
+    - echo request must have URL {{.URL}}, InputEncoding {{.InputEncoding}} and OutputEncoding {{.OutputEncoding}}
+  method: KUBERNETES
+  container:
+    image: alpine
+  on_completed: download
+- task_type: download
+  method: KUBERNETES
+  container:
+    image: python:3.8-buster
+  host_network: true
+  script:
+    - curl -o video_file.{{.InputEncoding}} {{.URL}}
+  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}
+  on_completed: split
+- task_type: split
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.1
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.2
+    - cp video_file.{{.InputEncoding}} video_file.{{.InputEncoding}}.3
+  dependencies:
+    - download
+  artifacts:
+    paths:
+      - video_file.{{.InputEncoding}}.1
+      - video_file.{{.InputEncoding}}.2
+  on_completed: fork-encode1
+- task_type: fork-encode1
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: {{.split_ArtifactURL_1}}
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+  on_completed: fork-encode2
+- task_type: fork-encode2
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: {{.split_ArtifactURL_2}}
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+  on_completed: fork-await
+- task_type: fork-await
+  method: AWAIT_FORKED_JOB
+  on_completed: combine
+  await_forked_tasks:
+    - fork-encode1
+    - fork-encode2
+- task_type: combine
+  method: KUBERNETES
+  container:
+    image: alpine
+  script:
+    - ls -l
+    - cat video_file.{{.InputEncoding}}* &gt;  video_file.{{.OutputEncoding}}
+  dependencies:
+    - fork-await
+  artifacts:
+    paths:
+      - video_file.{{.OutputEncoding}}
+</code></pre>
+<p>Above definition defines <code>validate</code> and <code>download</code> tasks as before but <code>split</code> task splits video file into smaller video files that can be encoded in parallel. It then defines <code>fork-encode1</code> and <code>fork-encode2</code> tasks to fork child <code>video-encoding</code> job that was defined earlier and then wait for their completion in <code>fork-await</code> task. Finally, it combines output files into a single file.</p>
+<h5 id="fork-jobs">Fork Jobs</h5>
+<p>The task <code>method</code> with value of <code>FORK_JOB</code> spawns a child job where <code>fork_job_type</code> defines type of the job and <code>variables</code> define the input parameters to the job:</p>
+<pre><code class="lang-yaml">- task_type: fork-encode1
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: {{.split_ArtifactURL_1}}
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+</code></pre>
+<h5 id="waiting-for-completion-of-child-jobs">Waiting for completion of child jobs</h5>
+<p>The task <code>method</code> with value of <code>AWAIT_FORKED_JOB</code> waits for completion of child jobs where <code>await_forked_tasks</code> defines list of jobs to wait, e.g.</p>
+<pre><code class="lang-yaml">- task_type: fork-await
+  method: AWAIT_FORKED_JOB
+  on_completed: combine
+  await_forked_tasks:
+    - fork-encode1
+    - fork-encode2
+</code></pre>
+<p><em>Note</em>: All artifacts from the child job are automatically made available to the parent job.</p>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard UI or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @parallel-video-encoding.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;parallel-video-encoding&quot;, &quot;params&quot;: {&quot;InputEncoding&quot;: &quot;MP4&quot;, &quot;OutputEncoding&quot;: &quot;WebM&quot;, &quot;URL&quot;: &quot;https://github.com&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>video-encoding</code> job and passes <code>URL</code>, <code>InputEncoding</code>, and <code>OutputEncoding</code> as parameters.</p>

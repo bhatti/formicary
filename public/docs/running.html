@@ -1,0 +1,34 @@
+<h2 id="running-formicary">Running formicary</h2>
+<h3 id="running-via-docker">Running via Docker</h3>
+<p>Download docker-compose:</p>
+<pre><code>curl -LfO &#39;https://github.com/bhatti/formicary/blob/main/docker-compose.yaml&#39;
+</code></pre><p>Start docker-compose</p>
+<pre><code>docker-compose up
+</code></pre><p>You can then verify docker containers, e.g.:</p>
+<pre><code>docker ps
+</code></pre><p>Shutting down docker-compose</p>
+<pre><code>docker-compose down
+</code></pre><h3 id="running-manually">Running manually</h3>
+<h4 id="start-minio">Start Minio</h4>
+<pre><code>MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=password ./minio server minio-data
+</code></pre><h4 id="start-redis">Start Redis</h4>
+<pre><code>redis-server
+</code></pre><h4 id="configure-queen-server-and-ant-worker">Configure queen-server and ant-worker</h4>
+<p>Configure <code>.formicary-ant.yaml</code> and <code>.formicary-queen.yaml</code> if needed. See <a href="configuration.html">Configuration</a> for more configuration details.</p>
+<h4 id="start-queen-server">Start Queen Server</h4>
+<pre><code>go run main.go --config=.formicary-queen.yaml --id=formicary-server-id1 --port 7777
+</code></pre><h3 id="start-ant-worker">Start Ant Worker</h3>
+<pre><code>go run main.go ant --config=.formicary-ant.yaml --id=formicary-ant-id1 --port 7771 --tags &quot;builder pulsar redis kotlin aws-lambda&quot;
+</code></pre><h3 id="open-formicary-dashboard">Open Formicary Dashboard</h3>
+<p>Open <code>http://localhost:7777/dashboard</code> in the browser.</p>
+<h3 id="upload-job-definition">Upload Job Definition</h3>
+<h3 id="submit-a-job">Submit a Job</h3>
+<h3 id="watch-job-execution-and-results">Watch Job Execution and Results</h3>
+<h3 id="running-behind-a-proxy-server">Running behind a proxy server</h3>
+<p>You can specify proxy settings by following environment variables: <code>HTTP_PROXY</code> - http proxy <code>HTTPS_PROXY</code> - https proxy <code>NO_PROXY</code> - no proxy hosts</p>
+<p>Alternatively, you can also specify <code>proxy_url</code> of common configuration, e.g.</p>
+<pre><code>common:
+    id: my-ant-id
+    user_agent: &quot;formicary-agent&quot;
+    proxy_url: &quot;https://myproxy&quot;
+</code></pre>

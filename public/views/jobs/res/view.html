@@ -1,0 +1,86 @@
+{{ template "layouts/header" . }}
+
+<section class="group">
+    <header class="group-header">
+        <h3 class="group-title">Virtual Resource</h3>
+    </header>
+    {{ with .Resource }}
+    <div align="right">
+        <a href="/dashboard/jobs/resources/{{.ID}}/edit">Edit</a>
+    </div>
+    <dl class="row">
+        <dt class="col-sm-4"><b>ID:</b></dt>
+        <dd class="col-sm-8">{{ .ID }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Type:</b></dt>
+        <dd class="col-sm-8">{{ .ResourceType }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Max Quota:</b></dt>
+        <dd class="col-sm-8">{{ .Quota }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Paused:</b></dt>
+        <dd class="col-sm-8">{{ .Paused }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Platform:</b></dt>
+        <dd class="col-sm-8">{{ .Platform }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Category:</b></dt>
+        <dd class="col-sm-8">{{ .Category }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Tags:</b></dt>
+        <dd class="col-sm-8">{{ .Tags }}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>Lease Timeout:</b></dt>
+        <dd class="col-sm-8">{{ .LeaseTimeout}}</dd>
+    </dl>
+    <dl class="row">
+        <dt class="col-sm-4"><b>External ID:</b></dt>
+        <dd class="col-sm-8">{{ .ExternalID }}</dd>
+    </dl>
+    {{ end }}
+</section>
+
+<h4>Resource Configs</h4>
+<div align="right">
+    <a href="/dashboard/jobs/resources/{{.Resource.ID}}/configs/new">New Resource Config</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Value</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Resource.Configs}}
+        <tr>
+            <td>{{.Name}}</td>
+            <td>{{.Value}}</td>
+            <td class="group row">
+                <form action="/dashboard/jobs/resources/{{.JobResourceID}}/configs/{{.ID}}/edit" method="GET">
+                    <input type="submit" class="btn btn-primary" value="View">
+                </form>
+                &nbsp;
+                <form action="/dashboard/jobs/resources/{{.JobResourceID}}/configs/{{.ID}}/delete" method="POST"
+                      enctype="multipart/form-data"
+                    onsubmit="return confirm('Please confirm deleting this config (' + this['id'].value + ')?');">
+                    <input type="submit" class="btn btn-danger" value="Delete">
+                    <input type="hidden" name="id" value="{{.Name}}">
+                </form>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+
+{{ template "layouts/footer" }}

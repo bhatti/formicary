@@ -1,0 +1,57 @@
+job_type: go-build-ci
+max_concurrency: 1
+# only run on main branch
+filter: {{if ne .GitBranch "main"}} true {{end}}
+tasks:
+- task_type: lint
+  method: KUBERNETES
+  working_dir: /sample
+  container:
+    image: golang:1.16-buster
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/go-cicd.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+    - go get -u golang.org/x/lint/golint 
+    - go mod download
+    - go mod vendor
+  script:
+    - echo branch {{.GitBranch}}, Commit {{.GitCommitID}}
+    - make lint
+  after_script:
+    - ls -l
+  cache:
+    key_paths:
+      - go.mod
+    paths:
+      - vendor
+  on_completed: test
+- task_type: test
+  method: KUBERNETES
+  container:
+    image: golang:1.16-buster
+  working_dir: /sample
+  environment:
+    GO111MODULE: on
+    CGO_ENABLED: 0
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/go-cicd.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+  script:
+    - make test-coverage
+  after_script:
+    - ls -l
+  dependencies:
+    - lint
+  on_completed: build
+- task_type: build
+  method: KUBERNETES
+  container:
+    image: golang:1.16-buster
+  working_dir: /sample
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/go-cicd.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+  script:
+    - make build
+  dependencies:
+    - test

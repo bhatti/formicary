@@ -1,0 +1,22 @@
+job_type: kube-example2
+description: Simple Kubernetes example with resources
+max_concurrency: 1
+tasks:
+- task_type: kubby
+  tags:
+  - builder
+  pod_labels:
+    foor: bar
+  script:
+    - echo hello world
+    - ls -l
+    - sleep 21
+  method: KUBERNETES
+  container:
+    image: ubuntu:16.04
+    cpu_limit: "1"
+    cpu_request: 500m
+    memory_limit: 2Gi
+    memory_request: 1Gi
+    ephemeral_storage_limit: 2Gi
+    ephemeral_storage_request: 1Gi

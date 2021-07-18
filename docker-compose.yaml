@@ -1,0 +1,57 @@
+version: '3.7'
+# see https://docs.min.io/docs/deploy-minio-on-docker-compose
+services:
+  pulsar:
+    image: apachepulsar/pulsar:2.7.0
+    ports:
+      - 8080:8080
+      - 6650:6650
+    environment:
+      PULSAR_MEM: " -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"    
+    command: bin/pulsar standalone
+  minio1:
+    image: minio/minio:RELEASE.2021-03-12T00-00-47Z
+    volumes:
+      - data1-1:/data1
+      - data1-2:/data2
+    expose:
+      - "9000"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server http://minio{1...2}/data{1...2}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+  minio2:
+    image: minio/minio:RELEASE.2021-03-12T00-00-47Z
+    volumes:
+      - data2-1:/data1
+      - data2-2:/data2
+    expose:
+      - "9000"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server http://minio{1...2}/data{1...2}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+  nginx:
+    image: nginx:1.19.2-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "9000:9000"
+    depends_on:
+      - minio1
+      - minio2
+volumes:
+  data1-1:
+  data1-2:
+  data2-1:
+  data2-2:

@@ -1,0 +1,64 @@
+common:
+    id: "queen-server-id"
+    user_agent: "formicary-agent"
+    proxy_url: ""
+    http_port: 8182
+    pulsar:
+        url: test
+        connection_timeout: 42s
+        channel_buffer: 20
+        oauth: {}
+        topic_suffix: ""
+        topic_tenant: ""
+        topic_namespace: ""
+        max_reconnect_to_broker: 5
+    s3:
+        endpoint: "localhost:9000"
+        accessKeyID: "admin"
+        secretAccessKey: "password"
+        region: "us-west-2"
+        bucket: "formicary-artifacts"
+        prefix: "formicary/"
+        encryptionPassword: ""
+        useSSL: false
+    redis:
+        host: test
+        port: 6379
+        password: ""
+        ttl_minutes: 5
+        pool_size: 10
+        max_subscription_wait: 1m0s
+    messaging_provider: PULSAR_MESSAGING
+    container_reaper_interval: 60s
+    monitor_interval: 2s
+    monitoring_urls:
+        docker: "localhost:2375"
+    registration_interval: 5s
+    max_streaming_log_message_size: 1024
+    max_job_timeout: 4h
+    max_task_timeout: 1h
+db:
+    data_source: .formicary_db.sqlite
+    db_type: sqlite
+    max_idle_connections: 10
+    max_open_connections: 20
+    connection_max_idle_time: 1h0m0s
+    connection_max_life_time: 4h0m0s
+jobs:
+    ant_reservation_timeout: 30s
+    ant_registration_alive_timeout: 15s
+    job_scheduler_leader_interval: 15s
+    job_scheduler_check_pending_jobs_interval: 1s
+    db_object_cache: 60s
+    orphan_requests_timeout: 60s
+    orphan_requests_update_interval: 15s
+    not_ready_max_wait: 30s
+    max_schedule_attempts: 1000
+    disable_job_scheduler: false
+    max_fork_tasklet_capacity: 100
+    max_fork_await_tasklet_capacity: 100
+gateway_subscriptions:
+    JobExecutionLifecycleEvent: true
+    LogEvent: true
+    TaskExecutionLifecycleEvent: true
+url_presigned_expiration_minutes: 720s

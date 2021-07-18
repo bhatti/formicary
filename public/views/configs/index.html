@@ -1,0 +1,49 @@
+{{ template "layouts/header" . }}
+<h3>Configurations</h3>
+The configurations can be defined for common properties that job graph/definitions can use and optionally you can use job type scope
+to apply configs only to a specific job type.
+<div align="right">
+    <a href="/dashboard/configs/new">New Config</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Kind</th>
+            <th>Scope</th>
+            <th>Name</th>
+            <th>Secret</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Configs}}
+        <tr>
+            <td><a href="/dashboard/configs/{{.ID}}">{{.ShortID}}</a></td>
+            <td>{{.Kind}}</td>
+            <td>{{.Scope}}</td>
+            <td>{{.Name}}</td>
+            <td>{{.Secret}}</td>
+            <td class="group row">
+                <form action="/dashboard/configs/{{.ID}}" method="GET">
+                    <input type="submit" class="btn btn-primary" value="View">
+                </form>
+                &nbsp;
+                <form action="/dashboard/configs/{{.ID}}/edit" method="GET">
+                    <input type="submit" class="btn btn-secondary" value="Edit">
+                </form>
+                &nbsp;
+                <form action="/dashboard/configs/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                      onsubmit="return confirm('Please confirm deleting this config (' + this['id'].value + ')?');">
+                    <input type="submit" class="btn btn-danger" value="Delete">
+                    <input type="hidden" name="id" value="{{.Name}}">
+                </form>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+{{ template "layouts/footer" }}

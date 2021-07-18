@@ -1,0 +1,28 @@
+{{ template "layouts/header" . }}
+<h3>Audit Logs</h3>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Kind</th>
+            <th>User</th>
+            <th>IP Address</th>
+            <th>Message</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Audits }}
+        <tr>
+            <td>{{.TargetID}}</td>
+            <td>{{.Kind}}</td>
+            <td>{{.UserID}}</td>
+            <td>{{.RemoteIP}}</td>
+            <td>{{.Message}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+{{ template "layouts/footer" }}

@@ -1,0 +1,114 @@
+<h2 id="advanced-kubernetes">Advanced Kubernetes</h2>
+<h3 id="kubernetes-jobs-with-volumes-and-services">Kubernetes Jobs with Volumes and Services</h3>
+<p>Following is an example job-definition that creates Kubernetes Volume, Mounts and Services:</p>
+<h4 id="job-configuration">Job Configuration</h4>
+<pre><code class="lang-yaml">job_type: kube-example1
+description: Simple Kubernetes example with volume mounts, secrets and ports
+max_concurrency: 1
+tasks:
+- task_type: kubby
+  tags:
+  - builder
+  pod_labels:
+    foor: bar
+  script:
+    - ls -l /myshared
+    - ls -l /myempty
+    - sleep 30
+  method: KUBERNETES
+  host_network: false
+  services:
+    - name: redis
+      image: redis:6.2.2-alpine
+      ports:
+        - number: 6379
+  container:
+    image: ubuntu:16.04
+    volumes:
+      host_path:
+        - name: mount1
+          mount_path: /myshared
+          host_path: /shared
+      empty_dir:
+        - name: mount2
+          mount_path: /myempty
+</code></pre>
+<p>You can store above definition in a file such as <code>kube-example1.yaml</code> and then upload to formicary using</p>
+<pre><code class="lang-bash">curl -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @kube-example1.yaml \
+    $SERVER/jobs/definitions
+</code></pre>
+<p>Then submit your job using:</p>
+<pre><code class="lang-bash">curl -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;kube-example1&quot;, &quot;org_unit&quot;: &quot;myorg&quot;, &quot;username&quot;: &quot;myuser&quot;, &quot;params&quot;: {&quot;Platform&quot;: &quot;Test&quot;}}&#39; \
+    $SERVER/jobs/requests
+</code></pre>
+<p>Next, open dashboard on your browser to view the running jobs.</p>
+<p>You can use <code>kubctl describe pod &lt;podname&gt;</code> to verify labels, volumes or services such as:</p>
+<pre><code> Labels:       AntID=formicary-ant-id1
+               foor=bar
+    ...
+ Volumes:
+   mount1:
+     Type:          HostPath (bare host directory volume)
+     Path:          /shared
+    ... 
+ Mounts:
+   /myshared from mount1 (rw)     
+    ...
+ Containers:
+   svc-redis:
+     Container ID:
+     Image:          redis:6.2.2-alpine
+    ...
+</code></pre><p>You may see errors like <code>Warning  FailedScheduling  20s   default-scheduler  0/1 nodes are available: 1 persistentvolumeclaim &quot;mount2&quot; not found</code> in <code>kubectl describe</code> output when using non-existing pvc or non-existing host mounts.</p>
+<h3 id="kubernetes-jobs-with-resources">Kubernetes Jobs with Resources</h3>
+<p>Following is an example job-definition that defines resources for Kubernetes:</p>
+<h4 id="job-configuration">Job Configuration</h4>
+<pre><code class="lang-yaml">job_type: kube-example2
+description: Simple Kubernetes example with resources
+max_concurrency: 1
+tasks:
+- task_type: kubby
+  tags:
+  - builder
+  pod_labels:
+    foor: bar
+  script:
+    - echo hello world
+    - ls -l
+    - sleep 21
+  method: KUBERNETES
+  container:
+    image: ubuntu:16.04
+    cpu_limit: &quot;1&quot;
+    cpu_request: 500m
+    memory_limit: 2Gi
+    memory_request: 1Gi
+    ephemeral_storage_limit: 2Gi
+    ephemeral_storage_request: 1Gi
+</code></pre>
+<p>Above example defines cpu, memory and ephemeral storage for the container. These resource options are also available for services such as:</p>
+<pre><code class="lang-yaml">services:
+  - name: redis
+    image: redis:6.2.2-alpine
+    ports:
+      - number: 123
+        name: name
+    cpu_limit: &quot;1&quot;
+    cpu_request: 500m
+    memory_limit: 1Gi
+    memory_request: 1Gi
+    ephemeral_storage_limit: 2Gi
+    ephemeral_storage_request: 1Gi
+</code></pre>
+<p>You can upload/submit your job similar to previous example and then verify these limits using <code>kublectl describe</code>, e.g.</p>
+<pre><code>     Limits:
+       cpu:                1
+       ephemeral-storage:  2Gi
+       memory:             2Gi
+     Requests:
+       cpu:                500m
+       ephemeral-storage:  1Gi
+       memory:             1Gi
+</code></pre>

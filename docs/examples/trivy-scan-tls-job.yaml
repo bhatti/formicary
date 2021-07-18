@@ -1,0 +1,62 @@
+job_type: trivy-scan-tls-job
+description: vulnerability/misconfiguration scanner for containers using Trivy
+url: https://aquasecurity.github.io/trivy/v0.19.0/
+max_concurrency: 1
+job_variables:
+  CI_COMMIT_SHA: db65c90a07e753e71db5143c877940f4c11a33e1
+tasks:
+- task_type: scan
+  working_dir: /trivy-ci-test
+  variables:
+    DOCKER_HOST: tcp://localhost:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_TLS: 1
+    # See https://github.com/docker-library/docker/pull/166
+    # Using /mycerts because /certs already exists and can't be shared between service and main container
+    DOCKER_TLS_CERTDIR: "/mycerts"
+    IMAGE: trivy-ci-test:{{.CI_COMMIT_SHA}}
+  container:
+    image: docker:20.10-git
+    volumes:
+      empty_dir:
+        - name: certs
+          mount_path: /mycerts/client
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+      volumes:
+        empty_dir:
+          - name: certs
+            mount_path: /mycerts/client
+  before_script:
+    - echo image $IMAGE
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/'
+    - export TRIVY_VERSION=$(wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    - echo $TRIVY_VERSION
+    - apk add --update-cache --upgrade curl
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    - mkdir -p /root/.docker/ && cp /mycerts/client/* /root/.docker
+    - apk --no-cache add ca-certificates
+    #wget --no-verbose https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -O - | tar -zxvf -
+  allow_failure: true
+  script:
+    # Build image
+    - docker build -t $IMAGE .
+    - curl -o tmpl.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/gitlab-codequality.tpl
+    # Build report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --format template --template "tmpl.tpl" -o gl-container-scanning-report.json $IMAGE
+    # Print report
+    - trivy --exit-code 0 --cache-dir .trivycache/ --no-progress --severity HIGH $IMAGE
+    # Fail on severe vulnerabilities
+    - trivy --exit-code 1 --cache-dir .trivycache/ --severity CRITICAL --no-progress $IMAGE
+  cache:
+    paths:
+      - .trivycache/
+  artifacts:
+    paths:
+      - gl-container-scanning-report.json

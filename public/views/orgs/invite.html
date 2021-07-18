@@ -1,0 +1,36 @@
+{{ template "layouts/header" . }}
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">User Invitation</h4>
+    </header>
+    <form action="/dashboard/orgs/invite/{{.Invitation.OrganizationID}}" method="POST">
+        <div class="form-group">
+            {{ with .Invitation.Errors.Error }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+        </div>
+
+        <div class="form-group">
+            {{ with .Invitation.Errors.Email }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+            <div class="row">
+                <label class="col-sm-2 col-form-label">Email: </label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control col-sm-6" name="email" id="email" value="{{ .Invitation.Email}}"
+                                                                                             placeholder="invitee email address">
+                </div>
+            </div>
+        </div>
+        <div class="form-group row">
+            <div class="col-sm-10 offset-sm-2">
+                <button type="submit" class="btn btn-primary">Invite</button>
+            </div>
+        </div>
+    </form>
+
+    <footer class="group-footer">
+    </footer>
+
+</section>
+{{ template "layouts/footer" }}

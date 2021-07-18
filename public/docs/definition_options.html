@@ -1,0 +1,350 @@
+<h2 id="job-and-task-definition-options">Job and Task Definition Options</h2>
+<h2 id="workflow">Workflow</h2>
+<p>A job can be considered as a workflow of tasks where sequence of task execution is determined by the exit-status of previous task.</p>
+<h2 id="job">Job</h2>
+<p>A job defines directed-acyclic-graph of tasks to execute where each task specifies how task will be executed A job defines following properties:</p>
+<h4 id="cron_trigger">cron_trigger</h4>
+<p>The cron_trigger defines a cron syntax for executing the job periodically, e.g., following job is scheduled every minute:</p>
+<pre><code class="lang-yaml"> job_type: cron-kube-build
+ cron_trigger: 0 * * * * * *
+ tasks:
+   ...
+</code></pre>
+<p>In above example, <code>cron_trigger</code> will execute this job every minute. Note: you will only need to upload scheduled jobs without submitting them as they will automatically be scheduled.</p>
+<p>You can also submit a job at scheduled time as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;scheduled_at&quot;: &quot;2025-06-15T00:00:00.0-00:00&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example will kick off <code>hello_world</code> job based on <code>scheduled_at</code> time in the future, however the job will be immediately scheduled if the <code>scheduled_at</code> is in the past.</p>
+<h4 id="delay_between_retries">delay_between_retries</h4>
+<p>A job can use <code>retry</code> option to retry based on specified number of times and the <code>delay_between_retries</code> defines delay between those retries, e.g.,</p>
+<pre><code class="lang-yaml">job_type: test-job
+retry: 3
+delay_between_retries: 10s
+</code></pre>
+<p>Above example shows that <code>test-job</code> job can be retried up-to 3 times with 10 seconds delay between each retry.</p>
+<h4 id="description">description</h4>
+<p>The <code>description</code> is an optional property to specify details about the job, e.g.,</p>
+<pre><code class="lang-yaml">job_type: test-job
+description: A test job for building a node application.
+</code></pre>
+<h4 id="filter">filter</h4>
+<p>The <code>filter</code> allows job to skip execution based on a conditional logic using GO template and variables, e.g.</p>
+<pre><code class="lang-yaml">job_type: test-job
+filter: {{if eq .Target &quot;charlie&quot;}} true {{end}}
+</code></pre>
+<p>In above example, the job will not run if <code>Target</code> variable is &quot;charlie&quot;, e.g., you can pass these parameters when you submit jobs:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;charlie&quot; } }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>Following example shows how you can limit execution on a branch, e.g.,</p>
+<pre><code class="lang-yaml">job_type: node_build
+filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+</code></pre>
+<p>In above example, the scheduled job will not run if <code>Branch</code> is not &quot;main&quot;, e.g., you can pass these parameters when you submit jobs:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: { &quot;Branch&quot;: &quot;feature-x&quot; } }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<h4 id="hard_reset_after_retries">hard_reset_after_retries</h4>
+<p>When a job fails, and the job is retried manually or automatically via <code>retry</code> parameters, only the failed tasks are executed. However, you can use <code>hard_reset_after_retries</code> to reset the job so that all tasks are executed, e.g.</p>
+<pre><code class="lang-yaml">job_type: test-job
+retry: 10
+delay_between_retries: 10s
+hard_reset_after_retries: 3
+</code></pre>
+<p>In above example, if a job continue to fail after first three retry, then on the fourth retry, all tasks will be executed. You can also <code>allow_start_if_completed</code> property of the task to re-execute a previously successful task on the job retry.</p>
+<h4 id="job_type">job_type</h4>
+<p>The <code>job_type</code> specifies the type or name of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: test-job
+</code></pre>
+<h4 id="job_variables">job_variables</h4>
+<p>You can define variables on the job level or on a task level where the <code>job_variables</code> specifies variables at the job level, so they are accessible to all tasks, e.g.</p>
+<pre><code class="lang-yaml">job_variables:
+  OSVersion: 10.1
+  Architecture: ARM64
+</code></pre>
+<p>The job configuration uses GO template and these variables can be used to initialize any template variables, e.g.</p>
+<pre><code class="lang-yaml">script:
+  - echo OS version is {{.OSVersion}}
+</code></pre>
+<h4 id="max_concurrency">max_concurrency</h4>
+<p>The <code>max_concurrency</code> defines max number of jobs that can be run concurrently, e.g.</p>
+<pre><code class="lang-yaml">job_type: test-job
+max_concurrency: 5
+</code></pre>
+<p>In above, if multiple jobs for <code>test-job</code> are submitted at the same time, at most 5 jobs will run concurrently, while others will wait in the queue until capacity becomes available.</p>
+<h4 id="public_plugin">public_plugin</h4>
+<p>The <code>public_plugin</code> indicates the job is a public plugin so it can be shared by any other user in the system. For example, you may upload a plugin to scan an application for security vulnerabilities and this plugin can be reused by other people for free or fee based on your license policies, e.g.</p>
+<h4 id="required_params">required_params</h4>
+<p>The <code>required_params</code> specifies list of parameter names that must be defined when submitting a job request, e.g.,</p>
+<pre><code class="lang-yaml">job_type: test-job
+required_params:
+  - Name
+  - Age
+</code></pre>
+<p>In above example, the <code>Name</code> and <code>Age</code> parameters must be given when submitting the request, e.g.,</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  --data &#39;{&quot;job_type&quot;: &quot;test-job&quot;, &quot;params&quot;: { &quot;Name&quot;: &quot;Bob&quot;, &quot;Age&quot;: 30 } }&#39; $SERVER/api/jobs/requests
+</code></pre>
+<h4 id="resources">resources</h4>
+<p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
+<h4 id="retry">retry</h4>
+<p>When a job fails, it can be retried automatically via <code>retry</code> parameters, e.g.,</p>
+<pre><code class="lang-yaml">job_type: test-job
+retry: 10
+</code></pre>
+<p>In above example, if a job fails, it will be retried up-to 10 times.</p>
+<h4 id="sem_version">sem_version</h4>
+<p>When using a <code>public_plugin</code> to annotate the job as a public plugin, you must specify a semantic version of the public using <code>sem_version</code> property such as:</p>
+<pre><code class="lang-yaml">job_type: my-plugin
+public_plugin: true
+sem_version: 1.2.5
+</code></pre>
+<h4 id="timeout">timeout</h4>
+<p>The <code>timeout</code> property defines the maximum time that a job can take for the execution and if the job takes longer, then it&#39;s cancelled, e.g.,</p>
+<pre><code class="lang-yaml">job_type: test-job
+timeout: 5m
+</code></pre>
+<p>Above configuration specifies job-time out as 5 minutes.</p>
+<h4 id="tasks">tasks</h4>
+<p>The <code>tasks</code> property defines an array of task definitions. The order of tasks is not important as formicary creates a graph based on dependencies between the tasks for execution. The formicary will reject job definition with any cyclic dependencies.</p>
+<h3 id="task-definition">Task definition</h3>
+<p>A task represents a unit of work that is executed by an ant worker. It defines following properties under task definition:</p>
+<h4 id="allow_failure">allow_failure</h4>
+<p>The <code>allow_failure</code> property defines the task is optional and can fail without failing entire job, e.g.,</p>
+<pre><code class="lang-yaml">   - task_type: task
+     container:
+         image: alpine
+     allow_failure: true
+</code></pre>
+<h4 id="allow_start_if_completed">allow_start_if_completed</h4>
+<p>You can retry a failed job manually or automatically using <code>retry</code> configuration. Upon restart, only failed tasks are re-executed, but you can mark certain tasks to execute previously completed task, e.g.</p>
+<pre><code class="lang-yaml">   - task_type: task
+     container:
+         image: alpine
+     allow_start_if_completed: true
+</code></pre>
+<h4 id="always_run">always_run</h4>
+<p>You can mark certain tasks as <code>always_run</code> so that they are run even when the job fails. For example, you may define a cleanup task, which is executed whether the job fails or succeeds, i.e.,</p>
+<pre><code class="lang-yaml">   - task_type: task
+     container:
+         image: alpine
+     always_run: true
+</code></pre>
+<h4 id="artifacts">artifacts</h4>
+<p>The artifacts generated by a task can be stored in an artifact-store using following syntax:</p>
+<pre><code class="lang-yaml"> - task_type: extract
+   script:
+     - python -c &#39;import yfinance as yf;import json;stock = yf.Ticker(&quot;{{.Symbol}}&quot;);j = json.dumps(stock.info);print(j);&#39; &gt; stock.json
+   artifacts:
+     paths:
+       - stock.json
+</code></pre>
+<p>In above example, <code>stock.json</code> will be uploaded to the artifact-store so that it can be downloaded or reused by another task such as:</p>
+<pre><code class="lang-yaml"> - task_type: load
+   script:
+     - cat stock.json
+   dependencies:
+     - extract
+</code></pre>
+<p>In above example, <code>dependencies</code> tag indicates that the <code>load</code> task depends on <code>extract</code> task so the <code>stock.json</code> will be downloaded automatically, which can be then used by the <code>load</code> task.</p>
+<h4 id="after_script">after_script</h4>
+<p>The <code>after_script</code> tags is used to list commands that are executed after the main script regardless the main script succeeds or fails, e.g.</p>
+<pre><code class="lang-yaml">   script:
+     - make lint
+   after_script:
+     - echo cleaning up
+</code></pre>
+<p>In above example, <code>after_script</code> is executed even if the lint fails.</p>
+<h4 id="before_script">before_script</h4>
+<p>The <code>before_script</code> tags is used to list commands that are executed before the main script, e.g.</p>
+<pre><code class="lang-yaml">   before_script:
+     - git clone https://{{.GithubToken}}@github.com/bhatti/go-cicd.git .
+     - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+     - go get -u golang.org/x/lint/golint
+     - go mod download
+     - go mod vendor
+   script:
+     - make lint
+</code></pre>
+<p>In above example, the code is checked out and setup before the main script commands.</p>
+<h4 id="cache">cache</h4>
+<p>The cache option allows caching for directories that store 3rd party dependencies, e.g., following example shows how all node_modules will be cached:</p>
+<pre><code class="lang-yaml">   cache:
+     key_paths:
+       - go.mod
+     paths:
+       - vendor
+</code></pre>
+<p>In above example <code>vendor</code> folder will be cached between the runs of the job, and the cache key will be based on contents of <code>go.mod</code>.</p>
+<p>You can also specify a <code>key</code> instead of file based <code>key_paths</code>, e.g.</p>
+<pre><code class="lang-yaml">   cache:
+     key: {{.CommitID}}
+     paths:
+       - vendor
+</code></pre>
+<p>This key allows sharing cache between tasks, e.g., <code>release</code> tag is reusing this cache with the same key:</p>
+<pre><code class="lang-yaml">- task_type: release
+  method: KUBERNETES
+  script:
+    - ls -al .cache/pip venv
+  cache:
+    key: cache-key
+    paths:
+      - .cache/pip
+      - venv
+</code></pre>
+<h4 id="delay_between_retries">delay_between_retries</h4>
+<p>A task can use <code>retry</code> option to retry based on specified number of times and the <code>delay_between_retries</code> defines delay between those retries, e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: lint
+   method: KUBERNETES
+   delay_between_retries: 10s
+</code></pre>
+<h4 id="description">description</h4>
+<p>The <code>description</code> is an optional property to specify details about the task , e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: lint
+   method: KUBERNETES
+   description: This task verifies code quality with the lint tool.
+</code></pre>
+<h4 id="environment">environment</h4>
+<p>A task can define environment variables that will be available for commands that are executed, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: task1
+   method: KUBERNETES
+   script:
+     - echo region is $REGION
+   environment:
+     REGION: seattle
+</code></pre>
+<h4 id="except">except</h4>
+<p>The <code>except</code> property is used to skip task execution based on certain condition, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: integ-test
+   method: KUBERNETES
+   except: {{if ne .Branch &quot;main&quot; }} true {{end}}
+   script:
+     - make integ-test
+</code></pre>
+<p>Above example will skip <code>integ-test</code> if the branch is not <code>main</code>.</p>
+<h4 id="task_type">task_type</h4>
+<p>The <code>task_type</code> defines type or name of the task, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: lint
+</code></pre>
+<h4 id="method">method</h4>
+<p>The method defines executor to use for the task such as </p>
+<pre><code>- DOCKER 
+- KUBERNETES 
+- SHELL 
+- HTTP_GET 
+- HTTP_POST_FORM 
+- HTTP_POST_JSON 
+- HTTP_PUT_FORM 
+- HTTP_PUT_JSON 
+- HTTP_DELETE 
+- FORK_JOB 
+- AWAIT_FORKED_JOB
+</code></pre><pre><code class="lang-yaml"> - task_type: lint
+   method: KUBERNETES
+</code></pre>
+<h4 id="on_completed-on_failed">on_completed/on_failed</h4>
+<p>The on_completed defines next task to run if task completes successfully and on_failed defines the next task to run if task fails, e.g.</p>
+<pre><code class="lang-yaml">  on_completed: build
+  on_failed: cleanup
+</code></pre>
+<p>Note: once a non-optional task fails, the entire job is considered <code>failed</code> but <code>on_failed</code> can be used to execute post-processing. Alternatively, you can use <code>always_run</code> property to execute cleanup tasks.</p>
+<h4 id="on_exit">on_exit</h4>
+<p>In addition to specifying next task based on <code>on_completed</code> <code>on_failed</code>, you can also use <code>on_exit</code> to run the next task based on exit-code returned by the task. The exit code is independent of task status and is returned by the command defined in the <code>script</code>. Note, <code>on_exit</code> defines special exit codes for <code>COMPLETED</code> and <code>FAILED</code> so that you can define all exit criteria in one place, e.g.</p>
+<pre><code class="lang-yaml">  on_exit_code:
+    101: cleanup
+    COMPLETED: deploy
+</code></pre>
+<h4 id="resources">resources</h4>
+<p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
+<h4 id="retry">retry</h4>
+<p>When a task fails, it can be retried automatically via <code>retry</code> parameters, e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: lint
+   method: KUBERNETES
+   retry: 3
+</code></pre>
+<h4 id="tags">tags</h4>
+<p>The <code>tags</code> property is used to route the task to a specific ant worker that supports given tags. When the ant workers register with the server, they specify the tags and methods that they support so that the server can route tasks that they support. For example, following task specifies tags for Mac worker:</p>
+<pre><code class="lang-yaml"> - task_type: lint
+   tags:
+    - Mac
+</code></pre>
+<h4 id="timeout">timeout</h4>
+<p>The <code>timeout</code> property defines the maximum time that a task can take for the execution and if the task takes longer, then it&#39;s cancelled, e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: lint
+    timeout: 5m
+</code></pre>
+<h4 id="variables">variables</h4>
+<p>A task can define variables that can be used for scripts as template parameters or pass to the executors, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: task2
+   method: KUBERNETES
+   script:
+     - echo &quot;{{.var1}}&quot;
+   variables:
+     var1: hello there
+</code></pre>
+<p>If you need to share variables for all tasks, you can define them on the job level, e.g.,</p>
+<pre><code class="lang-yaml">job_variables:
+  Target: mytarget
+</code></pre>
+<p>The Target variable can also be used for initializing variables in templates.</p>
+<h3 id="child-jobs">Child Jobs</h3>
+<p>The formicary allows spawning other related jobs or marketplace plugins from a job, which are run concurrently. The job definition uses <code>FORK_JOB</code> method to spawn the job and <code>AWAIT_FORKED_JOB</code> to wait for completion of the spawned job, e.g.,</p>
+<pre><code class="lang-yaml"> - task_type: fork-task
+   method: FORK_JOB
+   fork_job_type: child-job
+   on_completed: fork-wait
+ - task_type: fork-wait
+   method: AWAIT_FORKED_JOB
+   await_forked_tasks:
+     - fork-task
+</code></pre>
+<p>In above example, <code>fork-task</code> will fork another job with type <code>child-job</code> and then <code>fork-wait</code> will wait for its completion. The status of <code>fork-wait</code> will be set by the job status of <code>child-job</code>.</p>
+<h3 id="templates">Templates</h3>
+<p>The job definition supports GO templates, and you can use variables that are passed by job-request or task definitions, e.g.</p>
+<pre><code class="lang-yaml">- task_type: extract
+  method: DOCKER
+  container:
+    image: python:3.8-buster
+  script:
+    - python -c &#39;import yfinance as yf;import json;stock = yf.Ticker(&quot;{{.Symbol}}&quot;);j = json.dumps(stock.info);print(j);&#39; &gt; stock.json
+</code></pre>
+<p>In above example, <code>Symbol</code> is defined as a template variable, that can be passed to job-request such as:</p>
+<pre><code class="lang-bash">curl -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;io.formicary.etl-example1&quot;, &quot;params&quot;: {&quot;Symbol&quot;: &quot;MSFT&quot;}}&#39; 
+    $SERVER/jobs/requests
+</code></pre>
+<p>In addition, you can also use <code>if/then</code> conditions with templates, e.g.</p>
+<pre><code class="lang-yaml">   - task_type: task1
+     method: DOCKER
+     container:
+       image: alpine
+     script:
+       { { if .IsWindowsPlatform } }
+       - ls -l &gt; out.txt
+       { { else } }
+       - find /tmp &gt; out.txt
+       { { end } }
+</code></pre>
+<p>Above definition will execute different commands under <code>script</code> based on <code>IsWindowsPlatform</code>, which can be defined as a variable or passed as a parameter to the request.</p>
+<h3 id="params">Params</h3>
+<p>When submitting a job, you can pass request parameters such as:</p>
+<pre><code class="lang-bash">curl -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;io.formicary.myjob&quot;, &quot;params&quot;: {&quot;City&quot;: &quot;Seattle&quot;, &quot;Age&quot;: 30, &quot;Flag&quot;: true}}&#39; \
+    $SERVER/jobs/requests
+</code></pre>
+<p>which can be used for as template parameters or pass to the executors, e.g.</p>
+<pre><code class="lang-yaml"> - task_type: task3
+   method: KUBERNETES
+   script:
+     { { if .Flag } }
+     - echo Lives in {{.Seattle}}
+     { { else } }
+     - echo Age {{.Age}}
+     { { end } }
+</code></pre>

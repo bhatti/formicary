@@ -1,0 +1,44 @@
+{{ template "layouts/header" . }}
+<h3>Organizations</h3>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Bundle</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Orgs }}
+        <tr>
+            <td>{{.ID}}</td>
+            <td>{{.OrgUnit}}</td>
+            <td>{{.BundleID}}</td>
+            <td class="group row">
+                <form action="/dashboard/orgs/{{.ID}}" method="GET">
+                    <input type="submit" class="btn btn-primary" value="View">
+                </form> &nbsp;
+                <form action="/dashboard/users" method="GET">
+                    <input type="hidden" name="organization_id" value="{{.ID}}">
+                    <input type="submit" class="btn btn-primary" value="Users">
+                </form> &nbsp;
+                <form action="/dashboard/orgs/invite/{{.ID}}" method="GET">
+                    <input type="submit" class="btn btn-primary" value="Invite">
+                </form> &nbsp;
+                {{if $.Admin}}
+                <form action="/dashboard/orgs/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                      onsubmit="return confirm('Please confirm deleting this org(' + this['id'].value + ') and all users within the organization?');">
+                    <input type="submit" class="btn btn-danger" value="Delete">
+                    <input type="hidden" name="id" value="{{.OrgUnit}}">
+                </form>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+{{ template "layouts/footer" }}

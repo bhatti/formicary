@@ -1,0 +1,32 @@
+job_type: kube-example1
+description: Simple Kubernetes example with volume mounts, secrets and ports
+max_concurrency: 1
+tasks:
+- task_type: kubby
+  tags:
+  - builder
+  pod_labels:
+    foor: bar
+  script:
+    - echo hello world
+    - ls -l
+    - ls -l /myshared
+    - ls -l /myempty
+    - sleep 21
+  method: KUBERNETES
+  host_network: false
+  services:
+    - name: redis
+      image: redis:6.2.2-alpine
+      ports:
+        - number: 6379
+  container:
+    image: ubuntu:16.04
+    volumes:
+      host_path:
+        - name: mount1
+          mount_path: /myshared
+          host_path: /shared
+      empty_dir:
+        - name: mount2
+          mount_path: /myempty

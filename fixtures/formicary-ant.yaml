@@ -1,0 +1,96 @@
+common:
+    id: my-ant-id
+    user_agent: "formicary-agent"
+    proxy_url: ""
+    http_port: 8181
+    s3:
+        endpoint: 127.0.0.1:9000
+        accessKeyID: admin
+        secretAccessKey: password
+        token: ""
+        region: us-west-2
+        prefix: formicary/
+        bucket: formicary-artifacts
+        encryptionPassword: ""
+        useSSL: false
+    pulsar:
+        url: ""
+        connection_timeout: 10s
+        channel_buffer: 20
+        oauth: {}
+        topic_suffix: ""
+        topic_tenant: ""
+        topic_namespace: ""
+        max_reconnect_to_broker: 50
+    redis:
+        host: 127.0.0.1
+        port: 6379
+        password: ""
+        ttl_minutes: 2
+        pool_size: 3
+        max_subscription_wait: 5m
+    messaging_provider: REDIS_MESSAGING
+    container_reaper_interval: 3s
+    monitor_interval: 5s
+    monitoring_urls:
+        docker: "localhost:2375"
+    registration_interval: 2s
+    max_streaming_log_message_size: 20
+    max_job_timeout: 2s
+    max_task_timeout: 5s
+tags: 
+  - tag1
+  - tag2
+methods:
+  - DOCKER
+  - KUBERNETES
+  - SHELL
+  - HTTP_GET
+  - HTTP_POST_FORM
+  - HTTP_POST_JSON
+  - HTTP_PUT_FORM
+  - HTTP_PUT_JSON
+  - HTTP_DELETE
+docker:
+    registry:
+        registry: ""
+        username: ""
+        password: ""
+        pull_policy: ""
+    host: tcp://192.168.1.104:2375
+    labels: {}
+    environment: {}
+    helper_image: ""
+kubernetes:
+    registry:
+        registry: ""
+        username: ""
+        password: ""
+        pull_policy: ""
+    host: ""
+    namespace: default
+    helper_image: ""
+    service_account: default
+    init_containers: []
+    image_pull_secrets: []
+    allow_privilege_escalation: false
+    dns_policy: ""
+    dns_config: null
+    volumes:
+        host_path: []
+        pvc: []
+        config_map: []
+        secret: []
+        empty_dir: []
+    cap_add: []
+    cap_drop: []
+    environment: {}
+    await_shutdown_pod: false
+output_limit: 67108864
+max_capacity: 10
+termination_grace_period_seconds: 10
+await_running_period_seconds: 60
+poll_interval: 3
+poll_timeout: 550
+poll_interval_before_shutdown: 10s
+poll_attempts_before_shutdown: 3

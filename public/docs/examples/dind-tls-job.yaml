@@ -1,0 +1,35 @@
+job_type: dind-tls-job
+max_concurrency: 1
+tasks:
+- task_type: build
+  working_dir: /sample
+  variables:
+    DOCKER_HOST: tcp://localhost:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_TLS: 1
+    DOCKER_TLS_CERTDIR: "/mycerts"
+  container:
+    image: docker:20.10-git
+    volumes:
+      empty_dir:
+        - name: certs
+          mount_path: /mycerts/client
+  privileged: true
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+      volumes:
+        empty_dir:
+          - name: certs
+            mount_path: /mycerts/client
+  before_script:
+    - git clone https://github.com/aquasecurity/trivy-ci-test.git .
+    - mkdir -p /root/.docker/ && cp /mycerts/client/* /root/.docker
+    - apk --no-cache add ca-certificates
+    - docker info
+  script:
+    # Build image
+    - docker build -t my-image .

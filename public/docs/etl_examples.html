@@ -1,0 +1,113 @@
+<h2 id="etl-examples">ETL Examples</h2>
+<h3 id="job-configuration">Job Configuration</h3>
+<p>Following example defines job-definition with a simple ETL:</p>
+<pre><code class="lang-yaml">job_type: etl-job
+description: Simple ETL pipeline example
+max_concurrency: 1
+tasks:
+  - task_type: extract
+    method: KUBERNETES
+    container:
+      image: python:3.8-buster
+    before_script:
+      - pip install yfinance --upgrade --no-cache-dir
+    script:
+      - python -c &#39;import yfinance as yf;import json;stock = yf.Ticker(&quot;{{.Symbol}}&quot;);j = json.dumps(stock.info);print(j);&#39; &gt; stock.json
+    artifacts:
+      paths:
+        - stock.json
+    on_completed: transform
+  - task_type: transform
+    method: KUBERNETES
+    tags:
+      - builder
+    container:
+      image: alpine
+    dependencies:
+      - extract
+    before_script:
+      - apk --update add jq &amp;&amp; rm -rf /var/lib/apt/lists/* &amp;&amp; rm /var/cache/apk/*
+    script:
+      - jq &#39;.ask,.bid&#39; &gt; askbid.txt
+    artifacts:
+      paths:
+        - askbid.txt
+    on_completed: load
+  - task_type: load
+    method: KUBERNETES
+    dependencies:
+      - transform
+    script:
+      - awk &#39;{ sum += $1; n++ } END { if (n &gt; 0) print sum / n; }&#39; askbid.txt &gt; avg.txt
+    after_script:
+      - ls -l
+    container:
+      image: alpine
+    artifacts:
+      paths:
+        - avg.txt
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, which is <code>etl-job</code> in above example.</p>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: extract 
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>python:3.8-buster</code> for the python support, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: python:3.8-buster
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    - python -c &#39;import yfinance as yf;import json;stock = yf.Ticker(&quot;{{.Symbol}}&quot;);j = json.dumps(stock.info);print(j);&#39; &gt; stock.json
+</code></pre>
+<p>In above example, python script is used to download stock data for a stock symbol, which will be passed as a parameter.</p>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g. <code>extract</code> task installs <code>jq</code> tool, .i.e.,</p>
+<pre><code class="lang-yaml">  before_script:
+    - apk --update add jq &amp;&amp; rm -rf /var/lib/apt/lists/* &amp;&amp; rm /var/cache/apk/*
+</code></pre>
+<h5 id="after-script-commands">After Script Commands</h5>
+<p>The <code>after_script</code> defines an array of shell commands that are executed after the main script whether the task fails or succeeds, e.g.,</p>
+<pre><code class="lang-yaml">  after_script:
+    - ls -l
+</code></pre>
+<h5 id="artifacts">Artifacts</h5>
+<p>The output of commands can be stored in an artifact-store so that you can easily download it, e.g. <code>extract</code> task will store the output stock data as an artifact, e.g.,</p>
+<pre><code class="lang-yaml">  artifacts:
+    paths:
+      - stock.json
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">on_completed: transform
+</code></pre>
+<p>Above task defines <code>transform</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h5 id="dependent-artifacts">Dependent Artifacts</h5>
+<p>The artifacts from one task can be used by other tasks, e.g. <code>transform</code> task is listing <code>extract</code> tasks under <code>dependencies</code> so all artifacts from those tasks are automatically made available for the task.</p>
+<pre><code class="lang-yaml">- task_type: load
+  dependencies:
+    - transform
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @etl-job.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  --data &#39;{&quot;job_type&quot;: &quot;etl-job&quot;, &quot;params&quot;: { &quot;Symbol&quot;: &quot;MSFT&quot; } }&#39; $SERVER/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>etl-job</code> job with <code>&quot;Symbol&quot;: &quot;MSFT&quot;</code> tparameters for the stock symbol.</p>

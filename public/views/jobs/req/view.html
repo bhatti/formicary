@@ -1,0 +1,133 @@
+{{ template "layouts/header" . }}
+
+<section class="group">
+    {{ with .Request }}
+    <!-- Tabs navs -->
+    <ul class="nav nav-tabs nav-justified mb-3" id="job-details" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active"
+               id="job-context-tab-1"
+               data-mdb-toggle="tab"
+               href="#job-context-tabs-1"
+               role="tab"
+               aria-controls="job-context-tabs-1"
+               aria-selected="true"
+            >Job Summary</a>
+        </li>
+        {{ with .Execution }}
+        {{ range .Tasks }}
+        <li class="nav-item" role="presentation">
+            {{if .Completed }}
+            <a class="nav-link btn-sm btn-outline-success"
+               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
+               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+            {{end}}
+            {{if .Failed }}
+            <a class="nav-link btn-sm btn-outline-danger"
+               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
+               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+            {{ end }}
+            {{if .NotTerminal }}
+            <a class="nav-link btn-sm"
+               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
+               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+            {{end}}
+        </li>
+        {{ end }}
+        {{ end }}
+        &nbsp;
+        <li class="nav-item" role="presentation">
+            <a class="nav-link"
+               id="job-graph-tab"
+               data-mdb-toggle="tab"
+               href="#job-graph-tabs"
+               role="tab"
+               aria-controls="job-graph-tabs"
+               aria-selected="false"
+            >Job Graph</a>
+        </li>
+    </ul>
+    <!-- Tabs navs -->
+
+    <!-- Tabs content -->
+    <div class="tab-content" id="ex2-content">
+        <div class="tab-pane fade show active"
+             id="job-context-tabs-1"
+             role="tabpanel"
+             aria-labelledby="job-context-tab-1">
+
+            {{ template "jobs/req/summary" . }}
+        </div>
+        {{ with .Execution }}
+        {{range .Tasks}}
+        <div class="tab-pane fade"
+             id="job-tabs-{{.ID}}"
+             role="tabpanel"
+             aria-labelledby="job-tab-{{.ID}}">
+            {{ template "jobs/req/task" . }}
+        </div>
+        {{ end }}
+        {{ end }}
+        <div class="tab-pane fade"
+             id="job-graph-tabs"
+             role="tabpanel"
+             aria-labelledby="job-graph-tab">
+            <img src="/dashboard/jobs/requests/{{.ID}}/dot.png">
+        </div>
+    </div>
+    {{ end }} <!-- Request -->
+    <!-- Tabs content -->
+</section>
+<script type="text/javascript">
+    window.addEventListener("load", function () {
+        const triggerTabList = [].slice.call(document.querySelectorAll('#job-details a'));
+        triggerTabList.forEach((triggerEl) => {
+            const tabTrigger = new mdb.Tab(triggerEl);
+
+            triggerEl.addEventListener('click', (event) => {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+    })
+</script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
+<script type="text/javascript" src="/js/ansi_colors.js"></script>
+
+<h4>Log Events:</h4>
+<pre id="logs"></pre>
+<script>
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
+    console.log({uri}, 'Connecting')
+
+    const ws = new WebSocket(uri)
+    ws.onopen = function () {
+        console.log({uri}, 'Connected')
+        const requestID = document.getElementById('requestID').innerText
+        const intervalId = setInterval(function () {
+            ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
+            ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
+            console.log({"event_type": "LogEvent & TaskExecutionLifecycleEvent", "event_scope": requestID}, 'subscribing');
+        }, 15000);
+        ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
+        ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
+        console.log({"event_type": "LogEvent & TaskExecutionLifecycleEvent", "event_scope": requestID}, 'subscribing');
+    }
+
+    ws.onmessage = function (evt) {
+        const event = JSON.parse(evt.data);
+        //const msg = ansispan(event.message);
+        if (event.event_type === 'LogEvent') {
+            document.getElementById('logs').innerText += event.message + '\n';
+            window.scrollTo(0, document.body.scrollHeight);
+        } else if (event.event_type === 'TaskExecutionLifecycleEvent') {
+            window.location.reload(false);
+        } else {
+            console.log({evt}, 'unknown event');
+        }
+    }
+
+</script>
+
+{{ template "layouts/footer" }}

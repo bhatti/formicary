@@ -1,0 +1,122 @@
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Task Definition</h4>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <tr class="table-info">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd class="col-sm-8">{{ .ID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Type:</b></dt>
+                        <dd class="col-sm-8">{{ .TaskType}}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Method:</b></dt>
+                        <dd class="col-sm-8">{{ .Method}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Description:</b></dt>
+                        <dd class="col-sm-8">{{ .Description }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Allow failure:</b></dt>
+                        <dd class="col-sm-8">{{ .AllowFailure }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Allow start if completed:</b></dt>
+                        <dd class="col-sm-8">{{ .AllowStartIfCompleted }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Always run :</b></dt>
+                        <dd class="col-sm-8">{{ .AlwaysRun }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Timeout:</b></dt>
+                        <dd class="col-sm-8">{{ .Timeout }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Tags:</b></dt>
+                        <dd class="col-sm-8">{{ .Tags }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>OnExit:</b></dt>
+                        <dd class="col-sm-8 text-left">{{ .OnExitCodeSerialized}}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <header class="group-header">
+        <h5 class="group-sub-header">Task Config</h5>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                <th class="col-sm-4">Name</th>
+                <th class="col-sm-8">Value</th>
+            </tr>
+            </thead>
+            {{range .FilteredVariables }}
+            <tr scope="row">
+                <td>
+                    <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
+                </td>
+                <td>
+                    <dd class="col-sm-8">{{ .Value }}</dd>
+                </td>
+            </tr>
+            {{ end }}
+        </table>
+    </div>
+
+    <header class="group-header">
+        <h5 class="group-sub-header">Before Script</h5>
+    </header>
+    <ul>
+        {{range .BeforeScript}}
+        <li>{{.}}</li>
+        {{end}}
+    </ul>
+
+    <header class="group-header">
+        <h5 class="group-sub-header">Script</h5>
+    </header>
+    <ul>
+        {{range .Script}}
+        <li>{{.}}</li>
+        {{end}}
+    </ul>
+
+</section>

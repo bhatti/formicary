@@ -1,0 +1,221 @@
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Task Execution</h4>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <tr class="table-info">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>ID:</b></dt>
+                        <dd class="col-sm-8">{{ .ID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Type:</b></dt>
+                        <dd class="col-sm-8">{{ .TaskType}}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{if .Completed }}
+            <tr class="table-success">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-info">
+                {{end}}
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>State:</b></dt>
+                        <dd class="col-sm-8">{{ .TaskState }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Task Method:</b></dt>
+                        <dd class="col-sm-8">{{ .Method }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{if .Completed }}
+            <tr class="table-secondary">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-secondary">
+                {{end}}
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Error Code:</b></dt>
+                        <dd class="col-sm-8">{{ .ErrorCode }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Failure Retries:</b></dt>
+                        <dd class="col-sm-8">{{ .Retried }}</dd>
+                    </dl>
+                </td>
+            </tr>
+                {{if .Completed }}
+            <tr class="table-secondary">
+                {{end}}
+                {{if .Failed }}
+            <tr class="table-danger">
+                {{end}}
+                {{if .NotTerminal }}
+            <tr class="table-secondary">
+                {{end}}
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Error Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ErrorMessage }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Duration:</b></dt>
+                        <dd class="col-sm-8">{{ .ElapsedDuration }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Exit Code:</b></dt>
+                        <dd class="col-sm-8">{{ .ExitCode }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Total Cost:</b></dt>
+                        <dd class="col-sm-8">{{ .ExecutionCostSecs }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Services:</b></dt>
+                        <dd class="col-sm-8">{{ .CountServices }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Exit Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ExitMessage }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Order:</b></dt>
+                        <dd class="col-sm-8">{{ .TaskOrder}}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Allow Failure:</b></dt>
+                        <dd class="col-sm-8">{{ .AllowFailure }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ant ID:</b></dt>
+                        <dd class="col-sm-8">{{ .AntID }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ant Host:</b></dt>
+                        <dd class="col-sm-8">{{ .AntHost }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr class="table-secondary">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Started At:</b></dt>
+                        <dd class="col-sm-8">{{ .StartedAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Ended At:</b></dt>
+                        <dd class="col-sm-8">{{ .EndedAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <header class="group-header">
+        <h5 class="group-title">Task Artifacts</h5>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                {{if false}}
+                <th class="col-sm-4">Task ID</th>
+                {{end}}
+                <th class="col-sm-4">Bucket</th>
+                <th class="col-sm-4">Kind</th>
+                <th class="col-sm-8">URL</th>
+            </tr>
+            </thead>
+            {{range .Artifacts }}
+            <tr scope="row">
+                {{if false}}
+                <td>
+                    <dd class="col-sm-4">{{ $.ID }}</dd>
+                </td>
+                {{end}}
+                <td>
+                    <dd class="col-sm-4">{{ .Bucket }}</dd>
+                </td>
+                <td>
+                    <dd class="col-sm-4">{{ .Kind }}</dd>
+                </td>
+                <td>
+                    <dd class="col-sm-8"><a href="{{ .DashboardURL }}">{{.Name}}</a></dd>
+                </td>
+            </tr>
+            {{ end }}
+        </table>
+    </div>
+    <header class="group-header">
+        <h5 class="group-sub-header">Task Execution Context</h5>
+    </header>
+    <div class="table-responsive">
+        <table class="table table-sm table-border">
+            <thead class="thead-dark">
+            <tr>
+                <th class="col-sm-4">Name</th>
+                <th class="col-sm-8">Value</th>
+            </tr>
+            </thead>
+            {{range .Contexts }}
+            <tr scope="row">
+                <td>
+                    <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
+                </td>
+                <td>
+                    <dd class="col-sm-8">{{ .Value }}</dd>
+                </td>
+            </tr>
+            {{ end }}
+        </table>
+    </div>
+
+</section>

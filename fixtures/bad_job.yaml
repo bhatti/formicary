@@ -1,0 +1,46 @@
+job_type: bad-job
+max_concurrency: 1
+tasks:
+- task_type: get
+  method: HTTP_GET
+  tags:
+  - builder
+  - pulsar
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: post
+- task_type: post
+  method: HTTP_POST_JSON
+  tags:
+  - builder
+  - pulsar
+  script:
+    - https://jsonplaceholder.typicode.com/todos
+  on_completed: put
+- task_type: put
+  method: HTTP_PUT_JSON
+  tags:
+  - builder
+  - pulsar
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: delete
+- task_type: delete
+  method: HTTP_DELETE
+  tags:
+  - builder
+  - pulsar
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: bad-fork-task
+- task_type: bad-fork-task
+  method: FORK_JOB
+  fork_job_type: fork-job
+  variables:
+    f1: 1000
+    f2: mykey
+  on_completed: bad-fork-wait
+- task_type: bad-fork-wait
+  method: AWAIT_FORKED_JOB
+  await_forked_tasks:
+    - bad-fork-task

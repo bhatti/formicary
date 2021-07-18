@@ -1,0 +1,5775 @@
+<h2 id="api-docs">API Docs</h2>
+<h3 id="authentication">Authentication</h3>
+<p>The API access requires access token that you can generate from the UI, e.g., <img src="api_token1.png" alt="Creating Token"></p>
+<p><img src="api_token2.png" alt="Copying Token"></p>
+<h3 id="api-specification">API Specification</h3>
+<h3 id="security">Security</h3>
+<p><strong>api_key</strong>  </p>
+<table>
+<thead>
+<tr>
+<th>apiKey</th>
+<th><em>API Key</em></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In</td>
+<td>header</td>
+</tr>
+<tr>
+<td>Name</td>
+<td>Authorization</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-ants">/api/ants</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries ant registration.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of ant-registrations matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-ants-id-">/api/ants/{id}</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Retrieves ant-registration by its id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Ant Registration body</td>
+<td><a href="#antregistration">AntRegistration</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-artifacts">/api/artifacts</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries artifacts by name, task-type, etc.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>order</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>name</td>
+<td>query</td>
+<td>Name - name of artifact for display</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>group</td>
+<td>query</td>
+<td>Group of artifact</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>query</td>
+<td>Kind of artifact</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>job_request_id</td>
+<td>query</td>
+<td>JobRequestID refers to request-id being processed</td>
+<td>No</td>
+<td>integer (uint64)</td>
+</tr>
+<tr>
+<td>task_type</td>
+<td>query</td>
+<td>TaskType defines type of task</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>sha256</td>
+<td>query</td>
+<td>SHA256 refers hash of the contents</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>content_type</td>
+<td>query</td>
+<td>ContentType refers to content-type of artifact</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>content_length</td>
+<td>query</td>
+<td>ContentLength refers to content-length of artifact</td>
+<td>No</td>
+<td>long</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of artifacts matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Uploads artifact data from the request body and returns metadata for the uploaded data.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td>[ integer (uint8) ]</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Artifact body</td>
+<td><a href="#artifact">Artifact</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-artifacts-id-">/api/artifacts/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="description">Description</h5>
+<p>Deletes artifact by its id</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Deletes artifact by its id</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-audits">/api/audits</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries audits within the organization that is allowed.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>target_id</td>
+<td>query</td>
+<td>TargetID defines target id</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>query</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>query</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>query</td>
+<td>Kind defines type of audit record</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>query</td>
+<td>JobType - job-type</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of audits matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-configs">/api/configs</h3>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Queries system configs <code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>query</td>
+<td>Scope defines scope such as default or org-unit</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>query</td>
+<td>Kind defines kind of config property</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>name</td>
+<td>query</td>
+<td>Name defines name of config property</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Query results of system-configs</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new system config based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#systemconfig">SystemConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>SystemConfig body for update</td>
+<td><a href="#systemconfig">SystemConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-configs-id-">/api/configs/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes an existing system config based on id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes an existing system config based on id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates an existing system config based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#systemconfig">SystemConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>SystemConfig body for update</td>
+<td><a href="#systemconfig">SystemConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-errors">/api/errors</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries error-codes by type, regex.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>regex</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>exit_code</td>
+<td>query</td>
+<td>ExitCode defines exit-code for error</td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>query</td>
+<td>ErrorCode defines error code</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>query</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>task_type_scope</td>
+<td>query</td>
+<td>TaskTypeScope only applies error code for task_type</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>platform_scope</td>
+<td>query</td>
+<td>PlatformScope only applies error code for platform</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>hard_failure</td>
+<td>query</td>
+<td>HardFailure determines if this error can be retried or is hard failure</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Query results of error-codes</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new error code based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#errorcode">ErrorCode</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>ErrorCode body for update</td>
+<td><a href="#errorcode">ErrorCode</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates new error code based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#errorcode">ErrorCode</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>ErrorCode body for update</td>
+<td><a href="#errorcode">ErrorCode</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-errors-id-">/api/errors/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes error code by id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds error code by id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>ErrorCode body for update</td>
+<td><a href="#errorcode">ErrorCode</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-executors">/api/executors</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries container executions.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of container-executions matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-executors-id-">/api/executors/{id}</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes container-executor by its id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-health">/api/health</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns health status.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td></td>
+<td><a href="#healthqueryresponse">HealthQueryResponse</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions">/api/jobs/definitions</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries job definitions by criteria such as type, platform, etc.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>query</td>
+<td>JobType defines a unique type of job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>query</td>
+<td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>paused</td>
+<td>query</td>
+<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td>public_plugin</td>
+<td>query</td>
+<td>PublicPlugin means job is public plugin</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>query</td>
+<td>Tags is aggregation of task tags and it can be searched via <code>tags:in</code></td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of jobDefinitions matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Uploads job definitions using JSON or YAML body based on content-type header.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobdefinition">JobDefinition</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by ant followers. The workflow of job uses task exit codes to define next task to execute.</td>
+<td><a href="#jobdefinition">JobDefinition</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-">/api/jobs/definitions/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes the job-definition by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds the job-definition by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by ant followers. The workflow of job uses task exit codes to define next task to execute.</td>
+<td><a href="#jobdefinition">JobDefinition</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-concurrency">/api/jobs/definitions/{id}/concurrency</h3>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates the concurrency for job-definition by id to limit the maximum jobs that can be executed at the same time.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>concurrency</td>
+<td>formData</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-dot">/api/jobs/definitions/{id}/dot</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns Graphviz DOT definition for the graph of tasks defined in the job.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>String response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-dot-png">/api/jobs/definitions/{id}/dot.png</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns Real-time statistics of jobs running.</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td></td>
+<td>[ <a href="#jobstats">JobStats</a> ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-pause">/api/jobs/definitions/{id}/pause</h3>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Pauses job-definition so that no new requests are executed while in-progress jobs are allowed to complete.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-id-unpause">/api/jobs/definitions/{id}/unpause</h3>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Unpauses job-definition so that new requests can start processing.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-jobid-configs">/api/jobs/definitions/{jobId}/configs</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries job configs by criteria such as name, type, etc.</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of jobConfigs matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Adds a config for the job.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobdefinitionconfig">JobDefinitionConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#jobdefinitionconfig">JobDefinitionConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-jobid-configs-id-">/api/jobs/definitions/{jobId}/configs/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes a config for the job by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>jobId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds a config for the job by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>jobId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#jobdefinitionconfig">JobDefinitionConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates a config for the job.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>jobId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobdefinitionconfig">JobDefinitionConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#jobdefinitionconfig">JobDefinitionConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-definitions-type-yaml">/api/jobs/definitions/{type}/yaml</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds job-definition by type and returns response YAML format.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by ant followers. The workflow of job uses task exit codes to define next task to execute.</td>
+<td><a href="#jobdefinition">JobDefinition</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests">/api/jobs/requests</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries job requests by criteria such as type, platform, etc.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>query</td>
+<td>JobType defines a unique type of job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>query</td>
+<td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>job_state</td>
+<td>query</td>
+<td>JobState defines state of job that is maintained throughout the lifecycle of a job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>job_group</td>
+<td>query</td>
+<td>JobGroup defines a property for grouping related job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of jobRequests matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Submits a job-request for processing, which is saved in the database and is then scheduled for execution.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobrequest">JobRequest</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#jobrequest">JobRequest</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-">/api/jobs/requests/{id}</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds the job-request by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#jobrequest">JobRequest</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-cancel">/api/jobs/requests/{id}/cancel</h3>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Cancels a job-request that is pending for execution or already executing.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-dot">/api/jobs/requests/{id}/dot</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns Graphviz DOT request for the graph of tasks defined in the job request.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>String response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-dot-png">/api/jobs/requests/{id}/dot.png</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns Graphviz DOT image for the graph of tasks defined in the job.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Byte Array response body</td>
+<td>[ integer (uint8) ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-restart">/api/jobs/requests/{id}/restart</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-wait_time">/api/jobs/requests/{id}/wait_time</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns wait time for the job-request.</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-request wait times based on average of previously executed jobs and pending jobs in the queue.</td>
+<td><a href="#jobwaitestimate">JobWaitEstimate</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-dead_ids">/api/jobs/requests/dead_ids</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns job-request ids for recently completed jobs.</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-request ids</td>
+<td>[ integer (uint64) ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-stats">/api/jobs/requests/stats</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns statistics for the job-request such as success rate, latency, etc.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>The job-request statistics about success-rate, latency, etc.</td>
+<td>[ <a href="#jobcounts">JobCounts</a> ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-resources">/api/jobs/resources</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries job resources by criteria such as type, platform, etc.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>resource_type</td>
+<td>query</td>
+<td>ResourceType defines type of resource such as Device, CPU, Memory</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>description</td>
+<td>query</td>
+<td>Description of resource</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>query</td>
+<td>Platform can be OS platform or target runtime</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of jobResources matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Adds a job-resource that can be used for managing internal or external constraints.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobresource">JobResource</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>JobResource represents a virtual resource, which can be used to implement mutex/semaphores for a job.</td>
+<td><a href="#jobresource">JobResource</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-resources-id-">/api/jobs/resources/{id}</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds the job-resource by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>JobResource represents a virtual resource, which can be used to implement mutex/semaphores for a job.</td>
+<td><a href="#jobresource">JobResource</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates a job-resource that can be used for managing internal or external constraints.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#jobresource">JobResource</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>JobResource represents a virtual resource, which can be used to implement mutex/semaphores for a job.</td>
+<td><a href="#jobresource">JobResource</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-resources-id-configs">/api/jobs/resources/{id}/configs</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Save the job-resource config</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>jobResourceConfig represents config for the resource</td>
+<td><a href="#jobresourceconfig">JobResourceConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-resources-id-configs-configid-">/api/jobs/resources/{id}/configs/{configId}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="description">Description</h5>
+<p>Deletes the job-resource config by id of job-resource and config-id</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>config_id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-resources-id-pause">/api/jobs/resources/{id}/pause</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Deletes the job-resource by id</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-metrics">/api/metrics</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Returns prometheus health metrics.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Results of prometheus-metrics</td>
+<td>[ string ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-orgs">/api/orgs</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries organizations by criteria such as org-unit, bundle, etc.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of orgs matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new organization.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#organization">Organization</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Org defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organization">Organization</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-orgs-id-">/api/orgs/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes the organization by its id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds the organization by its id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Org defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organization">Organization</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates the organization profile.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#organization">Organization</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Org defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organization">Organization</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-orgs-id-invite">/api/orgs/{id}/invite</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Invite user to the organization</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User invitation</td>
+<td><a href="#userinvitation">UserInvitation</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-orgs-orgid-configs">/api/orgs/{orgId}/configs</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries organization configs by criteria such as name, type, etc.</p>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of orgConfigs matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Adds a config for the organization.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#organizationconfig">OrganizationConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organizationconfig">OrganizationConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-orgs-orgid-configs-id-">/api/orgs/{orgId}/configs/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes a config for the organization by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>orgId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds a config for the organization by id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>orgId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organizationconfig">OrganizationConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates a config for the organization.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>orgId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#organizationconfig">OrganizationConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.</td>
+<td><a href="#organizationconfig">OrganizationConfig</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users">/api/users</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries users within the organization that is allowed.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>name</td>
+<td>query</td>
+<td>Name of user</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>username</td>
+<td>query</td>
+<td>Username defines username</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>email</td>
+<td>query</td>
+<td>Email defines email</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of users matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new user.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User of the system who can create job-definitions, submit and execute jobs.</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users-id-">/api/users/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes the user profile by its id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Finds user profile by its id.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User of the system who can create job-definitions, submit and execute jobs.</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates user profile.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User of the system who can create job-definitions, submit and execute jobs.</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users-userid-tokens">/api/users/{userId}/tokens</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries user-tokens for the API access.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>userId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Results of user-tokens</td>
+<td>[ <a href="#usertoken">UserToken</a> ]</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new user-token for the API access.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>userId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User-token for the API access.</td>
+<td><a href="#usertoken">UserToken</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users-userid-tokens-id-">/api/users/{userId}/tokens/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes user-token by its id so that it cannot be used for the API access.</p>
+<h5 id="parameters">Parameters</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>userId</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="models">Models</h3>
+<h4 id="antregistration">AntRegistration</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>allocations</td>
+<td></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>ant_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>ant_started_at</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>ant_topic</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>current_load</td>
+<td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>max_capacity</td>
+<td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>methods</td>
+<td>[ <a href="#taskmethod">TaskMethod</a> ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="artifact">Artifact</h4>
+<p>The metadata defines properties to associate artifact with a task or job and can be used to query artifacts related for a job or an organization.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>artifact_order</td>
+<td>long</td>
+<td>ArtifactOrder of artifact in group</td>
+<td>No</td>
+</tr>
+<tr>
+<td>bucket</td>
+<td>string</td>
+<td>Bucket defines bucket where artifact is stored</td>
+<td>No</td>
+</tr>
+<tr>
+<td>content_length</td>
+<td>long</td>
+<td>ContentLength refers to content-length of artifact</td>
+<td>No</td>
+</tr>
+<tr>
+<td>content_type</td>
+<td>string</td>
+<td>ContentType refers to content-type of artifact</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>etag</td>
+<td>string</td>
+<td>ETag stores ETag from underlying storage such as Minio/S3</td>
+<td>No</td>
+</tr>
+<tr>
+<td>expires_at</td>
+<td>dateTime</td>
+<td>ExpiresAt - expiration time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>group</td>
+<td>string</td>
+<td>Group of artifact</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_execution_id</td>
+<td>string</td>
+<td>JobExecutionID refers to job-execution-id being processed</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_request_id</td>
+<td>integer (uint64)</td>
+<td>JobRequestID refers to request-id being processed</td>
+<td>No</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>string</td>
+<td>Kind of artifact</td>
+<td>No</td>
+</tr>
+<tr>
+<td>metadata</td>
+<td>object</td>
+<td>MetadataMap - transient map of properties - deserialized from MetadataSerialized</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of artifact for display</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>permissions</td>
+<td>integer</td>
+<td>Permissions of artifact</td>
+<td>No</td>
+</tr>
+<tr>
+<td>sha256</td>
+<td>string</td>
+<td>SHA256 defines hash of the contents using SHA-256 algorithm</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_execution_id</td>
+<td>string</td>
+<td>TaskExecutionID refers to task-execution-id being processed</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_type</td>
+<td>string</td>
+<td>TaskType defines type of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="auditkind">AuditKind</h4>
+<p>AuditKind defines enum for state of request or execution</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AuditKind</td>
+<td>string</td>
+<td>AuditKind defines enum for state of request or execution</td>
+</tr>
+</tbody>
+</table>
+<h4 id="auditrecord">AuditRecord</h4>
+<p>AuditRecord defines audit-record</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error</td>
+<td>string</td>
+<td>Error message</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType - job-type</td>
+<td>No</td>
+</tr>
+<tr>
+<td>kind</td>
+<td><a href="#auditkind">AuditKind</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>message</td>
+<td>string</td>
+<td>Message defines audit message</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>remote_ip</td>
+<td>string</td>
+<td>RemoteIP defines remote ip-address</td>
+<td>No</td>
+</tr>
+<tr>
+<td>target_id</td>
+<td>string</td>
+<td>TargetID defines target id</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td>URL defines access url</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="basicresource">BasicResource</h4>
+<p>These mutex/semaphores can represent external resources that job requires and can be used to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service and it may only accept upto five connections that can be allocated via resources.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>category</td>
+<td>string</td>
+<td>Category can be used to represent grouping of resources</td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of resource</td>
+<td>No</td>
+</tr>
+<tr>
+<td>extract_config</td>
+<td><a href="#resourcecriteriaconfig">ResourceCriteriaConfig</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>string</td>
+<td>Platform can be OS platform or target runtime</td>
+<td>No</td>
+</tr>
+<tr>
+<td>resource_type</td>
+<td>string</td>
+<td>ResourceType defines type of resource such as Device, CPU, Memory</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>[ string ]</td>
+<td>Tags can be used as tags for resource matching</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>long</td>
+<td>Value consumed, e.g. it will be 1 for mutex, semaphore but can be higher number for other quota system</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="containerlifecycleevent">ContainerLifecycleEvent</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ant_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>container_id</td>
+<td>string</td>
+<td>ContainerID</td>
+<td>No</td>
+</tr>
+<tr>
+<td>container_name</td>
+<td>string</td>
+<td>ContainerName</td>
+<td>No</td>
+</tr>
+<tr>
+<td>container_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td>dateTime</td>
+<td>EndedAt</td>
+<td>No</td>
+</tr>
+<tr>
+<td>event_type</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>labels</td>
+<td>object</td>
+<td>Labels</td>
+<td>No</td>
+</tr>
+<tr>
+<td>method</td>
+<td><a href="#taskmethod">TaskMethod</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>source</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>started_at</td>
+<td>dateTime</td>
+<td>StartedAt</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="duration">Duration</h4>
+<p>A Duration represents the elapsed time between two instants as an int64 nanosecond count. The representation limits the largest representable duration to approximately 290 years.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duration</td>
+<td>integer</td>
+<td>A Duration represents the elapsed time between two instants as an int64 nanosecond count. The representation limits the largest representable duration to approximately 290 years.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="errorcode">ErrorCode</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>action</td>
+<td><a href="#errorcodeaction">ErrorCodeAction</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of error</td>
+<td>No</td>
+</tr>
+<tr>
+<td>display_code</td>
+<td>string</td>
+<td>DisplayCode defines user code for error</td>
+<td>No</td>
+</tr>
+<tr>
+<td>display_message</td>
+<td>string</td>
+<td>DisplayMessage defines user message for error</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>string</td>
+<td>ErrorCode defines error code</td>
+<td>No</td>
+</tr>
+<tr>
+<td>exit_code</td>
+<td>long</td>
+<td>ExitCode defines exit-code for error</td>
+<td>No</td>
+</tr>
+<tr>
+<td>hard_failure</td>
+<td>boolean</td>
+<td>HardFailure determines if this error can be retried or is hard failure</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>platform_scope</td>
+<td>string</td>
+<td>PlatformScope only applies error code for platform</td>
+<td>No</td>
+</tr>
+<tr>
+<td>regex</td>
+<td>string</td>
+<td>Regex matches error-code</td>
+<td>No</td>
+</tr>
+<tr>
+<td>retry</td>
+<td>long</td>
+<td>Retry defines number of tries if task is failed with this error code</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_type_scope</td>
+<td>string</td>
+<td>TaskTypeScope only applies error code for task_type</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="errorcodeaction">ErrorCodeAction</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ErrorCodeAction</td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="healthqueryresponse">HealthQueryResponse</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dependent_service_statuses</td>
+<td>[ <a href="#servicestatus">ServiceStatus</a> ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>overall_status</td>
+<td><a href="#servicestatus">ServiceStatus</a></td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobcounts">JobCounts</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>counts</td>
+<td>long</td>
+<td>Counts defines total number of records matching stats</td>
+<td>No</td>
+</tr>
+<tr>
+<td>end_time</td>
+<td>dateTime</td>
+<td>EndTime stores last occurrence of the stats</td>
+<td>No</td>
+</tr>
+<tr>
+<td>end_time_string</td>
+<td>string</td>
+<td>EndTime stores last occurrence of the stats for sqlite</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>string</td>
+<td>ErrorCode defines error code if job failed</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>start_time</td>
+<td>dateTime</td>
+<td>StartTime stores first occurrence of the stats</td>
+<td>No</td>
+</tr>
+<tr>
+<td>start_time_stirng</td>
+<td>string</td>
+<td>StartTime stores first occurrence of the stats for sqlite</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobdefinition">JobDefinition</h4>
+<p>The workflow of job uses task exit codes to define next task to execute. The task definition represents definition of a job and instance of the job is created using JobExecution when a new job request is submitted.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cron_trigger</td>
+<td>string</td>
+<td>CronTrigger can be used to run the job periodically</td>
+<td>No</td>
+</tr>
+<tr>
+<td>delay_between_retries</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>hard_reset_after_retries</td>
+<td>long</td>
+<td>HardResetAfterRetries defines retry config when job is rerun and as opposed to re-running only failed tasks, all tasks are executed.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines a unique type of job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_variables</td>
+<td>object</td>
+<td>Following are transient properties -- these are populated when AfterLoad or Validate is called</td>
+<td>No</td>
+</tr>
+<tr>
+<td>max_concurrency</td>
+<td>long</td>
+<td>MaxConcurrency defines max number of jobs that can be run concurrently</td>
+<td>No</td>
+</tr>
+<tr>
+<td>methods</td>
+<td>string</td>
+<td>Methods is aggregation of task methods</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>paused</td>
+<td>boolean</td>
+<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>string</td>
+<td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
+<td>No</td>
+</tr>
+<tr>
+<td>public_plugin</td>
+<td>boolean</td>
+<td>PublicPlugin means job is public plugin</td>
+<td>No</td>
+</tr>
+<tr>
+<td>required_params</td>
+<td>[ string ]</td>
+<td>RequiredParams from job request (and plugin)</td>
+<td>No</td>
+</tr>
+<tr>
+<td>resources</td>
+<td><a href="#basicresource">BasicResource</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>retry</td>
+<td>long</td>
+<td>Retry defines max number of tries a job can be retried where it re-runs failed job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>sem_version</td>
+<td>string</td>
+<td>SemVersion - semantic version is used for external version, which can be used for public plugins.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>string</td>
+<td>Tags are used to use specific followers that support the tags defined by ants. Tags is aggregation of task tags</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tasks</td>
+<td>[ <a href="#taskdefinition">TaskDefinition</a> ]</td>
+<td>Tasks defines one to many relationships between job and tasks, where tasks defines a directed acyclic graph of tasks that are executed for the job.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>timeout</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td>URL defines url for job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who updated the job</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobdefinitionconfig">JobDefinitionConfig</h4>
+<p>JobDefinitionConfig defines variables for job definition</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_definition_id</td>
+<td>string</td>
+<td>JobDefinitionID defines foreign key for JobDefinition</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type defines type of property value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobexecution">JobExecution</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contexts</td>
+<td>[ <a href="#jobexecutioncontext">JobExecutionContext</a> ]</td>
+<td>Contexts defines context variables of job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cpu_secs</td>
+<td>integer (uint64)</td>
+<td>CPUSecs execution time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td>dateTime</td>
+<td>EndedAt job execution end time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>string</td>
+<td>ErrorCode captures error code at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_message</td>
+<td>string</td>
+<td>ErrorMessage captures error message at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>exit_code</td>
+<td>string</td>
+<td>ExitCode defines exit status from the job execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>exit_message</td>
+<td>string</td>
+<td>ExitMessage defines exit message from the job execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_request_id</td>
+<td>integer (uint64)</td>
+<td>JobRequestID defines foreign key for job request</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>started_at</td>
+<td>dateTime</td>
+<td>StartedAt job execution start time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tasks</td>
+<td>[ <a href="#taskexecution">TaskExecution</a> ]</td>
+<td>Tasks defines list of tasks that are executed for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job execution last update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobexecutioncontext">JobExecutionContext</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job context creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_execution_id</td>
+<td>string</td>
+<td>gorm.Model JobExecutionID defines foreign key for JobExecution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type defines type of property value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobrequest">JobRequest</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cron_triggered</td>
+<td>boolean</td>
+<td>CronTriggered is true if request was triggered by cron</td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of the request</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>string</td>
+<td>ErrorCode captures error code at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_message</td>
+<td>string</td>
+<td>ErrorMessage captures error message at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>execution</td>
+<td><a href="#jobexecution">JobExecution</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>integer (uint64)</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_definition_id</td>
+<td>string</td>
+<td>JobDefinitionID points to the job-definition version</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_execution_id</td>
+<td>string</td>
+<td>JobExecutionID defines foreign key for JobExecution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_group</td>
+<td>string</td>
+<td>JobGroup defines a property for grouping related job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_priority</td>
+<td>long</td>
+<td>JobPriority defines priority of the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>last_job_execution_id</td>
+<td>string</td>
+<td>LastJobExecutionID defines foreign key for JobExecution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>params</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>parent_id</td>
+<td>integer (uint64)</td>
+<td>ParentID defines id for parent job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>permissions</td>
+<td>long</td>
+<td>Permissions provides who can access this request 0 - all, 1 - Org must match, 2 - UserID must match from authentication</td>
+<td>No</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>string</td>
+<td>Platform overrides platform property for targeting job to a specific follower</td>
+<td>No</td>
+</tr>
+<tr>
+<td>quick_search</td>
+<td>string</td>
+<td>QuickSearch provides quick search to search a request by params</td>
+<td>No</td>
+</tr>
+<tr>
+<td>retried</td>
+<td>long</td>
+<td>Retried keeps track of retry attempts</td>
+<td>No</td>
+</tr>
+<tr>
+<td>schedule_attempts</td>
+<td>long</td>
+<td>ScheduleAttempts defines attempts of schedule</td>
+<td>No</td>
+</tr>
+<tr>
+<td>scheduled_at</td>
+<td>dateTime</td>
+<td>ScheduledAt defines schedule time when job will be submitted so that you can submit a job that will be executed later</td>
+<td>No</td>
+</tr>
+<tr>
+<td>timeout</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_key</td>
+<td>string</td>
+<td>UserKey defines user-defined UUID and can be used to detect duplicate jobs</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobrequestinfo">JobRequestInfo</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cron_triggered</td>
+<td>boolean</td>
+<td>CronTriggered is true if request was triggered by cron</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>integer (uint64)</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_execution_id</td>
+<td>string</td>
+<td>JobExecutionID</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_priority</td>
+<td>long</td>
+<td>JobPriority defines priority of the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>last_job_execution_id</td>
+<td>string</td>
+<td>LastJobExecutionID defines foreign key for JobExecution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>schedule_attempts</td>
+<td>long</td>
+<td>ScheduleAttempts defines attempts of schedule</td>
+<td>No</td>
+</tr>
+<tr>
+<td>scheduled_at</td>
+<td>dateTime</td>
+<td>ScheduledAt defines schedule time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobresource">JobResource</h4>
+<p>Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc. You can use them as mutex, semaphores or quota system to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service and it may only accept upto five connections that can be allocated via resources.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>category</td>
+<td>string</td>
+<td>Category can be used to represent grouping of resources</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of resource</td>
+<td>No</td>
+</tr>
+<tr>
+<td>external_id</td>
+<td>string</td>
+<td>ExternalID defines external-id of the resource if exists</td>
+<td>No</td>
+</tr>
+<tr>
+<td>extract_config</td>
+<td><a href="#resourcecriteriaconfig">ResourceCriteriaConfig</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>lease_timeout</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>paused</td>
+<td>boolean</td>
+<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>string</td>
+<td>Platform can be OS platform or target runtime</td>
+<td>No</td>
+</tr>
+<tr>
+<td>quota</td>
+<td>long</td>
+<td>Quota can be used to represent mutex (max 1), semaphores (max limit) or other kind of quota. Note: mutex/semaphores can only take one resource by quota may take any value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>resource_type</td>
+<td>string</td>
+<td>ResourceType defines type of resource such as Device, CPU, Memory</td>
+<td>No</td>
+</tr>
+<tr>
+<td>resource_variables</td>
+<td>object</td>
+<td>Following are transient properties</td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>[ string ]</td>
+<td>Tags can be used as tags for resource matching</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>valid_status</td>
+<td>boolean</td>
+<td>ValidStatus - health status of resource</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>long</td>
+<td>Value consumed, e.g. it will be 1 for mutex, semaphore but can be higher number for other quota system</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobresourceconfig">JobResourceConfig</h4>
+<p>JobResourceConfig defines configuration for job resource</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_resource_id</td>
+<td>string</td>
+<td>JobResourceID defines foreign key for JobResource</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type defines type of property value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobstats">JobStats</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ant_unavailable_error</td>
+<td>string</td>
+<td>AntUnavailableError error</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ants_available</td>
+<td>boolean</td>
+<td>AntsAvailable flag</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ants_capacity</td>
+<td>long</td>
+<td>AntsCapacity</td>
+<td>No</td>
+</tr>
+<tr>
+<td>executing_jobs</td>
+<td>integer</td>
+<td>ExecutingJobs count</td>
+<td>No</td>
+</tr>
+<tr>
+<td>failed_jobs</td>
+<td>long</td>
+<td>FailedJobs count</td>
+<td>No</td>
+</tr>
+<tr>
+<td>failed_jobs_average_latency</td>
+<td>double</td>
+<td>FailedJobsAverage average</td>
+<td>No</td>
+</tr>
+<tr>
+<td>failed_jobs_max_latency</td>
+<td>long</td>
+<td>FailedJobsMax max</td>
+<td>No</td>
+</tr>
+<tr>
+<td>failed_jobs_min_latency</td>
+<td>long</td>
+<td>SailedJobsMin min</td>
+<td>No</td>
+</tr>
+<tr>
+<td>first_job_at</td>
+<td>dateTime</td>
+<td>FirstJobAt time of job start</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_paused</td>
+<td>boolean</td>
+<td>JobPaused paused flag</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>string</td>
+<td>JobType defines type of job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>last_job_at</td>
+<td>dateTime</td>
+<td>LastJobAt update time of last job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>succeeded_jobs</td>
+<td>long</td>
+<td>SucceededJobs count</td>
+<td>No</td>
+</tr>
+<tr>
+<td>succeeded_jobs_average_latency</td>
+<td>double</td>
+<td>SucceededJobsAverage average</td>
+<td>No</td>
+</tr>
+<tr>
+<td>succeeded_jobs_max_latency</td>
+<td>long</td>
+<td>SucceededJobsMax max</td>
+<td>No</td>
+</tr>
+<tr>
+<td>succeeded_jobs_min_latency</td>
+<td>long</td>
+<td>SucceededJobsMin min</td>
+<td>No</td>
+</tr>
+<tr>
+<td>succeeded_jobs_percentage</td>
+<td>long</td>
+<td>SucceededJobsPercentages</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobwaitestimate">JobWaitEstimate</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JobRequest</td>
+<td><a href="#jobrequestinfo">JobRequestInfo</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>JobStats</td>
+<td><a href="#jobstats">JobStats</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_message</td>
+<td>string</td>
+<td>ErrorMessage</td>
+<td>No</td>
+</tr>
+<tr>
+<td>estimated_wait</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>pending_job_ids</td>
+<td>[ integer (uint64) ]</td>
+<td>PendingJobIDs</td>
+<td>No</td>
+</tr>
+<tr>
+<td>queue_number</td>
+<td>long</td>
+<td>QueueNumber number in queue</td>
+<td>No</td>
+</tr>
+<tr>
+<td>scheduled_at</td>
+<td>dateTime</td>
+<td>ScheduledAt - schedule time</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="monitorable">Monitorable</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="organization">Organization</h4>
+<p>It is used multi-tenancy support in the platform.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bundle_id</td>
+<td>string</td>
+<td>BundleID defines package or bundle</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt created time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>license_policy</td>
+<td>string</td>
+<td>LicensePolicy defines license policy</td>
+<td>No</td>
+</tr>
+<tr>
+<td>max_concurrency</td>
+<td>long</td>
+<td>MaxConcurrency defines max number of jobs that can be run concurrently by org</td>
+<td>No</td>
+</tr>
+<tr>
+<td>org_unit</td>
+<td>string</td>
+<td>OrgUnit defines org-unit</td>
+<td>No</td>
+</tr>
+<tr>
+<td>owner_user_id</td>
+<td>string</td>
+<td>OwnerUserID defines owner user</td>
+<td>No</td>
+</tr>
+<tr>
+<td>parent_id</td>
+<td>string</td>
+<td>ParentID defines parent org</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt update time</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="organizationconfig">OrganizationConfig</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines foreign key for Organization</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type defines type of property value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="requeststate">RequestState</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RequestState</td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="resourcecriteriaconfig">ResourceCriteriaConfig</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ResourceCriteriaConfig</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="servicestatus">ServiceStatus</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ConsecutiveFailures</td>
+<td>integer (uint64)</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>ConsecutiveSuccess</td>
+<td>integer (uint64)</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>HealthError</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>LastCheck</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>Monitored</td>
+<td><a href="#monitorable">Monitorable</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>TotalFailures</td>
+<td>integer (uint64)</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>TotalSuccess</td>
+<td>integer (uint64)</td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="systemconfig">SystemConfig</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>string</td>
+<td>Kind defines kind of config property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of config property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>string</td>
+<td>Scope defines scope such as default or org-unit</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of config property</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="taskdefinition">TaskDefinition</h4>
+<p>The task definition represents definition of the task and instance of the task uses TaskExecution when a new job is submitted and executed. Based on the definition, a task request is sent to remote ant follower that supports method and tags of the task. A task response is then received and results are saved in the database.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>after_script</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>allow_failure</td>
+<td>boolean</td>
+<td>AllowFailure means the task is optional and can fail without failing entire job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>allow_start_if_completed</td>
+<td>boolean</td>
+<td>AllowStartIfCompleted  means the task is always run on retry even if it was completed successfully</td>
+<td>No</td>
+</tr>
+<tr>
+<td>always_run</td>
+<td>boolean</td>
+<td>AlwaysRun means the task is always run on execution even if the job fails. For example, a required task fails (without AllowFailure), the job is aborted and remaining tasks are skipped but a task defined as <code>AlwaysRun</code> is run even if the job fails.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>artifact_ids</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>before_script</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>delay_between_retries</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>dependencies</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Description of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>except</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>headers</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>host_network</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_definition_id</td>
+<td>string</td>
+<td>JobDefinitionID defines foreign key for JobDefinition</td>
+<td>No</td>
+</tr>
+<tr>
+<td>method</td>
+<td><a href="#taskmethod">TaskMethod</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>on_completed</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>on_exit_code</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>on_failed</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>resources</td>
+<td><a href="#basicresource">BasicResource</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>retry</td>
+<td>long</td>
+<td>Retry defines max number of tries a task can be retried where it re-runs failed tasks</td>
+<td>No</td>
+</tr>
+<tr>
+<td>script</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>[ string ]</td>
+<td>Tags are used to use specific followers that support the tags defined by ants. For example, you may start a follower that processes payments and the task will be routed to that follower</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_type</td>
+<td>string</td>
+<td>TaskType defines type of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>timeout</td>
+<td><a href="#duration">Duration</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>variables</td>
+<td>object</td>
+<td>Transient properties -- these are populated when AfterLoad or Validate is called</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="taskexecution">TaskExecution</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ant_host</td>
+<td>string</td>
+<td>AntHost - host where ant ran the task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ant_id</td>
+<td>string</td>
+<td>AntID - id of ant with version</td>
+<td>No</td>
+</tr>
+<tr>
+<td>artifacts</td>
+<td>[ <a href="#artifact">Artifact</a> ]</td>
+<td>Artifacts defines list of artifacts that are generated for the task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>contexts</td>
+<td>[ <a href="#taskexecutioncontext">TaskExecutionContext</a> ]</td>
+<td>Contexts defines context variables of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td>dateTime</td>
+<td>EndedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_code</td>
+<td>string</td>
+<td>ErrorCode captures error code at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>error_message</td>
+<td>string</td>
+<td>ErrorMessage captures error message at the end of job execution if it fails</td>
+<td>No</td>
+</tr>
+<tr>
+<td>exit_code</td>
+<td>string</td>
+<td>ExitCode defines exit status from the job execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>exit_message</td>
+<td>string</td>
+<td>ExitMessage defines exit message from the job execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_execution_id</td>
+<td>string</td>
+<td>JobExecutionID defines foreign key for JobExecution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>method</td>
+<td><a href="#taskmethod">TaskMethod</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>retried</td>
+<td>long</td>
+<td>Retried keeps track of retry attempts</td>
+<td>No</td>
+</tr>
+<tr>
+<td>started_at</td>
+<td>dateTime</td>
+<td>StartedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_order</td>
+<td>long</td>
+<td>TaskOrder</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_state</td>
+<td><a href="#requeststate">RequestState</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_type</td>
+<td>string</td>
+<td>TaskType defines type of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt job execution last update time</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="taskexecutioncontext">TaskExecutionContext</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt task context creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name defines name of property</td>
+<td>No</td>
+</tr>
+<tr>
+<td>secret</td>
+<td>boolean</td>
+<td>Secret for encryption</td>
+<td>No</td>
+</tr>
+<tr>
+<td>task_execution_id</td>
+<td>string</td>
+<td>TaskExecutionID defines foreign key for task-execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type defines type of property value</td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>string</td>
+<td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="taskmethod">TaskMethod</h4>
+<p>The ant followers registers with the methods that they support and the task is then routed based on method, tags and concurrency of the ant follower.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TaskMethod</td>
+<td>string</td>
+<td>The ant followers registers with the methods that they support and the task is then routed based on method, tags and concurrency of the ant follower.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="user">User</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>admin</td>
+<td>boolean</td>
+<td>Admin is used for admin role</td>
+<td>No</td>
+</tr>
+<tr>
+<td>bundle_id</td>
+<td>string</td>
+<td>BundleID defines package or bundle</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt created time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>email</td>
+<td>string</td>
+<td>Email defines email</td>
+<td>No</td>
+</tr>
+<tr>
+<td>email_verified</td>
+<td>boolean</td>
+<td>EmailVerified for email</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>locked</td>
+<td>boolean</td>
+<td>Locked account</td>
+<td>No</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name of user</td>
+<td>No</td>
+</tr>
+<tr>
+<td>oauth_id</td>
+<td>string</td>
+<td>OAuthID defines id from external oauth provider</td>
+<td>No</td>
+</tr>
+<tr>
+<td>oauth_provider</td>
+<td>string</td>
+<td>OAuthProvider defines provider for external oauth provider</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines foreign key for Organization</td>
+<td>No</td>
+</tr>
+<tr>
+<td>perms</td>
+<td>string</td>
+<td>Perms defines permissions</td>
+<td>No</td>
+</tr>
+<tr>
+<td>picture_url</td>
+<td>string</td>
+<td>PictureURL defines URL for picture</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td>URL defines url</td>
+<td>No</td>
+</tr>
+<tr>
+<td>username</td>
+<td>string</td>
+<td>Username defines username</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="userinvitation">UserInvitation</h4>
+<p>UserInvitation represents a user session</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>accepted_at</td>
+<td>dateTime</td>
+<td>ExpiresAt expiration time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt created time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>email</td>
+<td>string</td>
+<td>Email defines invitee</td>
+<td>No</td>
+</tr>
+<tr>
+<td>expires_at</td>
+<td>dateTime</td>
+<td>ExpiresAt expiration time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>invitation_code</td>
+<td>string</td>
+<td>InvitationCode defines code</td>
+<td>No</td>
+</tr>
+<tr>
+<td>invited_by_user_id</td>
+<td>string</td>
+<td>InvitedByUserID defines foreign key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines foreign key</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="usertoken">UserToken</h4>
+<p>Note: The JWT token is not directly stored in the database, just its hash and expiration. Also, this can be used to revoke API tokens.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt created time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>expires_at</td>
+<td>dateTime</td>
+<td>ExpiresAt expiration time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines foreign key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>sha256</td>
+<td>string</td>
+<td>SHA256 defines sha of token</td>
+<td>No</td>
+</tr>
+<tr>
+<td>token_name</td>
+<td>string</td>
+<td>TokenName defines name of token</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID `defines foreign key</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>

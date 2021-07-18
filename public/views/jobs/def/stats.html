@@ -1,0 +1,40 @@
+{{ template "layouts/header" . }}
+<h3>Latest Job Stats</h3>
+<div align="right"><b>Range:</b> {{.FromDate}} - {{.ToDate}}</div>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th class="col-sm-1">Job</th>
+            <th class="col-sm-1">Ants Available</th>
+            <th class="col-sm-1">Executing</th>
+            <th class="col-sm-2">Succeeded</th>
+            <th class="col-sm-2">Failed</th>
+            <th class="col-sm-1">First Date</th>
+            <th class="col-sm-1">Last Date</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Stats}}
+        <tr>
+            <td class="col-sm-1"><a href="/dashboard/jobs/definitions/{{.JobKey.JobType}}">{{.JobKey.JobType}}</a></td>
+            <td class="col-sm-1">{{.AntsAvailable}} {{.AntUnavailableError}}</td>
+            <td class="col-sm-1">{{.ExecutingJobs}}</td>
+            <td class="col-sm-2">{{.SucceededJobs}}<br/>
+                {{if gt .SucceededJobs 0 }}
+                <b>Latency:</b> Min={{.SucceededJobsMin}} Average={{.SucceededJobsAverage}} Max={{.SucceededJobsMax}}
+                {{end}}
+            </td>
+            <td class="col-sm-2">{{.FailedJobs}}<br/>
+                {{if gt .FailedJobs 0 }}
+                <b>Latency:</b> Min={{.FailedJobsMin}} Average={{.FailedJobsAverage}} Max={{.FailedJobsMax}}
+                {{end}}
+            </td>
+            <td class="col-sm-1">{{.FirstJobAtString}}</td>
+            <td class="col-sm-1">{{.LastJobAtString}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+{{ template "layouts/footer" }}

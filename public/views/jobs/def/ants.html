@@ -1,0 +1,38 @@
+<header class="group-header">
+    <h4 class="group-title">Available Ants</h4>
+</header>
+<div class="form-group">
+    {{ with .AllocationError }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+</div>
+{{ with .Allocations }}
+<div class="table-responsive">
+    <table class="table table-sm table-border">
+        <thead class="thead-dark">
+        <tr>
+            <th>Task</th>
+            <th>Ant ID</th>
+            <th>Connected At</th>
+            <th>Load</th>
+        </tr>
+        </thead>
+        {{ range . }}
+        <tr scope="row">
+            <td>
+                <dd>{{ .TaskType }}</dd>
+            </td>
+            <td>
+                <dd>{{ .AntID }}</dd>
+            </td>
+            <td>
+                <dd>{{ .AllocatedAtString}}</dd>
+            </td>
+            <td>
+                <dd>{{ .CurrentLoad }}</dd>
+            </td>
+        </tr>
+        {{end}}
+    </table>
+</div>
+{{ end }}

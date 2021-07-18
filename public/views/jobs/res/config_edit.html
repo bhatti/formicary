@@ -1,0 +1,59 @@
+{{ template "layouts/header" . }}
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Edit Config for Virtual Resource</h4>
+        {{ with .Resource }}
+        <dl class="row">
+            <dt class="col-sm-4"><b>ID:</b></dt>
+            <dd class="col-sm-8">{{ .ID }}</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-4"><b>Type:</b></dt>
+            <dd class="col-sm-8">{{ .ResourceType }}</dd>
+        </dl>
+        {{ end }}
+    </header>
+    <form action="/dashboard/jobs/resources/{{ .Resource.ID }}/configs" method="POST">
+        {{ with .Config }}
+        <div class="form-group">
+            {{ with .Errors.Error }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+        </div>
+        <div class="form-group">
+            {{ with .Errors.Name }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+            <div class="row">
+                <label for="name" class="col-sm-2 col-form-label">Name:</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control col-sm-6" name="name" id="name"
+                           value="{{ .Name }}" placeholder="config name">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            {{ with .Errors.value }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+            <div class="row">
+                <label for="value" class="col-sm-2 col-form-label">Value:</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control col-sm-6" name="value" id="value" value="{{ .Value }}"
+                           placeholder="config value">
+                </div>
+            </div>
+        </div>
+        <div class="form-group row">
+            <div class="col-sm-10 offset-sm-2">
+                <button type="submit" class="btn btn-primary">Save Config</button>
+            </div>
+        </div>
+        {{end}}
+    </form>
+
+    <footer class="group-footer">
+    </footer>
+
+</section>
+{{ template "layouts/footer" }}
