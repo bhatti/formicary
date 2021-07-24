@@ -22,6 +22,7 @@ type ServerConfig struct {
 	Email                         EmailConfig     `yaml:"email" mapstructure:"email"`
 	GatewaySubscriptions          map[string]bool `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
 	URLPresignedExpirationMinutes time.Duration   `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
+	SubscriptionQuotaEnabled      bool            `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
 // EmailConfig -- Defines email config

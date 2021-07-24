@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -15,10 +16,11 @@ import (
 
 // UserController structure
 type UserController struct {
-	commonCfg             *common.CommonConfig
-	auditRecordRepository repository.AuditRecordRepository
-	userRepository        repository.UserRepository
-	webserver             web.Server
+	commonCfg              *common.CommonConfig
+	auditRecordRepository  repository.AuditRecordRepository
+	userRepository         repository.UserRepository
+	subscriptionRepository repository.SubscriptionRepository
+	webserver              web.Server
 }
 
 // NewUserController instantiates controller for updating users
@@ -26,12 +28,14 @@ func NewUserController(
 	commonCfg *common.CommonConfig,
 	auditRecordRepository repository.AuditRecordRepository,
 	userRepository repository.UserRepository,
+	subscriptionRepository repository.SubscriptionRepository,
 	webserver web.Server) *UserController {
 	userCtrl := &UserController{
-		commonCfg:             commonCfg,
-		auditRecordRepository: auditRecordRepository,
-		userRepository:        userRepository,
-		webserver:             webserver,
+		commonCfg:              commonCfg,
+		auditRecordRepository:  auditRecordRepository,
+		userRepository:         userRepository,
+		subscriptionRepository: subscriptionRepository,
+		webserver:              webserver,
 	}
 	webserver.GET("/api/users", userCtrl.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_users"
 	webserver.GET("/api/users/:id", userCtrl.getUser, acl.New(acl.User, acl.View)).Name = "get_user"
@@ -91,6 +95,21 @@ func (uc *UserController) postUser(c web.WebContext) error {
 		status = http.StatusOK
 	}
 	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserUpdated, qc))
+
+	subscription := common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)
+	if subscription, err = uc.subscriptionRepository.Create(subscription); err == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SubscriptionController",
+			"Subscription": subscription,
+		}).Info("created Subscription")
+		_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SubscriptionController",
+			"Subscription": subscription,
+			"Error":        err,
+		}).Errorf("failed to create Subscription")
+	}
 	return c.JSON(status, saved)
 }
 

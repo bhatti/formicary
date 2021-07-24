@@ -4,6 +4,7 @@
       user_id VARCHAR(36),
       organization_id VARCHAR(36),
       kind VARCHAR(100) NOT NULL,
+      policy VARCHAR(100) NOT NULL,
       period VARCHAR(100) NOT NULL,
       price INT(20) NOT NULL DEFAULT 0,
       cpu_quota INT(20) NOT NULL DEFAULT 0,

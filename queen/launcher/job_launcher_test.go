@@ -47,6 +47,8 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 	require.NoError(t, err)
 	errorRepository, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
+	userRepository, err := repository.NewTestUserRepository()
+	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	artifactService, err := artifacts.NewStub(nil)
@@ -66,6 +68,7 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		artifactManager,
@@ -79,6 +82,7 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 		jobManager,
 		artifactManager,
 		errorRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		metricsRegistry,

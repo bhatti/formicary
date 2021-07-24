@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"plexobject.com/formicary/internal/crypto"
 	"plexobject.com/formicary/internal/events"
-	"plexobject.com/formicary/queen/types/subscription"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,6 +20,7 @@ var testFactory *Factory
 
 const testDB = "sqlite"
 const testDBSource = "/tmp/formicary_sqlite.db"
+
 //const testDBSource = ":memory:"
 
 // NewTestFactory Creating a test database connection
@@ -137,13 +137,22 @@ func NewTestUserRepository() (UserRepository, error) {
 	return f.UserRepository, nil
 }
 
-// NewTestOrganizationRepository Creating a test repository for resources
+// NewTestOrganizationRepository Creating a test repository for org
 func NewTestOrganizationRepository() (OrganizationRepository, error) {
 	f, err := NewTestFactory()
 	if err != nil {
 		return nil, err
 	}
 	return f.OrgRepository, nil
+}
+
+// NewTestSubscriptionRepository Creating a test repository for subscription
+func NewTestSubscriptionRepository() (SubscriptionRepository, error) {
+	f, err := NewTestFactory()
+	if err != nil {
+		return nil, err
+	}
+	return f.SubscriptionRepository, nil
 }
 
 // NewTestSystemConfigRepository Creating a test repository for system config
@@ -189,6 +198,6 @@ func clearDB(db *gorm.DB) {
 	db.Where("id != ''").Delete(common.User{})
 	db.Where("id != ''").Delete(common.Organization{})
 	db.Where("id != ''").Delete(events.LogEvent{})
-	db.Where("id != ''").Delete(subscription.Subscription{})
-	db.Where("id != ''").Delete(subscription.Payment{})
+	db.Where("id != ''").Delete(common.Subscription{})
+	db.Where("id != ''").Delete(common.Payment{})
 }

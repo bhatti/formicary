@@ -45,6 +45,7 @@ type JobExecutionStateMachine struct {
 	JobManager          *manager.JobManager
 	ArtifactManager     *manager.ArtifactManager
 	ErrorCodeRepository repository.ErrorCodeRepository
+	userRepository      repository.UserRepository
 	orgRepository       repository.OrganizationRepository
 	ResourceManager     resource.Manager
 	MetricsRegistry     *metrics.Registry
@@ -52,11 +53,14 @@ type JobExecutionStateMachine struct {
 	JobDefinition       *types.JobDefinition
 	JobExecution        *types.JobExecution
 	LastJobExecution    *types.JobExecution
+	User                *common.User
 	Organization        *common.Organization
 	Reservations        map[string]*common.AntReservation
 	id                  string
 	serverCfg           *config.ServerConfig
 	errorCode           *common.ErrorCode
+	cpuUsage            types.ResourceUsage
+	diskUsage           types.ResourceUsage
 }
 
 // NewJobExecutionStateMachine creates new state machine for request execution
@@ -66,6 +70,7 @@ func NewJobExecutionStateMachine(
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
 	errorCodeRepository repository.ErrorCodeRepository,
+	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
 	resourceManager resource.Manager,
 	metricsRegistry *metrics.Registry,
@@ -77,6 +82,7 @@ func NewJobExecutionStateMachine(
 		QueueClient:         queueClient,
 		JobManager:          jobManager,
 		ArtifactManager:     artifactManager,
+		userRepository:      userRepository,
 		orgRepository:       orgRepository,
 		ErrorCodeRepository: errorCodeRepository,
 		ResourceManager:     resourceManager,
@@ -91,6 +97,12 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	// Validate validates required fields
 	if jsm.serverCfg == nil {
 		return fmt.Errorf("server-config is not specified")
+	}
+	if jsm.userRepository == nil {
+		return fmt.Errorf("userRepository is not specified")
+	}
+	if jsm.orgRepository == nil {
+		return fmt.Errorf("orgRepository is not specified")
 	}
 	if jsm.Request == nil {
 		return fmt.Errorf("job-request is not specified")
@@ -113,10 +125,20 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	if err = jsm.JobDefinition.Validate(); err != nil {
 		return err
 	}
-	if jsm.JobDefinition.OrganizationID != "" {
+
+	// loading user and organization from request
+	if jsm.Request.GetUserID() != "" {
+		jsm.User, err = jsm.userRepository.Get(
+			jsm.QueryContext(),
+			jsm.Request.GetUserID())
+		if err != nil {
+			return err
+		}
+	}
+	if jsm.Request.GetOrganizationID() != "" {
 		jsm.Organization, err = jsm.orgRepository.Get(
 			jsm.QueryContext(),
-			jsm.JobDefinition.OrganizationID)
+			jsm.Request.GetOrganizationID())
 		if err != nil {
 			return err
 		}
@@ -253,7 +275,12 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 
 // UpdateJobRequestTimestamp updates timestamp so that job scheduler doesn't consider it as orphan
 func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestamp(_ context.Context) (err error) {
-	// TODO check accounting here so in case job exceeds available CPU units
+	if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.User != nil && jsm.User.Subscription != nil {
+		secs := time.Now().Sub(jsm.User.Subscription.LoadedAt).Seconds()
+		if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
+			return fmt.Errorf("exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+		}
+	}
 	return jsm.JobManager.UpdateJobRequestTimestamp(jsm.Request.GetID())
 }
 
@@ -414,6 +441,12 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 		methods = append(methods, common.TaskMethod(m))
 	}
 	return jsm.ResourceManager.HasAntsForJobTags(methods, tags)
+}
+
+// CheckSubscriptionQuota checks quota
+func (jsm *JobExecutionStateMachine) CheckSubscriptionQuota() (err error) {
+	jsm.cpuUsage, jsm.diskUsage, err = jsm.JobManager.CheckSubscriptionQuota(jsm.QueryContext(), jsm.User)
+	return err
 }
 
 // ReserveJobResources reserves ant resources when scheduling a job so that we don't over burden underlying

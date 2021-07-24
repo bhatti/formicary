@@ -34,7 +34,7 @@ func Test_ShouldQueryOrgs(t *testing.T) {
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
-	org := common.NewOrganization("org", "name")
+	org := common.NewOrganization("user", "org", "name")
 	// AND an existing organization
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func Test_ShouldGetOrgByID(t *testing.T) {
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
-	org := common.NewOrganization("org", "name")
+	org := common.NewOrganization("user", "org", "name")
 	// AND an existing organization
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
-	org := common.NewOrganization("org", "name")
+	org := common.NewOrganization("user", "org", "name")
 	b, err := json.Marshal(org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -108,7 +108,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	// WHEN updating organization
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", false))
+	ctx.Set(web.DBUser, common.NewUser(saved.ID, "username", "name", false))
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putOrganization(ctx)
 
@@ -127,7 +127,7 @@ func Test_ShouldDeleteOrg(t *testing.T) {
 	require.NoError(t, err)
 	organizationRepository.Clear()
 	// AND existing organization
-	org := common.NewOrganization("org", "name")
+	org := common.NewOrganization("user", "org", "name")
 	saved, err := organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()

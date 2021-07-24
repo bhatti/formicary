@@ -201,3 +201,17 @@ func (a *Artifact) AfterLoad() error {
 func (a *Artifact) DashboardURL() string {
 	return strings.ReplaceAll(a.URL, "/api/", "/dashboard/")
 }
+
+// LengthString / 1024 * 1024
+func (a *Artifact) LengthString() string {
+	if a.ContentLength > 1024*1024 {
+		return fmt.Sprintf("%d MiB",
+			a.ContentLength/1024/1024)
+	} else if a.ContentLength > 1024 {
+		return fmt.Sprintf("%d KiB",
+			a.ContentLength/1024)
+	} else {
+		return fmt.Sprintf("%d B",
+			a.ContentLength)
+	}
+}

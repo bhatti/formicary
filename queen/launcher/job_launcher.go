@@ -29,6 +29,7 @@ type JobLauncher struct {
 	jobManager          *manager.JobManager
 	artifactManager     *manager.ArtifactManager
 	errorCodeRepository repository.ErrorCodeRepository
+	userRepository      repository.UserRepository
 	orgRepository       repository.OrganizationRepository
 	resourceManager     resource.Manager
 	metricsRegistry     *metrics.Registry
@@ -44,6 +45,7 @@ func New(
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
 	errorCodeRepository repository.ErrorCodeRepository,
+	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
 	resourceManager resource.Manager,
 	metricsRegistry *metrics.Registry,
@@ -55,6 +57,7 @@ func New(
 		jobManager:          jobManager,
 		artifactManager:     artifactManager,
 		errorCodeRepository: errorCodeRepository,
+		userRepository:      userRepository,
 		orgRepository:       orgRepository,
 		resourceManager:     resourceManager,
 		metricsRegistry:     metricsRegistry,
@@ -130,6 +133,7 @@ func (jl *JobLauncher) launchJob(
 		jl.jobManager,
 		jl.artifactManager,
 		jl.errorCodeRepository,
+		jl.userRepository,
 		jl.orgRepository,
 		jl.resourceManager,
 		jl.metricsRegistry,

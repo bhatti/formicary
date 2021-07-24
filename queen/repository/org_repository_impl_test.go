@@ -36,6 +36,19 @@ func Test_ShouldDeleteOrganizationByNonExistingId(t *testing.T) {
 	require.Contains(t, err.Error(), "not found")
 }
 
+// Saving org without user should not fail
+func Test_ShouldSaveOrganizationWithoutUser(t *testing.T) {
+	// GIVEN repositories
+	repo, err := NewTestOrganizationRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	// WHEN creating organization without unit
+	ec := common.NewOrganization("", "org", "bundle")
+	_, err = repo.Create(qc, ec)
+	// THEN it should not fail
+	require.NoError(t, err)
+}
+
 // Saving org without org-id should fail
 func Test_ShouldSaveOrganizationWithoutOrg(t *testing.T) {
 	// GIVEN repositories
@@ -43,7 +56,7 @@ func Test_ShouldSaveOrganizationWithoutOrg(t *testing.T) {
 	require.NoError(t, err)
 	repo.Clear()
 	// WHEN creating organization without unit
-	ec := common.NewOrganization("", "bundle")
+	ec := common.NewOrganization("user", "", "bundle")
 	_, err = repo.Create(qc, ec)
 	// THEN it should fail
 	require.Error(t, err)
@@ -57,7 +70,7 @@ func Test_ShouldSaveOrganizationWithoutBundle(t *testing.T) {
 	require.NoError(t, err)
 	repo.Clear()
 	// WHEN creating organization without bundle
-	ec := common.NewOrganization("org", "")
+	ec := common.NewOrganization("user", "org", "")
 	_, err = repo.Create(qc, ec)
 	// THEN it should fail
 	require.Error(t, err)
@@ -69,7 +82,7 @@ func Test_ShouldSaveValidOrganization(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestOrganizationRepository()
 	require.NoError(t, err)
-	u := common.NewOrganization("test-org", "bundle")
+	u := common.NewOrganization("user", "test-org", "bundle")
 
 	// WHEN saving valid org
 	saved, err := repo.Create(qc, u)
@@ -82,6 +95,7 @@ func Test_ShouldSaveValidOrganization(t *testing.T) {
 	require.NoError(t, err)
 	// Comparing saved object
 	require.NoError(t, saved.Equals(loaded))
+	require.Nil(t, loaded.Subscription)
 
 	// WHEN Updating org
 	_, err = repo.Update(qc, saved)
@@ -94,12 +108,52 @@ func Test_ShouldSaveValidOrganization(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Saving valid org with subscription
+func Test_ShouldSaveValidOrganizationWithSubscription(t *testing.T) {
+	// GIVEN repositories
+	organizationRepository, err := NewTestOrganizationRepository()
+	require.NoError(t, err)
+	subscriptionRepository, err := NewTestSubscriptionRepository()
+	require.NoError(t, err)
+	u := common.NewOrganization("user", "sub-test-org", "sub-bundle")
+
+	// WHEN saving valid org
+	saved, err := organizationRepository.Create(qc, u)
+
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	subscription, err := subscriptionRepository.Create(common.NewFreemiumSubscription("", saved.ID))
+	require.NoError(t, err)
+	// THEN Retrieving should fail
+	_, err = subscriptionRepository.Get(common.NewQueryContext("", saved.ID, ""), subscription.ID)
+	require.NoError(t, err)
+
+	// AND retrieving org by id should not fail
+	loaded, err := organizationRepository.Get(common.NewQueryContext("", saved.ID, ""), saved.ID)
+	require.NoError(t, err)
+	// Comparing saved object
+	require.NoError(t, saved.Equals(loaded))
+	require.NotNil(t, loaded.Subscription)
+	require.Equal(t, subscription.ID, loaded.Subscription.ID)
+
+	// WHEN Updating org
+	_, err = organizationRepository.Update(common.NewQueryContext("", "Bad", ""), saved)
+	// THEN it should fail due to bad org-id in context
+	require.Error(t, err)
+
+	// WHEN using saved.id in context
+	_, err = organizationRepository.Update(common.NewQueryContext("", saved.ID, saved.Salt), saved)
+	// THEN it should not fail
+	require.NoError(t, err)
+}
+
 // Deleting a persistent org should succeed
 func Test_ShouldDeletingPersistentOrganization(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestOrganizationRepository()
 	require.NoError(t, err)
-	u := common.NewOrganization("test-org", "bundle")
+	u := common.NewOrganization("user", "test-org", "bundle")
 
 	repo.Clear()
 
@@ -128,7 +182,7 @@ func Test_ShouldSaveAndQueryOrganizations(t *testing.T) {
 
 	orgs := make([]*common.Organization, 10)
 	for i := 0; i < 10; i++ {
-		u := common.NewOrganization(fmt.Sprintf("org_%d", i), fmt.Sprintf("bundle_%d", i))
+		u := common.NewOrganization("user", fmt.Sprintf("org_%d", i), fmt.Sprintf("bundle_%d", i))
 		orgs[i], err = repo.Create(qc, u)
 		require.NoError(t, err)
 	}
@@ -155,7 +209,7 @@ func Test_ShouldAddInvitation(t *testing.T) {
 	userRepo.Clear()
 
 	// AND an existing organization
-	org, err := orgRepo.Create(qc, common.NewOrganization("org1", "bundle1"))
+	org, err := orgRepo.Create(qc, common.NewOrganization("user", "org1", "bundle1"))
 	require.NoError(t, err)
 	user := common.NewUser(org.ID, "user1", "name", false)
 	user.Email = "test@formicary.io"

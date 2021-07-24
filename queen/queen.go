@@ -86,6 +86,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		repoFactory.JobDefinitionRepository,
 		repoFactory.JobRequestRepository,
 		repoFactory.JobExecutionRepository,
+		repoFactory.UserRepository,
 		repoFactory.OrgRepository,
 		resourceManager,
 		artifactManager,
@@ -109,6 +110,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			jobManager,
 			artifactManager,
 			repoFactory.ErrorCodeRepository,
+			repoFactory.UserRepository,
 			repoFactory.OrgRepository,
 			resourceManager,
 			healthMonitor,
@@ -151,6 +153,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		jobManager,
 		artifactManager,
 		repoFactory.ErrorCodeRepository,
+		repoFactory.UserRepository,
 		repoFactory.OrgRepository,
 		resourceManager,
 		metricsRegistry)

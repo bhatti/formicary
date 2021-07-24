@@ -34,8 +34,10 @@ func (orc *OrganizationRepositoryImpl) Get(
 	_ *common.QueryContext,
 	id string) (*common.Organization, error) {
 	var org common.Organization
+	now := time.Now()
 	res := orc.db.Where("id = ?", id).
 		Where("active = ?", true).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Preload("Configs").
 		First(&org)
 	if res.Error != nil {
@@ -51,9 +53,11 @@ func (orc *OrganizationRepositoryImpl) Get(
 func (orc *OrganizationRepositoryImpl) GetByUnit(
 	_ *common.QueryContext,
 	unit string) (*common.Organization, error) {
+	now := time.Now()
 	var org common.Organization
 	res := orc.db.Where("org_unit = ?", unit).
 		Where("active = ?", true).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Preload("Configs").
 		First(&org)
 	if res.Error != nil {
@@ -204,7 +208,8 @@ func (orc *OrganizationRepositoryImpl) Update(
 	}
 	if !qc.Matches(old.OwnerUserID, old.ID) {
 		return nil, common.NewPermissionError(
-			fmt.Errorf("organization %s cannot be edited by non-member %s", org.OrgUnit, qc.OrganizationID))
+			fmt.Errorf("organization '%s' with id '%s' cannot be edited by non-member %s",
+				org.OrgUnit, old.ID, qc.OrganizationID))
 	}
 	err = orc.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB

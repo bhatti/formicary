@@ -202,7 +202,8 @@ func (gw *Gateway) handleRegistration(c web.WebContext, ws *websocket.Conn) {
 					"Address":   ws.RemoteAddr().String(),
 					"Lease":     lease,
 				}).Errorf("failed to get logged in user")
-				_ = lease.WriteMessage(events.NewErrorEvent("WebsocketGateway", "", "session token not found").Marshal())
+				msg := events.NewErrorEvent("WebsocketGateway", "", "session token not found").Marshal()
+				_ = lease.connection.WriteMessage(websocket.TextMessage, msg)
 				return
 			}
 			lease.userID = user.ID

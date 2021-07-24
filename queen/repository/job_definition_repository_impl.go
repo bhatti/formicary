@@ -32,36 +32,21 @@ func NewJobDefinitionRepositoryImpl(dbConfig *config.DBConfig, db *gorm.DB) (*Jo
 func (jdr *JobDefinitionRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*types.JobDefinition, error) {
-	return jdr.get(qc, id, true)
-}
-
-// Get method finds JobDefinition by id
-func (jdr *JobDefinitionRepositoryImpl) get(
-	qc *common.QueryContext,
-	id string,
-	active bool) (*types.JobDefinition, error) {
 	if id == "" {
 		return nil, common.NewValidationError(
 			fmt.Errorf("job-id is not specified for fetching job-definition"))
 	}
 	var job types.JobDefinition
+	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
 	res := jdr.db.Preload("Tasks").
 		Preload("Configs").
 		Preload("Variables").
 		Preload("Tasks.Variables").
 		Where("id = ?", id).
-		Where("active = ?", active).
+		Where("public_plugin = ? OR "+scopeCond, true, scopeArg).
 		First(&job)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
-	}
-	if !job.PublicPlugin && !qc.Admin() {
-		if job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID {
-			return nil, common.NewPermissionError(fmt.Sprintf("cannot access %s", id))
-		}
-		if job.UserID != "" && job.UserID != qc.UserID {
-			return nil, common.NewPermissionError(fmt.Sprintf("cannot access %s", id))
-		}
 	}
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
 		return nil, err
@@ -85,6 +70,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	qc *common.QueryContext,
 	jobType string) (*types.JobDefinition, error) {
 	semVersion := ""
+	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
 	jobTypeAndVersion := strings.Split(jobType, ":")
 	if len(jobTypeAndVersion) == 2 {
 		jobType = jobTypeAndVersion[0]
@@ -96,23 +82,20 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		Preload("Variables").
 		Preload("Tasks.Variables").
 		Where("job_type = ?", jobType)
+
 	if semVersion == "" {
-		tx = tx.Where("active = ?", true)
+		tx = tx.Where("active = ?", true).
+			Where(scopeCond, scopeArg)
 	} else {
-		tx = tx.Where("sem_version = ?", semVersion)
+		tx = tx.Where("sem_version = ?", semVersion).
+			Where("public_plugin = ? OR "+scopeCond, true, scopeArg)
 	}
+
 	res := tx.First(&job)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
-	if !job.PublicPlugin && !qc.Admin() {
-		if job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID {
-			return nil, common.NewPermissionError(fmt.Sprintf("cannot access %s", jobType))
-		}
-		if job.UserID != "" && job.UserID != qc.UserID {
-			return nil, common.NewPermissionError(fmt.Sprintf("cannot access %s", jobType))
-		}
-	}
+
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
 		return nil, common.NewValidationError(err)
 	}
@@ -226,14 +209,7 @@ func (jdr *JobDefinitionRepositoryImpl) SaveConfig(
 	err = jdr.db.Transaction(func(tx *gorm.DB) error {
 		old, _ := jdr.Get(qc, jobID)
 		if old == nil {
-			old, _ = jdr.get(qc, jobID, false)
-			if old == nil {
-				return common.NewNotFoundError(fmt.Errorf("saving config failed because cannot find job id '%s'", jobID))
-			}
-			old, err = jdr.getLatestByType(qc, old.JobType)
-			if err != nil {
-				return err
-			}
+			return common.NewNotFoundError(fmt.Errorf("saving config failed because cannot find job id '%s'", jobID))
 		}
 
 		config, err = old.AddConfig(name, value, secret)
@@ -307,11 +283,28 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 		old, err := jdr.getLatestByType(qc, job.JobType)
 		var res *gorm.DB
 		if err == nil && old.ID != "" {
+			if job.RawYaml == old.RawYaml &&
+				job.MaxConcurrency == old.MaxConcurrency &&
+				job.Paused == old.Paused &&
+				job.ConfigsString() == old.ConfigsString() &&
+				job.VariablesString() == old.VariablesString() &&
+				old.Active {
+				log.WithFields(log.Fields{
+					"Component":   "JobDefinitionRepositoryImpl",
+					"Job":         job.String(),
+					"Concurrency": old.MaxConcurrency,
+					"Paused":      old.Paused,
+					"Version":     old.Version,
+				}).Info("skip saving job-definition because nothing changed")
+				return nil // nothing to do
+			}
+
 			if err = jdr.Delete(
 				qc,
 				old.ID); err != nil {
 				return err
 			}
+
 			job.Version = old.Version + 1
 			job.CreatedAt = time.Now()
 			job.UpdatedAt = time.Now()

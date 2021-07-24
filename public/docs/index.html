@@ -1,5 +1,19 @@
 <h1 id="formicary">Overview</h1>
-<p>The formicary is a distributed &quot;job management system&quot; for executing background jobs that are executed remotely using Docker/Kubernetes/Shell/HTTP and other protocols. It supports a configuration file for defining a job definition that consists of directed acyclic graph of tasks. The architecture is based on a queen (leader) and ant (follower/worker) pattern where queen node schedules and orchestrates execution of the graph of tasks. The task work is distributed among worker ants that match tags specified by the task and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen server comprises resource-manager, job-scheduler, job-launcher, job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off job to job-launcher, which then uses job-supervisor to orchestrate the job. The job-supervisor delegates job-execution to task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task. The formicary includes an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. The formicary uses Pipes and Filter pattern, where artifacts and variables can be passed from one task to another.</p>
+<p>
+    The formicary is a distributed &quot;job management system&quot; for executing background jobs that are executed remotely using
+    Docker/Kubernetes/Shell/HTTP and other protocols. A job is comprises directed acyclic graph of tasks and job definition is defined in a yaml configuration file.
+    The architecture is based on a queen (leader) and ant (follower/worker) pattern
+    where queen node schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant workers
+    that match tags specified by the task and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen server
+    encompasses resource-manager, job-scheduler, job-launcher, job/task supervisors, where job-scheduler finds next job to
+    execute based on resource-manager and hands-off job to job-launcher, which then uses job-supervisor to orchestrate the job.
+    The job-supervisor delegates job-execution to task-supervisor, which sends the request to a remote ant worker and then waits for the response.
+    After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task and persists its state.
+    The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks,
+    which can be used by other tasks as input for their work. This allows building stages of tasks using
+    Pipes and Filter pattern, where artifacts and variables can be passed from one task to another so that output of a task
+    can be used as input of another task.
+</p>
 <h2 id="features-">Features:</h2>
 <ul>
 <li>Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.</li>

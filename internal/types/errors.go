@@ -31,6 +31,11 @@ type PermissionError struct {
 	*BaseError
 }
 
+// QuotaExceededError represents an error when subscription quota is exceeded
+type QuotaExceededError struct {
+	*BaseError
+}
+
 // DuplicateError represents an error when an object already exists.
 type DuplicateError struct {
 	*BaseError
@@ -58,6 +63,11 @@ func NewBaseError(message ...interface{}) *BaseError {
 // NewPermissionError creates a new PermissionError instance.
 func NewPermissionError(message ...interface{}) *PermissionError {
 	return &PermissionError{BaseError: NewBaseError(message...)}
+}
+
+// NewQuotaExceededError creates a new QuotaExceededError instance.
+func NewQuotaExceededError(message ...interface{}) *QuotaExceededError {
+	return &QuotaExceededError{BaseError: NewBaseError(message...)}
 }
 
 // NewValidationError creates a new ValidationError instance.

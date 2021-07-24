@@ -148,6 +148,17 @@ body        { padding-top:70px; }
                     </div>
 
                     <div class="form-group row">
+                        {{ with .Errors.AgreeTerms }}
+                        <p class="error" align="center">{{ . }}</p>
+                        {{ end }}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="agree" id="agreeTerms" name="agreeTerms">
+                            <label class="form-check-label" for="agreeTerms">
+                                Agree to <a href="/terms_service" target="new_resource">Terms of Services</a> and <a href="/privacy_policies" target="new_resource">Privacy Policies</a>.
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
                             <button type="submit" class="btn btn-primary">Save</button>
                         </div>

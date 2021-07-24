@@ -18,13 +18,14 @@ import (
 
 // UserAdminController structure
 type UserAdminController struct {
-	commonCfg             *common.CommonConfig
-	auditRecordRepository repository.AuditRecordRepository
-	userRepository        repository.UserRepository
-	orgRepository         repository.OrganizationRepository
-	jobExecRepository     repository.JobExecutionRepository
-	artifactRepository    repository.ArtifactRepository
-	webserver             web.Server
+	commonCfg              *common.CommonConfig
+	auditRecordRepository  repository.AuditRecordRepository
+	userRepository         repository.UserRepository
+	orgRepository          repository.OrganizationRepository
+	jobExecRepository      repository.JobExecutionRepository
+	artifactRepository     repository.ArtifactRepository
+	subscriptionRepository repository.SubscriptionRepository
+	webserver              web.Server
 }
 
 // NewUserAdminController admin dashboard for managing users
@@ -35,15 +36,17 @@ func NewUserAdminController(
 	orgRepository repository.OrganizationRepository,
 	jobExecRepository repository.JobExecutionRepository,
 	artifactRepository repository.ArtifactRepository,
+	subscriptionRepository repository.SubscriptionRepository,
 	webserver web.Server) *UserAdminController {
 	jraCtr := &UserAdminController{
-		commonCfg:             commonCfg,
-		auditRecordRepository: auditRecordRepository,
-		userRepository:        userRepository,
-		orgRepository:         orgRepository,
-		jobExecRepository:     jobExecRepository,
-		artifactRepository:    artifactRepository,
-		webserver:             webserver,
+		commonCfg:              commonCfg,
+		auditRecordRepository:  auditRecordRepository,
+		userRepository:         userRepository,
+		orgRepository:          orgRepository,
+		jobExecRepository:      jobExecRepository,
+		artifactRepository:     artifactRepository,
+		subscriptionRepository: subscriptionRepository,
+		webserver:              webserver,
 	}
 	webserver.GET("/dashboard/users", jraCtr.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_admin_users"
 	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.New(acl.User, acl.Signup)).Name = "new_admin_users"
@@ -136,6 +139,14 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 	}
 
 	ranges := manager.BuildRanges(time.Now(), 1, 1, 1)
+	res["TodayRange"] = ranges[0].StartString()
+	res["WeekRange"] = ranges[1].StartAndEndString()
+	res["MonthRange"] = ranges[2].StartAndEndString()
+	res["PolicyRange"] = ""
+	if user.Subscription != nil {
+		ranges = append(ranges, types.DateRange{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt})
+		res["PolicyRange"] = ranges[4].StartAndEndString()
+	}
 	resources := make([]map[string]interface{}, 0)
 	userQC := qc.WithOrganizationIDColumn("")
 	if qc.Admin() {
@@ -143,25 +154,42 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 	}
 	if cpuUsage, err := uc.jobExecRepository.GetResourceUsage(
 		userQC, ranges); err == nil {
-		resources = append(resources, map[string]interface{}{
+		m := map[string]interface{}{
 			"Type":  "CPU",
 			"Today": cpuUsage[0],
 			"Week":  cpuUsage[1],
 			"Month": cpuUsage[2],
 			"All":   cpuUsage[3],
-		})
+		}
+		if len(cpuUsage) > 4 {
+			m["Subscription"] = cpuUsage[4]
+			if cpuUsage[4].Value <= user.Subscription.CPUQuota {
+				user.Subscription.RemainingCPUQuota = user.Subscription.CPUQuota - cpuUsage[4].Value
+			}
+		}
+		resources = append(resources, m)
 	}
 	if storageUsage, err := uc.artifactRepository.GetResourceUsage(
 		userQC, ranges); err == nil {
-		resources = append(resources, map[string]interface{}{
+		m := map[string]interface{}{
 			"Type":  "Storage",
 			"Today": storageUsage[0],
 			"Week":  storageUsage[1],
 			"Month": storageUsage[2],
 			"All":   storageUsage[3],
-		})
+		}
+		if len(storageUsage) > 4 {
+			m["Subscription"] = storageUsage[4]
+			if storageUsage[4].MValue() <= user.Subscription.DiskQuota {
+				user.Subscription.RemainingDiskQuota = user.Subscription.DiskQuota - storageUsage[4].MValue()
+			}
+		}
+		resources = append(resources, m)
 	}
 	res["ResourcesUsage"] = resources
+	if user.Subscription != nil {
+		res["Subscription"] = user.Subscription
+	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/view", res)
 }
@@ -285,8 +313,12 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 
 	initUserFromForm(c, user)
 
-	if err := user.Validate(); err != nil {
+	if err = user.Validate(); err != nil {
 		return user, err
+	}
+	if !user.AgreeTerms {
+		user.Errors = map[string]string{"AgreeTerms": "you must agree to the terms of service."}
+		return user, fmt.Errorf("you must agree to the terms of service")
 	}
 
 	var org *common.Organization
@@ -361,6 +393,21 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 
 	qc := common.NewQueryContextFromUser(saved, org, c.Request().RemoteAddr)
 	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserSignup, qc))
+
+	subscription := common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)
+	if subscription, err = uc.subscriptionRepository.Create(subscription); err == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "UserAdminController",
+			"Subscription": subscription,
+		}).Info("created Subscription")
+		_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "UserAdminController",
+			"Subscription": subscription,
+			"Error":        err,
+		}).Errorf("failed to create Subscription")
+	}
 	return saved, nil
 }
 
@@ -370,6 +417,7 @@ func initUserFromForm(c web.WebContext, user *common.User) {
 	user.BundleID = c.FormValue("bundle")
 	user.OrgUnit = c.FormValue("orgUnit")
 	user.InvitationCode = c.FormValue("invitationCode")
+	user.AgreeTerms = c.FormValue("agreeTerms") == "agree"
 }
 
 func (uc *UserAdminController) checkExistingOrg(
@@ -396,7 +444,7 @@ func (uc *UserAdminController) checkExistingOrg(
 				return nil, fmt.Errorf("organization already exists, please contact admin of your organization to invite you to this organization")
 			}
 		} else {
-			org = common.NewOrganization(user.OrgUnit, user.BundleID)
+			org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
 		}
 	}
 	return

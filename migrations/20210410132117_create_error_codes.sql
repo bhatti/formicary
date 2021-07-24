@@ -58,5 +58,7 @@ INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000017', '*', 'ant resources not avaialble', 'ERR_ANT_RESOURCES');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000018', '*', 'fatal error', 'ERR_FATAL');
+INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
+VALUES ('00000000-0000-0000-0000-000000000019', '*', 'resource quota exceeded', 'ERR_QUOTA_EXCEEDED');
 -- +goose Down
 DROP TABLE IF EXISTS formicary_error_codes;

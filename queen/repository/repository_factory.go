@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-	"plexobject.com/formicary/queen/types/subscription"
 	"reflect"
 	"strings"
 	"time"
@@ -36,6 +35,7 @@ type Factory struct {
 	OrgConfigRepository     *OrganizationConfigRepositoryImpl
 	UserRepository          UserRepository
 	OrgRepository           OrganizationRepository
+	SubscriptionRepository  SubscriptionRepository
 }
 
 // NewFactory creates new repository factory
@@ -138,6 +138,11 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		return nil, err
 	}
 
+	subscriptionRepository, err := NewSubscriptionRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
+
 	cachedOrgRepository, err := NewOrganizationRepositoryCached(serverCfg, orgRepository)
 	if err != nil {
 		return nil, err
@@ -149,7 +154,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		}
 		if org, err := cachedOrgRepository.Create(
 			common.NewQueryContext("", "", ""),
-			common.NewOrganization("formicary.org", "org.formicary")); err == nil {
+			common.NewOrganization("", "formicary.org", "org.formicary")); err == nil {
 			_, _ = cachedUserRepository.Create(common.NewUser(
 				org.ID, "admin", "admin", true))
 			_, _ = cachedUserRepository.Create(common.NewUser(
@@ -193,6 +198,8 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 				"*", "ant resources not available", "ERR_ANT_RESOURCES"))
 			_, _ = errorCodeRepository.Save(common.NewErrorCode(
 				"*", "fatal error", "ERR_FATAL"))
+			_, _ = errorCodeRepository.Save(common.NewErrorCode(
+				"*", "resource quota exceeded", "ERR_QUOTA_EXCEEDED"))
 		}
 	}
 
@@ -210,6 +217,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		OrgConfigRepository:     orgConfigRepository,
 		UserRepository:          cachedUserRepository,
 		OrgRepository:           cachedOrgRepository,
+		SubscriptionRepository:  subscriptionRepository,
 	}
 	return f, nil
 }
@@ -292,10 +300,10 @@ func migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&events.LogEvent{}); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&subscription.Subscription{}); err != nil {
+	if err := db.AutoMigrate(&common.Subscription{}); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&subscription.Payment{}); err != nil {
+	if err := db.AutoMigrate(&common.Payment{}); err != nil {
 		return err
 	}
 

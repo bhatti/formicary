@@ -90,6 +90,34 @@ func Test_ShouldNotSaveUserWithoutName(t *testing.T) {
 	require.Contains(t, err.Error(), "name")
 }
 
+// Saving valid user with subscription
+func Test_ShouldSaveValidUserWithSubscription(t *testing.T) {
+	// GIVEN an user repository
+	userRepository, err := NewTestUserRepository()
+	require.NoError(t, err)
+	subscriptionRepository, err := NewTestSubscriptionRepository()
+	require.NoError(t, err)
+
+	// WHEN creating a valid user
+	u := common.NewUser("test-org", "username", "name", false)
+	u.Email = "test@formicary.io"
+	// Saving valid user
+	saved, err := userRepository.Create(u)
+
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	subscription, err := subscriptionRepository.Create(common.NewFreemiumSubscription(saved.ID, ""))
+	require.NoError(t, err)
+
+	// AND retrieving user by id should not fail
+	loaded, err := userRepository.Get(common.NewQueryContext(saved.ID, saved.OrganizationID, saved.Salt), saved.ID)
+	require.NoError(t, err)
+
+	require.NotNil(t, loaded.Subscription)
+	require.Equal(t, subscription.ID, loaded.Subscription.ID)
+}
+
 // Saving valid user
 func Test_ShouldSaveValidUser(t *testing.T) {
 	// GIVEN an user repository
@@ -99,7 +127,7 @@ func Test_ShouldSaveValidUser(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a valid user
-	u := common.NewUser("test-org", "username", "name", false)
+	u := common.NewUser(qc.OrganizationID, "username", "name", false)
 	u.Email = "test@formicary.io"
 	// Saving valid user
 	saved, err := repo.Create(u)
@@ -115,7 +143,7 @@ func Test_ShouldSaveValidUser(t *testing.T) {
 	require.NoError(t, saved.Equals(loaded))
 
 	// WHEN updating user by another
-	_, err = repo.Update(qc, saved)
+	_, err = repo.Update(common.NewQueryContext("bad", "", ""), saved)
 
 	// THEN it should fail
 	require.Error(t, err)

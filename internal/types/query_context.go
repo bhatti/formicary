@@ -94,7 +94,13 @@ func (qc *QueryContext) IsNull() bool {
 
 // Matches - association to org
 func (qc *QueryContext) Matches(userID string, orgID string) bool {
-	return qc.admin || qc.UserID == "" || qc.UserID == userID || qc.OrganizationID == orgID
+	if qc.Admin() {
+		return true
+	}
+	if qc.OrganizationID != "" || orgID != "" {
+		return qc.OrganizationID == orgID
+	}
+	return qc.UserID == userID
 }
 
 // String textual content
@@ -140,7 +146,7 @@ func (qc *QueryContext) AddOrgWhere(db *gorm.DB) *gorm.DB {
 // AddUserWhereSQL - adds user scope
 func (qc *QueryContext) AddUserWhereSQL() (string, string) {
 	if qc.admin || qc.UserID == "" || qc.UserIDColumn == "" {
-		return "1 = ?", "1"
+		return "'1' = ?", "1"
 	}
 	return qc.UserIDColumn + " = ?", qc.UserID
 }
@@ -148,7 +154,7 @@ func (qc *QueryContext) AddUserWhereSQL() (string, string) {
 // AddOrgWhereSQL - adds user scope
 func (qc *QueryContext) AddOrgWhereSQL() (string, string) {
 	if qc.admin || qc.OrganizationID == "" || qc.OrganizationIDColumn == "" {
-		return "1 = ?", "1"
+		return "'1' = ?", "1"
 	}
 	return qc.OrganizationIDColumn + " = ?", qc.OrganizationID
 }
@@ -156,7 +162,7 @@ func (qc *QueryContext) AddOrgWhereSQL() (string, string) {
 // AddOrgUserWhereSQL - adds user scope
 func (qc *QueryContext) AddOrgUserWhereSQL() (string, string) {
 	if qc.admin {
-		return "1 = ?", "1"
+		return "'1' = ?", "1"
 	}
 	if qc.OrganizationID != "" && qc.OrganizationIDColumn != "" {
 		return qc.AddOrgWhereSQL()

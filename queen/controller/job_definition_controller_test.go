@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,6 +28,8 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 	var qc = common.NewQueryContext("test-user", "test-org", "")
 	queueClient, _ := queue.NewStubClient(&serverCfg.CommonConfig)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
+	require.NoError(t, err)
+	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
@@ -54,6 +57,7 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		artifactManager,
@@ -301,6 +305,7 @@ func newTestJobDefinition(name string) *types.JobDefinition {
 	job := types.NewJobDefinition(name)
 	job.UserID = "test-user"
 	job.OrganizationID = "test-org"
+	job.MaxConcurrency = rand.Int()+1
 	task1 := types.NewTaskDefinition("task1", common.Shell)
 	task1.Method = common.Docker
 	job.AddTask(task1)

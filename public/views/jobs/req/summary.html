@@ -172,7 +172,7 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Job Definition:</b></dt>
-                        <dd class="col-sm-8">{{ .JobDefinitionID }}</dd>
+                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{ .JobDefinitionID }}">{{.JobDefinitionID}}</a></dd>
                     </dl>
                 </td>
                 <td>
@@ -326,33 +326,35 @@
             <thead class="thead-dark">
             <tr>
                 {{if false}}
-                <th class="col-sm-4">Task ID</th>
+                <th class="col-sm-2">Task ID</th>
                 {{end}}
-                <th class="col-sm-4">Task Type</th>
-                <th class="col-sm-4">Bucket</th>
-                <th class="col-sm-4">Kind</th>
-                <th class="col-sm-8">URL</th>
+                <th class="col-sm-2">Task Type</th>
+                <th class="col-sm-2">Bucket</th>
+                <th class="col-sm-2">Kind</th>
+                <th class="col-sm-4">URL</th>
+                <th class="col-sm-2">Size</th>
             </tr>
             </thead>
             {{range .Artifacts }}
             <tr scope="row">
                 {{if false}}
                 <td>
-                    <dd class="col-sm-4">{{ $taskExecutinID }}</dd>
+                    <dd class="col-sm-2">{{ $taskExecutinID }}</dd>
                 </td>
                 {{end}}
                 <td>
-                    <dd class="col-sm-4">{{ .TaskType }}</dd>
+                    <dd class="col-sm-2">{{ .TaskType }}</dd>
                 </td>
                 <td>
-                    <dd class="col-sm-4">{{ .Bucket }}</dd>
+                    <dd class="col-sm-2">{{ .Bucket }}</dd>
                 </td>
                 <td>
-                    <dd class="col-sm-4">{{ .Kind }}</dd>
+                    <dd class="col-sm-2">{{ .Kind }}</dd>
                 </td>
                 <td>
-                    <dd class="col-sm-8"><a href="{{ .DashboardURL }}">{{.Name}}</a></dd>
+                    <dd class="col-sm-4"><a href="{{ .DashboardURL }}">{{.Name}}</a></dd>
                 </td>
+                <td class="col-sm-2">{{.LengthString}}</td>
             </tr>
             {{ end }}
         </table>

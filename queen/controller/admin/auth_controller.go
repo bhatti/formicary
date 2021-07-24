@@ -243,7 +243,8 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 			}
 
 			if dbUser == nil {
-				if web.IsWhiteListURL(c.Path(), c.Request().Method) {
+				if web.IsWhiteListURL(c.Path(), c.Request().Method) ||
+					web.IsWhiteListURL(c.Request().RequestURI, c.Request().Method) {
 					// ok
 				} else if strings.HasPrefix(c.Path(), "/dashboard") {
 					http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusTemporaryRedirect)
@@ -252,7 +253,7 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 					return &echo.HTTPError{
 						Code: http.StatusUnauthorized,
 						Message: fmt.Sprintf("JWT token is required for api access %s:%s (001)",
-							c.Request().Method, c.Path()),
+							c.Request().Method, c.Request().RequestURI),
 					}
 				}
 			} else if err != nil {
@@ -355,13 +356,24 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 			if dbOrg != nil {
 				dbUser.OrgUnit = dbOrg.OrgUnit
 				dbUser.BundleID = dbOrg.BundleID
+				dbUser.Subscription = dbOrg.Subscription
 				user.OrgUnit = dbOrg.OrgUnit
 				user.BundleID = dbOrg.BundleID
 				user.Salt = dbOrg.Salt
+				user.OrganizationID = dbOrg.ID
 				user.PictureURL = dbUser.PictureURL
 				user.AuthProvider = dbUser.AuthProvider
+				user.Subscription = dbOrg.Subscription
 				c.Set(web.DBOrg, dbOrg)
 			}
+		}
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":    "AuthController",
+				"User":         dbUser,
+				"Org":          dbUser.OrganizationID,
+				"Subscription": dbUser.Subscription,
+			}).Debugf("loaded db user for session")
 		}
 		c.Set(web.DBUser, dbUser)
 	}

@@ -29,7 +29,9 @@ func (ur *UserRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*common.User, error) {
 	var user common.User
+	now := time.Now()
 	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("id = ?", id).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
 	if res.Error != nil {
@@ -42,8 +44,10 @@ func (ur *UserRepositoryImpl) Get(
 func (ur *UserRepositoryImpl) GetByUsername(
 	qc *common.QueryContext,
 	username string) (*common.User, error) {
+	now := time.Now()
 	var user common.User
 	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("username = ?", username).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
 	if res.Error != nil {
@@ -127,9 +131,9 @@ func (ur *UserRepositoryImpl) Update(
 		return nil, common.NewNotFoundError(
 			fmt.Errorf("username %s does not exists", user.Username))
 	}
-	if !qc.Admin() && !qc.Matches(old.ID, "NONE") {
+	if !qc.Admin() && !qc.Matches(old.ID, old.OrganizationID) {
 		return nil, common.NewPermissionError(
-			fmt.Errorf("user '%s' cannot be edited by another '%s'", user.Username, qc.UserID))
+			fmt.Errorf("user '%s' with id '%s' cannot be edited by another '%s'", user.Username, old.ID, qc.UserID))
 	}
 	err = ur.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
@@ -329,6 +333,7 @@ func (ur *UserRepositoryImpl) GetTokens(
 	recs := make([]*types.UserToken, 0)
 	tx := qc.WithUserIDColumn("user_id").AddUserWhere(ur.db).
 		Where("user_id = ?", userID).
+		Where("expires_at > ?", time.Now()).
 		Where("active = ?", true)
 	res := tx.Find(&recs)
 	if res.Error != nil {
@@ -344,6 +349,7 @@ func (ur *UserRepositoryImpl) HasToken(
 		Where("user_id = ?", userID).
 		Where("token_name = ?", tokenName).
 		Where("sha256 = ?", sha256).
+		Where("expires_at > ?", time.Now()).
 		Where("active = ?", true)
 	var totalRecords int64
 	res := tx.Count(&totalRecords)
@@ -358,6 +364,7 @@ func (ur *UserRepositoryImpl) countToken(
 	userID string) int64 {
 	tx := ur.db.Model(&types.UserToken{}).
 		Where("user_id = ?", userID).
+		Where("expires_at > ?", time.Now()).
 		Where("active = ?", true)
 	var totalRecords int64
 	_ = tx.Count(&totalRecords)

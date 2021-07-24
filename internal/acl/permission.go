@@ -40,6 +40,12 @@ const (
 	Websocket Resource = "Websocket"
 	// Health resource
 	Health Resource = "Health"
+	// Subscription resource
+	Subscription Resource = "Subscription"
+	// TermsService resource
+	TermsService Resource = "TermsService"
+	// PrivacyPolicies resource
+	PrivacyPolicies Resource = "PrivacyPolicies"
 )
 
 const (
@@ -299,6 +305,9 @@ func DefaultPermissions() []*Permission {
 		New(AntExecutor, None),
 		New(Container, None),
 		New(Health, None),
+		New(Subscription, None),
+		New(TermsService, View|Read),
+		New(PrivacyPolicies, View|Read),
 	}
 }
 
@@ -318,10 +327,13 @@ func AdminPermissions() []*Permission {
 		New(Organization, Read|Update|Delete|Invite),
 		New(OrgConfig, Create|Read|Update|Delete|Query),
 		New(Artifact, Upload|Read|Query|Delete),
-		New(ErrorCode, None),
-		New(SystemConfig, None),
-		New(AntExecutor, None),
-		New(Container, None),
-		New(Health, None),
+		New(Subscription, Create|Read|Update|Delete|Query),
+		New(TermsService, View|Read),
+		New(PrivacyPolicies, View|Read),
+		New(ErrorCode, Create|Read|Update|Delete|Query),
+		New(SystemConfig, Create|Read|Update|Delete|Query),
+		New(AntExecutor, Create|Read|Update|Delete|Query),
+		New(Container, Create|Read|Update|Delete|Query),
+		New(Health, Create|Read|Update|Delete|Query),
 	}
 }

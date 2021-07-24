@@ -114,20 +114,20 @@ func (je *JobExecution) CostFactor() float64 {
 
 // ExecutionCostSecs unix time elapsed of job execution
 func (je *JobExecution) ExecutionCostSecs() int64 {
-	now := time.Now()
-	if je.EndedAt == nil {
+	ended := je.EndedAt
+	if ended == nil {
 		if je.JobState != types.EXECUTING {
 			return 0
 		}
-	} else {
-		now = *je.EndedAt
+		now := time.Now()
+		ended = &now
 	}
 	var total int64
 	for _, t := range je.Tasks {
 		total += t.ExecutionCostSecs()
 	}
 	return math.Max64(
-		int64(now.Sub(je.StartedAt).Seconds()),
+		int64(ended.Sub(je.StartedAt).Seconds()),
 		total)
 }
 

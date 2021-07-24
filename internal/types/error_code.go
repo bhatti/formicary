@@ -23,6 +23,8 @@ const (
 const (
 	// ErrorJobExecute error code
 	ErrorJobExecute = "ERR_JOB_EXECUTE"
+	// ErrorQuotaExceeded error code
+	ErrorQuotaExceeded = "ERR_QUOTA_EXCEEDED"
 	// ErrorJobSchedule error code
 	ErrorJobSchedule = "ERR_JOB_SCHEDULE"
 	// ErrorJobCancelled error code

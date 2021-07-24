@@ -8,9 +8,10 @@ import (
 	"io/ioutil"
 	"os"
 	"plexobject.com/formicary/internal/artifacts"
-	"plexobject.com/formicary/internal/types"
+	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/types"
 	"time"
 )
 
@@ -42,11 +43,11 @@ func NewArtifactManager(
 // QueryArtifacts - queries artifact
 func (am *ArtifactManager) QueryArtifacts(
 	ctx context.Context,
-	qc *types.QueryContext,
+	qc *common.QueryContext,
 	params map[string]interface{},
 	page int,
 	pageSize int,
-	order []string) (arts []*types.Artifact, total int64, err error) {
+	order []string) (arts []*common.Artifact, total int64, err error) {
 	records, total, err := am.artifactRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {
 		return nil, 0, err
@@ -60,9 +61,9 @@ func (am *ArtifactManager) QueryArtifacts(
 // UploadArtifact - artifacts
 func (am *ArtifactManager) UploadArtifact(
 	ctx context.Context,
-	qc *types.QueryContext,
+	qc *common.QueryContext,
 	body io.ReadCloser,
-	params map[string]string) (*types.Artifact, error) {
+	params map[string]string) (*common.Artifact, error) {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), uuid.NewV4().String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file due to %s", err.Error())
@@ -85,10 +86,10 @@ func (am *ArtifactManager) UploadArtifact(
 		return nil, fmt.Errorf("failed to copy file due to %s", err.Error())
 	}
 
-	artifact := &types.Artifact{
+	artifact := &common.Artifact{
 		Name:           uuid.NewV4().String(),
 		Metadata:       params,
-		Kind:           types.ArtifactKindUser,
+		Kind:           common.ArtifactKindUser,
 		Tags:           map[string]string{},
 		UserID:         qc.UserID,
 		OrganizationID: qc.OrganizationID,
@@ -111,7 +112,7 @@ func (am *ArtifactManager) UploadArtifact(
 // DownloadArtifactBySHA256 - download artifact by sha256
 func (am *ArtifactManager) DownloadArtifactBySHA256(
 	ctx context.Context,
-	qc *types.QueryContext,
+	qc *common.QueryContext,
 	sha256 string) (io.ReadCloser, string, string, error) {
 	art, err := am.artifactRepository.GetBySHA256(qc, sha256)
 	if err != nil {
@@ -126,8 +127,8 @@ func (am *ArtifactManager) DownloadArtifactBySHA256(
 // GetArtifact - finds artifact by id
 func (am *ArtifactManager) GetArtifact(
 	ctx context.Context,
-	qc *types.QueryContext,
-	id string) (*types.Artifact, error) {
+	qc *common.QueryContext,
+	id string) (*common.Artifact, error) {
 	art, err := am.artifactRepository.Get(qc, id)
 	if err != nil {
 		return nil, err
@@ -139,15 +140,15 @@ func (am *ArtifactManager) GetArtifact(
 // UpdateArtifact - updates artifact
 func (am *ArtifactManager) UpdateArtifact(
 	ctx context.Context,
-	qc *types.QueryContext,
-	artifact *types.Artifact) (saved *types.Artifact, err error) {
+	qc *common.QueryContext,
+	artifact *common.Artifact) (saved *common.Artifact, err error) {
 	am.UpdateURL(ctx, artifact)
 	return am.artifactRepository.Update(qc, artifact)
 }
 
 // DeleteArtifact - deletes artifact by id
 func (am *ArtifactManager) DeleteArtifact(
-	qc *types.QueryContext,
+	qc *common.QueryContext,
 	id string) error {
 	return am.artifactRepository.Delete(qc, id)
 }
@@ -155,7 +156,7 @@ func (am *ArtifactManager) DeleteArtifact(
 // UpdateURL - using presigned or external api
 func (am *ArtifactManager) UpdateURL(
 	ctx context.Context,
-	art *types.Artifact) {
+	art *common.Artifact) {
 	if am.serverCfg.ExternalBaseURL == "" {
 		if url, err := am.artifactService.PresignedGetURL(
 			ctx,
@@ -167,4 +168,11 @@ func (am *ArtifactManager) UpdateURL(
 	} else {
 		art.URL = am.serverCfg.ExternalBaseURL + "/api/artifacts/" + art.SHA256 + "/download"
 	}
+}
+
+// GetResourceUsage - Finds usage between time
+func (am *ArtifactManager) GetResourceUsage(
+	qc *common.QueryContext,
+	ranges []types.DateRange) ([]types.ResourceUsage, error) {
+	return am.artifactRepository.GetResourceUsage(qc, ranges)
 }

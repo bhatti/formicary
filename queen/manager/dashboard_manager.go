@@ -88,7 +88,7 @@ func BuildRanges(now time.Time, days int, weeks int, months int) (ranges []types
 		start := startOfDay.Add(time.Duration((i+1)*24*7*-1) * time.Hour)
 		ranges[weeks+days-i-1] = types.DateRange{
 			StartDate: start,
-			EndDate:   start.Add(24 * time.Hour*7).Add(-1 * time.Nanosecond),
+			EndDate:   start.Add(24 * time.Hour*8).Add(-1 * time.Nanosecond),
 		}
 	}
 	daysInMonths := []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
@@ -106,7 +106,7 @@ func BuildRanges(now time.Time, days int, weeks int, months int) (ranges []types
 			}
 			ranges[months+weeks+days-i-1] = types.DateRange{
 				StartDate: from,
-				EndDate:   from.Add(time.Hour * time.Duration(24*daysInMonth)).Add(time.Nanosecond*-1),
+				EndDate:   from.Add(time.Hour * time.Duration(24*daysInMonth+1)).Add(time.Nanosecond*-1),
 			}
 		}
 	}

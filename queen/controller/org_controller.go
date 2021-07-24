@@ -64,7 +64,7 @@ func (oc *OrganizationController) queryOrganizations(c web.WebContext) error {
 func (oc *OrganizationController) postOrganization(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
-	org := common.NewOrganization("", "")
+	org := common.NewOrganization("", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(org)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (oc *OrganizationController) postOrganization(c web.WebContext) error {
 // responses:
 //   200: orgResponse
 func (oc *OrganizationController) putOrganization(c web.WebContext) error {
-	org := common.NewOrganization("", "")
+	org := common.NewOrganization("", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(org)
 	if err != nil {
 		return err

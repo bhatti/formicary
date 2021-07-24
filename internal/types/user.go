@@ -41,6 +41,7 @@ type User struct {
 	// Salt for password
 	Salt string `json:"salt"`
 
+	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:UserID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	// Admin is used for admin role
 	Admin bool `json:"admin"`
 	// EmailVerified for email
@@ -58,6 +59,8 @@ type User struct {
 	OrgUnit string `json:"-" gorm:"-"`
 	// InvitationCode defines code for invitation
 	InvitationCode string `json:"-" gorm:"-"`
+	// AgreeTerms defines code for invitation
+	AgreeTerms bool `json:"-" gorm:"-"`
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`

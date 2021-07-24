@@ -39,6 +39,8 @@ const (
 	InvitationCreated AuditKind = "INVITATION_CREATED"
 	// OrganizationUpdated updated
 	OrganizationUpdated AuditKind = "ORGANIZATION_UPDATED"
+	// SubscriptionUpdated updated
+	SubscriptionUpdated AuditKind = "SUBSCRIPTION_UPDATED"
 )
 
 // AuditRecord defines audit-record
@@ -171,6 +173,19 @@ func NewAuditRecordFromUser(user *common.User, kind AuditKind, qc *common.QueryC
 		UserID:         qc.UserID,
 		OrganizationID: qc.OrganizationID,
 		TargetID:       user.ID,
+		RemoteIP:       qc.IPAddress,
+		CreatedAt:      time.Now(),
+	}
+}
+
+// NewAuditRecordFromSubscription creates new instance of audit-record
+func NewAuditRecordFromSubscription(subscription *common.Subscription, qc *common.QueryContext) *AuditRecord {
+	return &AuditRecord{
+		Kind:           SubscriptionUpdated,
+		Message:        fmt.Sprintf("subscription added %s", subscription),
+		UserID:         qc.UserID,
+		OrganizationID: qc.OrganizationID,
+		TargetID:       subscription.UserID,
 		RemoteIP:       qc.IPAddress,
 		CreatedAt:      time.Now(),
 	}

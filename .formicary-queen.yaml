@@ -1,7 +1,9 @@
 id: queen-server-id
+subscription_quota_enabled: true
 db:
   db_type: sqlite
   data_source: .formicary_db.sqlite
+  encryption_key: my-db-key
   _db_type: mysql
   _data_source: formicary_user_dev:formicary_pass@tcp(localhost:3306)/formicary_dev?charset=utf8mb4&parseTime=true&loc=Local
 common:
@@ -10,6 +12,7 @@ common:
   proxy_url: ""
   messaging_provider: REDIS_MESSAGING
   http_port: 0
+  external_base_url: http://localhost:7777
   xmonitoring_urls:
     docker: "localhost:2375"
   disabled_pulsar:
@@ -26,5 +29,5 @@ common:
     bucket: "formicary-artifacts"
     prefix: "formicary/"
   auth:
-    enabled: true
-    jwt_secret: D60B594xLJ0aY7SIltFqj9YCNslfunuQdcKJ87NJDAdmFHnAVk4jhQ3x0tp6
+    enabled: false
+    jwt_secret: changeme

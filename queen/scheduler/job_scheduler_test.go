@@ -48,6 +48,8 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 	require.NoError(t, err)
 	errorRepository, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
+	userRepository, err := repository.NewTestUserRepository()
+	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
@@ -73,6 +75,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		artifactManager,
@@ -88,6 +91,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 		jobManager,
 		artifactManager,
 		errorRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		healthMonitor,

@@ -17,10 +17,8 @@ func (js *JobSupervisor) startTickerToUpdateRequestTimestamp(ctx context.Context
 			case <-ticker.C:
 				// TODO accounting here
 				if err := js.jobStateMachine.UpdateJobRequestTimestamp(ctx); err != nil {
-					if logrus.IsLevelEnabled(logrus.DebugLevel) {
-						logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor", err)).
-							Debug("failed to update request timestamp")
-					}
+					logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor", err)).
+						Warnf("failed to update request timestamp")
 					ticker.Stop()
 					return
 				}

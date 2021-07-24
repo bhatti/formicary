@@ -71,7 +71,7 @@ func Test_ShouldSavePersistentOrganizationWithConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	orgRepo.Clear()
-	org := common.NewOrganization("test-org", "bundle")
+	org := common.NewOrganization("user", "test-org", "bundle")
 
 	// AND saved org
 	saved, err := orgRepo.Create(qc, org)

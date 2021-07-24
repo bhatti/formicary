@@ -112,7 +112,7 @@ func (oc *OrganizationAdminController) updateOrganization(c web.WebContext) (err
 
 // newOrganization - creates a new org
 func (oc *OrganizationAdminController) newOrganization(c web.WebContext) error {
-	org := common.NewOrganization("", "")
+	org := common.NewOrganization("", "", "")
 	res := map[string]interface{}{
 		"Org": org,
 	}
@@ -169,7 +169,7 @@ func (oc *OrganizationAdminController) editOrganization(c web.WebContext) error 
 	id := c.Param("id")
 	org, err := oc.orgRepository.Get(qc, id)
 	if err != nil {
-		org = common.NewOrganization("", "")
+		org = common.NewOrganization("", "", "")
 		org.Errors = map[string]string{"Error": err.Error()}
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
@@ -296,11 +296,12 @@ func (oc *OrganizationAdminController) invited(c web.WebContext) error {
 }
 
 func buildOrganization(c web.WebContext) *common.Organization {
+	qc := web.BuildQueryContext(c)
 	org := common.NewOrganization(
+		qc.UserID,
 		c.FormValue("orgUnit"),
 		c.FormValue("orgBundle"),
 	)
-	qc := web.BuildQueryContext(c)
 	org.OwnerUserID = qc.UserID
 	return org
 }

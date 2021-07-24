@@ -63,7 +63,7 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN setting concurrency
-	concurrency := rand.Intn(100)
+	concurrency := rand.Intn(100)+1
 	err = repo.SetMaxConcurrency(saved.ID, concurrency)
 
 	// THEN it should not fail
@@ -448,9 +448,10 @@ func Test_ShouldDeletePersistentJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN retrieving deleted job
-	_, err = repo.Get(qc, saved.ID)
-	// THEN it should fail
-	require.Error(t, err)
+	loaded, err := repo.Get(qc, saved.ID)
+	// THEN it should be inactive
+	require.NoError(t, err)
+	require.Equal(t, false, loaded.Active)
 }
 
 // Querying job-definitions by job-type

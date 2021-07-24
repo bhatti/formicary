@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -131,7 +132,8 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 			Message: fmt.Sprintf("authentication required for accessing %s %s", c.Request().Method, c.Path()),
 		}
 	}
-	if !user.HasPermission(perm.Resource, perm.Actions) {
+	if !user.Admin && !user.HasPermission(perm.Resource, perm.Actions) {
+		debug.PrintStack()
 		return &echo.HTTPError{
 			Code:    http.StatusUnauthorized,
 			Message: fmt.Sprintf("permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
@@ -312,13 +314,19 @@ func mapAuthErrors(err error) error {
 	case *types.PermissionError:
 		return &echo.HTTPError{
 			Code:     http.StatusForbidden,
+			Message:  err.Error() + " (003U)",
+			Internal: err,
+		}
+	case *types.QuotaExceededError:
+		return &echo.HTTPError{
+			Code:     http.StatusPaymentRequired,
 			Message:  err.Error(),
 			Internal: err,
 		}
 	default:
 		return &echo.HTTPError{
 			Code:     http.StatusForbidden,
-			Message:  err.Error() + " (003)",
+			Message:  err.Error() + " (004U)",
 			Internal: err,
 		}
 	}
@@ -361,13 +369,19 @@ func mapAPIErrors(err error) error {
 	case *types.PermissionError:
 		return &echo.HTTPError{
 			Code:     http.StatusForbidden,
+			Message:  err.Error() + " (003A)",
+			Internal: err,
+		}
+	case *types.QuotaExceededError:
+		return &echo.HTTPError{
+			Code:     http.StatusPaymentRequired,
 			Message:  err.Error(),
 			Internal: err,
 		}
 	default:
 		return &echo.HTTPError{
 			Code:     http.StatusForbidden,
-			Message:  err.Error() + " (003)",
+			Message:  err.Error() + " (004A)",
 			Internal: err,
 		}
 	}

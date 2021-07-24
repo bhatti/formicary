@@ -74,7 +74,6 @@ type WebContext interface {
 	// Attachment sends a response as attachment, prompting client to save the
 	// file.
 	Attachment(file string, name string) error
-
 }
 
 // LoggedInUser constant
@@ -149,6 +148,8 @@ func IsWhiteListURL(path string, method string) bool {
 		"/auth/github":          true,
 		"/auth/github/callback": true,
 		"/dashboard/users/new":  true,
+		"/terms_service":        true,
+		"/privacy_policies":     true,
 		"/favicon.ico":          true,
 	}
 

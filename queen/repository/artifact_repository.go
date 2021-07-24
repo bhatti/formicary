@@ -30,11 +30,11 @@ type ArtifactRepository interface {
 	Delete(
 		qc *common.QueryContext,
 		id string) error
-	// Update job-definition
+	// Update artifact
 	Update(
 		qc *common.QueryContext,
 		art *common.Artifact) (*common.Artifact, error)
-	// Save - Saves job-definition
+	// Save - Saves artifact
 	Save(
 		art *common.Artifact) (*common.Artifact, error)
 	// Clear for testing

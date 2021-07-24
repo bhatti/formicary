@@ -29,6 +29,8 @@ type Organization struct {
 	LicensePolicy string `yaml:"external_id" json:"license_policy"`
 	// Configs defines config properties of org
 	Configs []*OrganizationConfig `yaml:"-" json:"-" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
+	// Subscription
+	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	// Active is used to soft delete org
 	Active bool `yaml:"-" json:"-"`
 	// CreatedAt created time
@@ -40,9 +42,11 @@ type Organization struct {
 
 // NewOrganization creates new instance of org
 func NewOrganization(
+	ownerID string,
 	orgUnit string,
 	bundle string) *Organization {
 	return &Organization{
+		OwnerUserID:    ownerID,
 		BundleID:       bundle,
 		OrgUnit:        orgUnit,
 		MaxConcurrency: 1,

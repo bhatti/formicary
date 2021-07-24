@@ -89,20 +89,62 @@ func startControllers(
 	statsRegistry *stats.JobStatsRegistry,
 	heathMonitor *health.Monitor,
 	webServer web.Server) {
-	controller.NewAuditController(repoFactory.AuditRecordRepository, webServer)
-	controller.NewUserController(&serverCfg.CommonConfig, repoFactory.AuditRecordRepository, repoFactory.UserRepository, webServer)
-	controller.NewOrganizationController(repoFactory.AuditRecordRepository, repoFactory.OrgRepository, webServer)
-	controller.NewOrganizationConfigController(repoFactory.AuditRecordRepository, repoFactory.OrgConfigRepository, webServer)
-	controller.NewJobDefinitionController(jobManager, statsRegistry, webServer)
-	controller.NewJobConfigController(repoFactory.AuditRecordRepository, repoFactory.JobDefinitionRepository, webServer)
-	controller.NewJobResourceController(repoFactory.AuditRecordRepository, repoFactory.JobResourceRepository, webServer)
-	controller.NewSystemConfigController(repoFactory.SystemConfigRepository, webServer)
-	controller.NewErrorCodeController(repoFactory.ErrorCodeRepository, webServer)
-	controller.NewJobRequestController(jobManager, webServer)
-	controller.NewAntRegistrationController(resourceManager, webServer)
-	controller.NewArtifactController(artifactManager, webServer)
-	controller.NewContainerExecutionController(resourceManager, webServer)
-	controller.NewHealthController(heathMonitor, webServer)
+	controller.NewIndexController(webServer)
+	controller.NewAuditController(
+		repoFactory.AuditRecordRepository,
+		webServer)
+	controller.NewUserController(
+		&serverCfg.CommonConfig,
+		repoFactory.AuditRecordRepository,
+		repoFactory.UserRepository,
+		repoFactory.SubscriptionRepository,
+		webServer)
+	controller.NewOrganizationController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.OrgRepository,
+		webServer)
+	controller.NewOrganizationConfigController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.OrgConfigRepository,
+		webServer)
+	controller.NewJobDefinitionController(jobManager,
+		statsRegistry,
+		webServer)
+	controller.NewJobConfigController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.JobDefinitionRepository,
+		webServer)
+	controller.NewJobResourceController(
+		repoFactory.AuditRecordRepository,
+		repoFactory.JobResourceRepository,
+		webServer)
+	controller.NewSystemConfigController(
+		repoFactory.SystemConfigRepository,
+		webServer)
+	controller.NewErrorCodeController(
+		repoFactory.ErrorCodeRepository,
+		webServer)
+	controller.NewJobRequestController(
+		jobManager,
+		webServer)
+	controller.NewAntRegistrationController(
+		resourceManager,
+		webServer)
+	controller.NewArtifactController(
+		artifactManager,
+		webServer)
+	controller.NewContainerExecutionController(
+		resourceManager,
+		webServer)
+	controller.NewHealthController(
+		heathMonitor,
+		webServer)
+	controller.NewSubscriptionController(
+		repoFactory.SubscriptionRepository,
+		repoFactory.UserRepository,
+		repoFactory.OrgRepository,
+		repoFactory.AuditRecordRepository,
+		webServer)
 }
 
 func startAdminControllers(
@@ -131,6 +173,7 @@ func startAdminControllers(
 		repoFactory.OrgRepository,
 		repoFactory.JobExecutionRepository,
 		repoFactory.ArtifactRepository,
+		repoFactory.SubscriptionRepository,
 		webServer)
 	admin.NewOrganizationConfigAdminController(
 		repoFactory.AuditRecordRepository,

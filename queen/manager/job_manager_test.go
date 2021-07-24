@@ -78,6 +78,10 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 		return nil, nil, err
 	}
 
+	userRepository, err := repository.NewTestUserRepository()
+	if err != nil {
+		return nil, nil, err
+	}
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	if err != nil {
 		return nil, nil, err
@@ -121,6 +125,7 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
+		userRepository,
 		orgRepository,
 		resourceManager,
 		artifactManager,

@@ -34,6 +34,7 @@ type JobScheduler struct {
 	jobManager                    *manager.JobManager
 	artifactManager               *manager.ArtifactManager
 	errorRepository               repository.ErrorCodeRepository
+	userRepository                repository.UserRepository
 	orgRepository                 repository.OrganizationRepository
 	resourceManager               resource.Manager
 	metricsRegistry               *metrics.Registry
@@ -56,6 +57,7 @@ func New(
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
 	errorRepository repository.ErrorCodeRepository,
+	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
 	resourceManager resource.Manager,
 	monitor *health.Monitor,
@@ -68,6 +70,7 @@ func New(
 		jobManager:                    jobManager,
 		artifactManager:               artifactManager,
 		errorRepository:               errorRepository,
+		userRepository:                userRepository,
 		orgRepository:                 orgRepository,
 		resourceManager:               resourceManager,
 		monitor:                       monitor,
@@ -201,6 +204,7 @@ func (js *JobScheduler) scheduleJob(
 		js.jobManager,
 		js.artifactManager,
 		js.errorRepository,
+		js.userRepository,
 		js.orgRepository,
 		js.resourceManager,
 		js.metricsRegistry,
@@ -214,6 +218,14 @@ func (js *JobScheduler) scheduleJob(
 			ctx,
 			fmt.Errorf("failed to validate job-state due to %s", err.Error()),
 			common.ErrorValidation,
+		)
+	}
+	if err := jobStateMachine.CheckSubscriptionQuota(); err != nil {
+		// change status from READY to FAILED
+		return jobStateMachine.ScheduleFailed(
+			ctx,
+			err,
+			common.ErrorQuotaExceeded,
 		)
 	}
 

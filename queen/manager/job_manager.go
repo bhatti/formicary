@@ -32,6 +32,7 @@ type JobManager struct {
 	jobDefinitionRepository repository.JobDefinitionRepository
 	jobRequestRepository    repository.JobRequestRepository
 	jobExecutionRepository  repository.JobExecutionRepository
+	userRepository          repository.UserRepository
 	orgRepository           repository.OrganizationRepository
 	resourceManager         resource.Manager
 	artifactManager         *ArtifactManager
@@ -47,6 +48,7 @@ func NewJobManager(
 	jobDefinitionRepository repository.JobDefinitionRepository,
 	jobRequestRepository repository.JobRequestRepository,
 	jobExecutionRepository repository.JobExecutionRepository,
+	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
 	resourceManager resource.Manager,
 	artifactManager *ArtifactManager,
@@ -67,6 +69,9 @@ func NewJobManager(
 	}
 	if jobExecutionRepository == nil {
 		return nil, fmt.Errorf("job-execution-repository is not specified")
+	}
+	if userRepository == nil {
+		return nil, fmt.Errorf("user-repository is not specified")
 	}
 	if orgRepository == nil {
 		return nil, fmt.Errorf("org-repository is not specified")
@@ -92,6 +97,7 @@ func NewJobManager(
 		jobDefinitionRepository: jobDefinitionRepository,
 		jobRequestRepository:    jobRequestRepository,
 		jobExecutionRepository:  jobExecutionRepository,
+		userRepository:          userRepository,
 		orgRepository:           orgRepository,
 		resourceManager:         resourceManager,
 		artifactManager:         artifactManager,
@@ -453,6 +459,20 @@ func (jm *JobManager) SaveJobRequest(
 		return nil, err
 	}
 
+	// Check quota
+	if jm.serverCfg.SubscriptionQuotaEnabled && request.GetUserID() != "" {
+		user, err := jm.userRepository.Get(
+			qc,
+			request.GetUserID())
+		if err != nil {
+			return nil, err
+		}
+		_, _, err = jm.CheckSubscriptionQuota(qc, user)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	request.JobState = common.PENDING
 	request.JobDefinitionID = jobDefinition.ID
 	request.JobExecutionID = ""
@@ -462,6 +482,7 @@ func (jm *JobManager) SaveJobRequest(
 	request.Retried = 0
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
+
 	if !request.UpdateScheduledAtFromCronTrigger(jobDefinition) && request.ScheduledAt.IsZero() {
 		request.ScheduledAt = time.Now()
 	}
@@ -697,6 +718,13 @@ func (jm *JobManager) RestartJobRequest(
 		}
 	}
 	return
+}
+
+// GetResourceUsage usage
+func (jm *JobManager) GetResourceUsage(
+	qc *common.QueryContext,
+	ranges []types.DateRange) ([]types.ResourceUsage, error) {
+	return jm.jobExecutionRepository.GetResourceUsage(qc, ranges)
 }
 
 // UpdateJobRequestTimestamp updates timestamp so that job scheduler doesn't consider it as orphan
@@ -982,6 +1010,42 @@ func (jm *JobManager) overrideCancelRequest(
 			"Error":                      err,
 		}).Errorf("failed to find request after cancel verification")
 	}
+}
+
+// CheckSubscriptionQuota checks quota
+func (jm *JobManager) CheckSubscriptionQuota(
+	qc *common.QueryContext,
+	user *common.User) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
+	if jm.serverCfg.SubscriptionQuotaEnabled {
+		if user == nil || user.Subscription == nil {
+			return cpuUsage, diskUsage, fmt.Errorf("user subscription not found for user")
+		}
+		if user.Subscription.Expired() {
+			return cpuUsage, diskUsage, fmt.Errorf("user subscription is expired")
+		}
+		ranges := []types.DateRange{{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt}}
+		if cpuUsages, err := jm.GetResourceUsage(
+			qc, ranges); err == nil {
+			if cpuUsages[0].Value >= user.Subscription.CPUQuota {
+				return cpuUsage, diskUsage, common.NewQuotaExceededError(
+					fmt.Errorf("exceeded cpu quota %d secs, check your subscription", user.Subscription.CPUQuota))
+			}
+			cpuUsage = cpuUsages[0]
+		} else {
+			return cpuUsage, diskUsage, err
+		}
+		if diskUsages, err := jm.artifactManager.GetResourceUsage(
+			qc, ranges); err == nil {
+			if diskUsages[0].MValue() >= user.Subscription.DiskQuota {
+				return cpuUsage, diskUsage, common.NewQuotaExceededError(
+					fmt.Errorf("exceeded disk quota %d MiB, check your subscription", user.Subscription.DiskQuota))
+			}
+			diskUsage = diskUsages[0]
+		} else {
+			return cpuUsage, diskUsage, err
+		}
+	}
+	return
 }
 
 func initializeStatsRegistry(
