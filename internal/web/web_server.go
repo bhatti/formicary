@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
-	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -133,7 +132,6 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 		}
 	}
 	if !user.Admin && !user.HasPermission(perm.Resource, perm.Actions) {
-		debug.PrintStack()
 		return &echo.HTTPError{
 			Code:    http.StatusUnauthorized,
 			Message: fmt.Sprintf("permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
@@ -281,7 +279,6 @@ func mapAuthErrors(err error) error {
 	switch err.(type) {
 	case *echo.HTTPError:
 		herr := err.(*echo.HTTPError)
-		//debug.PrintStack()
 		logrus.WithFields(logrus.Fields{
 			"Component": "DefaultWebServer",
 			"Error":     err,
@@ -336,7 +333,6 @@ func mapAPIErrors(err error) error {
 	switch err.(type) {
 	case *echo.HTTPError:
 		herr := err.(*echo.HTTPError)
-		//debug.PrintStack()
 		logrus.WithFields(logrus.Fields{
 			"Component": "DefaultWebServer",
 			"Error":     err,

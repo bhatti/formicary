@@ -122,7 +122,7 @@ func NewFreemiumSubscription(userID string, orgID string) *Subscription {
 
 func (ec *Subscription) String() string {
 	return fmt.Sprintf("Subscription policy=%s period=%s user=%s org=%s cpu=%d disk=%d start=%s end=%s",
-		ec.Policy, ec.Period, ec.UserID, ec.OrganizationID, ec.CPUQuota, ec.DiskQuota, ec.StartedString(), ec.EndedString())
+		ec.Policy, ec.Period, ec.UserID, ec.OrganizationID, ec.CPUQuota, ec.DiskQuota, ec.StartedAt, ec.EndedAt)
 }
 
 // Validate validates audit-record

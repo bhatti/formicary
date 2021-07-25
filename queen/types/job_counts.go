@@ -1,8 +1,9 @@
 package types
 
 import (
-	"plexobject.com/formicary/internal/types"
 	"time"
+
+	"plexobject.com/formicary/internal/types"
 )
 
 // JobCounts defines counts on job types by state and error code.
@@ -78,7 +79,7 @@ func (c *JobCounts) NotTerminal() bool {
 
 // GetUserJobTypeKey defines key
 func (c *JobCounts) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(c.OrganizationID, c.UserID, c.JobType)
+	return getUserJobTypeKey(c.OrganizationID, c.UserID, c.JobType, "")
 }
 
 // GetJobType defines the type of job

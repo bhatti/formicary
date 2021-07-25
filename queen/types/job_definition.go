@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gorhill/cronexpr"
 	common "plexobject.com/formicary/internal/types"
@@ -244,6 +244,7 @@ func (jd *JobDefinition) Filtered(data map[string]interface{}) bool {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobDefinition",
 			"JobType":   jd.JobType,
+			"Version":   jd.SemVersion,
 			"Filter":    jd.Filter,
 			"Data":      data,
 			"Error":     err,
@@ -286,6 +287,7 @@ func (jd *JobDefinition) GetDynamicTask(
 			logrus.WithFields(logrus.Fields{
 				"Component": "JobDefinition",
 				"JobType":   jd.JobType,
+				"Version":   jd.SemVersion,
 				"TaskType":  taskType,
 				"Data":      data,
 				"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
@@ -303,6 +305,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobDefinition",
 			"JobType":   jd.JobType,
+			"Version":   jd.SemVersion,
 			"TaskType":  taskType,
 			"Data":      data,
 			"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
@@ -310,7 +313,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		}).Error("failed to parse yaml task")
 		return nil, nil, fmt.Errorf("failed to parse %s due to %v", taskType, err)
 	}
-	task.addVariablesFromNameValueVariables()
+	_ = task.addVariablesFromNameValueVariables()
 
 	// after-load to add on-exit and other properties
 	if err = task.AfterLoad(); err != nil {
@@ -370,6 +373,14 @@ func (jd *JobDefinition) GetDynamicConfig(
 func (jd *JobDefinition) String() string {
 	return fmt.Sprintf("JobType=%s Variables=%s",
 		jd.JobType, jd.VariablesString())
+}
+
+// JobTypeAndVersion with version
+func (jd *JobDefinition) JobTypeAndVersion() string {
+	if jd.SemVersion == "" {
+		return jd.JobType
+	}
+	return jd.JobType + ":" + jd.SemVersion
 }
 
 // Yaml config
@@ -593,9 +604,14 @@ func (jd *JobDefinition) GetJobType() string {
 	return jd.JobType
 }
 
+// GetJobVersion defines the version of job
+func (jd *JobDefinition) GetJobVersion() string {
+	return jd.SemVersion
+}
+
 // GetUserJobTypeKey defines key
 func (jd *JobDefinition) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(jd.OrganizationID, jd.UserID, jd.JobType)
+	return getUserJobTypeKey(jd.OrganizationID, jd.UserID, jd.JobType, jd.SemVersion)
 }
 
 // Equals compares other job-definition for equality

@@ -14,6 +14,7 @@
       description TEXT,
       platform VARCHAR(100),
       job_type VARCHAR(100) NOT NULL,
+      job_version VARCHAR(50) NOT NULL DEFAULT '',
       job_state VARCHAR(100) NOT NULL DEFAULT 'PENDING',
       job_group VARCHAR(100),
       job_priority INTEGER NOT NULL DEFAULT 1,
@@ -32,7 +33,7 @@
     CREATE INDEX formicary_job_requests_org_ndx ON formicary_job_requests(organization_id);
     CREATE INDEX formicary_job_requests_user_id_ndx ON formicary_job_requests(user_id);
     CREATE INDEX formicary_job_requests_job_def_ndx ON formicary_job_requests(job_definition_id);
-    CREATE INDEX formicary_job_requests_pkg_job_type_ndx ON formicary_job_requests(job_type);
+    CREATE INDEX formicary_job_requests_pkg_job_type_ndx ON formicary_job_requests(job_type, job_version);
     CREATE INDEX formicary_job_requests_group_ndx ON formicary_job_requests(job_group);
     CREATE INDEX formicary_job_requests_platform_ndx ON formicary_job_requests(platform);
     CREATE INDEX formicary_job_requests_state_ndx ON formicary_job_requests(job_state);
@@ -41,7 +42,7 @@
     CREATE INDEX formicary_job_request_updated_ndx ON formicary_job_requests(updated_at);
     CREATE INDEX formicary_job_request_context_ndx ON formicary_job_requests(quick_search(512));
     CREATE INDEX formicary_job_request_errcode_ndx ON formicary_job_requests(error_code);
-    CREATE INDEX formicary_job_requests_type_state_ndx ON formicary_job_requests(job_type, job_state);
+    CREATE INDEX formicary_job_requests_type_state_ndx ON formicary_job_requests(job_type, job_version, job_state);
 
     CREATE TABLE IF NOT EXISTS formicary_job_request_params (
       id VARCHAR(36) NOT NULL PRIMARY KEY,

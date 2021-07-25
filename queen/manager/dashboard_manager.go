@@ -52,21 +52,25 @@ func NewDashboardManager(
 // GetCPUResources for last n days/weeks/months and beginning of time to current
 func (s *DashboardManager) GetCPUResources(
 	qc *common.QueryContext,
-	days int,
-	weeks int,
-	months int) ([]types.ResourceUsage, error) {
-	ranges := BuildRanges(time.Now(), days, weeks, months)
+	ranges []types.DateRange,
+) ([]types.ResourceUsage, error) {
 	return s.repositoryFactory.JobExecutionRepository.GetResourceUsage(qc, ranges)
 }
 
 // GetStorageResources for last n days/weeks/months and beginning of time to current
 func (s *DashboardManager) GetStorageResources(
 	qc *common.QueryContext,
-	days int,
-	weeks int,
-	months int) ([]types.ResourceUsage, error) {
-	ranges := BuildRanges(time.Now(), days, weeks, months)
+	ranges []types.DateRange,
+) ([]types.ResourceUsage, error) {
 	return s.repositoryFactory.ArtifactRepository.GetResourceUsage(qc, ranges)
+}
+
+// GetStorageCount count of artifacts
+func (s *DashboardManager) GetStorageCount(
+	qc *common.QueryContext,
+) (int64, error) {
+	params := map[string]interface{}{}
+	return s.repositoryFactory.ArtifactRepository.Count(qc, params)
 }
 
 func addMonthYear(now time.Time, months int) time.Time {
@@ -74,7 +78,7 @@ func addMonthYear(now time.Time, months int) time.Time {
 }
 
 // BuildRanges builds ranges
-func BuildRanges(now time.Time, days int, weeks int, months int) (ranges []types.DateRange) {
+func BuildRanges(now time.Time, days int, weeks int, months int, all bool) (ranges []types.DateRange) {
 	ranges = make([]types.DateRange, days+weeks+months+1)
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for i := 0; i < days; i++ {
@@ -88,7 +92,7 @@ func BuildRanges(now time.Time, days int, weeks int, months int) (ranges []types
 		start := startOfDay.Add(time.Duration((i+1)*24*7*-1) * time.Hour)
 		ranges[weeks+days-i-1] = types.DateRange{
 			StartDate: start,
-			EndDate:   start.Add(24 * time.Hour*8).Add(-1 * time.Nanosecond),
+			EndDate:   start.Add(24 * time.Hour * 8).Add(-1 * time.Nanosecond),
 		}
 	}
 	daysInMonths := []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
@@ -99,20 +103,22 @@ func BuildRanges(now time.Time, days int, weeks int, months int) (ranges []types
 				EndDate:   now,
 			}
 		} else {
-			from := addMonthYear(now, i * -1)
+			from := addMonthYear(now, i*-1)
 			daysInMonth := daysInMonths[from.Month()-1]
 			if from.Month() == 2 {
 				daysInMonth++
 			}
 			ranges[months+weeks+days-i-1] = types.DateRange{
 				StartDate: from,
-				EndDate:   from.Add(time.Hour * time.Duration(24*daysInMonth+1)).Add(time.Nanosecond*-1),
+				EndDate:   from.Add(time.Hour * time.Duration(24*daysInMonth+1)).Add(time.Nanosecond * -1),
 			}
 		}
 	}
-	ranges[days+weeks+months] = types.DateRange{
-		StartDate: time.Unix(0, 0),
-		EndDate:   startOfDay.Add(24 * time.Hour),
+	if all {
+		ranges[days+weeks+months] = types.DateRange{
+			StartDate: time.Unix(0, 0),
+			EndDate:   startOfDay.Add(24 * time.Hour),
+		}
 	}
 	return
 }
@@ -237,7 +243,22 @@ func (s *DashboardManager) JobDefinitionCounts(
 	key := fmt.Sprintf("JobDefinitionCounts:%s", qc.String())
 	item, err := s.cache.Fetch(key,
 		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
-			params := make(map[string]interface{})
+			params := map[string]interface{}{"public_plugin": false}
+			return s.repositoryFactory.JobDefinitionRepository.Count(qc, params)
+		})
+	if err != nil {
+		return 0, err
+	}
+	return item.Value().(int64), nil
+}
+
+// PluginCounts - finds plugin counts
+func (s *DashboardManager) PluginCounts() (int64, error) {
+	qc := common.NewQueryContext("", "", "").WithAdmin()
+	key := fmt.Sprintf("PluginCounts:%s", qc.String())
+	item, err := s.cache.Fetch(key,
+		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+			params := map[string]interface{}{"public_plugin": true}
 			return s.repositoryFactory.JobDefinitionRepository.Count(qc, params)
 		})
 	if err != nil {

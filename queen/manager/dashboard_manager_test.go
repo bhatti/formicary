@@ -33,10 +33,10 @@ func Test_ShouldBuildRanges(t *testing.T) {
 		j += 2
 	}
 
-	ranges := BuildRanges(now, 10, 5, 5)
+	ranges := BuildRanges(now, 10, 5, 5, true)
 	require.Equal(t, 21, len(ranges))
 
-	ranges = BuildRanges(now, 1, 1, 1)
+	ranges = BuildRanges(now, 1, 1, 1, true)
 	for i, r := range ranges {
 		t.Logf("i=%d, begin=%s, end=%s\n", i, r.StartDate, r.EndDate)
 	}

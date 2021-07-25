@@ -45,6 +45,7 @@ tasks:
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}
@@ -53,6 +54,7 @@ tasks:
 - task_type: fork-encode2
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_2}}
     InputEncoding: {{.InputEncoding}}
@@ -83,6 +85,7 @@ tasks:
 <pre><code class="lang-yaml">- task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}

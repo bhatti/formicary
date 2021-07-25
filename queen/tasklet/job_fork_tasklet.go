@@ -3,6 +3,7 @@ package tasklet
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/events"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ import (
 
 const forkedJobIDSuffix = ".ForkedJobID"
 const forkedJobTypeSuffix = ".ForkedJobType"
-const forkedJobStatusSuffix = ".ForkedJobStatus"
+const forkedJobVersionSuffix = ".ForkedJobVersion"
 
 // JobForkTasklet structure
 type JobForkTasklet struct {
@@ -90,14 +91,25 @@ func (t *JobForkTasklet) Execute(
 	_ context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	queryContext := common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, "")
-	jobDef, err := t.jobManager.GetJobDefinitionByType(queryContext, taskReq.ExecutorOpts.ForkJobType)
+	jobDef, err := t.jobManager.GetJobDefinitionByType(
+		queryContext,
+		taskReq.ExecutorOpts.ForkJobType,
+		taskReq.ExecutorOpts.ForkJobVersion)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":      "JobForkTasklet",
+			"Request":        taskReq,
+			"ForkJobType":    taskReq.ExecutorOpts.ForkJobType,
+			"ForkJobVersion": taskReq.ExecutorOpts.ForkJobVersion,
+			"Error":          err,
+		}).Warnf("failed to find plugin to fork")
 		return buildTaskResponseWithError(taskReq, err)
 	}
 	req, err := types.NewJobRequestFromDefinition(jobDef)
 	if err != nil {
 		return buildTaskResponseWithError(taskReq, err)
 	}
+	req.JobVersion = taskReq.ExecutorOpts.ForkJobVersion
 	for k, v := range taskReq.Variables {
 		_, _ = req.AddParam(k, v)
 	}
@@ -117,7 +129,7 @@ func (t *JobForkTasklet) Execute(
 	taskResp = common.NewTaskResponse(taskReq)
 	taskResp.AddContext(taskReq.TaskType+forkedJobIDSuffix, saved.ID)
 	taskResp.AddContext(taskReq.TaskType+forkedJobTypeSuffix, saved.JobType)
-	taskResp.AddContext(taskReq.TaskType+forkedJobStatusSuffix, saved.JobState)
+	taskResp.AddContext(taskReq.TaskType+forkedJobVersionSuffix, saved.JobVersion)
 	taskResp.AddJobContext(taskReq.TaskType+forkedJobIDSuffix, saved.ID)
 	return
 }

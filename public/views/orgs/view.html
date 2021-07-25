@@ -1,81 +1,153 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">Organization Profile</h4>
-    </header>
+<ul class="nav nav-tabs" id="userView" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile" aria-selected="true">Profile</a>
+    </li>
+    {{ with .Org.Subscription }}
+    <li class="nav-item">
+        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab" aria-controls="subscription" aria-selected="false">Subscription</a>
+    </li>
+    {{end}}
+    <li class="nav-item">
+        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource" aria-selected="false">Resources Usage</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="users-tab" href="/dashboard/users">Users List</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="invite-tab" href="/dashboard/orgs/invite/{{.Org.ID}}">Invite User</a>
+    </li>
+</ul>
 
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Organization: </label>
-            <div class="col-sm-10">
-                <b>{{ .Org.OrgUnit }}</b>
+<div class="tab-content" id="userViewContent">
+    <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+        <section class="group">
+            <header class="group-header">
+                <h4 class="group-title">Organization Profile</h4>
+            </header>
+
+            <div class="form-group">
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Organization: </label>
+                    <div class="col-sm-10">
+                        <b>{{ .Org.OrgUnit }}</b>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Bundle: </label>
-            <div class="col-sm-10">
-                <b>{{ .Org.BundleID }}</b>
+            <div class="form-group">
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Bundle: </label>
+                    <div class="col-sm-10">
+                        <b>{{ .Org.BundleID }}</b>
+                    </div>
+                </div>
             </div>
-        </div>
+
+            <div class="form-group">
+                <div class="row">
+                    <form action="/dashboard/users" method="GET">
+                        <input type="hidden" name="organization_id" value="{{.Org.ID}}">
+                        <input type="submit" class="btn btn-primary" value="Users">
+                    </form> &nbsp;
+                    <form action="/dashboard/orgs/invite/{{.Org.ID}}" method="GET">
+                        <input type="submit" class="btn btn-primary" value="Invite">
+                    </form> &nbsp;
+
+                </div>
+            </div>
+        </section>
     </div>
-
-    <div class="form-group">
-        <div class="row">
-            <form action="/dashboard/users" method="GET">
-                <input type="hidden" name="organization_id" value="{{.Org.ID}}">
-                <input type="submit" class="btn btn-primary" value="Users">
-            </form> &nbsp;
-            <form action="/dashboard/orgs/invite/{{.Org.ID}}" method="GET">
-                <input type="submit" class="btn btn-primary" value="Invite">
-            </form> &nbsp;
-
-        </div>
-    </div>
-
-    {{ with .ResourcesUsage }}
-    <h3>Resources Usage</h3>
-    <div class="table-responsive">
-        <table class="table table-sm table-border">
-            <thead class="thead-dark">
-            <tr>
-                <th class="col-sm-2">Type</th>
-                <th class="col-sm-2">Today</th>
-                <th class="col-sm-2">Week</th>
-                <th class="col-sm-2">Month</th>
-                <th class="col-sm-2">All Time</th>
-            </tr>
-            </thead>
-            {{range .}}
-            <tr scope="row">
-                <td>
-                    <dt class="col-sm-2"><b>{{ .Type }}:</b></dt>
-                </td>
-                <td>
-                    <dd class="col-sm-1">{{ .Today.DateString }}</dd>
-                    <dd class="col-sm-1">{{ .Today.ValueString }}</dd>
-                </td>
-                <td>
-                    <dd class="col-sm-1">{{ .Week.DateString }}</dd>
-                    <dd class="col-sm-1">{{ .Week.ValueString }}</dd>
-                </td>
-                <td>
-                    <dd class="col-sm-1">{{ .Month.DateString }}</dd>
-                    <dd class="col-sm-1">{{ .Month.ValueString }}</dd>
-                </td>
-                <td>
-                    <dd class="col-sm-2">{{ .All.ValueString }}</dd>
-                </td>
-            </tr>
+    <div class="tab-pane fade" id="subscription" role="tabpanel" aria-labelledby="subscription-tab">
+        <section class="group">
+            {{ with .Org.Subscription }}
+            <header class="group-header">
+                <h4 class="group-title">Subscription ({{$.PolicyRange}})</h4>
+            </header>
+            <div class="table-responsive">
+                <table class="table table-sm table-border">
+                    <thead class="thead-dark">
+                    <tr>
+                        <th class="col-sm-1">Policy</th>
+                        <th class="col-sm-1">Period</th>
+                        <th class="col-sm-1">CPU Quota (secs)</th>
+                        <th class="col-sm-1">Disk Quota (MiB)</th>
+                        <th class="col-sm-1">Remaining CPU Quota (secs)</th>
+                        <th class="col-sm-1">Remaining Disk Quota (MiB)</th>
+                    </tr>
+                    </thead>
+                    <tr scope="row">
+                        <td>
+                            <dt class="col-sm-1"><b>{{ .Policy }}:</b></dt>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .Period }}</dd>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .CPUQuota }}</dd>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .DiskQuota }}</dd>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .RemainingCPUQuota }}</dd>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .RemainingDiskQuota }}</dd>
+                        </td>
+                    </tr>
+                </table>
+            </div>
             {{ end }}
-        </table>
+        </section>
     </div>
-    {{ end }}
+    <div class="tab-pane fade" id="resource" role="tabpanel" aria-labelledby="resource-tab">
+        <section class="group">
+            {{ with .ResourcesUsage }}
+            <header class="group-header">
+                <h4 class="group-title">Resources Usage</h4>
+            </header>
+            <div class="table-responsive">
+                <table class="table table-sm table-border">
+                    <thead class="thead-dark">
+                    <tr>
+                        <th class="col-sm-2">Type</th>
+                        <th class="col-sm-2">Today ({{$.TodayRange}})</th>
+                        <th class="col-sm-2">Week ({{$.WeekRange}})</th>
+                        {{if $.HasPolicyRange}}
+                        <th class="col-sm-2">Subscription ({{$.PolicyRange}})</th>
+                        {{else}}
+                        <th class="col-sm-2">Month ({{$.MonthRange}})</th>
+                        {{end}}
+                    </tr>
+                    </thead>
+                    {{range .}}
+                    <tr scope="row">
+                        <td>
+                            <dt class="col-sm-2"><b>{{ .Type }}:</b></dt>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .Today.ValueString }}</dd>
+                        </td>
+                        <td>
+                            <dd class="col-sm-1">{{ .Week.ValueString }}</dd>
+                        </td>
+                        <td>
+                            {{if $.HasPolicyRange}}
+                            <dd class="col-sm-2">{{ .Subscription.ValueString }}</dd>
+                            {{else}}
+                            <dd class="col-sm-2">{{ .Month.ValueString }}</dd>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{ end }}
+                </table>
+            </div>
+            {{ end }}
+        </section>
+    </div>
+</div>
 
-    <footer class="group-footer">
-    </footer>
-
-</section>
+<footer class="group-footer">
+</footer>
 {{ template "layouts/footer" }}

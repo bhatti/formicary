@@ -8,19 +8,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 	"io/ioutil"
 	"net/url"
+	"reflect"
+	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 	"plexobject.com/formicary/internal/auth"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/types/github"
-	"reflect"
-	"strings"
-	"time"
 )
 
 // GithubAuth struct for oauth by github
@@ -71,8 +72,9 @@ func (g *GithubAuth) AuthWebhookCallbackHandle(c web.WebContext) (err error) {
 	if jobType == "" {
 		return fmt.Errorf("`job` query parameter not specified")
 	}
+	jobVersion := c.QueryParam("version")
 	qc := web.BuildQueryContext(c)
-	jobDef, err := g.jobManager.GetJobDefinitionByType(qc, jobType)
+	jobDef, err := g.jobManager.GetJobDefinitionByType(qc, jobType, jobVersion)
 	if err != nil {
 		return err
 	}

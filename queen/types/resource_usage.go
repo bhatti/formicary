@@ -48,37 +48,35 @@ func (r ResourceUsage) DateString() string {
 func (r ResourceUsage) KValue() int64 {
 	if r.ValueUnit == "bytes" {
 		return r.Value / 1024
-	} else {
-		return r.Value
 	}
+	return r.Value
 }
 
 // MValue / 1024 * 1024
 func (r ResourceUsage) MValue() int64 {
 	if r.ValueUnit == "bytes" {
 		return r.Value / 1024 / 1024
-	} else {
-		return r.Value
 	}
+	return r.Value
 }
 
 // ValueString string
 func (r ResourceUsage) ValueString() string {
 	if r.ValueUnit == "bytes" {
-		if r.Value > 1024*1024 {
+		if r.Value >= 1024*1024 {
 			return fmt.Sprintf("%d MiB",
 				r.Value/1024/1024)
-		} else if r.Value > 1024 {
+		} else if r.Value >= 1024 {
 			return fmt.Sprintf("%d KiB",
 				r.Value/1024)
 		} else {
 			return fmt.Sprintf("%d B",
 				r.Value)
 		}
-	} else if r.ValueUnit == "seconds" && r.Value > 3600 {
+	} else if r.ValueUnit == "seconds" && r.Value >= 3600 {
 		return fmt.Sprintf("%0.2f Hours",
 			float64(r.Value)/3600.0)
-	} else if r.ValueUnit == "seconds" && r.Value > 60 {
+	} else if r.ValueUnit == "seconds" && r.Value >= 60 {
 		return fmt.Sprintf("%0.2f Minutes ",
 			float64(r.Value)/60.0)
 	} else {

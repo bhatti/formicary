@@ -317,7 +317,7 @@ func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 		k = strcase.ToSnake(k)
 		keyParts := strings.Split(k, ":")
 		if reflect.TypeOf(v).String() == "string" &&
-			(strings.HasSuffix(k, "_date") || strings.HasSuffix(k, "_at")) {
+			(strings.HasSuffix(keyParts[0], "_date") || strings.HasSuffix(keyParts[0], "_at")) {
 			if date, err := time.Parse(time.RFC3339, v.(string)); err == nil {
 				v = date
 			}
@@ -331,8 +331,12 @@ func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 				tx = tx.Where(fmt.Sprintf("%v <> ?", keyParts[0]), strings.Split(v.(string), ","))
 			} else if strings.HasPrefix(keyParts[1], "<") {
 				tx = tx.Where(fmt.Sprintf("%v < ?", keyParts[0]), v)
+			} else if strings.HasPrefix(keyParts[1], "<=") {
+				tx = tx.Where(fmt.Sprintf("%v <= ?", keyParts[0]), v)
 			} else if strings.HasPrefix(keyParts[1], ">") {
 				tx = tx.Where(fmt.Sprintf("%v > ?", keyParts[0]), v)
+			} else if strings.HasPrefix(keyParts[1], ">=") {
+				tx = tx.Where(fmt.Sprintf("%v >= ?", keyParts[0]), v)
 			} else {
 				tx = tx.Where(fmt.Sprintf("%v = ?", keyParts[0]), v)
 			}

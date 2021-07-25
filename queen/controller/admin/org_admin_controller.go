@@ -132,7 +132,17 @@ func (oc *OrganizationAdminController) getOrganization(c web.WebContext) error {
 		"Org": org,
 	}
 
-	ranges := manager.BuildRanges(time.Now(), 1, 1, 1)
+	ranges := manager.BuildRanges(time.Now(), 1, 1, 1, false)
+	res["TodayRange"] = ranges[0].StartString()
+	res["WeekRange"] = ranges[1].StartAndEndString()
+	res["MonthRange"] = ranges[2].StartAndEndString()
+	res["PolicyRange"] = ""
+	res["HasPolicyRange"] = false
+	if org.Subscription != nil {
+		ranges[2] = types.DateRange{StartDate: org.Subscription.StartedAt, EndDate: org.Subscription.EndedAt}
+		res["PolicyRange"] = ranges[2].StartAndEndString()
+		res["HasPolicyRange"] = true
+	}
 	resources := make([]map[string]interface{}, 0)
 	orgQC := qc
 	if qc.Admin() {
@@ -140,23 +150,37 @@ func (oc *OrganizationAdminController) getOrganization(c web.WebContext) error {
 	}
 	if cpuUsage, err := oc.jobExecRepository.GetResourceUsage(
 		orgQC, ranges); err == nil {
-		resources = append(resources, map[string]interface{}{
+		m := map[string]interface{}{
 			"Type":  "CPU",
 			"Today": cpuUsage[0],
 			"Week":  cpuUsage[1],
-			"Month": cpuUsage[2],
-			"All":   cpuUsage[3],
-		})
+		}
+		if org.Subscription != nil && !org.Subscription.Expired() {
+			m["Subscription"] = cpuUsage[2]
+			if cpuUsage[2].Value <= org.Subscription.CPUQuota {
+				org.Subscription.RemainingCPUQuota = org.Subscription.CPUQuota - cpuUsage[2].Value
+			}
+		} else {
+			m["Month"] = cpuUsage[2]
+		}
+		resources = append(resources, m)
 	}
 	if storageUsage, err := oc.artifactRepository.GetResourceUsage(
 		orgQC, ranges); err == nil {
-		resources = append(resources, map[string]interface{}{
+		m := map[string]interface{}{
 			"Type":  "Storage",
 			"Today": storageUsage[0],
 			"Week":  storageUsage[1],
-			"Month": storageUsage[2],
-			"All":   storageUsage[3],
-		})
+		}
+		if org.Subscription != nil && !org.Subscription.Expired() {
+			m["Subscription"] = storageUsage[2]
+			if storageUsage[2].MValue() <= org.Subscription.DiskQuota {
+				org.Subscription.RemainingDiskQuota = org.Subscription.DiskQuota - storageUsage[2].MValue()
+			} else {
+				m["Month"] = storageUsage[2]
+			}
+		}
+		resources = append(resources, m)
 	}
 	res["ResourcesUsage"] = resources
 	web.RenderDBUserFromSession(c, res)

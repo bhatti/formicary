@@ -118,7 +118,8 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 	jsm.JobDefinition, err = jsm.JobManager.GetJobDefinitionByType(
 		jsm.QueryContext(),
-		jsm.Request.GetJobType())
+		jsm.Request.GetJobType(),
+		jsm.Request.GetJobVersion())
 	if err != nil {
 		return err
 	}

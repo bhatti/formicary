@@ -23,6 +23,7 @@ const keyExecutorOptions = "executor_options"
 const keyResources = "resources"
 const keyTags = "tags"
 const keyExcept = "except"
+const keyJobVersion = "job_version"
 const keyDeps = "dependencies"
 const keyArtifacts = "artifact_ids"
 
@@ -80,6 +81,7 @@ type TaskDefinition struct {
 	// For example, you may start a follower that processes payments and the task will be routed to that follower
 	Tags            []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
 	Except          string   `yaml:"except,omitempty" json:"except" gorm:"-"`
+	JobVersion      string   `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
 	Dependencies    []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
 	ArtifactIDs     []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
 	unknownKeys     map[string]interface{}
@@ -182,6 +184,8 @@ func (td *TaskDefinition) AddVariable(
 		td.Tags = value.([]string)
 	} else if name == keyExcept {
 		td.Except = fmt.Sprintf("%s", value)
+	} else if name == keyJobVersion {
+		td.JobVersion = fmt.Sprintf("%s", value)
 	} else if name == keyDeps {
 		td.Dependencies = value.([]string)
 	} else if name == keyArtifacts {
@@ -303,6 +307,11 @@ func (td *TaskDefinition) AfterLoad() error {
 			if err != nil {
 				return err
 			}
+		} else if c.Name == keyJobVersion {
+			err = json.Unmarshal([]byte(c.Value), &td.JobVersion)
+			if err != nil {
+				return err
+			}
 		} else if c.Name == keyDeps {
 			err = json.Unmarshal([]byte(c.Value), &td.Dependencies)
 			if err != nil {
@@ -381,6 +390,11 @@ func (td *TaskDefinition) ValidateBeforeSave() error {
 	}
 	if td.Except != "" {
 		if _, err := td.AddVariable(keyExcept, td.Except); err != nil {
+			return err
+		}
+	}
+	if td.JobVersion != "" {
+		if _, err := td.AddVariable(keyJobVersion, td.JobVersion); err != nil {
 			return err
 		}
 	}
@@ -534,6 +548,7 @@ func getReservedConfigProperties() []string {
 		keyExecutorOptions,
 		keyTags,
 		keyExcept,
+		keyJobVersion,
 		keyDeps,
 		keyArtifacts}
 }

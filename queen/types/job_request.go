@@ -20,6 +20,7 @@ const ParentJobTypePrefix = "ParentJobType"
 type UserJobTypeKey interface {
 	// GetJobType defines the type of job
 	GetJobType() string
+	GetJobVersion() string
 	GetOrganizationID() string
 	GetUserID() string
 	GetUserJobTypeKey() string
@@ -31,6 +32,7 @@ type IJobRequestSummary interface {
 	GetID() uint64
 	// GetJobType defines the type of job
 	GetJobType() string
+	GetJobVersion() string
 	// GetJobState defines state of job that is maintained throughout the lifecycle of a job
 	GetJobState() types.RequestState
 	GetOrganizationID() string
@@ -57,6 +59,7 @@ type IJobRequest interface {
 	GetJobPriority() int
 	// GetJobType defines the type of job
 	GetJobType() string
+	GetJobVersion() string
 	// GetJobState defines state of job that is maintained throughout the lifecycle of a job
 	GetJobState() types.RequestState
 	// SetJobState sets job state
@@ -103,7 +106,8 @@ type JobRequest struct {
 	// Platform overrides platform property for targeting job to a specific follower
 	Platform string `json:"platform"`
 	// JobType defines type for the job
-	JobType string `json:"job_type"`
+	JobType    string `json:"job_type"`
+	JobVersion string `json:"job_version"`
 	// JobState defines state of job that is maintained throughout the lifecycle of a job
 	JobState types.RequestState `json:"job_state"`
 	// JobGroup defines a property for grouping related job
@@ -166,6 +170,7 @@ func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
 	}
 	request := &JobRequest{
 		JobType:         job.JobType,
+		JobVersion:      job.SemVersion,
 		JobDefinitionID: job.ID,
 		JobState:        types.PENDING,
 		UserID:          job.UserID,
@@ -266,6 +271,11 @@ func (jr *JobRequest) GetJobType() string {
 	return jr.JobType
 }
 
+// GetJobVersion defines the version of job
+func (jr *JobRequest) GetJobVersion() string {
+	return jr.JobVersion
+}
+
 // GetRetried - retry attempts
 func (jr *JobRequest) GetRetried() int {
 	return jr.Retried
@@ -307,9 +317,17 @@ func (jr *JobRequest) GetUserID() string {
 	return jr.UserID
 }
 
+// JobTypeAndVersion with version
+func (jr *JobRequest) JobTypeAndVersion() string {
+	if jr.JobVersion == "" {
+		return jr.JobType
+	}
+	return jr.JobType + ":" + jr.JobVersion
+}
+
 // GetUserJobTypeKey key of job-type
 func (jr *JobRequest) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(jr.OrganizationID, jr.UserID, jr.JobType)
+	return getUserJobTypeKey(jr.OrganizationID, jr.UserID, jr.JobType, jr.JobVersion)
 }
 
 // Running returns true if job is running
@@ -542,7 +560,7 @@ func (jr *JobRequest) ValidateBeforeSave() error {
 			return err
 		}
 	}
-	jr.updateQuickSearch()
+	_ = jr.updateQuickSearch()
 	return jr.Validate()
 }
 

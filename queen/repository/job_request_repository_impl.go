@@ -484,7 +484,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 	jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED, common.EXECUTING}
 	args := []interface{}{true, jobTypes, jobStates}
 
-	sql := "SELECT id, job_type, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
+	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE " +
 		" cron_triggered = ? AND ((job_type IN (?) AND job_state IN (?)"
 	if len(userIDs) > 0 {
@@ -520,7 +520,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 // GetJobTimes returns job times for recent jobs
 func (jrr *JobRequestRepositoryImpl) GetJobTimes(
 	limit int) ([]*types.JobTime, error) {
-	sql := "SELECT r.id, r.organization_id, r.user_id, r.job_type, r.job_state, " +
+	sql := "SELECT r.id, r.organization_id, r.user_id, r.job_type, r.job_version, r.job_state, " +
 		" r.job_priority, r.scheduled_at, r.created_at , x.started_at, x.ended_at " +
 		"FROM formicary_job_requests r LEFT OUTER JOIN formicary_job_executions x " +
 		"ON r.job_execution_id = x.id ORDER BY r.updated_at DESC LIMIT ?"
@@ -548,7 +548,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	jobTypes []string,
 	state common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
-	sql := "SELECT id, job_type, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
+	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions where paused is false and active is true)" +
 		" AND job_state = ? AND scheduled_at <= ? ORDER BY job_priority DESC, created_at LIMIT ?"

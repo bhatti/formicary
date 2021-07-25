@@ -161,17 +161,18 @@ func (jdaCtr *JobDefinitionAdminController) uploadFile(
 func (jdaCtr *JobDefinitionAdminController) getJobDefinition(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
+	version := c.QueryParam("version")
 	var job *types.JobDefinition
 	if len(id) == 36 {
 		job, err = jdaCtr.jobManager.GetJobDefinition(qc, id)
 		if err != nil {
-			job, err = jdaCtr.jobManager.GetJobDefinitionByType(qc, id)
+			job, err = jdaCtr.jobManager.GetJobDefinitionByType(qc, id, version)
 		}
 		if err != nil {
 			return err
 		}
 	} else {
-		job, err = jdaCtr.jobManager.GetJobDefinitionByType(qc, id)
+		job, err = jdaCtr.jobManager.GetJobDefinitionByType(qc, id, version)
 		if err != nil {
 			job, err = jdaCtr.jobManager.GetJobDefinition(qc, id)
 		}

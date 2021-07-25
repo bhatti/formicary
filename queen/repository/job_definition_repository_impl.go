@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -93,6 +94,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 
 	res := tx.First(&job)
 	if res.Error != nil {
+		debug.PrintStack()
 		return nil, common.NewNotFoundError(res.Error)
 	}
 

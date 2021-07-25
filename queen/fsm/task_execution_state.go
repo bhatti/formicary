@@ -204,6 +204,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 		JobDefinitionID: tsm.JobDefinition.ID,
 		JobRequestID:    tsm.Request.GetID(),
 		JobType:         tsm.Request.GetJobType(),
+		JobTypeVersion:  tsm.TaskDefinition.JobVersion,
 		JobExecutionID:  tsm.JobExecution.ID,
 		TaskExecutionID: tsm.TaskExecution.ID,
 		TaskType:        tsm.TaskDefinition.TaskType,
@@ -223,6 +224,9 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 		StartedAt:       time.Now(),
 	}
 
+	if tsm.TaskDefinition.JobVersion != "" && tsm.ExecutorOptions.ForkJobVersion == "" {
+		tsm.ExecutorOptions.ForkJobVersion = tsm.TaskDefinition.JobVersion
+	}
 	// TODO check default
 	//if tsm.TaskDefinition.HostNetwork == "" {
 	//	tsm.ExecutorOptions.HostNetwork = true

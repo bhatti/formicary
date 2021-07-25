@@ -73,6 +73,7 @@ The formicary allows spawning other plugins from a job using `FORK_JOB` method, 
  - task_type: spawn-plugin
    method: FORK_JOB
    fork_job_type: io.formicary.stock-plugin
+   fork_job_version: 1.0-dev
    variables:
      Symbol: {{.Symbol}}
    on_completed: wait-plugin
@@ -107,6 +108,7 @@ tasks:
 - task_type: call-plugin
   method: FORK_JOB
   fork_job_type: io.formicary.stock-plugin
+  fork_job_version: 1.0-dev
   variables:
     Symbol: {{.Symbol}}
   on_completed: wait-plugin

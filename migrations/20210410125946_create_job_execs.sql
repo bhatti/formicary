@@ -4,6 +4,7 @@
       job_request_id INT(20) NOT NULL,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       job_type VARCHAR(100) NOT NULL,
+      job_version VARCHAR(50) NOT NULL DEFAULT '',
       job_state VARCHAR(100) NOT NULL DEFAULT 'PENDING',
       cpu_secs INT(15) NOT NULL DEFAULT 0,
       user_id VARCHAR(36),
@@ -21,7 +22,7 @@
 
     CREATE UNIQUE INDEX formicary_job_executions_request_ndx ON formicary_job_executions(id, job_request_id);
     CREATE INDEX formicary_job_executions_active_ndx ON formicary_job_executions(active);
-    CREATE INDEX formicary_job_executions_pkg_job_type_ndx ON formicary_job_executions(job_type);
+    CREATE INDEX formicary_job_executions_pkg_job_type_ndx ON formicary_job_executions(job_type, job_version);
     CREATE INDEX formicary_job_executions_org_ndx ON formicary_job_executions(organization_id);
     CREATE INDEX formicary_job_executions_user_id_ndx ON formicary_job_executions(user_id);
 

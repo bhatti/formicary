@@ -64,6 +64,7 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 	res["OrgCounts"] = 0
 	res["UserCounts"] = 0
 	res["JobDefinitionCounts"] = 0
+	res["PluginCounts"] = 0
 	res["RunningJobsCount"] = 0
 	res["WaitingJobsCount"] = 0
 	res["DoneJobsCount"] = 0
@@ -103,6 +104,12 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 		jobDefinitionsCount = int(total)
 	}
 
+	pluginsCount := 0
+	if total, err := ctr.dashboardStats.PluginCounts(); err == nil {
+		res["PluginCounts"] = total
+		pluginsCount = int(total)
+	}
+
 	if total, err := ctr.dashboardStats.UserCounts(qc); err == nil {
 		res["UserCounts"] = total
 	}
@@ -116,7 +123,7 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 	jobCountsByDays := make(map[string]interface{})
 	if counts, err := ctr.dashboardStats.JobCountsByDays(
 		qc,
-		jobDefinitionsCount*3*30); err == nil {
+		(jobDefinitionsCount+pluginsCount)*3*30); err == nil {
 		labels := make([]string, len(counts))
 		succeededData := make([]int64, len(counts))
 		failedData := make([]int64, len(counts))
@@ -171,8 +178,17 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 		}
 	}
 	usageDays := 10
+	ranges := manager.BuildRanges(time.Now(), usageDays, 0, 0, false)
+	user := web.GetDBLoggedUserFromSession(c)
+	res["ArtifactCounts"] = 0
+	if numArtifacts, err := ctr.dashboardStats.GetStorageCount(qc); err == nil {
+		res["ArtifactCounts"] = numArtifacts
+	}
+	if user != nil && user.Subscription != nil {
+		ranges = append(ranges, types.DateRange{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt})
+	}
 	if cpuUsage, err := ctr.dashboardStats.GetCPUResources(
-		qc, usageDays, 0, 0); err == nil {
+		qc, ranges); err == nil {
 		labels := make([]string, usageDays)
 		cpuData := make([]int64, usageDays)
 		storageData := make([]int64, usageDays)
@@ -180,10 +196,16 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 			labels[i] = cpuUsage[i].StartDate.Format("Jan _2")
 			cpuData[i] = cpuUsage[i].Value / 60
 		}
+		if user != nil && user.Subscription != nil {
+			res["SubscriptionCPUUsage"] = cpuUsage[len(cpuUsage)-1].ValueString()
+		}
 		if storageUsage, err := ctr.dashboardStats.GetStorageResources(
-			qc, usageDays, 0, 0); err == nil {
+			qc, ranges); err == nil {
 			for i := 0; i < usageDays; i++ {
 				storageData[i] = storageUsage[i].Value / 1000 / 1000
+			}
+			if user != nil && user.Subscription != nil {
+				res["SubscriptionDiskUsage"] = storageUsage[len(storageUsage)-1].ValueString()
 			}
 		}
 

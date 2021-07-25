@@ -3,9 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
-	"plexobject.com/formicary/internal/math"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/math"
 
 	"plexobject.com/formicary/internal/utils"
 
@@ -20,7 +21,8 @@ type JobExecution struct {
 	// JobRequestID defines foreign key for job request
 	JobRequestID uint64 `json:"job_request_id"`
 	// JobType defines type for the job
-	JobType string `json:"job_type"`
+	JobType    string `json:"job_type"`
+	JobVersion string `json:"job_version"`
 	// JobState defines state of job that is maintained throughout the lifecycle of a job
 	JobState types.RequestState `json:"job_state"`
 	// OrganizationID defines org who submitted the job
@@ -64,6 +66,7 @@ func NewJobExecution(req IJobRequest) *JobExecution {
 	var jobExec JobExecution
 	jobExec.JobRequestID = req.GetID()
 	jobExec.JobType = req.GetJobType()
+	jobExec.JobVersion = req.GetJobVersion()
 	jobExec.UserID = req.GetUserID()
 	jobExec.OrganizationID = req.GetOrganizationID()
 	jobExec.JobState = types.READY
@@ -79,6 +82,14 @@ func NewJobExecution(req IJobRequest) *JobExecution {
 func (je *JobExecution) String() string {
 	return fmt.Sprintf("JobType=%s JobState=%s Context=%s;",
 		je.JobType, je.JobState, je.ContextString())
+}
+
+// JobTypeAndVersion with version
+func (je *JobExecution) JobTypeAndVersion() string {
+	if je.JobVersion == "" {
+		return je.JobType
+	}
+	return je.JobType + ":" + je.JobVersion
 }
 
 // ElapsedDuration time duration of job execution
@@ -398,6 +409,11 @@ func (je JobExecution) GetJobType() string {
 	return je.JobType
 }
 
+// GetJobVersion - job version
+func (je JobExecution) GetJobVersion() string {
+	return je.JobVersion
+}
+
 // GetJobState - job state
 func (je JobExecution) GetJobState() types.RequestState {
 	return je.JobState
@@ -425,7 +441,7 @@ func (je JobExecution) GetCreatedAt() time.Time {
 
 // GetUserJobTypeKey - job-key with org/user
 func (je JobExecution) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(je.OrganizationID, je.UserID, je.JobType)
+	return getUserJobTypeKey(je.OrganizationID, je.UserID, je.JobType, je.JobVersion)
 }
 
 // JobExecutionContext defines context for the job execution.

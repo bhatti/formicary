@@ -138,14 +138,16 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 		res["Tokens"] = tokens
 	}
 
-	ranges := manager.BuildRanges(time.Now(), 1, 1, 1)
+	ranges := manager.BuildRanges(time.Now(), 1, 1, 1, false)
 	res["TodayRange"] = ranges[0].StartString()
 	res["WeekRange"] = ranges[1].StartAndEndString()
 	res["MonthRange"] = ranges[2].StartAndEndString()
 	res["PolicyRange"] = ""
-	if user.Subscription != nil {
-		ranges = append(ranges, types.DateRange{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt})
-		res["PolicyRange"] = ranges[4].StartAndEndString()
+	res["HasPolicyRange"] = false
+	if user.Subscription != nil && !user.Subscription.Expired() {
+		ranges[2] = types.DateRange{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt}
+		res["PolicyRange"] = ranges[2].StartAndEndString()
+		res["HasPolicyRange"] = true
 	}
 	resources := make([]map[string]interface{}, 0)
 	userQC := qc.WithOrganizationIDColumn("")
@@ -158,14 +160,14 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 			"Type":  "CPU",
 			"Today": cpuUsage[0],
 			"Week":  cpuUsage[1],
-			"Month": cpuUsage[2],
-			"All":   cpuUsage[3],
 		}
-		if len(cpuUsage) > 4 {
-			m["Subscription"] = cpuUsage[4]
-			if cpuUsage[4].Value <= user.Subscription.CPUQuota {
-				user.Subscription.RemainingCPUQuota = user.Subscription.CPUQuota - cpuUsage[4].Value
+		if user.Subscription != nil && !user.Subscription.Expired() {
+			m["Subscription"] = cpuUsage[2]
+			if cpuUsage[2].Value <= user.Subscription.CPUQuota {
+				user.Subscription.RemainingCPUQuota = user.Subscription.CPUQuota - cpuUsage[2].Value
 			}
+		} else {
+			m["Month"] = cpuUsage[2]
 		}
 		resources = append(resources, m)
 	}
@@ -175,13 +177,13 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 			"Type":  "Storage",
 			"Today": storageUsage[0],
 			"Week":  storageUsage[1],
-			"Month": storageUsage[2],
-			"All":   storageUsage[3],
 		}
-		if len(storageUsage) > 4 {
-			m["Subscription"] = storageUsage[4]
-			if storageUsage[4].MValue() <= user.Subscription.DiskQuota {
-				user.Subscription.RemainingDiskQuota = user.Subscription.DiskQuota - storageUsage[4].MValue()
+		if user.Subscription != nil && !user.Subscription.Expired() {
+			m["Subscription"] = storageUsage[2]
+			if storageUsage[2].MValue() <= user.Subscription.DiskQuota {
+				user.Subscription.RemainingDiskQuota = user.Subscription.DiskQuota - storageUsage[2].MValue()
+			} else {
+				m["Month"] = storageUsage[2]
 			}
 		}
 		resources = append(resources, m)

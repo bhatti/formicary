@@ -16,7 +16,8 @@ type JobRequestInfo struct {
 	// LastJobExecutionID defines foreign key for JobExecution
 	LastJobExecutionID string `json:"last_job_execution_id"`
 	// JobType defines type for the job
-	JobType string `json:"job_type"`
+	JobType    string `json:"job_type"`
+	JobVersion string `json:"job_version"`
 	// JobPriority defines priority of the job
 	JobPriority int `json:"job_priority"`
 	// JobState defines state of job that is maintained throughout the lifecycle of a job
@@ -48,15 +49,15 @@ func (jri *JobRequestInfo) Validate() error {
 
 // GetUserJobTypeKey defines key
 func (jri *JobRequestInfo) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(jri.OrganizationID, jri.UserID, jri.JobType)
+	return getUserJobTypeKey(jri.OrganizationID, jri.UserID, jri.JobType, jri.JobVersion)
 }
 
 // getUserJobTypeKey defines key
-func getUserJobTypeKey(organizationID string, userID string, jobType string) string {
+func getUserJobTypeKey(organizationID string, userID string, jobType string, jobVersion string) string {
 	if organizationID == "" {
-		return userID + "-" + jobType
+		return userID + "-" + jobType + ":" + jobVersion
 	}
-	return organizationID + "-" + jobType
+	return organizationID + "-" + jobType + ":" + jobVersion
 }
 
 // GetID defines UUID for primary key
@@ -87,6 +88,11 @@ func (jri *JobRequestInfo) GetScheduleAttempts() int {
 // GetJobType defines the type of job
 func (jri *JobRequestInfo) GetJobType() string {
 	return jri.JobType
+}
+
+// GetJobVersion defines the version of job
+func (jri *JobRequestInfo) GetJobVersion() string {
+	return jri.JobVersion
 }
 
 // GetJobPriority returns priority
@@ -151,6 +157,7 @@ func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 		JobExecutionID:     req.GetJobExecutionID(),
 		LastJobExecutionID: req.GetLastJobExecutionID(),
 		JobType:            req.GetJobType(),
+		JobVersion:         req.GetJobVersion(),
 		JobPriority:        req.GetJobPriority(),
 		JobState:           req.GetJobState(),
 		ScheduleAttempts:   req.GetScheduleAttempts(),

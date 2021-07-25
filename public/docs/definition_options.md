@@ -510,6 +510,7 @@ definition uses `FORK_JOB` method to spawn the job and `AWAIT_FORKED_JOB` to wai
  - task_type: fork-task
    method: FORK_JOB
    fork_job_type: child-job
+   fork_job_version: 1.0-dev
    on_completed: fork-wait
  - task_type: fork-wait
    method: AWAIT_FORKED_JOB

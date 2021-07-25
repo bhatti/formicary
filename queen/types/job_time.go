@@ -1,8 +1,9 @@
 package types
 
 import (
-	"plexobject.com/formicary/internal/types"
 	"time"
+
+	"plexobject.com/formicary/internal/types"
 )
 
 // JobTime defines job times
@@ -16,7 +17,8 @@ type JobTime struct {
 	// JobExecutionID
 	JobExecutionID string `json:"job_execution_id"`
 	// JobType defines type for the job
-	JobType string `json:"job_type"`
+	JobType    string `json:"job_type"`
+	JobVersion string `json:"job_version"`
 	// JobState defines state of job that is maintained throughout the lifecycle of a job
 	JobState types.RequestState `json:"job_state"`
 	// StartedAt job execution start time
@@ -38,6 +40,7 @@ func (je *JobTime) ToInfo() *JobRequestInfo {
 		OrganizationID: je.OrganizationID,
 		UserID:         je.UserID,
 		JobType:        je.JobType,
+		JobVersion:     je.JobVersion,
 		JobPriority:    je.JobPriority,
 		JobState:       je.JobState,
 		ScheduledAt:    je.ScheduledAt,
@@ -81,15 +84,19 @@ func (je *JobTime) Cancelled() bool {
 	return je.JobState.Cancelled()
 }
 
-
 // GetUserJobTypeKey defines key
 func (je *JobTime) GetUserJobTypeKey() string {
-	return getUserJobTypeKey(je.OrganizationID, je.UserID, je.JobType)
+	return getUserJobTypeKey(je.OrganizationID, je.UserID, je.JobType, je.JobVersion)
 }
 
 // GetJobType defines the type of job
 func (je *JobTime) GetJobType() string {
 	return je.JobType
+}
+
+// GetJobVersion defines the version of job
+func (je *JobTime) GetJobVersion() string {
+	return je.JobVersion
 }
 
 // GetOrganizationID returns org
@@ -128,4 +135,3 @@ func (je *JobTime) GetScheduledAt() time.Time {
 func (je *JobTime) GetCreatedAt() time.Time {
 	return je.CreatedAt
 }
-

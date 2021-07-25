@@ -33,6 +33,7 @@ type TaskRequest struct {
 	JobDefinitionID string                 `json:"job_definition_id" yaml:"job_definition_id"`
 	JobRequestID    uint64                 `json:"job_request_id" yaml:"job_request_id"`
 	JobType         string                 `json:"job_type" yaml:"job_type"`
+	JobTypeVersion  string                 `json:"job_type_version" yaml:"job_type_version"`
 	JobExecutionID  string                 `json:"job_execution_id" yaml:"job_execution_id"`
 	TaskExecutionID string                 `json:"task_execution_id" yaml:"task_execution_id"`
 	TaskType        string                 `json:"task_type" yaml:"task_type"`

@@ -94,6 +94,7 @@ type ExecutorOptions struct {
 	HostNetwork                bool                    `json:"host_network,omitempty" yaml:"host_network,omitempty"`
 	Headers                    map[string]string       `yaml:"headers,omitempty" json:"headers" gorm:"-"`
 	ForkJobType                string                  `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty"`
+	ForkJobVersion             string                  `json:"fork_job_version,omitempty" yaml:"fork_job_version,omitempty"`
 	AwaitForkedTasks           []string                `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty"`
 	AppliedCost                float64                 `json:"applied_cost,omitempty" yaml:"applied_cost,omitempty"`
 	ExecuteCommandWithoutShell bool                    `json:"execute_command_without_shell,omitempty" yaml:"execute_command_without_shell,omitempty"`

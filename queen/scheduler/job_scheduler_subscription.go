@@ -186,7 +186,7 @@ func (js *JobScheduler) scheduleOrphanJobs(_ context.Context) (err error) {
 			"Component": "JobScheduler",
 			"ID":        js.serverCfg.ID,
 			"Total":     total,
-		}).Warn("re-queued orphan jobs")
+		}).Warn("requeued orphan jobs")
 	}
 	return nil
 }
@@ -214,7 +214,8 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 			// by passing query context for internal use
 			jobDefinition, err := js.jobManager.GetJobDefinitionByType(
 				common.NewQueryContext(missingJobType.UserID, missingJobType.OrganizationID, ""),
-				missingJobType.JobType)
+				missingJobType.JobType,
+				"")
 			if err != nil {
 				continue
 			}

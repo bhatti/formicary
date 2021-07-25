@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"strings"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/stats"
-	"strconv"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/queen/manager"
@@ -142,10 +143,11 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.WebContext) (
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"Component": "JobDefinitionController",
-		"JobType":   saved.JobType,
-		"Version":   saved.Version,
-		"Length":    len(b),
+		"Component":  "JobDefinitionController",
+		"JobType":    saved.JobType,
+		"SemVersion": saved.SemVersion,
+		"Version":    saved.Version,
+		"Length":     len(b),
 	}).Info("updated job definition")
 	return c.JSON(status, saved)
 }
@@ -183,17 +185,18 @@ func (jobDefCtrl *JobDefinitionController) unpauseJobDefinition(c web.WebContext
 func (jobDefCtrl *JobDefinitionController) getJobDefinition(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
+	version := c.QueryParam("version")
 	var job *types.JobDefinition
 	if len(id) == 36 {
 		job, err = jobDefCtrl.jobManager.GetJobDefinition(qc, id)
 		if err != nil {
-			job, err = jobDefCtrl.jobManager.GetJobDefinitionByType(qc, id)
+			job, err = jobDefCtrl.jobManager.GetJobDefinitionByType(qc, id, version)
 		}
 		if err != nil {
 			return err
 		}
 	} else {
-		job, err = jobDefCtrl.jobManager.GetJobDefinitionByType(qc, id)
+		job, err = jobDefCtrl.jobManager.GetJobDefinitionByType(qc, id, version)
 		if err != nil {
 			job, err = jobDefCtrl.jobManager.GetJobDefinition(qc, id)
 		}

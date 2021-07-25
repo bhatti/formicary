@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/metrics"
 
 	"plexobject.com/formicary/queen/stats"
@@ -246,7 +246,7 @@ func (jm *JobManager) GetWaitEstimate(
 		return
 	}
 	var jobDef *types.JobDefinition
-	jobDef, err = jm.GetJobDefinitionByType(qc, request.JobType)
+	jobDef, err = jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
 	if err != nil {
 		return
 	}
@@ -369,15 +369,16 @@ func (jm *JobManager) GetJobDefinition(
 // GetJobDefinitionByType - finds job-definition by type
 func (jm *JobManager) GetJobDefinitionByType(
 	qc *common.QueryContext,
-	jobType string) (*types.JobDefinition, error) {
-	return jm.jobDefinitionRepository.GetByType(qc, jobType)
+	jobType string,
+	version string) (*types.JobDefinition, error) {
+	return jm.jobDefinitionRepository.GetByType(qc, jobType+":"+version)
 }
 
 // GetYamlJobDefinitionByType - finds job-definition by type
 func (jm *JobManager) GetYamlJobDefinitionByType(
 	qc *common.QueryContext,
 	jobType string) ([]byte, error) {
-	job, err := jm.GetJobDefinitionByType(qc, jobType)
+	job, err := jm.GetJobDefinitionByType(qc, jobType, "")
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +455,7 @@ func (jm *JobManager) SaveJobRequest(
 	request *types.JobRequest) (saved *types.JobRequest, err error) {
 	request.UserID = qc.UserID
 	request.OrganizationID = qc.OrganizationID
-	jobDefinition, err := jm.GetJobDefinitionByType(qc, request.JobType)
+	jobDefinition, err := jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +741,7 @@ func (jm *JobManager) GetDotConfigForJobRequest(
 	if err != nil {
 		return "", err
 	}
-	definition, err := jm.GetJobDefinitionByType(qc, request.JobType)
+	definition, err := jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
 	if err != nil {
 		return "", err
 	}
@@ -763,7 +764,7 @@ func (jm *JobManager) GetDotImageForJobRequest(
 	if err != nil {
 		return nil, err
 	}
-	definition, err := jm.GetJobDefinitionByType(qc, request.JobType)
+	definition, err := jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -996,7 +997,7 @@ func (jm *JobManager) overrideCancelRequest(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error":                      err,
+				"Error": err,
 			}).Errorf("failed to cancel request after override")
 		}
 	} else if err != nil {
@@ -1007,7 +1008,7 @@ func (jm *JobManager) overrideCancelRequest(
 			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 			"EventState":                 jobExecutionLifecycleEvent.JobState,
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-			"Error":                      err,
+			"Error": err,
 		}).Errorf("failed to find request after cancel verification")
 	}
 }

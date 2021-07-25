@@ -158,8 +158,11 @@
                         <th class="col-sm-2">Type</th>
                         <th class="col-sm-2">Today ({{$.TodayRange}})</th>
                         <th class="col-sm-2">Week ({{$.WeekRange}})</th>
+                        {{if $.HasPolicyRange}}
+                        <th class="col-sm-2">Subscription ({{$.PolicyRange}})</th>
+                        {{else}}
                         <th class="col-sm-2">Month ({{$.MonthRange}})</th>
-                        <th class="col-sm-2">All Time</th>
+                        {{end}}
                     </tr>
                     </thead>
                     {{range .}}
@@ -174,10 +177,11 @@
                             <dd class="col-sm-1">{{ .Week.ValueString }}</dd>
                         </td>
                         <td>
-                            <dd class="col-sm-1">{{ .Month.ValueString }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-2">{{ .All.ValueString }}</dd>
+                            {{if $.HasPolicyRange}}
+                            <dd class="col-sm-2">{{ .Subscription.ValueString }}</dd>
+                            {{else}}
+                            <dd class="col-sm-2">{{ .Month.ValueString }}</dd>
+                            {{end}}
                         </td>
                     </tr>
                     {{ end }}

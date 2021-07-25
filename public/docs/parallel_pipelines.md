@@ -51,6 +51,7 @@ tasks:
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}
@@ -59,6 +60,7 @@ tasks:
 - task_type: fork-encode2
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_2}}
     InputEncoding: {{.InputEncoding}}
@@ -96,11 +98,14 @@ and `variables` define the input parameters to the job:
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
+  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}
     OutputEncoding: {{.OutputEncoding}}
 ```
+
+Note: formicary uses same syntax for the plugin and you can add `fork_job_version` to define the version of the plugin.
 
 ##### Waiting for completion of child jobs
 The task `method` with value of `AWAIT_FORKED_JOB` waits for completion of child jobs where `await_forked_tasks` defines
