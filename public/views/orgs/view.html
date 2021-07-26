@@ -1,15 +1,18 @@
 {{ template "layouts/header" . }}
 <ul class="nav nav-tabs" id="userView" role="tablist">
     <li class="nav-item">
-        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile" aria-selected="true">Profile</a>
+        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
+           aria-selected="true">Profile</a>
     </li>
     {{ with .Org.Subscription }}
     <li class="nav-item">
-        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab" aria-controls="subscription" aria-selected="false">Subscription</a>
+        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab"
+           aria-controls="subscription" aria-selected="false">Subscription</a>
     </li>
     {{end}}
     <li class="nav-item">
-        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource" aria-selected="false">Resources Usage</a>
+        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource"
+           aria-selected="false">Resources Usage</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" id="users-tab" href="/dashboard/users">Users List</a>
@@ -25,6 +28,9 @@
             <header class="group-header">
                 <h4 class="group-title">Organization Profile</h4>
             </header>
+            <div class="form-group">
+                <p class="error" align="center">{{ .Org.StickyMessage }}</p>
+            </div>
 
             <div class="form-group">
                 <div class="row">

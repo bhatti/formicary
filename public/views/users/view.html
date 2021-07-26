@@ -30,6 +30,9 @@
             <header class="group-header">
                 <h4 class="group-title">User Profile</h4>
             </header>
+            <div class="form-group">
+                <p class="error" align="center">{{ .User.StickyMessage }}</p>
+            </div>
 
             <div align="right">
                 <a href="/dashboard/users/{{.User.ID}}/edit">Edit Profile</a>

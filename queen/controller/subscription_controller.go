@@ -269,11 +269,21 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 		if subscription.EndedAt.IsZero() {
 			subscription.EndedAt = oldSubscription.EndedAt
 		}
+
 		if subscription.CPUQuota == 0 {
-			subscription.CPUQuota = freeSubscription.CPUQuota
+			if oldSubscription.CPUQuota < freeSubscription.CPUQuota {
+				subscription.CPUQuota = oldSubscription.CPUQuota + freeSubscription.CPUQuota
+			} else {
+				subscription.CPUQuota = oldSubscription.CPUQuota
+			}
 		}
+
 		if subscription.DiskQuota == 0 {
-			subscription.DiskQuota = freeSubscription.DiskQuota
+			if oldSubscription.DiskQuota < freeSubscription.DiskQuota {
+				subscription.DiskQuota = oldSubscription.DiskQuota + freeSubscription.DiskQuota
+			} else {
+				subscription.DiskQuota = oldSubscription.DiskQuota
+			}
 		}
 	} else {
 		if subscription.Kind == "" {
@@ -295,10 +305,10 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 			subscription.EndedAt = freeSubscription.EndedAt
 		}
 		if subscription.CPUQuota == 0 {
-			subscription.CPUQuota = freeSubscription.CPUQuota
+			subscription.CPUQuota += freeSubscription.CPUQuota
 		}
 		if subscription.DiskQuota == 0 {
-			subscription.DiskQuota = freeSubscription.DiskQuota
+			subscription.DiskQuota += freeSubscription.DiskQuota
 		}
 	}
 	return subscription, nil

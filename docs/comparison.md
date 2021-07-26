@@ -2,7 +2,7 @@
 
 | Feature               | Airwatch  | Azure     | CircleCI  | Formicary    | GitHub    | Gitlab    | Jenkins     |
 |-----------------------|-----------|-----------|-----------|--------------|-----------|-----------|-------------|
-| **Tool Category**     | DAG       | CI/CD     | CD/CD     | DAG-Workflow / CI/CD     | CI/CD     / CI/CD       |
+| **Tool Category**     | DAG       | CI-CD     | CD-CD     | DAG-Workflow | CI-CD     | CI-CD     | CI-CD       |
 | **Docker Images**     | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Indirectly  |
 | **Definition Format** | Python    | API       | YAML      | YAML         | YAML      | TOML      | DSL         |
 | **Artifacts**         | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |

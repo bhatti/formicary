@@ -144,6 +144,22 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 			return err
 		}
 	}
+
+	// Load full job request
+	switch jsm.Request.(type) {
+	case *types.JobRequest:
+		// ok
+	case *types.JobRequestInfo:
+		// load
+		if req, err := jsm.JobManager.GetJobRequest(
+			jsm.QueryContext(),
+			jsm.Request.GetID()); err == nil {
+			jsm.Request = req
+		} else {
+			return err
+		}
+	}
+
 	return
 }
 
@@ -161,15 +177,6 @@ func (jsm *JobExecutionStateMachine) ShouldFilter() error {
 
 // PrepareLaunch initializes definition/request/execution objects by job-launcher before execution by job-supervisor
 func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err error) {
-	// Load full job request
-	if req, err := jsm.JobManager.GetJobRequest(
-		jsm.QueryContext(),
-		jsm.Request.GetID()); err == nil {
-		jsm.Request = req
-	} else {
-		return err
-	}
-
 	if err = jsm.Validate(); err != nil {
 		return err
 	}
@@ -390,10 +397,11 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(ctx context.Context) (sa
 	// Mark job request and execution to COMPLETED
 	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 		jsm.QueryContext(),
+		jsm.Request,
 		jsm.JobExecution,
 		common.EXECUTING,
 		jsm.Request.GetRetried(),
-		jsm.Request.GetCronTriggered())
+	)
 
 	_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
 		jsm.Request,
@@ -435,6 +443,18 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 		return fmt.Errorf("cannot submit more than jobs because already running %d instances for %s",
 			executing, jsm.JobDefinition.JobType)
 	}
+	if jsm.JobDefinition.GetUserID() != "" || jsm.JobDefinition.GetOrganizationID() != "" {
+		executingUser, executingOrg := jsm.JobManager.UserOrgExecuting(jsm.Request)
+		if jsm.User != nil && executingUser >= jsm.User.MaxConcurrency {
+			return fmt.Errorf("cannot submit more than jobs because user already running %d jobs",
+				executingUser)
+		}
+		if jsm.Organization != nil && executingOrg >= jsm.Organization.MaxConcurrency {
+			return fmt.Errorf("cannot submit more than jobs because org already running %d jobs",
+				executingOrg)
+		}
+	}
+	// TODO check concurrent jobs by the same user/org
 	tags := utils.SplitTags(jsm.JobDefinition.Tags)
 	methods := make([]common.TaskMethod, 0)
 	for _, m := range strings.Split(jsm.JobDefinition.Methods, ",") {
@@ -446,7 +466,10 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 
 // CheckSubscriptionQuota checks quota
 func (jsm *JobExecutionStateMachine) CheckSubscriptionQuota() (err error) {
-	jsm.cpuUsage, jsm.diskUsage, err = jsm.JobManager.CheckSubscriptionQuota(jsm.QueryContext(), jsm.User)
+	jsm.cpuUsage, jsm.diskUsage, err = jsm.JobManager.CheckSubscriptionQuota(
+		jsm.QueryContext(),
+		jsm.User,
+		jsm.Organization)
 	return err
 }
 
@@ -473,6 +496,7 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveErro
 
 	// setting job request back to PENDING
 	if saveRequestErr := jsm.JobManager.UpdateJobRequestState(
+		jsm.QueryContext(),
 		jsm.Request,
 		common.READY,
 		common.PENDING,
@@ -518,6 +542,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		"JobType":            jsm.Request.GetJobType(),
 		"RequestState":       jsm.Request.GetJobState(),
 		"RequestRetry":       jsm.Request.GetRetried(),
+		"CronTriggered":      jsm.Request.GetCronTriggered(),
 		"Priority":           jsm.Request.GetJobPriority(),
 		"Scheduled":          jsm.Request.GetScheduledAt(),
 		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
@@ -577,10 +602,11 @@ func (jsm *JobExecutionStateMachine) failed(
 		// update job-request and execution state
 		saveExecErr = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 			jsm.QueryContext(),
+			jsm.Request,
 			jsm.JobExecution,
 			oldState,
 			jsm.Request.GetRetried(),
-			jsm.Request.GetCronTriggered())
+		)
 		_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
 			jsm.Request,
 			types.JobRequestFailed,
@@ -598,6 +624,7 @@ func (jsm *JobExecutionStateMachine) failed(
 
 		// update job-request
 		saveExecErr = jsm.JobManager.UpdateJobRequestState(
+			jsm.QueryContext(),
 			jsm.Request,
 			oldState,
 			newState,
@@ -611,7 +638,7 @@ func (jsm *JobExecutionStateMachine) failed(
 	}
 	//debug.PrintStack()
 	if jsm.JobDefinition != nil {
-		logrus.WithFields(fields).Errorf("job execution failed for %s!",
+		logrus.WithFields(fields).Errorf("failed to execute job for '%s'",
 			jsm.JobDefinition.JobType)
 	}
 	return saveExecErr

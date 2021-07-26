@@ -183,12 +183,16 @@ func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
-	if scheduledAt, userKey := job.GetCronScheduleTimeAndUserKey(); scheduledAt != nil {
-		request.ScheduledAt = *scheduledAt
-		request.UserKey = userKey
-		request.CronTriggered = true
-	}
+	request.UpdateUserKeyFromScheduleIfCronJob(job)
 	return request, nil
+}
+
+func (jr *JobRequest) UpdateUserKeyFromScheduleIfCronJob(job *JobDefinition) {
+	if scheduledAt, userKey := job.GetCronScheduleTimeAndUserKey(); scheduledAt != nil {
+		jr.ScheduledAt = *scheduledAt
+		jr.UserKey = userKey
+		jr.CronTriggered = true
+	}
 }
 
 // CanRestart if job can be restarted

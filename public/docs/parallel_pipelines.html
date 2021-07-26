@@ -81,7 +81,7 @@ tasks:
 </code></pre>
 <p>Above definition defines <code>validate</code> and <code>download</code> tasks as before but <code>split</code> task splits video file into smaller video files that can be encoded in parallel. It then defines <code>fork-encode1</code> and <code>fork-encode2</code> tasks to fork child <code>video-encoding</code> job that was defined earlier and then wait for their completion in <code>fork-await</code> task. Finally, it combines output files into a single file.</p>
 <h5 id="fork-jobs">Fork Jobs</h5>
-<p>The task <code>method</code> with value of <code>FORK_JOB</code> spawns a child job where <code>fork_job_type</code> defines type of the job and <code>variables</code> define the input parameters to the job:</p>
+<p>The task <code>method</code> with value of <code>FORK_JOB</code> spawns a child job where <code>fork_job_type</code> defines type of the job, <code>fork_job_version</code> defines version of the job, and <code>variables</code> define the input parameters to the job:</p>
 <pre><code class="lang-yaml">- task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding

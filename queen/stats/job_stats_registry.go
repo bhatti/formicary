@@ -12,6 +12,8 @@ import (
 type JobStatsRegistry struct {
 	// TODO move stats to redis
 	statsByJobType    map[string]*JobStats
+	countByUser       map[string]int
+	countByOrg        map[string]int
 	pendingJobsByType map[string]map[uint64]types.IJobRequestSummary
 	lock              sync.RWMutex
 }
@@ -20,6 +22,8 @@ type JobStatsRegistry struct {
 func NewJobStatsRegistry() *JobStatsRegistry {
 	return &JobStatsRegistry{
 		statsByJobType:    make(map[string]*JobStats),
+		countByUser:       make(map[string]int),
+		countByOrg:        make(map[string]int),
 		pendingJobsByType: make(map[string]map[uint64]types.IJobRequestSummary),
 	}
 }
@@ -36,6 +40,13 @@ func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary) {
 	r.pendingJobsByType[req.GetUserJobTypeKey()] = pendingJobs
 }
 
+// UserOrgExecuting running count
+func (r *JobStatsRegistry) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {
+	r.lock.RLock()
+	r.lock.RUnlock()
+	return r.countByUser[req.GetUserID()], r.countByOrg[req.GetOrganizationID()]
+}
+
 // Started - adds stats for job
 func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	r.lock.Lock()
@@ -43,6 +54,12 @@ func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	stats := r.createOrFindStat(req)
 	stats.Started()
 	r.removePendingJob(req)
+	if req.GetUserID() != "" {
+		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] + 1
+	}
+	if req.GetOrganizationID() != "" {
+		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] + 1
+	}
 }
 
 // Cancelled when job is cancelled
@@ -52,6 +69,12 @@ func (r *JobStatsRegistry) Cancelled(req types.IJobRequestSummary) {
 	stats := r.createOrFindStat(req)
 	stats.Cancelled()
 	r.removePendingJob(req)
+	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
+		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
+	}
+	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
+		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
+	}
 }
 
 // Succeeded when job is succeeded
@@ -61,6 +84,12 @@ func (r *JobStatsRegistry) Succeeded(req types.IJobRequestSummary, latency int64
 	stats := r.createOrFindStat(req)
 	stats.Succeeded(latency)
 	r.removePendingJob(req)
+	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
+		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
+	}
+	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
+		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
+	}
 }
 
 // Failed when job is failed
@@ -70,6 +99,12 @@ func (r *JobStatsRegistry) Failed(req types.IJobRequestSummary, latency int64) {
 	stats := r.createOrFindStat(req)
 	stats.Failed(latency)
 	r.removePendingJob(req)
+	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
+		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
+	}
+	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
+		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
+	}
 }
 
 // SetAntsAvailable marks job as available

@@ -15,7 +15,8 @@ The job-supervisor delegates job-execution to task-supervisor, which sends the r
 After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. 
 The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, 
 which can be used by other tasks as input for their work. This allows building stages of tasks using
-Pipes and Filter pattern, where artifacts and variables can be passed from one task to another.
+Pipes and Filter pattern, where artifacts and variables can be passed from one task to another so that output of a task 
+can be used as input of another task.
 
 ## Features:
 

@@ -56,6 +56,10 @@ func NewBaseError(message ...interface{}) *BaseError {
 	e := &BaseError{}
 	if len(message) > 0 {
 		e.Message = message[0]
+		switch ie := message[0].(type) {
+		case error:
+			e.Internal = ie
+		}
 	}
 	return e
 }

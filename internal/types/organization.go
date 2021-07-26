@@ -24,7 +24,8 @@ type Organization struct {
 	// Salt for password
 	Salt string `json:"salt"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently by org
-	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	MaxConcurrency int    `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	StickyMessage  string `json:"sticky_message" gorm:"sticky_message"`
 	// LicensePolicy defines license policy
 	LicensePolicy string `yaml:"external_id" json:"license_policy"`
 	// Configs defines config properties of org
@@ -63,21 +64,21 @@ func (Organization) TableName() string {
 }
 
 // String provides short summary of job
-func (u *Organization) String() string {
-	return fmt.Sprintf("Org=%s", u.OrgUnit)
+func (o *Organization) String() string {
+	return fmt.Sprintf("Org=%s", o.OrgUnit)
 }
 
 // AddConfig adds resource config
-func (u *Organization) AddConfig(
+func (o *Organization) AddConfig(
 	name string,
 	value interface{},
 	secret bool) (*OrganizationConfig, error) {
-	config, err := NewOrganizationConfig(u.ID, name, value, secret)
+	config, err := NewOrganizationConfig(o.ID, name, value, secret)
 	if err != nil {
 		return nil, err
 	}
 	matched := false
-	for _, next := range u.Configs {
+	for _, next := range o.Configs {
 		if next.Name == name {
 			next.Value = config.Value
 			next.Type = config.Type
@@ -88,17 +89,17 @@ func (u *Organization) AddConfig(
 		}
 	}
 	if !matched {
-		config.OrganizationID = u.ID
-		u.Configs = append(u.Configs, config)
+		config.OrganizationID = o.ID
+		o.Configs = append(o.Configs, config)
 	}
 	return config, nil
 }
 
 // DeleteConfig removes resource config
-func (u *Organization) DeleteConfig(name string) *OrganizationConfig {
-	for i, c := range u.Configs {
+func (o *Organization) DeleteConfig(name string) *OrganizationConfig {
+	for i, c := range o.Configs {
 		if c.Name == name {
-			u.Configs = append(u.Configs[:i], u.Configs[i+1:]...)
+			o.Configs = append(o.Configs[:i], o.Configs[i+1:]...)
 			return c
 		}
 	}
@@ -106,17 +107,17 @@ func (u *Organization) DeleteConfig(name string) *OrganizationConfig {
 }
 
 // ConfigString - text view of configs
-func (u *Organization) ConfigString() string {
+func (o *Organization) ConfigString() string {
 	var b strings.Builder
-	for _, c := range u.Configs {
+	for _, c := range o.Configs {
 		b.WriteString(c.Name + "=" + c.Value + ",")
 	}
 	return b.String()
 }
 
 // GetConfig gets config
-func (u *Organization) GetConfig(name string) *OrganizationConfig {
-	for _, next := range u.Configs {
+func (o *Organization) GetConfig(name string) *OrganizationConfig {
+	for _, next := range o.Configs {
 		if next.Name == name {
 			return next
 		}
@@ -125,8 +126,8 @@ func (u *Organization) GetConfig(name string) *OrganizationConfig {
 }
 
 // GetConfigByID gets config
-func (u *Organization) GetConfigByID(configID string) *OrganizationConfig {
-	for _, next := range u.Configs {
+func (o *Organization) GetConfigByID(configID string) *OrganizationConfig {
+	for _, next := range o.Configs {
 		if next.ID == configID {
 			return next
 		}
@@ -135,30 +136,30 @@ func (u *Organization) GetConfigByID(configID string) *OrganizationConfig {
 }
 
 // Equals compares other job-resource for equality
-func (u *Organization) Equals(other *Organization) error {
+func (o *Organization) Equals(other *Organization) error {
 	if other == nil {
 		return fmt.Errorf("found nil other job")
 	}
-	if err := u.Validate(); err != nil {
+	if err := o.Validate(); err != nil {
 		return err
 	}
 	if err := other.Validate(); err != nil {
 		return err
 	}
 
-	if u.OrgUnit != other.OrgUnit {
-		return fmt.Errorf("expected jobType %v but was %v", u.OrgUnit, other.OrgUnit)
+	if o.OrgUnit != other.OrgUnit {
+		return fmt.Errorf("expected jobType %v but was %v", o.OrgUnit, other.OrgUnit)
 	}
-	if len(u.Configs) != len(other.Configs) {
+	if len(o.Configs) != len(other.Configs) {
 		return fmt.Errorf("expected number of org configs %v but was %v\nconfigs: %v\ntheirs: %v",
-			len(u.Configs), len(other.Configs), u.ConfigString(), other.ConfigString())
+			len(o.Configs), len(other.Configs), o.ConfigString(), other.ConfigString())
 	}
 	return nil
 }
 
 // AfterLoad initializes org
-func (u *Organization) AfterLoad(key []byte) error {
-	for _, cfg := range u.Configs {
+func (o *Organization) AfterLoad(key []byte) error {
+	for _, cfg := range o.Configs {
 		if err := cfg.Decrypt(key); err != nil {
 			return err
 		}
@@ -167,23 +168,26 @@ func (u *Organization) AfterLoad(key []byte) error {
 }
 
 // Validate validates job-resource
-func (u *Organization) Validate() (err error) {
-	if u.OrgUnit == "" {
+func (o *Organization) Validate() (err error) {
+	if o.OrgUnit == "" {
 		return errors.New("org-unit is not specified")
 	}
-	if u.BundleID == "" {
+	if o.BundleID == "" {
 		return errors.New("bundle is not specified")
+	}
+	if o.MaxConcurrency == 0 {
+		o.MaxConcurrency = 1
 	}
 
 	return
 }
 
 // ValidateBeforeSave validates job-resource
-func (u *Organization) ValidateBeforeSave(key []byte) error {
-	if err := u.Validate(); err != nil {
+func (o *Organization) ValidateBeforeSave(key []byte) error {
+	if err := o.Validate(); err != nil {
 		return err
 	}
-	for _, cfg := range u.Configs {
+	for _, cfg := range o.Configs {
 		if err := cfg.Encrypt(key); err != nil {
 			return err
 		}

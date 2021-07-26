@@ -315,15 +315,17 @@ func (c *ClientKafka) createConsumer(
 		}
 
 		go func() {
-			logrus.WithFields(logrus.Fields{
-				"Component":     "ClientKafka",
-				"ConsumerGroup": c.config.Kafka.Group,
-				"Topic":         topic,
-				"Offset":        offset,
-				"Brokers":       c.config.Kafka.Brokers,
-				"Error":         err,
-				"ID":            id}).
-				Infof(">>>>consumer group BEGIN!")
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component":     "ClientKafka",
+					"ConsumerGroup": c.config.Kafka.Group,
+					"Topic":         topic,
+					"Offset":        offset,
+					"Brokers":       c.config.Kafka.Brokers,
+					"Error":         err,
+					"ID":            id}).
+					Debugf("consumer group BEGIN!")
+			}
 			for {
 				// `Consume` should be called inside an infinite loop, when a
 				// server-side rebalanced happens, the consumer session will need to be
@@ -339,15 +341,17 @@ func (c *ClientKafka) createConsumer(
 						"ID":            id}).
 						Errorf("failed to rebalance consumer group!")
 				}
-				logrus.WithFields(logrus.Fields{
-					"Component":     "ClientKafka",
-					"ConsumerGroup": c.config.Kafka.Group,
-					"Topic":         topic,
-					"Offset":        offset,
-					"Brokers":       c.config.Kafka.Brokers,
-					"Error":         err,
-					"ID":            id}).
-					Infof(">>>>consumer group END!")
+				if logrus.IsLevelEnabled(logrus.DebugLevel) {
+					logrus.WithFields(logrus.Fields{
+						"Component":     "ClientKafka",
+						"ConsumerGroup": c.config.Kafka.Group,
+						"Topic":         topic,
+						"Offset":        offset,
+						"Brokers":       c.config.Kafka.Brokers,
+						"Error":         err,
+						"ID":            id}).
+						Debugf("consumer group END!")
+				}
 				// check if context was cancelled, signaling that the consumer should stop
 				if ctx.Err() != nil {
 					return

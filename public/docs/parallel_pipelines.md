@@ -92,7 +92,7 @@ job that was defined earlier and then wait for their completion in `fork-await` 
 files into a single file.
 
 ##### Fork Jobs
-The task `method` with value of `FORK_JOB` spawns a child job where `fork_job_type` defines type of the job
+The task `method` with value of `FORK_JOB` spawns a child job where `fork_job_type` defines type of the job, `fork_job_version` defines version of the job,
 and `variables` define the input parameters to the job:
 ```yaml
 - task_type: fork-encode1
@@ -104,8 +104,6 @@ and `variables` define the input parameters to the job:
     InputEncoding: {{.InputEncoding}}
     OutputEncoding: {{.OutputEncoding}}
 ```
-
-Note: formicary uses same syntax for the plugin and you can add `fork_job_version` to define the version of the plugin.
 
 ##### Waiting for completion of child jobs
 The task `method` with value of `AWAIT_FORKED_JOB` waits for completion of child jobs where `await_forked_tasks` defines

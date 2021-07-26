@@ -14,6 +14,10 @@ type JobRequestRepository interface {
 	Get(
 		qc *common.QueryContext,
 		id uint64) (*types.JobRequest, error)
+	// GetByUserKey JobRequest by user-key
+	GetByUserKey(
+		qc *common.QueryContext,
+		userKey string) (*types.JobRequest, error)
 	// UpdateJobState sets state of job-request
 	UpdateJobState(
 		id uint64,

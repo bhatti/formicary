@@ -7,7 +7,7 @@
 </ul>
 <h4 id="db-migrations">DB Migrations</h4>
 <p>The migrations are automatically run when using sqlite3, however other databases will require running migrations explicitly. The formicary uses <code>goose</code> for db migration that can be installed via:</p>
-<pre><code> go get -u github.com/pressly/goose/cmd/goose
+<pre><code> go get -u github.com/pressly/goose/.html/goose
 </code></pre><p>Then you can run migrations such as:</p>
 <pre><code>goose mysql &quot;formicary_user_dev:formicary_pass@/formicary_dev?parseTime=true&quot; up
 </code></pre><h3 id="start-minio">Start Minio</h3>

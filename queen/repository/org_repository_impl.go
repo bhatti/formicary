@@ -193,6 +193,30 @@ func (orc *OrganizationRepositoryImpl) Create(
 	return org, err
 }
 
+// UpdateStickyMessage updates sticky message for user and org
+func (orc *OrganizationRepositoryImpl) UpdateStickyMessage(
+	_ *common.QueryContext,
+	user *common.User,
+	org *common.Organization) error {
+	return orc.db.Transaction(func(tx *gorm.DB) error {
+		if user != nil {
+			res := tx.Exec("update formicary_users set sticky_message = ? where id = ?", user.StickyMessage, user.ID)
+			if res.Error != nil {
+				return fmt.Errorf("fail to set sticky message '%s' for user '%s' due to '%s'",
+					user.StickyMessage, user.ID, res.Error)
+			}
+		}
+		if org != nil {
+			res := tx.Exec("update formicary_orgs set sticky_message = ? where id = ?", org.StickyMessage, org.ID)
+			if res.Error != nil {
+				return fmt.Errorf("fail to set sticky message '%s' for org '%s' due to '%s'",
+					org.StickyMessage, org.ID, res.Error)
+			}
+		}
+		return nil
+	})
+}
+
 // Update persists org
 func (orc *OrganizationRepositoryImpl) Update(
 	qc *common.QueryContext,

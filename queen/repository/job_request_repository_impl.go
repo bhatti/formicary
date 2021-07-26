@@ -48,6 +48,26 @@ func (jrr *JobRequestRepositoryImpl) Get(
 	return &req, nil
 }
 
+// GetByUserKey JobRequest by user-key
+func (jrr *JobRequestRepositoryImpl) GetByUserKey(
+	qc *common.QueryContext,
+	userKey string) (*types.JobRequest, error) {
+	var req types.JobRequest
+	res := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Where("user_key = ?", userKey).First(&req)
+	if res.Error != nil {
+		return nil, common.NewNotFoundError(res.Error)
+	}
+	err := req.AfterLoad()
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobRequestRepositoryImpl",
+			"Error":     err,
+		}).Warn("failed to initialize request after loading")
+	}
+	sort.Slice(req.Params, func(i, j int) bool { return req.Params[i].Name < req.Params[j].Name })
+	return &req, nil
+}
+
 // Clear - for testing
 func (jrr *JobRequestRepositoryImpl) Clear() {
 	clearDB(jrr.db)
@@ -136,9 +156,11 @@ func (jrr *JobRequestRepositoryImpl) Save(
 		} else {
 			res = tx.Save(req)
 		}
+
 		if res.Error != nil {
 			return res.Error
 		}
+
 		//tx.Model(job).Association("Params").Replace(job.Params)
 		return nil
 	})
@@ -250,8 +272,15 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 func (jrr *JobRequestRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id uint64) error {
-	res := qc.AddOrgElseUserWhere(jrr.db).Where("id = ?", id).Delete(types.JobRequest{})
-	return res.Error
+	_, err := jrr.Get(qc, id)
+	if err != nil {
+		return err
+	}
+	return jrr.db.Transaction(func(db *gorm.DB) error {
+		_ = db.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id = ?", id)
+		res := db.Exec("DELETE FROM formicary_job_requests WHERE id = ?", id)
+		return res.Error
+	})
 }
 
 // Restart the job

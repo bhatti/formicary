@@ -91,6 +91,14 @@ func (orc *OrganizationRepositoryCached) Create(
 	return saved, nil
 }
 
+// UpdateStickyMessage updates sticky message for user and org
+func (orc *OrganizationRepositoryCached) UpdateStickyMessage(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization) error {
+	return orc.adapter.UpdateStickyMessage(qc, user, org)
+}
+
 // Update persists org
 func (orc *OrganizationRepositoryCached) Update(
 	qc *common.QueryContext,

@@ -9,6 +9,7 @@
       salt VARCHAR(64) NOT NULL DEFAULT '',
       max_concurrency INTEGER NOT NULL DEFAULT 1,
       license_policy VARCHAR(100),
+      sticky_message VARCHAR(200),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
@@ -38,6 +39,8 @@
       active BOOLEAN NOT NULL DEFAULT TRUE,
       admin BOOLEAN NOT NULL DEFAULT FALSE,
       locked BOOLEAN NOT NULL DEFAULT FALSE,
+      max_concurrency INTEGER NOT NULL DEFAULT 1,
+      sticky_message VARCHAR(200),
       email_verified BOOLEAN NOT NULL DEFAULT FALSE,
       organization_id VARCHAR(36),
       username VARCHAR(100) NOT NULL,

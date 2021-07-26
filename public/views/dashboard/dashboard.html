@@ -3,6 +3,11 @@
     <header class="group-header">
         <h4 class="group-title">Formicary Dashboard</h4>
     </header>
+    {{ with .DBUser }}
+    <div class="form-group">
+        <p class="error" align="center">{{ .StickyMessage }}</p>
+    </div>
+    {{ end }}
     <!-- Dashboard Counts Section-->
     <section class="dashboard-counts no-padding-bottom">
         <div class="container-fluid">

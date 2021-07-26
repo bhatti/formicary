@@ -79,6 +79,8 @@ The formicary allows spawning other plugins from a job using `FORK_JOB` method, 
    on_completed: wait-plugin
 ```
 
+In above example, `fork_job_type` defines the name of plugin and `fork_job_version` defines the version of the plugin.
+
 ### Waiting for completion of Plugin Job
 The formicary allows waiting for the plugins from a job using ``AWAIT_FORKED_JOB`, e.g.,
 ```yaml

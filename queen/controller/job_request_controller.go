@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -94,11 +95,30 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.WebContext) error
 
 	request.UserID = qc.UserID
 	request.OrganizationID = qc.OrganizationID
+
+	jobDefinition, err := jobReqCtrl.jobManager.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
+	if err != nil {
+		return err
+	}
+	request.UpdateUserKeyFromScheduleIfCronJob(jobDefinition)
+
+	// delete duplicate entry if exists
+	_ = jobReqCtrl.jobManager.DeactivateOldCronRequest(qc, request)
+
 	saved, err := jobReqCtrl.jobManager.SaveJobRequest(qc, request)
 	if err != nil {
 		return err
 	}
 	_, _ = jobReqCtrl.jobManager.SaveAudit(types.NewAuditRecordFromJobRequest(saved, types.JobRequestCreated, qc))
+
+	logrus.WithFields(logrus.Fields{
+		"Component":    "JobRequestController",
+		"RequestID":    request.ID,
+		"User":         request.UserID,
+		"Organization": request.OrganizationID,
+		"JobType":      request.JobType,
+		"Params":       request.ParamString(),
+	}).Infof("saving request job details")
 
 	return c.JSON(http.StatusCreated, saved)
 }

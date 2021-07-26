@@ -121,6 +121,7 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 	}
 
 	jobCountsByDays := make(map[string]interface{})
+	// TODO limit jobDefinitionsCount+pluginsCount
 	if counts, err := ctr.dashboardStats.JobCountsByDays(
 		qc,
 		(jobDefinitionsCount+pluginsCount)*3*30); err == nil {

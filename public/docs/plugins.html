@@ -65,6 +65,7 @@ tasks:
      Symbol: {{.Symbol}}
    on_completed: wait-plugin
 </code></pre>
+<p>In above example, <code>fork_job_type</code> defines the name of plugin and <code>fork_job_version</code> defines the version of the plugin.</p>
 <h3 id="waiting-for-completion-of-plugin-job">Waiting for completion of Plugin Job</h3>
 <p>The formicary allows waiting for the plugins from a job using <code></code>AWAIT_FORKED_JOB`, e.g.,</p>
 <pre><code class="lang-yaml"> - task_type: wait-plugin

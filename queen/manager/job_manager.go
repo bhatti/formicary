@@ -188,7 +188,7 @@ func (jm *JobManager) SaveJobDefinition(
 
 	// check if this job requires cron trigger
 	if cronScheduledAt, _ := jobDefinition.GetCronScheduleTimeAndUserKey(); cronScheduledAt != nil {
-		if err = jm.scheduleCronRequest(saved); err != nil {
+		if err = jm.scheduleCronRequest(saved, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -196,16 +196,37 @@ func (jm *JobManager) SaveJobDefinition(
 }
 
 // schedule missing cron jobs
-func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition) error {
-	if missing, err := jm.FindMissingCronScheduledJobsByType(
-		[]types.JobTypeCronTrigger{types.NewJobTypeCronTrigger(jobDefinition)},
-	); err != nil || len(missing) != 0 {
-		if request, err := types.NewJobRequestFromDefinition(jobDefinition); err == nil {
-			if _, err := jm.SaveJobRequest(common.NewQueryContext(request.UserID, request.OrganizationID, ""), request); err != nil {
-				if !strings.Contains(err.Error(), "Duplicate entry") {
-					return err
-				}
+func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, oldReq types.IJobRequest) error {
+	request, err := types.NewJobRequestFromDefinition(jobDefinition)
+	if err != nil {
+		return err
+	}
+	qc := common.NewQueryContext(request.UserID, request.OrganizationID, "")
+	if oldReq != nil {
+		var oldReqFull *types.JobRequest
+		switch oldReq.(type) {
+		case *types.JobRequest:
+			oldReqFull = oldReq.(*types.JobRequest)
+		case *types.JobRequestInfo:
+			oldReqFull, _ = jm.jobRequestRepository.Get(qc, oldReq.GetID())
+		}
+		if oldReqFull != nil {
+			for _, p := range oldReqFull.Params {
+				v, _ := p.GetParsedValue()
+				_, _ = request.AddParam(p.Name, v)
 			}
+		}
+	}
+
+	if _, err := jm.SaveJobRequest(qc, request); err != nil {
+		if !strings.Contains(err.Error(), "Duplicate entry") {
+			logrus.WithFields(logrus.Fields{
+				"JobRequestID": request.ID,
+				"UserKey":      request.UserKey,
+				"JobType":      request.JobType,
+				"Error":        err,
+			}).Warnf("failed to schedule job after updating job-definition")
+			return err
 		}
 	}
 	return nil
@@ -468,7 +489,17 @@ func (jm *JobManager) SaveJobRequest(
 		if err != nil {
 			return nil, err
 		}
-		_, _, err = jm.CheckSubscriptionQuota(qc, user)
+		var org *common.Organization
+		if user.OrganizationID != "" {
+			org, err = jm.orgRepository.Get(
+				qc,
+				user.OrganizationID)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		_, _, err = jm.CheckSubscriptionQuota(qc, user, org)
 		if err != nil {
 			return nil, err
 		}
@@ -483,6 +514,7 @@ func (jm *JobManager) SaveJobRequest(
 	request.Retried = 0
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
+	request.UpdateUserKeyFromScheduleIfCronJob(jobDefinition)
 
 	if !request.UpdateScheduledAtFromCronTrigger(jobDefinition) && request.ScheduledAt.IsZero() {
 		request.ScheduledAt = time.Now()
@@ -520,6 +552,21 @@ func (jm *JobManager) SaveJobRequest(
 		jm.jobStatsRegistry.Pending(saved.ToInfo())
 	}
 	return
+}
+
+// DeactivateOldCronRequest soft deletes old job request
+func (jm *JobManager) DeactivateOldCronRequest(
+	qc *common.QueryContext,
+	request *types.JobRequest) error {
+	// delete duplicate entry if exists
+	if request.CronTriggered {
+		if old, err := jm.jobRequestRepository.GetByUserKey(qc, request.UserKey); err == nil {
+			return jm.DeleteJobRequest(qc, old.ID)
+		} else if !strings.Contains(err.Error(), "not found") {
+			return err
+		}
+	}
+	return nil
 }
 
 // QueryJobRequests finds matching job-request by parameters
@@ -669,6 +716,7 @@ func (jm *JobManager) IncrementScheduleAttemptsForJobRequest(
 
 // UpdateJobRequestState sets state of job-request
 func (jm *JobManager) UpdateJobRequestState(
+	qc *common.QueryContext,
 	req types.IJobRequest,
 	oldState common.RequestState,
 	newState common.RequestState,
@@ -682,6 +730,16 @@ func (jm *JobManager) UpdateJobRequestState(
 		errorCode)
 	if newState == common.PENDING {
 		jm.jobStatsRegistry.Pending(req)
+	} else if newState.IsTerminal() && req.GetCronTriggered() {
+		var jobDefinition *types.JobDefinition
+		if jobDefinition, err = jm.jobDefinitionRepository.GetByType(qc, req.GetJobType()); err != nil {
+			return err
+		}
+		if cronScheduledAt, _ := jobDefinition.GetCronScheduleTimeAndUserKey(); cronScheduledAt != nil {
+			if err = jm.scheduleCronRequest(jobDefinition, req); err != nil {
+				return err
+			}
+		}
 	}
 	return
 }
@@ -697,6 +755,11 @@ func (jm *JobManager) GetJobRequestCounts(
 // GetExecutionCount return count of executing jobs
 func (jm *JobManager) GetExecutionCount(key types.UserJobTypeKey) int32 {
 	return jm.jobStatsRegistry.GetExecutionCount(key)
+}
+
+// UserOrgExecuting return count of executing jobs by user and org
+func (jm *JobManager) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {
+	return jm.jobStatsRegistry.UserOrgExecuting(req)
 }
 
 // SetJobRequestReadyToExecute marks job as ready to execute so that job can be picked up by job launcher
@@ -815,10 +878,11 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 // Also, it triggers next request for cron based job definitions
 func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	qc *common.QueryContext,
+	req types.IJobRequest,
 	jobExec *types.JobExecution,
 	oldState common.RequestState,
 	retried int,
-	cronTriggered bool) (err error) {
+) (err error) {
 	err = jm.jobExecutionRepository.FinalizeJobRequestAndExecutionState(
 		jobExec.ID,
 		oldState,
@@ -833,13 +897,13 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		jm.jobStatsRegistry.Succeeded(jobExec, jobExec.ElapsedMillis())
 	}
 	// trigger cron job if needed
-	if err == nil && jobExec.JobState.IsTerminal() && cronTriggered {
+	if err == nil && jobExec.JobState.IsTerminal() && req.GetCronTriggered() {
 		var jobDefinition *types.JobDefinition
 		if jobDefinition, err = jm.jobDefinitionRepository.GetByType(qc, jobExec.JobType); err != nil {
 			return err
 		}
 		if cronScheduledAt, _ := jobDefinition.GetCronScheduleTimeAndUserKey(); cronScheduledAt != nil {
-			if err = jm.scheduleCronRequest(jobDefinition); err != nil {
+			if err = jm.scheduleCronRequest(jobDefinition, req); err != nil {
 				return err
 			}
 		}
@@ -997,7 +1061,7 @@ func (jm *JobManager) overrideCancelRequest(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error": err,
+				"Error":                      err,
 			}).Errorf("failed to cancel request after override")
 		}
 	} else if err != nil {
@@ -1008,7 +1072,7 @@ func (jm *JobManager) overrideCancelRequest(
 			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 			"EventState":                 jobExecutionLifecycleEvent.JobState,
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-			"Error": err,
+			"Error":                      err,
 		}).Errorf("failed to find request after cancel verification")
 	}
 }
@@ -1016,35 +1080,92 @@ func (jm *JobManager) overrideCancelRequest(
 // CheckSubscriptionQuota checks quota
 func (jm *JobManager) CheckSubscriptionQuota(
 	qc *common.QueryContext,
-	user *common.User) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
+	user *common.User,
+	org *common.Organization) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
 	if jm.serverCfg.SubscriptionQuotaEnabled {
-		if user == nil || user.Subscription == nil {
-			return cpuUsage, diskUsage, fmt.Errorf("user subscription not found for user")
-		}
-		if user.Subscription.Expired() {
-			return cpuUsage, diskUsage, fmt.Errorf("user subscription is expired")
-		}
-		ranges := []types.DateRange{{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt}}
-		if cpuUsages, err := jm.GetResourceUsage(
-			qc, ranges); err == nil {
-			if cpuUsages[0].Value >= user.Subscription.CPUQuota {
-				return cpuUsage, diskUsage, common.NewQuotaExceededError(
-					fmt.Errorf("exceeded cpu quota %d secs, check your subscription", user.Subscription.CPUQuota))
+		cpuUsage, diskUsage, err = jm.doCheckSubscriptionQuota(qc, user)
+		dirty := false
+		if err != nil {
+			if user != nil && user.StickyMessage == "" {
+				switch quotaErr := err.(type) {
+				case *common.QuotaExceededError:
+					user.StickyMessage = quotaErr.Internal.Error()
+				default:
+					user.StickyMessage = err.Error()
+				}
+				dirty = true
 			}
-			cpuUsage = cpuUsages[0]
-		} else {
-			return cpuUsage, diskUsage, err
-		}
-		if diskUsages, err := jm.artifactManager.GetResourceUsage(
-			qc, ranges); err == nil {
-			if diskUsages[0].MValue() >= user.Subscription.DiskQuota {
-				return cpuUsage, diskUsage, common.NewQuotaExceededError(
-					fmt.Errorf("exceeded disk quota %d MiB, check your subscription", user.Subscription.DiskQuota))
+			if org != nil && org.StickyMessage == "" {
+				switch quotaErr := err.(type) {
+				case *common.QuotaExceededError:
+					org.StickyMessage = quotaErr.Internal.Error()
+				default:
+					org.StickyMessage = err.Error()
+				}
+				dirty = true
 			}
-			diskUsage = diskUsages[0]
 		} else {
-			return cpuUsage, diskUsage, err
+			if user != nil && strings.Contains(user.StickyMessage, "quota-error") {
+				user.StickyMessage = ""
+				dirty = true
+			}
+			if org != nil && strings.Contains(org.StickyMessage, "quota-error") {
+				org.StickyMessage = ""
+				dirty = true
+			}
 		}
+		if dirty {
+			if dbErr := jm.orgRepository.UpdateStickyMessage(qc, user, org); dbErr != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "JobManager",
+					"User":         user,
+					"Organization": org,
+					"Error":        dbErr,
+				}).Warnf("failed to set sticky message")
+			} else {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "JobManager",
+					"User":         user,
+					"Organization": org,
+					"Error":        dbErr,
+				}).Infof("updated sticky message")
+			}
+		}
+	}
+	return
+}
+
+// CheckSubscriptionQuota checks quota
+func (jm *JobManager) doCheckSubscriptionQuota(
+	qc *common.QueryContext,
+	user *common.User,
+) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
+	if user == nil || user.Subscription == nil {
+		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription not found for user")
+	}
+	if user.Subscription.Expired() {
+		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription is expired")
+	}
+	ranges := []types.DateRange{{StartDate: user.Subscription.StartedAt, EndDate: user.Subscription.EndedAt}}
+	if cpuUsages, err := jm.GetResourceUsage(
+		qc, ranges); err == nil {
+		if cpuUsages[0].Value >= user.Subscription.CPUQuota {
+			return cpuUsage, diskUsage, common.NewQuotaExceededError(
+				fmt.Errorf("quota-error: exceeded cpu quota %d secs, check your subscription", user.Subscription.CPUQuota))
+		}
+		cpuUsage = cpuUsages[0]
+	} else {
+		return cpuUsage, diskUsage, err
+	}
+	if diskUsages, err := jm.artifactManager.GetResourceUsage(
+		qc, ranges); err == nil {
+		if diskUsages[0].MValue() >= user.Subscription.DiskQuota {
+			return cpuUsage, diskUsage, common.NewQuotaExceededError(
+				fmt.Errorf("quota-error: exceeded disk quota %d MiB, check your subscription", user.Subscription.DiskQuota))
+		}
+		diskUsage = diskUsages[0]
+	} else {
+		return cpuUsage, diskUsage, err
 	}
 	return
 }

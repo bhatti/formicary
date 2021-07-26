@@ -33,7 +33,10 @@ type User struct {
 	AuthID string `json:"auth_id" gorm:"auth_id"`
 	// AuthProvider defines provider for external auth provider
 	AuthProvider string `json:"auth_provider" gorm:"auth_provider"`
+	// MaxConcurrency defines max number of jobs that can be run concurrently by org
+	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
 
+	StickyMessage string `json:"sticky_message" gorm:"sticky_message"`
 	// BundleID defines package or bundle
 	BundleID string `json:"bundle_id"`
 	// Perms defines permissions
@@ -145,7 +148,9 @@ func (u *User) Validate() (err error) {
 		err = errors.New("bundleID is not specified")
 		u.Errors["BundleID"] = err.Error()
 	}
-
+	if u.MaxConcurrency == 0 {
+		u.MaxConcurrency = 1
+	}
 	return
 }
 
