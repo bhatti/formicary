@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"plexobject.com/formicary/internal/metrics"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/metrics"
 
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
@@ -135,11 +136,26 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		if err != nil {
 			return err
 		}
+	} else if jsm.JobDefinition.UserID != "" && !jsm.JobDefinition.PublicPlugin {
+		jsm.User, err = jsm.userRepository.Get(
+			jsm.QueryContext(),
+			jsm.JobDefinition.UserID)
+		if err != nil {
+			return err
+		}
 	}
+
 	if jsm.Request.GetOrganizationID() != "" {
 		jsm.Organization, err = jsm.orgRepository.Get(
 			jsm.QueryContext(),
 			jsm.Request.GetOrganizationID())
+		if err != nil {
+			return err
+		}
+	} else if jsm.JobDefinition.OrganizationID != "" && !jsm.JobDefinition.PublicPlugin {
+		jsm.Organization, err = jsm.orgRepository.Get(
+			jsm.QueryContext(),
+			jsm.JobDefinition.OrganizationID)
 		if err != nil {
 			return err
 		}
@@ -281,13 +297,18 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 	return nil, nil
 }
 
-// UpdateJobRequestTimestamp updates timestamp so that job scheduler doesn't consider it as orphan
-func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestamp(_ context.Context) (err error) {
+// UpdateJobRequestTimestampAndCheckQuota updates timestamp so that job scheduler doesn't consider it as orphan
+func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ context.Context) (err error) {
 	if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.User != nil && jsm.User.Subscription != nil {
 		secs := time.Now().Sub(jsm.User.Subscription.LoadedAt).Seconds()
 		if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
-			return fmt.Errorf("exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+			err = fmt.Errorf("exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+			return common.NewQuotaExceededError(err)
 		}
+	} else if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.User == nil || jsm.User.Subscription == nil {
+		logrus.WithFields(jsm.LogFields("JobSupervisor", err)).
+			Warnf("could not check cpu quota for job '%s' because user or subscription is nil (%s)",
+				jsm.JobDefinition.JobType, jsm.User)
 	}
 	return jsm.JobManager.UpdateJobRequestTimestamp(jsm.Request.GetID())
 }

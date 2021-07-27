@@ -216,6 +216,8 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 				_, _ = request.AddParam(p.Name, v)
 			}
 		}
+		request.UserID = oldReq.GetUserID()
+		request.OrganizationID = oldReq.GetOrganizationID()
 	}
 
 	if _, err := jm.SaveJobRequest(qc, request); err != nil {
@@ -550,6 +552,15 @@ func (jm *JobManager) SaveJobRequest(
 		_ = jm.fireJobRequestChange(saved)
 		jm.metricsRegistry.Incr("job_submitted_total", map[string]string{"JobType": jobDefinition.JobType})
 		jm.jobStatsRegistry.Pending(saved.ToInfo())
+		logrus.WithFields(logrus.Fields{
+			"Component":    "JobManager",
+			"RequestID":    request.ID,
+			"User":         request.UserID,
+			"Organization": request.OrganizationID,
+			"JobType":      request.JobType,
+			"UserKey":      request.UserKey,
+			"Params":       request.ParamString(),
+		}).Infof("saved request job")
 	}
 	return
 }

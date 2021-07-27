@@ -3,10 +3,11 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"time"
+
 	evbus "github.com/asaskevich/EventBus"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/queen/types"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/async"
@@ -146,7 +147,8 @@ func (js *JobSupervisor) tryExecuteJob(
 
 	logrus.WithFields(js.jobStateMachine.LogFields(
 		"JobSupervisor",
-	)).Warnf("failed to execute job %s!", js.jobStateMachine.JobDefinition.JobType)
+	)).Warnf("failed to execute job '%s' with error-code '%s' and error '%s'",
+		js.jobStateMachine.JobDefinition.JobType, errorCode, err)
 
 	// job failed
 	return js.jobStateMachine.ExecutionFailed(
@@ -164,10 +166,18 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 		jobExecutionLifecycleEvent.JobState.IsTerminal() {
 		defer js.cancel()
 		// Note ExecutionCancelled won't call lifecycle event because cancel API fires it
+		errorCode := common.ErrorJobCancelled
+		errorMessage := "job cancelled by user"
+		if js.jobStateMachine.JobExecution.ErrorCode != "" {
+			errorCode = js.jobStateMachine.JobExecution.ErrorCode
+		}
+		if js.jobStateMachine.JobExecution.ErrorMessage != "" {
+			errorMessage = js.jobStateMachine.JobExecution.ErrorMessage
+		}
 		if err := js.jobStateMachine.ExecutionCancelled(
 			ctx,
-			common.ErrorJobCancelled,
-			"job cancelled by user"); err != nil {
+			errorCode,
+			errorMessage); err != nil {
 			logrus.WithFields(logrus.Fields{
 				"Component":                  "JobSupervisor",
 				"ID":                         jobExecutionLifecycleEvent.ID,
@@ -175,7 +185,7 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"RequestState":               js.jobStateMachine.Request.GetJobState(),
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error":                      err}).Warnf("failed to cancel job from lifecycle job event")
+				"Error": err}).Warnf("failed to cancel job from lifecycle job event")
 			return err
 		}
 

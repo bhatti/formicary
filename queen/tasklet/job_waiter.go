@@ -68,8 +68,8 @@ func (jw *JobWaiter) BuildTaskResponse(
 	for _, req := range jw.requests {
 		jobExecution, err := jw.jobManager.GetJobExecution(req.JobExecutionID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find job-execution for %d, execution-id %s due to %v",
-				req.ID, req.JobExecutionID, err)
+			return nil, fmt.Errorf("failed to find job-execution for '%d', state '%s', type '%s', execution-id '%s' due to %v",
+				req.ID, req.JobState, req.JobType, req.JobExecutionID, err)
 		}
 
 		if !taskResp.Status.Failed() {

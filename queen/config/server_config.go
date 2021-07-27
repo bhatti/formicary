@@ -60,6 +60,7 @@ type JobsConfig struct {
 	DisableJobScheduler                  bool          `yaml:"disable_job_scheduler" mapstructure:"disable_job_scheduler"`
 	MaxForkTaskletCapacity               int           `yaml:"max_fork_tasklet_capacity" mapstructure:"max_fork_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
+	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`
 }
 
 // NewServerConfig -- Initializes the default config
@@ -222,7 +223,7 @@ func (c *ServerConfig) GetJobExecutionLaunchTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		types.JobExecutionLaunchTopic)
+		types.JobExecutionLaunchTopic+c.Jobs.LaunchTopicSuffix)
 }
 
 // GetJobSchedulerLeaderTopic leader election event

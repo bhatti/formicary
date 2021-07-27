@@ -396,6 +396,7 @@ func (jd *JobDefinition) Yaml() string {
 func (jd *JobDefinition) UpdateRawYaml() {
 	b, _ := yaml.Marshal(jd)
 	jd.RawYaml = string(b)
+	jd.filter = ""
 }
 
 // TaskNames returns task names
@@ -654,6 +655,7 @@ func (jd *JobDefinition) Equals(other *JobDefinition) error {
 func (jd *JobDefinition) AfterLoad(key []byte) (err error) {
 	nameValueVariables := make(map[string]interface{})
 	jd.lookupTasks = cutils.NewSafeMap()
+	jd.filter = ""
 	for _, c := range jd.Variables {
 		v, err := c.GetParsedValue()
 		if err != nil {
@@ -763,6 +765,7 @@ func (jd *JobDefinition) Validate() (err error) {
 	}
 	jd.Tags = jd.buildTags()
 	jd.Methods = jd.buildMethods()
+	jd.filter = ""
 	if jd.Methods == "" {
 		return fmt.Errorf("methods not specified for job-definition")
 	}

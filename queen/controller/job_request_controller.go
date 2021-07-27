@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -110,15 +109,6 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.WebContext) error
 		return err
 	}
 	_, _ = jobReqCtrl.jobManager.SaveAudit(types.NewAuditRecordFromJobRequest(saved, types.JobRequestCreated, qc))
-
-	logrus.WithFields(logrus.Fields{
-		"Component":    "JobRequestController",
-		"RequestID":    request.ID,
-		"User":         request.UserID,
-		"Organization": request.OrganizationID,
-		"JobType":      request.JobType,
-		"Params":       request.ParamString(),
-	}).Infof("saving request job details")
 
 	return c.JSON(http.StatusCreated, saved)
 }
