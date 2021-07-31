@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/stretchr/testify/require"
+	common "plexobject.com/formicary/internal/types"
 	"testing"
 )
 
@@ -37,4 +38,44 @@ func Test_ShouldWithGoodAuditRecord(t *testing.T) {
 	err := record.ValidateBeforeSave()
 	// THEN it should not fail
 	require.NoError(t, err)
+}
+
+func Test_ShouldCreateAuditRecordFromResource(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromJobResource(&JobResource{}, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromJobDefinition(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromJobDefinition(&JobDefinition{}, JobDefinitionUpdated, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromJobDefinitionConfig(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromJobDefinitionConfig(&JobDefinitionConfig{}, JobDefinitionUpdated, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromJobRequest(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromJobRequest(&JobRequest{}, JobRequestCreated, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromInvitation(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromInvite(&UserInvitation{}, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromToken(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromToken(&UserToken{}, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromUser(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromUser(&common.User{}, UserUpdated, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromOrganization(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromOrganization(&common.Organization{}, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromOrganizationConfig(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromOrganizationConfig(&common.OrganizationConfig{}, &common.QueryContext{}))
+}
+
+func Test_ShouldCreateAuditRecordFromSubscription(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromSubscription(&common.Subscription{}, &common.QueryContext{}))
 }

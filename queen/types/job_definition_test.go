@@ -36,12 +36,16 @@ func Test_ShouldValidateGoodJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "task1", firstTask.TaskType)
 
+	require.NotNil(t, job.GetLastAlwaysRunTasks())
+	require.NotNil(t, job.GetLastTask())
+	require.NotNil(t, job.GetLastAlwaysRunTasks())
 	// AND dynamic task should match
 	task, _, err := job.GetDynamicTask("task1", nil)
 	require.NoError(t, err)
 	require.Equal(t, "task1", task.TaskType)
 	config, _ := job.GetDynamicConfig(nil)
 	require.Equal(t, "jv1", config["jk1"])
+	require.Equal(t, "", job.CronAndScheduleTime())
 }
 
 // Validate job with single task
@@ -591,9 +595,7 @@ func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	b, err := ioutil.ReadFile("../../fixtures/hello_world_scheduled.yaml")
 	require.NoError(t, err)
 	job, err := NewJobDefinitionFromYaml(b)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	require.NotNil(t, job)
 	require.NotEqual(t, "", job.Filter())
 	params := map[string]interface{}{
@@ -604,6 +606,14 @@ func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 		"Target": "bob",
 	}
 	require.False(t, job.Filtered(params))
+	require.NotEqual(t, "", job.CronAndScheduleTime())
+	date, userKey := job.GetCronScheduleTimeAndUserKey()
+	require.NotNil(t, date)
+	require.NotEqual(t, "", userKey)
+	job.Paused = true
+	date, userKey = job.GetCronScheduleTimeAndUserKey()
+	require.Nil(t, date)
+	require.Equal(t, "", userKey)
 }
 
 // Test secret config
@@ -743,7 +753,7 @@ func newTestJobDefinition(name string) *JobDefinition {
 	task3.BeforeScript = []string{"t3_cmd1", "t3_cmd2", "t3_cmd3"}
 	task3.Script = []string{"t3_cmd1", "t3_cmd2", "t3_cmd3"}
 	task3.Method = common.Docker
-
+	task3.AlwaysRun = true
 	job.AddTask(task1)
 	job.AddTask(task2)
 	job.AddTask(task3)

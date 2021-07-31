@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	common "plexobject.com/formicary/internal/types"
 	"regexp"
 	"time"
 )
@@ -33,14 +34,14 @@ type UserInvitation struct {
 
 // NewUserInvitation creates new instance of user invitation
 func NewUserInvitation(
-	username string,
-	userID string,
-	orgID string) *UserInvitation {
+	email string,
+	byUser *common.User,
+) *UserInvitation {
 	return &UserInvitation{
-		Email:           username,
+		Email:           email,
 		InvitationCode:  randomString(20),
-		InvitedByUserID: userID,
-		OrganizationID:  orgID,
+		InvitedByUserID: byUser.ID,
+		OrganizationID:  byUser.OrganizationID,
 		ExpiresAt:       time.Now().Add(time.Hour * 24 * 3),
 		CreatedAt:       time.Now(),
 	}
@@ -66,7 +67,8 @@ func (u *UserInvitation) Validate() (err error) {
 	}
 
 	if u.OrganizationID == "" {
-		return errors.New("org is not specified")
+		err = errors.New("org is not specified")
+		u.Errors["OrganizationID"] = err.Error()
 	}
 	if u.InvitedByUserID == "" {
 		err = errors.New("invited-by-user is not specified")

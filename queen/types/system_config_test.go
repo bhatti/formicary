@@ -5,9 +5,22 @@ import (
 	"testing"
 )
 
-func Test_ShouldSystemConfigTableNames(t *testing.T) {
+func Test_ShouldVerifySystemConfigTableNames(t *testing.T) {
 	sysError := NewSystemConfig("scope", "kind", "name", "value")
 	require.Equal(t, "formicary_system_config", sysError.TableName())
+}
+
+func Test_ShouldVerifySystemConfigString(t *testing.T) {
+	sysError := NewSystemConfig("scope", "kind", "name", "value")
+	require.Contains(t, sysError.String(), "name=value")
+}
+
+func Test_ShouldVerifySystemConfigShortID(t *testing.T) {
+	sysError := NewSystemConfig("scope", "kind", "name", "value")
+	sysError.ID = "1234567890"
+	require.Contains(t, sysError.ShortID(), "789")
+	sysError.ID = "123"
+	require.Equal(t, sysError.ShortID(), "123")
 }
 
 // Validate error-execution with proper initialization
@@ -63,3 +76,20 @@ func Test_ShouldSystemConfigWithoutValue(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "value is not specified")
 }
+
+func Test_ShouldEqualSystemConfig(t *testing.T) {
+	sysConfig1 := NewSystemConfig("scope", "kind", "name", "v")
+	sysConfig2 := NewSystemConfig("scope", "kind", "name", "v")
+	sysConfig3 := NewSystemConfig("nscope", "kind", "name", "v")
+	sysConfig4 := NewSystemConfig("scope", "nkind", "name", "v")
+	sysConfig5 := NewSystemConfig("scope", "kind", "nname", "v")
+	sysConfig6 := NewSystemConfig("scope", "kind", "name", "nv")
+	require.Error(t, sysConfig1.Equals(nil))
+	require.Error(t, sysConfig1.Equals(sysConfig3))
+	require.Error(t, sysConfig1.Equals(sysConfig4))
+	require.Error(t, sysConfig1.Equals(sysConfig5))
+	require.Error(t, sysConfig1.Equals(sysConfig6))
+	require.NoError(t, sysConfig1.Equals(sysConfig1))
+	require.NoError(t, sysConfig1.Equals(sysConfig2))
+}
+

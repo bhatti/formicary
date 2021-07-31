@@ -189,7 +189,12 @@ func (td *TaskDefinition) AddVariable(
 	} else if name == keyDeps {
 		td.Dependencies = value.([]string)
 	} else if name == keyArtifacts {
-		td.ArtifactIDs = value.([]string)
+		switch value.(type) {
+		case []string:
+			td.ArtifactIDs = value.([]string)
+		default:
+			td.ArtifactIDs = strings.Split(fmt.Sprintf("%v", value), ",")
+		}
 	} else {
 		td.lock.Lock()
 		defer td.lock.Unlock()

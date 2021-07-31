@@ -299,16 +299,21 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 
 // UpdateJobRequestTimestampAndCheckQuota updates timestamp so that job scheduler doesn't consider it as orphan
 func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ context.Context) (err error) {
-	if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.User != nil && jsm.User.Subscription != nil {
-		secs := time.Now().Sub(jsm.User.Subscription.LoadedAt).Seconds()
-		if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
-			err = fmt.Errorf("exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+	if jsm.serverCfg.SubscriptionQuotaEnabled {
+		if jsm.User != nil && jsm.User.Subscription != nil {
+			if jsm.User.Subscription.Expired() {
+				err = fmt.Errorf("quota-error: user subscription is expired")
+				return common.NewQuotaExceededError(err)
+			}
+			secs := time.Now().Sub(jsm.User.Subscription.LoadedAt).Seconds()
+			if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
+				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+				return common.NewQuotaExceededError(err)
+			}
+		} else {
+			err = fmt.Errorf("quota-error: user subscription not found for user %s", jsm.User)
 			return common.NewQuotaExceededError(err)
 		}
-	} else if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.User == nil || jsm.User.Subscription == nil {
-		logrus.WithFields(jsm.LogFields("JobSupervisor", err)).
-			Warnf("could not check cpu quota for job '%s' because user or subscription is nil (%s)",
-				jsm.JobDefinition.JobType, jsm.User)
 	}
 	return jsm.JobManager.UpdateJobRequestTimestamp(jsm.Request.GetID())
 }
@@ -568,6 +573,8 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		"Scheduled":          jsm.Request.GetScheduledAt(),
 		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
 		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
+		"JobTimeout":         jsm.JobDefinition.Timeout,
+		"DefaultJobTimeout":  jsm.serverCfg.MaxJobTimeout,
 	})
 
 	if jsm.JobDefinition != nil {

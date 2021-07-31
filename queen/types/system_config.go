@@ -60,10 +60,10 @@ func (c *SystemConfig) Equals(other *SystemConfig) error {
 	if other == nil {
 		return fmt.Errorf("found nil other config")
 	}
-	if err := c.ValidateBeforeSave(); err != nil {
+	if err := c.Validate(); err != nil {
 		return err
 	}
-	if err := other.ValidateBeforeSave(); err != nil {
+	if err := other.Validate(); err != nil {
 		return err
 	}
 

@@ -88,11 +88,8 @@ func (te *TaskExecution) String() string {
 
 // ElapsedDuration time duration of job execution
 func (te *TaskExecution) ElapsedDuration() string {
-	if te.EndedAt == nil {
-		if te.TaskState == types.EXECUTING {
-			return time.Now().Sub(te.StartedAt).String()
-		}
-		return ""
+	if te.EndedAt == nil || te.TaskState == types.EXECUTING {
+		return time.Now().Sub(te.StartedAt).String()
 	}
 	return te.EndedAt.Sub(te.StartedAt).String()
 }
@@ -100,17 +97,14 @@ func (te *TaskExecution) ElapsedDuration() string {
 // ExecutionCostSecs cost of execution
 func (te *TaskExecution) ExecutionCostSecs() int64 {
 	ended := te.EndedAt
-	if ended == nil {
-		if te.TaskState != types.EXECUTING {
-			return 0
-		}
+	if ended == nil || te.TaskState != types.EXECUTING {
 		now := time.Now()
 		ended = &now
 	}
 	cost := math.Max64(int64(ended.Sub(te.StartedAt).Seconds()*te.AppliedCost),
 		int64(ended.Sub(te.StartedAt).Seconds()))
 	if te.AppliedCost == 0 {
-		return cost + int64(te.CountServices) * cost
+		return cost + int64(te.CountServices)*cost
 	}
 	return cost
 }

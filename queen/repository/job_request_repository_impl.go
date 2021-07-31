@@ -241,7 +241,11 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
 		tx := qc.AddOrgElseUserWhere(db).Model(&types.JobRequest{}).Where("id = ?", id)
-		res := tx.Updates(map[string]interface{}{"job_state": common.CANCELLED, "updated_at": time.Now()})
+		res := tx.Updates(map[string]interface{}{
+			"job_state":     common.CANCELLED,
+			"error_code":    common.ErrorJobCancelled,
+			"error_message": "cancelled by job request",
+			"updated_at":    time.Now()})
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
 		}

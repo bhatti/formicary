@@ -55,6 +55,7 @@ type JobsConfig struct {
 	DBObjectCacheSize                    int64         `yaml:"db_object_cache_size" mapstructure:"db_object_cache_size"`
 	OrphanRequestsTimeout                time.Duration `yaml:"orphan_requests_timeout" mapstructure:"orphan_requests_timeout"`
 	OrphanRequestsUpdateInterval         time.Duration `yaml:"orphan_requests_update_interval" mapstructure:"orphan_requests_update_interval"`
+	MissingCronJobsInterval              time.Duration `yaml:"missing_cron_jobs_interval" mapstructure:"missing_cron_jobs_interval"`
 	NotReadyJobsMaxWait                  time.Duration `yaml:"not_ready_max_wait" mapstructure:"not_ready_max_wait"`
 	MaxScheduleAttempts                  int           `yaml:"max_schedule_attempts" mapstructure:"max_schedule_attempts"`
 	DisableJobScheduler                  bool          `yaml:"disable_job_scheduler" mapstructure:"disable_job_scheduler"`
@@ -144,6 +145,9 @@ func (c *ServerConfig) Validate() error {
 	}
 	if c.Jobs.OrphanRequestsUpdateInterval == 0 {
 		c.Jobs.OrphanRequestsUpdateInterval = 15 * time.Second
+	}
+	if c.Jobs.MissingCronJobsInterval == 0 {
+		c.Jobs.MissingCronJobsInterval = 60 * time.Second
 	}
 	if c.URLPresignedExpirationMinutes == 0 {
 		c.URLPresignedExpirationMinutes = 60 * 12

@@ -339,9 +339,9 @@ func (c *CommonConfig) Validate(_ []string) error {
 	if c.MaxTaskTimeout <= 0 {
 		c.MaxTaskTimeout = 1 * time.Hour
 	}
-	// Note: Following config will limit the max runtime for a job with default value of about 3 hours
+	// Note: Following config will limit the max runtime for a job with default value of about 2 hours
 	if c.MaxJobTimeout <= 0 {
-		c.MaxJobTimeout = 3 * time.Hour
+		c.MaxJobTimeout = 2 * time.Hour
 	}
 
 	if c.RateLimitPerSecond <= 0 {

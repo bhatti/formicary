@@ -73,6 +73,32 @@ func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *t
 	return ticker
 }
 
+// startTickerToCheckMissingCronJobs schedules cron jobs that somehow failed to schedule
+func (js *JobScheduler) startTickerToCheckMissingCronJobs(ctx context.Context) *time.Ticker {
+	ticker := time.NewTicker(js.serverCfg.Jobs.OrphanRequestsUpdateInterval)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-js.done:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if err := js.scheduleCronTriggeredJobs(ctx); err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component": "JobScheduler",
+						"Error":     err,
+					}).Warn("failed to schedule cron triggered jobs")
+				}
+			}
+		}
+	}()
+	return ticker
+}
+
+// startTickerToCheckOrphanJobs checks any READY jobs that have not started and put it back to PENDING
 func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.OrphanRequestsUpdateInterval)
 	go func() {
@@ -90,12 +116,6 @@ func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.
 						"Component": "JobScheduler",
 						"Error":     err,
 					}).Warn("failed to schedule orphan jobs")
-				}
-				if err := js.scheduleCronTriggeredJobs(ctx); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"Component": "JobScheduler",
-						"Error":     err,
-					}).Warn("failed to schedule cron triggered jobs")
 				}
 			}
 		}
@@ -174,7 +194,7 @@ func (js *JobScheduler) sendJobSchedulerLeaderEvent(ctx context.Context) (err er
 	return
 }
 
-// This method reschedules jobs if the server dies in middle of processing
+// This method reschedules jobs if the server dies in middle of processing and put it back to PENDING
 func (js *JobScheduler) scheduleOrphanJobs(_ context.Context) (err error) {
 	total, err := js.jobManager.RequeueOrphanJobRequests(
 		js.serverCfg.Jobs.OrphanRequestsTimeout)

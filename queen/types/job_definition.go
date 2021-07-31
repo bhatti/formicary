@@ -241,14 +241,6 @@ func (jd *JobDefinition) Filtered(data map[string]interface{}) bool {
 	}
 	resData, err := utils.ParseTemplate(jd.Filter(), data)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"Component": "JobDefinition",
-			"JobType":   jd.JobType,
-			"Version":   jd.SemVersion,
-			"Filter":    jd.Filter,
-			"Data":      data,
-			"Error":     err,
-		}).Error("failed to parse filter")
 		return false
 	}
 	return strings.Contains(resData, "true")

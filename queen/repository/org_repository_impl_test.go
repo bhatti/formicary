@@ -217,7 +217,7 @@ func Test_ShouldAddInvitation(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN adding an invitation
-	inv := types.NewUserInvitation("email1@formicary.io", user.ID, org.ID)
+	inv := types.NewUserInvitation("touser@formicary.io", user)
 	err = orgRepo.AddInvitation(inv)
 	require.NoError(t, err)
 	loaded, err := orgRepo.GetInvitation(inv.ID)

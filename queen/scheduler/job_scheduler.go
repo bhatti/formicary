@@ -92,6 +92,7 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	js.tickers = append(js.tickers, js.startTickerToSendJobSchedulerLeaderEvents(ctx))
 	js.tickers = append(js.tickers, js.startTickerToSchedulePendingJobs(ctx))
 	js.tickers = append(js.tickers, js.startTickerToCheckOrphanJobs(ctx))
+	js.tickers = append(js.tickers, js.startTickerToCheckMissingCronJobs(ctx))
 	return nil
 }
 

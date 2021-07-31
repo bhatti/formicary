@@ -17,15 +17,12 @@ tasks:
 - task_type: validate
   script:
     - echo request must have URL {{.URL}}, InputEncoding {{.InputEncoding}} and OutputEncoding {{.OutputEncoding}}
-  method: KUBERNETES
   container:
     image: alpine
   on_completed: download
 - task_type: download
-  method: KUBERNETES
   container:
     image: python:3.8-buster
-  host_network: true
   script:
     - curl -o video_file.{{.InputEncoding}} {{.URL}}
   artifacts:
@@ -33,7 +30,6 @@ tasks:
       - video_file.{{.InputEncoding}}
   on_completed: split
 - task_type: split
-  method: KUBERNETES
   container:
     image: alpine
   script:
@@ -73,7 +69,6 @@ tasks:
     - fork-encode1
     - fork-encode2
 - task_type: combine
-  method: KUBERNETES
   container:
     image: alpine
   script:

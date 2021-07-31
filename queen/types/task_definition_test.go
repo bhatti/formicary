@@ -32,6 +32,42 @@ func Test_ShouldTaskDefinitionHappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Setting script
+func Test_ShouldSetScriptForTaskDefinition(t *testing.T) {
+	task := NewTaskDefinition("task", common.Shell)
+	task.OnExitCode["completed"] = "task2"
+
+	task.Script = []string{"c1", "c2", "c3"}
+	require.Equal(t, "c1,c2,c3,", task.ScriptString())
+}
+
+// Setting variables
+func Test_ShouldSetVariablesForTaskDefinition(t *testing.T) {
+	task := NewTaskDefinition("task", common.Shell)
+	task.AddVariable("job_version", "v1")
+	task.AddVariable("artifact_ids", "v2")
+	task.AddVariable("except", "true")
+	task.AddVariable("v4", "1")
+	require.Equal(t, "job_version=v1 artifact_ids=v2 except=true v4=1 ", task.VariablesString())
+	require.Nil(t, task.GetVariable("k3"))
+	require.Equal(t, "v2", task.GetVariable("artifact_ids").Value)
+	require.Equal(t, 1, len(task.FilteredVariables()))
+	task.AfterLoad()
+}
+
+// Setting except
+func Test_ShouldSetExceptForTaskDefinition(t *testing.T) {
+	task := NewTaskDefinition("task", common.Shell)
+	require.False(t, task.IsExcept())
+}
+
+// Setting always-run
+func Test_ShouldSetAlwaysRunForTaskDefinition(t *testing.T) {
+	task := NewTaskDefinition("task", common.Shell)
+	task.SetAlwaysRun()
+	require.False(t, task.IsExcept())
+}
+
 // Test validate without task-type
 func Test_ShouldFailValidateTaskDefinitionWithoutTaskType(t *testing.T) {
 	task1 := NewTaskDefinition("", common.Shell)

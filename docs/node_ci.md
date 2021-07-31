@@ -8,8 +8,6 @@ job_type: node_build
 max_concurrency: 1
 tasks:
 - task_type: build
-  host_network: true
-  method: KUBERNETES
   working_dir: /sample
   container:
     image: node:16-buster
@@ -39,7 +37,6 @@ tasks:
     GCM_INTERACTIVE: never
   on_completed: test
 - task_type: test
-  method: KUBERNETES
   container:
     image: node:16-buster
   working_dir: /sample

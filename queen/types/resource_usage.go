@@ -77,10 +77,10 @@ func (r ResourceUsage) ValueString() string {
 		return fmt.Sprintf("%0.2f Hours",
 			float64(r.Value)/3600.0)
 	} else if r.ValueUnit == "seconds" && r.Value >= 60 {
-		return fmt.Sprintf("%0.2f Minutes ",
+		return fmt.Sprintf("%0.2f Minutes",
 			float64(r.Value)/60.0)
 	} else {
-		return fmt.Sprintf("%d-%s",
+		return fmt.Sprintf("%d %s",
 			r.Value,
 			r.ValueUnit)
 	}

@@ -94,22 +94,16 @@ func (je *JobExecution) JobTypeAndVersion() string {
 
 // ElapsedDuration time duration of job execution
 func (je *JobExecution) ElapsedDuration() string {
-	if je.EndedAt == nil {
-		if je.JobState == types.EXECUTING {
-			return time.Now().Sub(je.StartedAt).String()
-		}
-		return ""
+	if je.EndedAt == nil || je.JobState == types.EXECUTING {
+		return time.Now().Sub(je.StartedAt).String()
 	}
 	return je.EndedAt.Sub(je.StartedAt).String()
 }
 
 // ElapsedMillis unix time elapsed of job execution
 func (je *JobExecution) ElapsedMillis() int64 {
-	if je.EndedAt == nil {
-		if je.JobState == types.EXECUTING {
-			return time.Now().Sub(je.StartedAt).Milliseconds()
-		}
-		return 0
+	if je.EndedAt == nil || je.JobState == types.EXECUTING {
+		return time.Now().Sub(je.StartedAt).Milliseconds()
 	}
 	return je.EndedAt.Sub(je.StartedAt).Milliseconds()
 }
@@ -126,10 +120,7 @@ func (je *JobExecution) CostFactor() float64 {
 // ExecutionCostSecs unix time elapsed of job execution
 func (je *JobExecution) ExecutionCostSecs() int64 {
 	ended := je.EndedAt
-	if ended == nil {
-		if je.JobState != types.EXECUTING {
-			return 0
-		}
+	if ended == nil || je.JobState == types.EXECUTING {
 		now := time.Now()
 		ended = &now
 	}
@@ -183,8 +174,8 @@ func (je *JobExecution) Methods() string {
 	for _, t := range je.Tasks {
 		if t.Method != "" {
 			taskMethods[t.Method] = true
-		} else if t.Method != "" {
-			taskMethods[t.Method] = true
+		} else {
+			taskMethods[types.Kubernetes] = true
 		}
 	}
 	var buf strings.Builder
@@ -295,7 +286,11 @@ func (je *JobExecution) DeleteContext(name string) *JobExecutionContext {
 
 // GetContext gets job context
 func (je *JobExecution) GetContext(name string) *JobExecutionContext {
-	return je.lookupContexts.GetObject(name).(*JobExecutionContext)
+	v := je.lookupContexts.GetObject(name)
+	if v == nil {
+		return nil
+	}
+	return v.(*JobExecutionContext)
 }
 
 // Equals compares other job-execution for equality

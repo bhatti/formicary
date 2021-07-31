@@ -187,6 +187,7 @@ func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
 	return request, nil
 }
 
+// UpdateUserKeyFromScheduleIfCronJob updates schedule-time and user-key
 func (jr *JobRequest) UpdateUserKeyFromScheduleIfCronJob(job *JobDefinition) {
 	if scheduledAt, userKey := job.GetCronScheduleTimeAndUserKey(); scheduledAt != nil {
 		jr.ScheduledAt = *scheduledAt
