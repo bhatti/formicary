@@ -24,6 +24,7 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) error {
 				return err
 			}
 			go func() {
+				req.StartedAt = time.Now()
 				if err := t.handleRequest(ctx, req); err != nil {
 					logrus.WithFields(
 						logrus.Fields{

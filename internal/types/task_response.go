@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // TaskResponse defines structure for response from ant
@@ -27,6 +28,58 @@ type TaskResponse struct {
 	Artifacts      []*Artifact            `json:"artifacts"`
 	Warnings       []string               `json:"warnings"`
 	AppliedCost    float64                `json:"applied_cost"`
+	Timings        TaskResponseTimings    `json:"timings"`
+}
+
+type TaskResponseTimings struct {
+	ReceivedAt                     time.Time `json:"received_at"`
+	PodStartedAt                   time.Time `json:"pod_started_at"`
+	PreScriptFinishedAt            time.Time `json:"pre_script_finished_at"`
+	DependentArtifactsDownloadedAt time.Time `json:"dependent_artifacts_downloaded_at"`
+	ScriptFinishedAt               time.Time `json:"script_finished_at"`
+	PostScriptFinishedAt           time.Time `json:"post_script_finished_at"`
+	ArtifactsUploadedAt            time.Time `json:"artifacts_uploaded_at"`
+	PodShutdownAt                  time.Time `json:"pod_shutdown_at"`
+}
+
+func (t TaskResponseTimings) String() string {
+	return fmt.Sprintf("POD-Startup: %s, PreScript: %s, Artifacts-Download: %s, Script: %s, Post-Script: %s, Artifacts-Upload: %s, POD-Shutdown: %s",
+		t.PodStartupDuration(), t.PreScriptDuration(), t.DependentArtifactsDownloadedDuration(), t.ScriptFinishedDuration(), t.PostScriptFinishedDuration(), t.ArtifactsUploadedDuration(), t.PodShutdownDuration())
+}
+
+// PodStartupDuration time
+func (t TaskResponseTimings) PodStartupDuration() time.Duration {
+	return t.PodStartedAt.Sub(t.ReceivedAt)
+}
+
+// PreScriptDuration time
+func (t TaskResponseTimings) PreScriptDuration() time.Duration {
+	return t.PreScriptFinishedAt.Sub(t.PodStartedAt)
+}
+
+// DependentArtifactsDownloadedDuration time
+func (t TaskResponseTimings) DependentArtifactsDownloadedDuration() time.Duration {
+	return t.DependentArtifactsDownloadedAt.Sub(t.PreScriptFinishedAt)
+}
+
+// ScriptFinishedDuration time
+func (t TaskResponseTimings) ScriptFinishedDuration() time.Duration {
+	return t.ScriptFinishedAt.Sub(t.DependentArtifactsDownloadedAt)
+}
+
+// PostScriptFinishedDuration time
+func (t TaskResponseTimings) PostScriptFinishedDuration() time.Duration {
+	return t.PostScriptFinishedAt.Sub(t.ScriptFinishedAt)
+}
+
+// ArtifactsUploadedDuration time
+func (t TaskResponseTimings) ArtifactsUploadedDuration() time.Duration {
+	return t.ArtifactsUploadedAt.Sub(t.PostScriptFinishedAt)
+}
+
+// PodShutdownDuration time
+func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
+	return t.PodShutdownAt.Sub(t.ArtifactsUploadedAt)
 }
 
 // NewTaskResponse creates new instance

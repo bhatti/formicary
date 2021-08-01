@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -92,4 +94,15 @@ func (ac *CacheConfig) Expiration() *time.Time {
 // Valid - checks if path/keys are specified
 func (ac *CacheConfig) Valid() bool {
 	return len(ac.Paths) > 0 && (len(ac.KeyPaths) > 0 || ac.Key != "")
+}
+
+func (ac *CacheConfig) String() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("paths: %v", ac.Paths))
+	if len(ac.KeyPaths) > 0 {
+		sb.WriteString(fmt.Sprintf(", keypaths: %v", ac.KeyPaths))
+	} else if ac.Key != "" {
+		sb.WriteString(fmt.Sprintf(", key: %s", ac.Key))
+	}
+	return sb.String()
 }

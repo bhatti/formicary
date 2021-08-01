@@ -51,6 +51,7 @@ type IJobRequestSummary interface {
 type IJobRequest interface {
 	// GetID defines UUID for primary key
 	GetID() uint64
+	GetJobDefinitionID() string
 	GetJobExecutionID() string
 	GetLastJobExecutionID() string
 	SetJobExecutionID(jobExecutionID string)
@@ -234,6 +235,11 @@ func (jr *JobRequest) ToInfo() *JobRequestInfo {
 // GetID defines UUID for primary key
 func (jr *JobRequest) GetID() uint64 {
 	return jr.ID
+}
+
+// GetJobDefinitionID returns job-definition-id
+func (jr *JobRequest) GetJobDefinitionID() string {
+	return jr.JobDefinitionID
 }
 
 // GetJobExecutionID job-execution-id

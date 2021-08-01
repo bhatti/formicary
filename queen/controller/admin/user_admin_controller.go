@@ -285,7 +285,7 @@ func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
 func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, c.FormValue("token"))
-	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.MaxAge)
+	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.TokenMaxAge)
 	if err == nil {
 		tok.APIToken = strTok
 		tok.ExpiresAt = expiration

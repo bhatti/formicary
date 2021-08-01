@@ -48,8 +48,8 @@ func NewKubernetesExecutor(
 	_ = base.WriteTrace(fmt.Sprintf(
 		"🔥 running with formicary %s on %s", cfg.ID, hostName))
 	_ = base.WriteTraceInfo(fmt.Sprintf(
-		"🐳 preparing kubernetes container with image %s",
-		opts.MainContainer.Image))
+		"🐳 preparing kubernetes container '%s' with image '%s'",
+		opts.Name, opts.MainContainer.Image))
 	return &Executor{
 		BaseExecutor:        base,
 		adapter:             adapter,
@@ -212,7 +212,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 			break
 		}
 		if i == maxBuildPodTries-1 || !strings.Contains(err.Error(), "try again") {
-			return fmt.Errorf("setting up build pod: %w (%s)", err, ke.ExecutorOptions.Name)
+			return fmt.Errorf("setting up failed for pod: %w (%s)", err, ke.ExecutorOptions.Name)
 		}
 		time.Sleep(1 * time.Second)
 	}

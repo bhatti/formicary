@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"plexobject.com/formicary/internal/math"
-
 	"plexobject.com/formicary/internal/utils"
 
 	"plexobject.com/formicary/internal/types"
@@ -128,9 +126,7 @@ func (je *JobExecution) ExecutionCostSecs() int64 {
 	for _, t := range je.Tasks {
 		total += t.ExecutionCostSecs()
 	}
-	return math.Max64(
-		int64(ended.Sub(je.StartedAt).Seconds()),
-		total)
+	return total
 }
 
 // CanRestart checks if job can be restarted

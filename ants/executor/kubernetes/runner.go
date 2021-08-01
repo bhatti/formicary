@@ -44,6 +44,15 @@ func NewCommandRunner(
 	containerName string,
 	cmd string,
 	helper bool) (*CommandRunner, error) {
+	if exec == nil {
+		return nil, fmt.Errorf("executor not specified")
+	}
+	if podName == "" {
+		return nil, fmt.Errorf("pod-name not specified")
+	}
+	if containerName == "" {
+		return nil, fmt.Errorf("container-name not specified")
+	}
 	base := executor.NewBaseCommandRunner(&exec.BaseExecutor, cmd, helper)
 	base.ID = uuid.NewV4().String()
 	return &CommandRunner{
@@ -162,9 +171,10 @@ func (kcr *CommandRunner) run(
 	errorHandler := func(ctx context.Context, payload interface{}) error {
 		status, err := kcr.adapter.GetPodPhase(ctx, kcr.podName)
 		if err != nil {
-			return fmt.Errorf("failed to check pod phase before executing command '%s' due to %s",
-				kcr.Command, err)
+			return fmt.Errorf("failed to check pod phase before executing command '%s' for pod '%s' ['%s']  due to '%s'",
+				kcr.Command, kcr.podName, kcr.containerName, err)
 		}
+
 		if status.phase != api.PodRunning {
 			return &podPhaseError{
 				name:  kcr.podName,

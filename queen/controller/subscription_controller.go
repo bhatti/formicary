@@ -9,6 +9,7 @@ import (
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
+	"time"
 )
 
 // SubscriptionController structure
@@ -217,7 +218,10 @@ type subscriptionIDParams struct {
 
 func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.Subscription, error) {
 	qc := common.NewQueryContext("", "", "").WithAdmin()
-	subscription := &common.Subscription{}
+	subscription := &common.Subscription{
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 	err := json.NewDecoder(c.Request().Body).Decode(subscription)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -251,6 +255,11 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 	freeSubscription := common.NewFreemiumSubscription("", "")
 	if oldSubscription != nil {
 		subscription.ID = oldSubscription.ID
+		if oldSubscription.CreatedAt.IsZero() {
+			subscription.CreatedAt = oldSubscription.StartedAt
+		} else {
+			subscription.CreatedAt = oldSubscription.CreatedAt
+		}
 		if subscription.Kind == "" {
 			subscription.Kind = oldSubscription.Kind
 		}
@@ -271,11 +280,7 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 		}
 
 		if subscription.CPUQuota == 0 {
-			if oldSubscription.CPUQuota < freeSubscription.CPUQuota {
-				subscription.CPUQuota = oldSubscription.CPUQuota + freeSubscription.CPUQuota
-			} else {
-				subscription.CPUQuota = oldSubscription.CPUQuota
-			}
+			subscription.CPUQuota = oldSubscription.CPUQuota + freeSubscription.CPUQuota
 		}
 
 		if subscription.DiskQuota == 0 {

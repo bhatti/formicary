@@ -216,6 +216,7 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 				_, _ = request.AddParam(p.Name, v)
 			}
 		}
+		request.ParentID = oldReq.GetID()
 		request.UserID = oldReq.GetUserID()
 		request.OrganizationID = oldReq.GetOrganizationID()
 	}
@@ -269,7 +270,7 @@ func (jm *JobManager) GetWaitEstimate(
 		return
 	}
 	var jobDef *types.JobDefinition
-	jobDef, err = jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
+	jobDef, err = jm.GetJobDefinition(qc, request.JobDefinitionID)
 	if err != nil {
 		return
 	}
@@ -478,7 +479,7 @@ func (jm *JobManager) SaveJobRequest(
 	request *types.JobRequest) (saved *types.JobRequest, err error) {
 	request.UserID = qc.UserID
 	request.OrganizationID = qc.OrganizationID
-	jobDefinition, err := jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
+	jobDefinition, err := jm.GetJobDefinitionByType(qc, request.GetJobType(), request.GetJobVersion())
 	if err != nil {
 		return nil, err
 	}
@@ -743,7 +744,7 @@ func (jm *JobManager) UpdateJobRequestState(
 		jm.jobStatsRegistry.Pending(req)
 	} else if newState.IsTerminal() && req.GetCronTriggered() {
 		var jobDefinition *types.JobDefinition
-		if jobDefinition, err = jm.jobDefinitionRepository.GetByType(qc, req.GetJobType()); err != nil {
+		if jobDefinition, err = jm.GetJobDefinitionByType(qc, req.GetJobType(), req.GetJobVersion()); err != nil {
 			return err
 		}
 		if cronScheduledAt, _ := jobDefinition.GetCronScheduleTimeAndUserKey(); cronScheduledAt != nil {
@@ -910,7 +911,7 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	// trigger cron job if needed
 	if err == nil && jobExec.JobState.IsTerminal() && req.GetCronTriggered() {
 		var jobDefinition *types.JobDefinition
-		if jobDefinition, err = jm.jobDefinitionRepository.GetByType(qc, jobExec.JobType); err != nil {
+		if jobDefinition, err = jm.GetJobDefinitionByType(qc, jobExec.JobType, jobExec.JobVersion); err != nil {
 			return err
 		}
 		if cronScheduledAt, _ := jobDefinition.GetCronScheduleTimeAndUserKey(); cronScheduledAt != nil {

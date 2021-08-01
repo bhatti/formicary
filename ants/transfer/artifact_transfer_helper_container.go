@@ -207,7 +207,7 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 			ctx,
 			cmd,
 			true); err != nil {
-			return fmt.Errorf("failed to download dependent artifact %s due to %v, stderr=%s",
+			return fmt.Errorf("failed to download dependent artifact '%s' due to %v, stderr=%s",
 				id, err, string(stderr))
 		}
 	}

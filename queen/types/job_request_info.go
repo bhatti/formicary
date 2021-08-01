@@ -11,6 +11,8 @@ import (
 type JobRequestInfo struct {
 	// ID defines UUID for primary key
 	ID uint64 `json:"id"`
+	// JobDefinitionID points to the job-definition version
+	JobDefinitionID string `json:"job_definition_id"`
 	// JobExecutionID
 	JobExecutionID string `json:"job_execution_id"`
 	// LastJobExecutionID defines foreign key for JobExecution
@@ -73,6 +75,11 @@ func (jri *JobRequestInfo) GetLastJobExecutionID() string {
 // GetJobExecutionID returns execution-id
 func (jri *JobRequestInfo) GetJobExecutionID() string {
 	return jri.JobExecutionID
+}
+
+// GetJobDefinitionID returns job-definition-id
+func (jri *JobRequestInfo) GetJobDefinitionID() string {
+	return jri.JobDefinitionID
 }
 
 // SetJobExecutionID sets execution-id
@@ -154,6 +161,7 @@ func (jri *JobRequestInfo) GetScheduledAt() time.Time {
 func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 	return &JobRequestInfo{
 		ID:                 req.GetID(),
+		JobDefinitionID:    req.GetJobDefinitionID(),
 		JobExecutionID:     req.GetJobExecutionID(),
 		LastJobExecutionID: req.GetLastJobExecutionID(),
 		JobType:            req.GetJobType(),
@@ -161,8 +169,8 @@ func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 		JobPriority:        req.GetJobPriority(),
 		JobState:           req.GetJobState(),
 		ScheduleAttempts:   req.GetScheduleAttempts(),
-		OrganizationID:     req.GetOrganizationID(),
 		UserID:             req.GetUserID(),
+		OrganizationID:     req.GetOrganizationID(),
 		CronTriggered:      req.GetCronTriggered(),
 		ScheduledAt:        req.GetScheduledAt(),
 		CreatedAt:          req.GetCreatedAt(),

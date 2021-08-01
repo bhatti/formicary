@@ -75,7 +75,7 @@ func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *t
 
 // startTickerToCheckMissingCronJobs schedules cron jobs that somehow failed to schedule
 func (js *JobScheduler) startTickerToCheckMissingCronJobs(ctx context.Context) *time.Ticker {
-	ticker := time.NewTicker(js.serverCfg.Jobs.OrphanRequestsUpdateInterval)
+	ticker := time.NewTicker(js.serverCfg.Jobs.MissingCronJobsInterval)
 	go func() {
 		for {
 			select {

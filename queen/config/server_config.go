@@ -159,7 +159,7 @@ func (c *ServerConfig) Validate() error {
 		c.Jobs.MaxForkAwaitTaskletCapacity = 100
 	}
 	if c.DB.MaxConcurrency == 0 {
-		c.DB.MaxConcurrency = 100
+		c.DB.MaxConcurrency = 20
 	}
 	if c.DB.MaxIdleConns == 0 {
 		c.DB.MaxIdleConns = 10

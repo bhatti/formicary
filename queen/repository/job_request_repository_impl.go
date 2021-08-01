@@ -518,7 +518,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 	args := []interface{}{true, jobTypes, jobStates}
 
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE " +
+		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE " +
 		" cron_triggered = ? AND ((job_type IN (?) AND job_state IN (?)"
 	if len(userIDs) > 0 {
 		sql += " AND user_id IN (?)"
@@ -582,7 +582,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	state common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE job_type in " +
+		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions where paused is false and active is true)" +
 		" AND job_state = ? AND scheduled_at <= ? ORDER BY job_priority DESC, created_at LIMIT ?"
 
@@ -614,7 +614,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 // RequeueOrphanRequests queries jobs with EXECUTING/STARTED status and puts them back to PENDING
 func (jrr *JobRequestRepositoryImpl) RequeueOrphanRequests(
 	staleInterval time.Duration) (total int64, err error) {
-	date := time.Now().Add(-staleInterval * time.Second)
+	date := time.Now().Add(-staleInterval)
 	res := jrr.db.Exec(
 		"UPDATE formicary_job_requests SET job_state = ?, scheduled_at = ?, updated_at = ? "+
 			" WHERE job_state IN (?) AND updated_at < ?",
@@ -625,6 +625,12 @@ func (jrr *JobRequestRepositoryImpl) RequeueOrphanRequests(
 		date)
 	if res.Error != nil {
 		return 0, res.Error
+	}
+	if res.RowsAffected == 0 && logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobRequestRepositoryImpl",
+			"Date":      date,
+		}).Debugf("didn't find any orphan jobs")
 	}
 	return res.RowsAffected, nil
 }

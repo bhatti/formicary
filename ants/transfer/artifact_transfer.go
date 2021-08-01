@@ -214,7 +214,10 @@ func SetupCacheAndDownloadArtifacts(
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter) (err error) {
-
+	taskResp.Timings.PreScriptFinishedAt = time.Now()
+	defer func() {
+		taskResp.Timings.DependentArtifactsDownloadedAt = time.Now()
+	}()
 	// building service to download artifacts
 	transferService, err := buildArtifactTransferService(
 		antCfg,
@@ -242,6 +245,8 @@ func SetupCacheAndDownloadArtifacts(
 
 	// Downloading Cache for npm, yarn, gradle, etc (only for docker/kubernetes)
 	if taskReq.ExecutorOpts.Cache.Valid() && taskReq.ExecutorOpts.Method.SupportsCache() {
+		_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloading cache %s...",
+			taskReq.ExecutorOpts.Cache.String()))
 		return downloadCache(
 			ctx,
 			antCfg,
@@ -250,6 +255,9 @@ func SetupCacheAndDownloadArtifacts(
 			execute,
 			traceWriter,
 			transferService)
+	} else if len(taskReq.ExecutorOpts.Cache.Paths) > 0 {
+		_ = traceWriter.WriteTraceError(fmt.Sprintf("🌟 skip downloading cache because no key (files) specified for %s",
+			taskReq.ExecutorOpts.Cache.String()))
 	}
 	return nil
 }
@@ -285,7 +293,7 @@ func downloadCache(
 		return nil // ignoring error
 	}
 
-	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloading cache artifact %s with key %s", artifactID, actualDigest))
+	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloaded cache artifact %s with key %s", artifactID, actualDigest))
 
 	// running on main container
 	for _, p := range taskReq.ExecutorOpts.Cache.Paths {

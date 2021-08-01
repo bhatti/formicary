@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/gorhill/cronexpr"
 	common "plexobject.com/formicary/internal/types"
@@ -137,7 +137,7 @@ type JobDefinition struct {
 func NewJobDefinition(jobType string) *JobDefinition {
 	return &JobDefinition{
 		JobType:            jobType,
-		MaxConcurrency:     1,
+		MaxConcurrency:     3,
 		Configs:            make([]*JobDefinitionConfig, 0),
 		Variables:          make([]*JobDefinitionVariable, 0),
 		Tasks:              make([]*TaskDefinition, 0),
@@ -765,8 +765,8 @@ func (jd *JobDefinition) Validate() (err error) {
 		return fmt.Errorf("raw-yaml not specified")
 	}
 	jd.lookupTasks = cutils.NewSafeMap()
-	if jd.MaxConcurrency <= 0 {
-		jd.MaxConcurrency = 1
+	if jd.MaxConcurrency <= 1 {
+		jd.MaxConcurrency = 3
 	}
 	jd.UsesTemplate = strings.Contains(jd.RawYaml, "{{") && strings.Contains(jd.RawYaml, "}}")
 	if err = jd.validateTaskExitCodes(); err != nil {

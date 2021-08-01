@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*types.JobDefinition, error) {
 	if id == "" {
+		debug.PrintStack()
 		return nil, common.NewValidationError(
 			fmt.Errorf("job-id is not specified for fetching job-definition"))
 	}
@@ -50,6 +52,20 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	}
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
 		return nil, err
+	}
+	if !job.PublicPlugin && !qc.Admin() {
+		if (job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID) ||
+			(job.OrganizationID == "" && job.UserID != qc.UserID) {
+			debug.PrintStack()
+			log.WithFields(log.Fields{
+				"Component":     "JobDefinitionRepositoryImpl",
+				"JobDefinition": &job,
+				"QC":            qc,
+			}).Warnf("job owner %s / %s didn't match query context %s",
+				job.UserID, job.OrganizationID, qc)
+			return nil, common.NewPermissionError(
+				fmt.Errorf("cannot access job by id %s", id))
+		}
 	}
 	for _, t := range job.Tasks {
 		sort.Slice(t.Variables, func(i, j int) bool { return t.Variables[i].Name < t.Variables[j].Name })
@@ -98,6 +114,20 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
 		return nil, common.NewValidationError(err)
+	}
+	if !job.PublicPlugin && !qc.Admin() {
+		if (job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID) ||
+			(job.OrganizationID == "" && job.UserID != qc.UserID) {
+			debug.PrintStack()
+			log.WithFields(log.Fields{
+				"Component":     "JobDefinitionRepositoryImpl",
+				"JobDefinition": &job,
+				"QC":            qc,
+			}).Warnf("job owner %s / %s didn't match query context %s",
+				job.UserID, job.OrganizationID, qc)
+			return nil, common.NewPermissionError(
+				fmt.Errorf("cannot access job by type %s", jobType))
+		}
 	}
 	for _, t := range job.Tasks {
 		sort.Slice(t.Variables, func(i, j int) bool { return t.Variables[i].Name < t.Variables[j].Name })

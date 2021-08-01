@@ -117,29 +117,12 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	if jsm.Reservations == nil {
 		return fmt.Errorf("job-allocations is not specified")
 	}
-	jsm.JobDefinition, err = jsm.JobManager.GetJobDefinitionByType(
-		jsm.QueryContext(),
-		jsm.Request.GetJobType(),
-		jsm.Request.GetJobVersion())
-	if err != nil {
-		return err
-	}
-	if err = jsm.JobDefinition.Validate(); err != nil {
-		return err
-	}
 
 	// loading user and organization from request
 	if jsm.Request.GetUserID() != "" {
 		jsm.User, err = jsm.userRepository.Get(
 			jsm.QueryContext(),
 			jsm.Request.GetUserID())
-		if err != nil {
-			return err
-		}
-	} else if jsm.JobDefinition.UserID != "" && !jsm.JobDefinition.PublicPlugin {
-		jsm.User, err = jsm.userRepository.Get(
-			jsm.QueryContext(),
-			jsm.JobDefinition.UserID)
 		if err != nil {
 			return err
 		}
@@ -152,7 +135,35 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		if err != nil {
 			return err
 		}
-	} else if jsm.JobDefinition.OrganizationID != "" && !jsm.JobDefinition.PublicPlugin {
+	}
+
+	// if pin job-definition to the version
+	jsm.JobDefinition, err = jsm.JobManager.GetJobDefinition(
+		jsm.QueryContext(),
+		jsm.Request.GetJobDefinitionID(),
+	)
+	//jsm.JobDefinition, err = jsm.JobManager.GetJobDefinitionByType(
+	//	jsm.QueryContext(),
+	//	jsm.Request.GetJobType(),
+	//	jsm.Request.GetJobVersion(),
+	//)
+
+	if err != nil {
+		return err
+	}
+	if err = jsm.JobDefinition.Validate(); err != nil {
+		return err
+	}
+
+	if jsm.User == nil && jsm.JobDefinition.UserID != "" && !jsm.JobDefinition.PublicPlugin {
+		jsm.User, err = jsm.userRepository.Get(
+			jsm.QueryContext(),
+			jsm.JobDefinition.UserID)
+		if err != nil {
+			return err
+		}
+	}
+	if jsm.Organization == nil && jsm.JobDefinition.OrganizationID != "" && !jsm.JobDefinition.PublicPlugin {
 		jsm.Organization, err = jsm.orgRepository.Get(
 			jsm.QueryContext(),
 			jsm.JobDefinition.OrganizationID)
@@ -161,20 +172,24 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		}
 	}
 
-	// Load full job request
-	switch jsm.Request.(type) {
-	case *types.JobRequest:
-		// ok
-	case *types.JobRequestInfo:
-		// load
-		if req, err := jsm.JobManager.GetJobRequest(
-			jsm.QueryContext(),
-			jsm.Request.GetID()); err == nil {
-			jsm.Request = req
-		} else {
-			return err
-		}
-	}
+	logrus.WithFields(logrus.Fields{
+		"Component":          "JobExecutionStateMachine",
+		"RequestID":          jsm.Request.GetID(),
+		"RequestUser":        jsm.Request.GetUserID(),
+		"RequestOrg":         jsm.Request.GetOrganizationID(),
+		"JobType":            jsm.Request.GetJobType(),
+		"RequestState":       jsm.Request.GetJobState(),
+		"RequestRetry":       jsm.Request.GetRetried(),
+		"CronTriggered":      jsm.Request.GetCronTriggered(),
+		"Priority":           jsm.Request.GetJobPriority(),
+		"Scheduled":          jsm.Request.GetScheduledAt(),
+		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
+		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
+		"JobDefinitionID":    jsm.JobDefinition.ID,
+		"JobDefinitionUser":  jsm.JobDefinition.UserID,
+		"JobDefinitionOrg":   jsm.JobDefinition.OrganizationID,
+		"QC":                 jsm.QueryContext(),
+	}).Infof("validated request")
 
 	return
 }
@@ -236,6 +251,7 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 		return fmt.Errorf("mismatched request status %s, job-execution state %s",
 			jsm.Request.GetJobState(), jsm.JobExecution.JobState)
 	}
+
 	return
 }
 
@@ -305,9 +321,10 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 				err = fmt.Errorf("quota-error: user subscription is expired")
 				return common.NewQuotaExceededError(err)
 			}
-			secs := time.Now().Sub(jsm.User.Subscription.LoadedAt).Seconds()
+			secs := time.Now().Sub(jsm.JobExecution.StartedAt).Seconds()
 			if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
-				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs", jsm.User.Subscription.CPUQuota)
+				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs, usage %s, job time %d",
+					jsm.User.Subscription.CPUQuota, jsm.cpuUsage.ValueString(), secs)
 				return common.NewQuotaExceededError(err)
 			}
 		} else {
@@ -359,8 +376,7 @@ func (jsm *JobExecutionStateMachine) LaunchFailed(ctx context.Context, err error
 	// treating error sending lifecycle event as non-fatal error
 	if eventError := jsm.sendJobExecutionLifecycleEvent(ctx); eventError != nil {
 		logrus.WithFields(jsm.LogFields("JobLauncher", eventError, saveError)).
-			Warnf("failed to send job lifecycle event for %s after launch failure",
-				jsm.JobDefinition.JobType)
+			Warnf("failed to send job lifecycle event after launch failure")
 	}
 	return saveError
 }
@@ -557,7 +573,7 @@ func (jsm *JobExecutionStateMachine) DoesRequireFullRestart() bool {
 
 // QueryContext builds query context
 func (jsm *JobExecutionStateMachine) QueryContext() *common.QueryContext {
-	return common.NewQueryContext(jsm.Request.GetUserID(), jsm.Request.GetOrganizationID(), "") // TODO salt
+	return common.NewQueryContext(jsm.Request.GetUserID(), jsm.Request.GetOrganizationID(), "")
 }
 
 // LogFields common logging fields
@@ -573,12 +589,12 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		"Scheduled":          jsm.Request.GetScheduledAt(),
 		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
 		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
-		"JobTimeout":         jsm.JobDefinition.Timeout,
-		"DefaultJobTimeout":  jsm.serverCfg.MaxJobTimeout,
 	})
 
 	if jsm.JobDefinition != nil {
 		fields["JobDefinitionID"] = jsm.JobDefinition.ID
+		fields["JobTimeout"] = jsm.JobDefinition.Timeout
+		fields["DefaultJobTimeout"] = jsm.serverCfg.MaxJobTimeout
 	}
 
 	if jsm.JobExecution != nil {

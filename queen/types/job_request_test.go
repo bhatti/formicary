@@ -2,11 +2,12 @@ package types
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"plexobject.com/formicary/internal/types"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"plexobject.com/formicary/internal/types"
 )
 
 // Verify table names for job-request
@@ -53,7 +54,6 @@ func Test_ShouldMatchTaskRequestState(t *testing.T) {
 	require.True(t, job.Waiting())
 }
 
-
 // Validate GetUserJobTypeKey
 func Test_ShouldBuildUserJobTypeKey(t *testing.T) {
 	// Given job request
@@ -83,6 +83,7 @@ func Test_ShouldAccessExecutionIDForJobRequest(t *testing.T) {
 	// THEN it should match execution-ids
 	job.ToInfo().SetJobExecutionID(job.JobExecutionID)
 	require.Equal(t, job.JobExecutionID, job.ToInfo().GetJobExecutionID())
+	require.Equal(t, job.JobDefinitionID, job.ToInfo().GetJobDefinitionID())
 	require.Equal(t, job.LastJobExecutionID, job.ToInfo().GetLastJobExecutionID())
 }
 

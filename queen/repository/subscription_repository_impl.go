@@ -147,12 +147,25 @@ func (sr *SubscriptionRepositoryImpl) Update(
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
+
 	if !qc.Matches(subscription.UserID, subscription.OrganizationID) {
-		// TODO remove user id from the error message
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SubscriptionRepositoryImpl",
+			"Subscription": subscription,
+			"QC":           qc,
+		}).Warnf("subscription owner %s / %s didn't match query context %s",
+			subscription.UserID, subscription.OrganizationID, qc)
 		return nil, common.NewPermissionError(
-			fmt.Errorf("subscription owner %s / %s didn't match query context %s",
-				subscription.UserID, subscription.OrganizationID, qc))
+			fmt.Errorf("subscription owner didn't match"))
 	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SubscriptionRepositoryImpl",
+			"Subscription": subscription,
+			"QC":           qc,
+		}).Debugf("updating subscription")
+	}
+
 	subscription.Active = true
 	err = sr.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB

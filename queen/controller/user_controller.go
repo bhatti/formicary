@@ -201,7 +201,7 @@ func (uc *UserController) createUserToken(c web.WebContext) (err error) {
 		name = "api token"
 	}
 	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, name)
-	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.MaxAge)
+	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.TokenMaxAge)
 	if err == nil {
 		tok.APIToken = strTok
 		tok.ExpiresAt = expiration

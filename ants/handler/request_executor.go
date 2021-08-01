@@ -67,9 +67,10 @@ func NewRequestExecutor(
 func (re *RequestExecutorImpl) Execute(
 	ctx context.Context,
 	taskReq *types.TaskRequest) (taskResp *types.TaskResponse) {
-	taskReq.StartedAt = time.Now()
 	// Create task-response
 	taskResp = types.NewTaskResponse(taskReq)
+
+	taskResp.Timings.ReceivedAt = taskReq.StartedAt
 
 	// prepare executor options and build container based on request method
 	container, err := re.preProcess(ctx, taskReq)
@@ -78,6 +79,7 @@ func (re *RequestExecutorImpl) Execute(
 		taskResp.ErrorMessage = err.Error()
 		return
 	}
+	taskResp.Timings.PodStartedAt = time.Now()
 	cmdExecutor := func(
 		ctx context.Context,
 		cmd string,
@@ -90,6 +92,10 @@ func (re *RequestExecutorImpl) Execute(
 			helper)
 	}
 
+	if len(taskReq.BeforeScript) > 0 {
+		_ = container.WriteTraceInfo(fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' starting...",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+	}
 	// prescript
 	if err := re.execute(
 		ctx,
@@ -127,6 +133,11 @@ func (re *RequestExecutorImpl) Execute(
 		taskResp.Status = types.COMPLETED
 	}
 
+	taskResp.Timings.ScriptFinishedAt = time.Now()
+	if len(taskReq.AfterScript) > 0 {
+		_ = container.WriteTraceInfo(fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' starting...",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+	}
 	// Executing post-script regardless the task fails or succeeds
 	if err := re.execute(
 		ctx,
@@ -137,6 +148,7 @@ func (re *RequestExecutorImpl) Execute(
 		false); err != nil {
 		taskResp.AdditionalError(err.Error(), false)
 	}
+	taskResp.Timings.PostScriptFinishedAt = time.Now()
 	// copy applied limits
 	taskResp.AppliedCost = taskReq.ExecutorOpts.AppliedCost
 
@@ -350,8 +362,8 @@ func (re *RequestExecutorImpl) preProcess(
 				"Error":     sendErr,
 			}).Warnf("failed to send lifecycle event container")
 	}
-	_ = container.WriteTraceInfo(fmt.Sprintf("🚀 task '%s' of job '%s' with job-id '%s' starting...",
-		taskReq.TaskType, taskReq.JobType, taskReq.JobDefinitionID))
+	_ = container.WriteTraceInfo(fmt.Sprintf("🚀 task '%s' of job '%s' with request-id '%d' starting...",
+		taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	if taskReq.ExecutorOpts.Debug {
 		_ = container.WriteTraceInfo(fmt.Sprintf("env variables: %v", taskReq.ExecutorOpts.Environment))
 	}
@@ -402,7 +414,7 @@ func (re *RequestExecutorImpl) postProcess(
 			}
 		}
 	}
-
+	taskResp.Timings.ArtifactsUploadedAt = time.Now()
 	// Stopping container
 	now := time.Now()
 	if err := container.Stop(); err != nil {
@@ -430,16 +442,20 @@ func (re *RequestExecutorImpl) postProcess(
 			}).Info("🛑 stopped container")
 	}
 
+	taskResp.Timings.PodShutdownAt = time.Now()
 	removeTemporaryFiles(taskReq)
 
 	elapsed := time.Now().Sub(taskReq.StartedAt).String()
 	if taskResp.Status.Failed() {
-		_ = container.WriteTraceError(fmt.Sprintf("🏄 task %s failed Error=%s Duration=%s",
-			taskReq.TaskType, taskResp.ErrorMessage, elapsed))
+		_ = container.WriteTraceError(fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' failed Error=%s Duration=%s",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, elapsed))
 	} else {
-		_ = container.WriteTraceSuccess(fmt.Sprintf("🏄 task %s completed Duration=%s",
-			taskReq.TaskType, elapsed))
+		_ = container.WriteTraceSuccess(fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, elapsed))
 	}
+
+	_ = container.WriteTraceSuccess(fmt.Sprintf("⏱ task '%s' of job '%s' with request-id '%d' stats: %s",
+		taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.Timings.String()))
 
 	// upload console
 	if !taskReq.Cancelled {

@@ -18,7 +18,6 @@ import (
 	"plexobject.com/formicary/queen/fsm"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/supervisor"
-	"plexobject.com/formicary/queen/types"
 )
 
 // JobLauncher for launching jobs
@@ -119,11 +118,11 @@ func (jl *JobLauncher) launchJob(
 		}).Debug("launching job...")
 	}
 
-	requestInfo := &types.JobRequestInfo{
-		ID:             requestID,
-		JobExecutionID: jobExecutionID,
-		JobType:        jobType,
-		JobState:       common.READY,
+	requestInfo, err := jl.jobManager.GetJobRequest(
+		common.NewQueryContext("", "", "").WithAdmin(),
+		requestID)
+	if err != nil {
+		return err
 	}
 
 	// Creating state machine for request and execution

@@ -395,6 +395,7 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 	if len(taskResp.Warnings) > 0 {
 		_, _ = tsm.TaskExecution.AddContext("Warnings", taskResp.Warnings)
 	}
+	_, _ = tsm.TaskExecution.AddContext("Timings", taskResp.Timings.String())
 
 	return
 }
