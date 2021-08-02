@@ -31,7 +31,7 @@ func CleanupContainers(
 	if opts == nil {
 		opts = &types.ExecutorOptions{
 			Environment:          types.NewEnvironmentMap(),
-			Artifacts:            types.NewArtifacts(),
+			Artifacts:            types.NewArtifactsConfig(),
 			Cache:                types.NewCacheConfig(),
 			DependentArtifactIDs: make([]string, 0),
 			NodeTolerations:      make(map[string]string),

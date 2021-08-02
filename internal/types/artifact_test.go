@@ -13,7 +13,7 @@ func Test_ShouldArtifactTableNames(t *testing.T) {
 }
 
 // Validate valid artifact
-func Test_ShouldArtifact(t *testing.T) {
+func Test_ShouldCreateArtifact(t *testing.T) {
 	art := NewArtifact("bucket", "name", "group", "kind", 1234, "sha", 54)
 	art.AddMetadata("n1", "v1")
 	art.AddMetadata("n2", "v2")
@@ -95,4 +95,12 @@ func Test_ShouldArtifactWithoutContentLength(t *testing.T) {
 	err := art.ValidateBeforeSave()
 	// THEN it should fail
 	require.Error(t, err)
+	require.Equal(t, "", art.DashboardURL())
+	require.Equal(t, "0 B", art.LengthString())
+	art.ContentLength = 1024 * 1024 * 1024
+	require.Equal(t, "1024 MiB", art.LengthString())
+	art.ContentLength = 1024 * 1024
+	require.Equal(t, "1024 KiB", art.LengthString())
+	art.ContentLength = 1024
+	require.Equal(t, "1024 B", art.LengthString())
 }

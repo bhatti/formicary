@@ -107,7 +107,7 @@ func NewExecutorOptions(name string, method TaskMethod) *ExecutorOptions {
 		Name:                 utils.MakeDNS1123Compatible(name),
 		Method:               method,
 		Environment:          NewEnvironmentMap(),
-		Artifacts:            NewArtifacts(),
+		Artifacts:            NewArtifactsConfig(),
 		Cache:                NewCacheConfig(),
 		DependentArtifactIDs: make([]string, 0),
 		NodeTolerations:      make(map[string]string),

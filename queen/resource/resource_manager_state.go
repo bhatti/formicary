@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/twinj/uuid"
-	"plexobject.com/formicary/internal/events"
-	"plexobject.com/formicary/internal/queue"
-	"plexobject.com/formicary/queen/config"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/twinj/uuid"
+	"plexobject.com/formicary/internal/events"
+	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/queen/config"
 
 	"github.com/sirupsen/logrus"
 	common "plexobject.com/formicary/internal/types"
@@ -422,7 +423,7 @@ func (s *State) terminateContainer(
 		StartedAt:     time.Now(),
 	}
 	var b []byte
-	if b, err = common.MarshalTaskRequest(registration.EncryptionKey, taskReq); err == nil {
+	if b, err = taskReq.Marshal(registration.EncryptionKey); err == nil {
 		var event *queue.MessageEvent
 		if event, err = s.queueClient.SendReceive(
 			ctx,
@@ -451,7 +452,7 @@ func (s *State) addContainers(
 		ExecutorOpts:  common.NewExecutorOptions("", registration.Methods[0]),
 		StartedAt:     time.Now(),
 	}
-	if b, err := common.MarshalTaskRequest(registration.EncryptionKey, taskReq); err == nil {
+	if b, err := taskReq.Marshal(registration.EncryptionKey); err == nil {
 		if event, err := s.queueClient.SendReceive(
 			ctx,
 			registration.AntTopic,

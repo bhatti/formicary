@@ -63,22 +63,26 @@ func Test_ShouldCalculateJobExecutionDuration(t *testing.T) {
 	require.NotEqual(t, "", job.ElapsedDuration())
 	require.Equal(t, int64(0), job.ElapsedMillis())
 	ended := time.Now().Add(time.Hour)
+	for _, task := range job.Tasks {
+		task.TaskState = common.COMPLETED
+		task.EndedAt = &ended
+	}
 	job.EndedAt = &ended
 	require.Contains(t, job.ElapsedDuration(), "1h0m")
 	require.Equal(t, int64(3600000), job.ElapsedMillis())
-	require.Equal(t, int64(3600), job.ExecutionCostSecs())
+	require.Equal(t, int64(14400), job.ExecutionCostSecs())
 	require.Equal(t, float64(0), job.CostFactor())
 	job.JobState = common.EXECUTING
 	require.NotEqual(t, "", job.ElapsedDuration())
-	require.Equal(t, int64(0), job.ExecutionCostSecs())
+	require.Equal(t, int64(14400), job.ExecutionCostSecs())
 }
 
 // Validate happy path of Validate with proper job-execution
 func Test_ShouldWithGoodJobExecution(t *testing.T) {
 	jobExec := testNewJobExecution("test-exec-job")
-	jobExec.AddTask(NewTaskDefinition("type2", common.TaskMethod("")))
-	jobExec.AddTask(NewTaskDefinition("type2", common.TaskMethod("")))
-	jobExec.AddContext("c1", "c2")
+	jobExec.AddTask(NewTaskDefinition("type2", ""))
+	jobExec.AddTask(NewTaskDefinition("type2", ""))
+	_, _ = jobExec.AddContext("c1", "c2")
 	// WHEN validating valid job-execution
 	err := jobExec.ValidateBeforeSave()
 
@@ -160,6 +164,6 @@ func testNewJobExecution(name string) *JobExecution {
 		_, _ = task.AddContext("tk1", "v1")
 		_, _ = task.AddContext("tk2", "v2")
 	}
-	jobExec.AfterLoad()
+	_ = jobExec.AfterLoad()
 	return jobExec
 }

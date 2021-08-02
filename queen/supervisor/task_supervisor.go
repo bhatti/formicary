@@ -175,7 +175,7 @@ func (ts *TaskSupervisor) invoke(
 	ctx context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	var b []byte
-	if b, err = common.MarshalTaskRequest(ts.taskStateMachine.Reservation.EncryptionKey, taskReq); err != nil {
+	if b, err = taskReq.Marshal(ts.taskStateMachine.Reservation.EncryptionKey); err != nil {
 		return nil, fmt.Errorf("failed to marshal %s due to %v", taskReq, err)
 	}
 	var event *queue.MessageEvent

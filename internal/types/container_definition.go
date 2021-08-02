@@ -80,34 +80,6 @@ func (cd *ContainerDefinition) GetKubernetesVolumes() *KubernetesVolumes {
 	return cd.Volumes.(*KubernetesVolumes)
 }
 
-func getKubernetesVolumes(v interface{}) *KubernetesVolumes {
-	switch v.(type) {
-	case *KubernetesVolumes:
-		return v.(*KubernetesVolumes)
-	case map[string]interface{}:
-		if b, err := yaml.Marshal(v); err != nil {
-			logrus.WithFields(
-				logrus.Fields{
-					"Component": "ContainerDefinition",
-					"Error":     err,
-					"Volumes":   v,
-				}).Warn("failed to serialize kubernetes volumes")
-		} else {
-			vols := NewKubernetesVolumes()
-			if err = yaml.Unmarshal(b, vols); err == nil {
-				return vols
-			}
-			logrus.WithFields(
-				logrus.Fields{
-					"Component": "ContainerDefinition",
-					"Error":     err,
-					"Volumes":   v,
-				}).Warn("failed to deserialize kubernetes volumes")
-		}
-	}
-	return NewKubernetesVolumes()
-}
-
 // GetDockerVolumeNames volumes for docker
 func (cd *ContainerDefinition) GetDockerVolumeNames() map[string]string {
 	if cd.Volumes == nil {
@@ -162,11 +134,9 @@ func (cd *ContainerDefinition) GetDockerVolumes() map[string]struct{} {
 
 // GetDockerMounts mount volumes for docker
 func (cd *ContainerDefinition) GetDockerMounts() []mount.Mount {
-	if cd.Volumes == nil {
-		cd.Volumes = make(map[string]string)
-	}
+	vols := cd.GetDockerVolumeNames()
 	mounts := make([]mount.Mount, 0)
-	for k, v := range cd.Volumes.(map[string]string) {
+	for k, v := range vols {
 		var m mount.Mount
 		if strings.Contains(k, "bind-mount") {
 			m = mount.Mount{
@@ -185,3 +155,32 @@ func (cd *ContainerDefinition) GetDockerMounts() []mount.Mount {
 	}
 	return mounts
 }
+
+func getKubernetesVolumes(v interface{}) *KubernetesVolumes {
+	switch v.(type) {
+	case *KubernetesVolumes:
+		return v.(*KubernetesVolumes)
+	case map[string]interface{}:
+		if b, err := yaml.Marshal(v); err != nil {
+			logrus.WithFields(
+				logrus.Fields{
+					"Component": "ContainerDefinition",
+					"Error":     err,
+					"Volumes":   v,
+				}).Warn("failed to serialize kubernetes volumes")
+		} else {
+			vols := NewKubernetesVolumes()
+			if err = yaml.Unmarshal(b, vols); err == nil {
+				return vols
+			}
+			logrus.WithFields(
+				logrus.Fields{
+					"Component": "ContainerDefinition",
+					"Error":     err,
+					"Volumes":   v,
+				}).Warn("failed to deserialize kubernetes volumes")
+		}
+	}
+	return NewKubernetesVolumes()
+}
+

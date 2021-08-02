@@ -58,6 +58,8 @@ func (c *KafkaConfig) BuildTLSConfiguration() (t *tls.Config, err error) {
 	return t, nil
 }
 
+
+
 // Validate kafka config
 func (c *KafkaConfig) Validate() error {
 	if c.Brokers == nil || len(c.Brokers) == 0 {

@@ -23,13 +23,13 @@ const (
 
 // ArtifactsConfig defines artifacts to upload
 type ArtifactsConfig struct {
-	Paths         []string      `json:"paths,omitempty" yaml:"paths,omitempty"`
-	ExpiresInDays time.Duration `json:"expires_in_days,omitempty" yaml:"expires_in_days,omitempty"`
-	When          ArtifactsWhen `json:"when,omitempty" yaml:"when,omitempty"`
+	Paths        []string      `json:"paths,omitempty" yaml:"paths,omitempty"`
+	ExpiresAfter time.Duration `json:"expires_after,omitempty" yaml:"expires_after,omitempty"`
+	When         ArtifactsWhen `json:"when,omitempty" yaml:"when,omitempty"`
 }
 
-// NewArtifacts - constructor
-func NewArtifacts() ArtifactsConfig {
+// NewArtifactsConfig - constructor
+func NewArtifactsConfig() ArtifactsConfig {
 	return ArtifactsConfig{
 		Paths: make([]string, 0),
 	}
@@ -45,8 +45,8 @@ func (ac *ArtifactsConfig) GetPathsAndExpiration(succeeded bool) ([]string, *tim
 
 // Expiration expiration time for artifacts
 func (ac *ArtifactsConfig) Expiration() *time.Time {
-	if ac.ExpiresInDays > 0 {
-		expires := time.Now().Add(ac.ExpiresInDays * time.Hour * 24)
+	if ac.ExpiresAfter > 0 {
+		expires := time.Now().Add(ac.ExpiresAfter)
 		return &expires
 	}
 	return nil
@@ -65,13 +65,13 @@ func (ac *ArtifactsConfig) Valid(succeeded bool) bool {
 
 // CacheConfig defines cache to upload
 type CacheConfig struct {
-	Paths         []string      `json:"paths,omitempty" yaml:"paths,omitempty"`
-	Key           string        `json:"key,omitempty" yaml:"key,omitempty"`
-	KeyPaths      []string      `json:"key_paths,omitempty" yaml:"key_paths,omitempty"`
-	KeyDigest     string        `json:"key_digest,omitempty" yaml:"-"`
-	NewKeyDigest  string        `json:"-" yaml:"-"`
-	ExpiresInDays time.Duration `json:"expires_in_days,omitempty" yaml:"expires_in_days,omitempty"`
-	matched       bool
+	Paths        []string      `json:"paths,omitempty" yaml:"paths,omitempty"`
+	Key          string        `json:"key,omitempty" yaml:"key,omitempty"`
+	KeyPaths     []string      `json:"key_paths,omitempty" yaml:"key_paths,omitempty"`
+	KeyDigest    string        `json:"key_digest,omitempty" yaml:"-"`
+	NewKeyDigest string        `json:"-" yaml:"-"`
+	ExpiresAfter time.Duration `json:"expires_after,omitempty" yaml:"expires_after,omitempty"`
+	matched      bool
 }
 
 // NewCacheConfig - constructor
@@ -84,8 +84,8 @@ func NewCacheConfig() CacheConfig {
 
 // Expiration expiration time for artifacts
 func (ac *CacheConfig) Expiration() *time.Time {
-	if ac.ExpiresInDays > 0 {
-		expires := time.Now().Add(ac.ExpiresInDays * time.Hour * 24)
+	if ac.ExpiresAfter > 0 {
+		expires := time.Now().Add(ac.ExpiresAfter)
 		return &expires
 	}
 	return nil

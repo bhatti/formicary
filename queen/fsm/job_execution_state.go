@@ -323,7 +323,7 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 			}
 			secs := time.Now().Sub(jsm.JobExecution.StartedAt).Seconds()
 			if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
-				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs, usage %s, job time %d",
+				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs, usage %s, job time %f",
 					jsm.User.Subscription.CPUQuota, jsm.cpuUsage.ValueString(), secs)
 				return common.NewQuotaExceededError(err)
 			}

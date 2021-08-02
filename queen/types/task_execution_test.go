@@ -59,7 +59,7 @@ func Test_ShouldCalculateTaskExecutionCost(t *testing.T) {
 	taskExec.StartedAt = time.Now().Add(-1 * time.Hour)
 	ended := time.Now().Add(time.Hour)
 	taskExec.EndedAt = &ended
-	require.Equal(t, int64(3600), taskExec.ExecutionCostSecs())
+	require.Equal(t, int64(7200), taskExec.ExecutionCostSecs())
 }
 
 func Test_ShouldMatchTaskExecutionState(t *testing.T) {
@@ -75,11 +75,11 @@ func Test_ShouldMatchTaskExecutionState(t *testing.T) {
 func Test_ShouldStringifyTaskExecutionContextState(t *testing.T) {
 	taskExec := NewTaskExecution(NewTaskDefinition("", common.Shell))
 	taskExec.DeleteContext("k1")
-	taskExec.AddContext("k1", "v1")
-	taskExec.AddContext("k1", "v1")
-	taskExec.AddContext("k2", "v2")
-	taskExec.AddContext("k2", nil)
-	taskExec.DeleteContext("k2")
+	_, _ = taskExec.AddContext("k1", "v1")
+	_, _ = taskExec.AddContext("k1", "v1")
+	_, _ = taskExec.AddContext("k2", "v2")
+	_, _ = taskExec.AddContext("k2", nil)
+	_ = taskExec.DeleteContext("k2")
 	require.Equal(t, "v1", taskExec.GetContext("k1").Value)
 	require.Contains(t, taskExec.ContextString(), "k1")
 	require.NoError(t, taskExec.AfterLoad())
@@ -92,23 +92,23 @@ func Test_ShouldAddArtifactToTaskExecution(t *testing.T) {
 
 func Test_ShouldEqualTaskExecution(t *testing.T) {
 	taskExec1 := NewTaskExecution(NewTaskDefinition("type1", common.Shell))
-	taskExec1.AddContext("k1", "v1")
+	_, _ = taskExec1.AddContext("k1", "v1")
 	taskExec2 := NewTaskExecution(NewTaskDefinition("type1", common.Shell))
-	taskExec2.AddContext("k1", "v1")
-	taskExec2.AddContext("k2", "v2")
+	_, _ = taskExec2.AddContext("k1", "v1")
+	_, _ = taskExec2.AddContext("k2", "v2")
 	taskExec3 := NewTaskExecution(NewTaskDefinition("type2", common.Shell))
-	taskExec3.AddContext("k1", "v1")
+	_, _ = taskExec3.AddContext("k1", "v1")
 	taskExec4 := NewTaskExecution(NewTaskDefinition("", common.Shell))
 	require.Error(t, taskExec1.Equals(nil))
 	require.Error(t, taskExec1.Equals(taskExec4)) // taskExec4 doesn't have type
 	require.Error(t, taskExec4.Equals(taskExec1)) // taskExec4 doesn't have type
 	require.Error(t, taskExec1.Equals(taskExec3)) // task-type doesn't match
 	require.Error(t, taskExec1.Equals(taskExec2)) // context size doesn't match
-	taskExec1.AddContext("k2", "blah")
+	_, _ = taskExec1.AddContext("k2", "blah")
 	require.Error(t, taskExec1.Equals(taskExec2)) // context contents doesn't match
 	require.NoError(t, taskExec1.Equals(taskExec1))
 	require.Error(t, taskExec1.Equals(taskExec2)) // context contents doesn't match
-	taskExec1.AddContext("k2", "v2")
+	_, _ = taskExec1.AddContext("k2", "v2")
 	require.NoError(t, taskExec1.Equals(taskExec2))
 }
 

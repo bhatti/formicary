@@ -42,3 +42,8 @@ func (wr *AntReservation) String() string {
 	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v Load=%d",
 		wr.AntID, wr.AntTopic, wr.JobRequestID, wr.TaskType, wr.CurrentLoad)
 }
+
+// AllocatedAtString formatted
+func (wr *AntReservation) AllocatedAtString() string {
+	return wr.AllocatedAt.Format("Jan _2, 15:04:05 MST")
+}

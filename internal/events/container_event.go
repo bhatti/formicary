@@ -158,7 +158,7 @@ func (cle *ContainerLifecycleEvent) Marshal() ([]byte, error) {
 
 // ElapsedDuration time duration of container
 func (cle *ContainerLifecycleEvent) ElapsedDuration() string {
-	if cle.EndedAt == nil {
+	if cle.EndedAt == nil || cle.ContainerState == types.EXECUTING {
 		return time.Now().Sub(cle.StartedAt).String()
 	}
 	return cle.EndedAt.Sub(cle.StartedAt).String()
@@ -166,7 +166,7 @@ func (cle *ContainerLifecycleEvent) ElapsedDuration() string {
 
 // Elapsed unix time elapsed of container
 func (cle *ContainerLifecycleEvent) Elapsed() int64 {
-	if cle.EndedAt == nil {
+	if cle.EndedAt == nil || cle.ContainerState == types.EXECUTING {
 		return time.Now().Sub(cle.StartedAt).Milliseconds()
 	}
 	return cle.EndedAt.Sub(cle.StartedAt).Milliseconds()
@@ -174,7 +174,7 @@ func (cle *ContainerLifecycleEvent) Elapsed() int64 {
 
 // ElapsedSecs returns time since executor started in secs
 func (cle *ContainerLifecycleEvent) ElapsedSecs() time.Duration {
-	if cle.EndedAt == nil {
+	if cle.EndedAt == nil || cle.ContainerState == types.EXECUTING {
 		return time.Duration(time.Now().Sub(cle.StartedAt).Seconds()) * time.Second
 	}
 	return time.Duration(cle.EndedAt.Sub(cle.StartedAt).Seconds()) * time.Second

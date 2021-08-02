@@ -49,4 +49,9 @@ func Test_ShouldWithGoodErrorCode(t *testing.T) {
 	err := record.ValidateBeforeSave()
 	// THEN validation should succeed
 	require.NoError(t, err)
+	require.Equal(t, "", record.ShortID())
+	record.ID = "12345678901234"
+	require.Equal(t, "...78901234", record.ShortID())
+	require.False(t, record.Matches("msg"))
+	require.True(t, record.Matches("regex1"))
 }

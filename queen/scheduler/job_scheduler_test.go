@@ -109,5 +109,6 @@ func testServerConfig() *config.ServerConfig {
 	serverCfg.Jobs.JobSchedulerCheckPendingJobsInterval = 2 * time.Second
 	serverCfg.Jobs.OrphanRequestsTimeout = 5 * time.Second
 	serverCfg.Jobs.OrphanRequestsUpdateInterval = 2 * time.Second
+	serverCfg.Jobs.MissingCronJobsInterval = 2 * time.Second
 	return serverCfg
 }

@@ -97,7 +97,7 @@ func (te *TaskExecution) ElapsedDuration() string {
 // ExecutionCostSecs cost of execution
 func (te *TaskExecution) ExecutionCostSecs() int64 {
 	ended := te.EndedAt
-	if ended == nil || te.TaskState != types.EXECUTING {
+	if ended == nil || te.TaskState == types.EXECUTING {
 		now := time.Now()
 		ended = &now
 	}

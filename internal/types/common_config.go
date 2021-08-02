@@ -298,22 +298,6 @@ func (c *CommonConfig) GetRequestTopic() string {
 
 
 // Validate - validates
-func (c *AuthConfig) Validate() error {
-	if c.Enabled {
-		if c.JWTSecret == "" {
-			return fmt.Errorf("jwt secret is not specified")
-		}
-		if c.GoogleClientID == "" && c.GithubClientID == "" {
-			return fmt.Errorf("auth client_id is not specified for google or github")
-		}
-		if c.GoogleClientSecret == "" && c.GithubClientSecret == "" {
-			return fmt.Errorf("auth client_secret is not specified for google or github")
-		}
-	}
-	return nil
-}
-
-// Validate - validates
 func (c *CommonConfig) Validate(_ []string) error {
 	if c.MonitorInterval == 0 {
 		c.MonitorInterval = 2 * time.Second

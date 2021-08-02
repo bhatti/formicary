@@ -6,31 +6,7 @@ import (
 	"time"
 )
 
-// TaskResponse defines structure for response from ant
-// swagger:ignore
-type TaskResponse struct {
-	JobRequestID   uint64                 `json:"job_request_id"`
-	TaskID         string                 `json:"task_id"`
-	JobType        string                 `json:"job_type"`
-	JobTypeVersion string                 `json:"job_type_version"`
-	TaskType       string                 `json:"task_type"`
-	Status         RequestState           `json:"status"`
-	AntID          string                 `json:"ant_id"`
-	Host           string                 `json:"host"`
-	Namespace      string                 `json:"namespace"`
-	Tags           []string               `json:"tags"`
-	ErrorMessage   string                 `json:"error_message"`
-	ErrorCode      string                 `json:"error_code"`
-	ExitCode       string                 `json:"exit_code"`
-	ExitMessage    string                 `json:"exit_message"`
-	TaskContext    map[string]interface{} `json:"task_context"`
-	JobContext     map[string]interface{} `json:"job_context"`
-	Artifacts      []*Artifact            `json:"artifacts"`
-	Warnings       []string               `json:"warnings"`
-	AppliedCost    float64                `json:"applied_cost"`
-	Timings        TaskResponseTimings    `json:"timings"`
-}
-
+// TaskResponseTimings timings in response
 type TaskResponseTimings struct {
 	ReceivedAt                     time.Time `json:"received_at"`
 	PodStartedAt                   time.Time `json:"pod_started_at"`
@@ -82,20 +58,45 @@ func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
 	return t.PodShutdownAt.Sub(t.ArtifactsUploadedAt)
 }
 
+// TaskResponse defines structure for response from ant
+// swagger:ignore
+type TaskResponse struct {
+	JobRequestID    uint64                 `json:"job_request_id"`
+	TaskExecutionID string                 `json:"task_id"`
+	JobType         string                 `json:"job_type"`
+	JobTypeVersion  string                 `json:"job_type_version"`
+	TaskType        string                 `json:"task_type"`
+	Status          RequestState           `json:"status"`
+	AntID           string                 `json:"ant_id"`
+	Host            string                 `json:"host"`
+	Namespace       string                 `json:"namespace"`
+	Tags            []string               `json:"tags"`
+	ErrorMessage    string                 `json:"error_message"`
+	ErrorCode       string                 `json:"error_code"`
+	ExitCode        string                 `json:"exit_code"`
+	ExitMessage     string                 `json:"exit_message"`
+	TaskContext     map[string]interface{} `json:"task_context"`
+	JobContext      map[string]interface{} `json:"job_context"`
+	Artifacts       []*Artifact            `json:"artifacts"`
+	Warnings        []string               `json:"warnings"`
+	AppliedCost     float64                `json:"applied_cost"`
+	Timings         TaskResponseTimings    `json:"timings"`
+}
+
 // NewTaskResponse creates new instance
 func NewTaskResponse(req *TaskRequest) *TaskResponse {
 	return &TaskResponse{
-		JobRequestID:   req.JobRequestID,
-		JobType:        req.JobType,
-		JobTypeVersion: req.JobTypeVersion,
-		TaskID:         req.TaskExecutionID,
-		TaskType:       req.TaskType,
-		Tags:           []string{},
-		Status:         COMPLETED,
-		TaskContext:    make(map[string]interface{}),
-		JobContext:     make(map[string]interface{}),
-		Artifacts:      make([]*Artifact, 0),
-		Warnings:       make([]string, 0),
+		JobRequestID:    req.JobRequestID,
+		JobType:         req.JobType,
+		JobTypeVersion:  req.JobTypeVersion,
+		TaskExecutionID: req.TaskExecutionID,
+		TaskType:        req.TaskType,
+		Tags:            []string{},
+		Status:          COMPLETED,
+		TaskContext:     make(map[string]interface{}),
+		JobContext:      make(map[string]interface{}),
+		Artifacts:       make([]*Artifact, 0),
+		Warnings:        make([]string, 0),
 	}
 }
 
@@ -111,8 +112,8 @@ func (res *TaskResponse) Validate() error {
 	if res.JobRequestID == 0 {
 		return fmt.Errorf("requestID is not specified")
 	}
-	if res.TaskID == "" {
-		return fmt.Errorf("taskID is not specified")
+	if res.TaskExecutionID == "" {
+		return fmt.Errorf("taskExecutionID is not specified")
 	}
 	if res.JobType == "" {
 		return fmt.Errorf("jobType is not specified")

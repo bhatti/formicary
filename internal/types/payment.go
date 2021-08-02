@@ -21,7 +21,7 @@ type Payment struct {
 	// State
 	State RequestState `json:"state"`
 	// PaymentMethod method
-	PaymentMethod RequestState `json:"payment_method"`
+	PaymentMethod string `json:"payment_method"`
 	// Notes
 	Notes string `json:"notes"`
 	// Amount of subscription in cents

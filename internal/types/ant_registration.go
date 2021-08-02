@@ -118,11 +118,6 @@ func (wr *AntRegistration) UpdatedAtString() string {
 	return wr.ReceivedAt.Format("Jan _2, 15:04:05 MST")
 }
 
-// AllocatedAtString formatted
-func (wr *AntReservation) AllocatedAtString() string {
-	return wr.AllocatedAt.Format("Jan _2, 15:04:05 MST")
-}
-
 // Supports check supported method and tags
 func (wr *AntRegistration) Supports(
 	method TaskMethod,

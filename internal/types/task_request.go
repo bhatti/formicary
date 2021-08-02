@@ -152,14 +152,14 @@ func (req *TaskRequest) Validate() error {
 	return nil
 }
 
-// MarshalTaskRequest converts task request to byte array
-func MarshalTaskRequest(
+// Marshal converts task request to byte array
+func (req *TaskRequest) Marshal(
 	encryptionKeyStr string,
-	taskReq *TaskRequest) (b []byte, err error) {
-	if err := taskReq.Validate(); err != nil {
+) (b []byte, err error) {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	b, err = json.Marshal(taskReq)
+	b, err = json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}

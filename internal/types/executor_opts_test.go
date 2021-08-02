@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test_ShouldSucceedValidate(t *testing.T) {
+func Test_ShouldValidateExecutorOpts(t *testing.T) {
 	// GIVEN
 	// WHEN a valid executor-options is created
 	opts := newTestExecutorOptions()
@@ -16,6 +16,20 @@ func Test_ShouldSucceedValidate(t *testing.T) {
 	_, err = yaml.Marshal(opts)
 	// AND marshaling should not fail
 	require.NoError(t, err)
+	require.NotEqual(t, "", opts.String())
+}
+
+func Test_ShouldGetAffinityForExecutorOpts(t *testing.T) {
+	// GIVEN
+	// WHEN a valid executor-options is created
+	opts := newTestExecutorOptions()
+	err := opts.Validate()
+	// THEN validation should not fail
+	require.NoError(t, err)
+	_, err = yaml.Marshal(opts)
+	// AND marshaling should not fail
+	require.NoError(t, err)
+	require.NotEqual(t, "", opts.String())
 }
 
 func newTestExecutorOptions() *ExecutorOptions {

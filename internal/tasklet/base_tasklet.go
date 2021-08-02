@@ -245,7 +245,7 @@ func (t *BaseTasklet) sendResponse(
 		"RequestID":       taskResp.JobRequestID,
 		"JobType":         taskResp.JobType,
 		"TaskType":        taskResp.TaskType,
-		"TaskExecutionID": taskResp.TaskID,
+		"TaskExecutionID": taskResp.TaskExecutionID,
 		"Status":          taskResp.Status,
 		"ErrorMessage":    taskResp.ErrorMessage,
 		"Message":         taskResp.ExitCode,
