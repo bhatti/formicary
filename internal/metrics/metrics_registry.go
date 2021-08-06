@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -38,7 +39,16 @@ func (r *Registry) Incr(id string, opts map[string]string) {
 			},
 			keys,
 		)
-		prometheus.Register(counter)
+		if err := prometheus.Register(counter); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "MetricsRegistry",
+				"ID":        id,
+				"Opts":      opts,
+				"Error":     err,
+			}).
+				Error("failed to register counter")
+			return
+		}
 		r.counters[id] = counter
 	}
 	labels := make([]string, len(opts))

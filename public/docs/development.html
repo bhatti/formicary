@@ -76,3 +76,7 @@ CGO_ENABLED=1 go test -p 1  -mod vendor ./... -coverprofile=go-test-coverage.out
 <pre><code>go build -o formicary -mod vendor ./...
 </code></pre></li>
 </ul>
+<h3 id="dump-stack-trace-of-all-goroutines">Dump stack trace of all goroutines</h3>
+<p>Find the golang process, e.g. <code>ps -ef|grep main</code>, then send <code>SIGHUP</code> or 1 such as <code>kill -1 &lt;pid&gt;</code> to dump the stack trace of goroutines.</p>
+<h3 id="graceful-shutdown">Graceful shutdown</h3>
+<p>Find the golang process, e.g. <code>ps -ef|grep main</code>, then send <code>SIGQUIT</code> or 3 such as <code>kill -3 &lt;pid&gt;</code> to shutdown process gracefully so that it allows executing jobs/tasks to complete while not receiving new jobs/tasks. In order to reduce any shutdown, you can start another process that can receive new requests at the same time.</p>

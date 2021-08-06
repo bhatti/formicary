@@ -84,3 +84,9 @@ go mod vendor
 go build -o formicary -mod vendor ./...
 ```
 
+### Dump stack trace of all goroutines
+Find the golang process, e.g. `ps -ef|grep main`, then send `SIGHUP` or 1 such as `kill -1 <pid>` to dump the stack trace of goroutines.
+
+### Graceful shutdown 
+Find the golang process, e.g. `ps -ef|grep main`, then send `SIGQUIT` or 3 such as `kill -3 <pid>` to shutdown process gracefully so that it allows executing jobs/tasks
+to complete while not receiving new jobs/tasks. In order to reduce any shutdown, you can start another process that can receive new requests at the same time.

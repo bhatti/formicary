@@ -28,7 +28,7 @@ func (js *JobSupervisor) startTickerToUpdateRequestTimestamp(ctx context.Context
 							Warnf("received quota error while executing, cancelling the job")
 						ticker.Stop()
 						// publish event
-						js.jobStateMachine.JobManager.CancelJobRequest(
+						_ = js.jobStateMachine.JobManager.CancelJobRequest(
 							js.jobStateMachine.QueryContext(),
 							js.jobStateMachine.Request.GetID())
 						return

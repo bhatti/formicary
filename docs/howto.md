@@ -208,6 +208,10 @@ parameters:
 
 See [Building Docker images](dind.md) for building images.
 
+### Scanning GOLang using gosec (https://github.com/securego/gosec)
+
+See [Scanning GOLang using gosec](gosec-scan.md) for scanning GO source code.
+
 ### Scanning containers using Trivy
 
 See [Scanning containers using Trivy](trivy-scan.md) for scanning containers.

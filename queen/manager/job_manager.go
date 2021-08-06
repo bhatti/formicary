@@ -519,7 +519,8 @@ func (jm *JobManager) SaveJobRequest(
 	request.UpdatedAt = time.Now()
 	request.UpdateUserKeyFromScheduleIfCronJob(jobDefinition)
 
-	if !request.UpdateScheduledAtFromCronTrigger(jobDefinition) && request.ScheduledAt.IsZero() {
+	if !request.UpdateScheduledAtFromCronTrigger(jobDefinition) &&
+		(request.ScheduledAt.IsZero() || request.ScheduledAt.Unix() < time.Now().Unix()-1) {
 		request.ScheduledAt = time.Now()
 	}
 

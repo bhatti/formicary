@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"plexobject.com/formicary/internal/utils"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"plexobject.com/formicary/internal/utils/trace"
@@ -199,6 +200,7 @@ func (u *Utils) AwaitPodRunning(
 		//u.Stop(namespace, name)
 		return nil, nil
 	}
+	var tried int32
 	handler := func(ctx context.Context, payload interface{}) (bool, interface{}, error) {
 		payload, err := u.GetPodPhase(ctx, name)
 		if err != nil {
@@ -242,8 +244,22 @@ func (u *Utils) AwaitPodRunning(
 			//	time.Now().Format(time.RFC3339), u.config.Kubernetes.Namespace, name, res.phase,
 			//	condition.Reason, condition.Message))
 		}
-		_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⌛ waiting for running but status is still %s",
+		_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⌛ waiting for running state but status is still %s",
 			time.Now().Format(time.RFC3339), name, res.phase))
+		if tried%60 == 0 {
+			if pod, err := u.GetPod(ctx, name); err == nil {
+				for _, c := range pod.Status.Conditions {
+					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ pod-state %s %v %v message=%s reason=%s condition=%s",
+						time.Now().Format(time.RFC3339), name, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.Message, pod.Status.Reason, c))
+				}
+			} else if events, err := u.GetEvents(ctx, u.config.Kubernetes.Namespace, name, "", make(map[string]string)); err == nil {
+				for _, ev := range events.Items {
+					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ type=%s reason=%s from=%s message=%s action=%s",
+						time.Now().Format(time.RFC3339), name, ev.Type, ev.Reason, ev.Source, ev.Message, ev.Action))
+				}
+			}
+		}
+		atomic.AddInt32(&tried, 1)
 		logrus.WithFields(logrus.Fields{
 			"Component": "KubernetesAdapter",
 			"POD":       name,
@@ -702,7 +718,11 @@ func (u *Utils) GetRuntimeInfo(
 		result["PodEventsError"] = err.Error()
 	}
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("pod=%s error=%v, state=%v\n", podName, err, pod.Status))
+	sb.WriteString(fmt.Sprintf("pod=%s error=%v status=%s %v %v\n",
+		podName, err, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses))
+	for _, c := range pod.Status.Conditions {
+		sb.WriteString(fmt.Sprintf("pod message=%s reason=%s condition=%s\n", pod.Status.Message, pod.Status.Reason, c))
+	}
 
 	//if reader, err := u.GetLogs(ctx, pod.Namespace, pod.Name, 1024*1024); err == nil {
 	//	if data, err := ioutil.ReadAll(reader); err == nil {

@@ -1,10 +1,11 @@
 package types
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"regexp"
 	"sort"
 	"strconv"
@@ -192,7 +193,11 @@ func (*JobDefinition) TableName() string {
 // GetDelayBetweenRetries delay between retries
 func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
 	if jd.DelayBetweenRetries <= 0 {
-		jd.DelayBetweenRetries = time.Second * time.Duration(rand.Intn(10)+5)
+		if n, err := rand.Int(rand.Reader, big.NewInt(10)); err == nil {
+			jd.DelayBetweenRetries = time.Second * time.Duration(n.Int64()+5)
+		} else {
+			jd.DelayBetweenRetries = time.Second * 10
+		}
 	}
 	return jd.DelayBetweenRetries
 }

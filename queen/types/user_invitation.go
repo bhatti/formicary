@@ -1,10 +1,11 @@
 package types
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	common "plexobject.com/formicary/internal/types"
 	"regexp"
 	"time"
@@ -97,7 +98,9 @@ func randomString(n int) string {
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	s := make([]rune, n)
 	for i := range s {
-		s[i] = letters[rand.Intn(len(letters))]
+		if n, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters)))); err == nil {
+			s[i] = letters[n.Int64()]
+		}
 	}
 	return string(s)
 }

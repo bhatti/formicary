@@ -2,8 +2,10 @@ package fsm
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"strings"
 	"time"
 
@@ -727,7 +729,9 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]interface{
 // buildDynamicParams builds job params
 func (jsm *JobExecutionStateMachine) buildDynamicParams() map[string]interface{} {
 	res := jsm.buildDynamicConfigs()
-	res["Nonce"] = rand.Int()
+	if n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64)); err == nil {
+		res["Nonce"] = n
+	}
 	res["JobID"] = jsm.Request.GetID()
 	res["JobType"] = jsm.JobDefinition.JobType
 	for k, v := range jsm.JobDefinition.NameValueVariables.(map[string]interface{}) {

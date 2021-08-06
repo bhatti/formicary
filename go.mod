@@ -23,9 +23,11 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/goccy/go-graphviz v0.0.9
 	github.com/gomodule/redigo v1.8.4
+	github.com/google/pprof v0.0.0-20210726183535-c50bf4fe5303 // indirect
 	github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75
 	github.com/gorilla/websocket v1.4.2
 	github.com/iancoleman/strcase v0.1.2
+	github.com/ianlancetaylor/demangle v0.0.0-20210724235854-665d3a6fe486 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jpillora/backoff v1.0.0
 	github.com/karlseguin/ccache/v2 v2.0.8
@@ -54,8 +56,9 @@ require (
 	github.com/twinj/uuid v1.0.0
 	github.com/xdg-go/scram v1.0.2
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.2.3 // indirect

@@ -185,7 +185,7 @@ func uploadArtifacts(
 	}
 
 	taskResp.AddArtifact(artifact)
-	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 uploading artifacts for %v", paths))
+	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 uploaded artifacts for %v size=%d", paths, artifact.ContentLength))
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(

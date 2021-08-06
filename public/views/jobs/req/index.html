@@ -16,6 +16,9 @@
             <th>Status</th>
             <th>Priority</th>
             <th>Updated</th>
+            {{if .IsTerminal }}
+            <th>Elapsed</th>
+            {{ end }}
             <th>Error</th>
             <th>Actions</th>
         </tr>
@@ -24,8 +27,8 @@
         {{range .Requests}}
         <tr id="jobs_row_{{.ID}}">
             <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ID}}</a></td>
-            <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobType}}</a></td>
-            <td>{{.UserID}}</td>
+            <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.ShortJobType}}</a></td>
+            <td><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
             {{if .Completed }}
             <td id="jobs_status_{{.ID}}" class="table-success">{{.JobState}}</td>
             {{end}}
@@ -37,6 +40,9 @@
             {{end}}
             <td>{{.JobPriority}}</td>
             <td id="jobs_updated_{{.ID}}">{{.UpdatedAtString}}</td>
+            {{if .IsTerminal }}
+            <td id="jobs_elapsed_{{.ID}}">{{.ElapsedDuration}}</td>
+            {{ end }}
             <td id="jobs_error_{{.ID}}">{{.ErrorCode}}</td>
             <td id="jobs_action_{{.ID}}" class="group row">
                 <form action="/dashboard/jobs/requests/{{.ID}}" method="GET">
@@ -112,7 +118,8 @@
                 col.id=`jobs_updated_${event.job_request_id}`;
                 col.innerHTML = formatDate(event.created_at);
             }
-            newRow.insertCell().innerHTML = '';
+            newRow.insertCell().innerHTML = event.elapsed_time || '';
+            newRow.insertCell().innerHTML = ''; // error
             {
                 const col = newRow.insertCell();
                 col.id=`jobs_action_${event.job_request_id}`;
@@ -137,6 +144,10 @@
             const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
             if (updated != null) {
                 updated.innerHTML = formatDate(event.created_at);
+            }
+            const elapsed = document.getElementById(`jobs_elapsed_${event.job_request_id}`);
+            if (elapsed != null) {
+                elapsed.innerHTML = event.elapsed_time || '';
             }
             const action = document.getElementById(`jobs_action_${event.job_request_id}`);
             if (action != null) {

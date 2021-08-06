@@ -51,3 +51,8 @@ func Test_ShouldVerifyUserInvitationValidation(t *testing.T) {
 	require.NoError(t, invitation.Validate())
 	require.Equal(t, "formicary_user_invitations", invitation.TableName())
 }
+
+func Test_ShouldCreateRandomString(t *testing.T) {
+	r := randomString(20)
+	require.Equal(t, 40, len(r))
+}

@@ -1,10 +1,11 @@
 package types
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -474,7 +475,11 @@ func (td *TaskDefinition) LoadOnExitCode() (map[common.RequestState]string, erro
 // GetDelayBetweenRetries between retries
 func (td *TaskDefinition) GetDelayBetweenRetries() time.Duration {
 	if td.DelayBetweenRetries <= 0 {
-		td.DelayBetweenRetries = time.Second * time.Duration(rand.Intn(2)+1)
+		if n, err := rand.Int(rand.Reader, big.NewInt(2)); err == nil {
+			td.DelayBetweenRetries = time.Second * time.Duration(n.Int64()+1)
+		} else {
+			td.DelayBetweenRetries = time.Second * 2
+		}
 	}
 	return td.DelayBetweenRetries
 }

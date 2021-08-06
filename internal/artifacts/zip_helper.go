@@ -32,7 +32,7 @@ func UnzipFile(zipFile string, destDir string) (err error) {
 	defer func() {
 		_ = r.Close()
 	}()
-	_ = os.MkdirAll(destDir, 0755)
+	_ = os.MkdirAll(destDir, 0750)
 
 	for _, f := range r.File {
 		if err := extractFile(f, destDir); err != nil {
@@ -62,7 +62,7 @@ func extractFile(f *zip.File, destDir string) error {
 		}
 		defer ioutil.NopCloser(f)
 
-		_, err = io.Copy(f, rc)
+		_, err = io.Copy(f, rc) // Potential DoS vulnerability via decompression bomb
 		if err != nil {
 			return err
 		}

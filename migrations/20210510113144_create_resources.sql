@@ -6,7 +6,7 @@
       active BOOLEAN NOT NULL DEFAULT TRUE,
       paused BOOLEAN NOT NULL DEFAULT FALSE,
       quota INTEGER NOT NULL DEFAULT 0,
-      lease_timeout INT(15) NOT NULL DEFAULT 0,
+      lease_timeout BIGINT NOT NULL,
       resource_type VARCHAR(100) NOT NULL,
       user_id VARCHAR(36),
       organization_id VARCHAR(36),

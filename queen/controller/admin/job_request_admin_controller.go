@@ -102,11 +102,19 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) erro
 	} else if c.QueryParam("job_state") == "DONE" {
 		title = "Jobs History"
 	}
+
 	res := map[string]interface{}{"Requests": requests,
 		"Pagination": pagination,
 		"Title":      title,
 		"JobTypes":   jraCtr.getJobTypes(c),
 		"BaseURL":    baseURL,
+	}
+	res["IsTerminal"] = false
+	for _, rec := range requests {
+		if rec.IsTerminal() {
+			res["IsTerminal"] = true
+			break
+		}
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/req/index", res)

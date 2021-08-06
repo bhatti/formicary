@@ -197,6 +197,30 @@ func (jr *JobRequest) UpdateUserKeyFromScheduleIfCronJob(job *JobDefinition) {
 	}
 }
 
+// ElapsedDuration time duration of job execution
+func (jr *JobRequest) ElapsedDuration() string {
+	if jr.NotTerminal() {
+		return time.Now().Sub(jr.ScheduledAt).String()
+	}
+	return jr.UpdatedAt.Sub(jr.ScheduledAt).String()
+}
+
+// ShortUserID short user id
+func (jr *JobRequest) ShortUserID() string {
+	if len(jr.UserID) > 8 {
+		return "..." + jr.UserID[len(jr.UserID)-8:]
+	}
+	return jr.UserID
+}
+
+// ShortJobType short job-type
+func (jr *JobRequest) ShortJobType() string {
+	if len(jr.JobType) > 8 {
+		return jr.JobType[:8] + "..."
+	}
+	return jr.JobType
+}
+
 // CanRestart if job can be restarted
 func (jr *JobRequest) CanRestart() bool {
 	return jr.JobState.CanRestart()
@@ -224,7 +248,12 @@ func (jr *JobRequest) Failed() bool {
 
 // NotTerminal - job that is not in final completed/failed state
 func (jr *JobRequest) NotTerminal() bool {
-	return !jr.JobState.IsTerminal()
+	return !jr.IsTerminal()
+}
+
+// IsTerminal - job that is in final completed/failed state
+func (jr *JobRequest) IsTerminal() bool {
+	return jr.JobState.IsTerminal()
 }
 
 // ToInfo converts into request info
@@ -358,7 +387,8 @@ func (jr *JobRequest) Done() bool {
 
 // UpdatedAtString formatted date
 func (jr *JobRequest) UpdatedAtString() string {
-	return jr.UpdatedAt.Format("Jan _2, 15:04:05 MST")
+	//return jr.UpdatedAt.Format("Jan _2, 15:04:05 MST")
+	return jr.UpdatedAt.Format("Jan _2, 15:04:05")
 }
 
 // ClearParams clear params

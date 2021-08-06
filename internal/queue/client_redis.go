@@ -256,8 +256,8 @@ func (c *ClientRedis) addPubSubscriber(
 	sharedConn.consumers[id] = cb
 	c.pubsubConnections[topic] = sharedConn
 
-	maxWait := 5 * time.Second
-	minWait := 1 * time.Millisecond
+	maxWait := 30 * time.Second
+	minWait := 10 * time.Millisecond
 	curWait := minWait
 	subscribed := true
 	go func() {
@@ -324,7 +324,13 @@ func (c *ClientRedis) pollQueue(ctx context.Context, inTopic string) (event *Mes
 		return true, nil, nil
 	}
 
-	future := async.ExecutePollingWithSignal(ctx, handler, async.NoAbort, 0, minWait, 10*minWait)
+	future := async.ExecutePollingWithSignal(
+		ctx,
+		handler,
+		async.NoAbort,
+		0,
+		minWait,
+		10*minWait)
 	_, err = future.Await(ctx)
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{

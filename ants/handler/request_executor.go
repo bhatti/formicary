@@ -93,7 +93,7 @@ func (re *RequestExecutorImpl) Execute(
 	}
 
 	if len(taskReq.BeforeScript) > 0 {
-		_ = container.WriteTraceInfo(fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' starting...",
+		_ = container.WriteTraceInfo(fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' ...",
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// prescript
@@ -135,7 +135,7 @@ func (re *RequestExecutorImpl) Execute(
 
 	taskResp.Timings.ScriptFinishedAt = time.Now()
 	if len(taskReq.AfterScript) > 0 {
-		_ = container.WriteTraceInfo(fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' starting...",
+		_ = container.WriteTraceInfo(fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' ...",
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// Executing post-script regardless the task fails or succeeds
@@ -193,6 +193,8 @@ func (re *RequestExecutorImpl) execute(
 
 	var lastError error
 	for i, cmd := range cmds {
+		_ = container.WriteTraceInfo(fmt.Sprintf("🎽️ executing command '%s' of task '%s' of job '%s' request-id '%d'...",
+			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 		stdout, err := doExecute(cmd)
 		if err != nil && failOnError {
 			return err

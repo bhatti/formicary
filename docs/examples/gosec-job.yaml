@@ -1,0 +1,20 @@
+job_type: gosec-job
+max_concurrency: 1
+job_variables:
+  GitRepo: go-cicd
+tasks:
+- task_type: scan
+  working_dir: /sample
+  container:
+    image: securego/gosec
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/{{.GitRepo}}.git .
+    - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
+  script:
+    - echo branch {{.GitBranch}}, Commit {{.GitCommitID}}
+    - gosec -no-fail -fmt sarif -out results.sarif ./...
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - results.sarif

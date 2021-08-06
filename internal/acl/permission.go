@@ -40,6 +40,8 @@ const (
 	Websocket Resource = "Websocket"
 	// Health resource
 	Health Resource = "Health"
+	// Profile resource
+	Profile Resource = "Profile"
 	// Subscription resource
 	Subscription Resource = "Subscription"
 	// TermsService resource
@@ -294,7 +296,7 @@ func DefaultPermissions() []*Permission {
 		New(Websocket, Subscribe),
 		New(Dashboard, View),
 		New(JobRequest, View|Execute|Submit|Cancel|Restart),
-		New(JobDefinition, Create|Read|Update|Delete|Query),
+		New(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
 		New(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
 		New(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		New(Organization, Read|Update|Delete|Invite),
@@ -305,6 +307,7 @@ func DefaultPermissions() []*Permission {
 		New(AntExecutor, None),
 		New(Container, None),
 		New(Health, None),
+		New(Profile, None),
 		New(Subscription, None),
 		New(TermsService, View|Read),
 		New(PrivacyPolicies, View|Read),
@@ -321,7 +324,7 @@ func AdminPermissions() []*Permission {
 		New(Websocket, Subscribe),
 		New(Dashboard, View),
 		New(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
-		New(JobDefinition, Create|Read|Update|Delete|Query|Metrics),
+		New(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
 		New(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
 		New(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		New(Organization, Read|Update|Delete|Invite),
@@ -335,5 +338,6 @@ func AdminPermissions() []*Permission {
 		New(AntExecutor, Create|Read|Update|Delete|Query),
 		New(Container, Create|Read|Update|Delete|Query),
 		New(Health, Create|Read|Update|Delete|Query),
+		New(Profile, Create|Read|Update|Delete|Query),
 	}
 }

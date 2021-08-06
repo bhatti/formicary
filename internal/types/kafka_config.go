@@ -49,16 +49,11 @@ func (c *KafkaConfig) BuildTLSConfiguration() (t *tls.Config, err error) {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
-		t = &tls.Config{
-			Certificates:       []tls.Certificate{cert},
-			RootCAs:            caCertPool,
-			InsecureSkipVerify: c.VerifySSL,
-		}
+		t.Certificates = []tls.Certificate{cert}
+		t.RootCAs = caCertPool
 	}
 	return t, nil
 }
-
-
 
 // Validate kafka config
 func (c *KafkaConfig) Validate() error {
