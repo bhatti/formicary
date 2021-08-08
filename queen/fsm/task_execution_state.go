@@ -40,7 +40,7 @@ func NewTaskExecutionStateMachine(
 	// Load task definition using job params because task is not built yet
 	if tsm.TaskDefinition, tsm.ExecutorOptions, err = tsm.JobDefinition.GetDynamicTask(
 		tsm.taskType,
-		tsm.JobExecutionStateMachine.buildDynamicParams()); err != nil {
+		tsm.JobExecutionStateMachine.buildDynamicParams(nil)); err != nil {
 		return nil, err
 	}
 
@@ -427,11 +427,8 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 }
 
 func (tsm *TaskExecutionStateMachine) buildDynamicParams() map[string]interface{} {
-	res := tsm.JobExecutionStateMachine.buildDynamicParams()
+	res := tsm.JobExecutionStateMachine.buildDynamicParams(tsm.TaskDefinition.NameValueVariables.(map[string]interface{}))
 	res["TaskType"] = tsm.taskType
-	for k, v := range tsm.TaskDefinition.NameValueVariables.(map[string]interface{}) {
-		res[k] = v
-	}
 	return res
 }
 
@@ -448,7 +445,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		tsm.TaskExecution.TaskState,
 		tsm.TaskExecution.ExitCode,
 		tsm.TaskExecution.AntID,
-		tsm.buildDynamicParams(),
+		tsm.TaskExecution.ContextMap(),
 	)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {

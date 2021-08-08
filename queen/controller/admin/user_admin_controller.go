@@ -80,6 +80,7 @@ func (uc *UserAdminController) queryUsers(c web.WebContext) error {
 	res := map[string]interface{}{"Users": users,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          params["q"],
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/index", res)

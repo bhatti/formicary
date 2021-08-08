@@ -183,7 +183,14 @@ func (ur *UserRepositoryImpl) Query(
 	recs = make([]*common.User, 0)
 	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Limit(pageSize).
 		Offset(page*pageSize).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("name LIKE ? OR username LIKE ? OR email LIKE ? OR sticky_message LIKE ?",
+			qs, qs, qs, qs)
+	} else {
+		tx = addQueryParamsWhere(params, tx)
+	}
 	for _, ord := range order {
 		tx = tx.Order(ord)
 	}

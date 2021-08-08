@@ -63,20 +63,24 @@ func (jraCtr *JobRequestAdminController) statsJobRequests(c web.WebContext) erro
 	qc := web.BuildQueryContext(c)
 	start := time.Unix(0, 0)
 	end := time.Now()
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("start")); err == nil {
+	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("from")); err == nil {
 		start = d
+	} else if d, err := time.Parse("2006-01-02", c.QueryParam("from")); err == nil {
+		start = time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
 	}
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("end")); err == nil {
+	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("to")); err == nil {
 		end = d
+	} else if d, err := time.Parse("2006-01-02", c.QueryParam("to")); err == nil {
+		end = time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 59, 0, d.Location())
 	}
-	// TODO add RBAC
 	recs, err := jraCtr.jobManager.GetJobRequestCounts(qc, start, end)
 	if err != nil {
 		return err
 	}
+
 	res := map[string]interface{}{"Stats": recs,
-		"FromDate": start.Format("Jan _2, 15:04:05 MST"),
-		"ToDate":   end.Format("Jan _2, 15:04:05 MST"),
+		"FromDate": start.Format("2006-01-02"),
+		"ToDate":   end.Format("2006-01-02"),
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/req/stats", res)
@@ -108,6 +112,7 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) erro
 		"Title":      title,
 		"JobTypes":   jraCtr.getJobTypes(c),
 		"BaseURL":    baseURL,
+		"Q":          params["q"],
 	}
 	res["IsTerminal"] = false
 	for _, rec := range requests {

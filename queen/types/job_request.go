@@ -200,6 +200,9 @@ func (jr *JobRequest) UpdateUserKeyFromScheduleIfCronJob(job *JobDefinition) {
 // ElapsedDuration time duration of job execution
 func (jr *JobRequest) ElapsedDuration() string {
 	if jr.NotTerminal() {
+		if jr.ScheduledAt.Unix() > time.Now().Unix() {
+			return ""
+		}
 		return time.Now().Sub(jr.ScheduledAt).String()
 	}
 	return jr.UpdatedAt.Sub(jr.ScheduledAt).String()

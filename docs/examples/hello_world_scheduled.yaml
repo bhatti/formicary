@@ -1,6 +1,6 @@
 job_type: hello_world_scheduled
 description: A hello world example
-cron_trigger: 0 * * * * * *
+cron_trigger: 0 0/15 * * * * *
 filter: {{if eq .Target "charlie"}} true {{end}}
 max_concurrency: 1
 tasks:

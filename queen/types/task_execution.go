@@ -144,6 +144,17 @@ func (te *TaskExecution) ContextString() string {
 	return b.String()
 }
 
+// ContextMap map representation
+func (te *TaskExecution) ContextMap() map[string]interface{} {
+	res := make(map[string]interface{})
+	for _, c := range te.Contexts {
+		if val, err := c.GetParsedValue(); err == nil {
+			res[c.Name] = val
+		}
+	}
+	return res
+}
+
 // GetContext gets task context
 func (te *TaskExecution) GetContext(name string) *TaskExecutionContext {
 	return te.lookupContexts[name]

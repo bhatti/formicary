@@ -193,7 +193,15 @@ func (jrr *JobResourceRepositoryImpl) Query(
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("resource_type LIKE ? OR description LIKE ? OR platform LIKE ? OR category = ? OR tags_serialized LIKE ?",
+			qs, qs, qs, q, qs)
+	} else {
+		tx = addQueryParamsWhere(params, tx)
+	}
+
 	if len(order) == 0 {
 		order = []string{"resource_type"}
 	}

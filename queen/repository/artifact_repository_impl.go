@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -67,7 +68,16 @@ func (ar *ArtifactRepositoryImpl) Query(
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
+	q := params["q"]
+	if q != nil {
+		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("metadata_serialized LIKE ? OR name LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR task_type = ? OR job_request_id = ?",
+			qs, qs, qs, qs, q, q, reqID)
+	} else {
+		tx = addQueryParamsWhere(params, tx)
+	}
+
 	if len(order) == 0 {
 		tx = tx.Order("created_at desc")
 	} else {

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/twinj/uuid"
@@ -26,7 +27,16 @@ func (arr *AuditRecordRepositoryImpl) Query(
 	order []string) (records []*types.AuditRecord, totalRecords int64, err error) {
 	records = make([]*types.AuditRecord, 0)
 	tx := arr.db.Limit(pageSize).Offset(page * pageSize)
-	tx = addQueryParamsWhere(params, tx)
+
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("target_id LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR message LIKE ?",
+			qs, qs, qs, q, qs)
+	} else {
+		tx = addQueryParamsWhere(params, tx)
+	}
+
 	if len(order) == 0 {
 		tx = tx.Order("created_at desc")
 	} else {

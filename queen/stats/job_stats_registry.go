@@ -11,6 +11,7 @@ import (
 // JobStatsRegistry keeps latency stats of job
 type JobStatsRegistry struct {
 	// TODO move stats to redis
+	// TODO add request-ids for each user/org
 	statsByJobType    map[string]*JobStats
 	countByUser       map[string]int
 	countByOrg        map[string]int

@@ -201,6 +201,17 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 	if err != nil {
 		return err
 	}
+	executing := jm.GetExecutionCount(request)
+	if executing > 0 {
+		logrus.WithFields(logrus.Fields{
+			"JobRequestID":      request.ID,
+			"UserKey":           request.UserKey,
+			"JobType":           request.JobType,
+			"GetUserJobTypeKey": request.GetUserJobTypeKey(),
+			"Executing":         executing,
+		}).Warnf("skip scheduling cron job request because it's already running")
+		return nil
+	}
 	qc := common.NewQueryContext(request.UserID, request.OrganizationID, "")
 	if oldReq != nil {
 		var oldReqFull *types.JobRequest

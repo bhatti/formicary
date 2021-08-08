@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"sort"
+	"strconv"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -472,16 +473,21 @@ func (jrr *JobRequestRepositoryImpl) JobCounts(
 		if err = jrr.db.ScanRows(rows, &stat); err != nil {
 			return nil, err
 		}
-		stat.Day = stat.GetStartTime().Format("2006-01-02")
-		stats = append(stats, &stat)
+		if stat.StartTime.Unix() >= start.Unix() && stat.EndTime.Unix() <= end.Unix() {
+			stat.Day = stat.GetStartTime().Format("2006-01-02")
+			stats = append(stats, &stat)
+		}
 	}
-	logrus.WithFields(logrus.Fields{
-		"Component": "JobRequestRepositoryImpl",
-		"Method":    "JobCounts",
-		"SQL":       sql,
-		"Args":      args,
-		"Stats":     len(stats),
-	}).Infof("job counts")
+	sort.Slice(stats, func(i, j int) bool { return stats[i].EndTime.Unix() > stats[j].EndTime.Unix() })
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobRequestRepositoryImpl",
+			"Method":    "JobCounts",
+			"SQL":       sql,
+			"Args":      args,
+			"Stats":     len(stats),
+		}).Debugf("job counts")
+	}
 	return stats, nil
 }
 
@@ -674,9 +680,10 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Limit(pageSize).Offset(page * pageSize)
 	q := params["q"]
 	if q != nil {
+		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
 		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("job_type LIKE ? OR description LIKE ? OR quick_search LIKE ?",
-			qs, qs, qs)
+		tx = tx.Where("id = ? OR job_type LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR quick_search LIKE ?",
+			reqID, qs, qs, qs, qs, qs)
 	} else {
 		tx = jrr.addQueryParams(params, tx)
 	}

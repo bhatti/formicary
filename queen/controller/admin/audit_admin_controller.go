@@ -39,11 +39,12 @@ func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
 	if err != nil {
 		return err
 	}
-	baseURL := fmt.Sprintf("/audits?%s", q)
+	baseURL := fmt.Sprintf("/dashboard/audits?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
 	res := map[string]interface{}{"Audits": audits,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          "",
 	}
 	web.RenderDBUserFromSession(ctx, res)
 	return ctx.Render(http.StatusOK, "audits/index", res)

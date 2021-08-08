@@ -157,7 +157,6 @@ func (jdr *JobDefinitionRepositoryImpl) Delete(
 	id string) error {
 	res := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{})).
 		Where("id = ?", id).
-		Where("active = ?", true).
 		Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
@@ -423,7 +422,15 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("raw_yaml LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR job_type = ? OR platform = ?",
+			qs, qs, qs, qs, q, q)
+		delete(params, "q")
+	}
 	tx = addQueryParamsWhere(params, tx)
+
 	if len(order) == 0 {
 		order = []string{"job_type"}
 	}

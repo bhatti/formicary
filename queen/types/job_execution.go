@@ -204,6 +204,17 @@ func (je *JobExecution) ContextString() string {
 	return b.String()
 }
 
+// ContextMap map representation
+func (je *JobExecution) ContextMap() map[string]interface{} {
+	res := make(map[string]interface{})
+	for _, c := range je.Contexts {
+		if val, err := c.GetParsedValue(); err == nil {
+			res[c.Name] = val
+		}
+	}
+	return res
+}
+
 // AddTask adds task
 func (je *JobExecution) AddTask(task *TaskDefinition) *TaskExecution {
 	taskExec := NewTaskExecution(task)

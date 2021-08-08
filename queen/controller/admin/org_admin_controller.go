@@ -66,6 +66,7 @@ func (oc *OrganizationAdminController) queryOrganizations(c web.WebContext) erro
 	res := map[string]interface{}{"Orgs": orgs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          params["q"],
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "orgs/index", res)

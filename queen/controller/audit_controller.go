@@ -63,6 +63,8 @@ type auditQueryParams struct {
 	Kind types.AuditKind `json:"kind"`
 	// JobType - job-type
 	JobType string `json:"job_type"`
+	// Q wild search
+	Q string `json:"q"`
 }
 
 // Paginated results of audits matching query

@@ -198,11 +198,28 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 
 // ShouldFilter checks if job should be filtered
 func (jsm *JobExecutionStateMachine) ShouldFilter() error {
-	if jsm.JobDefinition == nil {
+	if jsm.JobDefinition == nil || jsm.JobDefinition.Filter() == "" {
 		return nil
 	}
-	data := jsm.buildDynamicParams()
+
+	data := jsm.buildDynamicParams(nil)
 	if jsm.JobDefinition.Filtered(data) {
+		logrus.WithFields(logrus.Fields{
+			"Component":         "JobExecutionStateMachine",
+			"RequestID":         jsm.Request.GetID(),
+			"RequestUser":       jsm.Request.GetUserID(),
+			"RequestOrg":        jsm.Request.GetOrganizationID(),
+			"JobType":           jsm.Request.GetJobType(),
+			"RequestState":      jsm.Request.GetJobState(),
+			"Scheduled":         jsm.Request.GetScheduledAt(),
+			"ScheduleAttempts":  jsm.Request.GetScheduleAttempts(),
+			"JobDefinitionID":   jsm.JobDefinition.ID,
+			"JobDefinitionUser": jsm.JobDefinition.UserID,
+			"JobDefinitionOrg":  jsm.JobDefinition.OrganizationID,
+			"Filter":            jsm.JobDefinition.Filter(),
+			"Data":              data,
+		}).Warnf("filtered job from schedule")
+
 		return fmt.Errorf("job filtered due to %s with params %v", jsm.JobDefinition.Filter(), data)
 	}
 	return nil
@@ -727,7 +744,23 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]interface{
 }
 
 // buildDynamicParams builds job params
-func (jsm *JobExecutionStateMachine) buildDynamicParams() map[string]interface{} {
+func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]interface{}) map[string]interface{} {
+	// Load full job request if needed to access request params
+	switch jsm.Request.(type) {
+	case *types.JobRequest:
+		// ok
+	case *types.JobRequestInfo:
+		// load
+		if req, err := jsm.JobManager.GetJobRequest(
+			jsm.QueryContext(),
+			jsm.Request.GetID()); err == nil {
+			jsm.Request = req
+		} else {
+			logrus.WithFields(jsm.LogFields("JobSupervisor", err)).
+				Warnf("failed to load job request")
+		}
+	}
+
 	res := jsm.buildDynamicConfigs()
 	if n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64)); err == nil {
 		res["Nonce"] = n
@@ -735,6 +768,9 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams() map[string]interface{}
 	res["JobID"] = jsm.Request.GetID()
 	res["JobType"] = jsm.JobDefinition.JobType
 	for k, v := range jsm.JobDefinition.NameValueVariables.(map[string]interface{}) {
+		res[k] = v
+	}
+	for k, v := range taskDefParams {
 		res[k] = v
 	}
 	switch req := jsm.Request.(type) {
@@ -770,7 +806,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		jsm.JobExecution.ID,
 		jsm.JobExecution.JobState,
 		jsm.Request.GetJobPriority(),
-		jsm.buildDynamicParams(),
+		jsm.JobExecution.ContextMap(),
 	)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {

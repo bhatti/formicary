@@ -65,9 +65,11 @@ func (jraCtr *JobResourceAdminController) queryJobResources(c web.WebContext) er
 	}
 	baseURL := fmt.Sprintf("/dashboard/jobs/resources?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Resources": resources,
+	res := map[string]interface{}{
+		"Resources":  resources,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          params["q"],
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/res/index", res)

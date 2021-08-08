@@ -126,6 +126,14 @@ func (a *Artifact) AddMetadata(name string, value string) {
 	}
 }
 
+// ShortUserID short user id
+func (a *Artifact) ShortUserID() string {
+	if len(a.UserID) > 8 {
+		return "..." + a.UserID[len(a.UserID)-8:]
+	}
+	return a.UserID
+}
+
 // AddTag adds tag
 func (a *Artifact) AddTag(name string, value string) {
 	a.Tags[name] = value

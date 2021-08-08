@@ -70,9 +70,11 @@ func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.WebContext
 	}
 	baseURL := fmt.Sprintf("/dashboard/jobs/definitions?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Jobs": jobs,
+	res := map[string]interface{}{
+		"Jobs":       jobs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          c.QueryParam("q"),
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/index", res)
@@ -87,9 +89,11 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 	}
 	baseURL := fmt.Sprintf("/dashboard/jobs/plugins?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Jobs": jobs,
+	res := map[string]interface{}{
+		"Jobs":       jobs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          c.QueryParam("q"),
 	}
 	for _, job := range jobs {
 		job.CanEdit = (job.OrganizationID != "" && qc.OrganizationID != "" && qc.OrganizationID == job.OrganizationID) || qc.UserID == job.UserID || qc.Admin()
@@ -102,9 +106,21 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 func (jdaCtr *JobDefinitionAdminController) statsJobDefinition(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	jobStats := jdaCtr.jobStatsRegistry.GetStats(qc, 0, 500)
+	from := jdaCtr.startedAt
+	to := jdaCtr.startedAt
+
+	for _, c := range jobStats {
+		if c.FirstJobAt != nil && c.FirstJobAt.Unix() < from.Unix() {
+			from = *c.FirstJobAt
+		}
+		if c.LastJobAt != nil && c.LastJobAt.Unix() > to.Unix() {
+			to = *c.LastJobAt
+		}
+	}
+
 	res := map[string]interface{}{"Stats": jobStats,
-		"FromDate": jdaCtr.startedAt.Format("Jan _2, 15:04:05 MST"),
-		"ToDate":   time.Now().Format("Jan _2, 15:04:05 MST"),
+		"FromDate": from.Format("Jan _2, 15:04:05 MST"),
+		"ToDate":   to.Format("Jan _2, 15:04:05 MST"),
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/stats", res)

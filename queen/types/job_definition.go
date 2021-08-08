@@ -380,6 +380,14 @@ func (jd *JobDefinition) JobTypeAndVersion() string {
 	return jd.JobType + ":" + jd.SemVersion
 }
 
+// ShortUserID short user id
+func (jd *JobDefinition) ShortUserID() string {
+	if len(jd.UserID) > 8 {
+		return "..." + jd.UserID[len(jd.UserID)-8:]
+	}
+	return jd.UserID
+}
+
 // Yaml config
 func (jd *JobDefinition) Yaml() string {
 	if jd.RawYaml != "" {

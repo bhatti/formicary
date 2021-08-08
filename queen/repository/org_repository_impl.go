@@ -266,7 +266,15 @@ func (orc *OrganizationRepositoryImpl) Query(
 		Offset(page*pageSize).
 		Where("active = ?", true).
 		Preload("Configs")
-	tx = addQueryParamsWhere(params, tx)
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("bundle_id LIKE ? OR owner_user_id LIKE ? OR id LIKE ? OR org_unit LIKE ? OR sticky_message LIKE ?",
+			qs, qs, qs, qs, qs)
+	} else {
+		tx = addQueryParamsWhere(params, tx)
+	}
+
 	for _, ord := range order {
 		tx = tx.Order(ord)
 	}

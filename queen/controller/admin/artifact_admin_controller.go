@@ -111,6 +111,7 @@ func (ac *ArtifactAdminController) queryArtifacts(c web.WebContext) error {
 	res := map[string]interface{}{"Artifacts": records,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          params["q"],
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "artifacts/index", res)

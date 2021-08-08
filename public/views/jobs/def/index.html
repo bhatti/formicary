@@ -3,6 +3,16 @@
 A job definition defines a graph of tasks that are executed by remote ant executor using docker, kubernetes, shell commands
 or APIs. The formicary supports GO templates for job definitions so you can use variables, if/else/ranges and the
 values are passed from job parameters, configuration or job-context/results of previous tasks.
+<form action="/dashboard/jobs/definitions" method="GET">
+    <div class="form-group">
+        <div class="form-group row">
+            <input type="text" class="col-sm-3 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search job definitions">
+            &nbsp;
+            <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
+        </div>
+    </div>
+</form>
+
 <div align="right">
     <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data">
         Load Files: <input type="file" name="files" multiple>
@@ -14,6 +24,7 @@ values are passed from job parameters, configuration or job-context/results of p
         <thead>
         <tr>
             <th class="col-sm-1">Job</th>
+            <th class="col-sm-1">User</th>
             {{if false}}
             <th class="col-sm-1">Version</th>
             {{end}}
@@ -30,6 +41,7 @@ values are passed from job parameters, configuration or job-context/results of p
         {{range .Jobs}}
         <tr>
             <td class="col-sm-1"><a href="/dashboard/jobs/definitions/{{.ID}}">{{.JobType}}</a></td>
+            <td class="col-sm-1"><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
             {{if false}}
             <td class="col-sm-1">{{.Version}}</td>
             {{end}}
