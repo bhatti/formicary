@@ -35,6 +35,8 @@
 <li>Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.</li>
 <li>Streaming of real-time Logs to the UI as job/tasks are processed.  </li>
 <li>Authentication and authorization using OAuth and JWT standards.</li>
+<li>Provides email notifications on job completion or failures.</li>
+<li>Provides reports and statistics on job outcomes and resource usage such as storage and CPU.</li>
 <li>Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes</li>
   stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work</li>
   is handled by the ant worker, no worker is lost.</li>
