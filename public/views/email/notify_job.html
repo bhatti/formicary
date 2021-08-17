@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="">
+        <meta name="author" content="">
+        {{if .Job.Completed }}
+        <title>Job {{.Job.JobType}} - {{.Job.ID}} Succeeded</title>
+        {{else}}
+        <title>Job {{.Job.JobType}} - {{.Job.ID}} Failed</title>
+        {{end}}
+        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+
+    <body>
+        <div class="container-fluid">
+            {{if .Job.Completed }}
+            <h1 class="table-success">Job {{ .Job.JobType }} - {{.Job.ID }} Succeeded </h1>
+            {{else}}
+            <h1 class="table-danger">Job {{ .Job.JobType }} - {{.Job.ID }} Failed</h1>
+            {{end}}
+            <div class="table-responsive">
+                <table class="table table-striped table-sm">
+                    <tbody>
+                        <tr>
+                            <td><b>ID</b></td>
+                            <td><a href="{{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}">{{.Job.ID}}</a></td>
+                        </tr>
+                        <tr>
+                            <td><b>Job Type</b></td>
+                            <td><a href="{{.URLPrefix}}/dashboard/jobs/definitions/{{.Job.JobType}}">{{.Job.JobType}}</a></td>
+                        </tr>
+                        {{with .User}}
+                        <tr>
+                            <td><b>User</b></td>
+                            <td><a href="{{$.URLPrefix}}/dashboard/users/{{$.Job.UserID}}">{{.Name}}</a></td>
+                        </tr>
+                        {{end}}
+                        <tr>
+                            <td><b>State</b></td>
+                            {{if .Job.Completed }}
+                            <td class="table-success">{{.Job.JobState}}</td>
+                            {{else}}
+                            <td class="table-danger">{{.Job.JobState}}</td>
+                            {{end}}
+                        </tr>
+                        <tr>
+                            <td><b>Scheduled At</b></td>
+                            <td>{{.Job.ScheduledAtString}}</td>
+                        </tr>
+                        <tr>
+                            <td><b>Ended At</b></td>
+                            <td>{{.Job.UpdatedAtString}}</td>
+                        </tr>
+                        <tr>
+                            <td><b>Duration</b></td>
+                            <td>{{.Job.ElapsedDuration}}</td>
+                        </tr>
+                        {{if .Job.Failed }}
+                        <tr>
+                            <td><b>Error Code</b></td>
+                            <td>{{.Job.ErrorCode}}</td>
+                        </tr>
+                        <tr>
+                            <td><b>Error Message</b></td>
+                            <td>{{.Job.ErrorMessage}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            <div align="center">
+                You are receiving this email from your jobs on the <a href="{{.URLPrefix}}">Formicary application</a>. <a href="{{.URLPrefix}}/dashboard/users/{{.Job.UserID}}">Manage email notification</a>.
+            </div>
+        </div>  
+    </body>
+</html>

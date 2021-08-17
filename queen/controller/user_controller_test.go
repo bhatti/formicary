@@ -26,6 +26,7 @@ func Test_InitializeSwaggerStructsForUserController(t *testing.T) {
 	_ = userTokenQueryResponseBody{}
 	_ = userTokenResponseBody{}
 	_ = userTokenDeleteParams{}
+	_ = userNotifyParams{}
 }
 
 func Test_ShouldQueryUsers(t *testing.T) {
@@ -85,6 +86,55 @@ func Test_ShouldGetUserByID(t *testing.T) {
 	require.NoError(t, err)
 	saved := ctx.Result.(*common.User)
 	require.NotNil(t, saved)
+}
+
+func Test_ShouldUpdateUserEmail(t *testing.T) {
+	// GIVEN user controller
+	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
+	require.NoError(t, err)
+	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
+	require.NoError(t, err)
+	userRepository, err := repository.NewTestUserRepository()
+	require.NoError(t, err)
+	userRepository.Clear()
+	user := common.NewUser("builder", "bob", "name", false)
+	user.Email = "test@formicary.io"
+	b, err := json.Marshal(user)
+	require.NoError(t, err)
+	webServer := web.NewStubWebServer()
+	cfg := newTestConfig()
+	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+
+	// WHEN saving user
+	reader := io.NopCloser(bytes.NewReader(b))
+	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, common.NewUser("user-id", user.ID, "name", true))
+	err = ctrl.postUser(ctx)
+
+	// THEN it should not fail and create the user
+	require.NoError(t, err)
+	saved := ctx.Result.(*common.User)
+	require.NotNil(t, saved)
+
+	// WHEN updating email without valid address
+	ctx = web.NewStubContext(&http.Request{Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, saved)
+	ctx.Params["id"] = saved.ID
+	ctx.Params["email"] = "blah"
+	err = ctrl.updateUserNotification(ctx)
+	// THEN it should fail and update the user
+	require.Error(t, err)
+	require.Equal(t, "email 'blah' is not valid", err.Error())
+
+	ctx.Params["email"] = "email1@mail.com, email2@mail.com"
+	err = ctrl.updateUserNotification(ctx)
+	// THEN it should update emails
+	require.NoError(t, err)
+	saved = ctx.Result.(*common.User)
+	require.NotNil(t, saved)
+	require.Equal(t, 2, len(saved.Notify["email"].Recipients))
+	require.Equal(t, "email1@mail.com", saved.Notify["email"].Recipients[0])
+	require.Equal(t, "email2@mail.com", saved.Notify["email"].Recipients[1])
 }
 
 func Test_ShouldSaveUser(t *testing.T) {

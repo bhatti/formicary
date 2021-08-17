@@ -169,6 +169,12 @@
                 </div>
                 {{if .Admin}}
                 <div class="chart col-lg-3 col-12">
+                    {{with .SubscriptionDiskUsage}}
+                    <div class="statistic d-flex align-items-center bg-white has-shadow">
+                        <div class="icon bg-orange"><i class="fa fa-ship"></i></div>
+                        <div class="text"><strong>{{.}}</strong><br><small>Disk Usage</small></div>
+                    </div>
+                    {{end}}
                     <!-- Bar Chart   -->
                     <div class="bar-chart has-shadow bg-white">
                         <div class="title"><strong

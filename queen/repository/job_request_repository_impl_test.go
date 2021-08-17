@@ -459,6 +459,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 			for k := 0; k < 2; k++ { // 10 * 2 * 6
 				req, err := types.NewJobRequestFromDefinition(job)
 				require.NoError(t, err)
+				req.AddParam("p1", "v1")
+				req.AddParam("p2", "v2")
 				req.UserID = "test-user"
 				req.OrganizationID = "test-org"
 				_, err = repo.Save(req)
@@ -490,6 +492,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
+	err = repo.DeletePendingCronByJobType(qc, jobTypes[0].JobType)
+	require.NoError(t, err)
 }
 
 // Test request infos for jobs that can be scheduled

@@ -31,14 +31,14 @@ import (
 //   request to READY while saving the job-execution-id in request.
 // - The job-scheduler publishes a JobExecutionLaunchEvent event, but it reverts request/execution state
 //   from READY to FAILED if an error occurs.
-// - The job-launcher subscribes to JobExecutionLaunchEvent and starts job-supervisor to execute the job but
+// - The job-launcher subscribes to JobExecutionLaunchEvent and starts job-supervisor to execute the job, but
 //   it reverts request/execution state from READY to FAILED if an error occurs.
-// - The job-supervisor changes state of request/execution from READY to EXECUTING but
+// - The job-supervisor changes state of request/execution from READY to EXECUTING, but
 //   it reverts request/execution state from READY to FAILED if an error occurs.
 // - The job-supervisor continues with task-execution and changes state of request/execution from EXECUTING
 //   to FAILED/COMPLETED if a task fails.
 // - A user may cancel a job externally and in that case the job must be cancelled.
-// Note: a job request can be rerun so it may change its state to PENDING if it's retried or re-queued but
+// Note: a job request can be rerun, so it may change its state to PENDING if it's retried or re-queued but
 //   the job execution is immutable and cannot change its state from terminal to non-terminal.
 //
 
@@ -275,7 +275,7 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 }
 
 // CreateJobExecution moves the state from PENDING to READY for request and creates a new
-// job-execution with READY state but it moves states to FAILED for both in case of failure
+// job-execution with READY state, but it moves states to FAILED for both in case of failure
 func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (dbError error, eventError error) {
 	if jsm.JobExecution != nil {
 		return fmt.Errorf("job-execution already exists"), nil
@@ -311,7 +311,7 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 	}
 
 	// Set request state to READY and save execution-id
-	// Rollback job execution if can't update request table
+	// Rollback job execution if it can't update request table
 	if dbError = jsm.JobManager.SetJobRequestReadyToExecute(
 		jsm.Request.GetID(),
 		jsm.JobExecution.ID,
@@ -458,6 +458,8 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(ctx context.Context) (sa
 	// Mark job request and execution to COMPLETED
 	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 		jsm.QueryContext(),
+		jsm.User,
+		jsm.JobDefinition,
 		jsm.Request,
 		jsm.JobExecution,
 		common.EXECUTING,
@@ -665,6 +667,8 @@ func (jsm *JobExecutionStateMachine) failed(
 		// update job-request and execution state
 		saveExecErr = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 			jsm.QueryContext(),
+			jsm.User,
+			jsm.JobDefinition,
 			jsm.Request,
 			jsm.JobExecution,
 			oldState,

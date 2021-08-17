@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 )
 
 const publicEmailExt = `@(aim.com|alice.it|aliceadsl.fr|aol.com|arcor.de|att.net|bellsouth.net|bigpond.com|bigpond.net.au|bluewin.ch|blueyonder.co.uk|bol.com.br|centurytel.net|charter.net|chello.nl|club-internet.fr|comcast.net|cox.net|earthlink.net|facebook.com|free.fr|freenet.de|frontiernet.net|gmail.com|gmx.de|gmx.net|googlemail.com|hetnet.nl|home.nl|hotmail.co.uk|hotmail.com|hotmail.de|hotmail.es|hotmail.fr|hotmail.it|icloud.com|ig.com.br|inbox.com|juno.com|laposte.net|libero.it|live.ca|live.co.uk|live.com.au|live.com|live.fr|live.it|live.nl|mac.com|mail.com|mail.ru|me.com|msn.com|neuf.fr|ntlworld.com|optonline.net|optusnet.com.au|orange.fr|outlook.com|planet.nl|qq.com|rambler.ru|rediffmail.com|rocketmail.com|sbcglobal.net|sfr.fr|shaw.ca|sky.com|skynet.be|sympatico.ca|t-online.de|telenet.be|terra.com.br|tin.it|tiscali.co.uk|tiscali.it|uol.com.br|verizon.net|virgilio.it|voila.fr|wanadoo.fr|web.de|windstream.net|yahoo.ca|yahoo.co.id|yahoo.co.in|yahoo.co.jp|yahoo.co.uk|yahoo.com.ar|yahoo.com.au|yahoo.com.br|yahoo.com.mx|yahoo.com.sg|yahoo.com|yahoo.de|yahoo.es|yahoo.fr|yahoo.in|yahoo.it|yandex.ru|ymail.com|zonnet.nl)`
+const emailRegex = "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 
 // User represents a user of the system with multi-tenancy support.
 type User struct {
@@ -35,6 +37,8 @@ type User struct {
 	AuthProvider string `json:"auth_provider" gorm:"auth_provider"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently by org
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	// NotifySerialized serialized notification
+	NotifySerialized string `yaml:"-,omitempty" json:"-" gorm:"notify_serialized"`
 
 	StickyMessage string `json:"sticky_message" gorm:"sticky_message"`
 	// BundleID defines package or bundle
@@ -63,7 +67,10 @@ type User struct {
 	// InvitationCode defines code for invitation
 	InvitationCode string `json:"-" gorm:"-"`
 	// AgreeTerms defines code for invitation
-	AgreeTerms bool `json:"-" gorm:"-"`
+	AgreeTerms  bool                       `json:"-" gorm:"-"`
+	Notify      map[string]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
+	NotifyEmail string                     `json:"-" gorm:"-"`
+	NotifyWhen  NotifyWhen                 `json:"-" gorm:"-"`
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`
@@ -82,6 +89,7 @@ func NewUser(
 		Admin:          admin,
 		Active:         true,
 		Perms:          acl.DefaultPermissionsString(),
+		Notify:         make(map[string]JobNotifyConfig),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -118,6 +126,24 @@ func (u *User) Equals(other *User) error {
 
 // AfterLoad initializes user
 func (u *User) AfterLoad() error {
+	if u.NotifySerialized != "" {
+		u.Notify = make(map[string]JobNotifyConfig)
+		if err := json.Unmarshal([]byte(u.NotifySerialized), &u.Notify); err != nil {
+			return err
+		}
+	} else {
+		if cfg, err := JobNotifyConfigWithEmail(u.Email, NotifyWhenNever); err == nil {
+			u.Notify = map[string]JobNotifyConfig{"email": cfg}
+		}
+	}
+	if len(u.Notify) == 0 {
+		u.NotifyEmail = u.Email
+		u.NotifyWhen = NotifyWhenNever
+	} else {
+		cfg := u.Notify["email"]
+		u.NotifyEmail = strings.Join(cfg.Recipients, ",")
+		u.NotifyWhen = cfg.When
+	}
 	return nil
 }
 
@@ -138,7 +164,7 @@ func (u *User) Validate() (err error) {
 		err = errors.New("email is not specified")
 		u.Errors["Email"] = err.Error()
 	}
-	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	re := regexp.MustCompile(emailRegex)
 	if !re.MatchString(u.Email) {
 		err = errors.New("email is not valid")
 		u.Errors["Email"] = err.Error()
@@ -151,6 +177,14 @@ func (u *User) Validate() (err error) {
 	if u.MaxConcurrency == 0 {
 		u.MaxConcurrency = 1
 	}
+	for source, notify := range u.Notify {
+		if source == "email" {
+			if err = notify.ValidateEmail(); err != nil {
+				u.Errors["Notify"] = err.Error()
+				return err
+			}
+		}
+	}
 	return
 }
 
@@ -158,6 +192,13 @@ func (u *User) Validate() (err error) {
 func (u *User) ValidateBeforeSave() error {
 	if err := u.Validate(); err != nil {
 		return err
+	}
+	if len(u.Notify) > 0 {
+		if b, err := json.Marshal(u.Notify); err == nil {
+			u.NotifySerialized = string(b)
+		} else {
+			return err
+		}
 	}
 	return nil
 }

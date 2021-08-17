@@ -1,5 +1,11 @@
 job_type: fork-job
 max_concurrency: 1
+notify:
+  email: 
+    recipients: 
+      - support@formicary.io
+      - bhatti@plexobject.com
+    when: always
 tasks:
 - task_type: init
   method: SHELL

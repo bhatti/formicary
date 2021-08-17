@@ -71,43 +71,40 @@ can be used as input of another task.
 ### Operations
 
 #### Installation
-[Installation](docs/installation.md)
+[Installing formicary](docs/installation.md)
 
 #### Running
-[Running](docs/running.md)
+[Running formicary](docs/running.md)
 
 #### Queen/Ants Configuration
-[Configuration](docs/configuration.md)
+[Configuration for Queen (server) and Ants (workers)](docs/configuration.md)
 
 ### User Guides
 
-#### Getting Started
-[Tutorial](docs/getting_started.md)
+[Getting Started](docs/getting_started.md)
 
-#### Building Pipelines
-[Pipelines](docs/pipelines.md)
+[Building Pipelines](docs/pipelines.md)
 
-#### Parallel Pipelines with parent/child
-[Parallel Pipelines](docs/parallel_pipelines.md)
+[Parallel Pipelines with parent/child](docs/parallel_pipelines.md)
 
 #### CD/CD Pipelines
-[CI/CD Pipelines](docs/cicd.md)
-- [Node.js CI/CD](docs/node_ci.md)
-- [GO CI/CD](docs/go_ci.md)
-- [Python CI/CD](docs/python_ci.md)
+- [Building CI/CD Pipelines](docs/cicd.md)
+- [Building Node.js CI/CD](docs/node_ci.md)
+- [Building GO CI/CD](docs/go_ci.md)
+- [Building Python CI/CD](docs/python_ci.md)
 
 
 ### Simple ETL Job
 [ETL Examples](docs/etl_examples.md)
 
 #### Public Plugins
-[Plugins](docs/plugins.md)
+[Developing Public Plugins](docs/plugins.md)
 
-### Kubernetes Jobs
+### Kubernetes
 [Kubernetes Examples](docs/advanced_k8.md)
 
 #### How-To Guides
-[How-to Guides](docs/howto.md)
+- [How-to Guides](docs/howto.md)
 - [Scheduling Jobs](docs/howto.md#Scheduling)
 - [Job/Organization Configs](docs/howto.md#Configs)
 - [Caching](docs/howto.md#Caching)
@@ -117,23 +114,23 @@ can be used as input of another task.
 - [Scanning containers using Trivy](docs/trivy-scan.md) for scanning containers.
 - [Advanced Kubernetes](docs/advanced_k8.md)
 
-#### Job / Task Definition Options
-[Job / Task Definition Options](docs/definition_options.md)
+#### Job / Task Definition Configuration Options
+[Job / Task Definition Configuration](docs/definition_options.md)
 
 #### API Docs
 [API Docs](docs/apidocs.md)
 
-#### Comparison with other frameworks and solutions
-[Comparison](docs/comparison.md)
+#### Comparison
+[Comparison with other frameworks and solutions](docs/comparison.md)
 
 ### Code and Design
 
 #### Architecture
-[Architecture](docs/architecture.md)
+[Formicary Architecture](docs/architecture.md)
 
-#### Ant Executors
+#### Executors
 [Ant Executors](docs/executors.md)
 
 #### Development
-[Development](docs/development.md)
+[Formicary Development Guide](docs/development.md)
 

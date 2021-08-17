@@ -288,6 +288,51 @@ func (jrr *JobRequestRepositoryImpl) Delete(
 	})
 }
 
+// DeletePendingCronByJobType - delete pending cron job
+func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
+	qc *common.QueryContext,
+	jobType string) error {
+	sql := "SELECT id FROM formicary_job_requests WHERE job_type = ? AND job_state = ? AND cron_triggered = ?"
+	args := []interface{}{jobType, common.PENDING, true}
+	if !qc.Admin() {
+		if qc.OrganizationID != "" {
+			sql += " AND organization_id = ?"
+			args = append(args, qc.OrganizationID)
+		} else if qc.UserID != "" {
+			sql += " AND user_id = ?"
+			args = append(args, qc.UserID)
+		}
+	}
+	rows, err := jrr.db.Raw(sql, args...).Limit(100).Rows()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	ids := make([]uint64, 0)
+
+	for rows.Next() {
+		var id jobRequestID
+		if err = jrr.db.ScanRows(rows, &id); err != nil {
+			return err
+		}
+		ids = append(ids, id.ID)
+	}
+
+	return jrr.db.Transaction(func(db *gorm.DB) error {
+		res := jrr.db.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id IN (?)", ids)
+		if res.Error != nil {
+			return common.NewNotFoundError(res.Error)
+		}
+		res = jrr.db.Exec("DELETE FROM formicary_job_requests WHERE id IN (?) AND job_state = ?", ids, common.PENDING)
+		if res.Error != nil {
+			return common.NewNotFoundError(res.Error)
+		}
+		return nil
+	})
+}
+
 // Restart the job
 func (jrr *JobRequestRepositoryImpl) Restart(
 	qc *common.QueryContext,

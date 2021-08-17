@@ -82,6 +82,8 @@ type JobDefinition struct {
 	Description string `yaml:"description,omitempty" json:"description"`
 	// Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering
 	Platform string `yaml:"platform,omitempty" json:"platform"`
+	// NotifySerialized serialized notification
+	NotifySerialized string `yaml:"-,omitempty" json:"-" gorm:"notify_serialized"`
 	// CronTrigger can be used to run the job periodically
 	CronTrigger string `yaml:"cron_trigger,omitempty" json:"cron_trigger"`
 	// Timeout defines max time a job should take, otherwise the job is aborted
@@ -126,9 +128,10 @@ type JobDefinition struct {
 	// Active is used to soft delete job definition
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
-	CanEdit            bool          `yaml:"-" json:"-" gorm:"-"`
-	NameValueVariables interface{}   `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
-	Resources          BasicResource `yaml:"resources,omitempty" json:"resources" gorm:"-"`
+	CanEdit            bool                              `yaml:"-" json:"-" gorm:"-"`
+	NameValueVariables interface{}                       `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
+	Notify             map[string]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
+	Resources          BasicResource                     `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	filter             string
 	lookupTasks        *cutils.SafeMap
 	lock               sync.RWMutex
@@ -141,6 +144,7 @@ func NewJobDefinition(jobType string) *JobDefinition {
 		MaxConcurrency:     3,
 		Configs:            make([]*JobDefinitionConfig, 0),
 		Variables:          make([]*JobDefinitionVariable, 0),
+		Notify:             make(map[string]common.JobNotifyConfig),
 		Tasks:              make([]*TaskDefinition, 0),
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
@@ -177,6 +181,13 @@ func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+	if len(job.Notify) > 0 {
+		if b, err := json.Marshal(job.Notify); err == nil {
+			job.NotifySerialized = string(b)
+		} else {
+			return nil, err
+		}
 	}
 	job.RawYaml = yamlSource
 	if err = job.Validate(); err != nil {
@@ -691,6 +702,12 @@ func (jd *JobDefinition) AfterLoad(key []byte) (err error) {
 			return err
 		}
 	}
+	if jd.NotifySerialized != "" {
+		jd.Notify = make(map[string]common.JobNotifyConfig)
+		if err = json.Unmarshal([]byte(jd.NotifySerialized), &jd.Notify); err != nil {
+			return err
+		}
+	}
 	if err = jd.Validate(); err != nil {
 		return err
 	}
@@ -785,7 +802,13 @@ func (jd *JobDefinition) Validate() (err error) {
 	if err = jd.validateTaskExitCodes(); err != nil {
 		return err
 	}
-
+	for source, notify := range jd.Notify {
+		if source == "email" {
+			if err = notify.ValidateEmail(); err != nil {
+				return err
+			}
+		}
+	}
 	if _, err = jd.GetFirstTask(); err != nil {
 		return err
 	}
@@ -890,6 +913,13 @@ func (jd *JobDefinition) ValidateBeforeSave(key []byte) error {
 	}
 	for _, t := range jd.Tasks {
 		if err := t.ValidateBeforeSave(); err != nil {
+			return err
+		}
+	}
+	if len(jd.Notify) > 0 {
+		if b, err := json.Marshal(jd.Notify); err == nil {
+			jd.NotifySerialized = string(b)
+		} else {
 			return err
 		}
 	}

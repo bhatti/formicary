@@ -52,6 +52,7 @@ func NewUserAdminController(
 	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.New(acl.User, acl.Signup)).Name = "new_admin_users"
 	webserver.POST("/dashboard/users", jraCtr.createUser, acl.New(acl.User, acl.Signup)).Name = "create_admin_users"
 	webserver.POST("/dashboard/users/:id", jraCtr.updateUser, acl.New(acl.User, acl.Update)).Name = "update_admin_users"
+	webserver.POST("/dashboard/users/:id/notify", jraCtr.updateUserNotification, acl.New(acl.User, acl.Update)).Name = "update_admin_users_notify"
 	webserver.GET("/dashboard/users/:id", jraCtr.getUser, acl.New(acl.User, acl.View)).Name = "get_admin_users"
 	webserver.GET("/dashboard/users/:id/edit", jraCtr.editUser, acl.New(acl.User, acl.Update)).Name = "edit_admin_users"
 	webserver.POST("/dashboard/users/:id/delete", jraCtr.deleteUser, acl.New(acl.User, acl.Delete)).Name = "delete_admin_users"
@@ -211,6 +212,64 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/edit", res)
+}
+
+func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err error) {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	user, err := uc.userRepository.Get(qc, id)
+	if err != nil {
+		return err
+	}
+
+	user.NotifyEmail = strings.TrimSpace(c.FormValue("email"))
+	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(c.FormValue("when")))
+	if user.NotifyEmail == "" {
+		err = fmt.Errorf("no email specified")
+	} else {
+		var notifyCfg common.JobNotifyConfig
+		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
+		if err == nil {
+			user.Notify = map[string]common.JobNotifyConfig{
+				"email": notifyCfg,
+			}
+			err = user.Validate()
+			if err == nil {
+				user, err = uc.userRepository.Update(qc, user)
+			}
+		}
+	}
+
+	if err != nil {
+		user.Errors = map[string]string{"Notify": err.Error()}
+		res := map[string]interface{}{
+			"User":   user,
+			"Notify": err,
+		}
+		web.RenderDBUserFromSession(c, res)
+		logrus.WithFields(logrus.Fields{
+			"Component": "UserAdminController",
+			"User":      user,
+			"Email":     user.NotifyEmail,
+			"When":      user.NotifyWhen,
+			"Notify":    user.Notify,
+			"Error":     err,
+		}).Warnf("updateUserNotification failed to update email notification")
+
+		return c.Render(http.StatusOK, "users/view", res)
+	}
+	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "UserAdminController",
+			"User":      user,
+			"Email":     user.NotifyEmail,
+			"When":      user.NotifyWhen,
+			"Notify":    user.Notify,
+		}).Debugf("updateUserNotification updated email notification")
+	}
+
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/%s", user.ID))
 }
 
 // updateUser - updates user

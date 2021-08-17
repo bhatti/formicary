@@ -16,6 +16,9 @@
     <li class="nav-item">
         <a class="nav-link" id="token-tab" data-toggle="tab" href="#token" role="tab" aria-controls="token" aria-selected="false">API Tokens</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link" id="notify-tab" data-toggle="tab" href="#notify" role="tab" aria-controls="notify" aria-selected="false">Notification</a>
+    </li>
     {{end}}
     {{if .Admin}}
     <li class="nav-item">
@@ -191,6 +194,59 @@
                 </table>
             </div>
             {{ end }}
+        </section>
+    </div>
+    <div class="tab-pane fade" id="notify" role="tabpanel" aria-labelledby="token-tab">
+        <section class="group">
+            {{ with .DBUser }}
+            <header class="group-header">
+                <h4 class="group-title">Job Notifications</h4>
+            </header>
+            <form action="/dashboard/users/{{.ID}}/notify" method="POST">
+                <div class="form-group">
+                    {{ with .Errors.Notify }}
+                    <p class="error" align="center">{{ . }}</p>
+                    {{ end }}
+                </div>
+                <div class="form-group">
+                    <div class="row">
+                        <label class="col-sm-2 col-form-label">Email(s): </label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control col-sm-6" name="email" id="email"
+                                   value="{{ .NotifyEmail }}"
+                                   placeholder="your emails separated by comma">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="row">
+                        <label class="col-sm-2 col-form-label">When: </label>
+                        <div class="col-sm-10">
+                            <select class="browser-default custom-select" name="when">
+                                <option value="never">Never</option>
+                                {{if eq .NotifyWhen "always"}}
+                                <option selected value="always">Always</option>
+                                {{else}}
+                                <option value="always">Always</option>
+                                {{end}}
+                                {{if eq .NotifyWhen "onSuccess"}}
+                                <option selected value="onSuccess">On Success</option>
+                                {{else}}
+                                <option value="onSuccess">On Success</option>
+                                {{end}}
+                                {{if eq .NotifyWhen "onFailure"}}
+                                <option selected value="onFailure">On Failure</option>
+                                {{else}}
+                                <option value="onFailure">On Failure</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="submit" class="btn btn-primary" value="Update">
+            </form>
+            {{end}}
         </section>
     </div>
     <div class="tab-pane fade" id="token" role="tabpanel" aria-labelledby="token-tab">

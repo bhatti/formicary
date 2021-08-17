@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/metrics"
-	"plexobject.com/formicary/internal/types"
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/email"
+	"plexobject.com/formicary/queen/notify"
+	"plexobject.com/formicary/queen/types"
 	"time"
 
 	"plexobject.com/formicary/internal/artifacts"
@@ -80,6 +83,20 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
+	var notifier notify.JobNotifier
+	if sender, err := email.New(&serverCfg.Email); err == nil {
+		notifier, err = notify.New(serverCfg, map[string]types.Sender{"email": sender})
+	}
+	if notifier == nil {
+		if notifier, err = notify.New(serverCfg, make(map[string]types.Sender)); err != nil {
+			return err
+		}
+		logrus.WithFields(logrus.Fields{
+			"Component": "Queen",
+			"ID":        serverCfg.ID,
+		}).Warnf("no email notification configured")
+	}
+
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
 		repoFactory.AuditRecordRepository,
@@ -93,6 +110,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		jobStatsRegistry,
 		metricsRegistry,
 		queueClient,
+		notifier,
 	)
 	if err != nil {
 		return err
@@ -213,7 +231,7 @@ func buildHealthMonitor(
 		return nil, err
 	}
 
-	if serverCfg.MessagingProvider == types.PulsarMessagingProvider {
+	if serverCfg.MessagingProvider == common.PulsarMessagingProvider {
 		var pulsarMonitor health.Monitorable
 		if pulsarMonitor, err = health.NewHostPortMonitor("pulsar", serverCfg.Pulsar.URL); err != nil {
 			return nil, err

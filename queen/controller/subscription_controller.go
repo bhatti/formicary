@@ -253,7 +253,8 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 		}
 	}
 	freeSubscription := common.NewFreemiumSubscription("", "")
-	if oldSubscription != nil {
+	// recent subscription
+	if oldSubscription != nil && oldSubscription.StartedAt.Unix() > time.Now().Add(time.Hour*-48).Unix() {
 		subscription.ID = oldSubscription.ID
 		if oldSubscription.CreatedAt.IsZero() {
 			subscription.CreatedAt = oldSubscription.StartedAt
@@ -284,11 +285,7 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 		}
 
 		if subscription.DiskQuota == 0 {
-			if oldSubscription.DiskQuota < freeSubscription.DiskQuota {
-				subscription.DiskQuota = oldSubscription.DiskQuota + freeSubscription.DiskQuota
-			} else {
-				subscription.DiskQuota = oldSubscription.DiskQuota
-			}
+			subscription.DiskQuota = oldSubscription.DiskQuota + freeSubscription.DiskQuota
 		}
 	} else {
 		if subscription.Kind == "" {

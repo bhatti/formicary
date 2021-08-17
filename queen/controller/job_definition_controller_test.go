@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"testing"
 
@@ -50,6 +51,8 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	metricsRegistry := metrics.New()
 
+	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
@@ -64,6 +67,7 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 		jobStatsRegistry,
 		metricsRegistry,
 		queueClient,
+		notifier,
 	)
 	if err != nil {
 		t.Fatalf("failed to create job manager %v", err)

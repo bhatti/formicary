@@ -394,6 +394,11 @@ func (jr *JobRequest) UpdatedAtString() string {
 	return jr.UpdatedAt.Format("Jan _2, 15:04:05")
 }
 
+// ScheduledAtString formatted date
+func (jr *JobRequest) ScheduledAtString() string {
+	return jr.ScheduledAt.Format("Jan _2, 15:04:05")
+}
+
 // ClearParams clear params
 func (jr *JobRequest) ClearParams() {
 	jr.lookupParams = make(map[string]*JobRequestParam)

@@ -48,6 +48,7 @@
       salt VARCHAR(64) NOT NULL DEFAULT '',
       name VARCHAR(100) ,
       email VARCHAR(150),
+      notify_serialized LONGTEXT,
       perms TEXT NOT NULL,
       picture_url VARCHAR(150),
       url VARCHAR(150),

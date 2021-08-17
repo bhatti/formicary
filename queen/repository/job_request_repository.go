@@ -102,6 +102,10 @@ type JobRequestRepository interface {
 	Delete(
 		qc *common.QueryContext,
 		id uint64) error
+	// DeletePendingCronByJobType - delete pending cron job
+	DeletePendingCronByJobType(
+		qc *common.QueryContext,
+		jobType string) error
 	// RecentDeadIDs returns recently completed job-ids
 	RecentDeadIDs(
 		limit int) ([]uint64, error)

@@ -2,7 +2,7 @@
 
 CGitlab is a popular solution for building CI/CD pipelines and following mapping shows mapping between Gitlab and Formicary:
 
-|     CircleCI |   Formicary   | Description
+|     Gitlab |   Formicary   | Description
 | :----------: | :-----------: | :------------------: |
 | runner | [executor](executors.md) | [Gitlab](https://docs.gitlab.com/runner/) supports runner for execution and Formicary uses executor ants to accept remote work and execute them based on method.
 | filters | [filter](definition_options#filter), [except](definition_options.md#except), [allow_failure](definition_options.md#allow_failure), [always_run](definition_options.md#always_run) and [templates](definition_options.md#templates) | Gitlab allows filtering [pipelines](https://docs.gitlab.com/ee/ci/pipelines/) by branch, status & tag and formicary uses `filter`, `except`, `allow_failure`, `always_run` and GO templates to execute any conditional or post-processing tasks.

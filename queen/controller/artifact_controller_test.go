@@ -103,6 +103,7 @@ func newTestConfig() *config.ServerConfig {
 	serverCfg.S3.SecretAccessKey = "password"
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
+	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
 	_ = serverCfg.Validate()
 	return serverCfg
 }

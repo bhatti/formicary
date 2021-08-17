@@ -40,6 +40,9 @@
 ### Migrating from Jenkins
 [Jenkins](jenkins.md)
 
+### Migrating from Gitlab
+ [Gitlab](gitlab.md)
+ 
 ### Migrating from CircleCI
  [CircleCI](circleci.md)
  

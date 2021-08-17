@@ -8,6 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/types"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/web"
@@ -41,6 +42,7 @@ func NewUserController(
 	webserver.GET("/api/users/:id", userCtrl.getUser, acl.New(acl.User, acl.View)).Name = "get_user"
 	webserver.POST("/api/users", userCtrl.postUser, acl.New(acl.User, acl.Create)).Name = "create_user"
 	webserver.PUT("/api/users/:id", userCtrl.putUser, acl.New(acl.User, acl.Update)).Name = "update_user"
+	webserver.PUT("/api/users/:id/notify", userCtrl.updateUserNotification, acl.New(acl.User, acl.Update)).Name = "update_user_notify"
 	webserver.DELETE("/api/users/:id", userCtrl.deleteUser, acl.New(acl.User, acl.Delete)).Name = "delete_user"
 	webserver.GET("/api/users/:user/tokens", userCtrl.queryUserTokens, acl.New(acl.User, acl.View)).Name = "user_tokens"
 	webserver.POST("/api/users/:user/tokens", userCtrl.createUserToken, acl.New(acl.User, acl.Update)).Name = "create_user_token"
@@ -67,6 +69,44 @@ func (uc *UserController) queryUsers(c web.WebContext) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
+}
+
+// swagger:route PUT /api/users/{id}/notify users putUserNotify
+// Updates user notification.
+// responses:
+//   200: userResponse
+func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	user, err := uc.userRepository.Get(qc, id)
+	if err != nil {
+		return err
+	}
+	user.NotifyEmail = strings.TrimSpace(c.FormValue("email"))
+	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(c.FormValue("when")))
+	if user.NotifyEmail == "" {
+		return common.NewValidationError("no email specified")
+	} else {
+		var notifyCfg common.JobNotifyConfig
+		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
+		if err != nil {
+			return err
+		}
+		user.Notify = map[string]common.JobNotifyConfig{
+			"email": notifyCfg,
+		}
+		err = user.Validate()
+		if err != nil {
+			return err
+		}
+		user, err = uc.userRepository.Update(qc, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
+	return c.JSON(http.StatusOK, user)
 }
 
 // swagger:route POST /api/users users postUser
@@ -250,7 +290,17 @@ type userIDParams struct {
 	ID string `json:"id"`
 }
 
-// swagger:parameters postUser putUser
+// swagger:parameters userNotifyParams putUserNotify
+// The parameters for finding user by id
+type userNotifyParams struct {
+	// in:path
+	ID string `json:"id"`
+	// in:formData
+	Email string `json:"email"`
+	When  string `json:"when"`
+}
+
+// swagger:parameters postUser putUser putUserNotify
 // The request body includes user for persistence.
 type userParams struct {
 	// in:body

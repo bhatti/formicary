@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/queen/notify"
+	"plexobject.com/formicary/queen/types"
 	"testing"
 	"time"
 
@@ -69,6 +71,8 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 
 	metricsRegistry := metrics.New()
 
+	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	require.NoError(t, err)
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
 		auditRecordRepository,
@@ -82,6 +86,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 		jobStatsRegistry,
 		metricsRegistry,
 		queueClient,
+		notifier,
 	)
 	require.NoError(t, err)
 
@@ -110,5 +115,6 @@ func testServerConfig() *config.ServerConfig {
 	serverCfg.Jobs.OrphanRequestsTimeout = 5 * time.Second
 	serverCfg.Jobs.OrphanRequestsUpdateInterval = 2 * time.Second
 	serverCfg.Jobs.MissingCronJobsInterval = 2 * time.Second
+	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
 	return serverCfg
 }

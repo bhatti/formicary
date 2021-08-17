@@ -17,6 +17,7 @@
       delay_between_retries INT(15) NOT NULL DEFAULT 10,
       max_concurrency INTEGER NOT NULL DEFAULT 1,
       url VARCHAR(150),
+      notify_serialized LONGTEXT,
       tags TEXT,
       methods TEXT,
       raw_yaml LONGTEXT NOT NULL,

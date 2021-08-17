@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -19,18 +20,23 @@ type ServerConfig struct {
 	types.CommonConfig            `yaml:"common" mapstructure:"common"`
 	DB                            DBConfig        `yaml:"db" mapstructure:"db" env:"DB"`
 	Jobs                          JobsConfig      `yaml:"jobs" mapstructure:"jobs"`
-	Email                         EmailConfig     `yaml:"email" mapstructure:"email"`
+	Email                         SMTPConfig      `yaml:"smtp" mapstructure:"smtp"`
 	GatewaySubscriptions          map[string]bool `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
 	URLPresignedExpirationMinutes time.Duration   `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
 	SubscriptionQuotaEnabled      bool            `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
-// EmailConfig -- Defines email config
-type EmailConfig struct {
-	FromEmail    string `yaml:"from_email" mapstructure:"from_email"`
-	Provider     string `yaml:"provider" mapstructure:"provider"`
-	APIKey       string `yaml:"api_key" mapstructure:"api_key"`
-	TemplateFile string `yaml:"template_file" mapstructure:"template_file"`
+// SMTPConfig -- Defines email config
+type SMTPConfig struct {
+	FromEmail        string `yaml:"from_email" mapstructure:"from_email"`
+	FromName         string `yaml:"from_name" mapstructure:"from_name"`
+	Provider         string `yaml:"provider" mapstructure:"provider"`
+	APIKey           string `yaml:"api_key" mapstructure:"api_key"`
+	Username         string `yaml:"username" mapstructure:"username"`
+	Password         string `yaml:"password" mapstructure:"password"`
+	Host             string `yaml:"host" mapstructure:"host"`
+	Port             int    `yaml:"port" mapstructure:"port"`
+	JobsTemplateFile string `yaml:"jobs_template_file" mapstructure:"jobs_template_file"`
 }
 
 // DBConfig -- Defines db config
@@ -237,4 +243,32 @@ func (c *ServerConfig) GetJobSchedulerLeaderTopic() string {
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
 		types.JobSchedulerLeaderTopic)
+}
+
+func (s *SMTPConfig) Validate() error {
+	if s.FromEmail == "" {
+		return types.NewValidationError(fmt.Errorf("smtp from-email not specified"))
+	}
+	if s.APIKey == "" {
+		if s.Username == "" {
+			return types.NewValidationError(fmt.Errorf("smtp username not specified"))
+		}
+		if s.Password == "" {
+			return types.NewValidationError(fmt.Errorf("smtp password not specified"))
+		}
+		if s.Host == "" {
+			return types.NewValidationError(fmt.Errorf("smtp host not specified"))
+		}
+		if s.Port == 0 {
+			return types.NewValidationError(fmt.Errorf("smtp port not specified"))
+		}
+	} else {
+		if s.Provider == "" {
+			return types.NewValidationError(fmt.Errorf("smtp-provider not specified"))
+		}
+	}
+	if s.JobsTemplateFile == "" {
+		return types.NewValidationError(fmt.Errorf("jobs template not specified"))
+	}
+	return nil
 }

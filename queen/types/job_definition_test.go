@@ -483,10 +483,13 @@ func Test_ShouldSerializeForkedJobDefinitionIntoJSON(t *testing.T) {
 	require.NoError(t, err)
 	job, err := NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(job.Notify["email"].Recipients))
+	require.Equal(t, common.NotifyWhenAlways, job.Notify["email"].When)
 	job.RawYaml = string(b)
 	err = job.ValidateBeforeSave(testEncryptedKey)
 	require.NoError(t, err)
 
+	require.Equal(t, "{\"email\":{\"recipients\":[\"support@formicary.io\",\"bhatti@plexobject.com\"],\"when\":\"always\"}}", job.NotifySerialized)
 	// WHEN marshaling job
 	b, err = json.Marshal(job)
 

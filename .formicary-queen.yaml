@@ -1,5 +1,7 @@
 id: queen-server-id
-subscription_quota_enabled: true
+subscription_quota_enabled: false
+jobs:
+  launch_topic_suffix: -anon-local
 db:
   db_type: sqlite
   data_source: .formicary_db.sqlite
@@ -31,3 +33,12 @@ common:
   auth:
     enabled: false
     jwt_secret: changeme
+smtp:
+    from_email: "support@formicary.io"
+    provider: ""
+    api_key: ""
+    username: ""
+    password: ""
+    host: ""
+    port: 0
+    jobs_template_file: "public/views/email/notify_job.html"

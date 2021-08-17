@@ -56,7 +56,7 @@ require (
 	github.com/twinj/uuid v1.0.0
 	github.com/xdg-go/scram v1.0.2
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20210813211128-0a44fdfbc16e
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect

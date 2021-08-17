@@ -15,7 +15,11 @@
             <th>User</th>
             <th>Status</th>
             <th>Priority</th>
+            {{if .Pending }}
+            <th>Scheduled</th>
+            {{else}}
             <th>Updated</th>
+            {{end}}
             {{if .IsTerminal }}
             <th>Elapsed</th>
             {{ end }}
@@ -39,7 +43,11 @@
             <td id="jobs_status_{{.ID}}">{{.JobState}}</td>
             {{end}}
             <td>{{.JobPriority}}</td>
+            {{if .Pending }}
+            <td id="jobs_updated_{{.ID}}">{{.ScheduledAtString}}</td>
+            {{else}}
             <td id="jobs_updated_{{.ID}}">{{.UpdatedAtString}}</td>
+            {{end}}
             {{if .IsTerminal }}
             <td id="jobs_elapsed_{{.ID}}">{{.ElapsedDuration}}</td>
             {{ end }}

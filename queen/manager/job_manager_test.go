@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/queen/notify"
 	"testing"
 
 	"plexobject.com/formicary/internal/artifacts"
@@ -64,9 +65,13 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 	serverCfg := &config.ServerConfig{}
 	serverCfg.S3.AccessKeyID = "admin"
 	serverCfg.S3.SecretAccessKey = "password"
+	serverCfg.S3.Bucket = "bucket"
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
-	_ = serverCfg.Validate()
+	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	if err := serverCfg.Validate(); err != nil {
+		return nil, nil, err
+	}
 	queueClient, err := queue.NewStubClient(&serverCfg.CommonConfig)
 	if err != nil {
 		return nil, nil, err
@@ -119,6 +124,10 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 
 	metricsRegistry := metrics.New()
 
+	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	if err != nil {
+		return nil, nil, err
+	}
 	mgr, err := NewJobManager(
 		serverCfg,
 		auditRecordRepository,
@@ -131,7 +140,9 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 		artifactManager,
 		jobStatsRegistry,
 		metricsRegistry,
-		queueClient)
+		queueClient,
+		notifier,
+		)
 	return mgr, jobRequestRepository, err
 }
 

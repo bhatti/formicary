@@ -37,6 +37,9 @@ func (ur *UserRepositoryImpl) Get(
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
+	if err := user.AfterLoad(); err != nil {
+		return nil, err
+	}
 	return &user, nil
 }
 
@@ -53,6 +56,9 @@ func (ur *UserRepositoryImpl) GetByUsername(
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
+	if err := user.AfterLoad(); err != nil {
+		return nil, err
+	}
 	return &user, nil
 }
 
@@ -64,6 +70,9 @@ func (ur *UserRepositoryImpl) lookupUsername(
 		First(&user)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
+	}
+	if err := user.AfterLoad(); err != nil {
+		return nil, err
 	}
 	return &user, nil
 }
@@ -163,12 +172,15 @@ func (ur *UserRepositoryImpl) Update(
 		if user.BundleID != "" {
 			old.BundleID = user.BundleID
 		}
+		if user.NotifySerialized != "" {
+			old.NotifySerialized = user.NotifySerialized
+		}
 		old.UpdatedAt = time.Now()
 		res = tx.Save(old)
 		if res.Error != nil {
 			return res.Error
 		}
-		return nil
+		return old.AfterLoad()
 	})
 	return old, err
 }
@@ -198,6 +210,9 @@ func (ur *UserRepositoryImpl) Query(
 	if res.Error != nil {
 		err = res.Error
 		return nil, 0, err
+	}
+	for _, rec := range recs {
+		_ = rec.AfterLoad()
 	}
 	totalRecords, _ = ur.Count(qc, params)
 	return

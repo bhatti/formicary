@@ -115,10 +115,12 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) erro
 		"Q":          params["q"],
 	}
 	res["IsTerminal"] = false
+	res["Pending"] = false
 	for _, rec := range requests {
 		if rec.IsTerminal() {
 			res["IsTerminal"] = true
-			break
+		} else if rec.Pending() {
+			res["Pending"] = true
 		}
 	}
 	web.RenderDBUserFromSession(c, res)

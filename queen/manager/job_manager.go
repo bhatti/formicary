@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ type JobManager struct {
 	jobStatsRegistry        *stats.JobStatsRegistry
 	metricsRegistry         *metrics.Registry
 	queueClient             queue.Client
+	jobsNotifier            notify.JobNotifier
 }
 
 // NewJobManager manages job request, definition and execution
@@ -54,7 +56,8 @@ func NewJobManager(
 	artifactManager *ArtifactManager,
 	jobStatsRegistry *stats.JobStatsRegistry,
 	metricsRegistry *metrics.Registry,
-	queueClient queue.Client) (*JobManager, error) {
+	queueClient queue.Client,
+	jobsNotifier notify.JobNotifier) (*JobManager, error) {
 	if serverCfg == nil {
 		return nil, fmt.Errorf("server-config is not specified")
 	}
@@ -88,6 +91,9 @@ func NewJobManager(
 	if queueClient == nil {
 		return nil, fmt.Errorf("queue-client is not specified")
 	}
+	if jobsNotifier == nil {
+		return nil, fmt.Errorf("jobs-notifier is not specified")
+	}
 	// initialize registry
 	initializeStatsRegistry(jobRequestRepository, jobStatsRegistry)
 
@@ -104,6 +110,7 @@ func NewJobManager(
 		jobStatsRegistry:        jobStatsRegistry,
 		metricsRegistry:         metricsRegistry,
 		queueClient:             queueClient,
+		jobsNotifier:            jobsNotifier,
 	}, nil
 }
 
@@ -584,11 +591,7 @@ func (jm *JobManager) DeactivateOldCronRequest(
 	request *types.JobRequest) error {
 	// delete duplicate entry if exists
 	if request.CronTriggered {
-		if old, err := jm.jobRequestRepository.GetByUserKey(qc, request.UserKey); err == nil {
-			return jm.DeleteJobRequest(qc, old.ID)
-		} else if !strings.Contains(err.Error(), "not found") {
-			return err
-		}
+		return jm.jobRequestRepository.DeletePendingCronByJobType(qc, request.JobType)
 	}
 	return nil
 }
@@ -619,11 +622,17 @@ func (jm *JobManager) GetJobRequest(
 	if request.JobExecutionID != "" {
 		request.Execution, err = jm.jobExecutionRepository.Get(request.JobExecutionID)
 		if err != nil {
-			return nil, err
-		}
-		for _, task := range request.Execution.Tasks {
-			for _, art := range task.Artifacts {
-				jm.artifactManager.UpdateURL(context.Background(), art)
+			logrus.WithFields(logrus.Fields{
+				"JobRequestID":   id,
+				"JobType":        request.JobType,
+				"JobExecutionID": request.JobExecutionID,
+				"Error":          err,
+			}).Error("failed to load job-execution for job request")
+		} else {
+			for _, task := range request.Execution.Tasks {
+				for _, art := range task.Artifacts {
+					jm.artifactManager.UpdateURL(context.Background(), art)
+				}
 			}
 		}
 	}
@@ -898,10 +907,21 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 		common.EXECUTING)
 }
 
+// NotifyJobMessage notifies job results
+func (jm *JobManager) NotifyJobMessage(
+	user *common.User,
+	job *types.JobDefinition,
+	request types.IJobRequest,
+) (string, error) {
+	return jm.jobsNotifier.NotifyJob(user, job, request)
+}
+
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
 // Also, it triggers next request for cron based job definitions
 func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	qc *common.QueryContext,
+	user *common.User,
+	job *types.JobDefinition,
 	req types.IJobRequest,
 	jobExec *types.JobExecution,
 	oldState common.RequestState,
@@ -915,11 +935,27 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		jobExec.ErrorCode,
 		jobExec.ExecutionCostSecs(),
 		retried)
-	if err != nil {
+	if req.GetJobState().Failed() {
 		jm.jobStatsRegistry.Failed(jobExec, jobExec.ElapsedMillis())
 	} else {
 		jm.jobStatsRegistry.Succeeded(jobExec, jobExec.ElapsedMillis())
 	}
+
+	// Send notification asynchronously
+	go func() {
+		if _, notifyErr := jm.NotifyJobMessage(
+			user,
+			job,
+			req); notifyErr != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobManager",
+				"User":      user,
+				"Request":   req,
+				"Error":     notifyErr,
+			}).Warnf("failed to send job notification")
+		}
+	}()
+
 	// trigger cron job if needed
 	if err == nil && jobExec.JobState.IsTerminal() && req.GetCronTriggered() {
 		var jobDefinition *types.JobDefinition

@@ -28,13 +28,13 @@ values are passed from job parameters, configuration or job-context/results of p
             {{if false}}
             <th class="col-sm-1">Version</th>
             {{end}}
-            <th class="col-sm-2">Methods</th>
-            <th class="col-sm-2">Tags</th>
+            <th class="col-sm-1">Methods</th>
+            <th class="col-sm-1">Tags</th>
             {{if false}}
-            <th class="col-sm-3">Tasks</th>
+            <th class="col-sm-2">Tasks</th>
             {{end}}
             <th class="col-sm-1">Paused</th>
-            <th class="col-sm-3">Actions</th>
+            <th class="col-sm-5">Actions</th>
         </tr>
         </thead>
         <tbody>
@@ -48,7 +48,7 @@ values are passed from job parameters, configuration or job-context/results of p
             <td class="col-sm-1">{{.Methods}}</td>
             <td class="col-sm-1">{{.Tags}}</td>
             {{if false}}
-            <td class="col-sm-1">{{.TaskNames}}</td>
+            <td class="col-sm-2">{{.TaskNames}}</td>
             {{end}}
             <td class="col-sm-1">{{.Paused}}</td>
             <td class="group row">

@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -41,10 +42,11 @@ type Factory struct {
 // NewFactory creates new repository factory
 // See https://gorm.io/docs/v2_release_note.html -- go get gorm.io/gorm
 func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
+	maskRegex := regexp.MustCompile(`.*@`)
 	log.WithFields(log.Fields{
 		"Component":      "RepositoryFactory",
 		"DbType":         serverCfg.DB.DBType,
-		"DataSourceName": serverCfg.DB.DataSource,
+		"DataSourceName": maskRegex.ReplaceAllString(serverCfg.DB.DataSource, "*****"),
 	}).Infof("Connecting...")
 	var db *gorm.DB
 	opts := &gorm.Config{
