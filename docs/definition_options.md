@@ -501,6 +501,18 @@ job_variables:
 
 The Target variable can also be used for initializing variables in templates.
 
+### Email Notifications
+You can configure job to receive email notifications when a job completes successfully or with failure, e.g.,
+```yaml
+ notify:
+   email:
+     recipients:
+       - myemail@mydomain.cc
+     when: always
+```
+You can specify multiple emails under `recipients` and `when` parameter can take `always`, `onSuccess`, `onFailure` or `never` values.
+You can also configure user settings if you need to configure email notifications for all jobs.
+
 ### Child Jobs
 
 The formicary allows spawning other related jobs or marketplace plugins from a job, which are run concurrently. The job

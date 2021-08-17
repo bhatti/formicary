@@ -32,6 +32,9 @@
 | **Always-run Tasks**  | No        | No        | No        | Yes          | No        | Yes       | No          |
 | **Delay before Retry**| Yes       | No        | No        | Yes          | No        | No        | No          |
 | **JWT Auth**          | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
+| **Email Notifications** | No      | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
+| **Usage Reports**     | No       | No         | No        | Yes          | No        | No        | No         |
+| **Jobs Stats**        | No       | No         | No        | Yes          | No        | No        | No         |
 | **User Mgmt**         | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **Plugins**           | Yes       | Yes       | Yes       | Yes          | Yes       | No        | Yes         |
 | **Multi-tenancy**     | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
@@ -40,6 +43,9 @@
 ### Migrating from Jenkins
 [Jenkins](jenkins.md)
 
+### Migrating from Gitlab
+ [Gitlab](gitlab.md)
+ 
 ### Migrating from CircleCI
  [CircleCI](circleci.md)
  

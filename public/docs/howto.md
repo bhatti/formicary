@@ -204,17 +204,17 @@ parameters:
 - GitBranch
 - GitCommit
 
-### Building Docker images using Docker in Docker (dind)
+### Docker in Docker (dind)
 
-See [Building Docker images](dind.md) for building images.
+See [Building Docker images](dind.md) for building images using docker in docker.
 
-### Scanning GOLang using gosec (https://github.com/securego/gosec)
+### Scanning GO source (https://github.com/securego/gosec)
 
-See [Scanning GOLang using gosec](gosec-scan.md) for scanning GO source code.
+See [Scanning Golang using gosec](gosec-scan.md) for scanning GO source code.
 
-### Scanning containers using Trivy
+### Scanning containers for security
 
-See [Scanning containers using Trivy](trivy-scan.md) for scanning containers.
+See [Scanning containers using Trivy](trivy-scan.md) for scanning containers for security.
 
 ### Advanced Kubernetes
 

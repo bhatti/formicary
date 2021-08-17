@@ -293,6 +293,15 @@ timeout: 5m
   Target: mytarget
 </code></pre>
 <p>The Target variable can also be used for initializing variables in templates.</p>
+<h3 id="email-notifications">Email Notifications</h3>
+<p>You can configure job to receive email notifications when a job completes successfully or with failure, e.g.,</p>
+<pre><code class="lang-yaml"> notify:
+   email:
+     recipients:
+       - myemail@mydomain.cc
+     when: always
+</code></pre>
+<p>You can specify multiple emails under <code>recipients</code> and <code>when</code> parameter can take <code>always</code>, <code>onSuccess</code>, <code>onFailure</code> or <code>never</code> values. You can also configure user settings if you need to configure email notifications for all jobs.</p>
 <h3 id="child-jobs">Child Jobs</h3>
 <p>The formicary allows spawning other related jobs or marketplace plugins from a job, which are run concurrently. The job definition uses <code>FORK_JOB</code> method to spawn the job and <code>AWAIT_FORKED_JOB</code> to wait for completion of the spawned job, e.g.,</p>
 <pre><code class="lang-yaml"> - task_type: fork-task
