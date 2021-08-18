@@ -2,9 +2,10 @@ package repository
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"plexobject.com/formicary/internal/utils"
 
@@ -13,7 +14,7 @@ import (
 
 // Get operation should fail if job-resource doesn't exist
 func Test_ShouldGetJobResourceWithNonExistingId(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	// WHEN finding non-existing job-resource
@@ -26,7 +27,7 @@ func Test_ShouldGetJobResourceWithNonExistingId(t *testing.T) {
 
 // Pausing non-existing job-resource should fail
 func Test_ShouldPauseByTypeJobResourceWithNonExistingType(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	// WHEN pausing non-existing job-resource
@@ -39,7 +40,7 @@ func Test_ShouldPauseByTypeJobResourceWithNonExistingType(t *testing.T) {
 
 // Deleting non-existing job-resource should fail
 func Test_ShouldDeleteByTypeJobResourceWithNonExistingType(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	// WHEN deleting non-existing job-resource
@@ -52,7 +53,7 @@ func Test_ShouldDeleteByTypeJobResourceWithNonExistingType(t *testing.T) {
 
 // Saving job-resource without job-type should fail
 func Test_ShouldSaveJobResourceWithoutJobType(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -67,7 +68,7 @@ func Test_ShouldSaveJobResourceWithoutJobType(t *testing.T) {
 
 // Saving valid job-resource without config should succeed
 func Test_ShouldSaveValidJobResourceWithoutConfig(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -92,7 +93,7 @@ func Test_ShouldSaveValidJobResourceWithoutConfig(t *testing.T) {
 
 // Saving a job with config should succeed
 func Test_ShouldSaveValidJobResourceWithConfig(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -119,7 +120,7 @@ func Test_ShouldSaveValidJobResourceWithConfig(t *testing.T) {
 
 // Updating a job resource should succeed
 func Test_ShouldUpdateValidJobResource(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -156,7 +157,7 @@ func Test_ShouldUpdateValidJobResource(t *testing.T) {
 
 // Pausing a persistent job-resource should succeed
 func Test_ShouldPausingPersistentJobResource(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -178,7 +179,7 @@ func Test_ShouldPausingPersistentJobResource(t *testing.T) {
 
 // Deleting a persistent job-resource should succeed
 func Test_ShouldDeletingPersistentJobResource(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -205,7 +206,7 @@ func Test_ShouldDeletingPersistentJobResource(t *testing.T) {
 
 // Querying job-resources by job-type
 func Test_ShouldQueryJobResourceByJobType(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -242,7 +243,7 @@ func Test_ShouldQueryJobResourceByJobType(t *testing.T) {
 
 // Test Query with different operators
 func Test_ShouldQueryJobResourceWithDifferentOperators(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -309,7 +310,7 @@ func Test_ShouldQueryJobResourceWithDifferentOperators(t *testing.T) {
 }
 
 func Test_ShouldAllocateDeallocateResources(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
@@ -342,7 +343,6 @@ func Test_ShouldAllocateDeallocateResources(t *testing.T) {
 	// THEN it should fail
 	require.Error(t, err)
 
-
 	for i, use := range uses {
 		// WHEN deallocating resource
 		err = repo.Deallocate(use)
@@ -363,11 +363,10 @@ func Test_ShouldAllocateDeallocateResources(t *testing.T) {
 // CI,           , mac,                      , build,catalina,macos,test
 // CI,           , mac,                      , bigsur,build,deploy,macos,test
 func Test_ShouldMatchResources(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	repo.clear()
-
 
 	resources := make([]*types.JobResource, 5)
 	tags := []string{"macos bigsur build test deploy", "macos catalina build test",
@@ -398,7 +397,6 @@ func Test_ShouldMatchResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, total)
 	require.Equal(t, 2, len(matching))
-
 
 	// WHEN matching by CI resource, MAC platform and 'build test deploy' tags
 	matching, total, err = repo.MatchByTags(

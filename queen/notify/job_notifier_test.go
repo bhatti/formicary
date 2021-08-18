@@ -20,7 +20,7 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 	}
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[string]types.Sender{"email": sender})
+	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
 	require.NoError(t, err)
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
@@ -41,7 +41,7 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 	}
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[string]types.Sender{"email": sender})
+	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
 	require.NoError(t, err)
 
 	user, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
@@ -62,7 +62,7 @@ func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 	}
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[string]types.Sender{"email": sender})
+	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
 	require.NoError(t, err)
 
 	_, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
@@ -130,8 +130,8 @@ func newUserJobRequest(name string, state common.RequestState) (user *common.Use
 	user.ID = "uid"
 	user.Name = "Bob"
 	user.Email = "support@formicary.io"
-	user.Notify = map[string]common.JobNotifyConfig{
-		"email": {Recipients: []string{"support@formicary.io"}},
+	user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
+		common.EmailChannel: {Recipients: []string{"support@formicary.io"}},
 	}
 	return
 }

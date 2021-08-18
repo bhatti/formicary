@@ -3,10 +3,11 @@ package registry
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/internal/metrics"
 	"sort"
 	"sync"
 	"time"
+
+	"plexobject.com/formicary/internal/metrics"
 
 	cutils "plexobject.com/formicary/internal/utils"
 

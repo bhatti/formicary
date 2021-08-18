@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// RequestIDAndStatus stores job request-id with state
+type RequestIDAndStatus struct {
+	requestID uint64
+	state     common.RequestState
+}
+
 // JobStatsRegistry keeps latency stats of job
 type JobStatsRegistry struct {
 	// TODO move stats to redis
@@ -16,6 +22,7 @@ type JobStatsRegistry struct {
 	countByUser       map[string]int
 	countByOrg        map[string]int
 	pendingJobsByType map[string]map[uint64]types.IJobRequestSummary
+	lastJobStatus     map[string]*RequestIDAndStatus
 	lock              sync.RWMutex
 }
 
@@ -26,6 +33,7 @@ func NewJobStatsRegistry() *JobStatsRegistry {
 		countByUser:       make(map[string]int),
 		countByOrg:        make(map[string]int),
 		pendingJobsByType: make(map[string]map[uint64]types.IJobRequestSummary),
+		lastJobStatus:     make(map[string]*RequestIDAndStatus),
 	}
 }
 
@@ -46,6 +54,17 @@ func (r *JobStatsRegistry) UserOrgExecuting(req types.IJobRequestSummary) (int, 
 	r.lock.RLock()
 	r.lock.RUnlock()
 	return r.countByUser[req.GetUserID()], r.countByOrg[req.GetOrganizationID()]
+}
+
+// LastJobStatus status of last job
+func (r *JobStatsRegistry) LastJobStatus(req types.IJobRequestSummary) common.RequestState {
+	r.lock.RLock()
+	r.lock.RUnlock()
+	result := r.lastJobStatus[req.GetUserJobTypeKey()]
+	if result == nil {
+		return common.UNKNOWN
+	}
+	return result.state
 }
 
 // Started - adds stats for job
@@ -91,6 +110,7 @@ func (r *JobStatsRegistry) Succeeded(req types.IJobRequestSummary, latency int64
 	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
 		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
 	}
+	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
 }
 
 // Failed when job is failed
@@ -106,6 +126,7 @@ func (r *JobStatsRegistry) Failed(req types.IJobRequestSummary, latency int64) {
 	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
 		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
 	}
+	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
 }
 
 // SetAntsAvailable marks job as available

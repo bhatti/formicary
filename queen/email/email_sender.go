@@ -36,7 +36,7 @@ func New(
 // SendMessage sends email to recipients
 func (d *DefaultEmailSender) SendMessage(to []string, subject string, body string) error {
 	hostPort := fmt.Sprintf("%s:%d", d.cfg.Host, d.cfg.Port)
-	from := d.cfg.FromName + " <" + d.cfg.FromEmail + ">"
+	from := d.cfg.FromName + "<" + d.cfg.FromEmail + ">"
 	logrus.WithFields(logrus.Fields{
 		"Component": "DefaultEmailSender",
 		"Host":      hostPort,
@@ -60,7 +60,8 @@ func (d *DefaultEmailSender) SendMessage(to []string, subject string, body strin
 		msg.WriteString("Content-Transfer-Encoding: 7bit\r\n")
 	}
 	msg.WriteString("From: " + from + "\r\n")
-	msg.WriteString("Subject: " + subject + "\r\n\r\n")
+	msg.WriteString("Subject: " + subject + "\r\n")
+	msg.WriteString("\r\n")
 	msg.WriteString(body + "\r\n")
 
 	return smtp.SendMail(hostPort, d.auth, d.cfg.FromEmail, to, []byte(msg.String()))

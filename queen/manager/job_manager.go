@@ -611,6 +611,12 @@ func (jm *JobManager) QueryJobRequests(
 		order)
 }
 
+// GetJobRequestParams - finds job-request-params by id
+func (jm *JobManager) GetJobRequestParams(
+	id uint64) ([]*types.JobRequestParam, error) {
+	return jm.jobRequestRepository.GetParams(id)
+}
+
 // GetJobRequest - finds job-request by id
 func (jm *JobManager) GetJobRequest(
 	qc *common.QueryContext,
@@ -909,11 +915,12 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 
 // NotifyJobMessage notifies job results
 func (jm *JobManager) NotifyJobMessage(
+	ctx context.Context,
 	user *common.User,
 	job *types.JobDefinition,
 	request types.IJobRequest,
 ) (string, error) {
-	return jm.jobsNotifier.NotifyJob(user, job, request)
+	return jm.jobsNotifier.NotifyJob(ctx, user, job, request)
 }
 
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
@@ -927,6 +934,7 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	oldState common.RequestState,
 	retried int,
 ) (err error) {
+	lastState := jm.jobStatsRegistry.LastJobStatus(req)
 	err = jm.jobExecutionRepository.FinalizeJobRequestAndExecutionState(
 		jobExec.ID,
 		oldState,
@@ -942,8 +950,11 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	}
 
 	// Send notification asynchronously
+	// TODO add background process for message notifications with database persistence
 	go func() {
+		ctx := context.WithValue(context.Background(), common.LasRequestStateKey, lastState)
 		if _, notifyErr := jm.NotifyJobMessage(
+			ctx,
 			user,
 			job,
 			req); notifyErr != nil {

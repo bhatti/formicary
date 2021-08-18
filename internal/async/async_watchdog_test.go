@@ -35,7 +35,7 @@ func Test_ShouldAsyncWatchdogWithTimeout(t *testing.T) {
 func Test_ShouldAsyncWatchdogWithMainFailure(t *testing.T) {
 	// GIVEN a handler that fails with error
 	poll := 1 * time.Millisecond
-	timeout := 10 * time.Millisecond
+	timeout := 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	handler := func(ctx context.Context, payload interface{}) (interface{}, error) {
@@ -79,7 +79,7 @@ func Test_ShouldAsyncWatchdogWithWatchdogFailure(t *testing.T) {
 func Test_ShouldAsyncWatchdog(t *testing.T) {
 	// GIVEN a handler that takes a short time
 	poll := 1 * time.Millisecond
-	timeout := 15 * time.Millisecond
+	timeout := 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	handler := func(ctx context.Context, payload interface{}) (interface{}, error) {

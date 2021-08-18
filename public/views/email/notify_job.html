@@ -5,20 +5,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="description" content="">
         <meta name="author" content="">
-        {{if .Job.Completed }}
-        <title>Job {{.Job.JobType}} - {{.Job.ID}} Succeeded</title>
-        {{else}}
-        <title>Job {{.Job.JobType}} - {{.Job.ID}} Failed</title>
-        {{end}}
+        <title>{{.Title}}</title>
         <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
     <body>
         <div class="container-fluid">
             {{if .Job.Completed }}
-            <h1 class="table-success">Job {{ .Job.JobType }} - {{.Job.ID }} Succeeded </h1>
+            <h1 class="table-success">{{.Title}}</h1>
             {{else}}
-            <h1 class="table-danger">Job {{ .Job.JobType }} - {{.Job.ID }} Failed</h1>
+            <h1 class="table-danger">{{.Title}}</h1>
             {{end}}
             <div class="table-responsive">
                 <table class="table table-striped table-sm">

@@ -2,16 +2,17 @@ package repository
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
-	"testing"
-	"time"
 )
 
 // Get operation should fail if user doesn't exist
 func Test_ShouldGetUserWithNonExistingId(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -25,7 +26,7 @@ func Test_ShouldGetUserWithNonExistingId(t *testing.T) {
 
 // Deleting non-existing user should fail
 func Test_ShouldDeleteUserByNonExistingId(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -39,7 +40,7 @@ func Test_ShouldDeleteUserByNonExistingId(t *testing.T) {
 
 // Saving user without org-id should succeed
 func Test_ShouldSaveUserWithoutOrg(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -56,7 +57,7 @@ func Test_ShouldSaveUserWithoutOrg(t *testing.T) {
 
 // Saving user without username should fail
 func Test_ShouldNotSaveUserWithoutUsername(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -74,7 +75,7 @@ func Test_ShouldNotSaveUserWithoutUsername(t *testing.T) {
 
 // Saving user without name should fail
 func Test_ShouldNotSaveUserWithoutName(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -92,7 +93,7 @@ func Test_ShouldNotSaveUserWithoutName(t *testing.T) {
 
 // Saving valid user with subscription
 func Test_ShouldSaveValidUserWithSubscription(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	userRepository, err := NewTestUserRepository()
 	require.NoError(t, err)
 	subscriptionRepository, err := NewTestSubscriptionRepository()
@@ -120,7 +121,7 @@ func Test_ShouldSaveValidUserWithSubscription(t *testing.T) {
 
 // Saving valid user
 func Test_ShouldSaveValidUser(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -186,7 +187,7 @@ func Test_ShouldDeletingPersistentUser(t *testing.T) {
 
 // Test SaveFile and query
 func Test_ShouldSaveAndQueryUsers(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 
@@ -232,10 +233,9 @@ func Test_ShouldSaveAndQueryUsers(t *testing.T) {
 
 // Saving session
 func Test_ShouldAddSession(t *testing.T) {
-	// GIVEN an user repository
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
-
 
 	// AND an existing user
 	u := common.NewUser("test-org", "username", "name", false)
@@ -266,9 +266,8 @@ func Test_ShouldAddSession(t *testing.T) {
 }
 
 // Saving an API token
-func
-Test_ShouldAddToken(t *testing.T) {
-	// GIVEN an user repository
+func Test_ShouldAddToken(t *testing.T) {
+	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
 

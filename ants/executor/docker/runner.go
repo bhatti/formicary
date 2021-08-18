@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	cutils "plexobject.com/formicary/internal/utils"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/api/types"
@@ -78,6 +80,7 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Host":      dcr.Host,
 			"IP":        dcr.ContainerIP,
 			"Elapsed":   dcr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing command")
 		_ = dcr.BaseExecutor.WriteTraceSuccess(
 			fmt.Sprintf("✅ %s Duration=%v",
@@ -99,6 +102,7 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Message":   dcr.ExitCode,
 			"Error":     err,
 			"Elapsed":   dcr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
 		_ = dcr.BaseExecutor.WriteTraceError(
 			fmt.Sprintf("❌ %s failed to execute Message=%s ExitCode=%d Host=%s Error=%v Duration=%v",

@@ -68,7 +68,7 @@ type User struct {
 	InvitationCode string `json:"-" gorm:"-"`
 	// AgreeTerms defines code for invitation
 	AgreeTerms  bool                       `json:"-" gorm:"-"`
-	Notify      map[string]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
+	Notify      map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 	NotifyEmail string                     `json:"-" gorm:"-"`
 	NotifyWhen  NotifyWhen                 `json:"-" gorm:"-"`
 
@@ -89,7 +89,7 @@ func NewUser(
 		Admin:          admin,
 		Active:         true,
 		Perms:          acl.DefaultPermissionsString(),
-		Notify:         make(map[string]JobNotifyConfig),
+		Notify:         make(map[NotifyChannel]JobNotifyConfig),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -127,20 +127,20 @@ func (u *User) Equals(other *User) error {
 // AfterLoad initializes user
 func (u *User) AfterLoad() error {
 	if u.NotifySerialized != "" {
-		u.Notify = make(map[string]JobNotifyConfig)
+		u.Notify = make(map[NotifyChannel]JobNotifyConfig)
 		if err := json.Unmarshal([]byte(u.NotifySerialized), &u.Notify); err != nil {
 			return err
 		}
 	} else {
-		if cfg, err := JobNotifyConfigWithEmail(u.Email, NotifyWhenNever); err == nil {
-			u.Notify = map[string]JobNotifyConfig{"email": cfg}
+		if cfg, err := JobNotifyConfigWithEmail(u.Email, NotifyWhenOnFailure); err == nil {
+			u.Notify = map[NotifyChannel]JobNotifyConfig{EmailChannel: cfg}
 		}
 	}
 	if len(u.Notify) == 0 {
 		u.NotifyEmail = u.Email
-		u.NotifyWhen = NotifyWhenNever
+		u.NotifyWhen = NotifyWhenOnFailure
 	} else {
-		cfg := u.Notify["email"]
+		cfg := u.Notify[EmailChannel]
 		u.NotifyEmail = strings.Join(cfg.Recipients, ",")
 		u.NotifyWhen = cfg.When
 	}
@@ -178,7 +178,7 @@ func (u *User) Validate() (err error) {
 		u.MaxConcurrency = 1
 	}
 	for source, notify := range u.Notify {
-		if source == "email" {
+		if source == EmailChannel {
 			if err = notify.ValidateEmail(); err != nil {
 				u.Errors["Notify"] = err.Error()
 				return err

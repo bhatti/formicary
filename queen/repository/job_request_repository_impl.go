@@ -25,6 +25,23 @@ func NewJobRequestRepositoryImpl(db *gorm.DB, dbType string) (*JobRequestReposit
 	return &JobRequestRepositoryImpl{db: db, dbType: dbType}, nil
 }
 
+// GetParams by id
+func (jrr *JobRequestRepositoryImpl) GetParams(
+	id uint64) (params []*types.JobRequestParam, err error) {
+	if id == 0 {
+		return nil, common.NewValidationError(
+			fmt.Errorf("id is not specified for job-request"))
+	}
+	params = make([]*types.JobRequestParam, 0)
+	tx := jrr.db.Where("job_request_id = ?", id).Limit(1000).Order("name")
+	res := tx.Find(&params)
+	if res.Error != nil {
+		err = res.Error
+		return nil, err
+	}
+	return
+}
+
 // Get method finds JobRequest by id
 func (jrr *JobRequestRepositoryImpl) Get(
 	qc *common.QueryContext,

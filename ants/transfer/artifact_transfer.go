@@ -366,15 +366,17 @@ func UploadConsoleLog(
 	} else {
 		artifact.Kind = types.ArtifactKindLogs
 		taskResp.AddArtifact(artifact)
-		logrus.WithFields(
-			logrus.Fields{
-				"Component": "UploadConsoleLog",
-				"Request":   taskReq.Key(),
-				"Response":  taskResp.Status,
-				"UserID":    taskReq.UserID,
-				"Container": container,
-				"LogSize":   artifact.ContentLength,
-			}).Info("uploaded console")
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(
+				logrus.Fields{
+					"Component": "UploadConsoleLog",
+					"Request":   taskReq.Key(),
+					"Response":  taskResp.Status,
+					"UserID":    taskReq.UserID,
+					"Container": container,
+					"LogSize":   artifact.ContentLength,
+				}).Debugf("uploaded console")
+		}
 	}
 	container.GetTrace().Close()
 	return nil

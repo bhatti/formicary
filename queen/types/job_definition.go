@@ -128,10 +128,10 @@ type JobDefinition struct {
 	// Active is used to soft delete job definition
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
-	CanEdit            bool                              `yaml:"-" json:"-" gorm:"-"`
-	NameValueVariables interface{}                       `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
-	Notify             map[string]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
-	Resources          BasicResource                     `yaml:"resources,omitempty" json:"resources" gorm:"-"`
+	CanEdit            bool                                            `yaml:"-" json:"-" gorm:"-"`
+	NameValueVariables interface{}                                     `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
+	Notify             map[common.NotifyChannel]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
+	Resources          BasicResource                                   `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	filter             string
 	lookupTasks        *cutils.SafeMap
 	lock               sync.RWMutex
@@ -144,7 +144,7 @@ func NewJobDefinition(jobType string) *JobDefinition {
 		MaxConcurrency:     3,
 		Configs:            make([]*JobDefinitionConfig, 0),
 		Variables:          make([]*JobDefinitionVariable, 0),
-		Notify:             make(map[string]common.JobNotifyConfig),
+		Notify:             make(map[common.NotifyChannel]common.JobNotifyConfig),
 		Tasks:              make([]*TaskDefinition, 0),
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
@@ -596,6 +596,16 @@ func (jd *JobDefinition) GetConfig(name string) *JobDefinitionConfig {
 	return nil
 }
 
+// GetConfigString gets config as string
+func (jd *JobDefinition) GetConfigString(name string) string {
+	for _, next := range jd.Configs {
+		if next.Name == name {
+			return next.Value
+		}
+	}
+	return ""
+}
+
 // GetConfigByID gets config
 func (jd *JobDefinition) GetConfigByID(configID string) *JobDefinitionConfig {
 	for _, next := range jd.Configs {
@@ -703,7 +713,7 @@ func (jd *JobDefinition) AfterLoad(key []byte) (err error) {
 		}
 	}
 	if jd.NotifySerialized != "" {
-		jd.Notify = make(map[string]common.JobNotifyConfig)
+		jd.Notify = make(map[common.NotifyChannel]common.JobNotifyConfig)
 		if err = json.Unmarshal([]byte(jd.NotifySerialized), &jd.Notify); err != nil {
 			return err
 		}
@@ -803,7 +813,7 @@ func (jd *JobDefinition) Validate() (err error) {
 		return err
 	}
 	for source, notify := range jd.Notify {
-		if source == "email" {
+		if source == common.EmailChannel {
 			if err = notify.ValidateEmail(); err != nil {
 				return err
 			}

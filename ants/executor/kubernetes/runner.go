@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	cutils "plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -93,6 +94,7 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Host":      kcr.Host,
 			"IP":        kcr.ContainerIP,
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing command")
 	} else {
 		tks := strings.Split(err.Error(), " ")
@@ -109,6 +111,7 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Message":   kcr.ExitCode,
 			"Error":     err,
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
 		_ = kcr.BaseExecutor.WriteTraceError(
 			fmt.Sprintf("❌ %s failed to execute Host=%s Exitcode=%d Error=%s Duration=%v",

@@ -75,6 +75,7 @@ func (uc *UserController) queryUsers(c web.WebContext) error {
 // Updates user notification.
 // responses:
 //   200: userResponse
+// TODO add email verification if email is different than user email
 func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -92,8 +93,8 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 		if err != nil {
 			return err
 		}
-		user.Notify = map[string]common.JobNotifyConfig{
-			"email": notifyCfg,
+		user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
+			common.EmailChannel: notifyCfg,
 		}
 		err = user.Validate()
 		if err != nil {

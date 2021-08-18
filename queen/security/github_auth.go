@@ -82,12 +82,19 @@ func (g *GithubAuth) AuthWebhookCallbackHandle(c web.WebContext) (err error) {
 	if err != nil {
 		return err
 	}
-	jobConfig := jobDef.GetConfig("GithubWebhookSecret")
-	if jobConfig == nil || jobConfig.Value == "" {
+	webhookSecret := jobDef.GetConfigString("GithubWebhookSecret")
+	if webhookSecret == "" {
+		org := web.GetDBOrgFromSession(c)
+		if org != nil {
+			webhookSecret = org.GetConfigString("GithubWebhookSecret")
+
+		}
+	}
+	if webhookSecret == "" {
 		return fmt.Errorf("`GithubWebhookSecret` config is not set for job `%s`", jobType)
 	}
 
-	event, sha256Hash, err := buildWebhookEvent(c, jobConfig)
+	event, sha256Hash, err := buildWebhookEvent(c, webhookSecret)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":  "GithubAuth",
@@ -228,7 +235,7 @@ func getUserInfoFromGithub(
 
 func buildWebhookEvent(
 	c web.WebContext,
-	jobConfig *types.JobDefinitionConfig) (event github.WebhookEvent, hash256 string, err error) {
+	webhookSecret string) (event github.WebhookEvent, hash256 string, err error) {
 	body, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
 		return event, "", err
@@ -280,7 +287,7 @@ func buildWebhookEvent(
 		return event, "", fmt.Errorf("failed to parse sha256 for %s", sha256Header)
 	}
 	hash256 = sha256HashTokens[1]
-	if err = verifySignature(jobConfig.Value, hash256, body); err != nil {
+	if err = verifySignature(webhookSecret, hash256, body); err != nil {
 		return event, "", err
 	}
 	return

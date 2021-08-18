@@ -132,9 +132,9 @@ func Test_ShouldUpdateUserEmail(t *testing.T) {
 	require.NoError(t, err)
 	saved = ctx.Result.(*common.User)
 	require.NotNil(t, saved)
-	require.Equal(t, 2, len(saved.Notify["email"].Recipients))
-	require.Equal(t, "email1@mail.com", saved.Notify["email"].Recipients[0])
-	require.Equal(t, "email2@mail.com", saved.Notify["email"].Recipients[1])
+	require.Equal(t, 2, len(saved.Notify[common.EmailChannel].Recipients))
+	require.Equal(t, "email1@mail.com", saved.Notify[common.EmailChannel].Recipients[0])
+	require.Equal(t, "email2@mail.com", saved.Notify[common.EmailChannel].Recipients[1])
 }
 
 func Test_ShouldSaveUser(t *testing.T) {

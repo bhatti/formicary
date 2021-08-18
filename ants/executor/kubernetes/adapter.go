@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"plexobject.com/formicary/internal/utils"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	yaml "gopkg.in/yaml.v3"
+	"plexobject.com/formicary/internal/utils"
+
 	"plexobject.com/formicary/internal/utils/trace"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -566,6 +567,7 @@ func (u *Utils) BuildPod(
 			"Annotations": annotations,
 			"Error":       err,
 			"Namespace":   u.config.Kubernetes.Namespace,
+			"Memory":      utils.MemUsageMiBString(),
 		}).Warnf("failed to create pod!")
 	} else {
 		logrus.WithFields(logrus.Fields{
@@ -578,6 +580,7 @@ func (u *Utils) BuildPod(
 			"CWD":           opts.WorkingDirectory,
 			"Annotations":   annotations,
 			"Namespace":     u.config.Kubernetes.Namespace,
+			"Memory":        utils.MemUsageMiBString(),
 		}).Info("created pod!")
 	}
 	return pod, serviceNames, aliasNames, totalCost, err

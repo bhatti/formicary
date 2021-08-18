@@ -139,6 +139,10 @@ func (re *RequestExecutorImpl) Execute(
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// Executing post-script regardless the task fails or succeeds
+	if taskReq.ExecutorOpts.Debug {
+		// TODO check /run/secrets/kubernetes.io/serviceaccount
+		taskReq.AfterScript = append(taskReq.AfterScript, "echo system memory in bytes && cat /sys/fs/cgroup/memory/memory.usage_in_bytes && echo cpu usage in nanoseconds && cat /sys/fs/cgroup/cpu/cpuacct.usage && df -k")
+	}
 	if err := re.execute(
 		ctx,
 		container,

@@ -145,10 +145,12 @@ func (js *JobSupervisor) tryExecuteJob(
 		}
 	}
 
-	logrus.WithFields(js.jobStateMachine.LogFields(
-		"JobSupervisor",
-	)).Warnf("failed to execute job '%s' with error-code '%s' and error '%s'",
-		js.jobStateMachine.JobDefinition.JobType, errorCode, err)
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(js.jobStateMachine.LogFields(
+			"JobSupervisor",
+		)).Debugf("job '%s' failed with error-code '%s' and error '%s'",
+			js.jobStateMachine.JobDefinition.JobType, errorCode, err)
+	}
 
 	// job failed
 	return js.jobStateMachine.ExecutionFailed(
@@ -185,7 +187,7 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"RequestState":               js.jobStateMachine.Request.GetJobState(),
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error": err}).Warnf("failed to cancel job from lifecycle job event")
+				"Error":                      err}).Warnf("failed to cancel job from lifecycle job event")
 			return err
 		}
 

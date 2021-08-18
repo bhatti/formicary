@@ -14,7 +14,7 @@ import (
 
 // Fetching a non-existing job should fail
 func Test_ShouldGetJobRequestNonExistingId(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 
@@ -85,7 +85,7 @@ func Test_ShouldJobRequestWithoutScheduleDate(t *testing.T) {
 
 // Saving a job-request should succeed
 func Test_ShouldSaveValidJobRequest(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -117,6 +117,7 @@ func Test_ShouldSaveValidJobRequest(t *testing.T) {
 	req.ClearParams()
 	_, _ = req.AddParam("jk1", "jv1")
 	_, _ = req.AddParam("jk3", 3)
+	_, _ = req.AddParam("jk4", true)
 	req.JobState = common.READY
 	saved, err = repo.Save(req)
 	// THEN it should not fail
@@ -127,11 +128,15 @@ func Test_ShouldSaveValidJobRequest(t *testing.T) {
 	// THEN it should not fail
 	require.NoError(t, err)
 	require.NoError(t, loaded.Equals(req))
+
+	params, err := repo.GetParams(req.ID)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(params))
 }
 
 // Updating state of job-request should succeed
 func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	// AND a job-definition
@@ -171,14 +176,14 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 
 // SetReadyToExecute should update state of job to READY
 func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	// AND a job-definition
 	job, err := saveTestJobDefinition("test-job-for-state-update", "")
 	require.NoError(t, err)
 
-	// WHEN marking non existing request as executing
+	// WHEN marking nonexisting request as executing
 	err = repo.SetReadyToExecute(7891, "123234", "")
 	// THEN it should fail
 	require.Error(t, err)
@@ -220,7 +225,7 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 
 // Updating priority of job-request should succeed
 func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	// AND a job-definition
@@ -255,7 +260,7 @@ func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 
 // Querying job-requests should succeed
 func Test_ShouldQueryJobRequest(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -301,7 +306,7 @@ func Test_ShouldQueryJobRequest(t *testing.T) {
 
 // Updating job request and querying with multiple operators should succeed
 func Test_ShouldUpdateAndQueryWithMultipleOperators(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -393,7 +398,7 @@ func Test_ShouldUpdateAndQueryWithMultipleOperators(t *testing.T) {
 
 // Test query for triggered jobs that are active
 func Test_ShouldFindJobTimes(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -436,7 +441,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 
 // Test query for triggered jobs that are active
 func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -459,8 +464,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 			for k := 0; k < 2; k++ { // 10 * 2 * 6
 				req, err := types.NewJobRequestFromDefinition(job)
 				require.NoError(t, err)
-				req.AddParam("p1", "v1")
-				req.AddParam("p2", "v2")
+				_, _ = req.AddParam("p1", "v1")
+				_, _ = req.AddParam("p2", "v2")
 				req.UserID = "test-user"
 				req.OrganizationID = "test-org"
 				_, err = repo.Save(req)
@@ -499,7 +504,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 // Test request infos for jobs that can be scheduled
 func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	now := time.Now()
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -589,7 +594,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 
 // Test Query dead ids
 func Test_ShouldQueryDeadIDs(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -640,7 +645,7 @@ func Test_ShouldQueryDeadIDs(t *testing.T) {
 
 // Test Query by aggregate states
 func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -723,7 +728,7 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 // Test Query Orphan jobs
 func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 	now := time.Now().Unix()
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -797,7 +802,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 // Test fix orphan jobs
 func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 	now := time.Now().Unix()
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -830,7 +835,7 @@ func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(70), total)
 
-	// marking updated-at of job-requests to epoch time so that those can be requeued
+	// marking updated-at of job-requests to epoch time so that those can be re-queued
 	res := repo.db.Exec("update formicary_job_requests set updated_at = '2020-12-16 00:00:00.000'")
 	require.Equal(t, int64(70), res.RowsAffected)
 	total, err = repo.RequeueOrphanRequests(30)
@@ -841,7 +846,7 @@ func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 
 // Getting job count by days should return counts of rows by job-types and error-codes
 func Test_ShouldGetJobCountsByDaysWithDifferentJobTypesStatusesAndErrorCodes(t *testing.T) {
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -894,7 +899,7 @@ func Test_ShouldGetJobCountsByDaysWithDifferentJobTypesStatusesAndErrorCodes(t *
 func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testing.T) {
 	start := time.Now()
 	end := start.AddDate(0, 0, 1)
-	// GIVEN an job-resource repository
+	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()

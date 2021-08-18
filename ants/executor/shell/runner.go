@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	cutils "plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
 	"syscall"
@@ -93,6 +94,7 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Host":      scr.Host,
 			"IP":        scr.ContainerIP,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing command")
 		_ = scr.BaseExecutor.WriteTraceSuccess(fmt.Sprintf(
 			"✅ %s on Host=%s Duration=%v",
@@ -111,6 +113,7 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Message":   scr.ExitCode,
 			"Error":     err,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
 		_ = scr.BaseExecutor.WriteTraceError(fmt.Sprintf(
 			"❌ %s failed to execute on Host=%s Message=%d Error=%s Duration=%v",

@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+// NotifyChannel for notification
+type NotifyChannel string
+
+const (
+	// EmailChannel send via email
+	EmailChannel NotifyChannel = "email"
+)
+
 // NotifyWhen type alias for when notify should be used
 type NotifyWhen string
 
@@ -21,13 +29,14 @@ const (
 	NotifyWhenNever NotifyWhen = "never"
 )
 
-func (w NotifyWhen) Accept(state RequestState) bool {
+func (w NotifyWhen) Accept(state RequestState, lastState RequestState) bool {
 	if w == "" {
 		return true
 	}
 	return w == NotifyWhenAlways ||
 		(state.Completed() && w == NotifyWhenOnSuccess) ||
-		(state.Failed() && w == NotifyWhenOnFailure)
+		(state.Failed() && w == NotifyWhenOnFailure) ||
+		(state.Completed() && w == NotifyWhenOnFailure && lastState.Failed()) // completed after failure
 }
 
 type JobNotifyConfig struct {

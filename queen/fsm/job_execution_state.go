@@ -53,6 +53,7 @@ type JobExecutionStateMachine struct {
 	ResourceManager     resource.Manager
 	MetricsRegistry     *metrics.Registry
 	Request             types.IJobRequest
+	RequestParams       []*types.JobRequestParam
 	JobDefinition       *types.JobDefinition
 	JobExecution        *types.JobExecution
 	LastJobExecution    *types.JobExecution
@@ -91,6 +92,7 @@ func NewJobExecutionStateMachine(
 		ResourceManager:     resourceManager,
 		MetricsRegistry:     metricsRegistry,
 		Request:             request,
+		RequestParams:       make([]*types.JobRequestParam, 0),
 		Reservations:        reservations,
 	}
 }
@@ -118,6 +120,16 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 	if jsm.Reservations == nil {
 		return fmt.Errorf("job-allocations is not specified")
+	}
+
+	switch jsm.Request.(type) {
+	case *types.JobRequest:
+		jsm.RequestParams = jsm.Request.(*types.JobRequest).Params
+	case *types.JobRequestInfo:
+		jsm.RequestParams, err = jsm.JobManager.GetJobRequestParams(jsm.Request.GetID())
+		if err != nil {
+			return err
+		}
 	}
 
 	// loading user and organization from request
@@ -646,6 +658,7 @@ func (jsm *JobExecutionStateMachine) failed(
 	if errorCode == "" {
 		errorCode = common.ErrorJobExecute
 	}
+	jsm.Request.SetJobState(common.FAILED)
 	newState := common.FAILED
 	if cancelled {
 		newState = common.CANCELLED
@@ -704,10 +717,7 @@ func (jsm *JobExecutionStateMachine) failed(
 		fields["saveExecErr"] = saveExecErr
 	}
 	//debug.PrintStack()
-	if jsm.JobDefinition != nil {
-		logrus.WithFields(fields).Errorf("failed to execute job for '%s'",
-			jsm.JobDefinition.JobType)
-	}
+	logrus.WithFields(fields).Warnf("failed to execute job")
 	return saveExecErr
 }
 
@@ -749,22 +759,6 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]interface{
 
 // buildDynamicParams builds job params
 func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]interface{}) map[string]interface{} {
-	// Load full job request if needed to access request params
-	switch jsm.Request.(type) {
-	case *types.JobRequest:
-		// ok
-	case *types.JobRequestInfo:
-		// load
-		if req, err := jsm.JobManager.GetJobRequest(
-			jsm.QueryContext(),
-			jsm.Request.GetID()); err == nil {
-			jsm.Request = req
-		} else {
-			logrus.WithFields(jsm.LogFields("JobSupervisor", err)).
-				Warnf("failed to load job request")
-		}
-	}
-
 	res := jsm.buildDynamicConfigs()
 	if n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64)); err == nil {
 		res["Nonce"] = n
@@ -777,10 +771,17 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 	for k, v := range taskDefParams {
 		res[k] = v
 	}
-	switch req := jsm.Request.(type) {
-	case *types.JobRequest:
-		for k, v := range req.NameValueParams {
-			res[k] = v
+	for _, param := range jsm.RequestParams {
+		if v, err := param.GetParsedValue(); err == nil {
+			res[param.Name] = v
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobExecutionStateMachine",
+				"Name":      param.Name,
+				"Value":     param.Value,
+				"Request":   jsm.Request.GetID(),
+				"Error":     err,
+			}).Warnf("failed to parse request param")
 		}
 	}
 	if jsm.JobExecution != nil {

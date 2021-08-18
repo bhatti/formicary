@@ -85,10 +85,10 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 
 	var notifier notify.JobNotifier
 	if sender, err := email.New(&serverCfg.Email); err == nil {
-		notifier, err = notify.New(serverCfg, map[string]types.Sender{"email": sender})
+		notifier, err = notify.New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
 	}
 	if notifier == nil {
-		if notifier, err = notify.New(serverCfg, make(map[string]types.Sender)); err != nil {
+		if notifier, err = notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender)); err != nil {
 			return err
 		}
 		logrus.WithFields(logrus.Fields{

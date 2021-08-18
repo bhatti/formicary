@@ -4,6 +4,7 @@ import (
 	"fmt"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"runtime"
 	"strings"
 )
 
@@ -87,4 +88,30 @@ func CreateResourceList(
 	}
 
 	return l, nil
+}
+
+func MemUsageMiBString() map[string]string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	result := make(map[string]string)
+	result["allocated"] = fmt.Sprintf("%v MiB", bToMb(m.Alloc))
+	result["totalAllocated"] = fmt.Sprintf("%v MiB", bToMb(m.TotalAlloc))
+	result["system"] = fmt.Sprintf("%v MiB", bToMb(m.Sys))
+	result["numGC"] = fmt.Sprintf("%v", m.NumGC)
+	return result
+}
+
+func MemUsageMiB() map[string]uint64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	result := make(map[string]uint64)
+	result["allocated"] = bToMb(m.Alloc)
+	result["totalAllocated"] = bToMb(m.TotalAlloc)
+	result["system"] = bToMb(m.Sys)
+	result["numGC"] = uint64(m.NumGC)
+	return result
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

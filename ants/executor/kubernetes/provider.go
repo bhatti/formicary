@@ -3,10 +3,11 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	api "k8s.io/api/core/v1"
 	"plexobject.com/formicary/internal/utils/trace"
-	"sync"
 
 	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"

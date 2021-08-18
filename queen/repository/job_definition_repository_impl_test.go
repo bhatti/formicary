@@ -2,10 +2,11 @@ package repository
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	common "plexobject.com/formicary/internal/types"
 
@@ -14,7 +15,7 @@ import (
 
 // Get operation should fail if job-definition doesn't exist
 func Test_ShouldGetJobDefinitionWithNonExistingId(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -28,7 +29,7 @@ func Test_ShouldGetJobDefinitionWithNonExistingId(t *testing.T) {
 
 // GetByType operation should fail if given job-type doesn't exist
 func Test_ShouldGetByTypeJobDefinitionWithNonExistingType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -42,7 +43,7 @@ func Test_ShouldGetByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 
 // test setting max concurrency for non-existing job
 func Test_ShouldSetConcurrencyForJobDefinitionWithNonExistingType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	// WHEN setting concurrency for non-existing job-definition
@@ -53,7 +54,7 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithNonExistingType(t *testing.T) 
 
 // test setting max concurrency for existing job
 func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -63,7 +64,7 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN setting concurrency
-	concurrency := rand.Intn(20)+1
+	concurrency := rand.Intn(20) + 1
 	err = repo.SetMaxConcurrency(saved.ID, concurrency)
 
 	// THEN it should not fail
@@ -79,7 +80,7 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 
 // Deleting non-existing job-definition should fail
 func Test_ShouldDeleteByTypeJobDefinitionWithNonExistingType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -93,7 +94,7 @@ func Test_ShouldDeleteByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 
 // Pausing non-existing job-definition should fail
 func Test_ShouldPauseByTypeJobDefinitionWithNonExistingType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -107,7 +108,7 @@ func Test_ShouldPauseByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 
 // Saving job-definition without job-type should fail
 func Test_ShouldSaveJobDefinitionWithoutJobType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -123,7 +124,7 @@ func Test_ShouldSaveJobDefinitionWithoutJobType(t *testing.T) {
 
 // Saving valid job-definition without config should succeed
 func Test_ShouldSaveValidJobDefinitionWithoutConfig(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -148,14 +149,14 @@ func Test_ShouldSaveValidJobDefinitionWithoutConfig(t *testing.T) {
 
 // Saving a job plugin and query
 func Test_ShouldSaveValidPlugin(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
 	// WHEN creating a plugin job and regular jobs
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		job := newTestJobDefinition(fmt.Sprintf("test-plugin-%d", i))
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			job.PublicPlugin = true
 			job.SemVersion = "1.0"
 		} else {
@@ -185,7 +186,7 @@ func Test_ShouldSaveValidPlugin(t *testing.T) {
 
 // Saving a job with sem-version
 func Test_ShouldSaveValidJobDefinitionWithSemVersion(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -248,7 +249,7 @@ func Test_ShouldSaveValidJobDefinitionWithSemVersion(t *testing.T) {
 
 // Saving a job with config should succeed
 func Test_ShouldSaveValidJobDefinitionWithConfig(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -278,7 +279,7 @@ func Test_ShouldSaveValidJobDefinitionWithConfig(t *testing.T) {
 
 // Updating a job definition should succeed
 func Test_ShouldUpdateValidJobDefinition(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -322,7 +323,7 @@ func Test_ShouldUpdateValidJobDefinition(t *testing.T) {
 
 // Pausing a persistent job-definition should succeed
 func Test_ShouldPausingPersistentJobDefinition(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -344,7 +345,7 @@ func Test_ShouldPausingPersistentJobDefinition(t *testing.T) {
 
 // Persisting persistent job-definition with encrypted config separately
 func Test_ShouldSaveJobDefinitionWithSecretConfigSeparately(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	//repo.Clear()
@@ -390,7 +391,7 @@ func Test_ShouldSaveJobDefinitionWithSecretConfigSeparately(t *testing.T) {
 
 // Persisting persistent job-definition with encrypted config
 func Test_ShouldSaveJobDefinitionWithSecretConfig(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	//repo.Clear()
@@ -428,7 +429,7 @@ func Test_ShouldSaveJobDefinitionWithSecretConfig(t *testing.T) {
 
 // Deleting a persistent job-definition should succeed
 func Test_ShouldDeletePersistentJobDefinition(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -456,7 +457,7 @@ func Test_ShouldDeletePersistentJobDefinition(t *testing.T) {
 
 // Querying job-definitions by job-type
 func Test_ShouldJobDefinitionQueryByJobType(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -489,7 +490,7 @@ func Test_ShouldJobDefinitionQueryByJobType(t *testing.T) {
 
 // Test delete config with different versions
 func Test_ShouldDeleteJobDefinitionConfigWithMultipleVersions(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -538,7 +539,7 @@ func Test_ShouldDeleteJobDefinitionConfigWithMultipleVersions(t *testing.T) {
 
 // Test saving config with different versions
 func Test_ShouldSaveJobDefinitionConfigWithMultipleVersions(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -587,7 +588,7 @@ func Test_ShouldSaveJobDefinitionConfigWithMultipleVersions(t *testing.T) {
 
 // Test Update same job-definition with different versions
 func Test_ShouldSaveJobDefinitionWithMultipleVersions(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -645,7 +646,7 @@ func Test_ShouldSaveJobDefinitionWithMultipleVersions(t *testing.T) {
 
 // Test Querying job-types and cron triggers
 func Test_ShouldGetJobTypesAndCronTriggerForJobDefinition(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
@@ -674,7 +675,7 @@ func Test_ShouldGetJobTypesAndCronTriggerForJobDefinition(t *testing.T) {
 }
 
 func Test_ShouldSaveJobDefinitionFromYaml(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
@@ -715,7 +716,7 @@ func Test_ShouldSaveJobDefinitionFromYaml(t *testing.T) {
 
 // Test Query with different operators
 func Test_ShouldJobDefinitionQueryWithDifferentOperators(t *testing.T) {
-	// GIVEN an job-definition repository
+	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()

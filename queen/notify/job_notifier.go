@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -12,20 +13,24 @@ import (
 
 // JobNotifier defines operations to notify job results
 type JobNotifier interface {
-	NotifyJob(user *common.User, job *types.JobDefinition, request types.IJobRequest) (string, error)
+	NotifyJob(
+		ctx context.Context,
+		user *common.User,
+		job *types.JobDefinition,
+		request types.IJobRequest) (string, error)
 }
 
 // DefaultJobNotifier defines operations to send email
 type DefaultJobNotifier struct {
 	cfg      *config.ServerConfig
-	senders  map[string]types.Sender
+	senders  map[common.NotifyChannel]types.Sender
 	template string
 }
 
 // New constructor
 func New(
 	cfg *config.ServerConfig,
-	senders map[string]types.Sender,
+	senders map[common.NotifyChannel]types.Sender,
 ) (JobNotifier, error) {
 	b, err := ioutil.ReadFile(cfg.Email.JobsTemplateFile)
 	if err != nil {
@@ -41,34 +46,52 @@ func New(
 
 // NotifyJob sends message to recipients
 func (n *DefaultJobNotifier) NotifyJob(
+	ctx context.Context,
 	user *common.User,
 	job *types.JobDefinition,
 	request types.IJobRequest) (msg string, err error) {
+	lastState := common.UNKNOWN
+	if ctx.Value(common.LasRequestStateKey) != nil {
+		lastState = ctx.Value(common.LasRequestStateKey).(common.RequestState)
+	}
+	prefix := ""
+	if request.GetJobState().Completed() && lastState.Failed() {
+		prefix = "Fixed "
+	}
+	subject := fmt.Sprintf("%sJob %s - %d %s", prefix, job.JobType, request.GetID(), request.GetJobState())
+
 	params := map[string]interface{}{
 		"Job":       request,
 		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
+		"Title":     subject,
 	}
+
 	if user != nil {
 		params["User"] = user
 	}
+
 	msg, err = utils.ParseTemplate(n.template, params)
 	if err != nil {
 		return "", err
 	}
-	subject := fmt.Sprintf("Formicary Job %s - %d %s", job.JobType, request.GetID(), request.GetJobState())
+
 	var recipients []string
-	var senders []string
+	var senders []common.NotifyChannel
 	total := 0
 	notify := job.Notify
 	if len(notify) == 0 && user != nil {
 		notify = user.Notify
 	}
+
+	whens := make([]common.NotifyWhen, 0)
 	for k, v := range notify {
 		sender := n.senders[k]
 		if sender == nil {
 			return "", fmt.Errorf("no sender for %s", sender)
 		}
-		if v.When.Accept(request.GetJobState()) {
+		whens = append(whens, v.When)
+		senders = append(senders, k)
+		if v.When.Accept(request.GetJobState(), lastState) {
 			if err = sender.SendMessage(v.Recipients, subject, msg); err != nil {
 				return "", err
 			}
@@ -76,7 +99,6 @@ func (n *DefaultJobNotifier) NotifyJob(
 			for _, recipient := range v.Recipients {
 				recipients = append(recipients, recipient)
 			}
-			senders = append(senders, k)
 		}
 	}
 
@@ -84,8 +106,10 @@ func (n *DefaultJobNotifier) NotifyJob(
 		"Component":  "DefaultJobNotifier",
 		"Senders":    senders,
 		"Request":    request.GetID(),
+		"LastState":  lastState,
 		"State":      request.GetJobState(),
 		"Recipients": recipients,
+		"Whens":      whens,
 		"Subject":    subject,
 		"Total":      total,
 	}).Infof("notified job")

@@ -214,6 +214,7 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 	return c.Render(http.StatusOK, "users/edit", res)
 }
 
+// TODO add email verification if email is different than user email
 func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err error) {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -230,8 +231,8 @@ func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err err
 		var notifyCfg common.JobNotifyConfig
 		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
 		if err == nil {
-			user.Notify = map[string]common.JobNotifyConfig{
-				"email": notifyCfg,
+			user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
+				common.EmailChannel: notifyCfg,
 			}
 			err = user.Validate()
 			if err == nil {

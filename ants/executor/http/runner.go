@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"plexobject.com/formicary/internal/types"
+	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/web"
 	"reflect"
 	"time"
@@ -79,6 +80,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"Endpoint":  scr.Command,
 			"HTTPCode":  scr.httpStatusCode,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing http request")
 		_ = scr.BaseExecutor.WriteTraceSuccess(fmt.Sprintf(
 			"✅ %s Duration=%v",
@@ -93,6 +95,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"HTTPCode":  scr.httpStatusCode,
 			"Error":     err,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
+			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute http request")
 		_ = scr.BaseExecutor.WriteTraceError(fmt.Sprintf(
 			"❌ %s failed HTTPCode=%d Error=%s Duration=%v",

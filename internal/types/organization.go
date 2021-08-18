@@ -125,6 +125,16 @@ func (o *Organization) GetConfig(name string) *OrganizationConfig {
 	return nil
 }
 
+// GetConfigString gets config value as string
+func (o *Organization) GetConfigString(name string) string {
+	for _, next := range o.Configs {
+		if next.Name == name {
+			return next.Value
+		}
+	}
+	return ""
+}
+
 // GetConfigByID gets config
 func (o *Organization) GetConfigByID(configID string) *OrganizationConfig {
 	for _, next := range o.Configs {

@@ -2,14 +2,15 @@ package repository
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"plexobject.com/formicary/internal/events"
 )
 
 func Test_ShouldNotDeletingNonExistingTaskExecutionID(t *testing.T) {
-	// GIVEN an log repository
+	// GIVEN a log repository
 	repo, err := NewTestLogEventRepository()
 	require.NoError(t, err)
 	// WHEN deleting non-existing task-execution-id
@@ -20,7 +21,7 @@ func Test_ShouldNotDeletingNonExistingTaskExecutionID(t *testing.T) {
 }
 
 func Test_ShouldNotDeletingNonExistingJobExecutionID(t *testing.T) {
-	// GIVEN an log repository
+	// GIVEN a log repository
 	repo, err := NewTestLogEventRepository()
 	require.NoError(t, err)
 	// WHEN deleting non-existing job-execution-id
@@ -31,7 +32,7 @@ func Test_ShouldNotDeletingNonExistingJobExecutionID(t *testing.T) {
 }
 
 func Test_ShouldNotDeletingNonExistingRequestID(t *testing.T) {
-	// GIVEN an log repository
+	// GIVEN a log repository
 	repo, err := NewTestLogEventRepository()
 	require.NoError(t, err)
 	// WHEN deleting non-existing request-id
@@ -41,10 +42,9 @@ func Test_ShouldNotDeletingNonExistingRequestID(t *testing.T) {
 	require.Equal(t, int64(0), total)
 }
 
-
 // Test Save and query
 func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
-	// GIVEN an log repository
+	// GIVEN a log repository
 	repo, err := NewTestLogEventRepository()
 	require.NoError(t, err)
 	repo.clear()
@@ -94,7 +94,6 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 	// THEN it should return valid results
 	require.NoError(t, err)
 	require.Equal(t, int64(0), total)
-
 
 	// WHEN deleting by task-execution-id
 	total, err = repo.DeleteByTaskExecutionID("task-exec-2-0")

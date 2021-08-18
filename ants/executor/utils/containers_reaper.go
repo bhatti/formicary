@@ -2,15 +2,17 @@ package utils
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/types"
+	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/web"
-	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -89,6 +91,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 							"Started":     container.GetStartedAt(),
 							"ElapsedSecs": container.ElapsedSecs(),
 							"Error":       err,
+							"Memory":      cutils.MemUsageMiBString(),
 						}).Error("failed to reap container")
 					reapedFailed++
 					r.metricsRegistry.Incr(
@@ -104,6 +107,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 							"Container":   container.GetName(),
 							"Started":     container.GetStartedAt(),
 							"ElapsedSecs": container.ElapsedSecs(),
+							"Memory":      cutils.MemUsageMiBString(),
 						}).Warn("reaped container")
 					reaped++
 					r.metricsRegistry.Incr(
@@ -152,6 +156,7 @@ func (r *ContainersReaper) sendContainerEvent(
 					"AntID":     r.antCfg.ID,
 					"Container": container,
 					"Error":     err,
+					"Memory":    cutils.MemUsageMiBString(),
 				}).Warnf("failed to send lifecycle event container")
 		}
 	}

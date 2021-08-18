@@ -14,6 +14,9 @@ type JobRequestRepository interface {
 	Get(
 		qc *common.QueryContext,
 		id uint64) (*types.JobRequest, error)
+	// GetParams by id
+	GetParams(
+		id uint64) ([]*types.JobRequestParam, error)
 	// GetByUserKey JobRequest by user-key
 	GetByUserKey(
 		qc *common.QueryContext,
