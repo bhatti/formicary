@@ -245,6 +245,7 @@ func (c *ServerConfig) GetJobSchedulerLeaderTopic() string {
 		types.JobSchedulerLeaderTopic)
 }
 
+// Validate validates smtp config
 func (s *SMTPConfig) Validate() error {
 	if s.FromEmail == "" {
 		return types.NewValidationError(fmt.Errorf("smtp from-email not specified"))

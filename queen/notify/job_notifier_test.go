@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"context"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -25,9 +26,30 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
 
-	msg, err := notifier.NotifyJob(user, job, req)
+	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-good - 1001 Succeeded")
+	require.Contains(t, msg, "Job io.formicary.test.notify-job-good - 1001 COMPLETED")
+	require.Contains(t, msg, "Bob")
+	require.NotContains(t, msg, "Error Code")
+	require.NotContains(t, msg, "Error Message")
+}
+
+func Test_ShouldNotifyFixedJob(t *testing.T) {
+	serverCfg := newServerConfig()
+	if err := serverCfg.Email.Validate(); err != nil {
+		t.Logf("skip sending email because smtp is not setup - %s", err)
+		return
+	}
+	sender, err := email.New(&serverCfg.Email)
+	require.NoError(t, err)
+	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+	require.NoError(t, err)
+
+	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
+
+	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.FAILED)
+	require.NoError(t, err)
+	require.Contains(t, msg, "Fixed Job io.formicary.test.notify-job-good - 1001 COMPLETED")
 	require.Contains(t, msg, "Bob")
 	require.NotContains(t, msg, "Error Code")
 	require.NotContains(t, msg, "Error Message")
@@ -46,9 +68,9 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
 
-	msg, err := notifier.NotifyJob(user, job, req)
+	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 Failed")
+	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 FAILED")
 	require.Contains(t, msg, "Bob")
 	require.Contains(t, msg, "Error Code")
 	require.Contains(t, msg, "Error Message")
@@ -67,9 +89,9 @@ func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 
 	_, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
 
-	msg, err := notifier.NotifyJob(nil, job, req)
+	msg, err := notifier.NotifyJob(context.Background(), nil, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 Failed")
+	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 FAILED")
 	require.Contains(t, msg, "Error Code")
 	require.Contains(t, msg, "Error Message")
 }

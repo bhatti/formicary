@@ -919,8 +919,9 @@ func (jm *JobManager) NotifyJobMessage(
 	user *common.User,
 	job *types.JobDefinition,
 	request types.IJobRequest,
+	lastRequestState common.RequestState,
 ) (string, error) {
-	return jm.jobsNotifier.NotifyJob(ctx, user, job, request)
+	return jm.jobsNotifier.NotifyJob(ctx, user, job, request, lastRequestState)
 }
 
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
@@ -934,7 +935,7 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	oldState common.RequestState,
 	retried int,
 ) (err error) {
-	lastState := jm.jobStatsRegistry.LastJobStatus(req)
+	lastRequestState := jm.jobStatsRegistry.LastJobStatus(req)
 	err = jm.jobExecutionRepository.FinalizeJobRequestAndExecutionState(
 		jobExec.ID,
 		oldState,
@@ -952,17 +953,19 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	// Send notification asynchronously
 	// TODO add background process for message notifications with database persistence
 	go func() {
-		ctx := context.WithValue(context.Background(), common.LasRequestStateKey, lastState)
+		ctx := context.Background()
 		if _, notifyErr := jm.NotifyJobMessage(
 			ctx,
 			user,
 			job,
-			req); notifyErr != nil {
+			req,
+			lastRequestState); notifyErr != nil {
 			logrus.WithFields(logrus.Fields{
-				"Component": "JobManager",
-				"User":      user,
-				"Request":   req,
-				"Error":     notifyErr,
+				"Component":        "JobManager",
+				"User":             user,
+				"Request":          req,
+				"LastRequestState": lastRequestState,
+				"Error":            notifyErr,
 			}).Warnf("failed to send job notification")
 		}
 	}()

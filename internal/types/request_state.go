@@ -7,9 +7,6 @@ import (
 // RequestState defines enum for the state of request or execution such as pending/completed/failed.
 type RequestState string
 
-// LasRequestStateKey constant
-const LasRequestStateKey = "LasRequestState"
-
 // Types of request states
 const (
 	// PENDING request

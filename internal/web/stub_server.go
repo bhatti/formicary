@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+
 	"plexobject.com/formicary/internal/acl"
 )
 
@@ -30,7 +31,7 @@ func (c *stubContext) SetLogger(_ echo.Logger) {
 }
 
 // NewStubContext - creates stubbed server
-func NewStubContext(req *http.Request) *stubContext {
+func NewStubContext(req *http.Request) *stubContext { //nolint
 	return &stubContext{
 		request: req,
 		Params:  make(map[string]string),

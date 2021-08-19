@@ -90,6 +90,7 @@ func CreateResourceList(
 	return l, nil
 }
 
+// MemUsageMiBString memory-info
 func MemUsageMiBString() map[string]string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -101,6 +102,7 @@ func MemUsageMiBString() map[string]string {
 	return result
 }
 
+// MemUsageMiB memory-info
 func MemUsageMiB() map[string]uint64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)

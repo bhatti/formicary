@@ -17,7 +17,8 @@ type JobNotifier interface {
 		ctx context.Context,
 		user *common.User,
 		job *types.JobDefinition,
-		request types.IJobRequest) (string, error)
+		request types.IJobRequest,
+		lastRequestState common.RequestState) (string, error)
 }
 
 // DefaultJobNotifier defines operations to send email
@@ -46,16 +47,13 @@ func New(
 
 // NotifyJob sends message to recipients
 func (n *DefaultJobNotifier) NotifyJob(
-	ctx context.Context,
+	_ context.Context,
 	user *common.User,
 	job *types.JobDefinition,
-	request types.IJobRequest) (msg string, err error) {
-	lastState := common.UNKNOWN
-	if ctx.Value(common.LasRequestStateKey) != nil {
-		lastState = ctx.Value(common.LasRequestStateKey).(common.RequestState)
-	}
+	request types.IJobRequest,
+	lastRequestState common.RequestState) (msg string, err error) {
 	prefix := ""
-	if request.GetJobState().Completed() && lastState.Failed() {
+	if request.GetJobState().Completed() && lastRequestState.Failed() {
 		prefix = "Fixed "
 	}
 	subject := fmt.Sprintf("%sJob %s - %d %s", prefix, job.JobType, request.GetID(), request.GetJobState())
@@ -91,7 +89,7 @@ func (n *DefaultJobNotifier) NotifyJob(
 		}
 		whens = append(whens, v.When)
 		senders = append(senders, k)
-		if v.When.Accept(request.GetJobState(), lastState) {
+		if v.When.Accept(request.GetJobState(), lastRequestState) {
 			if err = sender.SendMessage(v.Recipients, subject, msg); err != nil {
 				return "", err
 			}
@@ -103,15 +101,15 @@ func (n *DefaultJobNotifier) NotifyJob(
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"Component":  "DefaultJobNotifier",
-		"Senders":    senders,
-		"Request":    request.GetID(),
-		"LastState":  lastState,
-		"State":      request.GetJobState(),
-		"Recipients": recipients,
-		"Whens":      whens,
-		"Subject":    subject,
-		"Total":      total,
+		"Component":        "DefaultJobNotifier",
+		"Senders":          senders,
+		"Request":          request.GetID(),
+		"LastRequestState": lastRequestState,
+		"State":            request.GetJobState(),
+		"Recipients":       recipients,
+		"Whens":            whens,
+		"Subject":          subject,
+		"Total":            total,
 	}).Infof("notified job")
 	return
 }

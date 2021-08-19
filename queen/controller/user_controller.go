@@ -87,23 +87,22 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(c.FormValue("when")))
 	if user.NotifyEmail == "" {
 		return common.NewValidationError("no email specified")
-	} else {
-		var notifyCfg common.JobNotifyConfig
-		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
-		if err != nil {
-			return err
-		}
-		user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
-			common.EmailChannel: notifyCfg,
-		}
-		err = user.Validate()
-		if err != nil {
-			return err
-		}
-		user, err = uc.userRepository.Update(qc, user)
-		if err != nil {
-			return err
-		}
+	}
+	var notifyCfg common.JobNotifyConfig
+	notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
+	if err != nil {
+		return err
+	}
+	user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
+		common.EmailChannel: notifyCfg,
+	}
+	err = user.Validate()
+	if err != nil {
+		return err
+	}
+	user, err = uc.userRepository.Update(qc, user)
+	if err != nil {
+		return err
 	}
 
 	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))

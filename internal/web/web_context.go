@@ -6,11 +6,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+
 	common "plexobject.com/formicary/internal/types"
 )
 
 // WebContext interface
-type WebContext interface {
+type WebContext interface { //nolint
 	// Path Request path
 	Path() string
 
@@ -63,7 +64,7 @@ type WebContext interface {
 	// Redirect redirects the request to a provided URL with status code.
 	Redirect(code int, url string) error
 
-	// NoContent sends a response with no body and a status code.
+	// NoContent sends a response with nobody and a status code.
 	NoContent(code int) error
 
 	// Blob sends a blob response with status code and content type.

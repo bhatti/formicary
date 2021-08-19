@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/metrics"
+	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/notify"
 	"plexobject.com/formicary/queen/types"
 	"testing"
@@ -71,7 +72,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 
 	metricsRegistry := metrics.New()
 
-	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
 	require.NoError(t, err)
 	jobManager, err := manager.NewJobManager(
 		serverCfg,

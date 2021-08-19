@@ -29,6 +29,7 @@ const (
 	NotifyWhenNever NotifyWhen = "never"
 )
 
+// Accept returns true if notification can be sent based on state
 func (w NotifyWhen) Accept(state RequestState, lastState RequestState) bool {
 	if w == "" {
 		return true
@@ -39,11 +40,13 @@ func (w NotifyWhen) Accept(state RequestState, lastState RequestState) bool {
 		(state.Completed() && w == NotifyWhenOnFailure && lastState.Failed()) // completed after failure
 }
 
+// JobNotifyConfig structure for notification config
 type JobNotifyConfig struct {
 	Recipients []string   `yaml:"recipients" json:"recipients" gorm:"-"`
 	When       NotifyWhen `json:"when,omitempty" yaml:"when,omitempty"`
 }
 
+// ValidateEmail validates email of recipients
 func (c JobNotifyConfig) ValidateEmail() error {
 	for _, email := range c.Recipients {
 		if email == "" {
@@ -57,6 +60,7 @@ func (c JobNotifyConfig) ValidateEmail() error {
 	return nil
 }
 
+// JobNotifyConfigWithEmail factory method to create notification config for emails
 func JobNotifyConfigWithEmail(email string, when NotifyWhen) (JobNotifyConfig, error) {
 	notifyCfg := JobNotifyConfig{
 		When: when,
@@ -64,6 +68,7 @@ func JobNotifyConfigWithEmail(email string, when NotifyWhen) (JobNotifyConfig, e
 	return notifyCfg, notifyCfg.SetEmails(email)
 }
 
+// SetEmails - set emails of recipients
 func (c *JobNotifyConfig) SetEmails(rawEmail string) error {
 	emails := strings.Split(rawEmail, ",")
 	c.Recipients = make([]string, 0)

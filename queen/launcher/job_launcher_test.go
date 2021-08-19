@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/artifacts"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/queue"
+	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/notify"
@@ -63,7 +64,7 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 		artifactService)
 	require.NoError(t, err)
 
-	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
 	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
 	jobManager, err := manager.NewJobManager(

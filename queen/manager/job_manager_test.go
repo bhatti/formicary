@@ -124,7 +124,7 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 
 	metricsRegistry := metrics.New()
 
-	notifier, err := notify.New(serverCfg, make(map[string]types.Sender))
+	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
 	if err != nil {
 		return nil, nil, err
 	}
