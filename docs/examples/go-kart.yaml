@@ -1,0 +1,17 @@
+job_type: go-kart
+tasks:
+- task_type: scan
+  method: KUBERNETES
+  working_dir: /sample
+  container:
+    image: golang:1.16-buster
+  before_script:
+    - go install github.com/praetorian-inc/gokart@latest
+    - git clone https://github.com/Contrast-Security-OSS/go-test-bench.git
+  script:
+    - gokart scan go-test-bench/ -v -g -s > results.sarif
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - results.sarif

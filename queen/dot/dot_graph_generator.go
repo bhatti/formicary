@@ -10,52 +10,53 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
-const successColor = "darkseagreen4"
-const failColor = "firebrick4"
-const blueColor = "dodgerblue3"
-const unknownColor = "goldenrod3"
+const (
+	successColor   = "darkseagreen4"
+	failColor      = "firebrick4"
+	blueColor      = "dodgerblue3"
+	unknownColor   = "goldenrod3"
+	executingColor = "skyblue2"
+	defaultColor   = "gray"
+)
 
 // Generator structure
 type Generator struct {
-	definition      *types.JobDefinition
+	jobDefinition   *types.JobDefinition
+	jobExecution    *types.JobExecution
 	executionStatus common.RequestState
-	lastTaskTypes   []string
-	statuses        map[string]common.RequestState
-	dupFromToStatus map[string]bool
 	dupTasks        map[string]bool
 	buf             strings.Builder
 }
 
+// Node for building task graph
+type Node struct {
+	label      string
+	state      common.RequestState
+	color      string
+	bold       bool
+	arrow      common.RequestState
+	arrowColor string
+	children   []*Node
+}
+
 // New constructor
 func New(
-	definition *types.JobDefinition,
-	execution *types.JobExecution) (*Generator, error) {
-	if definition == nil {
-		return nil, fmt.Errorf("job definition is not specified")
+	jobDefinition *types.JobDefinition,
+	jobExecution *types.JobExecution) (*Generator, error) {
+	if jobDefinition == nil {
+		return nil, fmt.Errorf("job jobDefinition is not specified")
+	}
+	if err := jobDefinition.Validate(); err != nil {
+		return nil, err
 	}
 	executionStatus := common.PENDING
-	statuses := make(map[string]common.RequestState)
-	if execution != nil {
-		executionStatus = execution.JobState
-		for _, t := range execution.Tasks {
-			statuses[t.TaskType] = common.NewRequestState(string(t.TaskState))
-		}
-	}
-	lastTasks := definition.GetLastAlwaysRunTasks()
-	var lastTaskTypes []string
-	if len(lastTasks) > 0 {
-		for _, lastTask := range lastTasks {
-			lastTaskTypes = append(lastTaskTypes, lastTask.TaskType)
-		}
-	} else {
-		lastTaskTypes = []string{"end"}
+	if jobExecution != nil {
+		executionStatus = jobExecution.JobState
 	}
 	return &Generator{
-		definition:      definition,
+		jobDefinition:   jobDefinition,
+		jobExecution:    jobExecution,
 		executionStatus: executionStatus,
-		lastTaskTypes:   lastTaskTypes,
-		statuses:        statuses,
-		dupFromToStatus: make(map[string]bool),
 		dupTasks:        make(map[string]bool),
 	}, nil
 }
@@ -81,56 +82,56 @@ func (dg *Generator) GenerateDotImage() ([]byte, error) {
 
 // GenerateDot creates dot config
 func (dg *Generator) GenerateDot() (string, error) {
-	firstTask, err := dg.definition.GetFirstTask()
-	if err != nil {
-		return "", err
-	}
 	endColor := blueColor
 	if dg.executionStatus.Completed() {
 		endColor = successColor
 	} else if dg.executionStatus.Failed() {
 		endColor = failColor
 	}
-	// writing DOT definition
+	head, nodes, err := dg.buildTree()
+	if err != nil {
+		return "", err
+	}
+	// writing DOT jobDefinition
 	dg.write("digraph {\n")
 
-	lastTask := dg.definition.GetLastTask()
-
 	// write shapes of boxes
-	if dg.executionStatus != common.PENDING {
+	if dg.jobExecution != nil {
 		dg.write(fmt.Sprintf(`  "start" [shape=Mdiamond,color=%s,penwidth=3.0,style=solid,label="START"]`,
 			blueColor) + "\n")
 		dg.write(fmt.Sprintf(`  "end" [shape=Msquare,color=%s,penwidth=3.0,style=solid,label="END"]`,
-			endColor) + "\n")
+			blueColor) + "\n")
 	}
-	for _, t := range dg.definition.Tasks {
-		dg.write(getShape(t, dg.statuses))
+	for _, node := range nodes {
+		dg.writeShape(node)
 	}
 
-	if dg.executionStatus != common.PENDING {
+	if dg.jobExecution != nil {
 		// write arrows for direction
 		dg.write(fmt.Sprintf(`  "start" -> "%s" [color=%s,penwidth=3.0,style=solid,label="begin"];`+"\n",
-			firstTask.TaskType, blueColor))
+			head.label, blueColor))
 	}
 
 	// writeTask will call recursively call all tasks in the job
-	dg.writeTask(firstTask, " ")
+	dg.writeTask(head)
 
-	if dg.executionStatus != common.PENDING {
-		key := toKey(lastTask.TaskType, "end", dg.executionStatus)
-		//if lastExecTask := dg.execution.GetLastTask(); lastExecTask != nil && lastExecTask.Failed() {
-		//	logrus.Infof("last %v , job status %v, color %v", lastExecTask.TaskType, dg.execution.JobState, endColor)
-		//	dg.write(fmt.Sprintf(`  "%s" -> "end" [color=%s,penwidth=3.0,style=solid,label="%s"];`+"\n",
-		//		lastExecTask.TaskType, endColor, strings.ToLower(string(dg.executionStatus))))
-		//} else
-		if lastTask != nil && dg.dupFromToStatus[key] == false {
-			if dg.statuses[lastTask.TaskType] == "" {
-				dg.write(fmt.Sprintf(`  "%s" -> "end" [color=%s,penwidth=1.0,style=dotted,label="finish"];`+"\n",
-					lastTask.TaskType, endColor))
-			} else {
-				dg.write(fmt.Sprintf(`  "%s" -> "end" [color=%s,penwidth=3.0,style=solid,label="finish"];`+"\n",
-					lastTask.TaskType, endColor))
+	if dg.jobExecution != nil {
+		lastType := "last"
+		lastExecTask := dg.jobExecution.GetLastExecutedTask()
+		if lastExecTask == nil {
+			lastTask := dg.jobDefinition.GetLastTask()
+			if lastTask != nil {
+				lastType = lastTask.TaskType
 			}
+		} else {
+			lastType = lastExecTask.TaskType
+		}
+		if endColor == blueColor {
+			dg.write(fmt.Sprintf(`  "%s" -> "end" [color=%s,penwidth=1.0,style=dotted,label="finish"];`+"\n",
+				lastType, endColor))
+		} else {
+			dg.write(fmt.Sprintf(`  "%s" -> "end" [color=%s,penwidth=3.0,style=solid,label="finish"];`+"\n",
+				lastType, endColor))
 		}
 	}
 
@@ -139,109 +140,127 @@ func (dg *Generator) GenerateDot() (string, error) {
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
-func (dg *Generator) nextLastType(path string) string {
-	for _, lastTask := range dg.lastTaskTypes {
-		if !strings.Contains(path, fmt.Sprintf(" %s ", lastTask)) {
-			return lastTask
-		}
-	}
-	return "end"
-}
-
-func (dg *Generator) writeTask(task *types.TaskDefinition, path string) {
-	if task == nil {
+func (dg *Generator) writeTask(node *Node) {
+	if node == nil {
 		return
 	}
-	if dg.dupTasks[task.TaskType] {
-		//logrus.Debugf("duplicate task %s, status %v", task.TaskType, dg.statuses)
-		return
-	}
-	dg.dupTasks[task.TaskType] = true
-
-	exitCodes := make(map[common.RequestState]string)
-	for status, target := range task.OnExitCode {
-		status = common.NewRequestState(string(status))
-		exitCodes[status] = target
-	}
-	if len(exitCodes) > 0 && exitCodes[common.FAILED] == "" {
-		exitCodes[common.FAILED] = dg.nextLastType(path)
-	}
-
-	for status, target := range exitCodes {
-		if target == task.TaskType {
+	for _, child := range node.children {
+		key := toKey(node.label, child.label)
+		if dg.dupTasks[key] {
 			continue
 		}
-		status = common.NewRequestState(string(status))
-		bold := dg.statuses[task.TaskType] == status
-		key := toKey(task.TaskType, target, status)
-		if dg.dupFromToStatus[key] == false {
-			dg.write(getTaskLine(task.TaskType, target, status, bold))
-			dg.dupFromToStatus[key] = true
-		}
-		dg.writeTask(dg.definition.GetTask(target), fmt.Sprintf("%s %s ", path, task.TaskType))
+		dg.dupTasks[key] = true
+		dg.writeTaskLine(node, child)
+		dg.writeTask(child)
 	}
 }
 
-func toKey(from string, to string, status common.RequestState) string {
-	return from + ":" + to + ":" + string(status)
-}
-
-func getTaskLine(
-	from string,
-	to string,
-	status common.RequestState,
-	bold bool) string {
+func (dg *Generator) writeTaskLine(
+	from *Node,
+	to *Node,
+) {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(`  "%s" -> "%s" `, from, to))
+	sb.WriteString(fmt.Sprintf(`  "%s" -> "%s" `, from.label, to.label))
+
+	boldArrow := false
+	if dg.jobExecution != nil {
+		fromExecTask := dg.jobExecution.GetTask(from.label)
+		if fromExecTask != nil {
+			nextTask, _ := dg.jobDefinition.GetNextTask(
+				dg.jobDefinition.GetTask(from.label),
+				fromExecTask.TaskState,
+				fromExecTask.ExitCode)
+			if nextTask != nil {
+				boldArrow = fromExecTask.TaskState == from.state && nextTask.TaskType == to.label
+			}
+		}
+	}
 
 	var widthStyle string
-	if bold {
+	if boldArrow {
 		widthStyle = "penwidth=5.0,style=solid"
 	} else {
 		widthStyle = "penwidth=1.0,style=dotted"
 	}
 
-	if status.Completed() {
-		sb.WriteString("[color=darkseagreen4," + widthStyle)
-	} else if status.Failed() {
-		sb.WriteString(fmt.Sprintf("[color=%s,%s", failColor, widthStyle))
-	} else if status.Executing() {
-		sb.WriteString("[color=skyblue2," + widthStyle)
-	} else if status.Unknown() {
-		sb.WriteString(fmt.Sprintf("[color=%s,%s", unknownColor, widthStyle))
-	} else {
-		sb.WriteString("[color=gray," + widthStyle)
-	}
-	sb.WriteString(fmt.Sprintf(`,label="%s"]`, strings.ToLower(string(status))))
-	sb.WriteString(";\n")
-	return sb.String()
-}
-
-func getShape(
-	task *types.TaskDefinition,
-	statuses map[string]common.RequestState) string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(`  "%s" [shape=`, task.TaskType))
-	status := statuses[task.TaskType]
-	matches := status != common.PENDING && status != common.READY && status != ""
-
-	if matches {
-		sb.WriteString("box,color=")
-		if status.Completed() {
-			sb.WriteString("darkseagreen4,style=rounded,penwidth=4]\n")
-		} else if status.Failed() {
-			sb.WriteString(fmt.Sprintf("%s,style=rounded,penwidth=4]\n", failColor))
-		} else if status.Executing() || status.Started() {
-			sb.WriteString("darkorange,style=rounded,penwidth=2]\n")
-		} else {
-			sb.WriteString("skyblue1,style=rounded,penwidth=2]\n")
-		}
-	} else {
-		sb.WriteString("ellipse,color=gray,style=rounded]\n")
-	}
-	return sb.String()
+	sb.WriteString(fmt.Sprintf("[color=%s,%s,label=\"%s\"];\n",
+		from.arrowColor, widthStyle, strings.ToLower(string(to.arrow))))
+	dg.write(sb.String())
 }
 
 func (dg *Generator) write(line string) {
 	dg.buf.WriteString(line)
+}
+
+func (dg *Generator) writeShape(node *Node) {
+	dg.write(fmt.Sprintf(`  "%s" [shape=`, node.label))
+	if dg.jobExecution == nil {
+		dg.write("}\n")
+		dg.write("ellipse,color=gray,style=rounded]\n")
+	} else {
+		pendwidth := 2
+		if !node.state.Processing() {
+			pendwidth = 4
+		}
+		dg.write(fmt.Sprintf("box,color=%s,style=rounded,penwidth=%d]\n", node.color, pendwidth))
+	}
+}
+
+func (dg *Generator) buildTree() (node *Node, nodes map[string]*Node, err error) {
+	var firstTask *types.TaskDefinition
+	firstTask, err = dg.jobDefinition.GetFirstTask()
+	if err != nil {
+		return
+	}
+	nodes = make(map[string]*Node)
+	_, arrowColor, _ := dg.getTaskStateStateColor(firstTask.TaskType)
+	node = &Node{label: firstTask.TaskType, arrowColor: arrowColor}
+	dg.addNodes(node, firstTask, nodes)
+	return
+}
+
+func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition, nodes map[string]*Node) {
+	if parentNode == nil || parentTask == nil {
+		return
+	}
+	nodes[parentTask.TaskType] = parentNode
+	parentNode.state, parentNode.color, parentNode.bold = dg.getTaskStateStateColor(parentTask.TaskType)
+	for state, target := range parentTask.OnExitCode {
+		childTask := dg.jobDefinition.GetTask(target)
+		if childTask == nil {
+			continue
+		}
+		childNode := &Node{label: target, arrow: state, arrowColor: stateToColor(state)}
+		dg.addNodes(childNode, childTask, nodes)
+		parentNode.children = append(parentNode.children, childNode)
+	}
+}
+
+func (dg *Generator) getTaskStateStateColor(taskType string) (common.RequestState, string, bool) {
+	if dg.jobExecution == nil {
+		return common.UNKNOWN, defaultColor, false
+	}
+	task := dg.jobExecution.GetTask(taskType)
+	if task == nil {
+		return common.UNKNOWN, defaultColor, false
+	}
+	return task.TaskState, stateToColor(task.TaskState), !task.TaskState.Processing()
+}
+
+func stateToColor(state common.RequestState) string {
+	if state.Completed() {
+		return successColor
+	} else if state.Failed() {
+		return failColor
+	} else if state.Executing() {
+		return executingColor
+	} else if state.Unknown() {
+		return unknownColor
+	} else {
+		return defaultColor
+	}
+}
+
+func toKey(from string, to string) string {
+	return from + ":" + to
 }

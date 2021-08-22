@@ -37,7 +37,9 @@ can be used as input of another task.
   are routed based on tags defined in the job definition.
 - Ant executors with support of multiple protocols that ants can use to connect to queen node such as queue, http, etc.
 - Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.
-- Streaming of real-time Logs to the UI as job/tasks are processed.  
+- Streaming of real-time Logs to the UI as job/tasks are processed. 
+- Provides email notifications on job completion or failures.
+- Provides reports and statistics on job outcomes and resource usage such as storage and CPU.
 - Authentication and authorization using OAuth and JWT standards.
 - Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes
   stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work
@@ -110,6 +112,7 @@ can be used as input of another task.
 - [Caching](docs/howto.md#Caching)
 - [Webhooks](docs/howto.md#Webhooks)
 - [PostCommit](docs/howto.md#PostCommit)
+- [Multiple Exit Codes](docs/howto.md#OnExitCode)
 - [Building Docker images Using Docker-in-Docker](docs/dind.md)
 - [Scanning containers using Trivy](docs/trivy-scan.md) for scanning containers.
 - [Advanced Kubernetes](docs/advanced_k8.md)

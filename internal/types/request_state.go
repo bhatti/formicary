@@ -56,6 +56,11 @@ func (rs RequestState) IsTerminal() bool {
 	return rs == COMPLETED || rs == FAILED || rs == CANCELLED
 }
 
+// Processing returns true if state is still processing
+func (rs RequestState) Processing() bool {
+	return rs == WAITING || rs == PENDING || rs == READY || rs == EXECUTING || rs == STARTED
+}
+
 // CanRestart checks if request can be restarted
 func (rs RequestState) CanRestart() bool {
 	return rs == FAILED || rs == CANCELLED

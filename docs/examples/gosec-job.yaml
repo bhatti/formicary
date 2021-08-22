@@ -1,4 +1,5 @@
 job_type: gosec-job
+url: https://github.com/securego/gosec
 max_concurrency: 1
 job_variables:
   GitRepo: go-cicd

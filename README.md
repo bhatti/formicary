@@ -112,6 +112,7 @@ can be used as input of another task.
 - [Caching](docs/howto.md#Caching)
 - [Webhooks](docs/howto.md#Webhooks)
 - [PostCommit](docs/howto.md#PostCommit)
+- [Multiple Exit Codes](docs/howto.md#OnExitCode)
 - [Building Docker images Using Docker-in-Docker](docs/dind.md)
 - [Scanning containers using Trivy](docs/trivy-scan.md) for scanning containers.
 - [Advanced Kubernetes](docs/advanced_k8.md)

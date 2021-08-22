@@ -14,8 +14,40 @@ import (
 
 var testEncryptedKey = crypto.SHA256Key("test-key")
 
+func Test_ShouldCreateDotForTacoJob(t *testing.T) {
+	// GIVEN job jobDefinition defined in yaml
+	b, err := ioutil.ReadFile("../../docs/examples/taco-job.yaml")
+	require.NoError(t, err)
+	definition, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	request, err := types.NewJobRequestFromDefinition(definition)
+	require.NoError(t, err)
+
+	// AND job-execution
+	jobExec := types.NewJobExecution(request)
+	jobExec.AddTask(definition.GetTask("allocate")).TaskState = common.COMPLETED
+	checkTask := jobExec.AddTask(definition.GetTask("check-date"))
+	checkTask.TaskState = common.FAILED
+	checkTask.ExitCode = "1"
+	jobExec.AddTask(definition.GetTask("monday")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("deallocate")).TaskState = common.COMPLETED
+	jobExec.JobState = common.FAILED
+
+	// WHEN job jobDefinition and execution is passed to generate dot config
+	generator, err := New(definition, jobExec)
+	require.NoError(t, err)
+	dotConf, err := generator.GenerateDot()
+	// THEN a valid dot config is created
+	require.NoError(t, err)
+	require.Contains(t, dotConf, `"start" -> "allocate"`)
+	require.Contains(t, dotConf, `"check-date" -> "monday"`)
+	require.Contains(t, dotConf, `"monday" -> "deallocate"`)
+	require.Contains(t, dotConf, `"deallocate" -> "end"`)
+	fmt.Printf("%s\n", dotConf)
+}
+
 func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
-	// GIVEN job definition defined in yaml
+	// GIVEN job jobDefinition defined in yaml
 	b, err := ioutil.ReadFile("../../fixtures/basic-job.yaml")
 	require.NoError(t, err)
 	definition, err := types.NewJobDefinitionFromYaml(b)
@@ -28,7 +60,7 @@ func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
 	jobExec.AddTask(definition.Tasks[0]).TaskState = common.FAILED
 	jobExec.JobState = common.FAILED
 
-	// WHEN job definition and execution is passed to generate dot config
+	// WHEN job jobDefinition and execution is passed to generate dot config
 	generator, err := New(definition, jobExec)
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
@@ -38,10 +70,10 @@ func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
 }
 
 func Test_ShouldCreateDotForSimpleHappyJob(t *testing.T) {
-	// GIVEN job definition and execution
+	// GIVEN job jobDefinition and execution
 	definition := newTestJob("test1", 10)
 	exec := newTestJobExecution(definition)
-	// WHEN job definition and execution is passed to generate dot config
+	// WHEN job jobDefinition and execution is passed to generate dot config
 	generator, err := New(definition, exec)
 	// THEN a valid dot config is created
 	require.NoError(t, err)
@@ -54,10 +86,10 @@ func Test_ShouldCreateDotForSimpleHappyJob(t *testing.T) {
 }
 
 func Test_ShouldCreateDotImageForSimpleHappyJob(t *testing.T) {
-	// GIVEN job definition and execution
+	// GIVEN job jobDefinition and execution
 	definition := newTestJob("test1", 10)
 	exec := newTestJobExecution(definition)
-	// WHEN job definition and execution is passed to generate dot config
+	// WHEN job jobDefinition and execution is passed to generate dot config
 	generator, err := New(definition, exec)
 	// THEN a valid dot config is created
 	require.NoError(t, err)
@@ -82,7 +114,7 @@ func Test_ShouldCreateDotImageForSimpleHappyJob(t *testing.T) {
 }
 
 func Test_ShouldCreateDotWithAlwaysRun(t *testing.T) {
-	// GIVEN job definition and execution
+	// GIVEN job jobDefinition and execution
 	job := types.NewJobDefinition("test.test-run")
 
 	job.AddTasks(
@@ -113,9 +145,9 @@ func Test_ShouldCreateDotWithAlwaysRun(t *testing.T) {
 	jobExec.AddTask(job.GetTask("check")).SetStatus("tuesday")
 	jobExec.AddTask(job.GetTask("taco-tuesday")).SetStatus(common.COMPLETED)
 	jobExec.AddTasks(job.Tasks[3])
-	jobExec.JobState = common.EXECUTING
+	jobExec.JobState = common.COMPLETED
 
-	// WHEN job definition and execution is passed to generate dot config
+	// WHEN job jobDefinition and execution is passed to generate dot config
 	generator, err := New(job, jobExec)
 	// THEN a valid dot config is created
 	require.NoError(t, err)
@@ -129,7 +161,7 @@ func Test_ShouldCreateDotWithAlwaysRun(t *testing.T) {
 }
 
 func Test_ShouldCreateDotForCustomizedExitCode(t *testing.T) {
-	// GIVEN job definition and execution
+	// GIVEN job jobDefinition and execution
 	definition := newTestJob("test1", 10)
 	// AND configure first task with custom exit codes
 	definition.GetTask("task1").OnExitCode["SKIP"] = "task3"
@@ -145,7 +177,7 @@ func Test_ShouldCreateDotForCustomizedExitCode(t *testing.T) {
 	exec.GetTask("task9").TaskState = common.READY
 	exec.JobState = common.FAILED
 
-	// WHEN job definition and execution is passed to generate dot config
+	// WHEN job jobDefinition and execution is passed to generate dot config
 	generator, err := New(definition, exec)
 	// THEN a valid dot config is created
 	require.NoError(t, err)
@@ -165,7 +197,7 @@ func newTestJob(name string, max int) *types.JobDefinition {
 	for i := 1; i < max; i++ {
 		task := types.NewTaskDefinition(fmt.Sprintf("task%d", i), common.Shell)
 		if i < max-1 {
-			task.OnExitCode["completed"] = fmt.Sprintf("task%d", i+1)
+			task.OnExitCode[common.COMPLETED] = fmt.Sprintf("task%d", i+1)
 		}
 		prefix := fmt.Sprintf("t%d", i)
 		task.BeforeScript = []string{prefix + "_cmd1", prefix + "_cmd2", prefix + "_cmd3"}
@@ -179,7 +211,7 @@ func newTestJob(name string, max int) *types.JobDefinition {
 		}
 		job.AddTask(task)
 	}
-
+	job.UpdateRawYaml()
 	return job
 }
 

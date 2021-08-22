@@ -246,6 +246,16 @@ func (je *JobExecution) GetLastTask() *TaskExecution {
 	return nil
 }
 
+// GetLastExecutedTask finds last task executed that ran
+func (je *JobExecution) GetLastExecutedTask () (last *TaskExecution) {
+	for _, t := range je.Tasks {
+		if !t.TaskState.Processing() && (last == nil || last.TaskOrder < t.TaskOrder) {
+			last = t
+		}
+	}
+	return
+}
+
 // AddTasks adds tasks
 func (je *JobExecution) AddTasks(tasks ...*TaskDefinition) *JobExecution {
 	for _, t := range tasks {

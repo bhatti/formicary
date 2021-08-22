@@ -26,7 +26,69 @@
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: application/yaml&quot; \
   $SERVER/api/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
 </code></pre>
-<h3 id="caching">Caching</h3>
+<h3 id="onexitcode">OnExitCode</h3>
+<p>Formicary provides multiple exit paths from a task, e.g.</p>
+<pre><code class="lang-yaml">job_type: taco-job
+tasks:
+- task_type: allocate
+  container:
+    image: alpine
+  script:
+    - echo allocating
+  on_completed: check-date
+- task_type: check-date
+  container:
+    image: alpine
+  script:
+    - echo monday &amp;&amp; exit {{.ExitCode}}
+  on_exit_code:
+    1: monday
+    2: tuesday
+    3: friday 
+  on_completed: deallocate
+- task_type: monday
+  container:
+    image: alpine
+  script:
+    - echo monday
+  on_completed: deallocate
+- task_type: tuesday
+  container:
+    image: alpine
+  script:
+    - echo tuesday
+  on_completed: taco-tuesday
+- task_type: taco-tuesday
+  container:
+    image: alpine
+  script:
+    - echo taco tuesday
+  on_completed: deallocate
+- task_type: friday
+  container:
+    image: alpine
+  script:
+    - echo friday
+  on_completed: party
+- task_type: party
+  container:
+    image: alpine
+  script:
+    - echo tgif party
+  on_completed: deallocate
+- task_type: deallocate
+  container:
+    image: alpine
+  always_run: true
+  script:
+    - echo deallocating
+</code></pre>
+<p>In above example, <code>check-date</code> defines <code>on_exit_code</code> for next task to run based on <code>exit-code</code>, e.g.</p>
+<pre><code>  on_exit_code:
+    1: monday
+    2: tuesday
+    3: friday 
+</code></pre><h3 id="caching">Caching</h3>
 <p>Formicary also provides caching for directories that store 3rd party dependencies, e.g., following example shows how all node_modules will be cached:</p>
 <pre><code class="lang-yaml">   cache:
      key_paths:
@@ -132,8 +194,9 @@ curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
 </ul>
 <h3 id="docker-in-docker-dind-">Docker in Docker (dind)</h3>
 <p>See <a href="dind.html">Building Docker images</a> for building images using docker in docker.</p>
-<h3 id="scanning-go-source-https-github-com-securego-gosec-">Scanning GO source (<a href="https://github.com/securego/gosec">https://github.com/securego/gosec</a>)</h3>
+<h3 id="code-analysis">Code Analysis</h3>
 <p>See <a href="gosec-scan.html">Scanning Golang using gosec</a> for scanning GO source code.</p>
+<p>See <a href="go-kart.html">Static Golang Analusis using go-kart</a> for scanning GO source code.</p>
 <h3 id="scanning-containers-for-security">Scanning containers for security</h3>
 <p>See <a href="trivy-scan.html">Scanning containers using Trivy</a> for scanning containers for security.</p>
 <h3 id="advanced-kubernetes">Advanced Kubernetes</h3>
