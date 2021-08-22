@@ -260,6 +260,63 @@ timeout: 5m
     101: cleanup
     COMPLETED: deploy
 </code></pre>
+<p>Following workflow shows example of multiple exit paths from a task, e.g. <img src="taco-job.png" alt="taco-job"> </p>
+<pre><code class="lang-yaml">job_type: taco-job
+tasks:
+- task_type: allocate
+  container:
+    image: alpine
+  script:
+    - echo allocating
+  on_completed: check-date
+- task_type: check-date
+  container:
+    image: alpine
+  script:
+    - echo monday &amp;&amp; exit {{.ExitCode}}
+  on_exit_code:
+    1: monday
+    2: tuesday
+    3: friday 
+  on_completed: deallocate
+- task_type: monday
+  container:
+    image: alpine
+  script:
+    - echo monday
+  on_completed: deallocate
+- task_type: tuesday
+  container:
+    image: alpine
+  script:
+    - echo tuesday
+  on_completed: taco-tuesday
+- task_type: taco-tuesday
+  container:
+    image: alpine
+  script:
+    - echo taco tuesday
+  on_completed: deallocate
+- task_type: friday
+  container:
+    image: alpine
+  script:
+    - echo friday
+  on_completed: party
+- task_type: party
+  container:
+    image: alpine
+  script:
+    - echo tgif party
+  on_completed: deallocate
+- task_type: deallocate
+  container:
+    image: alpine
+  always_run: true
+  script:
+    - echo deallocating
+</code></pre>
+<p>The <code>check-date</code> task will execute different tasks based on the exit code defined under <code>on_exit_code</code>. Note: the <code>deallocate</code> task is always run because it defines <code>always_run</code> property as true.</p>
 <h4 id="resources">resources</h4>
 <p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
 <h4 id="retry">retry</h4>

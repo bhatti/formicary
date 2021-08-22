@@ -12,6 +12,7 @@ common:
   development: true
   user_agent: ""
   proxy_url: ""
+  public_dir: "./public/"
   messaging_provider: REDIS_MESSAGING
   http_port: 0
   external_base_url: http://localhost:7777

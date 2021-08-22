@@ -52,72 +52,7 @@ curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/yaml" \
 ```
 
 ### OnExitCode
-Formicary provides multiple exit paths from a task, e.g.
-
-```yaml
-job_type: taco-job
-tasks:
-- task_type: allocate
-  container:
-    image: alpine
-  script:
-    - echo allocating
-  on_completed: check-date
-- task_type: check-date
-  container:
-    image: alpine
-  script:
-    - echo monday && exit {{.ExitCode}}
-  on_exit_code:
-    1: monday
-    2: tuesday
-    3: friday 
-  on_completed: deallocate
-- task_type: monday
-  container:
-    image: alpine
-  script:
-    - echo monday
-  on_completed: deallocate
-- task_type: tuesday
-  container:
-    image: alpine
-  script:
-    - echo tuesday
-  on_completed: taco-tuesday
-- task_type: taco-tuesday
-  container:
-    image: alpine
-  script:
-    - echo taco tuesday
-  on_completed: deallocate
-- task_type: friday
-  container:
-    image: alpine
-  script:
-    - echo friday
-  on_completed: party
-- task_type: party
-  container:
-    image: alpine
-  script:
-    - echo tgif party
-  on_completed: deallocate
-- task_type: deallocate
-  container:
-    image: alpine
-  always_run: true
-  script:
-    - echo deallocating
-```
-
-In above example, `check-date` defines `on_exit_code` for next task to run based on `exit-code`, e.g.
-```
-  on_exit_code:
-    1: monday
-    2: tuesday
-    3: friday 
-```
+See [Job Filtering](definition_options.md#on_exit) for usage of multiple exit paths using on-exit.
 
 ### Caching
 

@@ -15,6 +15,7 @@ common:
   id: ant-worker-id
   user_agent: "formicary-agent"
   development: true
+  public_dir: "./public/"
   proxy_url: ""
   messaging_provider: REDIS_MESSAGING
   max_job_timeout: 0s

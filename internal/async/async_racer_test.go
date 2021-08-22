@@ -97,7 +97,7 @@ func Test_ShouldAsyncRacerWithFirstFailure(t *testing.T) {
 
 func Test_ShouldAsyncRacerWithSecondFailure(t *testing.T) {
 	// GIVEN a handlers where second fails first
-	timeout := 10 * time.Millisecond
+	timeout := 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	handler1 := func(ctx context.Context) (interface{}, error) {

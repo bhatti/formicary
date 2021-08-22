@@ -35,7 +35,10 @@ func New(
 ) (JobNotifier, error) {
 	b, err := ioutil.ReadFile(cfg.Email.JobsTemplateFile)
 	if err != nil {
-		return nil, fmt.Errorf("error loading jobs_template_file: '%s' due to %s", cfg.Email.JobsTemplateFile, err)
+		b, err = ioutil.ReadFile(cfg.PublicDir + cfg.Email.JobsTemplateFile)
+		if err != nil {
+			return nil, fmt.Errorf("error loading jobs_template_file: '%s' due to %s", cfg.Email.JobsTemplateFile, err)
+		}
 	}
 
 	return &DefaultJobNotifier{

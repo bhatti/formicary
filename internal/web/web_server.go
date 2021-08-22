@@ -48,9 +48,9 @@ type DefaultWebServer struct {
 // NewDefaultWebServer creates new instance of web server
 func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 	ws := &DefaultWebServer{e: echo.New(), authEnabled: commonCfg.Auth.Enabled}
-	ws.e.Static("/", "public/assets")
-	ws.e.Static("/docs", "public/docs")
-	ws.e.File("/favicon.ico", "public/assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
+	ws.e.Static("/", commonCfg.PublicDir + "assets")
+	ws.e.Static("/docs", commonCfg.PublicDir + "docs")
+	ws.e.File("/favicon.ico", commonCfg.PublicDir + "assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
 	defaultLoggerConfig := middleware.LoggerConfig{
 		Skipper: middleware.DefaultSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","id":"${id}","remote_ip":"${remote_ip}",` +
@@ -104,7 +104,7 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
 	var err error
-	ws.e.Renderer, err = NewTemplateRenderer("public/views", ".html", commonCfg.Development)
+	ws.e.Renderer, err = NewTemplateRenderer(commonCfg.PublicDir + "views", ".html", commonCfg.Development)
 	if err != nil {
 		return nil, err
 	}

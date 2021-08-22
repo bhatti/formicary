@@ -394,7 +394,7 @@ func Test_ShouldNextTaskForJobDefinition(t *testing.T) {
 	require.Equal(t, "task1", firstTask.TaskType)
 
 	// WHEN finding next task to execute
-	next, err := job.GetNextTask(firstTask, "completed", "")
+	next, _, err := job.GetNextTask(firstTask, "completed", "")
 	require.NoError(t, err)
 
 	// THEN it should return valid task
@@ -419,20 +419,20 @@ func Test_ShouldNextTaskFromExitCodeForJobDefinition(t *testing.T) {
 	//OnExitCode["600"] = "HARD_ERROR"
 
 	// WHEN finding next task to execute based on 400 - COMPLETED
-	next, err := job.GetNextTask(firstTask, "completed", "400")
+	next, _,  err := job.GetNextTask(firstTask, "completed", "400")
 	// THEN completed it should return valid task
 	require.NotNil(t, next)
 
 	// WHEN finding next task to execute based on 500 - FAILED
-	next, err = job.GetNextTask(firstTask, "completed", "500")
+	next, _, err = job.GetNextTask(firstTask, "completed", "500")
 	require.NotNil(t, next)
 	require.Nil(t, err)
 
 	// WHEN finding next task to execute based on 600 - FATAL
-	next, err = job.GetNextTask(firstTask, "completed", "600")
+	next, _, err = job.GetNextTask(firstTask, "completed", "600")
 	require.NoError(t, err)
 	require.Equal(t, "task2", next.TaskType)
-	next, err = job.GetNextTask(firstTask, "failed", "600")
+	next, _, err = job.GetNextTask(firstTask, "failed", "600")
 	require.NoError(t, err)
 	require.Nil(t, next)
 }

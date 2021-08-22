@@ -234,7 +234,7 @@ func (js *JobSupervisor) executeNextTask(
 
 	// Continue with next task if task failed but is optional or succeeded
 	var nextTaskDef *types.TaskDefinition
-	nextTaskDef, err = js.jobStateMachine.JobDefinition.GetNextTask(
+	nextTaskDef, _, err = js.jobStateMachine.JobDefinition.GetNextTask(
 		taskStateMachine.TaskDefinition,
 		taskStateMachine.TaskExecution.TaskState,
 		taskStateMachine.TaskExecution.ExitCode)

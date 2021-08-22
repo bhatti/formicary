@@ -11,12 +11,14 @@ import (
 )
 
 const (
-	successColor   = "darkseagreen4"
-	failColor      = "firebrick4"
-	blueColor      = "dodgerblue3"
-	unknownColor   = "goldenrod3"
-	executingColor = "skyblue2"
-	defaultColor   = "gray"
+	successColor    = "darkseagreen4"
+	endSuccessColor = "darkseagreen"
+	failColor       = "firebrick4"
+	endFailColor    = "firebrick"
+	blueColor       = "dodgerblue3"
+	unknownColor    = "goldenrod3"
+	executingColor  = "skyblue2"
+	defaultColor    = "gray"
 )
 
 // Generator structure
@@ -36,6 +38,9 @@ type Node struct {
 	bold       bool
 	arrow      common.RequestState
 	arrowColor string
+	boldArrow  bool
+	decision   bool
+	alwaysRun bool
 	children   []*Node
 }
 
@@ -84,9 +89,9 @@ func (dg *Generator) GenerateDotImage() ([]byte, error) {
 func (dg *Generator) GenerateDot() (string, error) {
 	endColor := blueColor
 	if dg.executionStatus.Completed() {
-		endColor = successColor
+		endColor = endSuccessColor
 	} else if dg.executionStatus.Failed() {
-		endColor = failColor
+		endColor = endFailColor
 	}
 	head, nodes, err := dg.buildTree()
 	if err != nil {
@@ -100,7 +105,7 @@ func (dg *Generator) GenerateDot() (string, error) {
 		dg.write(fmt.Sprintf(`  "start" [shape=Mdiamond,color=%s,penwidth=3.0,style=solid,label="START"]`,
 			blueColor) + "\n")
 		dg.write(fmt.Sprintf(`  "end" [shape=Msquare,color=%s,penwidth=3.0,style=solid,label="END"]`,
-			blueColor) + "\n")
+			endColor) + "\n")
 	}
 	for _, node := range nodes {
 		dg.writeShape(node)
@@ -162,22 +167,8 @@ func (dg *Generator) writeTaskLine(
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(`  "%s" -> "%s" `, from.label, to.label))
 
-	boldArrow := false
-	if dg.jobExecution != nil {
-		fromExecTask := dg.jobExecution.GetTask(from.label)
-		if fromExecTask != nil {
-			nextTask, _ := dg.jobDefinition.GetNextTask(
-				dg.jobDefinition.GetTask(from.label),
-				fromExecTask.TaskState,
-				fromExecTask.ExitCode)
-			if nextTask != nil {
-				boldArrow = fromExecTask.TaskState == from.state && nextTask.TaskType == to.label
-			}
-		}
-	}
-
 	var widthStyle string
-	if boldArrow {
+	if to.boldArrow {
 		widthStyle = "penwidth=5.0,style=solid"
 	} else {
 		widthStyle = "penwidth=1.0,style=dotted"
@@ -195,14 +186,20 @@ func (dg *Generator) write(line string) {
 func (dg *Generator) writeShape(node *Node) {
 	dg.write(fmt.Sprintf(`  "%s" [shape=`, node.label))
 	if dg.jobExecution == nil {
-		dg.write("}\n")
 		dg.write("ellipse,color=gray,style=rounded]\n")
 	} else {
 		pendwidth := 2
 		if !node.state.Processing() {
 			pendwidth = 4
 		}
-		dg.write(fmt.Sprintf("box,color=%s,style=rounded,penwidth=%d]\n", node.color, pendwidth))
+		shape := "box"
+		if node.decision {
+			shape = "diamond"
+		} else if node.alwaysRun {
+			shape = "trapezium"
+		}
+		dg.write(fmt.Sprintf("%s,color=%s,style=rounded,penwidth=%d,pad=0.1]\n",
+			shape, node.color, pendwidth))
 	}
 }
 
@@ -214,7 +211,7 @@ func (dg *Generator) buildTree() (node *Node, nodes map[string]*Node, err error)
 	}
 	nodes = make(map[string]*Node)
 	_, arrowColor, _ := dg.getTaskStateStateColor(firstTask.TaskType)
-	node = &Node{label: firstTask.TaskType, arrowColor: arrowColor}
+	node = &Node{label: firstTask.TaskType, arrowColor: arrowColor, alwaysRun: firstTask.AlwaysRun}
 	dg.addNodes(node, firstTask, nodes)
 	return
 }
@@ -230,9 +227,42 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 		if childTask == nil {
 			continue
 		}
-		childNode := &Node{label: target, arrow: state, arrowColor: stateToColor(state)}
-		dg.addNodes(childNode, childTask, nodes)
-		parentNode.children = append(parentNode.children, childNode)
+		childNode := &Node{label: target, arrow: state, arrowColor: stateToColor(state), alwaysRun: childTask.AlwaysRun}
+		if dg.jobExecution != nil {
+			fromExecTask := dg.jobExecution.GetTask(parentTask.TaskType)
+			if fromExecTask != nil {
+				var nextTask *types.TaskDefinition
+				parentNode.arrowColor = stateToColor(fromExecTask.TaskState)
+				nextTask, parentNode.decision, _ = dg.jobDefinition.GetNextTask(
+					parentTask,
+					fromExecTask.TaskState,
+					fromExecTask.ExitCode)
+				if nextTask != nil {
+					childNode.boldArrow = fromExecTask.TaskState == parentNode.state && nextTask.TaskType == childNode.label
+				} else {
+					if childTask != nil && childTask.AlwaysRun {
+						matched := false
+						for _, childTarget := range childTask.OnExitCode {
+							childTargetExec := dg.jobExecution.GetTask(childTarget)
+							if childTargetExec != nil {
+								matched = true
+								break
+							}
+						}
+						if !matched {
+							childNode.boldArrow = true
+							if fromExecTask.ExitCode != "" {
+								childNode.arrow = common.RequestState(fromExecTask.ExitCode)
+							} else {
+								childNode.arrow = fromExecTask.TaskState
+							}
+						}
+					}
+				}
+			}
+			dg.addNodes(childNode, childTask, nodes)
+			parentNode.children = append(parentNode.children, childNode)
+		}
 	}
 }
 

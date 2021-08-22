@@ -91,6 +91,7 @@ common:
     user_agent: "formicary-agent"
     proxy_url: ""
     http_port: 0
+    public_dir: "./public/"
     s3:
         endpoint: 127.0.0.1:9000
         accessKeyID: admin

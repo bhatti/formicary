@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"plexobject.com/formicary/internal/buildversion"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -83,6 +84,7 @@ type CommonConfig struct {
 	UserAgent                  string             `yaml:"user_agent" mapstructure:"user_agent"`
 	ProxyURL                   string             `yaml:"proxy_url" mapstructure:"proxy_url"`
 	ExternalBaseURL            string             `yaml:"external_base_url" mapstructure:"external_base_url"`
+	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir"`
 	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port"`
 	Pulsar                     PulsarConfig       `yaml:"pulsar" mapstructure:"pulsar"`
 	Kafka                      KafkaConfig        `yaml:"kafka" mapstructure:"kafka"`
@@ -296,7 +298,6 @@ func (c *CommonConfig) GetRequestTopic() string {
 		RequestTopicPrefix+c.Pulsar.TopicSuffix)
 }
 
-
 // Validate - validates
 func (c *CommonConfig) Validate(_ []string) error {
 	if c.MonitorInterval == 0 {
@@ -333,6 +334,13 @@ func (c *CommonConfig) Validate(_ []string) error {
 	}
 	c.Kafka.clientID = c.ID
 
+	if c.PublicDir == "" {
+		c.PublicDir = "./public/"
+	}
+	if !strings.HasSuffix(c.PublicDir, "/") {
+		c.PublicDir += "/"
+	}
+
 	if c.MessagingProvider == PulsarMessagingProvider {
 		if err := c.Pulsar.Validate(); err != nil {
 			return err
@@ -358,6 +366,6 @@ func (c *CommonConfig) Validate(_ []string) error {
 	if !listeningForStackTraceDumps {
 		c.AddSignalHandlerForStackTrace()
 	}
+
 	return nil
 }
-

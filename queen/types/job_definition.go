@@ -217,24 +217,24 @@ func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
 func (jd *JobDefinition) GetNextTask(
 	task *TaskDefinition,
 	taskStatus common.RequestState,
-	exitCode string) (*TaskDefinition, error) {
+	exitCode string) (*TaskDefinition, bool, error) {
 	if task.OnExitCode == nil || len(task.OnExitCode) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 	nextTaskName := task.OnExitCode[common.NewRequestState(exitCode)]
 
 	nextTask := jd.GetTask(nextTaskName)
 	if nextTask != nil {
-		return nextTask, nil
+		return nextTask, true, nil
 	}
 	nextTask = jd.GetTask(task.OnExitCode[common.NewRequestState(string(taskStatus))])
 	if nextTask != nil {
-		return nextTask, nil
+		return nextTask, false, nil
 	}
 	if task.AllowFailure {
-		return jd.GetTask(task.OnExitCode[common.COMPLETED]), nil
+		return jd.GetTask(task.OnExitCode[common.COMPLETED]), false, nil
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 // Filter returns filter tag

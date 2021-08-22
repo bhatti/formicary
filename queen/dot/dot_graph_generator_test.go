@@ -43,7 +43,6 @@ func Test_ShouldCreateDotForTacoJob(t *testing.T) {
 	require.Contains(t, dotConf, `"check-date" -> "monday"`)
 	require.Contains(t, dotConf, `"monday" -> "deallocate"`)
 	require.Contains(t, dotConf, `"deallocate" -> "end"`)
-	fmt.Printf("%s\n", dotConf)
 }
 
 func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
