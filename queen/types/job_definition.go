@@ -737,6 +737,31 @@ const ValidSemanticVersion SemanticVersionType = 1
 // ValidSemanticDevRcVersion rc/dev version
 const ValidSemanticDevRcVersion SemanticVersionType = 2
 
+// NormalizedSemVersion normalize sem-version
+func (jd *JobDefinition) NormalizedSemVersion() string {
+	if jd.SemVersion == "" {
+		return ""
+	}
+	semHyphenated := strings.Split(jd.SemVersion, "-")
+	if len(semHyphenated) == 1 {
+		semHyphenated = strings.Split(jd.SemVersion, "rc")
+	}
+	if len(semHyphenated) == 1 {
+		semHyphenated = strings.Split(jd.SemVersion, "dev")
+	}
+	var sb strings.Builder
+	parts := strings.Split(semHyphenated[0], ".")
+	for i, p := range parts {
+		if n, err := strconv.Atoi(p); err == nil && n >= 0 && i < 3 {
+			if i > 0 {
+				sb.WriteString(".")
+			}
+			sb.WriteString(fmt.Sprintf("%09d", n))
+		}
+	}
+	return sb.String()
+}
+
 // CheckSemVersion validates sem-version
 func (jd *JobDefinition) CheckSemVersion() (SemanticVersionType, error) {
 	ver := strings.Split(jd.SemVersion, ".")

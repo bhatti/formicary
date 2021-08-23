@@ -47,7 +47,7 @@ func (t *ArtifactTransferHelperContainer) UploadCache(
 	ctx context.Context,
 	id string,
 	paths []string,
-	expiration *time.Time) (artifact *types.Artifact, err error) {
+	expiration time.Time) (artifact *types.Artifact, err error) {
 	cacheDir := t.taskReq.ExecutorOpts.CacheDirectory
 	name := fmt.Sprintf("%s_cache.zip", t.taskReq.TaskType)
 	return t.uploadArtifacts(ctx, id, name, paths, expiration, cacheDir)
@@ -84,7 +84,7 @@ func (t *ArtifactTransferHelperContainer) CalculateDigest(ctx context.Context, p
 func (t *ArtifactTransferHelperContainer) UploadArtifacts(
 	ctx context.Context,
 	paths []string,
-	expiration *time.Time) (artifact *types.Artifact, err error) {
+	expiration time.Time) (artifact *types.Artifact, err error) {
 	artifactsDir := t.taskReq.ExecutorOpts.ArtifactsDirectory
 	id := fmt.Sprintf("%s%s.zip",
 		utils.NormalizePrefix(t.antCfg.S3.Prefix), t.taskReq.KeyPath())
@@ -97,7 +97,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	id string,
 	name string,
 	paths []string,
-	expiration *time.Time,
+	expiration time.Time,
 	dir string) (artifact *types.Artifact, err error) {
 	var names strings.Builder
 	for _, p := range paths {
@@ -162,7 +162,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 
 	cmd = fmt.Sprintf("aws s3 --endpoint-url $AWS_URL cp %s s3://%s/%s",
 		zipFile, t.antCfg.S3.Bucket, id)
-	if expiration != nil {
+	if expiration.Unix() > time.Now().Unix() {
 		cmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
 	}
 
@@ -187,6 +187,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		Tags:          map[string]string{},
 		ExpiresAt:     expiration,
 	}
+
 	return artifact, nil
 }
 

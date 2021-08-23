@@ -224,6 +224,7 @@ func (ac *AuthController) nonSessionMiddleware(webServer web.Server) {
 	webServer.AddMiddleware(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Set(web.AuthDisabled, true)
+			c.Set(web.AppVersion, ac.commonCfg.Version.String())
 			return next(c)
 		}
 	})
@@ -232,6 +233,7 @@ func (ac *AuthController) nonSessionMiddleware(webServer web.Server) {
 func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 	webServer.AddMiddleware(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			c.Set(web.AppVersion, ac.commonCfg.Version.String())
 			user, dbUser, _, err := ac.addSessionUser(c)
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
@@ -294,6 +296,7 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 	user *common.User,
 	dbUser *common.User,
 	claims *web.JwtClaims, err error) {
+
 	if !ac.commonCfg.Auth.Enabled {
 		c.Set(web.AuthDisabled, true)
 		return nil, nil, nil, nil

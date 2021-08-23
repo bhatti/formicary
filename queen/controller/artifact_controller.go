@@ -104,7 +104,7 @@ func (ac *ArtifactController) downloadArtifact(c web.WebContext) error {
 //   200: emptyResponse
 func (ac *ArtifactController) deleteArtifact(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := ac.artifactManager.DeleteArtifact(qc, c.Param("id"))
+	err := ac.artifactManager.DeleteArtifact(context.Background(), qc, c.Param("id"))
 	if err != nil {
 		return err
 	}

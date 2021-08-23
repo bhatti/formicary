@@ -5,10 +5,16 @@
                 <td>
                     <h3 class="group-title">Job: {{.JobType}} - {{.ID}}</h3>
                 </td>
-                <td class="text-right">
+                <td class="text-right row">
                     {{if .CanRestart }}
                     <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
                         <input type="submit" class="btn btn-secondary" value="Restart"></form>
+                    {{end}}
+                    {{if .CanTriggerCron }}
+                    &nbsp;
+                    <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
+                        <input type="submit" class="btn btn-secondary" value="Trigger">
+                        <input type="hidden" name="id" value="{{.ID}}"></form>
                     {{end}}
                     {{if .Pending}}
                     &nbsp;

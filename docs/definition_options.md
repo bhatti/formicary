@@ -411,6 +411,7 @@ The method defines executor to use for the task such as
     - HTTP_DELETE 
     - FORK_JOB 
     - AWAIT_FORKED_JOB
+    - EXPIRE_ARTIFACTS
 
 ```yaml
  - task_type: lint
@@ -444,7 +445,6 @@ so that you can define all exit criteria in one place, e.g.
 ```
 
 Following workflow shows example of multiple exit paths from a task, e.g. 
-![taco-job](taco-job.png) 
 
 
 ```yaml
@@ -503,6 +503,8 @@ tasks:
   script:
     - echo deallocating
 ```
+
+![taco-job](taco-job.png) 
 
 The `check-date` task will execute different tasks based on the exit code defined under `on_exit_code`. Note: the `deallocate` task is always run because it defines `always_run` property as true.
 
@@ -586,7 +588,6 @@ definition uses `FORK_JOB` method to spawn the job and `AWAIT_FORKED_JOB` to wai
  - task_type: fork-task
    method: FORK_JOB
    fork_job_type: child-job
-   fork_job_version: 1.0-dev
    on_completed: fork-wait
  - task_type: fork-wait
    method: AWAIT_FORKED_JOB
@@ -596,6 +597,20 @@ definition uses `FORK_JOB` method to spawn the job and `AWAIT_FORKED_JOB` to wai
 
 In above example, `fork-task` will fork another job with type `child-job` and then `fork-wait` will 
 wait for its completion. The status of `fork-wait` will be set by the job status of `child-job`.
+
+### Expire old artifacts
+
+The `EXPIRE_ARTIFACTS` method can be used to expire old artifacts, e.g.
+
+```yaml
+job_type: artifacts-expiration
+cron_trigger: 0 * * * *
+tasks:
+- task_type: expire
+  method: EXPIRE_ARTIFACTS
+```
+
+In above example, `expire` task will run every hour and expire old artifacts that are no longer needed.
 
 
 ### Templates

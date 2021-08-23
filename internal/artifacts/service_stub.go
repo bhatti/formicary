@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/twinj/uuid"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -66,7 +67,7 @@ func (s *stub) SaveFile(
 	artifact.SHA256 = hex256
 	artifact.ContentLength = int64(len(data))
 	if artifact.ID == "" {
-		artifact.ID = utils.NormalizePrefix(prefix) + hex256
+		artifact.ID = utils.NormalizePrefix(prefix) + uuid.NewV4().String()
 	}
 	if err := artifact.Validate(); err != nil {
 		return err

@@ -120,7 +120,7 @@ func (ac *ArtifactAdminController) queryArtifacts(c web.WebContext) error {
 // deleteArtifact - deletes artifact by id
 func (ac *ArtifactAdminController) deleteArtifact(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := ac.artifactManager.DeleteArtifact(qc, c.Param("id"))
+	err := ac.artifactManager.DeleteArtifact(context.Background(), qc, c.Param("id"))
 	if err != nil {
 		return err
 	}

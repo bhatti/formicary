@@ -68,6 +68,7 @@ jobs:
     disable_job_scheduler: false
     max_fork_tasklet_capacity: 100
     max_fork_await_tasklet_capacity: 100
+    expire_artifacts_tasklet_capacity: 100
 gateway_subscriptions:
     JobExecutionLifecycleEvent: true
     LogEvent: true

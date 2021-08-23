@@ -19,7 +19,7 @@ func Test_ShouldGetArtifactWithNonExistingId(t *testing.T) {
 	repo, err := NewTestArtifactRepository()
 	require.NoError(t, err)
 
-	// WHEN loading non existing artifact
+	// WHEN loading nonexisting artifact
 	_, err = repo.Get(qc, "missing_id")
 
 	// THEN it should fail
@@ -151,6 +151,11 @@ func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 	require.NoError(t, err)
 	// THEN it should not return data
 	require.Equal(t, int64(0), total)
+
+	time.Sleep(1 * time.Millisecond)
+	expired, err := repo.ExpiredArtifacts(qc, time.Millisecond, 1000)
+	require.NoError(t, err)
+	require.Equal(t, 50, len(expired))
 }
 
 func newTestArtifact(expire time.Time) *common.Artifact {
@@ -161,7 +166,7 @@ func newTestArtifact(expire time.Time) *common.Artifact {
 	art.AddMetadata("n3", "1")
 	art.AddTag("t1", "v1")
 	art.AddTag("t2", "v2")
-	art.ExpiresAt = &expire
+	art.ExpiresAt = expire
 	art.JobExecutionID = "job"
 	art.TaskExecutionID = "task"
 	art.Bucket = "test"

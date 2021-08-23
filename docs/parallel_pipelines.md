@@ -47,7 +47,6 @@ tasks:
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
-  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}
@@ -56,7 +55,6 @@ tasks:
 - task_type: fork-encode2
   method: FORK_JOB
   fork_job_type: video-encoding
-  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_2}}
     InputEncoding: {{.InputEncoding}}
@@ -87,13 +85,11 @@ job that was defined earlier and then wait for their completion in `fork-await` 
 files into a single file.
 
 ##### Fork Jobs
-The task `method` with value of `FORK_JOB` spawns a child job where `fork_job_type` defines type of the job, `fork_job_version` defines version of the job,
-and `variables` define the input parameters to the job:
+The task `method` with value of `FORK_JOB` spawns a child job where `fork_job_type` defines type of the job and `variables` define the input parameters to the job:
 ```yaml
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
-  fork_job_version: 1.0-dev
   variables:
     URL: {{.split_ArtifactURL_1}}
     InputEncoding: {{.InputEncoding}}

@@ -3,6 +3,7 @@ package repository
 import (
 	common "plexobject.com/formicary/internal/types"
 	types "plexobject.com/formicary/queen/types"
+	"time"
 )
 
 // ArtifactRepository defines data access methods for artifacts
@@ -11,7 +12,12 @@ type ArtifactRepository interface {
 	GetResourceUsage(
 		qc *common.QueryContext,
 		ranges []types.DateRange) ([]types.ResourceUsage, error)
-	// Query Queries artifact by parameters
+	// ExpiredArtifacts finds expired artifact
+	ExpiredArtifacts(
+		qc *common.QueryContext,
+		expiration time.Duration,
+		limit int) (arts []*common.Artifact, err error)
+	// Query finds artifact by parameters
 	Query(
 		qc *common.QueryContext,
 		params map[string]interface{},

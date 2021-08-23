@@ -207,21 +207,18 @@ parameters:
 - GitBranch
 - GitCommit
 
-### Docker in Docker (dind)
 
-See [Building Docker images](dind.md) for building images using docker in docker.
+### Additional References
 
-### Code Analysis
+- [Artifacts Expiration](expire-artifacts.md) for expiring old artifacts.
 
-See [Scanning Golang using gosec](gosec-scan.md) for scanning GO source code.
+- [Building Docker images](dind.md) for building images using docker in docker.
 
-See [Static Golang Analusis using go-kart](go-kart.md) for scanning GO source code.
+- [Scanning Golang using gosec](gosec-scan.md) for scanning GO source code.
 
-### Scanning containers for security
+- [Static Golang Analusis using go-kart](go-kart.md) for scanning GO source code.
 
-See [Scanning containers using Trivy](trivy-scan.md) for scanning containers for security.
+- [Scanning containers using Trivy](trivy-scan.md) for scanning containers for security.
 
-### Advanced Kubernetes
-
-See [Advanced Kubernetes](advanced_k8.md) for using advanced kubernetes configs.
+- [Advanced Kubernetes](advanced_k8.md) for using advanced kubernetes configs.
 

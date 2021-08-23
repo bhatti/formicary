@@ -42,7 +42,7 @@ func (t *ArtifactTransferService) UploadCache(
 	ctx context.Context,
 	id string,
 	paths []string,
-	expiration *time.Time) (artifact *types.Artifact, err error) {
+	expiration time.Time) (artifact *types.Artifact, err error) {
 	return t.uploadArtifacts(
 		ctx,
 		"",
@@ -56,7 +56,7 @@ func (t *ArtifactTransferService) UploadCache(
 func (t *ArtifactTransferService) UploadArtifacts(
 	ctx context.Context,
 	paths []string,
-	expiration *time.Time) (artifact *types.Artifact, err error) {
+	expiration time.Time) (artifact *types.Artifact, err error) {
 	return t.uploadArtifacts(
 		ctx,
 		t.taskReq.KeyPath(),
@@ -72,7 +72,7 @@ func (t *ArtifactTransferService) uploadArtifacts(
 	id string,
 	name string,
 	paths []string,
-	expiration *time.Time) (artifact *types.Artifact, err error) {
+	expiration time.Time) (artifact *types.Artifact, err error) {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "artifacts.zip")
 	if err != nil {
 		return nil, err

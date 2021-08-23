@@ -50,6 +50,9 @@ const ContainerLifecycleTopic = "container-lifecycle-topic"
 // ForkJobTaskletTopic topic for fork-job
 const ForkJobTaskletTopic = "fork-job-tasklet-topic"
 
+// ExpireArtifactsTaskletTopic topic for expiration
+const ExpireArtifactsTaskletTopic = "expire-artifacts-tasklet-topic"
+
 // WaitForkJobTaskletTopic topic for wait-fork-job
 const WaitForkJobTaskletTopic = "wait-fork-job-tasklet-topic"
 
@@ -251,6 +254,15 @@ func (c *CommonConfig) GetTaskExecutionLifecycleTopic() string {
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
 		TaskExecutionLifecycleTopic)
+}
+
+// GetExpireArtifactsTaskletTopic topic
+func (c *CommonConfig) GetExpireArtifactsTaskletTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		ExpireArtifactsTaskletTopic)
 }
 
 // GetForkJobTaskletTopic topic

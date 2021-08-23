@@ -200,6 +200,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 
 	taskReq := &common.TaskRequest{
 		UserID:          tsm.Request.GetUserID(),
+		AdminUser:       tsm.User != nil && tsm.User.Admin,
 		OrganizationID:  tsm.Request.GetOrganizationID(),
 		JobDefinitionID: tsm.JobDefinition.ID,
 		JobRequestID:    tsm.Request.GetID(),

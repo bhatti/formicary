@@ -14,7 +14,11 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Version:</b></dt>
-                        <dd class="col-sm-8">{{ .Version }}</dd>
+                        <dd class="col-sm-8">{{ .Version }}
+                            {{with .SemVersion}}
+                            ({{.}})
+                            {{end}}
+                        </dd>
                     </dl>
                 </td>
             </tr>

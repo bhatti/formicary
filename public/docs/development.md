@@ -28,7 +28,7 @@
  - queen/scheduler: defines job launcher
  - queen/stats: manages job metrics
  - queen/supervisor: defines job and task supervisors
- - queen/tasklet: defines implementation of server tasklets such as fork/await
+ - queen/tasklet: defines implementation of server tasklets such as fork/await and artifacts expiration
  - queen/types: defines server domain classes
  - queen/utils: defines server utility functions
 

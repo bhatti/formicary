@@ -6,6 +6,8 @@ package types
 type TaskMethod string
 
 const (
+	// ExpireArtifacts method expires old artifacts
+	ExpireArtifacts TaskMethod = "EXPIRE_ARTIFACTS"
 	// ForkJob method starts new job
 	ForkJob TaskMethod = "FORK_JOB"
 	// AwaitForkedJob method waits for the job completion that was forked
@@ -66,7 +68,8 @@ func (m TaskMethod) IsValid() bool {
 		m == Docker ||
 		m == Kubernetes ||
 		m == ForkJob ||
-		m == AwaitForkedJob
+		m == AwaitForkedJob ||
+		m == ExpireArtifacts
 }
 
 // SupportsDependentArtifacts  checks if method allows downloading dependent artifacts

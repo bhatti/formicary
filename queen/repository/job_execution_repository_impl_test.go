@@ -610,6 +610,7 @@ func addTestArtifacts(jobExec *types.JobExecution) error {
 			art.JobRequestID = jobExec.JobRequestID
 			art.JobExecutionID = jobExec.ID
 			art.TaskExecutionID = task.ID
+			art.ExpiresAt = time.Now().Add(time.Hour)
 			art.Bucket = "test"
 			_, err := artifactRepository.Save(art)
 			if err != nil {

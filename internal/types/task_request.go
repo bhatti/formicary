@@ -50,6 +50,7 @@ type TaskRequest struct {
 	Variables       map[string]interface{} `json:"variables" yaml:"variables"`
 	SecretConfigs   []string               `json:"secret_configs" yaml:"secret_configs"`
 	ExecutorOpts    *ExecutorOptions       `json:"executor_opts" yaml:"executor_opts"`
+	AdminUser       bool                   `json:"admin_user" yaml:"admin_user"`
 
 	// Transient local properties for keeping track of request by ants
 	StartedAt time.Time          `json:"-"`

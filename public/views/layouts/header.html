@@ -44,6 +44,7 @@
     <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="/dashboard">Formicary</a>
     <form action="/dashboard/search">
     </form>
+
     <input id="q" name="q" value="{{.Q}}" class="form-control form-control-dark" type="text" placeholder="Search Jobs"
            aria-label="Search" onkeypress="search(event)">
     <ul class="navbar-nav px-30">
@@ -231,6 +232,9 @@
                         </li>
                     </ul>
                     {{ end }}
+                    <p>&nbsp;</p>
+                    <p>&nbsp;</p>
+                    <p><small><i>Version: {{$.AppVersion}}</i></small></p>
                 </div>
             </div>
         </nav>

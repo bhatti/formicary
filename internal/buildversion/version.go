@@ -27,6 +27,13 @@ func New(version string, commit string, date string, id string) *Info {
 	}
 }
 
+func (v *Info) String() string {
+	if v.Version == "" || v.Version == v.Commit {
+		return v.Commit + " " + v.Date
+	}
+	return v.Version + " " + v.Commit + " " + v.Date
+}
+
 // Output will add the versioning code
 func (v *Info) Output(shortened bool) string {
 	var response string

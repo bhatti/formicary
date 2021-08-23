@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"github.com/twinj/uuid"
 	"io"
 	"io/ioutil"
@@ -38,6 +39,41 @@ func NewArtifactManager(
 		artifactRepository: artifactRepository,
 		artifactService:    artifactService,
 	}, nil
+}
+
+// ExpireArtifacts - expire and removes artifact
+func (am *ArtifactManager) ExpireArtifacts(
+	ctx context.Context,
+	qc *common.QueryContext,
+	expiration time.Duration,
+	limit int,
+) (expired int, size int64, err error) {
+	for i := 0; i < limit; i += 10000 {
+		records, err := am.artifactRepository.ExpiredArtifacts(qc, expiration, 10000)
+		if err != nil {
+			return 0, 0, err
+		}
+		expired += len(records)
+		for _, rec := range records {
+			size += rec.ContentLength
+			if err = am.DeleteArtifact(ctx, qc, rec.ID); err != nil {
+				return 0, 0, err
+			}
+			logrus.WithFields(
+				logrus.Fields{
+					"Component":          "ArtifactManager",
+					"QC":                 qc,
+					"ID":                 rec.ID,
+					"ArtifactExpiration": rec.ExpiresAt,
+					"ArtifactUpdated":    rec.UpdatedAt,
+					"ArtifactSize":       rec.ContentLength,
+					"Expiration":         expiration,
+					"ArtifactName":       rec.Name,
+					"RequestID":          rec.JobRequestID,
+				}).Infof("expired artifact")
+		}
+	}
+	return
 }
 
 // QueryArtifacts - queries artifact
@@ -93,6 +129,7 @@ func (am *ArtifactManager) UploadArtifact(
 		Tags:           map[string]string{},
 		UserID:         qc.UserID,
 		OrganizationID: qc.OrganizationID,
+		ExpiresAt:      time.Now().Add(common.DefaultArtifactsExpirationDuration),
 	}
 
 	if err = am.artifactService.SaveFile(
@@ -148,9 +185,22 @@ func (am *ArtifactManager) UpdateArtifact(
 
 // DeleteArtifact - deletes artifact by id
 func (am *ArtifactManager) DeleteArtifact(
+	ctx context.Context,
 	qc *common.QueryContext,
 	id string) error {
-	return am.artifactRepository.Delete(qc, id)
+	svcErr := am.artifactService.Delete(ctx, id)
+	dbErr := am.artifactRepository.Delete(qc, id)
+
+	logrus.WithFields(
+		logrus.Fields{
+			"Component": "ArtifactManager",
+			"QC":        qc,
+			"ID":        id,
+		}).Infof("deleted artifact")
+	if svcErr != nil {
+		return svcErr
+	}
+	return dbErr
 }
 
 // UpdateURL - using presigned or external api

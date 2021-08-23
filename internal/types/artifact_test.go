@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/twinj/uuid"
 	"testing"
+	"time"
 )
 
 // Verify table names for artifact and config
@@ -21,6 +22,7 @@ func Test_ShouldCreateArtifact(t *testing.T) {
 	art.AddTag("t1", "v1")
 	art.AddTag("t2", "v2")
 	art.AddTag("t3", "1")
+	art.ExpiresAt = time.Now().Add(time.Hour)
 	art.ID = uuid.NewV4().String()
 	err := art.ValidateBeforeSave()
 	require.NoError(t, err)

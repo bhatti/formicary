@@ -27,7 +27,7 @@ type ArtifactTransfer interface {
 	UploadArtifacts(
 		ctx context.Context,
 		paths []string,
-		expiration *time.Time) (artifact *types.Artifact, err error)
+		expiration time.Time) (artifact *types.Artifact, err error)
 
 	CalculateDigest(
 		ctx context.Context,
@@ -37,7 +37,7 @@ type ArtifactTransfer interface {
 		ctx context.Context,
 		id string,
 		paths []string,
-		expiration *time.Time) (artifact *types.Artifact, err error)
+		expiration time.Time) (artifact *types.Artifact, err error)
 
 	DownloadArtifact(
 		ctx context.Context,
@@ -114,7 +114,7 @@ func uploadCache(
 	antCfg *config.AntConfig,
 	transferService ArtifactTransfer,
 	paths []string,
-	expiration *time.Time,
+	expiration time.Time,
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter,
@@ -169,7 +169,7 @@ func uploadArtifacts(
 	antCfg *config.AntConfig,
 	transferService ArtifactTransfer,
 	paths []string,
-	expiration *time.Time,
+	expiration time.Time,
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter,
@@ -243,7 +243,7 @@ func SetupCacheAndDownloadArtifacts(
 			transferService)
 	}
 
-	// Downloading Cache for npm, yarn, gradle, etc (only for docker/kubernetes)
+	// Downloading Cache for npm, yarn, gradle, etc. (only for docker/kubernetes)
 	if taskReq.ExecutorOpts.Cache.Valid() && taskReq.ExecutorOpts.Method.SupportsCache() {
 		_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloading cache %s...",
 			taskReq.ExecutorOpts.Cache.String()))
@@ -297,7 +297,7 @@ func downloadCache(
 
 	// running on main container
 	for _, p := range taskReq.ExecutorOpts.Cache.Paths {
-		// Copy cache cache to current working folder
+		// Copy cache to current working folder
 		cmd := fmt.Sprintf("mkdir -p %s && mv %s %s",
 			filepath.Dir(p), filepath.Join(taskReq.ExecutorOpts.CacheDirectory, p), p)
 		if _, stderr, _, _, err := execute(ctx, cmd, false); err != nil {
@@ -365,6 +365,7 @@ func UploadConsoleLog(
 		return err
 	} else {
 		artifact.Kind = types.ArtifactKindLogs
+		artifact.ExpiresAt = time.Now().Add(types.DefaultArtifactsExpirationDuration)
 		taskResp.AddArtifact(artifact)
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(

@@ -10,7 +10,39 @@ import (
 	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
+	"time"
 )
+
+func Test_ShouldExpireArtifacts(t *testing.T) {
+	// GIVEN artifact-manager
+	serverCfg := newTestServerConfig()
+	err := serverCfg.Validate()
+	require.NoError(t, err)
+
+	mgr := newTestArtifactManager(t, err, serverCfg)
+
+	qc := types.NewQueryContext("test-user", "test-org", "")
+	for i:=0; i<10; i++ {
+		in := io.NopCloser(strings.NewReader("test"))
+		_, err := mgr.UploadArtifact(
+			context.Background(),
+			qc,
+			in,
+			make(map[string]string))
+		require.NoError(t, err)
+	}
+	time.Sleep(1 * time.Millisecond)
+	// WHEN expiring
+	expired, _, err := mgr.ExpireArtifacts(
+		context.Background(),
+		qc,
+		time.Millisecond,
+		10000)
+
+	// THEN it should not fail
+	require.NoError(t, err)
+	require.Equal(t, 10, expired)
+}
 
 func Test_ShouldUploadArtifacts(t *testing.T) {
 	// GIVEN artifact-manager
@@ -54,7 +86,7 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 	require.Equal(t, art.ID, loaded.ID)
 
 	// WHEN deleting artifact
-	err = mgr.DeleteArtifact(types.NewQueryContext("", "", ""), art.ID)
+	err = mgr.DeleteArtifact(context.Background(), types.NewQueryContext("", "", ""), art.ID)
 
 	// THEN it should not fail
 	require.NoError(t, err)

@@ -24,6 +24,8 @@ const (
 	JobRequestCancelled AuditKind = "JOB_REQUEST_CANCELLED"
 	// JobRequestRestarted restarted
 	JobRequestRestarted AuditKind = "JOB_REQUEST_RESTARTED"
+	// JobRequestTriggered restarted
+	JobRequestTriggered AuditKind = "JOB_REQUEST_TRIGGERED"
 
 	// UserUpdated updated
 	UserUpdated AuditKind = "USER_UPDATED"

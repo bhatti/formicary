@@ -234,6 +234,11 @@ func (jr *JobRequest) CanCancel() bool {
 	return jr.JobState.CanCancel()
 }
 
+// CanTriggerCron if job is triggered that can be scheduled
+func (jr *JobRequest) CanTriggerCron() bool {
+	return jr.JobState.Pending() && jr.CronTriggered
+}
+
 // Pending job
 func (jr *JobRequest) Pending() bool {
 	return jr.JobState.Pending()

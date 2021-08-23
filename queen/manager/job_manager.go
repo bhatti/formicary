@@ -809,6 +809,20 @@ func (jm *JobManager) SetJobRequestReadyToExecute(
 	return jm.jobRequestRepository.SetReadyToExecute(id, jobExecutionID, lastJobExecutionID)
 }
 
+// TriggerJobRequest - triggers job
+func (jm *JobManager) TriggerJobRequest(
+	qc *common.QueryContext,
+	id uint64) (err error) {
+	if err = jm.jobRequestRepository.Trigger(qc, id); err == nil {
+		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
+			jm.metricsRegistry.Incr("job_trigger_total", map[string]string{"JobType": req.JobType})
+			_ = jm.fireJobRequestChange(req)
+			_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestTriggered, qc))
+		}
+	}
+	return
+}
+
 // RestartJobRequest - restarts job
 func (jm *JobManager) RestartJobRequest(
 	qc *common.QueryContext,

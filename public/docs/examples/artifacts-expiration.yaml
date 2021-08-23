@@ -1,0 +1,5 @@
+job_type: artifacts-expiration
+cron_trigger: 0 * * * *
+tasks:
+- task_type: expire
+  method: EXPIRE_ARTIFACTS

@@ -61,6 +61,12 @@
                 <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
                     <input type="submit" class="btn btn-secondary" value="Restart"></form>
                 {{end}}
+                {{if .CanTriggerCron }}
+                &nbsp;
+                <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-secondary" value="Trigger">
+                    <input type="hidden" name="id" value="{{.ID}}"></form>
+                {{end}}
                 {{if .CanCancel }}
                 &nbsp;
                 <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"

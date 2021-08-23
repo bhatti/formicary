@@ -9,6 +9,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/twinj/uuid"
 	"io"
 	"net/url"
 	"os"
@@ -96,7 +97,7 @@ func (a *Adapter) SaveFile(
 	hex256 := hex.EncodeToString(sum256[:])
 	defaultPrefix := utils.NormalizePrefix(a.prefix)
 	if artifact.ID == "" {
-		artifact.ID = defaultPrefix + utils.NormalizePrefix(prefix) + hex256
+		artifact.ID = defaultPrefix + uuid.NewV4().String()
 	} else if defaultPrefix != "" && !strings.HasPrefix(artifact.ID, defaultPrefix) {
 		artifact.ID = defaultPrefix + artifact.ID
 	}
@@ -270,7 +271,7 @@ func (a *Adapter) List(
 			ContentType:   object.ContentType,
 			Metadata:      object.UserMetadata,
 			Tags:          object.UserTags,
-			ExpiresAt:     &object.Expiration,
+			ExpiresAt:     object.Expiration,
 		})
 	}
 	return artifacts, nil
@@ -314,9 +315,9 @@ func (a *Adapter) buildPutOptions(artifact *types.Artifact) minio.PutObjectOptio
 	}
 	opts.UserMetadata["ID"] = artifact.ID
 	opts.UserMetadata["SHA256"] = artifact.SHA256
-	if artifact.ExpiresAt != nil {
+	if artifact.ExpiresAt.Unix() > time.Now().Unix() {
 		// See https://docs.minio.io/docs/minio-bucket-object-lock-guide.html
-		opts.RetainUntilDate = *artifact.ExpiresAt
+		opts.RetainUntilDate = artifact.ExpiresAt
 	}
 	return opts
 }

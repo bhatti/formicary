@@ -350,6 +350,29 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 	})
 }
 
+// Trigger triggers a scheduled job
+func (jrr *JobRequestRepositoryImpl) Trigger(
+	qc *common.QueryContext,
+	id uint64) error {
+	// TODO check for cron schedule
+	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ? WHERE id = ? AND cron_triggered = ? AND job_state = ?"
+	args := []interface{}{time.Now(), time.Now(), uuid.NewV4().String(), id, true, common.PENDING}
+	if !qc.Admin() {
+		if qc.OrganizationID != "" {
+			sql += " AND organization_id = ?"
+			args = append(args, qc.OrganizationID)
+		} else if qc.UserID != "" {
+			sql += " AND user_id = ?"
+			args = append(args, qc.UserID)
+		}
+	}
+	res := jrr.db.Exec(sql, args...)
+	if res.Error != nil {
+		return common.NewNotFoundError(res.Error)
+	}
+	return nil
+}
+
 // Restart the job
 func (jrr *JobRequestRepositoryImpl) Restart(
 	qc *common.QueryContext,
@@ -374,7 +397,7 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	}
 	if res.RowsAffected != 1 {
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to update restart job-request with id %v", id))
+			fmt.Errorf("failed to restart job-request with id %v", id))
 	}
 	return nil
 }

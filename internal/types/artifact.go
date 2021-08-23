@@ -64,12 +64,12 @@ type Artifact struct {
 	// TagsSerialized of artifact
 	TagsSerialized string `json:"-"`
 	// ExpiresAt - expiration time
-	ExpiresAt *time.Time `json:"expires_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 	// CreatedAt job creation time
 	CreatedAt time.Time `json:"created_at"`
 	// UpdatedAt job update time
 	UpdatedAt time.Time `json:"updated_at"`
-	// Active is used to soft delete artifact
+	// Active is used to softly delete artifact
 	Active bool `yaml:"-" json:"-"`
 	// MetadataMap - transient map of properties - deserialized from MetadataSerialized
 	Metadata map[string]string `json:"metadata" gorm:"-"`
@@ -171,6 +171,9 @@ func (a *Artifact) ValidateBeforeSave() error {
 		return err
 	}
 
+	if a.ExpiresAt.IsZero() {
+		return errors.New("artifact expiration is not specified")
+	}
 	if len(a.Metadata) > 0 {
 		b, err := json.Marshal(a.Metadata)
 		if err != nil {

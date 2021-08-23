@@ -56,6 +56,29 @@ func (ar *ArtifactRepositoryImpl) GetResourceUsage(
 	return res, nil
 }
 
+// ExpiredArtifacts finds expired artifact
+func (ar *ArtifactRepositoryImpl) ExpiredArtifacts(
+	qc *common.QueryContext,
+	expiration time.Duration,
+	limit int) (records []*common.Artifact, err error) {
+	records = make([]*common.Artifact, 0)
+	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{})).
+		Limit(limit).
+		Where("active = ?", true).
+		Where("expires_at < ? OR updated_at < ?", time.Now(), time.Now().Add(-expiration))
+	res := tx.Find(&records)
+	if res.Error != nil {
+		err = res.Error
+		return nil, err
+	}
+	for _, a := range records {
+		if err = a.AfterLoad(); err != nil {
+			return
+		}
+	}
+	return
+}
+
 // Query finds matching artifacts by parameters
 func (ar *ArtifactRepositoryImpl) Query(
 	qc *common.QueryContext,

@@ -33,11 +33,14 @@ func Test_ShouldQueryArtifacts(t *testing.T) {
 	mgr := newTestArtifactManager(newTestConfig(), t)
 	webServer := web.NewStubWebServer()
 	ctrl := NewArtifactController(mgr, webServer)
+	reader := io.NopCloser(strings.NewReader("test-data"))
+	req := &http.Request{Body: reader}
+	ctx := web.NewStubContext(req)
+	_ = ctrl.uploadArtifact(ctx)
 
 	// WHEN querying artifacts
-	reader := io.NopCloser(strings.NewReader(""))
-	req := &http.Request{Body: reader, URL: &url.URL{}}
-	ctx := web.NewStubContext(req)
+	req = &http.Request{URL: &url.URL{}}
+	ctx = web.NewStubContext(req)
 	err := ctrl.queryArtifacts(ctx)
 
 	// THEN it should not fail and return artifacts

@@ -38,7 +38,7 @@ func Test_ShouldUploadZipFile(t *testing.T) {
 	require.NoError(t, err)
 	_ = tmpFile.Close()
 
-	// AND a artifact-service client
+	// AND an artifact-service client
 	//cli, err := New(s3Config())
 	cli, err := NewStub(s3Config())
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func Test_ShouldUploadZipFile(t *testing.T) {
 		ContentType:   "application/zip",
 		Metadata:      map[string]string{"type": "test"},
 		Tags:          map[string]string{"label": "test"},
-		ExpiresAt:     &expiration,
+		ExpiresAt:     expiration,
 	}
 
 	// WHEN zip file is uploaded to artifact-service
@@ -110,7 +110,7 @@ func Test_ShouldUploadAndDownloadFile(t *testing.T) {
 		_ = reader.Close()
 	}()
 
-	// AND file should be valid after downlaod
+	// AND file should be valid after download
 	b, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
 	require.Equal(t, data, string(b))

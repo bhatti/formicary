@@ -1,5 +1,6 @@
 {{ template "layouts/header" . }}
 <h3 class="group-title">Pending Job Wait Times</h3>
+{{ with .Estimate }}
 <section class="group">
     <header class="group-header">
         <table class="table table-sm">
@@ -180,4 +181,5 @@
         </table>
     </header>
 </section>
+{{end}}
 {{ template "layouts/footer" }}

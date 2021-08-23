@@ -97,6 +97,10 @@ type JobRequestRepository interface {
 	Cancel(
 		qc *common.QueryContext,
 		id uint64) error
+	// Trigger triggers a scheduled job
+	Trigger(
+		qc *common.QueryContext,
+		id uint64) error
 	// Restart restarts a job
 	Restart(
 		qc *common.QueryContext,

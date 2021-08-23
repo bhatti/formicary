@@ -109,12 +109,13 @@ can be used as input of another task.
 - [How-to Guides](docs/howto.md)
 - [Scheduling Jobs](docs/howto.md#Scheduling)
 - [Job/Organization Configs](docs/howto.md#Configs)
+- [Artifacts Expiration](docs/expire-artifacts.md)
 - [Caching](docs/howto.md#Caching)
 - [Webhooks](docs/howto.md#Webhooks)
 - [PostCommit](docs/howto.md#PostCommit)
 - [Multiple Exit Codes](docs/howto.md#OnExitCode)
 - [Building Docker images Using Docker-in-Docker](docs/dind.md)
-- [Scanning containers using Trivy](docs/trivy-scan.md) for scanning containers.
+- [Scanning containers using Trivy](docs/trivy-scan.md)
 - [Advanced Kubernetes](docs/advanced_k8.md)
 
 #### Job / Task Definition Configuration Options

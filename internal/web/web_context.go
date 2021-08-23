@@ -80,6 +80,9 @@ type WebContext interface { //nolint
 // LoggedInUser constant
 const LoggedInUser = "LoggedInUser"
 
+// AppVersion constant
+const AppVersion = "AppVersion"
+
 // DBUser constant
 const DBUser = "DBUser"
 
@@ -92,6 +95,12 @@ const AuthDisabled = "AuthDisabled"
 // RenderDBUserFromSession initializes user/admin parameters
 func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
 	user := GetDBLoggedUserFromSession(c)
+	if c.Get(AppVersion) != nil {
+		res[AppVersion] = c.Get(AppVersion)
+	}
+	if res["Q"] == nil {
+		res["Q"] = ""
+	}
 	if user != nil {
 		res[DBUser] = user
 		res["Admin"] = user.Admin

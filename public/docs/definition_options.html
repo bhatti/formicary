@@ -245,6 +245,7 @@ timeout: 5m
 - HTTP_DELETE 
 - FORK_JOB 
 - AWAIT_FORKED_JOB
+- EXPIRE_ARTIFACTS
 </code></pre><pre><code class="lang-yaml"> - task_type: lint
    method: KUBERNETES
 </code></pre>
@@ -260,7 +261,7 @@ timeout: 5m
     101: cleanup
     COMPLETED: deploy
 </code></pre>
-<p>Following workflow shows example of multiple exit paths from a task, e.g. <img src="taco-job.png" alt="taco-job"> </p>
+<p>Following workflow shows example of multiple exit paths from a task, e.g. </p>
 <pre><code class="lang-yaml">job_type: taco-job
 tasks:
 - task_type: allocate
@@ -316,6 +317,7 @@ tasks:
   script:
     - echo deallocating
 </code></pre>
+<p><img src="taco-job.png" alt="taco-job"> </p>
 <p>The <code>check-date</code> task will execute different tasks based on the exit code defined under <code>on_exit_code</code>. Note: the <code>deallocate</code> task is always run because it defines <code>always_run</code> property as true.</p>
 <h4 id="resources">resources</h4>
 <p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
@@ -372,6 +374,15 @@ tasks:
      - fork-task
 </code></pre>
 <p>In above example, <code>fork-task</code> will fork another job with type <code>child-job</code> and then <code>fork-wait</code> will wait for its completion. The status of <code>fork-wait</code> will be set by the job status of <code>child-job</code>.</p>
+<h3 id="expire-old-artifacts">Expire old artifacts</h3>
+<p>The <code>EXPIRE_ARTIFACTS</code> method can be used to expire old artifacts, e.g.</p>
+<pre><code class="lang-yaml">job_type: artifacts-expiration
+cron_trigger: 0 * * * *
+tasks:
+- task_type: expire
+  method: EXPIRE_ARTIFACTS
+</code></pre>
+<p>In above example, <code>expire</code> task will run every hour and expire old artifacts that are no longer needed.</p>
 <h3 id="templates">Templates</h3>
 <p>The job definition supports GO templates, and you can use variables that are passed by job-request or task definitions, e.g.</p>
 <pre><code class="lang-yaml">- task_type: extract

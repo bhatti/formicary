@@ -89,6 +89,7 @@ of executor. Following executor methods are supported:
 | Shell | SHELL |
 | HTTP (GET POST, PUT, DELETE) | HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE |
 | Fork/Await | JOB_FORK, JOB_FORK_AWAIT |
+| Artifact/Expiration | EXPIRE_ARTIFACTS |
 
 #### Processing Pipeline (Pipes & Filters)
 ![Processing Pipeline](pipeline-arch.png)

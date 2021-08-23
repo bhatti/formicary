@@ -1,0 +1,39 @@
+<h2 id="expire-artifacts">Expire Artifacts</h2>
+<p>Following example shows how to use <code>EXPIRE_ARTIFACTS</code> method to expire old artifacts:</p>
+<pre><code class="lang-yaml">job_type: artifacts-expiration
+cron_trigger: 0 * * * *
+tasks:
+- task_type: expire
+  method: EXPIRE_ARTIFACTS
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: artifacts-expiration
+</code></pre>
+<h4 id="cron-schedule">Cron Schedule</h4>
+<p>The <code>cron_trigger</code> defines schedule to run this job periodically, e.g. it will run above job every hour.</p>
+<pre><code class="lang-yaml">cron_trigger: 0 * * * *
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: expire
+</code></pre>
+<h5 id="method">Method</h5>
+<p>The <code>method</code> defines type of tasklet to run, e.g.</p>
+<pre><code class="lang-yaml">  method: EXPIRE_ARTIFACTS
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @artifacts-expiration.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+   -H &quot;Content-Type: application/json&quot; \
+   --data &#39;{&quot;job_type&quot;: &quot;artifacts-expiration&quot; }&#39; $SERVER/api/jobs/requests
+</code></pre>

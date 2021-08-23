@@ -23,6 +23,8 @@ type ServerConfig struct {
 	Email                         SMTPConfig      `yaml:"smtp" mapstructure:"smtp"`
 	GatewaySubscriptions          map[string]bool `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
 	URLPresignedExpirationMinutes time.Duration   `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
+	DefaultArtifactExpiration     time.Duration   `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
+	DefaultArtifactLimit          int             `yaml:"default_artifact_limit" mapstructure:"default_artifact_limit"`
 	SubscriptionQuotaEnabled      bool            `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
@@ -66,6 +68,7 @@ type JobsConfig struct {
 	MaxScheduleAttempts                  int           `yaml:"max_schedule_attempts" mapstructure:"max_schedule_attempts"`
 	DisableJobScheduler                  bool          `yaml:"disable_job_scheduler" mapstructure:"disable_job_scheduler"`
 	MaxForkTaskletCapacity               int           `yaml:"max_fork_tasklet_capacity" mapstructure:"max_fork_tasklet_capacity"`
+	ExpireArtifactsTaskletCapacity       int           `yaml:"expire_artifacts_tasklet_capacity" mapstructure:"expire_artifacts_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
 	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`
 }
@@ -164,6 +167,9 @@ func (c *ServerConfig) Validate() error {
 	if c.Jobs.MaxForkAwaitTaskletCapacity == 0 {
 		c.Jobs.MaxForkAwaitTaskletCapacity = 100
 	}
+	if c.Jobs.ExpireArtifactsTaskletCapacity == 0 {
+		c.Jobs.ExpireArtifactsTaskletCapacity = 100
+	}
 	if c.DB.MaxConcurrency == 0 {
 		c.DB.MaxConcurrency = 20
 	}
@@ -196,6 +202,12 @@ func (c *ServerConfig) Validate() error {
 	}
 	if c.Auth.CookieName == "" {
 		c.Auth.CookieName = "formicary-session"
+	}
+	if c.DefaultArtifactExpiration == 0 {
+		c.DefaultArtifactExpiration = types.DefaultArtifactsExpirationDuration
+	}
+	if c.DefaultArtifactLimit == 0 {
+		c.DefaultArtifactLimit = 100000
 	}
 
 	if len(c.GatewaySubscriptions) == 0 {

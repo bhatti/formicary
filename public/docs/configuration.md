@@ -68,6 +68,7 @@ jobs:
     disable_job_scheduler: false
     max_fork_tasklet_capacity: 100
     max_fork_await_tasklet_capacity: 100
+    expire_artifacts_tasklet_capacity: 100
 gateway_subscriptions:
     JobExecutionLifecycleEvent: true
     LogEvent: true
@@ -91,6 +92,7 @@ common:
     user_agent: "formicary-agent"
     proxy_url: ""
     http_port: 0
+    public_dir: "./public/"
     s3:
         endpoint: 127.0.0.1:9000
         accessKeyID: admin

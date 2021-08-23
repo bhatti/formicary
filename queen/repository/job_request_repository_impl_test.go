@@ -475,6 +475,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				// Updating state and priority because by default state is PENDING
 				_, err = repo.Save(req)
 				require.NoError(t, err)
+				err = repo.Trigger(qc, req.ID)
+				require.NoError(t, err)
 			}
 		}
 	}

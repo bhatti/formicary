@@ -606,6 +606,9 @@ func (jsm *JobExecutionStateMachine) DoesRequireFullRestart() bool {
 
 // QueryContext builds query context
 func (jsm *JobExecutionStateMachine) QueryContext() *common.QueryContext {
+	if jsm.User != nil && jsm.User.Admin {
+		return common.NewQueryContext("", "", "").WithAdmin()
+	}
 	return common.NewQueryContext(jsm.Request.GetUserID(), jsm.Request.GetOrganizationID(), "")
 }
 

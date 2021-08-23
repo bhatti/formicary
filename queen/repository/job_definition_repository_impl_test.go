@@ -64,7 +64,7 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN setting concurrency
-	concurrency := rand.Intn(20) + 1
+	concurrency := rand.Intn(15) + 3
 	err = repo.SetMaxConcurrency(saved.ID, concurrency)
 
 	// THEN it should not fail

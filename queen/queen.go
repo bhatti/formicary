@@ -142,6 +142,17 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	// request registry keeps track of requests and is used by tasklet
 	requestRegistry := ctasklet.NewRequestRegistry(&serverCfg.CommonConfig, metricsRegistry)
 
+	// starts artifact-expiration tasklet
+	if err = tasklet.NewArtifactExpirationTasklet(
+		serverCfg,
+		requestRegistry,
+		artifactManager,
+		queueClient,
+		serverCfg.GetExpireArtifactsTaskletTopic(),
+	).Start(ctx); err != nil {
+		return fmt.Errorf("failed to create artifact expiration tasklet %v", err)
+	}
+
 	// starts job-fork tasklet that runs on the server side to fork jobs
 	if err = tasklet.NewJobForkTasklet(
 		serverCfg,

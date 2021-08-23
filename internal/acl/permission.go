@@ -75,6 +75,8 @@ const (
 	Cancel = 128
 	// Restart action
 	Restart = 256
+	// Trigger action
+	Trigger = 256
 	// Invite action
 	Invite = 512
 	// Upload action

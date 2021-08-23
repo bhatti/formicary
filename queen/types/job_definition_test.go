@@ -342,42 +342,56 @@ func Test_ShouldValidatePluginVersion(t *testing.T) {
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.1-dev"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000.000000001", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.123rc1"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000.000000123", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.123-rc1"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000.000000123", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.dev"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.123dev1"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000.000000123", job.NormalizedSemVersion())
 
 	// WHEN using valid dev
 	job.SemVersion = "1.0.123-dev2"
 	err = job.Validate()
 	// THEN it should not fail
 	require.NoError(t, err)
+	require.Equal(t, "000000001.000000000.000000123", job.NormalizedSemVersion())
+
+	// WHEN using valid dev
+	job.SemVersion = "1.2.3.4"
+	err = job.Validate()
+	// THEN it should not fail
+	require.NoError(t, err)
+	require.Equal(t, "000000001.000000002.000000003", job.NormalizedSemVersion())
 }
 
 // Test next task for job definition

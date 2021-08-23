@@ -36,6 +36,7 @@ func NewJobRequestController(
 	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.New(acl.JobRequest, acl.Submit)).Name = "create_job_request"
 	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.New(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
 	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.New(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
+	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.New(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
 	webserver.GET("/api/jobs/requests/:id/wait_time", jobReqCtrl.getWaitTimeJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "get_wait_time_job_requests"
 	webserver.GET("/api/jobs/requests/stats", jobReqCtrl.statsJobRequests, acl.New(acl.JobRequest, acl.Metrics)).Name = "stats_job_requests"
 	webserver.GET("/api/jobs/requests/dead_ids", jobReqCtrl.getDeadIDs, acl.New(acl.JobRequest, acl.Query)).Name = "get_dead_ids"
@@ -121,6 +122,20 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.WebContext) error
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.CancelJobRequest(qc, id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+// swagger:route POST /api/jobs/requests/{id}/trigger job-requests triggerJobRequest
+// Triggers a scheduled job
+// responses:
+//   200: emptyResponse
+func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.WebContext) error {
+	qc := web.BuildQueryContext(c)
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id)
+	if err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
@@ -258,7 +273,7 @@ type jobRequestQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters jobRequestIDParams getJobRequest cancelJobRequest restartJobRequest dotJobRequest dotImageJobRequest
+// swagger:parameters jobRequestIDParams getJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
 // The parameters for finding job-request by id
 type jobRequestIDParams struct {
 	// in:path

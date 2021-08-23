@@ -12,6 +12,12 @@ type ArtifactsWhen string
 // KeysDigest stores digest of key files
 const KeysDigest = "KeysDigest"
 
+// DefaultArtifactsExpirationDuration default expiration for artifacts
+const DefaultArtifactsExpirationDuration = time.Hour * 24 * 1000
+
+// DefaultCacheExpirationDuration default expiration for artifacts
+const DefaultCacheExpirationDuration = time.Hour * 24 * 30
+
 const (
 	// ArtifactsWhenOnSuccess on-success
 	ArtifactsWhenOnSuccess ArtifactsWhen = "onSuccess"
@@ -36,20 +42,19 @@ func NewArtifactsConfig() ArtifactsConfig {
 }
 
 // GetPathsAndExpiration finds path and expiration time based on task status
-func (ac *ArtifactsConfig) GetPathsAndExpiration(succeeded bool) ([]string, *time.Time) {
+func (ac *ArtifactsConfig) GetPathsAndExpiration(succeeded bool) ([]string, time.Time) {
 	if ac.Valid(succeeded) {
 		return ac.Paths, ac.Expiration()
 	}
-	return make([]string, 0), nil
+	return make([]string, 0), ac.Expiration()
 }
 
 // Expiration expiration time for artifacts
-func (ac *ArtifactsConfig) Expiration() *time.Time {
+func (ac *ArtifactsConfig) Expiration() time.Time {
 	if ac.ExpiresAfter > 0 {
-		expires := time.Now().Add(ac.ExpiresAfter)
-		return &expires
+		return time.Now().Add(ac.ExpiresAfter)
 	}
-	return nil
+	return time.Now().Add(DefaultArtifactsExpirationDuration)
 }
 
 // Valid checks status
@@ -83,12 +88,11 @@ func NewCacheConfig() CacheConfig {
 }
 
 // Expiration expiration time for artifacts
-func (ac *CacheConfig) Expiration() *time.Time {
+func (ac *CacheConfig) Expiration() time.Time {
 	if ac.ExpiresAfter > 0 {
-		expires := time.Now().Add(ac.ExpiresAfter)
-		return &expires
+		return time.Now().Add(ac.ExpiresAfter)
 	}
-	return nil
+	return time.Now().Add(DefaultCacheExpirationDuration)
 }
 
 // Valid - checks if path/keys are specified

@@ -92,6 +92,10 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		jobType = jobTypeAndVersion[0]
 		semVersion = jobTypeAndVersion[1]
 	}
+	if jobType == "" {
+		debug.PrintStack()
+		return nil, common.NewValidationError("job-type is not specified")
+	}
 	var job types.JobDefinition
 	tx := jdr.db.Preload("Tasks").
 		Preload("Configs").
@@ -99,15 +103,15 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		Preload("Tasks.Variables").
 		Where("job_type = ?", jobType)
 
+	var res *gorm.DB
 	if semVersion == "" {
-		tx = tx.Where("active = ?", true).
-			Where(scopeCond, scopeArg)
+		res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(&job)
 	} else {
-		tx = tx.Where("sem_version = ?", semVersion).
-			Where("public_plugin = ? OR "+scopeCond, true, scopeArg)
+		res = tx.Where("sem_version = ? AND public_plugin = ?", semVersion, true).First(&job)
+		if res.Error != nil {
+			res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(&job)
+		}
 	}
-
-	res := tx.First(&job)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -299,9 +303,11 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 				if old, _ := jdr.GetByTypeAndSemanticVersion(
 					qc,
 					job.JobType,
-					job.SemVersion); old != nil {
+					job.SemVersion); old != nil &&
+					(old.SemVersion == job.SemVersion || job.NormalizedSemVersion() < old.NormalizedSemVersion()) {
 					return nil, common.NewDuplicateError(
-						fmt.Errorf("plugin %s already exists for the version %s", job.JobType, job.SemVersion))
+						fmt.Errorf("plugin %s - %s older version already exists for the version %s",
+							job.JobType, old.SemVersion, job.SemVersion))
 				}
 			}
 		} else {
