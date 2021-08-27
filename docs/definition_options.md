@@ -504,7 +504,7 @@ tasks:
     - echo deallocating
 ```
 
-![taco-job](taco-job.png) 
+![taco-job](examples/taco-job.png) 
 
 The `check-date` task will execute different tasks based on the exit code defined under `on_exit_code`. Note: the `deallocate` task is always run because it defines `always_run` property as true.
 

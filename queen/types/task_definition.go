@@ -80,14 +80,16 @@ type TaskDefinition struct {
 	Resources          BasicResource     `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// For example, you may start a follower that processes payments and the task will be routed to that follower
-	Tags            []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
-	Except          string   `yaml:"except,omitempty" json:"except" gorm:"-"`
-	JobVersion      string   `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
-	Dependencies    []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
-	ArtifactIDs     []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
-	unknownKeys     map[string]interface{}
-	lookupVariables *cutils.SafeMap
-	lock            sync.RWMutex
+	Tags             []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
+	Except           string   `yaml:"except,omitempty" json:"except" gorm:"-"`
+	JobVersion       string   `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
+	Dependencies     []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
+	ArtifactIDs      []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
+	ForkJobType      string   `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
+	AwaitForkedTasks []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
+	unknownKeys      map[string]interface{}
+	lookupVariables  *cutils.SafeMap
+	lock             sync.RWMutex
 }
 
 // NewTaskDefinition creates new instance of task-definition

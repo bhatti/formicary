@@ -14,6 +14,39 @@ import (
 
 var testEncryptedKey = crypto.SHA256Key("test-key")
 
+func Test_ShouldCreateDotForForkJob(t *testing.T) {
+	// GIVEN job jobDefinition defined in yaml
+	b, err := ioutil.ReadFile("../../docs/examples/parallel-video-encoding.yaml")
+	require.NoError(t, err)
+	definition, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	request, err := types.NewJobRequestFromDefinition(definition)
+	require.NoError(t, err)
+
+	// AND job-execution
+	jobExec := types.NewJobExecution(request)
+	jobExec.AddTask(definition.GetTask("validate")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("download")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("split")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("fork-encode1")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("fork-encode2")).TaskState = common.COMPLETED
+	jobExec.AddTask(definition.GetTask("fork-await")).TaskState = common.EXECUTING
+	jobExec.JobState = common.EXECUTING
+
+	// WHEN job jobDefinition and execution is passed to generate dot config
+	//generator, err := New(definition, jobExec)
+	generator, err := New(definition, nil)
+	require.NoError(t, err)
+	dotConf, err := generator.GenerateDot()
+	// THEN a valid dot config is created
+	require.NoError(t, err)
+	require.Contains(t, dotConf, `"validate" -> "download"`)
+	require.Contains(t, dotConf, `"download" -> "split"`)
+	require.Contains(t, dotConf, `"split" -> "fork-encode1"`)
+	require.Contains(t, dotConf, `"fork-encode1" -> "fork-encode2"`)
+	require.Contains(t, dotConf, `"fork-encode2" -> "fork-await"`)
+}
+
 func Test_ShouldCreateDotForTacoJob(t *testing.T) {
 	// GIVEN job jobDefinition defined in yaml
 	b, err := ioutil.ReadFile("../../docs/examples/taco-job.yaml")

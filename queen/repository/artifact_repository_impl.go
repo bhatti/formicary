@@ -30,9 +30,9 @@ func (ar *ArtifactRepositoryImpl) GetResourceUsage(
 		return res, nil
 	}
 	orgSQL, orgArg := qc.AddOrgUserWhereSQL()
-	sql := "SELECT COUNT(*) as count, SUM(content_length) as value FROM formicary_artifacts WHERE updated_at >= ? AND updated_at <= ? AND " + orgSQL
+	sql := "SELECT COUNT(*) as count, SUM(content_length) as value FROM formicary_artifacts WHERE active = ? AND updated_at >= ? AND updated_at <= ? AND " + orgSQL
 	for _, r := range ranges {
-		rows, err := ar.db.Raw(sql, r.StartDate, r.EndDate, orgArg).Rows()
+		rows, err := ar.db.Raw(sql, true, r.StartDate, r.EndDate, orgArg).Rows()
 		if err != nil {
 			return nil, err
 		}

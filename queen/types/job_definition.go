@@ -346,6 +346,8 @@ func (jd *JobDefinition) GetDynamicTask(
 	if err = opts.Validate(); err != nil {
 		return nil, nil, err
 	}
+	task.ForkJobType = opts.ForkJobType
+	task.AwaitForkedTasks = opts.AwaitForkedTasks
 	return task, opts, nil
 }
 
