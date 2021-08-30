@@ -286,7 +286,7 @@
 </table>
 <h4 id="get">GET</h4>
 <h5 id="description">Description</h5>
-<p>Deletes artifact by its id</p>
+<p>Retrieves artifact by its id</p>
 <h5 id="parameters">Parameters</h5>
 <table class='table table-sm'>
 <thead>
@@ -314,12 +314,56 @@
 <tr>
 <th>Code</th>
 <th>Description</th>
+<th>Schema</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>200</td>
-<td>Empty response body</td>
+<td>Artifact body</td>
+<td><a href="#artifact">Artifact</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-artifacts-id-download">/api/artifacts/{id}/download</h3>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Download artifact by its id</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Byte Array response body</td>
+<td>[ integer (uint8) ]</td>
 </tr>
 </tbody>
 </table>
@@ -385,6 +429,13 @@
 <td>job_type</td>
 <td>query</td>
 <td>JobType - job-type</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>q</td>
+<td>query</td>
+<td>Q wild search</td>
 <td>No</td>
 <td>string</td>
 </tr>
@@ -1646,6 +1697,90 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-jobs-plugins">/api/jobs/plugins</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries job definitions by criteria such as type, platform, etc.</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>job_type</td>
+<td>query</td>
+<td>JobType defines a unique type of job</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>platform</td>
+<td>query</td>
+<td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>paused</td>
+<td>query</td>
+<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td>public_plugin</td>
+<td>query</td>
+<td>PublicPlugin means job is public plugin</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td>tags</td>
+<td>query</td>
+<td>Tags is aggregation of task tags and it can be searched via <code>tags:in</code></td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of jobDefinitions matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-jobs-requests">/api/jobs/requests</h3>
 <h4 id="get">GET</h4>
 <h5 id="summary">Summary</h5>
@@ -1932,6 +2067,46 @@
 <h4 id="post">POST</h4>
 <h5 id="description">Description</h5>
 <p>Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-jobs-requests-id-trigger">/api/jobs/requests/{id}/trigger</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Triggers a scheduled job</p>
 <h5 id="parameters">Parameters</h5>
 <table class='table table-sm'>
 <thead>
@@ -2814,6 +2989,252 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-subscriptions">/api/subscriptions</h3>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Queries system subscriptions <code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>query</td>
+<td>Scope defines scope such as default or org-unit</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>query</td>
+<td>Kind defines kind of subscription property</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>name</td>
+<td>query</td>
+<td>Name defines name of subscription property</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Query results of system-subscriptions</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new system subscription based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#subscription">Subscription</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Subscription body for update</td>
+<td><a href="#subscription">Subscription</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-subscriptions-id-">/api/subscriptions/{id}</h3>
+<h4 id="delete">DELETE</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes an existing system subscription based on id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Deletes an existing system subscription based on id.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates an existing system subscription based on request body.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#subscription">Subscription</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Subscription body for update</td>
+<td><a href="#subscription">Subscription</a></td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-users">/api/users</h3>
 <h4 id="get">GET</h4>
 <h5 id="summary">Summary</h5>
@@ -2927,6 +3348,108 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-users-id-verify_email">/api/users/:id/verify_email</h3>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new emailVerification.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>code</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>EmailVerification is used for email verification</td>
+<td><a href="#emailverification">EmailVerification</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users-id-verify_email-code">/api/users/:id/verify_email/:code</h3>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Creates new emailVerification.</p>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code></p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>code</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>EmailVerification is used for email verification</td>
+<td><a href="#emailverification">EmailVerification</a></td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-users-id-">/api/users/{id}</h3>
 <h4 id="delete">DELETE</h4>
 <h5 id="summary">Summary</h5>
@@ -3028,6 +3551,69 @@
 <td>path</td>
 <td></td>
 <td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>User of the system who can create job-definitions, submit and execute jobs.</td>
+<td><a href="#user">User</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-users-id-notify">/api/users/{id}/notify</h3>
+<h4 id="put">PUT</h4>
+<h5 id="summary">Summary</h5>
+<p>Updates user notification.</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+<tr>
+<td>email</td>
+<td>formData</td>
+<td></td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>when</td>
+<td>query</td>
+<td></td>
+<td>No</td>
 <td>string</td>
 </tr>
 <tr>
@@ -3186,6 +3772,76 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-users-email_verifications">/api/users/email_verifications</h3>
+<h4 id="get">GET</h4>
+<h5 id="summary">Summary</h5>
+<p>Queries emailVerifications within the organization that is allowed.</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>long</td>
+</tr>
+<tr>
+<td>name</td>
+<td>query</td>
+<td>Name of emailVerification</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>email_code</td>
+<td>query</td>
+<td>EmailCode defines email code</td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>email</td>
+<td>query</td>
+<td>Email defines email</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Paginated results of emailVerifications matching query</td>
+<td>object</td>
+</tr>
+</tbody>
+</table>
 <h3 id="models">Models</h3>
 <h4 id="antregistration">AntRegistration</h4>
 <table class='table table-sm'>
@@ -3231,6 +3887,12 @@
 <tr>
 <td>current_load</td>
 <td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>encryption_key</td>
+<td>string</td>
 <td></td>
 <td>No</td>
 </tr>
@@ -3671,6 +4333,62 @@
 </tr>
 </tbody>
 </table>
+<h4 id="emailverification">EmailVerification</h4>
+<p>EmailVerification represents verified email</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt created time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>email</td>
+<td>string</td>
+<td>Email defines invitee</td>
+<td>No</td>
+</tr>
+<tr>
+<td>email_code</td>
+<td>string</td>
+<td>EmailCode defines code</td>
+<td>No</td>
+</tr>
+<tr>
+<td>expires_at</td>
+<td>dateTime</td>
+<td>ExpiresAt expiration time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines foreign key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>verified_at</td>
+<td>dateTime</td>
+<td>VerifiedAt verification time</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
 <h4 id="errorcode">ErrorCode</h4>
 <table class='table table-sm'>
 <thead>
@@ -3865,6 +4583,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
 <td>start_time</td>
 <td>dateTime</td>
 <td>StartTime stores first occurrence of the stats</td>
@@ -3874,6 +4598,12 @@
 <td>start_time_stirng</td>
 <td>string</td>
 <td>StartTime stores first occurrence of the stats for sqlite</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who submitted the job</td>
 <td>No</td>
 </tr>
 </tbody>
@@ -3935,7 +4665,7 @@
 <tr>
 <td>job_variables</td>
 <td>object</td>
-<td>Following are transient properties -- these are populated when AfterLoad or Validate is called</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -3948,6 +4678,12 @@
 <td>methods</td>
 <td>string</td>
 <td>Methods is aggregation of task methods</td>
+<td>No</td>
+</tr>
+<tr>
+<td>notify</td>
+<td>object</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -4117,7 +4853,7 @@
 </tr>
 <tr>
 <td>cpu_secs</td>
-<td>integer (uint64)</td>
+<td>long</td>
 <td>CPUSecs execution time</td>
 <td>No</td>
 </tr>
@@ -4173,6 +4909,12 @@
 <td>job_type</td>
 <td>string</td>
 <td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_version</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -4258,6 +5000,32 @@
 <td>value</td>
 <td>string</td>
 <td>Value defines value of property that can be string, number, boolean or JSON structure</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="jobnotifyconfig">JobNotifyConfig</h4>
+<p>JobNotifyConfig structure for notification config</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>recipients</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>when</td>
+<td><a href="#notifywhen">NotifyWhen</a></td>
+<td></td>
 <td>No</td>
 </tr>
 </tbody>
@@ -4349,6 +5117,12 @@
 <td>job_type</td>
 <td>string</td>
 <td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_version</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -4467,6 +5241,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>job_definition_id</td>
+<td>string</td>
+<td>JobDefinitionID points to the job-definition version</td>
+<td>No</td>
+</tr>
+<tr>
 <td>job_execution_id</td>
 <td>string</td>
 <td>JobExecutionID</td>
@@ -4488,6 +5268,12 @@
 <td>job_type</td>
 <td>string</td>
 <td>JobType defines type for the job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_version</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -4772,15 +5558,15 @@
 <td>No</td>
 </tr>
 <tr>
-<td>job_paused</td>
-<td>boolean</td>
-<td>JobPaused paused flag</td>
+<td>job_key</td>
+<td><a href="#userjobtypekey">UserJobTypeKey</a></td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
-<td>job_type</td>
-<td>string</td>
-<td>JobType defines type of job</td>
+<td>job_paused</td>
+<td>boolean</td>
+<td>JobPaused paused flag</td>
 <td>No</td>
 </tr>
 <tr>
@@ -4876,6 +5662,25 @@
 </tr>
 </tbody>
 </table>
+<h4 id="kind">Kind</h4>
+<p>Kind defines enum for kind of subscription</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kind</td>
+<td>string</td>
+<td>Kind defines enum for kind of subscription</td>
+</tr>
+</tbody>
+</table>
 <h4 id="monitorable">Monitorable</h4>
 <table class='table table-sm'>
 <thead>
@@ -4892,6 +5697,25 @@
 <td>string</td>
 <td></td>
 <td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="notifywhen">NotifyWhen</h4>
+<p>NotifyWhen type alias for when notify should be used</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NotifyWhen</td>
+<td>string</td>
+<td>NotifyWhen type alias for when notify should be used</td>
 </tr>
 </tbody>
 </table>
@@ -4953,6 +5777,24 @@
 <td>parent_id</td>
 <td>string</td>
 <td>ParentID defines parent org</td>
+<td>No</td>
+</tr>
+<tr>
+<td>salt</td>
+<td>string</td>
+<td>Salt for password</td>
+<td>No</td>
+</tr>
+<tr>
+<td>sticky_message</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>subscription</td>
+<td><a href="#subscription">Subscription</a></td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -5021,6 +5863,44 @@
 <td>string</td>
 <td>Value defines value of property that can be string, number, boolean or JSON structure</td>
 <td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="period">Period</h4>
+<p>Period defines enum for period of subscription</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Period</td>
+<td>string</td>
+<td>Period defines enum for period of subscription</td>
+</tr>
+</tbody>
+</table>
+<h4 id="policy">Policy</h4>
+<p>Policy defines enum for policy of subscription</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Policy</td>
+<td>string</td>
+<td>Policy defines enum for policy of subscription</td>
 </tr>
 </tbody>
 </table>
@@ -5111,6 +5991,116 @@
 <td>TotalSuccess</td>
 <td>integer (uint64)</td>
 <td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="subscription">Subscription</h4>
+<p>Subscription defines subscription</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>active</td>
+<td>boolean</td>
+<td>Active flag</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cpu_quota</td>
+<td>long</td>
+<td>CPUQuota  allowed cpu seconds</td>
+<td>No</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>dateTime</td>
+<td>CreatedAt creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>disk_quota</td>
+<td>long</td>
+<td>DiskQuota allowed disk Mbytes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td>dateTime</td>
+<td>EndedAt ended-at</td>
+<td>No</td>
+</tr>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>gorm.Model ID defines UUID for primary key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>kind</td>
+<td><a href="#kind">Kind</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org</td>
+<td>No</td>
+</tr>
+<tr>
+<td>period</td>
+<td><a href="#period">Period</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>policy</td>
+<td><a href="#policy">Policy</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>price</td>
+<td>long</td>
+<td>Price of subscription in cents</td>
+<td>No</td>
+</tr>
+<tr>
+<td>remaining_cpu_quota</td>
+<td>long</td>
+<td>RemainingCPUQuota  cpu seconds</td>
+<td>No</td>
+</tr>
+<tr>
+<td>remaining_disk_quota</td>
+<td>long</td>
+<td>RemainingDiskQuota disk Mbytes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>started_at</td>
+<td>dateTime</td>
+<td>StartedAt started-at</td>
+<td>No</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>dateTime</td>
+<td>UpdatedAt update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user</td>
 <td>No</td>
 </tr>
 </tbody>
@@ -5219,6 +6209,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>await_forked_tasks</td>
+<td>[ string ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
 <td>before_script</td>
 <td>[ string ]</td>
 <td></td>
@@ -5255,6 +6251,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>fork_job_type</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
 <td>headers</td>
 <td>object</td>
 <td></td>
@@ -5276,6 +6278,12 @@
 <td>job_definition_id</td>
 <td>string</td>
 <td>JobDefinitionID defines foreign key for JobDefinition</td>
+<td>No</td>
+</tr>
+<tr>
+<td>job_version</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -5364,6 +6372,12 @@
 </thead>
 <tbody>
 <tr>
+<td>allow_failure</td>
+<td>boolean</td>
+<td>AllowFailure means the task is optional and can fail without failing entire job</td>
+<td>No</td>
+</tr>
+<tr>
 <td>ant_host</td>
 <td>string</td>
 <td>AntHost - host where ant ran the task</td>
@@ -5376,6 +6390,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>applied_cost</td>
+<td>double</td>
+<td>AppliedCost</td>
+<td>No</td>
+</tr>
+<tr>
 <td>artifacts</td>
 <td>[ <a href="#artifact">Artifact</a> ]</td>
 <td>Artifacts defines list of artifacts that are generated for the task</td>
@@ -5385,6 +6405,12 @@
 <td>contexts</td>
 <td>[ <a href="#taskexecutioncontext">TaskExecutionContext</a> ]</td>
 <td>Contexts defines context variables of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>count_services</td>
+<td>long</td>
+<td>CountServices</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5565,6 +6591,18 @@
 <td>No</td>
 </tr>
 <tr>
+<td>auth_id</td>
+<td>string</td>
+<td>AuthID defines id from external auth provider</td>
+<td>No</td>
+</tr>
+<tr>
+<td>auth_provider</td>
+<td>string</td>
+<td>AuthProvider defines provider for external auth provider</td>
+<td>No</td>
+</tr>
+<tr>
 <td>bundle_id</td>
 <td>string</td>
 <td>BundleID defines package or bundle</td>
@@ -5583,21 +6621,15 @@
 <td>No</td>
 </tr>
 <tr>
-<td>email_verified</td>
-<td>boolean</td>
-<td>EmailVerified for email</td>
-<td>No</td>
-</tr>
-<tr>
 <td>id</td>
 <td>string</td>
 <td>gorm.Model ID defines UUID for primary key</td>
 <td>No</td>
 </tr>
 <tr>
-<td>locked</td>
-<td>boolean</td>
-<td>Locked account</td>
+<td>max_concurrency</td>
+<td>long</td>
+<td>MaxConcurrency defines max number of jobs that can be run concurrently by org</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5607,15 +6639,9 @@
 <td>No</td>
 </tr>
 <tr>
-<td>oauth_id</td>
-<td>string</td>
-<td>OAuthID defines id from external oauth provider</td>
-<td>No</td>
-</tr>
-<tr>
-<td>oauth_provider</td>
-<td>string</td>
-<td>OAuthProvider defines provider for external oauth provider</td>
+<td>notify</td>
+<td>object</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -5634,6 +6660,24 @@
 <td>picture_url</td>
 <td>string</td>
 <td>PictureURL defines URL for picture</td>
+<td>No</td>
+</tr>
+<tr>
+<td>salt</td>
+<td>string</td>
+<td>Salt for password</td>
+<td>No</td>
+</tr>
+<tr>
+<td>sticky_message</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>subscription</td>
+<td><a href="#subscription">Subscription</a></td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -5714,6 +6758,50 @@
 <td>organization_id</td>
 <td>string</td>
 <td>OrganizationID defines foreign key</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="userjobtypekey">UserJobTypeKey</h4>
+<p>UserJobTypeKey defines key for job-type by user/org</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GetJobType</td>
+<td>string</td>
+<td>GetJobType defines the type of job</td>
+<td>No</td>
+</tr>
+<tr>
+<td>GetJobVersion</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>GetOrganizationID</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>GetUserID</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>GetUserJobTypeKey</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 </tbody>
