@@ -86,7 +86,7 @@ func (ac *ArtifactController) getArtifact(c web.WebContext) error {
 // swagger:route GET /api/artifacts/{id}/download artifacts downloadArtifact
 // Download artifact by its id
 // responses:
-//   200: byteResponseBody
+//   200: byteResponse
 func (ac *ArtifactController) downloadArtifact(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")

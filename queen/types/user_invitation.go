@@ -26,7 +26,7 @@ type UserInvitation struct {
 	// InvitedByUserID defines foreign key
 	InvitedByUserID string `json:"invited_by_user_id"`
 	// ExpiresAt expiration time
-	AcceptedAt *time.Time `json:"accepted_at"`
+	AcceptedAt *time.Time `json:"-"`
 	// ExpiresAt expiration time
 	ExpiresAt time.Time `json:"expires_at"`
 	// CreatedAt created time

@@ -1803,20 +1803,12 @@ definitions:
         description: Email defines email
         type: string
         x-go-name: Email
-      email_verified:
-        description: EmailVerified for email
-        type: boolean
-        x-go-name: EmailVerified
       id:
         description: |-
           gorm.Model
           ID defines UUID for primary key
         type: string
         x-go-name: ID
-      locked:
-        description: Locked account
-        type: boolean
-        x-go-name: Locked
       max_concurrency:
         description: MaxConcurrency defines max number of jobs that can be run concurrently
           by org
@@ -2132,7 +2124,7 @@ paths:
         x-go-name: ID
       responses:
         "200":
-          $ref: '#/responses/byteResponseBody'
+          $ref: '#/responses/byteResponse'
       tags:
       - artifacts
   /api/audits:

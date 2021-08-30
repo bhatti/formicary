@@ -52,9 +52,9 @@ type User struct {
 	// Admin is used for admin role
 	Admin bool `json:"admin"`
 	// EmailVerified for email
-	EmailVerified bool `json:"email_verified"`
+	EmailVerified bool `json:"-"`
 	// Locked account
-	Locked bool `json:"locked"`
+	Locked bool `json:"-"`
 	// Active is used to softly delete user
 	Active bool `json:"-"`
 	// CreatedAt created time

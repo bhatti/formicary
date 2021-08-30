@@ -127,7 +127,7 @@ Deletes artifact by its id
 #### GET
 ##### Description
 
-Deletes artifact by its id
+Retrieves artifact by its id
 
 ##### Parameters
 
@@ -137,9 +137,28 @@ Deletes artifact by its id
 
 ##### Responses
 
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Artifact body | [Artifact](#artifact) |
+
+### /api/artifacts/{id}/download
+
+#### GET
+##### Description
+
+Download artifact by its id
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Byte Array response body | [ integer (uint8) ] |
 
 ### /api/audits
 
@@ -159,6 +178,7 @@ Queries audits within the organization that is allowed.
 | organization_id | query | OrganizationID defines org who submitted the job | No | string |
 | kind | query | Kind defines type of audit record | No | string |
 | job_type | query | JobType - job-type | No | string |
+| q | query | Q wild search | No | string |
 
 ##### Responses
 
@@ -723,6 +743,31 @@ Finds job-definition by type and returns response YAML format.
 | ---- | ----------- | ------ |
 | 200 | The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by ant followers. The workflow of job uses task exit codes to define next task to execute. | [JobDefinition](#jobdefinition) |
 
+### /api/jobs/plugins
+
+#### GET
+##### Summary
+
+Queries job definitions by criteria such as type, platform, etc.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| page | query |  | No | long |
+| page_size | query |  | No | long |
+| job_type | query | JobType defines a unique type of job | No | string |
+| platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
+| paused | query | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No | boolean |
+| public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
+| tags | query | Tags is aggregation of task tags and it can be searched via `tags:in` | No | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Paginated results of jobDefinitions matching query | object |
+
 ### /api/jobs/requests
 
 #### GET
@@ -847,6 +892,25 @@ Returns Graphviz DOT image for the graph of tasks defined in the job.
 
 Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
 failed tasks are executed or hard-restart where all tasks are executed.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
+### /api/jobs/requests/{id}/trigger
+
+#### POST
+##### Description
+
+Triggers a scheduled job
 
 ##### Parameters
 
@@ -1247,6 +1311,117 @@ Updates a config for the organization.
 | ---- | ----------- | ------ |
 | 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [OrganizationConfig](#organizationconfig) |
 
+### /api/subscriptions
+
+#### GET
+##### Description
+
+Queries system subscriptions
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| page | query |  | No | long |
+| page_size | query |  | No | long |
+| scope | query | Scope defines scope such as default or org-unit | No | string |
+| kind | query | Kind defines kind of subscription property | No | string |
+| name | query | Name defines name of subscription property | No | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Query results of system-subscriptions | object |
+
+#### POST
+##### Summary
+
+Creates new system subscription based on request body.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| Body | body |  | No | [Subscription](#subscription) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Subscription body for update | [Subscription](#subscription) |
+
+### /api/subscriptions/{id}
+
+#### DELETE
+##### Summary
+
+Deletes an existing system subscription based on id.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
+#### GET
+##### Summary
+
+Deletes an existing system subscription based on id.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
+#### PUT
+##### Summary
+
+Updates an existing system subscription based on request body.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+| Body | body |  | No | [Subscription](#subscription) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Subscription body for update | [Subscription](#subscription) |
+
 ### /api/users
 
 #### GET
@@ -1290,6 +1465,54 @@ Creates new user.
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
 | 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+
+### /api/users/:id/verify_email
+
+#### POST
+##### Summary
+
+Creates new emailVerification.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+| code | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | EmailVerification is used for email verification | [EmailVerification](#emailverification) |
+
+### /api/users/:id/verify_email/:code
+
+#### PUT
+##### Summary
+
+Creates new emailVerification.
+
+##### Description
+
+`This requires admin access`
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+| code | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | EmailVerification is used for email verification | [EmailVerification](#emailverification) |
 
 ### /api/users/{id}
 
@@ -1337,6 +1560,28 @@ Updates user profile.
 | Name | Located in | Description | Required | Schema |
 | ---- | ---------- | ----------- | -------- | ---- |
 | id | path |  | Yes | string |
+| Body | body |  | No | [User](#user) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+
+### /api/users/{id}/notify
+
+#### PUT
+##### Summary
+
+Updates user notification.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+| email | formData |  | No | string |
+| when | query |  | No | string |
 | Body | body |  | No | [User](#user) |
 
 ##### Responses
@@ -1401,6 +1646,29 @@ Deletes user-token by its id so that it cannot be used for the API access.
 | ---- | ----------- |
 | 200 | Empty response body |
 
+### /api/users/email_verifications
+
+#### GET
+##### Summary
+
+Queries emailVerifications within the organization that is allowed.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| page | query |  | No | long |
+| page_size | query |  | No | long |
+| name | query | Name of emailVerification | No | string |
+| email_code | query | EmailCode defines email code | No | string |
+| email | query | Email defines email | No | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Paginated results of emailVerifications matching query | object |
+
 ### Models
 
 #### AntRegistration
@@ -1413,6 +1681,7 @@ Deletes user-token by its id so that it cannot be used for the API access.
 | ant_topic | string |  | No |
 | created_at | dateTime |  | No |
 | current_load | long |  | No |
+| encryption_key | string |  | No |
 | max_capacity | long |  | No |
 | methods | [ [TaskMethod](#taskmethod) ] |  | No |
 | tags | [ string ] |  | No |
@@ -1518,6 +1787,20 @@ largest representable duration to approximately 290 years.
 | ---- | ---- | ----------- | -------- |
 | Duration | integer | A Duration represents the elapsed time between two instants as an int64 nanosecond count. The representation limits the largest representable duration to approximately 290 years. |  |
 
+#### EmailVerification
+
+EmailVerification represents verified email
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| created_at | dateTime | CreatedAt created time | No |
+| email | string | Email defines invitee | No |
+| email_code | string | EmailCode defines code | No |
+| expires_at | dateTime | ExpiresAt expiration time | No |
+| id | string | gorm.Model ID defines UUID for primary key | No |
+| user_id | string | UserID defines foreign key | No |
+| verified_at | dateTime | VerifiedAt verification time | No |
+
 #### ErrorCode
 
 | Name | Type | Description | Required |
@@ -1561,8 +1844,10 @@ largest representable duration to approximately 290 years.
 | error_code | string | ErrorCode defines error code if job failed | No |
 | job_state | [RequestState](#requeststate) |  | No |
 | job_type | string | JobType defines type for the job | No |
+| organization_id | string | OrganizationID defines org who submitted the job | No |
 | start_time | dateTime | StartTime stores first occurrence of the stats | No |
 | start_time_stirng | string | StartTime stores first occurrence of the stats for sqlite | No |
+| user_id | string | UserID defines user who submitted the job | No |
 
 #### JobDefinition
 
@@ -1579,9 +1864,10 @@ submitted.
 | hard_reset_after_retries | long | HardResetAfterRetries defines retry config when job is rerun and as opposed to re-running only failed tasks, all tasks are executed. | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_type | string | JobType defines a unique type of job | No |
-| job_variables | object | Following are transient properties -- these are populated when AfterLoad or Validate is called | No |
+| job_variables | object |  | No |
 | max_concurrency | long | MaxConcurrency defines max number of jobs that can be run concurrently | No |
 | methods | string | Methods is aggregation of task methods | No |
+| notify | object |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
 | paused | boolean | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No |
 | platform | string | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No |
@@ -1617,7 +1903,7 @@ JobDefinitionConfig defines variables for job definition
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | contexts | [ [JobExecutionContext](#jobexecutioncontext) ] | Contexts defines context variables of job | No |
-| cpu_secs | integer (uint64) | CPUSecs execution time | No |
+| cpu_secs | long | CPUSecs execution time | No |
 | ended_at | dateTime | EndedAt job execution end time | No |
 | error_code | string | ErrorCode captures error code at the end of job execution if it fails | No |
 | error_message | string | ErrorMessage captures error message at the end of job execution if it fails | No |
@@ -1627,6 +1913,7 @@ JobDefinitionConfig defines variables for job definition
 | job_request_id | integer (uint64) | JobRequestID defines foreign key for job request | No |
 | job_state | [RequestState](#requeststate) |  | No |
 | job_type | string | JobType defines type for the job | No |
+| job_version | string |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
 | started_at | dateTime | StartedAt job execution start time | No |
 | tasks | [ [TaskExecution](#taskexecution) ] | Tasks defines list of tasks that are executed for the job | No |
@@ -1645,6 +1932,15 @@ JobDefinitionConfig defines variables for job definition
 | type | string | Type defines type of property value | No |
 | value | string | Value defines value of property that can be string, number, boolean or JSON structure | No |
 
+#### JobNotifyConfig
+
+JobNotifyConfig structure for notification config
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| recipients | [ string ] |  | No |
+| when | [NotifyWhen](#notifywhen) |  | No |
+
 #### JobRequest
 
 | Name | Type | Description | Required |
@@ -1662,6 +1958,7 @@ JobDefinitionConfig defines variables for job definition
 | job_priority | long | JobPriority defines priority of the job | No |
 | job_state | [RequestState](#requeststate) |  | No |
 | job_type | string | JobType defines type for the job | No |
+| job_version | string |  | No |
 | last_job_execution_id | string | LastJobExecutionID defines foreign key for JobExecution | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
 | params | object |  | No |
@@ -1684,10 +1981,12 @@ JobDefinitionConfig defines variables for job definition
 | created_at | dateTime | CreatedAt job creation time | No |
 | cron_triggered | boolean | CronTriggered is true if request was triggered by cron | No |
 | id | integer (uint64) | ID defines UUID for primary key | No |
+| job_definition_id | string | JobDefinitionID points to the job-definition version | No |
 | job_execution_id | string | JobExecutionID | No |
 | job_priority | long | JobPriority defines priority of the job | No |
 | job_state | [RequestState](#requeststate) |  | No |
 | job_type | string | JobType defines type for the job | No |
+| job_version | string |  | No |
 | last_job_execution_id | string | LastJobExecutionID defines foreign key for JobExecution | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
 | schedule_attempts | long | ScheduleAttempts defines attempts of schedule | No |
@@ -1750,8 +2049,8 @@ JobResourceConfig defines configuration for job resource
 | failed_jobs_max_latency | long | FailedJobsMax max | No |
 | failed_jobs_min_latency | long | SailedJobsMin min | No |
 | first_job_at | dateTime | FirstJobAt time of job start | No |
+| job_key | [UserJobTypeKey](#userjobtypekey) |  | No |
 | job_paused | boolean | JobPaused paused flag | No |
-| job_type | string | JobType defines type of job | No |
 | last_job_at | dateTime | LastJobAt update time of last job | No |
 | succeeded_jobs | long | SucceededJobs count | No |
 | succeeded_jobs_average_latency | double | SucceededJobsAverage average | No |
@@ -1771,11 +2070,27 @@ JobResourceConfig defines configuration for job resource
 | queue_number | long | QueueNumber number in queue | No |
 | scheduled_at | dateTime | ScheduledAt - schedule time | No |
 
+#### Kind
+
+Kind defines enum for kind of subscription
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| Kind | string | Kind defines enum for kind of subscription |  |
+
 #### Monitorable
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | Name | string |  | No |
+
+#### NotifyWhen
+
+NotifyWhen type alias for when notify should be used
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| NotifyWhen | string | NotifyWhen type alias for when notify should be used |  |
 
 #### Organization
 
@@ -1791,6 +2106,9 @@ It is used multi-tenancy support in the platform.
 | org_unit | string | OrgUnit defines org-unit | No |
 | owner_user_id | string | OwnerUserID defines owner user | No |
 | parent_id | string | ParentID defines parent org | No |
+| salt | string | Salt for password | No |
+| sticky_message | string |  | No |
+| subscription | [Subscription](#subscription) |  | No |
 | updated_at | dateTime | UpdatedAt update time | No |
 
 #### OrganizationConfig
@@ -1805,6 +2123,22 @@ It is used multi-tenancy support in the platform.
 | type | string | Type defines type of property value | No |
 | updated_at | dateTime | UpdatedAt job update time | No |
 | value | string | Value defines value of property that can be string, number, boolean or JSON structure | No |
+
+#### Period
+
+Period defines enum for period of subscription
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| Period | string | Period defines enum for period of subscription |  |
+
+#### Policy
+
+Policy defines enum for policy of subscription
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| Policy | string | Policy defines enum for policy of subscription |  |
 
 #### RequestState
 
@@ -1829,6 +2163,29 @@ It is used multi-tenancy support in the platform.
 | Monitored | [Monitorable](#monitorable) |  | No |
 | TotalFailures | integer (uint64) |  | No |
 | TotalSuccess | integer (uint64) |  | No |
+
+#### Subscription
+
+Subscription defines subscription
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| active | boolean | Active flag | No |
+| cpu_quota | long | CPUQuota  allowed cpu seconds | No |
+| created_at | dateTime | CreatedAt creation time | No |
+| disk_quota | long | DiskQuota allowed disk Mbytes | No |
+| ended_at | dateTime | EndedAt ended-at | No |
+| id | string | gorm.Model ID defines UUID for primary key | No |
+| kind | [Kind](#kind) |  | No |
+| organization_id | string | OrganizationID defines org | No |
+| period | [Period](#period) |  | No |
+| policy | [Policy](#policy) |  | No |
+| price | long | Price of subscription in cents | No |
+| remaining_cpu_quota | long | RemainingCPUQuota  cpu seconds | No |
+| remaining_disk_quota | long | RemainingDiskQuota disk Mbytes | No |
+| started_at | dateTime | StartedAt started-at | No |
+| updated_at | dateTime | UpdatedAt update time | No |
+| user_id | string | UserID defines user | No |
 
 #### SystemConfig
 
@@ -1857,16 +2214,19 @@ the database.
 | allow_start_if_completed | boolean | AllowStartIfCompleted  means the task is always run on retry even if it was completed successfully | No |
 | always_run | boolean | AlwaysRun means the task is always run on execution even if the job fails. For example, a required task fails (without AllowFailure), the job is aborted and remaining tasks are skipped but a task defined as `AlwaysRun` is run even if the job fails. | No |
 | artifact_ids | [ string ] |  | No |
+| await_forked_tasks | [ string ] |  | No |
 | before_script | [ string ] |  | No |
 | created_at | dateTime | CreatedAt job creation time | No |
 | delay_between_retries | [Duration](#duration) |  | No |
 | dependencies | [ string ] |  | No |
 | description | string | Description of task | No |
 | except | string |  | No |
+| fork_job_type | string |  | No |
 | headers | object |  | No |
 | host_network | string |  | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_definition_id | string | JobDefinitionID defines foreign key for JobDefinition | No |
+| job_version | string |  | No |
 | method | [TaskMethod](#taskmethod) |  | No |
 | on_completed | string |  | No |
 | on_exit_code | object |  | No |
@@ -1884,10 +2244,13 @@ the database.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
+| allow_failure | boolean | AllowFailure means the task is optional and can fail without failing entire job | No |
 | ant_host | string | AntHost - host where ant ran the task | No |
 | ant_id | string | AntID - id of ant with version | No |
+| applied_cost | double | AppliedCost | No |
 | artifacts | [ [Artifact](#artifact) ] | Artifacts defines list of artifacts that are generated for the task | No |
 | contexts | [ [TaskExecutionContext](#taskexecutioncontext) ] | Contexts defines context variables of task | No |
+| count_services | long | CountServices | No |
 | ended_at | dateTime | EndedAt job update time | No |
 | error_code | string | ErrorCode captures error code at the end of job execution if it fails | No |
 | error_message | string | ErrorMessage captures error message at the end of job execution if it fails | No |
@@ -1929,18 +2292,21 @@ based on method, tags and concurrency of the ant follower.
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | admin | boolean | Admin is used for admin role | No |
+| auth_id | string | AuthID defines id from external auth provider | No |
+| auth_provider | string | AuthProvider defines provider for external auth provider | No |
 | bundle_id | string | BundleID defines package or bundle | No |
 | created_at | dateTime | CreatedAt created time | No |
 | email | string | Email defines email | No |
-| email_verified | boolean | EmailVerified for email | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
-| locked | boolean | Locked account | No |
+| max_concurrency | long | MaxConcurrency defines max number of jobs that can be run concurrently by org | No |
 | name | string | Name of user | No |
-| oauth_id | string | OAuthID defines id from external oauth provider | No |
-| oauth_provider | string | OAuthProvider defines provider for external oauth provider | No |
+| notify | object |  | No |
 | organization_id | string | OrganizationID defines foreign key for Organization | No |
 | perms | string | Perms defines permissions | No |
 | picture_url | string | PictureURL defines URL for picture | No |
+| salt | string | Salt for password | No |
+| sticky_message | string |  | No |
+| subscription | [Subscription](#subscription) |  | No |
 | updated_at | dateTime | UpdatedAt update time | No |
 | url | string | URL defines url | No |
 | username | string | Username defines username | No |
@@ -1959,6 +2325,18 @@ UserInvitation represents a user session
 | invitation_code | string | InvitationCode defines code | No |
 | invited_by_user_id | string | InvitedByUserID defines foreign key | No |
 | organization_id | string | OrganizationID defines foreign key | No |
+
+#### UserJobTypeKey
+
+UserJobTypeKey defines key for job-type by user/org
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| GetJobType | string | GetJobType defines the type of job | No |
+| GetJobVersion | string |  | No |
+| GetOrganizationID | string |  | No |
+| GetUserID | string |  | No |
+| GetUserJobTypeKey | string |  | No |
 
 #### UserToken
 
