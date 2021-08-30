@@ -85,6 +85,7 @@ func (n *DefaultNotifier) SendEmailVerification(
 		"UserID":    ev.UserID,
 		"Name":      user.Name,
 		"User":      user,
+		"Email":     ev.Email,
 		"EmailCode": ev.EmailCode,
 		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
 		"Title":     "Email Verification",

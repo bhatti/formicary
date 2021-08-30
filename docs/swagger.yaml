@@ -24,6 +24,9 @@ definitions:
         format: int64
         type: integer
         x-go-name: CurrentLoad
+      encryption_key:
+        type: string
+        x-go-name: EncryptionKey
       max_capacity:
         format: int64
         type: integer
@@ -310,6 +313,44 @@ definitions:
     format: int64
     type: integer
     x-go-package: time
+  EmailVerification:
+    description: EmailVerification represents verified email
+    properties:
+      created_at:
+        description: CreatedAt created time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      email:
+        description: Email defines invitee
+        type: string
+        x-go-name: Email
+      email_code:
+        description: EmailCode defines code
+        type: string
+        x-go-name: EmailCode
+      expires_at:
+        description: ExpiresAt expiration time
+        format: date-time
+        type: string
+        x-go-name: ExpiresAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      user_id:
+        description: UserID defines foreign key
+        type: string
+        x-go-name: UserID
+      verified_at:
+        description: VerifiedAt verification time
+        format: date-time
+        type: string
+        x-go-name: VerifiedAt
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
   ErrorCode:
     properties:
       action:
@@ -424,6 +465,10 @@ definitions:
         description: JobType defines type for the job
         type: string
         x-go-name: JobType
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
       start_time:
         description: StartTime stores first occurrence of the stats
         format: date-time
@@ -433,6 +478,10 @@ definitions:
         description: StartTime stores first occurrence of the stats for sqlite
         type: string
         x-go-name: StartTimeString
+      user_id:
+        description: UserID defines user who submitted the job
+        type: string
+        x-go-name: UserID
     title: JobCounts defines counts on job types by state and error code.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
@@ -474,8 +523,6 @@ definitions:
         type: string
         x-go-name: JobType
       job_variables:
-        description: Following are transient properties -- these are populated when
-          AfterLoad or Validate is called
         type: object
         x-go-name: NameValueVariables
       max_concurrency:
@@ -487,6 +534,11 @@ definitions:
         description: Methods is aggregation of task methods
         type: string
         x-go-name: Methods
+      notify:
+        additionalProperties:
+          $ref: '#/definitions/JobNotifyConfig'
+        type: object
+        x-go-name: Notify
       organization_id:
         description: OrganizationID defines org who submitted the job
         type: string
@@ -607,7 +659,7 @@ definitions:
         x-go-name: Contexts
       cpu_secs:
         description: CPUSecs execution time
-        format: uint64
+        format: int64
         type: integer
         x-go-name: CPUSecs
       ended_at:
@@ -650,6 +702,9 @@ definitions:
         description: JobType defines type for the job
         type: string
         x-go-name: JobType
+      job_version:
+        type: string
+        x-go-name: JobVersion
       organization_id:
         description: OrganizationID defines org who submitted the job
         type: string
@@ -715,6 +770,18 @@ definitions:
     title: JobExecutionContext defines context for the job execution.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
+  JobNotifyConfig:
+    description: JobNotifyConfig structure for notification config
+    properties:
+      recipients:
+        items:
+          type: string
+        type: array
+        x-go-name: Recipients
+      when:
+        $ref: '#/definitions/NotifyWhen'
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
   JobRequest:
     properties:
       created_at:
@@ -772,6 +839,9 @@ definitions:
         description: JobType defines type for the job
         type: string
         x-go-name: JobType
+      job_version:
+        type: string
+        x-go-name: JobVersion
       last_job_execution_id:
         description: LastJobExecutionID defines foreign key for JobExecution
         type: string
@@ -858,6 +928,10 @@ definitions:
         format: uint64
         type: integer
         x-go-name: ID
+      job_definition_id:
+        description: JobDefinitionID points to the job-definition version
+        type: string
+        x-go-name: JobDefinitionID
       job_execution_id:
         description: JobExecutionID
         type: string
@@ -873,6 +947,9 @@ definitions:
         description: JobType defines type for the job
         type: string
         x-go-name: JobType
+      job_version:
+        type: string
+        x-go-name: JobVersion
       last_job_execution_id:
         description: LastJobExecutionID defines foreign key for JobExecution
         type: string
@@ -1074,14 +1151,12 @@ definitions:
         format: date-time
         type: string
         x-go-name: FirstJobAt
+      job_key:
+        $ref: '#/definitions/UserJobTypeKey'
       job_paused:
         description: JobPaused paused flag
         type: boolean
         x-go-name: JobPaused
-      job_type:
-        description: JobType defines type of job
-        type: string
-        x-go-name: JobType
       last_job_at:
         description: LastJobAt update time of last job
         format: date-time
@@ -1147,6 +1222,10 @@ definitions:
     title: JobWaitEstimate stores estimated wait times for given job-request.
     type: object
     x-go-package: plexobject.com/formicary/queen/stats
+  Kind:
+    description: Kind defines enum for kind of subscription
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
   Monitorable:
     properties:
       Name:
@@ -1154,6 +1233,10 @@ definitions:
     title: Monitorable defines interface for services that can be monitored for health-check.
     type: object
     x-go-package: plexobject.com/formicary/internal/health
+  NotifyWhen:
+    description: NotifyWhen type alias for when notify should be used
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
   Organization:
     description: It is used multi-tenancy support in the platform.
     properties:
@@ -1194,6 +1277,15 @@ definitions:
         description: ParentID defines parent org
         type: string
         x-go-name: ParentID
+      salt:
+        description: Salt for password
+        type: string
+        x-go-name: Salt
+      sticky_message:
+        type: string
+        x-go-name: StickyMessage
+      subscription:
+        $ref: '#/definitions/Subscription'
       updated_at:
         description: UpdatedAt update time
         format: date-time
@@ -1201,7 +1293,7 @@ definitions:
         x-go-name: UpdatedAt
     title: Organization represents a user organization that may have one or more users.
     type: object
-    x-go-package: plexobject.com/formicary/queen/types
+    x-go-package: plexobject.com/formicary/internal/types
   OrganizationConfig:
     properties:
       created_at:
@@ -1242,7 +1334,15 @@ definitions:
     title: OrganizationConfig defines common configuration for the organization that
       can be shared by all jobs defined by users within that organization.
     type: object
-    x-go-package: plexobject.com/formicary/queen/types
+    x-go-package: plexobject.com/formicary/internal/types
+  Period:
+    description: Period defines enum for period of subscription
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
+  Policy:
+    description: Policy defines enum for policy of subscription
+    type: string
+    x-go-package: plexobject.com/formicary/internal/types
   RequestState:
     title: RequestState defines enum for the state of request or execution such as
       pending/completed/failed.
@@ -1275,6 +1375,80 @@ definitions:
     title: ServiceStatus structure for health metrics.
     type: object
     x-go-package: plexobject.com/formicary/internal/health
+  Subscription:
+    description: Subscription defines subscription
+    properties:
+      active:
+        description: Active flag
+        type: boolean
+        x-go-name: Active
+      cpu_quota:
+        description: CPUQuota  allowed cpu seconds
+        format: int64
+        type: integer
+        x-go-name: CPUQuota
+      created_at:
+        description: CreatedAt creation time
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      disk_quota:
+        description: DiskQuota allowed disk Mbytes
+        format: int64
+        type: integer
+        x-go-name: DiskQuota
+      ended_at:
+        description: EndedAt ended-at
+        format: date-time
+        type: string
+        x-go-name: EndedAt
+      id:
+        description: |-
+          gorm.Model
+          ID defines UUID for primary key
+        type: string
+        x-go-name: ID
+      kind:
+        $ref: '#/definitions/Kind'
+      organization_id:
+        description: OrganizationID defines org
+        type: string
+        x-go-name: OrganizationID
+      period:
+        $ref: '#/definitions/Period'
+      policy:
+        $ref: '#/definitions/Policy'
+      price:
+        description: Price of subscription in cents
+        format: int64
+        type: integer
+        x-go-name: Price
+      remaining_cpu_quota:
+        description: RemainingCPUQuota  cpu seconds
+        format: int64
+        type: integer
+        x-go-name: RemainingCPUQuota
+      remaining_disk_quota:
+        description: RemainingDiskQuota disk Mbytes
+        format: int64
+        type: integer
+        x-go-name: RemainingDiskQuota
+      started_at:
+        description: StartedAt started-at
+        format: date-time
+        type: string
+        x-go-name: StartedAt
+      updated_at:
+        description: UpdatedAt update time
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      user_id:
+        description: UserID defines user
+        type: string
+        x-go-name: UserID
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
   SystemConfig:
     properties:
       created_at:
@@ -1349,6 +1523,11 @@ definitions:
           type: string
         type: array
         x-go-name: ArtifactIDs
+      await_forked_tasks:
+        items:
+          type: string
+        type: array
+        x-go-name: AwaitForkedTasks
       before_script:
         items:
           type: string
@@ -1373,6 +1552,9 @@ definitions:
       except:
         type: string
         x-go-name: Except
+      fork_job_type:
+        type: string
+        x-go-name: ForkJobType
       headers:
         additionalProperties:
           type: string
@@ -1391,6 +1573,9 @@ definitions:
         description: JobDefinitionID defines foreign key for JobDefinition
         type: string
         x-go-name: JobDefinitionID
+      job_version:
+        type: string
+        x-go-name: JobVersion
       method:
         $ref: '#/definitions/TaskMethod'
       on_completed:
@@ -1446,6 +1631,11 @@ definitions:
     x-go-package: plexobject.com/formicary/queen/types
   TaskExecution:
     properties:
+      allow_failure:
+        description: AllowFailure means the task is optional and can fail without
+          failing entire job
+        type: boolean
+        x-go-name: AllowFailure
       ant_host:
         description: AntHost - host where ant ran the task
         type: string
@@ -1454,6 +1644,11 @@ definitions:
         description: AntID - id of ant with version
         type: string
         x-go-name: AntID
+      applied_cost:
+        description: AppliedCost
+        format: double
+        type: number
+        x-go-name: AppliedCost
       artifacts:
         description: Artifacts defines list of artifacts that are generated for the
           task
@@ -1467,6 +1662,11 @@ definitions:
           $ref: '#/definitions/TaskExecutionContext'
         type: array
         x-go-name: Contexts
+      count_services:
+        description: CountServices
+        format: int64
+        type: integer
+        x-go-name: CountServices
       ended_at:
         description: EndedAt job update time
         format: date-time
@@ -1582,6 +1782,14 @@ definitions:
         description: Admin is used for admin role
         type: boolean
         x-go-name: Admin
+      auth_id:
+        description: AuthID defines id from external auth provider
+        type: string
+        x-go-name: AuthID
+      auth_provider:
+        description: AuthProvider defines provider for external auth provider
+        type: string
+        x-go-name: AuthProvider
       bundle_id:
         description: BundleID defines package or bundle
         type: string
@@ -1609,18 +1817,21 @@ definitions:
         description: Locked account
         type: boolean
         x-go-name: Locked
+      max_concurrency:
+        description: MaxConcurrency defines max number of jobs that can be run concurrently
+          by org
+        format: int64
+        type: integer
+        x-go-name: MaxConcurrency
       name:
         description: Name of user
         type: string
         x-go-name: Name
-      oauth_id:
-        description: OAuthID defines id from external oauth provider
-        type: string
-        x-go-name: OAuthID
-      oauth_provider:
-        description: OAuthProvider defines provider for external oauth provider
-        type: string
-        x-go-name: OAuthProvider
+      notify:
+        additionalProperties:
+          $ref: '#/definitions/JobNotifyConfig'
+        type: object
+        x-go-name: Notify
       organization_id:
         description: OrganizationID defines foreign key for Organization
         type: string
@@ -1633,6 +1844,15 @@ definitions:
         description: PictureURL defines URL for picture
         type: string
         x-go-name: PictureURL
+      salt:
+        description: Salt for password
+        type: string
+        x-go-name: Salt
+      sticky_message:
+        type: string
+        x-go-name: StickyMessage
+      subscription:
+        $ref: '#/definitions/Subscription'
       updated_at:
         description: UpdatedAt update time
         format: date-time
@@ -1689,6 +1909,22 @@ definitions:
         description: OrganizationID defines foreign key
         type: string
         x-go-name: OrganizationID
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  UserJobTypeKey:
+    description: UserJobTypeKey defines key for job-type by user/org
+    properties:
+      GetJobType:
+        description: GetJobType defines the type of job
+        type: string
+      GetJobVersion:
+        type: string
+      GetOrganizationID:
+        type: string
+      GetUserID:
+        type: string
+      GetUserJobTypeKey:
+        type: string
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   UserToken:
@@ -1858,7 +2094,7 @@ paths:
   /api/artifacts/{id}:
     delete:
       description: Deletes artifact by its id
-      operationId: getArtifact
+      operationId: deleteArtifact
       parameters:
       - in: path
         name: id
@@ -1871,7 +2107,7 @@ paths:
       tags:
       - artifacts
     get:
-      description: Deletes artifact by its id
+      description: Retrieves artifact by its id
       operationId: getArtifact
       parameters:
       - in: path
@@ -1881,7 +2117,22 @@ paths:
         x-go-name: ID
       responses:
         "200":
-          $ref: '#/responses/emptyResponse'
+          $ref: '#/responses/artifactResponse'
+      tags:
+      - artifacts
+  /api/artifacts/{id}/download:
+    get:
+      description: Download artifact by its id
+      operationId: downloadArtifact
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/byteResponseBody'
       tags:
       - artifacts
   /api/audits:
@@ -1923,6 +2174,11 @@ paths:
         name: job_type
         type: string
         x-go-name: JobType
+      - description: Q wild search
+        in: query
+        name: q
+        type: string
+        x-go-name: Q
       responses:
         "200":
           $ref: '#/responses/auditQueryResponse'
@@ -2438,6 +2694,53 @@ paths:
       summary: Finds job-definition by type and returns response YAML format.
       tags:
       - job-definitions
+  /api/jobs/plugins:
+    get:
+      operationId: queryPlugins
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: JobType defines a unique type of job
+        in: query
+        name: job_type
+        type: string
+        x-go-name: JobType
+      - description: Platform can be OS platform or target runtime and a job can be
+          targeted for specific platform that can be used for filtering
+        in: query
+        name: platform
+        type: string
+        x-go-name: Platform
+      - description: Paused is used to stop further processing of job and it can be
+          used during maintenance, upgrade or debugging.
+        in: query
+        name: paused
+        type: boolean
+        x-go-name: Paused
+      - description: PublicPlugin means job is public plugin
+        in: query
+        name: public_plugin
+        type: boolean
+        x-go-name: PublicPlugin
+      - description: Tags is aggregation of task tags and it can be searched via `tags:in`
+        in: query
+        name: tags
+        type: string
+        x-go-name: Tags
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinitionQueryResponse'
+      summary: Queries job definitions by criteria such as type, platform, etc.
+      tags:
+      - job-definitions
   /api/jobs/requests:
     get:
       operationId: queryJobRequests
@@ -2561,6 +2864,21 @@ paths:
         Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
         failed tasks are executed or hard-restart where all tasks are executed.
       operationId: restartJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/trigger:
+    post:
+      description: Triggers a scheduled job
+      operationId: triggerJobRequest
       parameters:
       - in: path
         name: id
@@ -2908,6 +3226,107 @@ paths:
       summary: Updates a config for the organization.
       tags:
       - organization-configs
+  /api/subscriptions:
+    get:
+      description: |-
+        Queries system subscriptions
+        `This requires admin access`
+      operationId: querySubscriptions
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: Scope defines scope such as default or org-unit
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: Kind defines kind of subscription property
+        in: query
+        name: kind
+        type: string
+        x-go-name: Kind
+      - description: Name defines name of subscription property
+        in: query
+        name: name
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/subscriptionQueryResponse'
+      tags:
+      - system-subscriptions
+    post:
+      description: '`This requires admin access`'
+      operationId: postSubscription
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/Subscription'
+      responses:
+        "200":
+          $ref: '#/responses/subscriptionResponse'
+      summary: Creates new system subscription based on request body.
+      tags:
+      - system-subscriptions
+  /api/subscriptions/{id}:
+    delete:
+      description: '`This requires admin access`'
+      operationId: getSubscription
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes an existing system subscription based on id.
+      tags:
+      - system-subscriptions
+    get:
+      description: '`This requires admin access`'
+      operationId: getSubscription
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Deletes an existing system subscription based on id.
+      tags:
+      - system-subscriptions
+    put:
+      description: '`This requires admin access`'
+      operationId: putSubscription
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/Subscription'
+      responses:
+        "200":
+          $ref: '#/responses/subscriptionResponse'
+      summary: Updates an existing system subscription based on request body.
+      tags:
+      - system-subscriptions
   /api/users:
     get:
       operationId: queryUsers
@@ -2957,6 +3376,48 @@ paths:
       summary: Creates new user.
       tags:
       - users
+  /api/users/:id/verify_email:
+    post:
+      description: '`This requires admin access`'
+      operationId: verifyEmailVerification
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: path
+        name: code
+        required: true
+        type: string
+        x-go-name: Code
+      responses:
+        "200":
+          $ref: '#/responses/emailVerificationResponse'
+      summary: Creates new emailVerification.
+      tags:
+      - emailVerifications
+  /api/users/:id/verify_email/:code:
+    put:
+      description: '`This requires admin access`'
+      operationId: verifyEmailVerification
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: path
+        name: code
+        required: true
+        type: string
+        x-go-name: Code
+      responses:
+        "200":
+          $ref: '#/responses/emailVerificationResponse'
+      summary: Creates new emailVerification.
+      tags:
+      - emailVerifications
   /api/users/{id}:
     delete:
       operationId: deleteUser
@@ -3002,6 +3463,33 @@ paths:
         "200":
           $ref: '#/responses/userResponse'
       summary: Updates user profile.
+      tags:
+      - users
+  /api/users/{id}/notify:
+    put:
+      operationId: putUserNotify
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: formData
+        name: email
+        type: string
+        x-go-name: Email
+      - in: query
+        name: when
+        type: string
+        x-go-name: When
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "200":
+          $ref: '#/responses/userResponse'
+      summary: Updates user notification.
       tags:
       - users
   /api/users/{userId}/tokens:
@@ -3054,6 +3542,41 @@ paths:
         access.
       tags:
       - user-tokens
+  /api/users/email_verifications:
+    get:
+      operationId: queryEmailVerifications
+      parameters:
+      - format: int64
+        in: query
+        name: page
+        type: integer
+        x-go-name: Page
+      - format: int64
+        in: query
+        name: page_size
+        type: integer
+        x-go-name: PageSize
+      - description: Name of emailVerification
+        in: query
+        name: name
+        type: string
+        x-go-name: Name
+      - description: EmailCode defines email code
+        in: query
+        name: email_code
+        type: string
+        x-go-name: EmailCode
+      - description: Email defines email
+        in: query
+        name: email
+        type: string
+        x-go-name: Email
+      responses:
+        "200":
+          $ref: '#/responses/emailVerificationQueryResponse'
+      summary: Queries emailVerifications within the organization that is allowed.
+      tags:
+      - emailVerifications
 produces:
 - application/json
 responses:
@@ -3156,6 +3679,31 @@ responses:
           format: int64
           type: integer
       type: object
+  emailVerificationQueryResponse:
+    description: Paginated results of emailVerifications matching query
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/EmailVerification'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  emailVerificationResponse:
+    description: EmailVerification is used for email verification
+    schema:
+      $ref: '#/definitions/EmailVerification'
   emptyResponse:
     description: Empty response body
   errorCodeResponse:
@@ -3380,6 +3928,31 @@ responses:
       $ref: '#/definitions/Organization'
   stringResponse:
     description: String response body
+  subscriptionQueryResponse:
+    description: Query results of system-subscriptions
+    schema:
+      properties:
+        Page:
+          format: int64
+          type: integer
+        PageSize:
+          format: int64
+          type: integer
+        Records:
+          items:
+            $ref: '#/definitions/Subscription'
+          type: array
+        TotalPages:
+          format: int64
+          type: integer
+        TotalRecords:
+          format: int64
+          type: integer
+      type: object
+  subscriptionResponse:
+    description: Subscription body for update
+    schema:
+      $ref: '#/definitions/Subscription'
   sysConfigQueryResponse:
     description: Query results of system-configs
     schema:

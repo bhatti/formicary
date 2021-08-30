@@ -317,7 +317,7 @@ tasks:
   script:
     - echo deallocating
 </code></pre>
-<p><img src="taco-job.png" alt="taco-job"> </p>
+<p><img src="examples/taco-job.png" alt="taco-job"> </p>
 <p>The <code>check-date</code> task will execute different tasks based on the exit code defined under <code>on_exit_code</code>. Note: the <code>deallocate</code> task is always run because it defines <code>always_run</code> property as true.</p>
 <h4 id="resources">resources</h4>
 <p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
@@ -366,7 +366,6 @@ tasks:
 <pre><code class="lang-yaml"> - task_type: fork-task
    method: FORK_JOB
    fork_job_type: child-job
-   fork_job_version: 1.0-dev
    on_completed: fork-wait
  - task_type: fork-wait
    method: AWAIT_FORKED_JOB

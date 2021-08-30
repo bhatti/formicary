@@ -9,6 +9,8 @@ tasks:
   method: EXPIRE_ARTIFACTS
 ```
 
+*Note*: This is meant for internal operational purpose.
+
 #### Job Type
 
 The `job_type` defines type of the job, e.g.
