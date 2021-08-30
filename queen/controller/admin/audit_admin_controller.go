@@ -7,6 +7,7 @@ import (
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/controller"
 	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/types"
 )
 
 // AuditAdminController structure
@@ -31,6 +32,14 @@ func NewAuditAdminController(
 // queryAudits - queries audit
 func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
 	params, order, page, pageSize, q := controller.ParseParams(ctx)
+	var qs string
+	if params["q"] != nil {
+		qs = params["q"].(string)
+	}
+	var kind string
+	if params["kind"] != nil {
+		kind = params["kind"].(string)
+	}
 	audits, total, err := c.auditRecordRepository.Query(
 		params,
 		page,
@@ -44,7 +53,14 @@ func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
 	res := map[string]interface{}{"Audits": audits,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          "",
+		"Q":          qs,
+		"Kind":       kind,
+	}
+	if kinds, err := c.auditRecordRepository.GetKinds(); err == nil {
+		kinds = append([]types.AuditKind{""}, kinds...)
+		res["Kinds"] = kinds
+	} else {
+		res["Kinds"] = []types.AuditKind{""}
 	}
 	web.RenderDBUserFromSession(ctx, res)
 	return ctx.Render(http.StatusOK, "audits/index", res)

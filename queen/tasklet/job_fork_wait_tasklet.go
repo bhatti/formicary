@@ -113,17 +113,30 @@ func (t *JobForkWaitTasklet) Execute(
 		}
 	}
 
-	logrus.WithFields(
-		logrus.Fields{
-			"Component":         "JobForkWaitTasklet",
-			"RequestIDs":        waiter.requestIDs,
-			"CompletedRequests": len(waiter.requests),
-			"UserID":            taskReq.UserID,
-			"Completed":         waiter.completed(),
-			"Elapsed":           time.Since(started),
-		}).Info("returning with response")
-
-	return waiter.BuildTaskResponse(taskReq)
+	taskResp, err = waiter.BuildTaskResponse(taskReq)
+	if err == nil {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":         "JobForkWaitTasklet",
+				"RequestIDs":        waiter.requestIDs,
+				"CompletedRequests": len(waiter.requests),
+				"UserID":            taskReq.UserID,
+				"Completed":         waiter.completed(),
+				"Elapsed":           time.Since(started),
+			}).Info("returning with response")
+	} else {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":         "JobForkWaitTasklet",
+				"RequestIDs":        waiter.requestIDs,
+				"CompletedRequests": len(waiter.requests),
+				"UserID":            taskReq.UserID,
+				"Completed":         waiter.completed(),
+				"Elapsed":           time.Since(started),
+				"Error":             err,
+			}).Warnf("returning with error")
+	}
+	return
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////

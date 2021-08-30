@@ -28,9 +28,6 @@ func Test_InitializeSwaggerStructsForOrganizations(t *testing.T) {
 func Test_ShouldQueryOrgs(t *testing.T) {
 	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
-
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -39,7 +36,7 @@ func Test_ShouldQueryOrgs(t *testing.T) {
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(auditRecordRepository, organizationRepository, webServer)
+	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN querying organizations
 	reader := io.NopCloser(strings.NewReader(""))
@@ -56,8 +53,6 @@ func Test_ShouldQueryOrgs(t *testing.T) {
 func Test_ShouldGetOrgByID(t *testing.T) {
 	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -66,7 +61,7 @@ func Test_ShouldGetOrgByID(t *testing.T) {
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(auditRecordRepository, organizationRepository, webServer)
+	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN getting organization
 	reader := io.NopCloser(strings.NewReader(""))
@@ -83,8 +78,6 @@ func Test_ShouldGetOrgByID(t *testing.T) {
 
 func Test_ShouldSaveOrg(t *testing.T) {
 	// GIVEN organization controller
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -94,7 +87,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	webServer := web.NewStubWebServer()
 
 	// WHEN saving organization
-	ctrl := NewOrganizationController(auditRecordRepository, organizationRepository, webServer)
+	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
 	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", false))
@@ -121,8 +114,6 @@ func Test_ShouldSaveOrg(t *testing.T) {
 func Test_ShouldDeleteOrg(t *testing.T) {
 	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -131,7 +122,7 @@ func Test_ShouldDeleteOrg(t *testing.T) {
 	saved, err := organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(auditRecordRepository, organizationRepository, webServer)
+	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN deleting organization
 	reader := io.NopCloser(strings.NewReader(""))

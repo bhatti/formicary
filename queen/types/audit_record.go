@@ -43,6 +43,10 @@ const (
 	OrganizationUpdated AuditKind = "ORGANIZATION_UPDATED"
 	// SubscriptionUpdated updated
 	SubscriptionUpdated AuditKind = "SUBSCRIPTION_UPDATED"
+	// EmailVerificationCreated created
+	EmailVerificationCreated AuditKind = "EMAIL_VERIFICATION_CREATED"
+	// EmailVerificationVerified verified
+	EmailVerificationVerified AuditKind = "EMAIL_VERIFICATION_VERIFIED"
 )
 
 // AuditRecord defines audit-record
@@ -109,6 +113,19 @@ func NewAuditRecordFromJobDefinition(job *JobDefinition, kind AuditKind, qc *com
 		OrganizationID: qc.OrganizationID,
 		TargetID:       job.ID,
 		JobType:        job.JobType,
+		RemoteIP:       qc.IPAddress,
+		CreatedAt:      time.Now(),
+	}
+}
+
+// NewAuditRecordFromEmailVerification creates new instance of audit-record
+func NewAuditRecordFromEmailVerification(ev *EmailVerification, kind AuditKind, qc *common.QueryContext) *AuditRecord {
+	return &AuditRecord{
+		Kind:           kind,
+		Message:        fmt.Sprintf("email verificaton %s, email %s, code %s", kind, ev.Email, ev.EmailCode),
+		UserID:         qc.UserID,
+		OrganizationID: qc.OrganizationID,
+		TargetID:       ev.ID,
 		RemoteIP:       qc.IPAddress,
 		CreatedAt:      time.Now(),
 	}

@@ -42,4 +42,5 @@ smtp:
     password: ""
     host: ""
     port: 0
-    jobs_template_file: "public/views/email/notify_job.html"
+    jobs_template_file: views/email/notify_job.html
+    verify_email_template_file: views/email/verify_email.html

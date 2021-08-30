@@ -16,6 +16,8 @@ type WebhookEvent struct {
 	Commits    []Commit          `json:"commits"`
 	HeadCommit Commit            `json:"head_commit"`
 	Headers    map[string]string `json:"-"`
+	Sha256     string            `json:"-"`
+	Body       []byte            `json:"-"`
 }
 
 // Branch of head

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/twinj/uuid"
@@ -19,6 +20,13 @@ func NewAuditRecordRepositoryImpl(db *gorm.DB) (*AuditRecordRepositoryImpl, erro
 	return &AuditRecordRepositoryImpl{db: db}, nil
 }
 
+// GetKinds returns list of audit record kinds
+func (arr *AuditRecordRepositoryImpl) GetKinds() (kinds []types.AuditKind, err error) {
+	arr.db.Model(&types.AuditRecord{}).Distinct().Pluck("kind", &kinds)
+	sort.Slice(kinds, func(i, j int) bool { return kinds[i] < kinds[j] })
+	return
+}
+
 // Query finds matching audit-records by parameters
 func (arr *AuditRecordRepositoryImpl) Query(
 	params map[string]interface{},
@@ -29,13 +37,13 @@ func (arr *AuditRecordRepositoryImpl) Query(
 	tx := arr.db.Limit(pageSize).Offset(page * pageSize)
 
 	q := params["q"]
-	if q != nil {
+	delete(params, "q")
+	if q != "" && q != nil {
 		qs := fmt.Sprintf("%%%s%%", q)
 		tx = tx.Where("target_id LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR message LIKE ?",
 			qs, qs, qs, q, qs)
-	} else {
-		tx = addQueryParamsWhere(params, tx)
 	}
+	tx = addQueryParamsWhere(params, tx)
 
 	if len(order) == 0 {
 		tx = tx.Order("created_at desc")

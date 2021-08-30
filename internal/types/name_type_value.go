@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// local constants
 const maxConfigValueLength = 1000
 const encryptedPrefix = "_ENCRYPTED_"
 

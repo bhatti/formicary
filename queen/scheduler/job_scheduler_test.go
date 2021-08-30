@@ -55,6 +55,10 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
+	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
+	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
 	// Create resource manager for keeping track of ants
 	healthMonitor, err := health.New(&serverCfg.CommonConfig, queueClient)
@@ -72,7 +76,20 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 
 	metricsRegistry := metrics.New()
 
-	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
+	notifier, err := notify.New(
+		serverCfg,
+		make(map[common.NotifyChannel]types.Sender),
+		emailVerificationRepository)
+	require.NoError(t, err)
+	userManager, err := manager.NewUserManager(
+		serverCfg,
+		auditRecordRepository,
+		userRepository,
+		orgRepository,
+		emailVerificationRepository,
+		subscriptionRepository,
+		notifier,
+	)
 	require.NoError(t, err)
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
@@ -80,8 +97,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
-		userRepository,
-		orgRepository,
+		userManager,
 		resourceManager,
 		artifactManager,
 		jobStatsRegistry,
@@ -117,5 +133,6 @@ func testServerConfig() *config.ServerConfig {
 	serverCfg.Jobs.OrphanRequestsUpdateInterval = 2 * time.Second
 	serverCfg.Jobs.MissingCronJobsInterval = 2 * time.Second
 	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
 	return serverCfg
 }

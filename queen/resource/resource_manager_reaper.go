@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Start background routine to cleanup any registration of ants that are no longer alive
+// Start background routine to clean up any registration of ants that are no longer alive
 // and reap any ant allocations that haven't deallocated after some timeout
 func (rm *ManagerImpl) startReaperTicker(ctx context.Context) {
 	rm.ticker = time.NewTicker(rm.serverCfg.Jobs.AntRegistrationAliveTimeout / 2)
@@ -32,7 +32,7 @@ func (rm *ManagerImpl) reapStaleAnts(_ context.Context) int {
 	removeAntIDs := make([]string, 0)
 	// ant-id => registration
 	for _, registration := range rm.state.getRegistrations() {
-		if time.Duration(now.Unix()-registration.ReceivedAt.Unix()) * time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
+		if time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
 			removeAntIDs = append(removeAntIDs, registration.AntID)
 		}
 	}
@@ -52,7 +52,7 @@ func (rm *ManagerImpl) reapStaleAnts(_ context.Context) int {
 
 // The tasks can only borrow ant resources for a limited amount of time otherwise these resources are
 // automatically released.
-// Note: Be careful for setting the config value otherwise it may deallocate resources for running jobs.
+// Note: Be careful with setting the config value otherwise it may deallocate resources for running jobs.
 func (rm *ManagerImpl) reapStaleAllocations(_ context.Context) int {
 	removeReservation := rm.state.reapStaleAllocations(rm.serverCfg.Jobs.AntReservationTimeout)
 	// releasing ant
@@ -65,7 +65,8 @@ func (rm *ManagerImpl) reapStaleAllocations(_ context.Context) int {
 				"AntID":       reservation.AntID,
 				"AllocatedAt": reservation.AllocatedAt,
 				"Timeout":     rm.serverCfg.Jobs.AntReservationTimeout,
-			}).Error("failed to deallocate resource")
+				"Error":       err,
+			}).Warn("failed to deallocate resource")
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"Component":   "ResourceManager",
@@ -74,7 +75,7 @@ func (rm *ManagerImpl) reapStaleAllocations(_ context.Context) int {
 				"AntID":       reservation.AntID,
 				"AllocatedAt": reservation.AllocatedAt,
 				"Timeout":     rm.serverCfg.Jobs.AntReservationTimeout,
-			}).Warn("forced deallocated resource after timeout")
+			}).Info("forced deallocated resource after timeout")
 		}
 	}
 	return len(removeReservation)

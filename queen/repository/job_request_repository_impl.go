@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"time"
@@ -176,6 +177,7 @@ func (jrr *JobRequestRepositoryImpl) Save(
 		}
 
 		if res.Error != nil {
+			debug.PrintStack()
 			return res.Error
 		}
 
@@ -336,7 +338,9 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 		}
 		ids = append(ids, id.ID)
 	}
-
+	if len(ids) == 0 {
+		return nil
+	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
 		res := jrr.db.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id IN (?)", ids)
 		if res.Error != nil {
@@ -603,7 +607,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 		if typeAndTrigger.UserID != "" {
 			userIDs = append(userIDs, typeAndTrigger.UserID)
 		}
-		_, userKeys[i] = types.GetCronScheduleTimeAndUserKey(typeAndTrigger.JobType, typeAndTrigger.CronTrigger)
+		_, userKeys[i] = types.GetCronScheduleTimeAndUserKey(typeAndTrigger.OrganizationOrUserID(), typeAndTrigger.JobType, typeAndTrigger.CronTrigger)
 	}
 	jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED, common.EXECUTING}
 	args := []interface{}{true, jobTypes, jobStates}

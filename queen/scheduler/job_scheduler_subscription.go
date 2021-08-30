@@ -246,11 +246,13 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 			request, err = js.jobManager.SaveJobRequest(common.NewQueryContext(missingJobType.UserID, missingJobType.OrganizationID, ""), request)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
-					"Component":       "JobScheduler",
-					"ID":              js.serverCfg.ID,
-					"MissingJobTypes": missingJobType,
-					"Request":         request,
-					"Error":           err,
+					"Component":             "JobScheduler",
+					"ID":                    js.serverCfg.ID,
+					"MissingJobType":        missingJobType.JobType,
+					"MissingJobTypeUserKey": missingJobType.UserKey,
+					"MissingJobTypeUserID":  missingJobType.UserID,
+					"Request":               request,
+					"Error":                 err,
 				}).Error("failed to schedule missing job request")
 			} else {
 				logrus.WithFields(logrus.Fields{

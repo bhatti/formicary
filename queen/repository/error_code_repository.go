@@ -8,11 +8,11 @@ import (
 type ErrorCodeRepository interface {
 	// GetAll returns all error-codes
 	GetAll() ([]*common.ErrorCode, error)
-	// Finds ErrorCode by id
+	// Get finds ErrorCode by id
 	Get(id string) (*common.ErrorCode, error)
 	// Delete error-code
 	Delete(id string) error
-	// Saves error-code
+	// Save - persists error-code
 	Save(ec *common.ErrorCode) (*common.ErrorCode, error)
 	Query(params map[string]interface{},
 		page int,

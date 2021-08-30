@@ -55,7 +55,7 @@ type User struct {
 	EmailVerified bool `json:"email_verified"`
 	// Locked account
 	Locked bool `json:"locked"`
-	// Active is used to soft delete user
+	// Active is used to softly delete user
 	Active bool `json:"-"`
 	// CreatedAt created time
 	CreatedAt time.Time `json:"created_at"`
@@ -67,10 +67,10 @@ type User struct {
 	// InvitationCode defines code for invitation
 	InvitationCode string `json:"-" gorm:"-"`
 	// AgreeTerms defines code for invitation
-	AgreeTerms  bool                       `json:"-" gorm:"-"`
+	AgreeTerms  bool                              `json:"-" gorm:"-"`
 	Notify      map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
-	NotifyEmail string                     `json:"-" gorm:"-"`
-	NotifyWhen  NotifyWhen                 `json:"-" gorm:"-"`
+	NotifyEmail string                            `json:"-" gorm:"-"`
+	NotifyWhen  NotifyWhen                        `json:"-" gorm:"-"`
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`
@@ -122,6 +122,25 @@ func (u *User) Equals(other *User) error {
 		return fmt.Errorf("expected jobType %v but was %v", u.Username, other.Username)
 	}
 	return nil
+}
+
+// GetUnverifiedNotificationEmails returns unverified emails
+func (u *User) GetUnverifiedNotificationEmails() (res [] string) {
+	lookup := make(map[string]bool)
+	if u.Email != "" && !u.EmailVerified {
+		lookup[strings.ToLower(u.Email)] = true
+	}
+	for _, r := range u.Notify[EmailChannel].Recipients {
+		lr := strings.ToLower(r)
+		if !lookup[lr] {
+			lookup[lr] = true
+		}
+	}
+	res = make([]string, 0)
+	for email := range lookup {
+		res = append(res, email)
+	}
+	return
 }
 
 // AfterLoad initializes user
@@ -200,6 +219,7 @@ func (u *User) ValidateBeforeSave() error {
 			return err
 		}
 	}
+	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
 	return nil
 }
 

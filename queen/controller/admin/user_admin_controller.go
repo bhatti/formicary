@@ -10,7 +10,6 @@ import (
 	"plexobject.com/formicary/queen/controller"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
-	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/types"
 	"strings"
 	"time"
@@ -18,35 +17,26 @@ import (
 
 // UserAdminController structure
 type UserAdminController struct {
-	commonCfg              *common.CommonConfig
-	auditRecordRepository  repository.AuditRecordRepository
-	userRepository         repository.UserRepository
-	orgRepository          repository.OrganizationRepository
-	jobExecRepository      repository.JobExecutionRepository
-	artifactRepository     repository.ArtifactRepository
-	subscriptionRepository repository.SubscriptionRepository
-	webserver              web.Server
+	commonCfg          *common.CommonConfig
+	userManager        *manager.UserManager
+	jobExecRepository  repository.JobExecutionRepository
+	artifactRepository repository.ArtifactRepository
+	webserver          web.Server
 }
 
 // NewUserAdminController admin dashboard for managing users
 func NewUserAdminController(
 	commonCfg *common.CommonConfig,
-	auditRecordRepository repository.AuditRecordRepository,
-	userRepository repository.UserRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	jobExecRepository repository.JobExecutionRepository,
 	artifactRepository repository.ArtifactRepository,
-	subscriptionRepository repository.SubscriptionRepository,
 	webserver web.Server) *UserAdminController {
 	jraCtr := &UserAdminController{
-		commonCfg:              commonCfg,
-		auditRecordRepository:  auditRecordRepository,
-		userRepository:         userRepository,
-		orgRepository:          orgRepository,
-		jobExecRepository:      jobExecRepository,
-		artifactRepository:     artifactRepository,
-		subscriptionRepository: subscriptionRepository,
-		webserver:              webserver,
+		commonCfg:          commonCfg,
+		userManager:        userManager,
+		jobExecRepository:  jobExecRepository,
+		artifactRepository: artifactRepository,
+		webserver:          webserver,
 	}
 	webserver.GET("/dashboard/users", jraCtr.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_admin_users"
 	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.New(acl.User, acl.Signup)).Name = "new_admin_users"
@@ -67,7 +57,7 @@ func NewUserAdminController(
 func (uc *UserAdminController) queryUsers(c web.WebContext) error {
 	params, order, page, pageSize, q := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
-	users, total, err := uc.userRepository.Query(
+	users, total, err := uc.userManager.QueryUsers(
 		qc,
 		params,
 		page,
@@ -128,14 +118,14 @@ func (uc *UserAdminController) createUser(c web.WebContext) (err error) {
 func (uc *UserAdminController) getUser(c web.WebContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	user, err := uc.userRepository.Get(qc, id)
+	user, err := uc.userManager.GetUser(qc, id)
 	if err != nil {
 		return err
 	}
 	res := map[string]interface{}{
 		"User": user,
 	}
-	tokens, err := uc.userRepository.GetTokens(qc, id)
+	tokens, err := uc.userManager.GetUserTokens(qc, id)
 	if err == nil {
 		res["Tokens"] = tokens
 	}
@@ -194,6 +184,19 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 	if user.Subscription != nil {
 		res["Subscription"] = user.Subscription
 	}
+	unverifiedEmails := user.GetUnverifiedNotificationEmails()
+	if len(unverifiedEmails) > 0 {
+		verifiedEmails := uc.userManager.GetVerifiedEmails(qc, user.ID)
+		newUnverifiedEmails := make([]string, 0)
+		for _, email := range unverifiedEmails {
+			if !verifiedEmails[email] {
+				newUnverifiedEmails = append(newUnverifiedEmails, email)
+			}
+		}
+		unverifiedEmails = newUnverifiedEmails
+	}
+	res["UnverifiedEmails"] = unverifiedEmails
+
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/view", res)
 }
@@ -202,7 +205,7 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 func (uc *UserAdminController) editUser(c web.WebContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	user, err := uc.userRepository.Get(qc, id)
+	user, err := uc.userManager.GetUser(qc, id)
 	if err != nil {
 		user = common.NewUser("", "", "", false)
 		user.Errors = map[string]string{"Error": err.Error()}
@@ -218,56 +221,25 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err error) {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	user, err := uc.userRepository.Get(qc, id)
-	if err != nil {
-		return err
-	}
+	user, err := uc.userManager.UpdateUserNotification(
+		qc,
+		c.Param("id"),
+		c.FormValue("email"),
+		c.FormValue("when"),
+	)
 
-	user.NotifyEmail = strings.TrimSpace(c.FormValue("email"))
-	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(c.FormValue("when")))
-	if user.NotifyEmail == "" {
-		err = fmt.Errorf("no email specified")
-	} else {
-		var notifyCfg common.JobNotifyConfig
-		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
-		if err == nil {
-			user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
-				common.EmailChannel: notifyCfg,
-			}
-			err = user.Validate()
-			if err == nil {
-				user, err = uc.userRepository.Update(qc, user)
-			}
+	if err != nil {
+		if user == nil {
+			user = &common.User{ID: id}
 		}
-	}
-
-	if err != nil {
 		user.Errors = map[string]string{"Notify": err.Error()}
 		res := map[string]interface{}{
 			"User":   user,
 			"Notify": err,
 		}
 		web.RenderDBUserFromSession(c, res)
-		logrus.WithFields(logrus.Fields{
-			"Component": "UserAdminController",
-			"User":      user,
-			"Email":     user.NotifyEmail,
-			"When":      user.NotifyWhen,
-			"Notify":    user.Notify,
-			"Error":     err,
-		}).Warnf("updateUserNotification failed to update email notification")
 
 		return c.Render(http.StatusOK, "users/view", res)
-	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "UserAdminController",
-			"User":      user,
-			"Email":     user.NotifyEmail,
-			"When":      user.NotifyWhen,
-			"Notify":    user.Notify,
-		}).Debugf("updateUserNotification updated email notification")
 	}
 
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/%s", user.ID))
@@ -287,10 +259,10 @@ func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
 	err = user.Validate()
 
 	if err == nil {
-		user, err = uc.userRepository.Update(qc, user)
+		user, err = uc.userManager.UpdateUser(qc, user)
 	}
 	if err != nil {
-		if u, err := uc.userRepository.Get(qc, c.Param("id")); err == nil {
+		if u, err := uc.userManager.GetUser(qc, c.Param("id")); err == nil {
 			if user != nil {
 				u.Errors = user.Errors
 			}
@@ -307,14 +279,13 @@ func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "users/edit", res)
 	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/%s", user.ID))
 }
 
 // deleteUser - deletes user by id
 func (uc *UserAdminController) deleteUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userRepository.Delete(qc, c.Param("id"))
+	err := uc.userManager.DeleteUser(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -335,7 +306,7 @@ func (uc *UserAdminController) newUserToken(c web.WebContext) error {
 // deleteUserToken - deletes user token by id
 func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userRepository.RevokeToken(qc, qc.UserID, c.Param("id"))
+	err := uc.userManager.RevokeUserToken(qc, qc.UserID, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -345,12 +316,9 @@ func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
 // createUserToken - saves a new token
 func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
-	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, c.FormValue("token"))
-	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.TokenMaxAge)
-	if err == nil {
-		tok.APIToken = strTok
-		tok.ExpiresAt = expiration
-		err = uc.userRepository.AddToken(tok)
+	tok, err := uc.userManager.CreateUserToken(qc, web.GetDBLoggedUserFromSession(c), c.FormValue("token"))
+	if err != nil {
+		return err
 	}
 	res := map[string]interface{}{
 		"Token": tok,
@@ -359,7 +327,6 @@ func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
 	if err != nil {
 		return c.Render(http.StatusOK, "users/new_token", res)
 	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromToken(tok, qc))
 	return c.Render(http.StatusOK, "users/view_token", res)
 }
 
@@ -385,7 +352,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 	}
 
 	var org *common.Organization
-	org, err = uc.checkExistingOrg(user)
+	org, err = uc.userManager.BuildOrgWithInvitation(user)
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +381,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 				}).Errorf("failed to save organization")
 				// delete user as well
 				adminQC := common.NewQueryContext("", "", "").WithAdmin()
-				_ = uc.userRepository.Delete(adminQC, saved.ID)
+				_ = uc.userManager.DeleteUser(adminQC, saved.ID)
 				return nil, err
 			}
 
@@ -434,7 +401,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 			org = savedOrg
 			// disabling query context here
 			adminQC := common.NewQueryContext(saved.ID, savedOrg.ID, "").WithAdmin()
-			_, err = uc.userRepository.Update(adminQC, saved)
+			_, err = uc.userManager.UpdateUser(adminQC, saved)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "UserAdminController",
@@ -455,22 +422,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 	}
 
 	qc := common.NewQueryContextFromUser(saved, org, c.Request().RemoteAddr)
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserSignup, qc))
-
-	subscription := common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)
-	if subscription, err = uc.subscriptionRepository.Create(subscription); err == nil {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "UserAdminController",
-			"Subscription": subscription,
-		}).Info("created Subscription")
-		_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "UserAdminController",
-			"Subscription": subscription,
-			"Error":        err,
-		}).Errorf("failed to create Subscription")
-	}
+	_ = uc.userManager.PostSignup(qc, saved)
 	return saved, nil
 }
 
@@ -483,51 +435,23 @@ func initUserFromForm(c web.WebContext, user *common.User) {
 	user.AgreeTerms = c.FormValue("agreeTerms") == "agree"
 }
 
-func (uc *UserAdminController) checkExistingOrg(
-	user *common.User) (org *common.Organization, err error) {
-	qc := common.NewQueryContext("", "", "")
-	if user.OrgUnit != "" {
-		org, _ = uc.orgRepository.GetByUnit(qc, user.OrgUnit)
-		if org != nil {
-			needInvitation := true
-			if user.InvitationCode != "" {
-				inv, err := uc.orgRepository.AcceptInvitation(user.Email, user.InvitationCode)
-				if err == nil {
-					org, err = uc.orgRepository.Get(qc, inv.OrganizationID)
-					if err != nil {
-						return nil, fmt.Errorf("failed to find organization in invitation %s due to %s",
-							inv.OrganizationID, err.Error())
-					}
-					needInvitation = false
-					user.OrganizationID = org.ID
-				}
-			}
-			if needInvitation {
-				user.Errors["OrgUnit"] = "Organization already exists, please contact admin of your organization to invite you to this organization."
-				return nil, fmt.Errorf("organization already exists, please contact admin of your organization to invite you to this organization")
-			}
-		} else {
-			org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
-		}
-	}
-	return
-}
-
 func (uc *UserAdminController) saveNewUser(user *common.User) (saved *common.User, err error) {
-	saved, err = uc.userRepository.Create(user)
+	qc := common.NewQueryContext("", "", "").WithAdmin()
+	saved, err = uc.userManager.CreateUser(qc, user)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
-		saved, err = uc.userRepository.Update(common.NewQueryContext("", "", "").WithAdmin(), user)
+		saved, err = uc.userManager.UpdateUser(qc, user)
 	}
 	return
 }
 
 func (uc *UserAdminController) saveNewOrg(
-	c web.WebContext,
+	_ web.WebContext,
 	org *common.Organization) (saved *common.Organization, err error) {
-	qc := web.BuildQueryContext(c)
-	saved, err = uc.orgRepository.Create(qc, org)
+	//qc := web.BuildQueryContext(c)
+	qc := common.NewQueryContext("", "", "").WithAdmin()
+	saved, err = uc.userManager.CreateOrg(qc, org)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
-		saved, err = uc.orgRepository.Update(common.NewQueryContext("", "", "").WithAdmin(), org)
+		saved, err = uc.userManager.UpdateOrg(qc, org)
 	}
 	return
 }

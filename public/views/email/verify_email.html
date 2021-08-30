@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="">
+        <meta name="author" content="">
+        <title>{{.Title}}</title>
+        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+
+    <body>
+        <div class="container-fluid">
+            <p>Hi {{.Name}},</p>
+            <p>Please enter the one time following code into email verification field found in your account settings:</p>
+           
+            <p> <b>Verification code: {{.EmailCode}}</b></p>
+            {{ with .Email }}
+            <p> Email: {{.}}</p>
+            {{ end  }}
+            <p><a href="{{$.URLPrefix}}/dashboard/users/{{.UserID}}">Your Profile</a></p>
+
+            <p>If you did not sign up for an account at Formicary.io, please ignore this email.</p>
+
+            <p>Regards,</p>
+            <p>Formicary Support</p>
+        </div>  
+    </body>
+</html>

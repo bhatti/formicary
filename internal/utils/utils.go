@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -116,4 +119,17 @@ func MemUsageMiB() map[string]uint64 {
 
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
+}
+
+// VerifySignature verifies sha256 hash
+func VerifySignature(secret string, expectedHash256 string, body []byte) error {
+	hash := hmac.New(sha256.New, []byte(secret))
+	if _, err := hash.Write(body); err != nil {
+		return err
+	}
+	actualHash := hex.EncodeToString(hash.Sum(nil))
+	if actualHash != expectedHash256 {
+		return fmt.Errorf("failed to match '%s' sha256 with '%s'", actualHash, expectedHash256)
+	}
+	return nil
 }

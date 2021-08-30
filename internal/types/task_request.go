@@ -14,6 +14,9 @@ import (
 // TaskAction defines enum for action of request
 type TaskAction string
 
+// ForkedJob constant
+const ForkedJob = "ForkedJob"
+
 const (
 	// EXECUTE action
 	EXECUTE TaskAction = "EXECUTE"

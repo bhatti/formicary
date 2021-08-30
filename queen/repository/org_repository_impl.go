@@ -308,7 +308,7 @@ func (orc *OrganizationRepositoryImpl) Count(
 
 // AddInvitation adds invitation
 func (orc *OrganizationRepositoryImpl) AddInvitation(invitation *types.UserInvitation) error {
-	err := invitation.Validate()
+	err := invitation.ValidateBeforeSave()
 	if err != nil {
 		return err
 	}
@@ -328,12 +328,19 @@ func (orc *OrganizationRepositoryImpl) AddInvitation(invitation *types.UserInvit
 		return common.NewDuplicateError(
 			fmt.Errorf("user with email %s already exists", invitation.Email))
 	}
+	res := orc.db.Model(&types.UserInvitation{}).
+		Where("organization_id = ?", invitation.OrganizationID).
+		Where("accepted_at is NULL").
+		Where("expires_at > ?", time.Now()).Count(&total)
+	if res.Error != nil {
+		return res.Error
+	}
+	if total > 100 {
+		return fmt.Errorf("too many pending invitations")
+	}
 
 	return orc.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
-		invitation.ID = uuid.NewV4().String()
-		invitation.CreatedAt = time.Now()
-		invitation.AcceptedAt = nil
 		res = tx.Create(invitation)
 		if res.Error != nil {
 			return res.Error

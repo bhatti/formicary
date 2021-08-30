@@ -36,7 +36,7 @@ func Test_ShouldQueryAudits(t *testing.T) {
 	ctx := web.NewStubContext(req)
 	err = ctrl.queryAudits(ctx)
 
-	// THEN it should valid list of audits
+	// THEN it should be valid list of audits
 	require.NoError(t, err)
 	all := ctx.Result.(*PaginatedResult).Records.([]*types.AuditRecord)
 	require.NotEqual(t, 0, len(all))

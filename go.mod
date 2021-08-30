@@ -5,7 +5,7 @@ module plexobject.com/formicary
 go 1.15
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.4.5 // indirect
+	github.com/ClickHouse/clickhouse-go v1.4.7 // indirect
 	github.com/DataDog/zstd v1.3.6-0.20190409195224-796139022798 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/Shopify/sarama v1.29.0
@@ -56,7 +56,7 @@ require (
 	github.com/twinj/uuid v1.0.0
 	github.com/xdg-go/scram v1.0.2
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20210813211128-0a44fdfbc16e
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect

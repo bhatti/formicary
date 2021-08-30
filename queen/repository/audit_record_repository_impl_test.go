@@ -13,7 +13,6 @@ func Test_ShouldSaveAndQueryAuditRecords(t *testing.T) {
 	// GIVEN an audit repository
 	repo, err := NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	repo.clear()
 	kinds := []types.AuditKind{
 		types.JobRequestCreated,
 		types.JobDefinitionUpdated,
@@ -43,4 +42,8 @@ func Test_ShouldSaveAndQueryAuditRecords(t *testing.T) {
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(10), total)
+
+	loadedKinds, err := repo.GetKinds()
+	require.NoError(t, err)
+	require.Equal(t, len(kinds), len(loadedKinds))
 }

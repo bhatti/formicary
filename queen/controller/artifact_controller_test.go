@@ -107,6 +107,7 @@ func newTestConfig() *config.ServerConfig {
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
 	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
 	_ = serverCfg.Validate()
 	return serverCfg
 }

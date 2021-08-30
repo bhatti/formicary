@@ -30,15 +30,16 @@ type ServerConfig struct {
 
 // SMTPConfig -- Defines email config
 type SMTPConfig struct {
-	FromEmail        string `yaml:"from_email" mapstructure:"from_email"`
-	FromName         string `yaml:"from_name" mapstructure:"from_name"`
-	Provider         string `yaml:"provider" mapstructure:"provider"`
-	APIKey           string `yaml:"api_key" mapstructure:"api_key"`
-	Username         string `yaml:"username" mapstructure:"username"`
-	Password         string `yaml:"password" mapstructure:"password"`
-	Host             string `yaml:"host" mapstructure:"host"`
-	Port             int    `yaml:"port" mapstructure:"port"`
-	JobsTemplateFile string `yaml:"jobs_template_file" mapstructure:"jobs_template_file"`
+	FromEmail               string `yaml:"from_email" mapstructure:"from_email"`
+	FromName                string `yaml:"from_name" mapstructure:"from_name"`
+	Provider                string `yaml:"provider" mapstructure:"provider"`
+	APIKey                  string `yaml:"api_key" mapstructure:"api_key"`
+	Username                string `yaml:"username" mapstructure:"username"`
+	Password                string `yaml:"password" mapstructure:"password"`
+	Host                    string `yaml:"host" mapstructure:"host"`
+	Port                    int    `yaml:"port" mapstructure:"port"`
+	JobsTemplateFile        string `yaml:"jobs_template_file" mapstructure:"jobs_template_file"`
+	VerifyEmailTemplateFile string `yaml:"verify_email_template_file" mapstructure:"verify_email_template_file"`
 }
 
 // DBConfig -- Defines db config
@@ -282,6 +283,9 @@ func (s *SMTPConfig) Validate() error {
 	}
 	if s.JobsTemplateFile == "" {
 		return types.NewValidationError(fmt.Errorf("jobs template not specified"))
+	}
+	if s.VerifyEmailTemplateFile == "" {
+		return types.NewValidationError(fmt.Errorf("email-notification template not specified"))
 	}
 	return nil
 }

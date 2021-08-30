@@ -48,6 +48,8 @@ const (
 	TermsService Resource = "TermsService"
 	// PrivacyPolicies resource
 	PrivacyPolicies Resource = "PrivacyPolicies"
+	// EmailVerification resource
+	EmailVerification Resource = "EmailVerification"
 )
 
 const (
@@ -67,6 +69,8 @@ const (
 	Write = 16
 	// Update action
 	Update = 16
+	// Verify action
+	Verify = 16
 	// Delete action
 	Delete = 32
 	// Submit action
@@ -313,6 +317,7 @@ func DefaultPermissions() []*Permission {
 		New(Subscription, None),
 		New(TermsService, View|Read),
 		New(PrivacyPolicies, View|Read),
+		New(EmailVerification, Create|View|Read|Verify),
 	}
 }
 
@@ -341,5 +346,6 @@ func AdminPermissions() []*Permission {
 		New(Container, Create|Read|Update|Delete|Query),
 		New(Health, Create|Read|Update|Delete|Query),
 		New(Profile, Create|Read|Update|Delete|Query),
+		New(EmailVerification, Create|Read|Update|Delete|Query),
 	}
 }

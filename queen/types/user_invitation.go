@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/twinj/uuid"
 	"math/big"
 	common "plexobject.com/formicary/internal/types"
 	"regexp"
@@ -78,11 +79,20 @@ func (u *UserInvitation) Validate() (err error) {
 	if u.ExpiresAt.Unix() < time.Now().Unix() {
 		u.ExpiresAt = time.Now().Add(time.Hour * 24 * 3)
 	}
-	if u.InvitationCode == "" {
-		u.InvitationCode = randomString(20)
-	}
 
 	return
+}
+
+// ValidateBeforeSave validation
+func (u *UserInvitation) ValidateBeforeSave() (err error) {
+	if err = u.Validate(); err != nil {
+		return err
+	}
+	u.ID = uuid.NewV4().String()
+	u.CreatedAt = time.Now()
+	u.AcceptedAt = nil
+	u.InvitationCode = randomString(12)
+	return nil
 }
 
 // String provides short summary of invitation

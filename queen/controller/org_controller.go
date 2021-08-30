@@ -3,32 +3,28 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
-	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
 	"time"
 )
 
 // OrganizationController structure
 type OrganizationController struct {
-	auditRecordRepository repository.AuditRecordRepository
-	orgRepository         repository.OrganizationRepository
-	webserver             web.Server
+	userManager *manager.UserManager
+	webserver   web.Server
 }
 
 // NewOrganizationController instantiates controller for updating orgs
 func NewOrganizationController(
-	auditRecordRepository repository.AuditRecordRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	webserver web.Server) *OrganizationController {
 	orgCtrl := &OrganizationController{
-		auditRecordRepository: auditRecordRepository,
-		orgRepository:         orgRepository,
-		webserver:             webserver,
+		userManager: userManager,
+		webserver:   webserver,
 	}
 	webserver.GET("/api/orgs", orgCtrl.queryOrganizations, acl.New(acl.Organization, acl.Query)).Name = "query_orgs"
 	webserver.GET("/api/orgs/:id", orgCtrl.getOrganization, acl.New(acl.Organization, acl.View)).Name = "get_org"
@@ -49,7 +45,7 @@ func NewOrganizationController(
 func (oc *OrganizationController) queryOrganizations(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, _ := ParseParams(c)
-	recs, total, err := oc.orgRepository.Query(qc, params, page, pageSize, order)
+	recs, total, err := oc.userManager.QueryOrgs(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
@@ -69,7 +65,7 @@ func (oc *OrganizationController) postOrganization(c web.WebContext) error {
 	if err != nil {
 		return err
 	}
-	saved, err := oc.orgRepository.Create(qc, org)
+	saved, err := oc.userManager.CreateOrg(qc, org)
 	if err != nil {
 		return err
 	}
@@ -79,7 +75,6 @@ func (oc *OrganizationController) postOrganization(c web.WebContext) error {
 	} else {
 		status = http.StatusOK
 	}
-	_, _ = oc.auditRecordRepository.Save(types.NewAuditRecordFromOrganization(saved, qc))
 	return c.JSON(status, saved)
 }
 
@@ -95,11 +90,10 @@ func (oc *OrganizationController) putOrganization(c web.WebContext) error {
 	}
 	qc := web.BuildQueryContext(c)
 	org.ID = qc.OrganizationID
-	saved, err := oc.orgRepository.Update(qc, org)
+	saved, err := oc.userManager.UpdateOrg(qc, org)
 	if err != nil {
 		return err
 	}
-	_, _ = oc.auditRecordRepository.Save(types.NewAuditRecordFromOrganization(saved, qc))
 	return c.JSON(http.StatusOK, saved)
 }
 
@@ -109,7 +103,7 @@ func (oc *OrganizationController) putOrganization(c web.WebContext) error {
 //   200: orgResponse
 func (oc *OrganizationController) getOrganization(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	org, err := oc.orgRepository.Get(qc, c.Param("id"))
+	org, err := oc.userManager.GetOrganization(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -122,7 +116,7 @@ func (oc *OrganizationController) getOrganization(c web.WebContext) error {
 //   200: emptyResponse
 func (oc *OrganizationController) deleteOrganization(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := oc.orgRepository.Delete(qc, c.Param("id"))
+	err := oc.userManager.DeleteOrganization(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -139,31 +133,16 @@ func (oc *OrganizationController) inviteUser(c web.WebContext) (err error) {
 	if user == nil {
 		return fmt.Errorf("failed to find user in session for invitation")
 	}
-	orgID := user.OrganizationID
-	if orgID == "" {
-		return fmt.Errorf("organization is not available for invitation")
-	}
 	inv := &types.UserInvitation{}
 	err = json.NewDecoder(c.Request().Body).Decode(inv)
 	if err != nil {
 		return err
 	}
-	inv.InvitedByUserID = user.ID
-	inv.OrganizationID = orgID
-	if err = oc.orgRepository.AddInvitation(inv); err != nil {
+	if err = oc.userManager.InviteUser(qc, user, inv); err != nil {
 		return err
 	}
-	_, _ = oc.auditRecordRepository.Save(types.NewAuditRecordFromInvite(inv, qc))
-	logrus.WithFields(logrus.Fields{
-		"Component":  "OrganizationAdminController",
-		"Admin":      user.Admin,
-		"Org":        orgID,
-		"User":       user,
-		"Invitation": inv,
-	}).Infof("user invited")
 	return c.JSON(http.StatusOK, inv)
 }
-
 
 // ********************************* Swagger types ***********************************
 

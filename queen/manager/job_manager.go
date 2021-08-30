@@ -3,6 +3,8 @@ package manager
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/utils"
+	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"time"
@@ -33,14 +35,13 @@ type JobManager struct {
 	jobDefinitionRepository repository.JobDefinitionRepository
 	jobRequestRepository    repository.JobRequestRepository
 	jobExecutionRepository  repository.JobExecutionRepository
-	userRepository          repository.UserRepository
-	orgRepository           repository.OrganizationRepository
+	userManager             *UserManager
 	resourceManager         resource.Manager
 	artifactManager         *ArtifactManager
 	jobStatsRegistry        *stats.JobStatsRegistry
 	metricsRegistry         *metrics.Registry
 	queueClient             queue.Client
-	jobsNotifier            notify.JobNotifier
+	jobsNotifier            notify.Notifier
 }
 
 // NewJobManager manages job request, definition and execution
@@ -50,14 +51,13 @@ func NewJobManager(
 	jobDefinitionRepository repository.JobDefinitionRepository,
 	jobRequestRepository repository.JobRequestRepository,
 	jobExecutionRepository repository.JobExecutionRepository,
-	userRepository repository.UserRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *UserManager,
 	resourceManager resource.Manager,
 	artifactManager *ArtifactManager,
 	jobStatsRegistry *stats.JobStatsRegistry,
 	metricsRegistry *metrics.Registry,
 	queueClient queue.Client,
-	jobsNotifier notify.JobNotifier) (*JobManager, error) {
+	jobsNotifier notify.Notifier) (*JobManager, error) {
 	if serverCfg == nil {
 		return nil, fmt.Errorf("server-config is not specified")
 	}
@@ -73,11 +73,8 @@ func NewJobManager(
 	if jobExecutionRepository == nil {
 		return nil, fmt.Errorf("job-execution-repository is not specified")
 	}
-	if userRepository == nil {
-		return nil, fmt.Errorf("user-repository is not specified")
-	}
-	if orgRepository == nil {
-		return nil, fmt.Errorf("org-repository is not specified")
+	if userManager == nil {
+		return nil, fmt.Errorf("user-manager is not specified")
 	}
 	if resourceManager == nil {
 		return nil, fmt.Errorf("resource-manager is not specified")
@@ -103,8 +100,7 @@ func NewJobManager(
 		jobDefinitionRepository: jobDefinitionRepository,
 		jobRequestRepository:    jobRequestRepository,
 		jobExecutionRepository:  jobExecutionRepository,
-		userRepository:          userRepository,
-		orgRepository:           orgRepository,
+		userManager:             userManager,
 		resourceManager:         resourceManager,
 		artifactManager:         artifactManager,
 		jobStatsRegistry:        jobStatsRegistry,
@@ -166,7 +162,7 @@ func (jm *JobManager) SaveJobDefinition(
 		if jobDefinition.OrganizationID == "" {
 			return nil, fmt.Errorf("public plugins is only supported for organizations")
 		}
-		org, err := jm.orgRepository.Get(qc, jobDefinition.OrganizationID)
+		org, err := jm.userManager.GetOrganization(qc, jobDefinition.OrganizationID)
 		if err != nil {
 			return nil, common.NewValidationError(
 				fmt.Errorf("the organization not found: `%s`",
@@ -504,7 +500,7 @@ func (jm *JobManager) SaveJobRequest(
 
 	// Check quota
 	if jm.serverCfg.SubscriptionQuotaEnabled && request.GetUserID() != "" {
-		user, err := jm.userRepository.Get(
+		user, err := jm.userManager.GetUser(
 			qc,
 			request.GetUserID())
 		if err != nil {
@@ -512,7 +508,7 @@ func (jm *JobManager) SaveJobRequest(
 		}
 		var org *common.Organization
 		if user.OrganizationID != "" {
-			org, err = jm.orgRepository.Get(
+			org, err = jm.userManager.GetOrganization(
 				qc,
 				user.OrganizationID)
 			if err != nil {
@@ -711,6 +707,17 @@ func (jm *JobManager) FindMissingCronScheduledJobsByType(
 				((jobType.OrganizationID != "" && active.OrganizationID != "" && jobType.OrganizationID == active.OrganizationID) ||
 					jobType.UserID == active.UserID) {
 				matched = true
+				if logrus.IsLevelEnabled(logrus.DebugLevel) {
+					logrus.WithFields(logrus.Fields{
+						"JobType":       jobType.JobType,
+						"Org":           jobType.OrganizationID,
+						"UserID":        jobType.UserID,
+						"UserKey":       jobType.UserKey,
+						"ActiveOrg":     active.OrganizationID,
+						"ActiveUserID":  active.UserID,
+						"ActiveUserKey": active.GetUserJobTypeKey(),
+					}).Debugf("matched missing type")
+				}
 				break
 			}
 		}
@@ -895,6 +902,63 @@ func (jm *JobManager) GetDotImageForJobRequest(
 	return generator.GenerateDotImage()
 }
 
+// BuildPostWebhookHandler returns PostWebhookHandler callback
+func (jm *JobManager) BuildPostWebhookHandler() web.PostWebhookHandler {
+	return func(
+		qc *common.QueryContext,
+		org *common.Organization,
+		jobType string,
+		jobVersion string,
+		params map[string]string,
+		hash256 string,
+		body []byte) error {
+		jobDef, err := jm.GetJobDefinitionByType(qc, jobType, jobVersion)
+		if err != nil {
+			return err
+		}
+		jobReq, err := types.NewJobRequestFromDefinition(jobDef)
+		if err != nil {
+			return err
+		}
+		webhookSecret := jobDef.GetConfigString("GithubWebhookSecret")
+		if webhookSecret == "" {
+			if org != nil {
+				webhookSecret = org.GetConfigString("GithubWebhookSecret")
+			}
+		}
+		if webhookSecret == "" {
+			return fmt.Errorf("`GithubWebhookSecret` config is not set for job `%s`", jobType)
+		}
+		if err = utils.VerifySignature(webhookSecret, hash256, body); err != nil {
+			return err
+		}
+		for k, v := range params {
+			_, _ = jobReq.AddParam(k, v)
+		}
+		saved, err := jm.SaveJobRequest(qc, jobReq)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":  "GithubAuth",
+				"JobType":    jobType,
+				"JobRequest": saved,
+				"SHA256":     hash256,
+				"QC":         qc,
+				"Error":      err,
+			}).Errorf("failed to submit job request from github webhook")
+			return err
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"Component":  "GithubAuth",
+			"SHA256":     hash256,
+			"JobType":    jobType,
+			"JobRequest": saved,
+			"QC":         qc,
+		}).Infof("submitted job as a result of github webhook")
+		return nil
+	}
+}
+
 /////////////////////////////////////////// JOB EXECUTION METHODS ////////////////////////////////////////////
 
 // GetJobExecution method finds JobExecution by id
@@ -963,26 +1027,41 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	} else {
 		jm.jobStatsRegistry.Succeeded(jobExec, jobExec.ElapsedMillis())
 	}
-
-	// Send notification asynchronously
-	// TODO add background process for message notifications with database persistence
-	go func() {
-		ctx := context.Background()
-		if _, notifyErr := jm.NotifyJobMessage(
-			ctx,
-			user,
-			job,
-			req,
-			lastRequestState); notifyErr != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component":        "JobManager",
-				"User":             user,
-				"Request":          req,
-				"LastRequestState": lastRequestState,
-				"Error":            notifyErr,
-			}).Warnf("failed to send job notification")
+	forkedJob := false
+	for _, p := range req.GetParams() {
+		if p.Name == common.ForkedJob && p.Value == "true" {
+			forkedJob = true
+			break
 		}
-	}()
+	}
+	if !forkedJob { // don't notify on child jobs
+		// Send notification asynchronously
+		// TODO add background process for message notifications with database persistence
+		go func() {
+			ctx := context.Background()
+			if _, notifyErr := jm.NotifyJobMessage(
+				ctx,
+				user,
+				job,
+				req,
+				lastRequestState); notifyErr != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":        "JobManager",
+					"User":             user,
+					"Request":          req,
+					"LastRequestState": lastRequestState,
+					"Error":            notifyErr,
+				}).Warnf("failed to send job notification")
+			}
+		}()
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":        "JobManager",
+			"User":             user,
+			"Request":          req,
+			"LastRequestState": lastRequestState,
+		}).Infof("skipping job notification for child job")
+	}
 
 	// trigger cron job if needed
 	if err == nil && jobExec.JobState.IsTerminal() && req.GetCronTriggered() {
@@ -1203,7 +1282,7 @@ func (jm *JobManager) CheckSubscriptionQuota(
 			}
 		}
 		if dirty {
-			if dbErr := jm.orgRepository.UpdateStickyMessage(qc, user, org); dbErr != nil {
+			if dbErr := jm.userManager.UpdateStickyMessage(qc, user, org); dbErr != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":    "JobManager",
 					"User":         user,

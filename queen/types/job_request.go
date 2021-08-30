@@ -79,6 +79,8 @@ type IJobRequest interface {
 	GetCreatedAt() time.Time
 	//GetUserJobTypeKey key of job-type
 	GetUserJobTypeKey() string
+	GetParams() []*JobRequestParam
+	SetParams(params []*JobRequestParam)
 }
 
 // JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
@@ -214,6 +216,12 @@ func (jr *JobRequest) ShortUserID() string {
 		return "..." + jr.UserID[len(jr.UserID)-8:]
 	}
 	return jr.UserID
+}
+
+// IsForkedJob checks if job is forked
+func (jr *JobRequest) IsForkedJob() bool {
+	nv := jr.GetParam(types.ForkedJob)
+	return nv != nil && nv.Value == "true"
 }
 
 // ShortJobType short job-type
@@ -409,6 +417,16 @@ func (jr *JobRequest) ClearParams() {
 	jr.lookupParams = make(map[string]*JobRequestParam)
 	jr.NameValueParams = make(map[string]interface{})
 	jr.Params = make([]*JobRequestParam, 0)
+}
+
+// GetParams returns params
+func (jr *JobRequest) GetParams() []*JobRequestParam {
+	return jr.Params
+}
+
+// SetParams set params
+func (jr *JobRequest) SetParams(params []*JobRequestParam) {
+	jr.Params = params
 }
 
 // AddParam adds parameter for job

@@ -23,20 +23,21 @@ import (
 
 // Factory acts as locator for repositories that are used to access database objects
 type Factory struct {
-	db                      *gorm.DB
-	ArtifactRepository      *ArtifactRepositoryImpl
-	AuditRecordRepository   *AuditRecordRepositoryImpl
-	LogEventRepository      *LogEventRepositoryImpl
-	ErrorCodeRepository     *ErrorCodeRepositoryCached
-	JobDefinitionRepository JobDefinitionRepository
-	JobRequestRepository    *JobRequestRepositoryImpl
-	JobExecutionRepository  *JobExecutionRepositoryImpl
-	JobResourceRepository   *JobResourceRepositoryImpl
-	SystemConfigRepository  *SystemConfigRepositoryImpl
-	OrgConfigRepository     *OrganizationConfigRepositoryImpl
-	UserRepository          UserRepository
-	OrgRepository           OrganizationRepository
-	SubscriptionRepository  SubscriptionRepository
+	db                          *gorm.DB
+	ArtifactRepository          *ArtifactRepositoryImpl
+	LogEventRepository          *LogEventRepositoryImpl
+	ErrorCodeRepository         *ErrorCodeRepositoryCached
+	JobDefinitionRepository     JobDefinitionRepository
+	JobRequestRepository        *JobRequestRepositoryImpl
+	JobExecutionRepository      *JobExecutionRepositoryImpl
+	JobResourceRepository       *JobResourceRepositoryImpl
+	SystemConfigRepository      *SystemConfigRepositoryImpl
+	OrgConfigRepository         *OrganizationConfigRepositoryImpl
+	UserRepository              UserRepository
+	OrgRepository               OrganizationRepository
+	SubscriptionRepository      SubscriptionRepository
+	EmailVerificationRepository EmailVerificationRepository
+	AuditRecordRepository       AuditRecordRepository
 }
 
 // NewFactory creates new repository factory
@@ -144,8 +145,21 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
+	emailVerificationRepository, err := NewEmailVerificationRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
 
 	cachedOrgRepository, err := NewOrganizationRepositoryCached(serverCfg, orgRepository)
+	if err != nil {
+		return nil, err
+	}
+
+	cachedAuditRepository, err := NewAuditRecordRepositoryCached(serverCfg, auditRecordRepository)
+	if err != nil {
+		return nil, err
+	}
+	cachedEmailVerificationRepository, err := NewEmailVerificationRepositoryCached(serverCfg, emailVerificationRepository)
 	if err != nil {
 		return nil, err
 	}
@@ -206,20 +220,21 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	}
 
 	f := &Factory{
-		db:                      db,
-		ArtifactRepository:      artifactRepository,
-		LogEventRepository:      logEventRepository,
-		AuditRecordRepository:   auditRecordRepository,
-		ErrorCodeRepository:     errorCodeRepositoryCached,
-		JobDefinitionRepository: jobDefinitionRepositoryCached,
-		JobRequestRepository:    jobRequestRepository,
-		JobExecutionRepository:  jobExecutionRepository,
-		JobResourceRepository:   jobResourceRepository,
-		SystemConfigRepository:  systemConfigRepository,
-		OrgConfigRepository:     orgConfigRepository,
-		UserRepository:          cachedUserRepository,
-		OrgRepository:           cachedOrgRepository,
-		SubscriptionRepository:  subscriptionRepository,
+		db:                          db,
+		ArtifactRepository:          artifactRepository,
+		LogEventRepository:          logEventRepository,
+		AuditRecordRepository:       cachedAuditRepository,
+		ErrorCodeRepository:         errorCodeRepositoryCached,
+		JobDefinitionRepository:     jobDefinitionRepositoryCached,
+		JobRequestRepository:        jobRequestRepository,
+		JobExecutionRepository:      jobExecutionRepository,
+		JobResourceRepository:       jobResourceRepository,
+		SystemConfigRepository:      systemConfigRepository,
+		OrgConfigRepository:         orgConfigRepository,
+		UserRepository:              cachedUserRepository,
+		OrgRepository:               cachedOrgRepository,
+		SubscriptionRepository:      subscriptionRepository,
+		EmailVerificationRepository: cachedEmailVerificationRepository,
 	}
 	return f, nil
 }
@@ -306,6 +321,9 @@ func migrate(db *gorm.DB) error {
 		return err
 	}
 	if err := db.AutoMigrate(&common.Payment{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&types.EmailVerification{}); err != nil {
 		return err
 	}
 

@@ -83,9 +83,25 @@
                     <label class="col-sm-2 col-form-label">Email: </label>
                     <div class="col-sm-10">
                         <b>{{ .User.Email }}</b>
+                        {{ if not .User.EmailVerified  }}
+                        <form action="/dashboard/users/{{.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
+                            <input type="submit" class="btn btn-primary" value="Verify Email">
+                        </form>
+                        {{ end  }}
                     </div>
                 </div>
             </div>
+
+            {{ if .User.EmailVerified  }}
+            <div class="form-group">
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Email Verified: </label>
+                    <div class="col-sm-10">
+                        <b>{{ .User.EmailVerified }}</b>
+                    </div>
+                </div>
+            </div>
+            {{ end  }}
 
             {{if .User.HasOrganization}}
             <div class="form-group">
@@ -221,7 +237,7 @@
                 <div class="form-group">
                     <div class="row">
                         <label class="col-sm-2 col-form-label">When: </label>
-                        <div class="col-sm-10">
+                        <div class="col-sm-5">
                             <select class="browser-default custom-select" name="when">
                                 <option value="never">Never</option>
                                 {{if eq .NotifyWhen "always"}}
@@ -244,8 +260,18 @@
                     </div>
                 </div>
 
-                <input type="submit" class="btn btn-primary" value="Update">
+                <input type="submit" class="btn btn-primary" value="Update Notification Settings">
             </form>
+            <div class="form-group col text-center">
+                {{ range $.UnverifiedEmails}}
+            &nbsp;
+            <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
+                <input type="submit" class="btn btn-secondary" value="Verify {{.}}">
+                <input type="hidden" name="email" value="{{.}}">
+            </form>
+            {{ end }}
+            </div>
+            <i>Email notifications will only be sent to the verified email addresses.</i>
             {{end}}
         </section>
     </div>

@@ -8,6 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/email"
+	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 	"strconv"
 	"testing"
@@ -19,9 +20,14 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+	notifier, err := New(
+		serverCfg,
+		map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
+		emailVerificationRepository)
 	require.NoError(t, err)
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
@@ -40,9 +46,14 @@ func Test_ShouldNotifyFixedJob(t *testing.T) {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+	notifier, err := New(
+		serverCfg,
+		map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
+		emailVerificationRepository)
 	require.NoError(t, err)
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
@@ -61,9 +72,14 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+	notifier, err := New(
+		serverCfg,
+		map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
+		emailVerificationRepository)
 	require.NoError(t, err)
 
 	user, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
@@ -82,9 +98,14 @@ func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
 	sender, err := email.New(&serverCfg.Email)
 	require.NoError(t, err)
-	notifier, err := New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+	notifier, err := New(
+		serverCfg,
+		map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
+		emailVerificationRepository)
 	require.NoError(t, err)
 
 	_, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
@@ -153,7 +174,7 @@ func newUserJobRequest(name string, state common.RequestState) (user *common.Use
 	user.Name = "Bob"
 	user.Email = "support@formicary.io"
 	user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
-		common.EmailChannel: {Recipients: []string{"support@formicary.io"}},
+		common.EmailChannel: {Recipients: []string{"support@formicary.io", "blah@mail.cc"}},
 	}
 	return
 }

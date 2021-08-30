@@ -17,8 +17,6 @@ func (js *JobSupervisor) startTickerToUpdateRequestTimestamp(ctx context.Context
 				return
 			case <-ticker.C:
 				if err := js.jobStateMachine.UpdateJobRequestTimestampAndCheckQuota(ctx); err != nil {
-					logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor", err)).
-						Warnf("failed to update timestamp while executing")
 					switch err.(type) {
 					case *common.QuotaExceededError:
 						js.cancel()
@@ -32,6 +30,9 @@ func (js *JobSupervisor) startTickerToUpdateRequestTimestamp(ctx context.Context
 							js.jobStateMachine.QueryContext(),
 							js.jobStateMachine.Request.GetID())
 						return
+					default:
+						logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor", err)).
+							Warnf("failed to update timestamp while executing")
 					}
 				}
 			}

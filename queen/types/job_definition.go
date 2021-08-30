@@ -57,6 +57,14 @@ func (jtc JobTypeCronTrigger) String() string {
 	return jtc.UserID + jtc.OrganizationID + jtc.JobType
 }
 
+// OrganizationOrUserID returns org-id or user-id
+func (jtc JobTypeCronTrigger) OrganizationOrUserID() string {
+	if jtc.OrganizationID != "" {
+		return jtc.OrganizationID
+	}
+	return jtc.UserID
+}
+
 // JobDefinition defines a DAG (directed acyclic graph) of tasks, which are executed by the ant followers.
 // The workflow of job uses task exit codes to define next task to execute. The task definition
 // represents definition of a job and instance of the job is created using JobExecution when a new job request is
@@ -899,11 +907,17 @@ func (jd *JobDefinition) GetCronScheduleTimeAndUserKey() (*time.Time, string) {
 	if jd.Paused {
 		return nil, ""
 	}
-	return GetCronScheduleTimeAndUserKey(jd.JobType, jd.CronTrigger)
+	var orgIDOrUser string
+	if jd.OrganizationID != "" {
+		orgIDOrUser = jd.OrganizationID
+	} else {
+		orgIDOrUser = jd.UserID
+	}
+	return GetCronScheduleTimeAndUserKey(orgIDOrUser, jd.JobType, jd.CronTrigger)
 }
 
 // GetCronScheduleTimeAndUserKey returns next schedule time when using cron expression
-func GetCronScheduleTimeAndUserKey(jobType string, cronTrigger string) (*time.Time, string) {
+func GetCronScheduleTimeAndUserKey(orgIDOrUserID string, jobType string, cronTrigger string) (*time.Time, string) {
 	if cronTrigger == "" {
 		return nil, ""
 	}
@@ -911,7 +925,7 @@ func GetCronScheduleTimeAndUserKey(jobType string, cronTrigger string) (*time.Ti
 	if nextTime.IsZero() {
 		return nil, ""
 	}
-	return &nextTime, fmt.Sprintf("%s-%s", jobType, nextTime.Format(time.RFC3339))
+	return &nextTime, fmt.Sprintf("%s-%s-%s", orgIDOrUserID, jobType, nextTime.Format(time.RFC3339))
 }
 
 // ValidateBeforeSave validates job-definition

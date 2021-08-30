@@ -23,6 +23,7 @@ func StartWebServer(
 	_ context.Context,
 	serverCfg *config.ServerConfig,
 	repoFactory *repository.Factory,
+	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	dashboardStats *manager.DashboardManager,
 	resourceManager resource.Manager,
@@ -37,7 +38,7 @@ func StartWebServer(
 		authProviders = append(authProviders, googleAuthProvider)
 	}
 
-	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager); err == nil {
+	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager.BuildPostWebhookHandler()); err == nil {
 		authProviders = append(authProviders, githubAuthProvider)
 	}
 
@@ -48,6 +49,7 @@ func StartWebServer(
 	startControllers(
 		serverCfg,
 		repoFactory,
+		userManager,
 		jobManager,
 		resourceManager,
 		artifactManager,
@@ -58,6 +60,7 @@ func StartWebServer(
 	startAdminControllers(
 		serverCfg,
 		repoFactory,
+		userManager,
 		jobManager,
 		dashboardStats,
 		resourceManager,
@@ -81,8 +84,9 @@ func startWebsocket(
 }
 
 func startControllers(
-	serverCfg *config.ServerConfig,
+	_ *config.ServerConfig,
 	repoFactory *repository.Factory,
+	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	resourceManager resource.Manager,
 	artifactManager *manager.ArtifactManager,
@@ -94,14 +98,10 @@ func startControllers(
 		repoFactory.AuditRecordRepository,
 		webServer)
 	controller.NewUserController(
-		&serverCfg.CommonConfig,
-		repoFactory.AuditRecordRepository,
-		repoFactory.UserRepository,
-		repoFactory.SubscriptionRepository,
+		userManager,
 		webServer)
 	controller.NewOrganizationController(
-		repoFactory.AuditRecordRepository,
-		repoFactory.OrgRepository,
+		userManager,
 		webServer)
 	controller.NewOrganizationConfigController(
 		repoFactory.AuditRecordRepository,
@@ -145,11 +145,15 @@ func startControllers(
 		repoFactory.OrgRepository,
 		repoFactory.AuditRecordRepository,
 		webServer)
+	controller.NewEmailVerificationController(
+		userManager,
+		webServer)
 }
 
 func startAdminControllers(
 	serverCfg *config.ServerConfig,
 	repoFactory *repository.Factory,
+	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	dashboardStats *manager.DashboardManager,
 	resourceManager resource.Manager,
@@ -168,12 +172,9 @@ func startAdminControllers(
 		webServer)
 	admin.NewUserAdminController(
 		&serverCfg.CommonConfig,
-		repoFactory.AuditRecordRepository,
-		repoFactory.UserRepository,
-		repoFactory.OrgRepository,
+		userManager,
 		repoFactory.JobExecutionRepository,
 		repoFactory.ArtifactRepository,
-		repoFactory.SubscriptionRepository,
 		webServer)
 	admin.NewOrganizationConfigAdminController(
 		repoFactory.AuditRecordRepository,
@@ -207,5 +208,5 @@ func startAdminControllers(
 	admin.NewDashboardAdminController(dashboardStats, webServer)
 	admin.NewExecutionContainerAdminController(resourceManager, webServer)
 	admin.NewHealthAdminController(heathMonitor, webServer)
-
+	admin.NewEmailVerificationAdminController(userManager, webServer)
 }

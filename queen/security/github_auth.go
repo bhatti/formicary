@@ -3,9 +3,6 @@ package security
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,22 +16,20 @@ import (
 	"plexobject.com/formicary/internal/auth"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
-	"plexobject.com/formicary/queen/manager"
-	"plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/types/github"
 )
 
-// GithubAuth struct for oauth by github
+// GithubAuth struct for oauth by GitHub
 type GithubAuth struct {
 	commonConfig *common.CommonConfig
 	oauthConfig  *oauth2.Config
-	jobManager   *manager.JobManager
+	callback     web.PostWebhookHandler
 }
 
 // NewGithubAuth constructor
 func NewGithubAuth(
 	commonConfig *common.CommonConfig,
-	jobManager *manager.JobManager) (auth.Provider, error) {
+	callback web.PostWebhookHandler) (auth.Provider, error) {
 	callbackURL := fmt.Sprintf("%s/auth/github/callback",
 		commonConfig.GetExternalBaseURL())
 
@@ -59,7 +54,7 @@ func NewGithubAuth(
 	return &GithubAuth{
 		commonConfig: commonConfig,
 		oauthConfig:  githubOauthConfig,
-		jobManager:   jobManager,
+		callback:     callback,
 	}, nil
 }
 
@@ -74,69 +69,35 @@ func (g *GithubAuth) AuthWebhookCallbackHandle(c web.WebContext) (err error) {
 	}
 	jobVersion := c.QueryParam("version")
 	qc := web.BuildQueryContext(c)
-	jobDef, err := g.jobManager.GetJobDefinitionByType(qc, jobType, jobVersion)
-	if err != nil {
-		return err
-	}
-	jobReq, err := types.NewJobRequestFromDefinition(jobDef)
-	if err != nil {
-		return err
-	}
-	webhookSecret := jobDef.GetConfigString("GithubWebhookSecret")
-	if webhookSecret == "" {
-		org := web.GetDBOrgFromSession(c)
-		if org != nil {
-			webhookSecret = org.GetConfigString("GithubWebhookSecret")
-
-		}
-	}
-	if webhookSecret == "" {
-		return fmt.Errorf("`GithubWebhookSecret` config is not set for job `%s`", jobType)
-	}
-
-	event, sha256Hash, err := buildWebhookEvent(c, webhookSecret)
+	event, err := buildWebhookEvent(c)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"Component":  "GithubAuth",
-			"Event":      event,
-			"JobRequest": jobReq,
-			"Error":      err,
+			"Component": "GithubAuth",
+			"Event":     event,
+			"Error":     err,
 		}).Error("failed to handle webhook callback from git")
 		return err
 	}
-
-	_, _ = jobReq.AddParam("GithubSHA256", sha256Hash)
-	_, _ = jobReq.AddParam("GithubPusher", event.Pusher.Username)
-	_, _ = jobReq.AddParam("GithubRepositoryURL", event.Repository.URL)
-	_, _ = jobReq.AddParam("GitRepository", event.Repository.Name)
-	_, _ = jobReq.AddParam("GitCommitAuthor", event.HeadCommit.Author.Username)
-	_, _ = jobReq.AddParam("GitCommitID", event.HeadCommit.ID)
-	_, _ = jobReq.AddParam("GitCommitMessage", event.HeadCommit.Message)
-	_, _ = jobReq.AddParam("GitBranch", event.Branch())
-
-	saved, err := g.jobManager.SaveJobRequest(qc, jobReq)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"Component":  "GithubAuth",
-			"Event":      event,
-			"JobType":    jobType,
-			"JobRequest": saved,
-			"SHA256":     sha256Hash,
-			"Error":      err,
-		}).Errorf("failed to submit job request from github webhook")
-
-		return err
+	params := map[string]string{
+		"GithubSHA256":        event.Sha256,
+		"GithubPusher":        event.Pusher.Username,
+		"GithubRepositoryURL": event.Repository.URL,
+		"GitRepository":       event.Repository.Name,
+		"GitCommitAuthor":     event.HeadCommit.Author.Username,
+		"GitCommitID":         event.HeadCommit.ID,
+		"GitCommitMessage":    event.HeadCommit.Message,
+		"GitBranch":           event.Branch(),
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Component":  "GithubAuth",
-		"Event":      event,
-		"JobType":    jobType,
-		"JobRequest": saved,
-		"User":       web.GetDBLoggedUserFromSession(c),
-	}).Infof("submitted job as a result of github webhook")
-
-	return nil
+	return g.callback(
+		qc,
+		web.GetDBOrgFromSession(c),
+		jobType,
+		jobVersion,
+		params,
+		event.Sha256,
+		event.Body,
+	)
 }
 
 // AuthWebhookCallbackURL callback url
@@ -164,7 +125,7 @@ func (g *GithubAuth) String() string {
 	return fmt.Sprintf("Github Auth:%s:", g.AuthLoginURL())
 }
 
-// AuthUser - returns user info from github response
+// AuthUser - returns user info from GitHub response
 func (g *GithubAuth) AuthUser(expectedState string, c web.WebContext) (*common.User, error) {
 	return getUserInfoFromGithub(
 		context.Background(),
@@ -235,24 +196,24 @@ func getUserInfoFromGithub(
 
 func buildWebhookEvent(
 	c web.WebContext,
-	webhookSecret string) (event github.WebhookEvent, hash256 string, err error) {
+	) (event github.WebhookEvent, err error) {
 	body, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
-		return event, "", err
+		return event, err
 	}
 	index := strings.Index(string(body), "payload=")
 	if index == -1 {
-		return event, "", fmt.Errorf("`payload` not specified in body")
+		return event, fmt.Errorf("`payload` not specified in body")
 	}
 	payload := body[index+8:]
 	decodedPayload, err := url.QueryUnescape(string(payload))
 	if err != nil {
-		return event, "", err
+		return event, err
 	}
 
 	err = json.NewDecoder(bytes.NewReader([]byte(decodedPayload))).Decode(&event)
 	if err != nil || event.Before == "" {
-		return event, "", err
+		return event, err
 	}
 
 	event.Headers = map[string]string{
@@ -284,23 +245,9 @@ func buildWebhookEvent(
 	sha256Header := c.Request().Header["X-Hub-Signature-256"][0]
 	sha256HashTokens := strings.SplitN(sha256Header, "=", 2)
 	if len(sha256HashTokens) != 2 || sha256HashTokens[0] != "sha256" {
-		return event, "", fmt.Errorf("failed to parse sha256 for %s", sha256Header)
+		return event, fmt.Errorf("failed to parse sha256 for %s", sha256Header)
 	}
-	hash256 = sha256HashTokens[1]
-	if err = verifySignature(webhookSecret, hash256, body); err != nil {
-		return event, "", err
-	}
+	event.Sha256 = sha256HashTokens[1]
+	event.Body = body
 	return
-}
-
-func verifySignature(secret string, expectedHash256 string, body []byte) error {
-	hash := hmac.New(sha256.New, []byte(secret))
-	if _, err := hash.Write(body); err != nil {
-		return err
-	}
-	actualHash := hex.EncodeToString(hash.Sum(nil))
-	if actualHash != expectedHash256 {
-		return fmt.Errorf("failed to match '%s' sha256 with '%s'", actualHash, expectedHash256)
-	}
-	return nil
 }

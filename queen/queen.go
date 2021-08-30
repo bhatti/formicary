@@ -83,12 +83,18 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	var notifier notify.JobNotifier
+	var notifier notify.Notifier
 	if sender, err := email.New(&serverCfg.Email); err == nil {
-		notifier, err = notify.New(serverCfg, map[common.NotifyChannel]types.Sender{common.EmailChannel: sender})
+		notifier, err = notify.New(
+			serverCfg,
+			map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
+			repoFactory.EmailVerificationRepository)
 	}
 	if notifier == nil {
-		if notifier, err = notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender)); err != nil {
+		if notifier, err = notify.New(
+			serverCfg,
+			make(map[common.NotifyChannel]types.Sender),
+			repoFactory.EmailVerificationRepository); err != nil {
 			return err
 		}
 		logrus.WithFields(logrus.Fields{
@@ -97,14 +103,26 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		}).Warnf("no email notification configured")
 	}
 
+	userManager, err := manager.NewUserManager(
+		serverCfg,
+		repoFactory.AuditRecordRepository,
+		repoFactory.UserRepository,
+		repoFactory.OrgRepository,
+		repoFactory.EmailVerificationRepository,
+		repoFactory.SubscriptionRepository,
+		notifier,
+	)
+	if err != nil {
+		return err
+	}
+
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
 		repoFactory.AuditRecordRepository,
 		repoFactory.JobDefinitionRepository,
 		repoFactory.JobRequestRepository,
 		repoFactory.JobExecutionRepository,
-		repoFactory.UserRepository,
-		repoFactory.OrgRepository,
+		userManager,
 		resourceManager,
 		artifactManager,
 		jobStatsRegistry,
@@ -218,6 +236,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		ctx,
 		serverCfg,
 		repoFactory,
+		userManager,
 		jobManager,
 		dashboardStats,
 		resourceManager,

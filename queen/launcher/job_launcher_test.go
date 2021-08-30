@@ -54,6 +54,10 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
+	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
+	require.NoError(t, err)
 	artifactService, err := artifacts.NewStub(nil)
 	require.NoError(t, err)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
@@ -64,17 +68,29 @@ func newTestLauncher(t *testing.T, serverCfg *config.ServerConfig, err error) *J
 		artifactService)
 	require.NoError(t, err)
 
-	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
+	notifier, err := notify.New(
+		serverCfg,
+		make(map[common.NotifyChannel]types.Sender),
+		emailVerificationRepository)
 	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
+	userManager, err := manager.NewUserManager(
+		serverCfg,
+		auditRecordRepository,
+		userRepository,
+		orgRepository,
+		emailVerificationRepository,
+		subscriptionRepository,
+		notifier,
+	)
+	require.NoError(t, err)
 	jobManager, err := manager.NewJobManager(
 		serverCfg,
 		auditRecordRepository,
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
-		userRepository,
-		orgRepository,
+		userManager,
 		resourceManager,
 		artifactManager,
 		jobStatsRegistry,
@@ -103,5 +119,6 @@ func testTestServerConfig() *config.ServerConfig {
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
 	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
 	return serverCfg
 }

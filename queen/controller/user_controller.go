@@ -2,41 +2,29 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/security"
+	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
-	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/web"
-	"plexobject.com/formicary/queen/repository"
 )
 
 // UserController structure
 type UserController struct {
-	commonCfg              *common.CommonConfig
-	auditRecordRepository  repository.AuditRecordRepository
-	userRepository         repository.UserRepository
-	subscriptionRepository repository.SubscriptionRepository
-	webserver              web.Server
+	userManager *manager.UserManager
+	webserver   web.Server
 }
 
 // NewUserController instantiates controller for updating users
 func NewUserController(
-	commonCfg *common.CommonConfig,
-	auditRecordRepository repository.AuditRecordRepository,
-	userRepository repository.UserRepository,
-	subscriptionRepository repository.SubscriptionRepository,
+	userManager *manager.UserManager,
 	webserver web.Server) *UserController {
 	userCtrl := &UserController{
-		commonCfg:              commonCfg,
-		auditRecordRepository:  auditRecordRepository,
-		userRepository:         userRepository,
-		subscriptionRepository: subscriptionRepository,
-		webserver:              webserver,
+		userManager: userManager,
+		webserver:   webserver,
 	}
 	webserver.GET("/api/users", userCtrl.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_users"
 	webserver.GET("/api/users/:id", userCtrl.getUser, acl.New(acl.User, acl.View)).Name = "get_user"
@@ -59,7 +47,7 @@ func NewUserController(
 func (uc *UserController) queryUsers(c web.WebContext) error {
 	params, order, page, pageSize, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
-	recs, total, err := uc.userRepository.Query(
+	recs, total, err := uc.userManager.QueryUsers(
 		qc,
 		params,
 		page,
@@ -77,35 +65,16 @@ func (uc *UserController) queryUsers(c web.WebContext) error {
 //   200: userResponse
 // TODO add email verification if email is different than user email
 func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
-	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	user, err := uc.userRepository.Get(qc, id)
+	user, err := uc.userManager.UpdateUserNotification(
+		qc,
+		c.Param("id"),
+		c.FormValue("email"),
+		c.FormValue("when"),
+	)
 	if err != nil {
 		return err
 	}
-	user.NotifyEmail = strings.TrimSpace(c.FormValue("email"))
-	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(c.FormValue("when")))
-	if user.NotifyEmail == "" {
-		return common.NewValidationError("no email specified")
-	}
-	var notifyCfg common.JobNotifyConfig
-	notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
-	if err != nil {
-		return err
-	}
-	user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
-		common.EmailChannel: notifyCfg,
-	}
-	err = user.Validate()
-	if err != nil {
-		return err
-	}
-	user, err = uc.userRepository.Update(qc, user)
-	if err != nil {
-		return err
-	}
-
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
 	return c.JSON(http.StatusOK, user)
 }
 
@@ -124,7 +93,7 @@ func (uc *UserController) postUser(c web.WebContext) error {
 	}
 	qc := web.BuildQueryContext(c)
 	user.OrganizationID = qc.OrganizationID
-	saved, err := uc.userRepository.Create(user)
+	saved, err := uc.userManager.CreateUser(qc, user)
 	if err != nil {
 		return err
 	}
@@ -133,22 +102,6 @@ func (uc *UserController) postUser(c web.WebContext) error {
 		status = http.StatusCreated
 	} else {
 		status = http.StatusOK
-	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserUpdated, qc))
-
-	subscription := common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)
-	if subscription, err = uc.subscriptionRepository.Create(subscription); err == nil {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "SubscriptionController",
-			"Subscription": subscription,
-		}).Info("created Subscription")
-		_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "SubscriptionController",
-			"Subscription": subscription,
-			"Error":        err,
-		}).Errorf("failed to create Subscription")
 	}
 	return c.JSON(status, saved)
 }
@@ -166,11 +119,10 @@ func (uc *UserController) putUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	user.OrganizationID = qc.OrganizationID
 	user.ID = qc.UserID
-	saved, err := uc.userRepository.Update(qc, user)
+	saved, err := uc.userManager.UpdateUser(qc, user)
 	if err != nil {
 		return err
 	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserUpdated, qc))
 	return c.JSON(http.StatusOK, saved)
 }
 
@@ -180,7 +132,7 @@ func (uc *UserController) putUser(c web.WebContext) error {
 //   200: userResponse
 func (uc *UserController) getUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	user, err := uc.userRepository.Get(qc, c.Param("id"))
+	user, err := uc.userManager.GetUser(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -193,7 +145,7 @@ func (uc *UserController) getUser(c web.WebContext) error {
 //   200: emptyResponse
 func (uc *UserController) deleteUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userRepository.Delete(qc, c.Param("id"))
+	err := uc.userManager.DeleteUser(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -206,7 +158,7 @@ func (uc *UserController) deleteUser(c web.WebContext) error {
 //   200: userTokenQueryResponse
 func (uc *UserController) queryUserTokens(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	tokens, err := uc.userRepository.GetTokens(qc, c.Param("user"))
+	tokens, err := uc.userManager.GetUserTokens(qc, c.Param("user"))
 	if err != nil {
 		return err
 	}
@@ -220,7 +172,7 @@ func (uc *UserController) queryUserTokens(c web.WebContext) error {
 //   200: emptyResponse
 func (uc *UserController) deleteUserToken(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userRepository.RevokeToken(qc, qc.UserID, c.Param("id"))
+	err := uc.userManager.RevokeUserToken(qc, qc.UserID, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -240,17 +192,10 @@ func (uc *UserController) createUserToken(c web.WebContext) (err error) {
 	if name == "" {
 		name = "api token"
 	}
-	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, name)
-	strTok, expiration, err := security.BuildToken(web.GetDBLoggedUserFromSession(c), uc.commonCfg.Auth.JWTSecret, uc.commonCfg.Auth.TokenMaxAge)
-	if err == nil {
-		tok.APIToken = strTok
-		tok.ExpiresAt = expiration
-		err = uc.userRepository.AddToken(tok)
-	}
+	tok, err := uc.userManager.CreateUserToken(qc, web.GetDBLoggedUserFromSession(c), name)
 	if err != nil {
 		return err
 	}
-	_, _ = uc.auditRecordRepository.Save(types.NewAuditRecordFromToken(tok, qc))
 	return c.JSON(http.StatusOK, tok)
 }
 

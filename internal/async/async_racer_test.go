@@ -54,7 +54,7 @@ func Test_ShouldAsyncRacerWithFirstWinner(t *testing.T) {
 
 func Test_ShouldAsyncRacerWithSecondWinner(t *testing.T) {
 	// GIVEN a handlers where second takes short time
-	timeout := 10 * time.Millisecond
+	timeout := 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	handler1 := func(ctx context.Context) (interface{}, error) {

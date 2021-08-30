@@ -66,7 +66,7 @@ func NewTestLogEventRepository() (*LogEventRepositoryImpl, error) {
 }
 
 // NewTestAuditRecordRepository Creating a test repository for audit-record
-func NewTestAuditRecordRepository() (*AuditRecordRepositoryImpl, error) {
+func NewTestAuditRecordRepository() (AuditRecordRepository, error) {
 	f, err := NewTestFactory()
 	if err != nil {
 		return nil, err
@@ -164,6 +164,15 @@ func NewTestSystemConfigRepository() (*SystemConfigRepositoryImpl, error) {
 	return f.SystemConfigRepository, nil
 }
 
+// NewTestEmailVerificationRepository Creating a test repository for email verification
+func NewTestEmailVerificationRepository() (EmailVerificationRepository, error) {
+	f, err := NewTestFactory()
+	if err != nil {
+		return nil, err
+	}
+	return f.EmailVerificationRepository, nil
+}
+
 // NewTestOrgConfigRepository Creating a test repository for system config
 func NewTestOrgConfigRepository() (*OrganizationConfigRepositoryImpl, error) {
 	f, err := NewTestFactory()
@@ -200,4 +209,5 @@ func clearDB(db *gorm.DB) {
 	db.Where("id != ''").Delete(events.LogEvent{})
 	db.Where("id != ''").Delete(common.Subscription{})
 	db.Where("id != ''").Delete(common.Payment{})
+	db.Where("id != ''").Delete(types.EmailVerification{})
 }

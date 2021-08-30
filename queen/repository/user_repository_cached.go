@@ -18,7 +18,7 @@ type UserRepositoryCached struct {
 func NewUserRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter UserRepository) (UserRepository, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(100))
+	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(1000))
 	return &UserRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,

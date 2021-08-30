@@ -99,11 +99,12 @@
       organization_id VARCHAR(36) NOT NULL,
       invited_by_user_id VARCHAR(36) NOT NULL,
       invitation_code VARCHAR(50) NOT NULL,
-      accepted_at TIMESTAMP,
-      expires_at TIMESTAMP NOT NULL,
+      accepted_at TIMESTAMP NULL DEFAULT NULL,
+      expires_at TIMESTAMP NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_user_invitation_fk FOREIGN KEY (invited_by_user_id) REFERENCES formicary_users(id)
     );
+    CREATE UNIQUE INDEX formicary_user_invitations_code_ndx ON formicary_user_invitations(invitation_code);
 
 -- +goose Down
     DROP TABLE IF EXISTS formicary_user_invitations;

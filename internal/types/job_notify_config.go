@@ -73,7 +73,7 @@ func (c *JobNotifyConfig) SetEmails(rawEmail string) error {
 	emails := strings.Split(rawEmail, ",")
 	c.Recipients = make([]string, 0)
 	for _, email := range emails {
-		email = strings.TrimSpace(email)
+		email = strings.TrimSpace(strings.ToLower(email))
 		if email == "" {
 			continue
 		}

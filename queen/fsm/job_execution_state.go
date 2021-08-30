@@ -53,7 +53,6 @@ type JobExecutionStateMachine struct {
 	ResourceManager     resource.Manager
 	MetricsRegistry     *metrics.Registry
 	Request             types.IJobRequest
-	RequestParams       []*types.JobRequestParam
 	JobDefinition       *types.JobDefinition
 	JobExecution        *types.JobExecution
 	LastJobExecution    *types.JobExecution
@@ -92,7 +91,6 @@ func NewJobExecutionStateMachine(
 		ResourceManager:     resourceManager,
 		MetricsRegistry:     metricsRegistry,
 		Request:             request,
-		RequestParams:       make([]*types.JobRequestParam, 0),
 		Reservations:        reservations,
 	}
 }
@@ -122,13 +120,15 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		return fmt.Errorf("job-allocations is not specified")
 	}
 
-	switch jsm.Request.(type) {
-	case *types.JobRequest:
-		jsm.RequestParams = jsm.Request.(*types.JobRequest).Params
-	case *types.JobRequestInfo:
-		jsm.RequestParams, err = jsm.JobManager.GetJobRequestParams(jsm.Request.GetID())
-		if err != nil {
-			return err
+	// checking params
+	if jsm.Request.GetParams() == nil {
+		switch jsm.Request.(type) {
+		case *types.JobRequestInfo:
+			reqParams, err := jsm.JobManager.GetJobRequestParams(jsm.Request.GetID())
+			if err != nil {
+				return err
+			}
+			jsm.Request.SetParams(reqParams)
 		}
 	}
 
@@ -774,17 +774,9 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 	for k, v := range taskDefParams {
 		res[k] = v
 	}
-	for _, param := range jsm.RequestParams {
-		if v, err := param.GetParsedValue(); err == nil {
-			res[param.Name] = v
-		} else {
-			logrus.WithFields(logrus.Fields{
-				"Component": "JobExecutionStateMachine",
-				"Name":      param.Name,
-				"Value":     param.Value,
-				"Request":   jsm.Request.GetID(),
-				"Error":     err,
-			}).Warnf("failed to parse request param")
+	for _, p := range jsm.Request.GetParams() {
+		if v, err := p.GetParsedValue(); err == nil {
+			res[p.Name] = v
 		}
 	}
 	if jsm.JobExecution != nil {

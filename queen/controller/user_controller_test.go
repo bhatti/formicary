@@ -31,10 +31,6 @@ func Test_InitializeSwaggerStructsForUserController(t *testing.T) {
 
 func Test_ShouldQueryUsers(t *testing.T) {
 	// GIVEN user controller
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -43,8 +39,7 @@ func Test_ShouldQueryUsers(t *testing.T) {
 	_, err = userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN querying users
 	reader := io.NopCloser(strings.NewReader(""))
@@ -60,10 +55,6 @@ func Test_ShouldQueryUsers(t *testing.T) {
 
 func Test_ShouldGetUserByID(t *testing.T) {
 	// GIVEN user controller
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -72,8 +63,7 @@ func Test_ShouldGetUserByID(t *testing.T) {
 	_, err = userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN getting user by id
 	reader := io.NopCloser(strings.NewReader(""))
@@ -90,10 +80,6 @@ func Test_ShouldGetUserByID(t *testing.T) {
 
 func Test_ShouldUpdateUserEmail(t *testing.T) {
 	// GIVEN user controller
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -102,8 +88,7 @@ func Test_ShouldUpdateUserEmail(t *testing.T) {
 	b, err := json.Marshal(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN saving user
 	reader := io.NopCloser(bytes.NewReader(b))
@@ -139,10 +124,6 @@ func Test_ShouldUpdateUserEmail(t *testing.T) {
 
 func Test_ShouldSaveUser(t *testing.T) {
 	// GIVEN user controller
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -151,8 +132,7 @@ func Test_ShouldSaveUser(t *testing.T) {
 	b, err := json.Marshal(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN saving user
 	reader := io.NopCloser(bytes.NewReader(b))
@@ -179,10 +159,6 @@ func Test_ShouldSaveUser(t *testing.T) {
 
 func Test_ShouldDeleteUser(t *testing.T) {
 	// GIVEN user controller
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -191,8 +167,7 @@ func Test_ShouldDeleteUser(t *testing.T) {
 	saved, err := userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN deleting user by id
 	reader := io.NopCloser(strings.NewReader(""))
@@ -206,11 +181,6 @@ func Test_ShouldDeleteUser(t *testing.T) {
 
 func Test_ShouldAddUserToken(t *testing.T) {
 	// GIVEN user controller
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
-
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
@@ -219,8 +189,7 @@ func Test_ShouldAddUserToken(t *testing.T) {
 	saved, err := userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	cfg := newTestConfig()
-	ctrl := NewUserController(&cfg.CommonConfig, auditRecordRepository, userRepository, subscriptionRepository, webServer)
+	ctrl := NewUserController(newTestUserManager(newTestConfig(), t), webServer)
 
 	// WHEN adding user token
 	reader := io.NopCloser(strings.NewReader(""))

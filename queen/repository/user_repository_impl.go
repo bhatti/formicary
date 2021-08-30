@@ -175,6 +175,9 @@ func (ur *UserRepositoryImpl) Update(
 		if user.NotifySerialized != "" {
 			old.NotifySerialized = user.NotifySerialized
 		}
+		if user.EmailVerified {
+			old.EmailVerified = true
+		}
 		old.UpdatedAt = time.Now()
 		res = tx.Save(old)
 		if res.Error != nil {

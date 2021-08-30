@@ -69,6 +69,7 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
 	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
 	if err := serverCfg.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -113,6 +114,14 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 	if err != nil {
 		return nil, nil, err
 	}
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	if err != nil {
+		return nil, nil, err
+	}
+	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
+	if err != nil {
+		return nil, nil, err
+	}
 	artifactManager, err := NewArtifactManager(
 		serverCfg,
 		artifactRepository,
@@ -124,7 +133,22 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 
 	metricsRegistry := metrics.New()
 
-	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
+	notifier, err := notify.New(
+		serverCfg,
+		make(map[common.NotifyChannel]types.Sender),
+		emailVerificationRepository)
+	if err != nil {
+		return nil, nil, err
+	}
+	userManager, err := NewUserManager(
+		serverCfg,
+		auditRecordRepository,
+		userRepository,
+		orgRepository,
+		emailVerificationRepository,
+		subscriptionRepository,
+		notifier,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -134,8 +158,7 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
-		userRepository,
-		orgRepository,
+		userManager,
 		resourceManager,
 		artifactManager,
 		jobStatsRegistry,

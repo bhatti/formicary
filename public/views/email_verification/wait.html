@@ -1,0 +1,54 @@
+{{ template "layouts/header" . }}
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Email Verification</h4>
+    </header>
+    <form action="/dashboard/users/{{.User.ID}}/verify_email" method="POST">
+
+        <div class="form-group">
+            {{ with .Error }}
+            <p class="error" align="center">{{ . }}</p>
+            {{ end }}
+        </div>
+
+        {{ with .Email }}
+        <div class="form-group">
+            <div class="row">
+                <label class="col-sm-2 col-form-label">Email: </label>
+                <div class="col-sm-10">
+                    <b>{{ . }}</b>
+                </div>
+            </div>
+        </div>
+        {{ end }}
+
+        <div class="form-group">
+            <div class="row">
+                <label class="col-sm-2 col-form-label">Verification Code: </label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control col-sm-6" name="code" id="code" value="" placeholder="your verification code">
+                    {{ with $.ID}}
+                    <input type="hidden" name="id" value="{{.}}">
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <div class="col-sm-10 offset-sm-2">
+                <button type="submit" class="btn btn-primary">Verify</button>
+            </div>
+        </div>
+    </form>
+
+    {{ with .Email }}
+    <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
+        <input type="submit" class="btn btn-secondary" value="Resend verification code to {{.}}">
+        <input type="hidden" name="email" value="{{.}}">
+    </form>
+    {{ end }}
+    <footer class="group-footer">
+    </footer>
+
+</section>
+{{ template "layouts/footer" }}

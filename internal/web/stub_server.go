@@ -136,7 +136,10 @@ func (c *stubContext) QueryParam(name string) string {
 }
 
 func (c *stubContext) QueryParams() url.Values {
-	return c.request.URL.Query()
+	if c.request.URL != nil {
+		return c.request.URL.Query()
+	}
+	return make(url.Values)
 }
 
 func (c *stubContext) QueryString() string {

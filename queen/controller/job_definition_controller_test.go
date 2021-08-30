@@ -25,14 +25,45 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
-func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.JobManager {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
-	queueClient, _ := queue.NewStubClient(&serverCfg.CommonConfig)
+func newTestUserManager(serverCfg *config.ServerConfig, t *testing.T) *manager.UserManager {
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	orgRepository, err := repository.NewTestOrganizationRepository()
+	require.NoError(t, err)
+
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
+	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
+	require.NoError(t, err)
+
+	notifier, err := notify.New(
+		serverCfg,
+		make(map[common.NotifyChannel]types.Sender),
+		emailVerificationRepository,
+		)
+	require.NoError(t, err)
+	userManager, err := manager.NewUserManager(
+		serverCfg,
+		auditRecordRepository,
+		userRepository,
+		orgRepository,
+		emailVerificationRepository,
+		subscriptionRepository,
+		notifier,
+	)
+	require.NoError(t, err)
+	var qc = common.NewQueryContext("test-user", "test-org", "")
+	_, _ = userRepository.Create(common.NewUser("test-org", "test-user", "bob", false))
+	_, _ = orgRepository.Create(qc, common.NewOrganization("owner", "org-unit", "org-bundle"))
+	return userManager
+}
+
+func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.JobManager {
+	var qc = common.NewQueryContext("test-user", "test-org", "")
+	queueClient, _ := queue.NewStubClient(&serverCfg.CommonConfig)
+	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
 	require.NoError(t, err)
@@ -42,6 +73,9 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)
+	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
+
 	artifactService, err := artifacts.NewStub(nil)
 	require.NoError(t, err)
 	artifactManager, err := manager.NewArtifactManager(
@@ -51,7 +85,10 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	metricsRegistry := metrics.New()
 
-	notifier, err := notify.New(serverCfg, make(map[common.NotifyChannel]types.Sender))
+	notifier, err := notify.New(
+		serverCfg,
+		make(map[common.NotifyChannel]types.Sender),
+		emailVerificationRepository)
 	require.NoError(t, err)
 	resourceManager := resource.New(serverCfg, queueClient)
 	jobManager, err := manager.NewJobManager(
@@ -60,8 +97,7 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 		jobDefinitionRepository,
 		jobRequestRepository,
 		jobExecutionRepository,
-		userRepository,
-		orgRepository,
+		newTestUserManager(serverCfg, t),
 		resourceManager,
 		artifactManager,
 		jobStatsRegistry,
@@ -69,9 +105,7 @@ func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.Jo
 		queueClient,
 		notifier,
 	)
-	if err != nil {
-		t.Fatalf("failed to create job manager %v", err)
-	}
+	require.NoError(t, err)
 	job, err := jobManager.SaveJobDefinition(qc, newTestJobDefinition("my-job"))
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -309,7 +343,7 @@ func newTestJobDefinition(name string) *types.JobDefinition {
 	job := types.NewJobDefinition(name)
 	job.UserID = "test-user"
 	job.OrganizationID = "test-org"
-	job.MaxConcurrency = rand.Int()+1
+	job.MaxConcurrency = rand.Int() + 1
 	task1 := types.NewTaskDefinition("task1", common.Shell)
 	task1.Method = common.Docker
 	job.AddTask(task1)

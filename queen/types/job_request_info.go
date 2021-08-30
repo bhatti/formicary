@@ -32,6 +32,8 @@ type JobRequestInfo struct {
 	UserID string `json:"user_id"`
 	// CronTriggered is true if request was triggered by cron
 	CronTriggered bool `json:"cron_triggered"`
+	// Params are passed with job request
+	Params []*JobRequestParam `yaml:"-" json:"-" gorm:"-"`
 	// ScheduledAt defines schedule time
 	ScheduledAt time.Time `json:"scheduled_at"`
 	// CreatedAt job creation time
@@ -157,6 +159,16 @@ func (jri *JobRequestInfo) GetScheduledAt() time.Time {
 	return jri.ScheduledAt
 }
 
+// GetParams returns params
+func (jri *JobRequestInfo) GetParams() []*JobRequestParam {
+	return jri.Params
+}
+
+// SetParams set params
+func (jri *JobRequestInfo) SetParams(params []*JobRequestParam) {
+	jri.Params = params
+}
+
 // NewJobRequestInfo creates new request info for processing a job
 func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 	return &JobRequestInfo{
@@ -172,6 +184,7 @@ func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 		UserID:             req.GetUserID(),
 		OrganizationID:     req.GetOrganizationID(),
 		CronTriggered:      req.GetCronTriggered(),
+		Params:             req.GetParams(),
 		ScheduledAt:        req.GetScheduledAt(),
 		CreatedAt:          req.GetCreatedAt(),
 	}
