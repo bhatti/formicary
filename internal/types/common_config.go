@@ -56,6 +56,9 @@ const ExpireArtifactsTaskletTopic = "expire-artifacts-tasklet-topic"
 // WaitForkJobTaskletTopic topic for wait-fork-job
 const WaitForkJobTaskletTopic = "wait-fork-job-tasklet-topic"
 
+// MessagingTaskletTopic topic for messaging
+const MessagingTaskletTopic = "messaging-tasklet-topic"
+
 // LogTopic topic for logs
 const LogTopic = "log-topic"
 
@@ -87,6 +90,7 @@ type CommonConfig struct {
 	UserAgent                  string             `yaml:"user_agent" mapstructure:"user_agent"`
 	ProxyURL                   string             `yaml:"proxy_url" mapstructure:"proxy_url"`
 	ExternalBaseURL            string             `yaml:"external_base_url" mapstructure:"external_base_url"`
+	BlockUserAgents            []string           `yaml:"block_user_agents" mapstructure:"block_user_agents"`
 	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir"`
 	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port"`
 	Pulsar                     PulsarConfig       `yaml:"pulsar" mapstructure:"pulsar"`
@@ -107,6 +111,7 @@ type CommonConfig struct {
 	Development                bool               `yaml:"development" mapstructure:"development" json:"development"`
 	Version                    *buildversion.Info `yaml:"-" mapstructure:"-" json:"-"`
 	Debug                      bool               `yaml:"debug"`
+	blockUserAgentsMap         map[string]bool    `yaml:"-" mapstructure:"-"`
 }
 
 // PersistentTopic builds persistent topic
@@ -161,7 +166,7 @@ func (c *CommonConfig) AddSignalHandlerForStackTrace() {
 	}).Infof("adding signal handler to dump stack trace")
 }
 
-// AddSignalHandlerForShutdown listen for signal to shutdown cleanly
+// AddSignalHandlerForShutdown listen for signal to shut down cleanly
 func (c *CommonConfig) AddSignalHandlerForShutdown(shutdownFunc context.CancelFunc) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGQUIT, syscall.SIGTERM)
@@ -200,6 +205,15 @@ func (c *CommonConfig) AddSignalHandlerForShutdown(shutdownFunc context.CancelFu
 func (c *CommonConfig) GetSource() string {
 	host, _ := os.Hostname()
 	return fmt.Sprintf("%s@%s", c.ID, host)
+}
+
+// BlockUserAgent returns true if user-agent is blocked
+func (c *CommonConfig) BlockUserAgent(agent string) bool {
+	if agent == "" || len(c.blockUserAgentsMap) == 0 {
+		return false
+	}
+	parts := strings.Split(agent, " ")
+	return c.blockUserAgentsMap[parts[0]]
 }
 
 // GetRegistrationTopic - registration topic
@@ -283,6 +297,24 @@ func (c *CommonConfig) GetWaitForkJobTaskletTopic() string {
 		WaitForkJobTaskletTopic)
 }
 
+// GetMessagingQueue topic
+func (c *CommonConfig) GetMessagingQueue(q string) string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		q)
+}
+
+// GetMessagingTaskletTopic topic
+func (c *CommonConfig) GetMessagingTaskletTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		MessagingTaskletTopic)
+}
+
 // GetLogTopic topic
 func (c *CommonConfig) GetLogTopic() string {
 	return NonPersistentTopic(
@@ -339,6 +371,13 @@ func (c *CommonConfig) Validate(_ []string) error {
 	// Note: Following config will limit the max runtime for a job with default value of about 2 hours
 	if c.MaxJobTimeout <= 0 {
 		c.MaxJobTimeout = 2 * time.Hour
+	}
+	if len(c.BlockUserAgents) == 0 {
+		c.BlockUserAgents = []string{"Slackbot-LinkExpanding"}
+	}
+	c.blockUserAgentsMap = make(map[string]bool)
+	for _, agent := range c.BlockUserAgents {
+		c.blockUserAgentsMap[agent] = true
 	}
 
 	if c.RateLimitPerSecond <= 0 {

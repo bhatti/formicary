@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"math/big"
 	"regexp"
 	"sort"
@@ -13,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/gorhill/cronexpr"
@@ -164,6 +164,12 @@ func NewJobDefinition(jobType string) *JobDefinition {
 
 // NewJobDefinitionFromYaml creates new instance of job-definition
 func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
+	if len(b) == 0 {
+		return nil, fmt.Errorf("no input specified")
+	}
+	if len(b) > 1024*1024*64 { // 64K
+		return nil, fmt.Errorf("job definition is too big")
+	}
 	var jobTypeRegex *regexp.Regexp
 	if jobTypeRegex, err = regexp.Compile(`job_type:\s+(.*)\s+`); err != nil {
 		return nil, err
@@ -312,7 +318,6 @@ func (jd *JobDefinition) GetDynamicTask(
 			return nil, nil, fmt.Errorf("failed to parse task yaml for %s due to %s",
 				taskType, err.Error())
 		}
-		err = yaml.Unmarshal([]byte(serData), task)
 	}
 
 	task = NewTaskDefinition("", "")
@@ -326,7 +331,7 @@ func (jd *JobDefinition) GetDynamicTask(
 			"Data":      data,
 			"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
 			"Error":     err,
-		}).Error("failed to parse yaml task")
+		}).Error("failed to unmarshal yaml task")
 		return nil, nil, fmt.Errorf("failed to parse %s due to %v", taskType, err)
 	}
 	_ = task.addVariablesFromNameValueVariables()
@@ -356,6 +361,7 @@ func (jd *JobDefinition) GetDynamicTask(
 	}
 	task.ForkJobType = opts.ForkJobType
 	task.AwaitForkedTasks = opts.AwaitForkedTasks
+	task.MessagingQueue = opts.MessagingQueue
 	return task, opts, nil
 }
 
@@ -806,7 +812,22 @@ func (jd *JobDefinition) CheckSemVersion() (SemanticVersionType, error) {
 // Validate validates job-definition
 func (jd *JobDefinition) Validate() (err error) {
 	if jd.JobType == "" {
-		return errors.New("jobType is not specified")
+		return fmt.Errorf("jobType is not specified")
+	}
+	if len(jd.JobType) > 100 {
+		return fmt.Errorf("jobType is too big")
+	}
+	if len(jd.URL) > 200 {
+		return fmt.Errorf("URL is too big")
+	}
+	if len(jd.Description) > 500 {
+		return fmt.Errorf("description is too big")
+	}
+	if len(jd.Platform) > 100 {
+		return fmt.Errorf("platform is too big")
+	}
+	if len(jd.Tags) > 1000 {
+		return fmt.Errorf("tags size is too big")
 	}
 	if jd.PublicPlugin && len(strings.Split(jd.JobType, ".")) < 3 {
 		return errors.New("the plugin jobType must start organization bundle id such as io.formicary.test-job or com.xyz.test-job")

@@ -67,10 +67,11 @@ type User struct {
 	// InvitationCode defines code for invitation
 	InvitationCode string `json:"-" gorm:"-"`
 	// AgreeTerms defines code for invitation
-	AgreeTerms  bool                              `json:"-" gorm:"-"`
-	Notify      map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
-	NotifyEmail string                            `json:"-" gorm:"-"`
-	NotifyWhen  NotifyWhen                        `json:"-" gorm:"-"`
+	AgreeTerms    bool                              `json:"-" gorm:"-"`
+	Notify        map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
+	NotifyEmail   string                            `json:"-" gorm:"-"`
+	NotifyChannel string                            `json:"-" gorm:"-"`
+	NotifyWhen    NotifyWhen                        `json:"-" gorm:"-"`
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`
@@ -125,7 +126,7 @@ func (u *User) Equals(other *User) error {
 }
 
 // GetUnverifiedNotificationEmails returns unverified emails
-func (u *User) GetUnverifiedNotificationEmails() (res [] string) {
+func (u *User) GetUnverifiedNotificationEmails() (res []string) {
 	lookup := make(map[string]bool)
 	if u.Email != "" && !u.EmailVerified {
 		lookup[strings.ToLower(u.Email)] = true
@@ -159,9 +160,14 @@ func (u *User) AfterLoad() error {
 		u.NotifyEmail = u.Email
 		u.NotifyWhen = NotifyWhenOnFailure
 	} else {
-		cfg := u.Notify[EmailChannel]
-		u.NotifyEmail = strings.Join(cfg.Recipients, ",")
-		u.NotifyWhen = cfg.When
+		emailCfg := u.Notify[EmailChannel]
+		u.NotifyEmail = strings.Join(emailCfg.Recipients, ",")
+		u.NotifyWhen = emailCfg.When
+		slackCfg := u.Notify[SlackChannel]
+		u.NotifyChannel = strings.Join(slackCfg.Recipients, ",")
+		if u.NotifyWhen == "" {
+			u.NotifyWhen = slackCfg.When
+		}
 	}
 	return nil
 }
@@ -178,9 +184,17 @@ func (u *User) Validate() (err error) {
 		err = errors.New("name is not specified")
 		u.Errors["Name"] = err.Error()
 	}
+	if len(u.Name) > 100 {
+		err = errors.New("name is too long")
+		u.Errors["Name"] = err.Error()
+	}
 
 	if u.Email == "" {
 		err = errors.New("email is not specified")
+		u.Errors["Email"] = err.Error()
+	}
+	if len(u.Email) > 100 {
+		err = errors.New("email is too long")
 		u.Errors["Email"] = err.Error()
 	}
 	re := regexp.MustCompile(emailRegex)
@@ -192,6 +206,10 @@ func (u *User) Validate() (err error) {
 	if u.OrgUnit != "" && u.BundleID == "" {
 		err = errors.New("bundleID is not specified")
 		u.Errors["BundleID"] = err.Error()
+	}
+	if len(u.OrgUnit) > 100 {
+		err = errors.New("org-unit is too long")
+		u.Errors["OrgUnit"] = err.Error()
 	}
 	if u.MaxConcurrency == 0 {
 		u.MaxConcurrency = 1

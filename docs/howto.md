@@ -207,6 +207,15 @@ parameters:
 - GitBranch
 - GitCommit
 
+### Notifications
+You can configure your user profile to receive job notificatios via email or slack, e.g.
+![Notifications](notifications.png)
+
+Note: Slack messages require access token and see slack documentation for generating the token, e.g.
+![Slack Token](slack.png)
+
+And then add token in your organization configurations, e.g.
+![Organization Config](org_config.png)
 
 ### Additional References
 

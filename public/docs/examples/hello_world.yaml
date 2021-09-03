@@ -1,6 +1,7 @@
 job_type: hello_world
 description: A hello world example
 max_concurrency: 1
+retry: 2
 tasks:
 - task_type: hello
   method: KUBERNETES
@@ -33,6 +34,9 @@ tasks:
     - world
   script:
     - date
+    {{ if lt .JobRetry 4 }}
+    - fail
+    {{ end }}
     - cat hello.txt world.txt > output.txt
   artifacts:
     paths:

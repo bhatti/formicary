@@ -72,7 +72,7 @@ func (t *JobForkWaitTasklet) ListContainers(
 	return
 }
 
-// PreExecute checks if request can be exeuted
+// PreExecute checks if request can be executed
 func (t *JobForkWaitTasklet) PreExecute(
 	_ context.Context,
 	_ *common.TaskRequest) bool {

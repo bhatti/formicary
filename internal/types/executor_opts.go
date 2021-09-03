@@ -93,6 +93,7 @@ type ExecutorOptions struct {
 	NetworkMode                string                  `json:"network_mode,omitempty" yaml:"network_mode,omitempty"`
 	HostNetwork                bool                    `json:"host_network,omitempty" yaml:"host_network,omitempty"`
 	Headers                    map[string]string       `yaml:"headers,omitempty" json:"headers" gorm:"-"`
+	MessagingQueue             string                  `json:"messaging_queue,omitempty" yaml:"messaging_queue,omitempty"`
 	ForkJobType                string                  `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty"`
 	ForkJobVersion             string                  `json:"fork_job_version,omitempty" yaml:"fork_job_version,omitempty"`
 	AwaitForkedTasks           []string                `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty"`

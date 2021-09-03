@@ -21,6 +21,7 @@ type ServerConfig struct {
 	DB                            DBConfig        `yaml:"db" mapstructure:"db" env:"DB"`
 	Jobs                          JobsConfig      `yaml:"jobs" mapstructure:"jobs"`
 	Email                         SMTPConfig      `yaml:"smtp" mapstructure:"smtp"`
+	Notify                        NotifyConfig    `yaml:"notify" mapstructure:"notify"`
 	GatewaySubscriptions          map[string]bool `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
 	URLPresignedExpirationMinutes time.Duration   `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
 	DefaultArtifactExpiration     time.Duration   `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
@@ -28,18 +29,23 @@ type ServerConfig struct {
 	SubscriptionQuotaEnabled      bool            `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
+// NotifyConfig -- Defines notification config
+type NotifyConfig struct {
+	EmailJobsTemplateFile   string `yaml:"email_jobs_template_file" mapstructure:"email_jobs_template_file"`
+	SlackJobsTemplateFile   string `yaml:"slack_jobs_template_file" mapstructure:"slack_jobs_template_file"`
+	VerifyEmailTemplateFile string `yaml:"verify_email_template_file" mapstructure:"verify_email_template_file"`
+}
+
 // SMTPConfig -- Defines email config
 type SMTPConfig struct {
-	FromEmail               string `yaml:"from_email" mapstructure:"from_email"`
-	FromName                string `yaml:"from_name" mapstructure:"from_name"`
-	Provider                string `yaml:"provider" mapstructure:"provider"`
-	APIKey                  string `yaml:"api_key" mapstructure:"api_key"`
-	Username                string `yaml:"username" mapstructure:"username"`
-	Password                string `yaml:"password" mapstructure:"password"`
-	Host                    string `yaml:"host" mapstructure:"host"`
-	Port                    int    `yaml:"port" mapstructure:"port"`
-	JobsTemplateFile        string `yaml:"jobs_template_file" mapstructure:"jobs_template_file"`
-	VerifyEmailTemplateFile string `yaml:"verify_email_template_file" mapstructure:"verify_email_template_file"`
+	FromEmail string `yaml:"from_email" mapstructure:"from_email"`
+	FromName  string `yaml:"from_name" mapstructure:"from_name"`
+	Provider  string `yaml:"provider" mapstructure:"provider"`
+	APIKey    string `yaml:"api_key" mapstructure:"api_key"`
+	Username  string `yaml:"username" mapstructure:"username"`
+	Password  string `yaml:"password" mapstructure:"password"`
+	Host      string `yaml:"host" mapstructure:"host"`
+	Port      int    `yaml:"port" mapstructure:"port"`
 }
 
 // DBConfig -- Defines db config
@@ -69,6 +75,7 @@ type JobsConfig struct {
 	MaxScheduleAttempts                  int           `yaml:"max_schedule_attempts" mapstructure:"max_schedule_attempts"`
 	DisableJobScheduler                  bool          `yaml:"disable_job_scheduler" mapstructure:"disable_job_scheduler"`
 	MaxForkTaskletCapacity               int           `yaml:"max_fork_tasklet_capacity" mapstructure:"max_fork_tasklet_capacity"`
+	MaxMessagingTaskletCapacity          int           `yaml:"max_messaging_tasklet_capacity" mapstructure:"max_messaging_tasklet_capacity"`
 	ExpireArtifactsTaskletCapacity       int           `yaml:"expire_artifacts_tasklet_capacity" mapstructure:"expire_artifacts_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
 	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`
@@ -167,6 +174,9 @@ func (c *ServerConfig) Validate() error {
 	}
 	if c.Jobs.MaxForkAwaitTaskletCapacity == 0 {
 		c.Jobs.MaxForkAwaitTaskletCapacity = 100
+	}
+	if c.Jobs.MaxMessagingTaskletCapacity == 0 {
+		c.Jobs.MaxMessagingTaskletCapacity = 100
 	}
 	if c.Jobs.ExpireArtifactsTaskletCapacity == 0 {
 		c.Jobs.ExpireArtifactsTaskletCapacity = 100
@@ -281,8 +291,16 @@ func (s *SMTPConfig) Validate() error {
 			return types.NewValidationError(fmt.Errorf("smtp-provider not specified"))
 		}
 	}
-	if s.JobsTemplateFile == "" {
-		return types.NewValidationError(fmt.Errorf("jobs template not specified"))
+	return nil
+}
+
+// Validate validates notify config
+func (s *NotifyConfig) Validate() error {
+	if s.EmailJobsTemplateFile == "" {
+		return types.NewValidationError(fmt.Errorf("email jobs-template not specified"))
+	}
+	if s.SlackJobsTemplateFile == "" {
+		return types.NewValidationError(fmt.Errorf("slack jobs-template not specified"))
 	}
 	if s.VerifyEmailTemplateFile == "" {
 		return types.NewValidationError(fmt.Errorf("email-notification template not specified"))

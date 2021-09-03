@@ -99,7 +99,7 @@ func Test_ShouldUpdateAndVerifyEmailVerification(t *testing.T) {
 	userRepository.Clear()
 
 	// WHEN updating error code
-	u := common.NewUser("test-org", "username", "name", false)
+	u := common.NewUser("", "username", "name", false)
 	u.ID = "user-id"
 	u.Email = "email@mail.com"
 	u, err = userRepository.Create(u)

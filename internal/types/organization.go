@@ -32,7 +32,7 @@ type Organization struct {
 	Configs []*OrganizationConfig `yaml:"-" json:"-" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// Subscription
 	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	// Active is used to soft delete org
+	// Active is used to softly delete org
 	Active bool `yaml:"-" json:"-"`
 	// CreatedAt created time
 	CreatedAt time.Time `yaml:"-" json:"created_at"`
@@ -179,14 +179,25 @@ func (o *Organization) AfterLoad(key []byte) error {
 
 // Validate validates job-resource
 func (o *Organization) Validate() (err error) {
+	o.Errors = make(map[string]string)
 	if o.OrgUnit == "" {
-		return errors.New("org-unit is not specified")
+		err = errors.New("org-unit is not specified")
+		o.Errors["OrgUnit"] = err.Error()
+	}
+	if len(o.OrgUnit) > 100 {
+		err = errors.New("org-unit is too long")
+		o.Errors["OrgUnit"] = err.Error()
 	}
 	if o.BundleID == "" {
-		return errors.New("bundle is not specified")
+		err = errors.New("bundle is not specified")
+		o.Errors["BundleID"] = err.Error()
+	}
+	if len(o.BundleID) > 100 {
+		err = errors.New("bundle is too long")
+		o.Errors["BundleID"] = err.Error()
 	}
 	if o.MaxConcurrency == 0 {
-		o.MaxConcurrency = 1
+		o.MaxConcurrency = 3
 	}
 
 	return

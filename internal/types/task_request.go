@@ -43,7 +43,8 @@ type TaskRequest struct {
 	Platform        string                 `json:"platform" yaml:"platform"`
 	ResponseTopic   string                 `json:"response_topic" yaml:"response_topic"`
 	Action          TaskAction             `json:"action" yaml:"action"`
-	Retry           int                    `json:"retry" yaml:"retry"`
+	JobRetry        int                    `json:"job_retry" yaml:"job_retry"`
+	TaskRetry       int                    `json:"task_retry" yaml:"task_retry"`
 	AllowFailure    bool                   `json:"allow_failure" yaml:"allow_failure"`
 	Tags            []string               `json:"tags" yaml:"tags"`
 	BeforeScript    []string               `json:"before_script" yaml:"before_script"`
@@ -79,8 +80,8 @@ func TaskKey(requestID uint64, taskType string) string {
 
 // String defines description of task request
 func (req *TaskRequest) String() string {
-	return fmt.Sprintf("ID=%d JobType=%s TaskType=%s Action=%s Params=%v",
-		req.JobRequestID, req.JobType, req.TaskType, req.Action, req.Variables)
+	return fmt.Sprintf("ID=%d JobType=%s TaskType=%s Action=%s",
+		req.JobRequestID, req.JobType, req.TaskType, req.Action)
 }
 
 // AddVariable adds variable or parameter to request

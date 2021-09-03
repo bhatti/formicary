@@ -70,6 +70,7 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 		qc,
 		c.Param("id"),
 		c.FormValue("email"),
+		c.FormValue("slackChannel"),
 		c.FormValue("when"),
 	)
 	if err != nil {
@@ -241,8 +242,9 @@ type userNotifyParams struct {
 	// in:path
 	ID string `json:"id"`
 	// in:formData
-	Email string `json:"email"`
-	When  string `json:"when"`
+	Email        string `json:"email"`
+	SlackChannel string `json:"slackChannel"`
+	When         string `json:"when"`
 }
 
 // swagger:parameters postUser putUser putUserNotify

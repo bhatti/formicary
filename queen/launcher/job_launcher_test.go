@@ -118,7 +118,9 @@ func testTestServerConfig() *config.ServerConfig {
 	serverCfg.S3.Bucket = "buc"
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
-	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
-	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
+
+	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
+	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
+	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
 	return serverCfg
 }

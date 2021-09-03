@@ -128,7 +128,7 @@ func (rm *ManagerImpl) Registration(id string) *common.AntRegistration {
 }
 
 // HasAntsForJobTags - checks if antRegistrations are available for tags
-// Note: A job collects all tags used by tasks but we won't actually use them at the same
+// Note: A job collects all tags used by tasks, but we won't actually use them at the same
 // time
 func (rm *ManagerImpl) HasAntsForJobTags(
 	methods []common.TaskMethod,
@@ -160,7 +160,7 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 				continue // shouldn't happen
 			}
 
-			// For backpressure we won't try to schedule a job if ants are overloaded
+			// For backpressure, we won't try to schedule a job if ants are overloaded
 			if float64(len(allocations)) <= float64(registration.MaxCapacity) {
 				matched = true
 				break
@@ -206,8 +206,8 @@ func (rm *ManagerImpl) ReleaseJobResources(requestID uint64) (err error) {
 }
 
 // Reserve - reserves ant for a request
-// Note: This is used for a task request to route request to a particular ant and we must
-// match a ant that supports all tags (as opposed to HasAntsForJobTags)
+// Note: This is used for a task request to route request to a particular ant, and we must
+// match an ant that supports all tags (as opposed to HasAntsForJobTags)
 func (rm *ManagerImpl) Reserve(
 	requestID uint64,
 	taskType string,

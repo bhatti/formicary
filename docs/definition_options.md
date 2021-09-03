@@ -409,6 +409,7 @@ The method defines executor to use for the task such as
     - HTTP_PUT_FORM 
     - HTTP_PUT_JSON 
     - HTTP_DELETE 
+    - MESSAGING
     - FORK_JOB 
     - AWAIT_FORKED_JOB
     - EXPIRE_ARTIFACTS
@@ -612,6 +613,18 @@ tasks:
 
 In above example, `expire` task will run every hour and expire old artifacts that are no longer needed.
 
+
+### Messaging
+You can implement a customized executor by subscribing to the messaging queue, see [Customized Executor](executors.md#Customized) for example of implementing a messaging executor. 
+Following sample job definition shows how to use `MESSAGING` executor:
+```yaml
+job_type: messaging-job
+timeout: 60s
+tasks:
+- task_type: trigger
+  method: MESSAGING
+  messaging_queue: my-messaging-queue
+```
 
 ### Templates
 

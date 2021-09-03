@@ -243,6 +243,7 @@ timeout: 5m
 - HTTP_PUT_FORM 
 - HTTP_PUT_JSON 
 - HTTP_DELETE 
+- MESSAGING
 - FORK_JOB 
 - AWAIT_FORKED_JOB
 - EXPIRE_ARTIFACTS
@@ -382,6 +383,15 @@ tasks:
   method: EXPIRE_ARTIFACTS
 </code></pre>
 <p>In above example, <code>expire</code> task will run every hour and expire old artifacts that are no longer needed.</p>
+<h3 id="messaging">Messaging</h3>
+<p>You can implement a customized executor by subscribing to the messaging queue, see <a href="executors.html#Customized">Customized Executor</a> for example of implementing a messaging executor. Following sample job definition shows how to use <code>MESSAGING</code> executor:</p>
+<pre><code class="lang-yaml">job_type: messaging-job
+timeout: 60s
+tasks:
+- task_type: trigger
+  method: MESSAGING
+  messaging_queue: my-messaging-queue
+</code></pre>
 <h3 id="templates">Templates</h3>
 <p>The job definition supports GO templates, and you can use variables that are passed by job-request or task definitions, e.g.</p>
 <pre><code class="lang-yaml">- task_type: extract

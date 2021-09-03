@@ -50,6 +50,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sanity-io/litter v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.7.0
+	github.com/slack-go/slack v0.9.4
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0

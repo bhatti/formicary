@@ -239,7 +239,7 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 	if parentNode == nil || parentTask == nil {
 		return
 	}
-	params := make(map[string]interface{})
+	params := map[string]interface{}{"JobRetry": 0, "TaskRetry": 0, "Nonce": 0}
 	var fromExecTask *types.TaskExecution
 	if dg.jobExecution != nil {
 		fromExecTask = dg.jobExecution.GetTask(parentTask.TaskType)

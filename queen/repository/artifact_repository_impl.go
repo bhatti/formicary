@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -169,6 +170,7 @@ func (ar *ArtifactRepositoryImpl) Get(
 		Where("active = ?", true).
 		First(&art)
 	if res.Error != nil {
+		debug.PrintStack()
 		return nil, common.NewNotFoundError(res.Error)
 	}
 	if err := art.AfterLoad(); err != nil {
@@ -237,6 +239,7 @@ func (ar *ArtifactRepositoryImpl) Update(
 		art.UpdatedAt = time.Now()
 		res = tx.Save(art)
 		if res.Error != nil {
+			debug.PrintStack()
 			return res.Error
 		}
 		return nil

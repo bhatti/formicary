@@ -1,9 +1,11 @@
 package email
 
 import (
+	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"net/smtp"
+	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
 	"strings"
@@ -11,13 +13,13 @@ import (
 
 // DefaultEmailSender defines operations to send email
 type DefaultEmailSender struct {
-	cfg  *config.SMTPConfig
+	cfg  *config.ServerConfig
 	auth smtp.Auth
 }
 
 // New constructor
 func New(
-	cfg *config.SMTPConfig,
+	cfg *config.ServerConfig,
 ) (types.Sender, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -25,24 +27,36 @@ func New(
 	d := &DefaultEmailSender{
 		cfg: cfg,
 	}
-	if cfg.APIKey == "" {
-		d.auth = smtp.PlainAuth("", cfg.FromEmail, cfg.Password, cfg.Host)
+	if cfg.Email.APIKey == "" {
+		d.auth = smtp.PlainAuth("", cfg.Email.FromEmail, cfg.Email.Password, cfg.Email.Host)
 	} else {
 		return nil, fmt.Errorf("api not supported")
 	}
 	return d, nil
 }
 
+// JobNotifyTemplateFile template file
+func (d *DefaultEmailSender) JobNotifyTemplateFile() string {
+	return d.cfg.Notify.EmailJobsTemplateFile
+}
+
 // SendMessage sends email to recipients
-func (d *DefaultEmailSender) SendMessage(to []string, subject string, body string) error {
-	hostPort := fmt.Sprintf("%s:%d", d.cfg.Host, d.cfg.Port)
-	from := d.cfg.FromName + "<" + d.cfg.FromEmail + ">"
+func (d *DefaultEmailSender) SendMessage(
+	_ context.Context,
+	_ *common.User,
+	_ *common.Organization,
+	to []string,
+	subject string,
+	body string) error {
+	hostPort := fmt.Sprintf("%s:%d", d.cfg.Email.Host, d.cfg.Email.Port)
+	from := d.cfg.Email.FromName + "<" + d.cfg.Email.FromEmail + ">"
 	logrus.WithFields(logrus.Fields{
-		"Component": "DefaultEmailSender",
-		"Host":      hostPort,
-		"From":      from,
-		"To":        to,
-		"Size":      len(body),
+		"Component":             "DefaultEmailSender",
+		"Host":                  hostPort,
+		"From":                  from,
+		"To":                    to,
+		"JobNotifyTemplateFile": d.JobNotifyTemplateFile(),
+		"Size":                  len(body),
 	}).Infof("sending email")
 
 	// The msg parameter should be an RFC 822-style email with headers
@@ -64,5 +78,5 @@ func (d *DefaultEmailSender) SendMessage(to []string, subject string, body strin
 	msg.WriteString("\r\n")
 	msg.WriteString(body + "\r\n")
 
-	return smtp.SendMail(hostPort, d.auth, d.cfg.FromEmail, to, []byte(msg.String()))
+	return smtp.SendMail(hostPort, d.auth, d.cfg.Email.FromEmail, to, []byte(msg.String()))
 }

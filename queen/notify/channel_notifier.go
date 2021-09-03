@@ -10,6 +10,7 @@ import (
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/utils"
+	"sync"
 )
 
 // Notifier defines operations to notify job results
@@ -17,14 +18,16 @@ type Notifier interface {
 	NotifyJob(
 		ctx context.Context,
 		user *common.User,
+		org *common.Organization,
 		job *types.JobDefinition,
 		request types.IJobRequest,
-		lastRequestState common.RequestState) (string, error)
+		lastRequestState common.RequestState) error
 	SendEmailVerification(
 		ctx context.Context,
 		user *common.User,
+		org *common.Organization,
 		ev *types.EmailVerification,
-	) (string, error)
+	) error
 }
 
 // DefaultNotifier defines operations to send email
@@ -32,8 +35,9 @@ type DefaultNotifier struct {
 	cfg                 *config.ServerConfig
 	senders             map[common.NotifyChannel]types.Sender
 	emailRepository     repository.EmailVerificationRepository
-	jobsTemplate        string
+	jobsTemplates        map[string]string
 	verifyEmailTemplate string
+	lock sync.RWMutex
 }
 
 // New constructor
@@ -46,14 +50,9 @@ func New(
 		cfg:             cfg,
 		senders:         senders,
 		emailRepository: emailRepository,
+		jobsTemplates: make(map[string]string),
 	}
-	if b, err := loadTemplate(cfg.Email.JobsTemplateFile, cfg.PublicDir); err == nil {
-		n.jobsTemplate = string(b)
-	} else {
-		return nil, err
-	}
-
-	if b, err := loadTemplate(cfg.Email.VerifyEmailTemplateFile, cfg.PublicDir); err == nil {
+	if b, err := loadTemplate(cfg.Notify.VerifyEmailTemplateFile, cfg.PublicDir); err == nil {
 		n.verifyEmailTemplate = string(b)
 	} else {
 		return nil, err
@@ -62,24 +61,15 @@ func New(
 	return n, nil
 }
 
-func loadTemplate(name string, dir string) ([]byte, error) {
-	b, err := ioutil.ReadFile(name)
-	if err != nil {
-		b, err = ioutil.ReadFile(dir + name)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error loading template: '%s' due to %s", name, err)
-	}
-	return b, nil
-}
 
 // SendEmailVerification sends email with code to verify
 func (n *DefaultNotifier) SendEmailVerification(
-	_ context.Context,
+	ctx context.Context,
 	user *common.User,
-	ev *types.EmailVerification) (msg string, err error) {
+	org *common.Organization,
+	ev *types.EmailVerification) (err error) {
 	if user == nil {
-		return "", fmt.Errorf("user is not specified")
+		return fmt.Errorf("user is not specified")
 	}
 	params := map[string]interface{}{
 		"UserID":    ev.UserID,
@@ -91,9 +81,9 @@ func (n *DefaultNotifier) SendEmailVerification(
 		"Title":     "Email Verification",
 	}
 
-	msg, err = utils.ParseTemplate(n.verifyEmailTemplate, params)
+	msg, err := utils.ParseTemplate(n.verifyEmailTemplate, params)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	sender := n.senders[common.EmailChannel]
@@ -104,10 +94,16 @@ func (n *DefaultNotifier) SendEmailVerification(
 			"User":              user,
 			"Recipients":        ev.Email,
 		}).Warnf("no email setup, ignoring sending email verification")
-		return "", nil
+		return nil
 	}
-	if err = sender.SendMessage([]string{ev.Email}, "Email Verification", msg); err != nil {
-		return "", err
+	if err = sender.SendMessage(
+		ctx,
+		user,
+		org,
+		[]string{ev.Email},
+		"Email Verification",
+		msg); err != nil {
+		return err
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -121,11 +117,12 @@ func (n *DefaultNotifier) SendEmailVerification(
 
 // NotifyJob sends message to recipients
 func (n *DefaultNotifier) NotifyJob(
-	_ context.Context,
+	ctx context.Context,
 	user *common.User,
+	org *common.Organization,
 	job *types.JobDefinition,
 	request types.IJobRequest,
-	lastRequestState common.RequestState) (msg string, err error) {
+	lastRequestState common.RequestState) (err error) {
 	prefix := ""
 	if request.GetJobState().Completed() && lastRequestState.Failed() {
 		prefix = "Fixed "
@@ -140,11 +137,6 @@ func (n *DefaultNotifier) NotifyJob(
 
 	if user != nil {
 		params["User"] = user
-	}
-
-	msg, err = utils.ParseTemplate(n.jobsTemplate, params)
-	if err != nil {
-		return "", err
 	}
 
 	var recipients []string
@@ -162,11 +154,23 @@ func (n *DefaultNotifier) NotifyJob(
 	for k, v := range notify {
 		sender := n.senders[k]
 		if sender == nil {
-			return "", fmt.Errorf("no sender for %s", sender)
+			return fmt.Errorf("no sender for %s", sender)
+		}
+		if len(v.Recipients) == 0 {
+			continue
 		}
 		whens = append(whens, v.When)
 		senders = append(senders, k)
 		if v.When.Accept(request.GetJobState(), lastRequestState) {
+			tmpl, err := n.loadJobsTemplate(sender)
+			if err != nil {
+				return err
+			}
+			msg, err := utils.ParseTemplate(tmpl, params)
+			if err != nil {
+				return err
+			}
+
 			for _, recipient := range v.Recipients {
 				if k == common.EmailChannel && user != nil {
 					if recipient != user.Email {
@@ -181,7 +185,13 @@ func (n *DefaultNotifier) NotifyJob(
 						}
 					}
 				}
-				if sendErr := sender.SendMessage([]string{recipient}, subject, msg); sendErr != nil {
+				if sendErr := sender.SendMessage(
+					ctx,
+					user,
+					org,
+					[]string{recipient},
+					subject,
+					msg); sendErr != nil {
 					err = sendErr
 					failed = append(failed, recipient)
 				} else {
@@ -208,3 +218,30 @@ func (n *DefaultNotifier) NotifyJob(
 	}).Infof("notified job")
 	return
 }
+
+func (n *DefaultNotifier) loadJobsTemplate(sender types.Sender) (string, error) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	body := n.jobsTemplates[sender.JobNotifyTemplateFile()]
+	if body == "" {
+		if b, err := loadTemplate(sender.JobNotifyTemplateFile(), n.cfg.PublicDir); err == nil {
+			body = string(b)
+			n.jobsTemplates[sender.JobNotifyTemplateFile()] = body
+		} else {
+			return "", err
+		}
+	}
+	return body, nil
+}
+
+func loadTemplate(name string, dir string) ([]byte, error) {
+	b, err := ioutil.ReadFile(name)
+	if err != nil {
+		b, err = ioutil.ReadFile(dir + name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading template: '%s' due to %s", name, err)
+	}
+	return b, nil
+}
+

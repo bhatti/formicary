@@ -22,7 +22,7 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 	}
 	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	sender, err := email.New(&serverCfg.Email)
+	sender, err := email.New(serverCfg)
 	require.NoError(t, err)
 	notifier, err := New(
 		serverCfg,
@@ -32,12 +32,8 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
 
-	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.UNKNOWN)
+	err = notifier.NotifyJob(context.Background(), user, nil, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-good - 1001 COMPLETED")
-	require.Contains(t, msg, "Bob")
-	require.NotContains(t, msg, "Error Code")
-	require.NotContains(t, msg, "Error Message")
 }
 
 func Test_ShouldNotifyFixedJob(t *testing.T) {
@@ -48,7 +44,7 @@ func Test_ShouldNotifyFixedJob(t *testing.T) {
 	}
 	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	sender, err := email.New(&serverCfg.Email)
+	sender, err := email.New(serverCfg)
 	require.NoError(t, err)
 	notifier, err := New(
 		serverCfg,
@@ -58,12 +54,8 @@ func Test_ShouldNotifyFixedJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-good", common.COMPLETED)
 
-	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.FAILED)
+	err = notifier.NotifyJob(context.Background(), user, nil, job, req, common.FAILED)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Fixed Job io.formicary.test.notify-job-good - 1001 COMPLETED")
-	require.Contains(t, msg, "Bob")
-	require.NotContains(t, msg, "Error Code")
-	require.NotContains(t, msg, "Error Message")
 }
 
 func Test_ShouldNotifyFailedJob(t *testing.T) {
@@ -74,7 +66,7 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 	}
 	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	sender, err := email.New(&serverCfg.Email)
+	sender, err := email.New(serverCfg)
 	require.NoError(t, err)
 	notifier, err := New(
 		serverCfg,
@@ -84,12 +76,8 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
 
-	msg, err := notifier.NotifyJob(context.Background(), user, job, req, common.UNKNOWN)
+	err = notifier.NotifyJob(context.Background(), user, nil, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 FAILED")
-	require.Contains(t, msg, "Bob")
-	require.Contains(t, msg, "Error Code")
-	require.Contains(t, msg, "Error Message")
 }
 
 func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
@@ -100,7 +88,7 @@ func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 	}
 	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	sender, err := email.New(&serverCfg.Email)
+	sender, err := email.New(serverCfg)
 	require.NoError(t, err)
 	notifier, err := New(
 		serverCfg,
@@ -110,11 +98,8 @@ func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 
 	_, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
 
-	msg, err := notifier.NotifyJob(context.Background(), nil, job, req, common.UNKNOWN)
+	err = notifier.NotifyJob(context.Background(), nil, nil, job, req, common.UNKNOWN)
 	require.NoError(t, err)
-	require.Contains(t, msg, "Job io.formicary.test.notify-job-failed - 1001 FAILED")
-	require.Contains(t, msg, "Error Code")
-	require.Contains(t, msg, "Error Message")
 }
 
 // Creating a test job
@@ -158,7 +143,9 @@ func newServerConfig() *config.ServerConfig {
 		port = "587"
 	}
 	serverCfg.Email.Port, _ = strconv.Atoi(port)
-	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
+	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
+	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
+	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
 	return serverCfg
 }
 

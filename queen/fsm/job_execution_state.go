@@ -2,10 +2,7 @@ package fsm
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math"
-	"math/big"
 	"strings"
 	"time"
 
@@ -377,7 +374,8 @@ func (jsm *JobExecutionStateMachine) SetJobStatusToExecuting(ctx context.Context
 	jsm.JobExecution.JobState = common.EXECUTING
 
 	// treating error sending lifecycle event as non-fatal error
-	if eventError := jsm.sendJobExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(jsm.LogFields("JobSupervisor", eventError)).
 			Warnf("failed to send job lifecycle event for %s after setting state to EXECUTING",
 				jsm.JobDefinition.JobType)
@@ -405,7 +403,8 @@ func (jsm *JobExecutionStateMachine) ScheduleFailed(
 func (jsm *JobExecutionStateMachine) LaunchFailed(ctx context.Context, err error) error {
 	saveError := jsm.failed(common.READY, false, err, "")
 	// treating error sending lifecycle event as non-fatal error
-	if eventError := jsm.sendJobExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(jsm.LogFields("JobLauncher", eventError, saveError)).
 			Warnf("failed to send job lifecycle event after launch failure")
 	}
@@ -449,7 +448,8 @@ func (jsm *JobExecutionStateMachine) ExecutionFailed(
 	saveError := jsm.failed(common.EXECUTING, false, fmt.Errorf(errorMsg), errorCode)
 
 	// treating error sending lifecycle event as non-fatal error
-	if eventError := jsm.sendJobExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(jsm.LogFields("JobSupervisor", eventError, saveError)).
 			Warnf("failed to send job lifecycle event for %s after execution failure",
 				jsm.JobDefinition.JobType)
@@ -471,6 +471,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(ctx context.Context) (sa
 	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 		jsm.QueryContext(),
 		jsm.User,
+		jsm.Organization,
 		jsm.JobDefinition,
 		jsm.Request,
 		jsm.JobExecution,
@@ -497,7 +498,8 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(ctx context.Context) (sa
 			"Job": jsm.Request.GetJobType()})
 
 	// treating error sending lifecycle event as non-fatal error
-	if eventError := jsm.sendJobExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(jsm.LogFields("JobSupervisor", eventError, saveError)).
 			Warnf("failed to send job lifecycle event for %s after job completed successfully",
 				jsm.JobDefinition.JobType)
@@ -661,6 +663,11 @@ func (jsm *JobExecutionStateMachine) failed(
 	if errorCode == "" {
 		errorCode = common.ErrorJobExecute
 	}
+	switch jsm.Request.(type) {
+	case *types.JobRequest:
+		jsm.Request.(*types.JobRequest).ErrorMessage = err.Error()
+		jsm.Request.(*types.JobRequest).ErrorCode = errorCode
+	}
 	jsm.Request.SetJobState(common.FAILED)
 	newState := common.FAILED
 	if cancelled {
@@ -684,6 +691,7 @@ func (jsm *JobExecutionStateMachine) failed(
 		saveExecErr = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 			jsm.QueryContext(),
 			jsm.User,
+			jsm.Organization,
 			jsm.JobDefinition,
 			jsm.Request,
 			jsm.JobExecution,
@@ -763,11 +771,9 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]interface{
 // buildDynamicParams builds job params
 func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]interface{}) map[string]interface{} {
 	res := jsm.buildDynamicConfigs()
-	if n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64)); err == nil {
-		res["Nonce"] = n
-	}
 	res["JobID"] = jsm.Request.GetID()
 	res["JobType"] = jsm.JobDefinition.JobType
+	res["JobRetry"] = jsm.Request.GetRetried()
 	for k, v := range jsm.JobDefinition.NameValueVariables.(map[string]interface{}) {
 		res[k] = v
 	}

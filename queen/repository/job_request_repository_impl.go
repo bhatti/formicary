@@ -384,7 +384,7 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	// TODO check for cron schedule
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
-		"retried = 0, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN (?)"
+		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN (?)"
 	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, []common.RequestState{common.COMPLETED, common.PENDING}}
 	if !qc.Admin() {
 		if qc.OrganizationID != "" {

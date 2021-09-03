@@ -219,29 +219,41 @@ func (m *UserManager) UpdateUserNotification(
 	qc *common.QueryContext,
 	id string,
 	email string,
+	slackChannel string,
 	when string,
 ) (user *common.User, err error) {
 	user, err = m.GetUser(qc, id)
 	if err != nil {
 		return nil, err
 	}
+	user.NotifyChannel = strings.TrimSpace(slackChannel)
 	user.NotifyEmail = strings.TrimSpace(email)
 	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(when))
-	if user.NotifyEmail == "" {
-		return user, common.NewValidationError("no email specified")
+	if user.NotifyEmail == "" && slackChannel == "" {
+		return user, common.NewValidationError("no email or slack channel specified")
 	}
-	var notifyCfg common.JobNotifyConfig
-	notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
-	if err != nil {
-		return user, err
+	user.Notify = make(map[common.NotifyChannel]common.JobNotifyConfig)
+
+	if user.NotifyEmail != "" {
+		var notifyCfg common.JobNotifyConfig
+		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
+		if err != nil {
+			return user, err
+		}
+		user.Notify[common.EmailChannel] = notifyCfg
 	}
-	user.Notify = map[common.NotifyChannel]common.JobNotifyConfig{
-		common.EmailChannel: notifyCfg,
+	if user.NotifyChannel != "" {
+		user.Notify[common.SlackChannel] = common.JobNotifyConfig{
+			Recipients: []string{user.NotifyChannel},
+			When:       user.NotifyWhen,
+		}
 	}
+
 	err = user.Validate()
 	if err != nil {
 		return user, err
 	}
+
 	saved, err := m.userRepository.Update(qc, user)
 	if err != nil {
 		return user, err
@@ -396,15 +408,26 @@ func (m *UserManager) GetVerifiedEmails(
 func (m *UserManager) CreateEmailVerifications(
 	qc *common.QueryContext,
 	emailVerification *types.EmailVerification) (*types.EmailVerification, error) {
-	user, err := m.userRepository.Get(qc, emailVerification.UserID)
+	user, err := m.GetUser(qc, emailVerification.UserID)
 	if err != nil {
 		return nil, err
+	}
+	var org *common.Organization
+	if user.OrganizationID != "" {
+		org, err = m.GetOrganization(qc, user.OrganizationID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	saved, err := m.emailVerificationRepository.Create(emailVerification)
 	if err != nil {
 		return nil, err
 	}
-	_, err = m.notifier.SendEmailVerification(context.Background(), user, saved)
+	err = m.notifier.SendEmailVerification(
+		context.Background(),
+		user,
+		org,
+		saved)
 	if err != nil {
 		_ = m.emailVerificationRepository.Delete(qc, emailVerification.ID)
 		return nil, err

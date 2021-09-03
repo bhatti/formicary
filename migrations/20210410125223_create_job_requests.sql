@@ -18,14 +18,14 @@
       job_state VARCHAR(100) NOT NULL DEFAULT 'PENDING',
       job_group VARCHAR(100),
       job_priority INTEGER NOT NULL DEFAULT 1,
-      timeout INT(15) NOT NULL DEFAULT 0,
+      timeout BIGINT NOT NULL DEFAULT 0,
       retried INTEGER NOT NULL DEFAULT 0,
       quick_search LONGTEXT,
       error_code VARCHAR(100),
       error_message LONGTEXT,
       scheduled_at TIMESTAMP DEFAULT NOW(),
       created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP,
+      updated_at TIMESTAMP NULL,
       CONSTRAINT formicary_job_requests_job_def_fk FOREIGN KEY (job_definition_id) REFERENCES formicary_job_definitions(id)
     );
 

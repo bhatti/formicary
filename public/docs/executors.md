@@ -223,3 +223,88 @@ network_mode: mod1
 host_network: true
 ```
 
+### Customized
+You can implement a customized executor by subscribing to the messaging queue, e.g. here is a sample messaging executor:
+```go
+// MessagingHandler structure
+type MessagingHandler struct {
+	id           string
+	requestTopic string
+	queueClient  queue.Client
+}
+
+// NewMessagingHandler constructor
+func NewMessagingHandler(
+	id string,
+	requestTopic string,
+	queueClient queue.Client,
+) *MessagingHandler {
+	return &MessagingHandler{
+		id:           id,
+		requestTopic: requestTopic,
+		queueClient:  queueClient,
+	}
+}
+
+// Start starts subscription
+func (rh *MessagingHandler) Start(
+	ctx context.Context,
+) (err error) {
+	return rh.queueClient.Subscribe(
+		ctx,
+		rh.requestTopic,
+		rh.id,
+		make(map[string]string),
+		true, // shared subscription
+		func(ctx context.Context, event *queue.MessageEvent) error {
+			defer event.Ack()
+			return rh.execute(ctx, event.Payload)
+		},
+	)
+}
+
+// Stop stops subscription
+func (rh *MessagingHandler) Stop(ctx context.Context) (err error) {
+	return rh.queueClient.UnSubscribe(
+		ctx,
+		rh.requestTopic,
+		rh.id,
+	)
+}
+
+// execute request
+func (rh *MessagingHandler) execute(
+	ctx context.Context,
+	reqPayload []byte) (err error) {
+	var req types.TaskRequest
+	err = json.Unmarshal(reqPayload, &req)
+	if err != nil {
+		return err
+	}
+	resp := types.NewTaskResponse(&req)
+    // 
+    // your logic here
+    // 
+	resPayload, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	_, err = rh.queueClient.Send(
+		ctx,
+		req.ResponseTopic,
+		make(map[string]string),
+		resPayload,
+		false)
+	return
+}
+```
+
+Here is a sample job definition that uses `MESSAGING` executor:
+```yaml
+job_type: messaging-job
+timeout: 60s
+tasks:
+- task_type: trigger
+  method: MESSAGING
+  messaging_queue: my-messaging-queue
+```

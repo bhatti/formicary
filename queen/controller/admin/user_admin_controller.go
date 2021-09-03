@@ -225,6 +225,7 @@ func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err err
 		qc,
 		c.Param("id"),
 		c.FormValue("email"),
+		c.FormValue("slackChannel"),
 		c.FormValue("when"),
 	)
 

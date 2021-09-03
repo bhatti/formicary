@@ -141,7 +141,7 @@ func (ts *TaskSupervisor) tryExecuteTask(
 
 	// Try running the task with retry loop - by default it will run once if no retry is set
 	for ; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
-		taskReq.Retry = ts.taskStateMachine.TaskExecution.Retried
+		taskReq.TaskRetry = ts.taskStateMachine.TaskExecution.Retried
 		// send request and wait synchronously for response
 		taskResp, err := ts.invoke(ctx, taskReq)
 		if err == nil {

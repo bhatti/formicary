@@ -87,6 +87,7 @@ type TaskDefinition struct {
 	ArtifactIDs      []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
 	ForkJobType      string   `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
 	AwaitForkedTasks []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
+	MessagingQueue   string   `json:"messaging_queue,omitempty" yaml:"messaging_queue,omitempty" gorm:"-"`
 	unknownKeys      map[string]interface{}
 	lookupVariables  *cutils.SafeMap
 	lock             sync.RWMutex
@@ -117,6 +118,14 @@ func (*TaskDefinition) TableName() string {
 func (td *TaskDefinition) String() string {
 	return fmt.Sprintf("TaskType=%s Script=%v Variables=%s OnCompleted=%s OnFailed=%s OnExit=%s",
 		td.TaskType, td.ScriptString(), td.VariablesString(), td.OnCompleted, td.OnFailed, td.OnExitCodeSerialized)
+}
+
+// ShortTaskType returns abbrev. task-type
+func (td *TaskDefinition) ShortTaskType() string {
+	if len(td.TaskType) <= 10 {
+		return td.TaskType
+	}
+	return td.TaskType[0:10]
 }
 
 // ScriptString - text view of script
@@ -355,6 +364,15 @@ func (td *TaskDefinition) Validate() error {
 		for i := 0; i < len(td.Tags); i++ {
 			td.Tags[i] = strings.ToLower(td.Tags[i])
 		}
+	}
+	if len(td.TaskType) > 100 {
+		return fmt.Errorf("taskType is too big")
+	}
+	if len(td.Description) > 500 {
+		return fmt.Errorf("description is too big")
+	}
+	if len(td.HostNetwork) > 100 {
+		return fmt.Errorf("host network is too big")
 	}
 	// TODO added here because deserialization doesn't initialize on-exit
 	if td.OnExitCode == nil {

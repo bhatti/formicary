@@ -2,27 +2,33 @@
 
 <ul class="nav nav-tabs" id="userView" role="tablist">
     <li class="nav-item">
-        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile" aria-selected="true">Profile</a>
+        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
+           aria-selected="true">Profile</a>
     </li>
     {{ with .Subscription }}
     <li class="nav-item">
-        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab" aria-controls="subscription" aria-selected="false">Subscription</a>
+        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab"
+           aria-controls="subscription" aria-selected="false">Subscription</a>
     </li>
     {{end}}
     <li class="nav-item">
-        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource" aria-selected="false">Resources Usage</a>
+        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource"
+           aria-selected="false">Resources Usage</a>
     </li>
     {{ with .DBUser }}
     <li class="nav-item">
-        <a class="nav-link" id="token-tab" data-toggle="tab" href="#token" role="tab" aria-controls="token" aria-selected="false">API Tokens</a>
+        <a class="nav-link" id="token-tab" data-toggle="tab" href="#token" role="tab" aria-controls="token"
+           aria-selected="false">API Tokens</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" id="notify-tab" data-toggle="tab" href="#notify" role="tab" aria-controls="notify" aria-selected="false">Notification</a>
+        <a class="nav-link" id="notify-tab" data-toggle="tab" href="#notify" role="tab" aria-controls="notify"
+           aria-selected="false">Notification</a>
     </li>
     {{end}}
     {{if .Admin}}
     <li class="nav-item">
-        <a class="nav-link" id="permission-tab" data-toggle="tab" href="#permission" role="tab" aria-controls="permission" aria-selected="false">Permissions</a>
+        <a class="nav-link" id="permission-tab" data-toggle="tab" href="#permission" role="tab"
+           aria-controls="permission" aria-selected="false">Permissions</a>
     </li>
     {{end}}
 </ul>
@@ -83,16 +89,17 @@
                     <label class="col-sm-2 col-form-label">Email: </label>
                     <div class="col-sm-10">
                         <b>{{ .User.Email }}</b>
-                        {{ if not .User.EmailVerified  }}
-                        <form action="/dashboard/users/{{.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
+                        {{ if not .User.EmailVerified }}
+                        <form action="/dashboard/users/{{.User.ID}}/create_verify_email" method="POST"
+                              enctype="multipart/form-data">
                             <input type="submit" class="btn btn-primary" value="Verify Email">
                         </form>
-                        {{ end  }}
+                        {{ end }}
                     </div>
                 </div>
             </div>
 
-            {{ if .User.EmailVerified  }}
+            {{ if .User.EmailVerified }}
             <div class="form-group">
                 <div class="row">
                     <label class="col-sm-2 col-form-label">Email Verified: </label>
@@ -101,7 +108,7 @@
                     </div>
                 </div>
             </div>
-            {{ end  }}
+            {{ end }}
 
             {{if .User.HasOrganization}}
             <div class="form-group">
@@ -226,6 +233,16 @@
                 </div>
                 <div class="form-group">
                     <div class="row">
+                        <label class="col-sm-2 col-form-label">Slack Channel: </label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control col-sm-6" name="slackChannel" id="slackChannel"
+                                   value="{{ .NotifyChannel }}"
+                                   placeholder="your slack channel">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="row">
                         <label class="col-sm-2 col-form-label">Email(s): </label>
                         <div class="col-sm-10">
                             <input type="text" class="form-control col-sm-6" name="email" id="email"
@@ -264,14 +281,16 @@
             </form>
             <div class="form-group col text-center">
                 {{ range $.UnverifiedEmails}}
-            &nbsp;
-            <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
-                <input type="submit" class="btn btn-secondary" value="Verify {{.}}">
-                <input type="hidden" name="email" value="{{.}}">
-            </form>
-            {{ end }}
+                &nbsp;
+                <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST"
+                      enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-secondary" value="Verify {{.}}">
+                    <input type="hidden" name="email" value="{{.}}">
+                </form>
+                {{ end }}
             </div>
-            <i>Email notifications will only be sent to the verified email addresses.</i>
+            <b>Note:</b><i>Slack messages require that you add an organization config for <b>SlackToken</b>.
+            Email notifications will only be sent to the verified email addresses.</i>
             {{end}}
         </section>
     </div>
@@ -306,7 +325,8 @@
                             <dd class="col-sm-2">{{ .ExpiresAt }}</dd>
                         </td>
                         <td class="group row col-sm-2">
-                            <form action="/dashboard/users/{{.UserID}}/tokens/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                            <form action="/dashboard/users/{{.UserID}}/tokens/{{.ID}}/delete" method="POST"
+                                  enctype="multipart/form-data"
                                   onsubmit="return confirm('Please confirm revoking this token(' + this['id'].value + ')?');">
                                 <input type="submit" class="btn btn-danger" value="Delete">
                                 <input type="hidden" name="id" value="{{.TokenName}}">

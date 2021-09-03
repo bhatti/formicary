@@ -995,11 +995,12 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 func (jm *JobManager) NotifyJobMessage(
 	ctx context.Context,
 	user *common.User,
+	org *common.Organization,
 	job *types.JobDefinition,
 	request types.IJobRequest,
 	lastRequestState common.RequestState,
-) (string, error) {
-	return jm.jobsNotifier.NotifyJob(ctx, user, job, request, lastRequestState)
+) error {
+	return jm.jobsNotifier.NotifyJob(ctx, user, org, job, request, lastRequestState)
 }
 
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
@@ -1007,6 +1008,7 @@ func (jm *JobManager) NotifyJobMessage(
 func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	qc *common.QueryContext,
 	user *common.User,
+	org *common.Organization,
 	job *types.JobDefinition,
 	req types.IJobRequest,
 	jobExec *types.JobExecution,
@@ -1039,9 +1041,10 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		// TODO add background process for message notifications with database persistence
 		go func() {
 			ctx := context.Background()
-			if _, notifyErr := jm.NotifyJobMessage(
+			if notifyErr := jm.NotifyJobMessage(
 				ctx,
 				user,
+				org,
 				job,
 				req,
 				lastRequestState); notifyErr != nil {

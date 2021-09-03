@@ -113,7 +113,7 @@ func (t *JobForkTasklet) Execute(
 	for k, v := range taskReq.Variables {
 		_, _ = req.AddParam(k, v)
 	}
-	req.AddParam(common.ForkedJob, true)
+	_, _ = req.AddParam(common.ForkedJob, true)
 	req.ParentID = taskReq.JobRequestID
 	for k, v := range taskReq.Variables {
 		if strings.HasPrefix(k, types.ParentJobTypePrefix) {

@@ -1,0 +1,13 @@
+{{.Title}}
+    ID:            {{.Job.ID}}
+    Type:          {{.Job.JobType}}
+    State:         {{.Job.JobState}}
+    Scheduled At:  {{.Job.ScheduledAtString}}
+    Ended At:      {{.Job.UpdatedAtString}}
+    Runtime:       {{.Job.ElapsedDuration}}
+{{if .Job.Failed }}
+    Error Code:    {{.Job.ErrorCode}}
+    Error Message: {{.Job.ErrorMessage}}
+{{ end  }}
+---
+You can find more details at {{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}.

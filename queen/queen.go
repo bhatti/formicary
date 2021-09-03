@@ -8,6 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/email"
 	"plexobject.com/formicary/queen/notify"
+	"plexobject.com/formicary/queen/slack"
 	"plexobject.com/formicary/queen/types"
 	"time"
 
@@ -83,25 +84,39 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	var notifier notify.Notifier
-	if sender, err := email.New(&serverCfg.Email); err == nil {
-		notifier, err = notify.New(
-			serverCfg,
-			map[common.NotifyChannel]types.Sender{common.EmailChannel: sender},
-			repoFactory.EmailVerificationRepository)
-	}
-	if notifier == nil {
-		if notifier, err = notify.New(
-			serverCfg,
-			make(map[common.NotifyChannel]types.Sender),
-			repoFactory.EmailVerificationRepository); err != nil {
-			return err
-		}
+	senders := make(map[common.NotifyChannel]types.Sender)
+	emailSender, err := email.New(serverCfg)
+	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Queen",
 			"ID":        serverCfg.ID,
-		}).Warnf("no email notification configured")
+			"Error":     err,
+		}).Warnf("failed to create email-sender")
+	} else {
+		senders[common.EmailChannel] = emailSender
 	}
+	slackSender, err := slack.New(serverCfg)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "Queen",
+			"ID":        serverCfg.ID,
+			"Error":     err,
+		}).Warnf("failed to create slack-sender")
+	} else {
+		senders[common.SlackChannel] = slackSender
+	}
+	notifier, err := notify.New(
+		serverCfg,
+		senders,
+		repoFactory.EmailVerificationRepository)
+	if err != nil {
+		return err
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component": "Queen",
+		"Senders":   senders,
+		"ID":        serverCfg.ID,
+	}).Infof("notifiers configured")
 
 	userManager, err := manager.NewUserManager(
 		serverCfg,
@@ -169,6 +184,17 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		serverCfg.GetExpireArtifactsTaskletTopic(),
 	).Start(ctx); err != nil {
 		return fmt.Errorf("failed to create artifact expiration tasklet %v", err)
+	}
+
+	// starts messaging tasklet
+	if err = tasklet.NewMessagingTasklet(
+		serverCfg,
+		requestRegistry,
+		jobManager,
+		queueClient,
+		serverCfg.GetMessagingTaskletTopic(),
+	).Start(ctx); err != nil {
+		return fmt.Errorf("failed to create messaging tasklet %v", err)
 	}
 
 	// starts job-fork tasklet that runs on the server side to fork jobs

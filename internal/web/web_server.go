@@ -39,6 +39,7 @@ type Server interface {
 
 // DefaultWebServer defines default web server
 type DefaultWebServer struct {
+	commonCfg *types.CommonConfig
 	e              *echo.Echo
 	apiGroup       *echo.Group
 	dashboardGroup *echo.Group
@@ -47,7 +48,7 @@ type DefaultWebServer struct {
 
 // NewDefaultWebServer creates new instance of web server
 func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
-	ws := &DefaultWebServer{e: echo.New(), authEnabled: commonCfg.Auth.Enabled}
+	ws := &DefaultWebServer{commonCfg: commonCfg, e: echo.New(), authEnabled: commonCfg.Auth.Enabled}
 	ws.e.Static("/", commonCfg.PublicDir + "assets")
 	ws.e.Static("/docs", commonCfg.PublicDir + "docs")
 	ws.e.File("/favicon.ico", commonCfg.PublicDir + "assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
@@ -118,6 +119,12 @@ func (w *DefaultWebServer) AddMiddleware(m echo.MiddlewareFunc) {
 }
 
 func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission) error {
+	if w.commonCfg.BlockUserAgent(c.Request().UserAgent()) {
+		return &echo.HTTPError{
+			Code:    http.StatusUnauthorized,
+			Message: fmt.Sprintf("unauthorized agent for: %s %s", c.Request().Method, c.Path()),
+		}
+	}
 	if perm == nil || !w.authEnabled {
 		return nil
 	}

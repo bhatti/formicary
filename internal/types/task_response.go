@@ -20,7 +20,13 @@ type TaskResponseTimings struct {
 
 func (t TaskResponseTimings) String() string {
 	return fmt.Sprintf("POD-Startup: %s, PreScript: %s, Artifacts-Download: %s, Script: %s, Post-Script: %s, Artifacts-Upload: %s, POD-Shutdown: %s",
-		t.PodStartupDuration(), t.PreScriptDuration(), t.DependentArtifactsDownloadedDuration(), t.ScriptFinishedDuration(), t.PostScriptFinishedDuration(), t.ArtifactsUploadedDuration(), t.PodShutdownDuration())
+		t.PodStartupDuration(),
+		t.PreScriptDuration(),
+		t.DependentArtifactsDownloadedDuration(),
+		t.ScriptFinishedDuration(),
+		t.PostScriptFinishedDuration(),
+		t.ArtifactsUploadedDuration(),
+		t.PodShutdownDuration())
 }
 
 // PodStartupDuration time

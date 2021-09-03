@@ -102,7 +102,8 @@ func (js *JobSupervisor) tryExecuteJob(
 	var errorCode string
 
 	// Begin execution with first task in retry loop - by default it will run job once unless retry is set
-	for ; js.jobStateMachine.CanRetry(); js.jobStateMachine.Request.IncrRetried() {
+	for canExecute := true; canExecute; canExecute = js.jobStateMachine.Request.IncrRetried() > 0 &&
+		js.jobStateMachine.CanRetry() {
 		// Find the first task to run or in case of restart, execute last task executing
 		task, err = js.jobStateMachine.JobDefinition.GetFirstTask()
 		if err != nil {

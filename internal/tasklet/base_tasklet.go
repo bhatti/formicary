@@ -121,7 +121,6 @@ func (t *BaseTasklet) handleRequest(
 			"JobType":         req.JobType,
 			"TaskType":        req.TaskType,
 			"TaskExecutionID": req.TaskExecutionID,
-			"Params":          req.Variables,
 		}).Info("received request")
 	ctx, cancel := context.WithCancel(ctx)
 	req.Cancel = cancel

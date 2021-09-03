@@ -114,6 +114,7 @@ can be used as input of another task.
 - [Webhooks](docs/howto.md#Webhooks)
 - [PostCommit](docs/howto.md#PostCommit)
 - [Multiple Exit Codes](docs/howto.md#OnExitCode)
+- [Notifications](docs/howto.md#Notifications)
 - [Building Docker images Using Docker-in-Docker](docs/dind.md)
 - [Scanning containers using Trivy](docs/trivy-scan.md)
 - [Advanced Kubernetes](docs/advanced_k8.md)

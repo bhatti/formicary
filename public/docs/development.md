@@ -43,6 +43,7 @@
 - ants/handler: defines request handler for incoming requests
 - ants/registry: defines registry of containers
 - ants/transfer: manages object download and uploads for artifacts and caching
+- sample: sample code such as messaging ant worker
 
 #### HTML Views/Assets
  - public/assets: assets for css, images, javascript

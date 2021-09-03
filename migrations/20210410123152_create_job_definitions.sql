@@ -9,7 +9,7 @@
       paused BOOLEAN NOT NULL DEFAULT FALSE,
       platform VARCHAR(100),
       cron_trigger VARCHAR(50),
-      timeout INT(15) NOT NULL DEFAULT 0,
+      timeout BIGINT NOT NULL DEFAULT 0,
       uses_template BOOLEAN NOT NULL DEFAULT FALSE,
       public_plugin BOOLEAN NOT NULL DEFAULT FALSE,
       hard_reset_after_retries INTEGER NOT NULL DEFAULT 3,

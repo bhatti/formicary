@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	cutils "plexobject.com/formicary/internal/utils"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +50,16 @@ func NewCommandRunner(
 		return nil, fmt.Errorf("executor not specified")
 	}
 	if podName == "" {
-		return nil, fmt.Errorf("pod-name not specified")
+		if containerName == "" {
+			return nil, fmt.Errorf("pod-name not specified, container %s", containerName)
+		}
+		logrus.WithFields(logrus.Fields{
+			"Component": "KubernetesCommandRunner",
+			"Container": containerName,
+			"Memory":    cutils.MemUsageMiBString(),
+		}).Info("pod-name not specified, using container-name")
+		podName = containerName
+		debug.PrintStack()
 	}
 	if containerName == "" {
 		return nil, fmt.Errorf("container-name not specified")

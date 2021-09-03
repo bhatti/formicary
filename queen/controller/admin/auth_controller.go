@@ -296,6 +296,12 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 	user *common.User,
 	dbUser *common.User,
 	claims *web.JwtClaims, err error) {
+	if ac.commonCfg.BlockUserAgent(c.Request().UserAgent()) {
+		return nil, nil, nil, &echo.HTTPError{
+			Code:    http.StatusUnauthorized,
+			Message: fmt.Sprintf("unauthorized agent session for: %s %s", c.Request().Method, c.Path()),
+		}
+	}
 
 	if !ac.commonCfg.Auth.Enabled {
 		c.Set(web.AuthDisabled, true)
@@ -311,6 +317,7 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 		if tokenString == "" {
 			logrus.WithFields(logrus.Fields{
 				"Component": "AuthController",
+				"URL":       c.Request().URL,
 				"Error":     err,
 				"Headers":   c.Request().Header,
 			}).Warnf("failed to find authorization in header")

@@ -68,8 +68,12 @@ func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, err
 	serverCfg.S3.Bucket = "bucket"
 	serverCfg.Pulsar.URL = "test"
 	serverCfg.Redis.Host = "localhost"
-	serverCfg.Email.JobsTemplateFile = "../../public/views/email/notify_job.html"
-	serverCfg.Email.VerifyEmailTemplateFile = "../../public/views/email/verify_email.html"
+
+
+	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
+	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
+	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
+
 	if err := serverCfg.Validate(); err != nil {
 		return nil, nil, err
 	}

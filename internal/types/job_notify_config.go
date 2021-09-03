@@ -13,6 +13,8 @@ type NotifyChannel string
 const (
 	// EmailChannel send via email
 	EmailChannel NotifyChannel = "email"
+	// SlackChannel send via slack
+	SlackChannel NotifyChannel = "slack"
 )
 
 // NotifyWhen type alias for when notify should be used

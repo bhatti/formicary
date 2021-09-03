@@ -49,7 +49,7 @@ func NewTaskExecutionStateMachine(
 		if tsm.TaskExecution.TaskState.Completed() {
 			return
 		}
-		// otherwise let's remove last incomplete or failed task
+		// otherwise, let's remove last incomplete or failed task
 		if err = tsm.JobManager.DeleteExecutionTask(tsm.TaskExecution.ID); err != nil {
 			return nil, fmt.Errorf("failed to delete old task due to %v", err)
 		}
@@ -123,7 +123,8 @@ func (tsm *TaskExecutionStateMachine) SetTaskToExecuting(
 		common.EXECUTING)
 
 	// treating error sending task lifecycle event as non-fatal error
-	if eventError := tsm.sendTaskExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := tsm.sendTaskExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(tsm.LogFields(
 			"TaskExecutionStateMachine",
 			eventError,
@@ -144,9 +145,11 @@ func (tsm *TaskExecutionStateMachine) FinalizeTaskState(
 
 	tsm.TaskExecution.EndedAt = &now
 	// optionally release resource if completed
-	//if tsm.TaskExecution.TaskState.Completed() {
-	//	delete(tsm.Reservations, tsm.TaskDefinition.TaskType)
-	//}
+	/*
+	if tsm.TaskExecution.TaskState.Completed() {
+		delete(tsm.Reservations, tsm.TaskDefinition.TaskType)
+	}
+	 */
 
 	// SaveFile job context from task result
 	_ = tsm.JobManager.UpdateJobExecutionContext(
@@ -157,7 +160,8 @@ func (tsm *TaskExecutionStateMachine) FinalizeTaskState(
 	_, err = tsm.JobManager.SaveExecutionTask(tsm.TaskExecution)
 
 	// treating error sending lifecycle event as non-fatal error
-	if eventError := tsm.sendTaskExecutionLifecycleEvent(ctx); eventError != nil {
+	// using fresh context in case deadline reached
+	if eventError := tsm.sendTaskExecutionLifecycleEvent(context.Background()); eventError != nil {
 		logrus.WithFields(tsm.LogFields("TaskExecutionStateMachine",
 			eventError)).
 			Warn("failed to send task lifecycle event after finishing task")
@@ -212,7 +216,8 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 		Platform:        tsm.JobDefinition.Platform,
 		ResponseTopic:   tsm.serverCfg.GetResponseTopic(tsm.TaskKey()),
 		Action:          common.EXECUTE,
-		Retry:           tsm.TaskExecution.Retried,
+		JobRetry:        tsm.Request.GetRetried(),
+		TaskRetry:       tsm.TaskExecution.Retried,
 		AllowFailure:    tsm.TaskDefinition.AllowFailure,
 		Tags:            tsm.TaskDefinition.Tags,
 		BeforeScript:    tsm.TaskDefinition.BeforeScript,
@@ -234,9 +239,10 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	//}
 	// override name of main container in executor options
 	taskReq.ExecutorOpts.Name = utils.MakeDNS1123Compatible(
-		fmt.Sprintf("formicary-%d-%s-%d",
+		fmt.Sprintf("formicary-%d-%s-%d-%d",
 			tsm.Request.GetID(),
-			tsm.TaskDefinition.TaskType,
+			tsm.TaskDefinition.ShortTaskType(),
+			tsm.Request.GetRetried(),
 			tsm.TaskExecution.Retried))
 	taskReq.ExecutorOpts.PodLabels[common.RequestID] = fmt.Sprintf("%d", tsm.Request.GetID())
 	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
@@ -396,7 +402,9 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 	if len(taskResp.Warnings) > 0 {
 		_, _ = tsm.TaskExecution.AddContext("Warnings", taskResp.Warnings)
 	}
-	_, _ = tsm.TaskExecution.AddContext("Timings", taskResp.Timings.String())
+	if taskReq.ExecutorOpts.Method.SupportsCache() {
+		_, _ = tsm.TaskExecution.AddContext("Timings", taskResp.Timings.String())
+	}
 
 	return
 }
@@ -430,6 +438,7 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 func (tsm *TaskExecutionStateMachine) buildDynamicParams() map[string]interface{} {
 	res := tsm.JobExecutionStateMachine.buildDynamicParams(tsm.TaskDefinition.NameValueVariables.(map[string]interface{}))
 	res["TaskType"] = tsm.taskType
+	res["TaskRetry"] = tsm.TaskExecution.Retried
 	return res
 }
 

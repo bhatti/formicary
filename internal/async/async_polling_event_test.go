@@ -31,7 +31,7 @@ func Test_ShouldAsyncPollingEventWithTimeout(t *testing.T) {
 func Test_ShouldAsyncPollingEventWithFailure(t *testing.T) {
 	// GIVEN a handler that fails with poll error
 	poll := 1 * time.Millisecond
-	timeout := 10 * time.Millisecond
+	timeout := 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	val := 0

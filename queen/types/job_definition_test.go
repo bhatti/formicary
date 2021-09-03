@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"plexobject.com/formicary/internal/crypto"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 	common "plexobject.com/formicary/internal/types"
@@ -433,7 +434,7 @@ func Test_ShouldNextTaskFromExitCodeForJobDefinition(t *testing.T) {
 	//OnExitCode["600"] = "HARD_ERROR"
 
 	// WHEN finding next task to execute based on 400 - COMPLETED
-	next, _,  err := job.GetNextTask(firstTask, "completed", "400")
+	next, _, err := job.GetNextTask(firstTask, "completed", "400")
 	// THEN completed it should return valid task
 	require.NotNil(t, next)
 
@@ -488,6 +489,14 @@ func Test_ShouldSerializeFromYAML(t *testing.T) {
 	require.Equal(t, 0, job.Tasks[0].TaskOrder)
 	require.Equal(t, 1, job.Tasks[1].TaskOrder)
 	require.Equal(t, 2, job.Tasks[2].TaskOrder)
+	task, _, err := job.GetDynamicTask("combine", map[string]interface{}{"JobRetry": 1})
+	require.NoError(t, err)
+	require.Equal(t, 3, len(task.Script))
+	task, _, err = job.GetDynamicTask("combine", map[string]interface{}{"JobRetry": 4})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(task.Script))
+	task, _, err = job.GetDynamicTask("combine", map[string]interface{}{})
+	require.Error(t, err) // should fail without JobRetry
 }
 
 // Test json serialization of forked job definition
@@ -697,6 +706,30 @@ func Test_ShouldGetDynamicConfigForJobDefinition(t *testing.T) {
 	require.Equal(t, "jv1", cfg["jk1"])
 	require.Equal(t, "License", job.Resources.ResourceType)
 	require.Equal(t, "my-job", job.Resources.ExtractConfig.ContextPrefix)
+}
+
+func Test_ShouldParseTimeout(t *testing.T) {
+	// GIVEN a job loaded from YAML
+	b, err := ioutil.ReadFile("../../docs/examples/messaging-job.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	if err != nil {
+		require.NoError(t, err)
+	}
+	require.NotNil(t, job)
+
+	// WHEN fetching dynamic task
+	params := map[string]interface{}{}
+	for k, v := range job.NameValueVariables.(map[string]interface{}) {
+		params[k] = v
+	}
+	task, _, err := job.GetDynamicTask("trigger", params)
+
+	// THEN it should not fail
+	require.NoError(t, err)
+	require.Equal(t, time.Duration(1 * time.Minute), job.Timeout)
+	require.Equal(t, 0, len(task.Variables))
+	require.Equal(t, common.TaskMethod("MESSAGING"), task.Method)
 }
 
 func Test_ShouldParseVariables(t *testing.T) {

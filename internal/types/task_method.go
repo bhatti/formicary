@@ -12,6 +12,8 @@ const (
 	ForkJob TaskMethod = "FORK_JOB"
 	// AwaitForkedJob method waits for the job completion that was forked
 	AwaitForkedJob TaskMethod = "AWAIT_FORKED_JOB"
+	// Messaging method for messaging
+	Messaging TaskMethod = "MESSAGING"
 	// HTTPGet method sends HTTP GET request
 	HTTPGet TaskMethod = "HTTP_GET"
 	// HTTPPostForm method sends HTTP POST request as Form
@@ -69,6 +71,7 @@ func (m TaskMethod) IsValid() bool {
 		m == Kubernetes ||
 		m == ForkJob ||
 		m == AwaitForkedJob ||
+		m == Messaging ||
 		m == ExpireArtifacts
 }
 
