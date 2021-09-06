@@ -18,10 +18,10 @@ const testIncomingTopic = "test-incoming-topic"
 
 func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 	// GIVEN resource manager is constructed
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, _ := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -62,11 +62,10 @@ func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 
 func Test_ShouldNotFindAntsWithoutRequiredMethods(t *testing.T) {
 	// GIVEN resource manager is constructed
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
@@ -103,11 +102,10 @@ func Test_ShouldNotFindAntsWithoutRequiredMethods(t *testing.T) {
 
 func Test_ShouldNotFindAntsWithoutRequiredTags(t *testing.T) {
 	// GIVEN resource manager is constructed
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -142,11 +140,10 @@ func Test_ShouldNotFindAntsWithoutRequiredTags(t *testing.T) {
 
 func Test_ShouldReturnErrorWhenReleasingWithoutReservingFirst(t *testing.T) {
 	// GIVEN resource manager is constructed
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -165,11 +162,10 @@ func Test_ShouldReturnErrorWhenReleasingWithoutReservingFirst(t *testing.T) {
 func Test_ShouldReserveTasks(t *testing.T) {
 	// GIVEN resource manager is constructed
 
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -232,11 +228,10 @@ func Test_ShouldReserveTasks(t *testing.T) {
 
 func Test_ShouldReserveJobs(t *testing.T) {
 	// GIVEN resource manager is constructed
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 
 	err = mgr.Start(context.Background())
@@ -261,7 +256,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 		allocs = append(allocs, reservations)
 	}
 
-	// WHEN allocating for non existing tags
+	// WHEN allocating for nonexisting tags
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
@@ -278,7 +273,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 		allocs = append(allocs, reservations)
 	}
 
-	// WHEN allocating for non existing tags
+	// WHEN allocating for nonexisting tags
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
@@ -307,12 +302,10 @@ func Test_ShouldReserveJobs(t *testing.T) {
 
 func Test_ShouldFailReservationWithoutMethod(t *testing.T) {
 	// GIVEN resource manager is constructed
-
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -335,11 +328,10 @@ func Test_ShouldFailReservationWithoutTag(t *testing.T) {
 	// GIVEN resource manager is constructed
 
 	testAntID = 0
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
@@ -373,11 +365,10 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 	// GIVEN resource manager is constructed
 
 	testAntID = 0
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -428,11 +419,10 @@ func Test_ShouldReapStaleAnts(t *testing.T) {
 	// GIVEN resource manager is constructed
 
 	testAntID = 0
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -497,11 +487,10 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 	// GIVEN resource manager is constructed
 
 	testAntID = 0
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -557,11 +546,10 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 func Test_ShouldIncrementLoadAfterAReservation(t *testing.T) {
 	// GIVEN resource manager is constructed
 
-	conf := newTestServerConfig()
+	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client, err := queue.NewStubClient(&conf.CommonConfig)
-	require.NoError(t, err)
+	client := queue.NewStubClient(&conf.CommonConfig)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -638,16 +626,6 @@ func registerAnt(
 			false)
 	}
 	return
-}
-
-func newTestServerConfig() *config.ServerConfig {
-	conf := &config.ServerConfig{}
-	conf.S3.Bucket = "test-bucket"
-	conf.S3.AccessKeyID = "admin"
-	conf.S3.SecretAccessKey = "password"
-	conf.Pulsar.URL = "none"
-	conf.Redis.Host = "none"
-	return conf
 }
 
 func newTestJobDefinition(name string) *types.JobDefinition {

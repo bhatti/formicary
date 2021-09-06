@@ -91,9 +91,9 @@ func (jraCtr *JobRequestAdminController) statsJobRequests(c web.WebContext) erro
 
 // queryJobRequests - queries job-request
 func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
-	requests, total, err := jraCtr.jobManager.QueryJobRequests(qc, params, page, pageSize, order)
+	recs, total, err := jraCtr.jobManager.QueryJobRequests(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
@@ -110,16 +110,17 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) erro
 		title = "Jobs History"
 	}
 
-	res := map[string]interface{}{"Requests": requests,
+	res := map[string]interface{}{
+		"Records":    recs,
 		"Pagination": pagination,
 		"Title":      title,
 		"JobTypes":   jraCtr.getJobTypes(c),
 		"BaseURL":    baseURL,
-		"Q":          params["q"],
+		"Q":          qs,
 	}
 	res["IsTerminal"] = false
 	res["Pending"] = false
-	for _, rec := range requests {
+	for _, rec := range recs {
 		if rec.IsTerminal() {
 			res["IsTerminal"] = true
 		} else if rec.Pending() {

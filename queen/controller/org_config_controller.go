@@ -46,7 +46,7 @@ func NewOrganizationConfigController(
 // responses:
 //   200: orgConfigQueryResponse
 func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := cc.orgConfigRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {

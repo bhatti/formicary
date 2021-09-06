@@ -28,6 +28,9 @@ func (OrganizationConfig) TableName() string {
 }
 
 func (u *OrganizationConfig) String() string {
+	if u.Secret {
+		return fmt.Sprintf("%s=*****", u.Name)
+	}
 	return fmt.Sprintf("%s=%s", u.Name, u.Value)
 }
 

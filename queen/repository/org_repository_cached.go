@@ -4,7 +4,6 @@ import (
 	"github.com/karlseguin/ccache/v2"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
-	"plexobject.com/formicary/queen/types"
 )
 
 // OrganizationRepositoryCached implements OrgRepository with caching support
@@ -17,7 +16,7 @@ type OrganizationRepositoryCached struct {
 // NewOrganizationRepositoryCached creates new instance for job-definition-repository
 func NewOrganizationRepositoryCached(
 	serverConf *config.ServerConfig,
-	adapter OrganizationRepository) (OrganizationRepository, error) {
+	adapter OrganizationRepository) (*OrganizationRepositoryCached, error) {
 	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(100))
 	return &OrganizationRepositoryCached{
 		adapter:    adapter,
@@ -61,6 +60,18 @@ func (orc *OrganizationRepositoryCached) GetByParentID(
 	return orc.adapter.GetByParentID(qc, parentID)
 }
 
+// ClearCacheFor - clears cache
+func (orc *OrganizationRepositoryCached) ClearCacheFor(
+	id string,
+	orgUnit string) {
+	if id != "" {
+		orc.cache.DeletePrefix("Org:" + id)
+	}
+	if orgUnit != "" {
+		orc.cache.DeletePrefix("OrgUnit:" + orgUnit)
+	}
+}
+
 // Delete org
 func (orc *OrganizationRepositoryCached) Delete(
 	qc *common.QueryContext,
@@ -73,8 +84,7 @@ func (orc *OrganizationRepositoryCached) Delete(
 	if err != nil {
 		return err
 	}
-	orc.cache.DeletePrefix("Org:" + id)
-	orc.cache.DeletePrefix("OrgUnit:" + org.OrgUnit)
+	orc.ClearCacheFor(id, org.OrgUnit)
 	return nil
 }
 
@@ -86,8 +96,7 @@ func (orc *OrganizationRepositoryCached) Create(
 	if err != nil {
 		return nil, err
 	}
-	orc.cache.DeletePrefix("Org:" + saved.ID)
-	orc.cache.DeletePrefix("OrgUnit:" + saved.OrgUnit)
+	orc.ClearCacheFor(saved.ID, saved.OrgUnit)
 	return saved, nil
 }
 
@@ -107,8 +116,7 @@ func (orc *OrganizationRepositoryCached) Update(
 	if err != nil {
 		return nil, err
 	}
-	orc.cache.DeletePrefix("Org:" + saved.ID)
-	orc.cache.DeletePrefix("OrgUnit:" + saved.OrgUnit)
+	orc.ClearCacheFor(saved.ID, saved.OrgUnit)
 	return saved, nil
 }
 
@@ -127,26 +135,6 @@ func (orc *OrganizationRepositoryCached) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
 	return orc.adapter.Count(qc, params)
-}
-
-// AddInvitation adds invitation
-func (orc *OrganizationRepositoryCached) AddInvitation(invitation *types.UserInvitation) error {
-	return orc.adapter.AddInvitation(invitation)
-}
-
-// GetInvitation finds invitation
-func (orc *OrganizationRepositoryCached) GetInvitation(id string) (*types.UserInvitation, error) {
-	return orc.adapter.GetInvitation(id)
-}
-
-// FindInvitation finds invitation
-func (orc *OrganizationRepositoryCached) FindInvitation(email string, code string) (*types.UserInvitation, error) {
-	return orc.adapter.FindInvitation(email, code)
-}
-
-// AcceptInvitation accepts invitation
-func (orc *OrganizationRepositoryCached) AcceptInvitation(email string, code string) (*types.UserInvitation, error) {
-	return orc.adapter.AcceptInvitation(email, code)
 }
 
 // Clear removes cache

@@ -428,14 +428,7 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
-	q := params["q"]
-	if q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("raw_yaml LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR job_type = ? OR platform = ?",
-			qs, qs, qs, qs, q, q)
-		delete(params, "q")
-	}
-	tx = addQueryParamsWhere(params, tx)
+	tx = jdr.addQuery(params, tx)
 
 	if len(order) == 0 {
 		order = []string{"job_type"}
@@ -462,7 +455,7 @@ func (jdr *JobDefinitionRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
 	tx := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{})).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
+	tx = jdr.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {
 		err = res.Error
@@ -504,4 +497,14 @@ func (jdr *JobDefinitionRepositoryImpl) encryptionKey(
 		return nil
 	}
 	return crypto.SHA256Key(jdr.dbConfig.EncryptionKey + qc.Salt)
+}
+
+func (jdr *JobDefinitionRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("raw_yaml LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR job_type = ? OR platform = ?",
+			qs, qs, qs, qs, q, q)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

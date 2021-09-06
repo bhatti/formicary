@@ -42,7 +42,7 @@ func NewOrganizationConfigAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryOrganizationConfigs - queries org-config
 func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	configs, total, err := jraCtr.orgConfigRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {
@@ -50,9 +50,11 @@ func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.
 	}
 	baseURL := fmt.Sprintf("/orgs/%s/configs?%s", qc.OrganizationID, q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Configs": configs,
+	res := map[string]interface{}{
+		"Configs":    configs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "orgs/configs/index", res)

@@ -33,7 +33,7 @@ const (
 
 // Accept returns true if notification can be sent based on state
 func (w NotifyWhen) Accept(state RequestState, lastState RequestState) bool {
-	if w == "" {
+	if w == "" || w == NotifyWhenNever {
 		return true
 	}
 	return w == NotifyWhenAlways ||
@@ -70,6 +70,14 @@ func JobNotifyConfigWithEmail(email string, when NotifyWhen) (JobNotifyConfig, e
 	return notifyCfg, notifyCfg.SetEmails(email)
 }
 
+// JobNotifyConfigWithChannel factory method to create notification config for channels
+func JobNotifyConfigWithChannel(channel string, when NotifyWhen) (JobNotifyConfig, error) {
+	notifyCfg := JobNotifyConfig{
+		When: when,
+	}
+	return notifyCfg, notifyCfg.SetChannels(channel)
+}
+
 // SetEmails - set emails of recipients
 func (c *JobNotifyConfig) SetEmails(rawEmail string) error {
 	emails := strings.Split(rawEmail, ",")
@@ -87,6 +95,23 @@ func (c *JobNotifyConfig) SetEmails(rawEmail string) error {
 	}
 	if len(c.Recipients) == 0 {
 		return fmt.Errorf("email is not specified")
+	}
+	return nil
+}
+
+// SetChannels - set channel for recipients
+func (c *JobNotifyConfig) SetChannels(rawChannel string) error {
+	channels := strings.Split(rawChannel, ",")
+	c.Recipients = make([]string, 0)
+	for _, channel := range channels {
+		channel = strings.TrimSpace(strings.ToLower(channel))
+		if channel == "" {
+			continue
+		}
+		c.Recipients = append(c.Recipients, channel)
+	}
+	if len(c.Recipients) == 0 {
+		return fmt.Errorf("channel is not specified")
 	}
 	return nil
 }

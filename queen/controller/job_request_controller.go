@@ -50,7 +50,7 @@ func NewJobRequestController(
 // responses:
 //   200: jobRequestQueryResponse
 func (jobReqCtrl *JobRequestController) queryJobRequests(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := jobReqCtrl.jobManager.QueryJobRequests(
 		qc,

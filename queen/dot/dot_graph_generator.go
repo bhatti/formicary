@@ -11,13 +11,9 @@ import (
 )
 
 const (
-	successColor    = "darkseagreen4"
 	endSuccessColor = "darkseagreen"
-	failColor       = "firebrick4"
 	endFailColor    = "firebrick"
 	blueColor       = "dodgerblue3"
-	unknownColor    = "goldenrod3"
-	executingColor  = "skyblue2"
 	defaultColor    = "gray"
 )
 
@@ -255,7 +251,7 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 
 	if parentNode.task.Method == common.ForkJob {
 		childTask := types.NewTaskDefinition(parentNode.task.ForkJobType, "ForkedJob")
-		childNode := &Node{task: childTask, color: "gray", arrow: common.RequestState("fork"), arrowColor: stateToColor(parentNode.state)}
+		childNode := &Node{task: childTask, color: "gray", arrow: common.RequestState("fork"), arrowColor: parentNode.state.DotColor()}
 		childNode.boldArrow = fromExecTask != nil && fromExecTask.TaskState.IsTerminal()
 		parentNode.children = append(parentNode.children, childNode)
 		nodes[childTask.TaskType] = childNode
@@ -264,12 +260,12 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 			forkedNode := nodes[c]
 			if forkedNode != nil {
 				childTask := types.NewTaskDefinition(forkedNode.task.ForkJobType, "ForkedJob")
-				childNode := &Node{task: childTask, color: "gray", arrow: "await", arrowColor: stateToColor(parentNode.state)}
+				childNode := &Node{task: childTask, color: "gray", arrow: "await", arrowColor: parentNode.state.DotColor()}
 				if fromExecTask != nil {
 					childNode.boldArrow = fromExecTask.TaskState.IsTerminal()
 					childNode.state = fromExecTask.TaskState
 					childNode.bold = fromExecTask.TaskState.IsTerminal()
-					childNode.color = stateToColor(fromExecTask.TaskState)
+					childNode.color = fromExecTask.TaskState.DotColor()
 				}
 				parentNode.children = append(parentNode.children, childNode)
 				nodes[childTask.TaskType] = childNode
@@ -282,10 +278,10 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 		if childTask == nil {
 			continue
 		}
-		childNode := &Node{task: childTask, arrow: state, arrowColor: stateToColor(state)}
+		childNode := &Node{task: childTask, arrow: state, arrowColor: state.DotColor()}
 		if fromExecTask != nil {
 			var nextTask *types.TaskDefinition
-			parentNode.arrowColor = stateToColor(fromExecTask.TaskState)
+			parentNode.arrowColor = fromExecTask.TaskState.DotColor()
 			nextTask, parentNode.decision, _ = dg.jobDefinition.GetNextTask(
 				parentTask,
 				fromExecTask.TaskState,
@@ -326,21 +322,7 @@ func (dg *Generator) getTaskStateStateColor(taskType string) (common.RequestStat
 	if task == nil {
 		return common.UNKNOWN, defaultColor, false
 	}
-	return task.TaskState, stateToColor(task.TaskState), !task.TaskState.Processing()
-}
-
-func stateToColor(state common.RequestState) string {
-	if state.Completed() {
-		return successColor
-	} else if state.Failed() {
-		return failColor
-	} else if state.Executing() {
-		return executingColor
-	} else if state.Unknown() {
-		return unknownColor
-	} else {
-		return defaultColor
-	}
+	return task.TaskState, task.TaskState.DotColor(), !task.TaskState.Processing()
 }
 
 func toKey(from string, to string) string {

@@ -3,14 +3,15 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
-	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/types"
@@ -80,7 +81,7 @@ func Test_ShouldGetJobConfig(t *testing.T) {
 
 func Test_ShouldUpdateJobConfig(t *testing.T) {
 	var qc = common.NewQueryContext("test-user", "test-org", "")
-	user := common.NewUser("test-org", "username", "name", false)
+	user := common.NewUser("test-org", "username", "name", "email@formicary.io", false)
 	user.ID = qc.UserID
 	// GIVEN job config controller
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()

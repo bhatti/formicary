@@ -27,8 +27,8 @@ func Test_InitializeSwaggerStructsForAntRegistration(t *testing.T) {
 func Test_ShouldQueryAntRegistration(t *testing.T) {
 	// GIVEN ant registration controller
 
-	cfg := newTestConfig()
-	queueClient := newTestQueueClient(cfg, t)
+	cfg := config.TestServerConfig()
+	queueClient := queue.NewStubClient(&cfg.CommonConfig)
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendAntRegistration(cfg, queueClient, t)
 
@@ -50,8 +50,8 @@ func Test_ShouldQueryAntRegistration(t *testing.T) {
 func Test_ShouldGetAntRegistration(t *testing.T) {
 	// GIVEN ant registration controller
 
-	cfg := newTestConfig()
-	queueClient := newTestQueueClient(cfg, t)
+	cfg := config.TestServerConfig()
+	queueClient := queue.NewStubClient(&cfg.CommonConfig)
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendAntRegistration(cfg, queueClient, t)
 
@@ -66,14 +66,6 @@ func Test_ShouldGetAntRegistration(t *testing.T) {
 	err := ctrl.getAntRegistration(ctx)
 	// THEN it should return valid results
 	require.NoError(t, err)
-}
-
-func newTestQueueClient(serverCfg *config.ServerConfig, t *testing.T) queue.Client {
-	queueClient, err := queue.NewStubClient(&serverCfg.CommonConfig)
-	if err != nil {
-		t.Fatalf("unexpected error %s", err)
-	}
-	return queueClient
 }
 
 func newTestResourceManager(serverCfg *config.ServerConfig, queueClient queue.Client, t *testing.T) resource.Manager {
@@ -103,4 +95,3 @@ func sendAntRegistration(serverCfg *config.ServerConfig, queueClient queue.Clien
 	}
 	_, _ = queueClient.Send(context.Background(), serverCfg.GetRegistrationTopic(), make(map[string]string), b, true)
 }
-

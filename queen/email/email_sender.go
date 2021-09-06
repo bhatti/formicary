@@ -1,31 +1,34 @@
 package email
 
 import (
-	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"net/smtp"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
 	"strings"
 )
 
 // DefaultEmailSender defines operations to send email
 type DefaultEmailSender struct {
-	cfg  *config.ServerConfig
-	auth smtp.Auth
+	cfg         *config.ServerConfig
+	userManager *manager.UserManager
+	auth        smtp.Auth
 }
 
 // New constructor
 func New(
 	cfg *config.ServerConfig,
+	userManager *manager.UserManager,
 ) (types.Sender, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	d := &DefaultEmailSender{
-		cfg: cfg,
+		cfg:         cfg,
+		userManager: userManager,
 	}
 	if cfg.Email.APIKey == "" {
 		d.auth = smtp.PlainAuth("", cfg.Email.FromEmail, cfg.Email.Password, cfg.Email.Host)
@@ -42,12 +45,13 @@ func (d *DefaultEmailSender) JobNotifyTemplateFile() string {
 
 // SendMessage sends email to recipients
 func (d *DefaultEmailSender) SendMessage(
-	_ context.Context,
-	_ *common.User,
-	_ *common.Organization,
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization,
 	to []string,
 	subject string,
-	body string) error {
+	body string,
+	_ map[string]interface{}) error {
 	hostPort := fmt.Sprintf("%s:%d", d.cfg.Email.Host, d.cfg.Email.Port)
 	from := d.cfg.Email.FromName + "<" + d.cfg.Email.FromEmail + ">"
 	logrus.WithFields(logrus.Fields{
@@ -63,7 +67,7 @@ func (d *DefaultEmailSender) SendMessage(
 	// first, a blank line, and then the message body. The lines of msg
 	// should be CRLF terminated. The msg headers should usually include
 	// fields such as "From", "To", "Subject", and "Cc".  Sending "Bcc"
-	// messages is accomplished by including an email address in the to
+	// messages is accomplished by including an email address in the "to"
 	// parameter but not including it in the msg headers.
 	var msg strings.Builder
 	if strings.HasPrefix(body, "<") {
@@ -74,9 +78,24 @@ func (d *DefaultEmailSender) SendMessage(
 		msg.WriteString("Content-Transfer-Encoding: 7bit\r\n")
 	}
 	msg.WriteString("From: " + from + "\r\n")
+	msg.WriteString("To: " + strings.Join(to, ",") + "\r\n")
 	msg.WriteString("Subject: " + subject + "\r\n")
 	msg.WriteString("\r\n")
 	msg.WriteString(body + "\r\n")
 
-	return smtp.SendMail(hostPort, d.auth, d.cfg.Email.FromEmail, to, []byte(msg.String()))
+	err := smtp.SendMail(hostPort, d.auth, d.cfg.Email.FromEmail, to, []byte(msg.String()))
+	if err != nil {
+		_ = d.userManager.AddStickyMessageForEmail(
+			qc,
+			user,
+			org,
+			err)
+	} else {
+		_ = d.userManager.ClearStickyMessageForSlack(
+			qc,
+			user,
+			org,
+		)
+	}
+	return err
 }

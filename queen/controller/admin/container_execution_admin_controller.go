@@ -34,7 +34,7 @@ func NewExecutionContainerAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryExecutionContainers - queries error-code
 func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.WebContext) error {
-	_, order, page, pageSize, q := controller.ParseParams(c)
+	_, order, page, pageSize, q, qs := controller.ParseParams(c)
 	sortField := ""
 	if len(order) > 0 {
 		sortField = order[0]
@@ -45,6 +45,7 @@ func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.Web
 	res := map[string]interface{}{"Executors": recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "executors/index", res)

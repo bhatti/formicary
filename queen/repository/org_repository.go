@@ -2,7 +2,6 @@ package repository
 
 import (
 	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/types"
 )
 
 // OrganizationRepository defines data access methods for orgs
@@ -46,14 +45,6 @@ type OrganizationRepository interface {
 	Count(
 		qc *common.QueryContext,
 		params map[string]interface{}) (totalRecords int64, err error)
-
-	AddInvitation(invitation *types.UserInvitation) error
-
-	GetInvitation(id string) (*types.UserInvitation, error)
-
-	FindInvitation(email string, code string) (*types.UserInvitation, error)
-
-	AcceptInvitation(email string, code string) (*types.UserInvitation, error)
 
 	Clear()
 }

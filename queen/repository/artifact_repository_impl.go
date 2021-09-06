@@ -18,8 +18,12 @@ type ArtifactRepositoryImpl struct {
 }
 
 // NewArtifactRepositoryImpl creates new instance for artifact-repository
-func NewArtifactRepositoryImpl(db *gorm.DB) (*ArtifactRepositoryImpl, error) {
-	return &ArtifactRepositoryImpl{db: db}, nil
+func NewArtifactRepositoryImpl(
+	db *gorm.DB,
+) (*ArtifactRepositoryImpl, error) {
+	return &ArtifactRepositoryImpl{
+		db: db,
+	}, nil
 }
 
 // GetResourceUsage - Finds usage between time
@@ -92,15 +96,7 @@ func (ar *ArtifactRepositoryImpl) Query(
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
-	q := params["q"]
-	if q != nil {
-		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("metadata_serialized LIKE ? OR name LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR task_type = ? OR job_request_id = ?",
-			qs, qs, qs, qs, q, q, reqID)
-	} else {
-		tx = addQueryParamsWhere(params, tx)
-	}
+	tx = ar.addQuery(params, tx)
 
 	if len(order) == 0 {
 		tx = tx.Order("created_at desc")
@@ -128,7 +124,7 @@ func (ar *ArtifactRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (total int64, err error) {
 	tx := qc.AddOrgElseUserWhere(ar.db).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
+	tx = ar.addQuery(params, tx)
 	res := tx.Model(&common.Artifact{}).Count(&total)
 	if res.Error != nil {
 		err = res.Error
@@ -245,4 +241,15 @@ func (ar *ArtifactRepositoryImpl) Update(
 		return nil
 	})
 	return art, err
+}
+
+func (ar *ArtifactRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("metadata_serialized LIKE ? OR name LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR task_type = ? OR job_request_id = ?",
+			qs, qs, qs, qs, q, q, reqID)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

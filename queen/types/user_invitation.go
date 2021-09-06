@@ -23,6 +23,8 @@ type UserInvitation struct {
 	InvitationCode string `json:"invitation_code"`
 	// OrganizationID defines foreign key
 	OrganizationID string `json:"organization_id"`
+	// OrgUnit defines org-unit
+	OrgUnit string `json:"org_unit"`
 	// InvitedByUserID defines foreign key
 	InvitedByUserID string `json:"invited_by_user_id"`
 	// ExpiresAt expiration time
@@ -38,12 +40,14 @@ type UserInvitation struct {
 func NewUserInvitation(
 	email string,
 	byUser *common.User,
+	org *common.Organization,
 ) *UserInvitation {
 	return &UserInvitation{
 		Email:           email,
 		InvitationCode:  randomString(20),
 		InvitedByUserID: byUser.ID,
 		OrganizationID:  byUser.OrganizationID,
+		OrgUnit:         org.OrgUnit,
 		ExpiresAt:       time.Now().Add(time.Hour * 24 * 3),
 		CreatedAt:       time.Now(),
 	}
@@ -75,6 +79,10 @@ func (u *UserInvitation) Validate() (err error) {
 	if u.InvitedByUserID == "" {
 		err = errors.New("invited-by-user is not specified")
 		u.Errors["InvitedByUserID"] = err.Error()
+	}
+	if u.OrgUnit == "" {
+		err = errors.New("org-unit is not specified")
+		u.Errors["OrgUnit"] = err.Error()
 	}
 	if u.ExpiresAt.Unix() < time.Now().Unix() {
 		u.ExpiresAt = time.Now().Add(time.Hour * 24 * 3)

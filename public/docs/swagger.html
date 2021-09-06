@@ -1095,7 +1095,7 @@
 <tr>
 <td>paused</td>
 <td>query</td>
-<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
 <td>No</td>
 <td>boolean</td>
 </tr>
@@ -1109,7 +1109,7 @@
 <tr>
 <td>tags</td>
 <td>query</td>
-<td>Tags is aggregation of task tags and it can be searched via <code>tags:in</code></td>
+<td>Tags is aggregation of task tags, and it can be searched via <code>tags:in</code></td>
 <td>No</td>
 <td>string</td>
 </tr>
@@ -1743,7 +1743,7 @@
 <tr>
 <td>paused</td>
 <td>query</td>
-<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
 <td>No</td>
 <td>boolean</td>
 </tr>
@@ -1757,7 +1757,7 @@
 <tr>
 <td>tags</td>
 <td>query</td>
-<td>Tags is aggregation of task tags and it can be searched via <code>tags:in</code></td>
+<td>Tags is aggregation of task tags, and it can be searched via <code>tags:in</code></td>
 <td>No</td>
 <td>string</td>
 </tr>
@@ -3604,6 +3604,13 @@
 <tr>
 <td>email</td>
 <td>formData</td>
+<td></td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>slackChannel</td>
+<td>query</td>
 <td></td>
 <td>No</td>
 <td>string</td>
@@ -6286,6 +6293,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>messaging_queue</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
 <td>method</td>
 <td><a href="#taskmethod">TaskMethod</a></td>
 <td></td>
@@ -6712,12 +6725,6 @@
 </thead>
 <tbody>
 <tr>
-<td>accepted_at</td>
-<td>dateTime</td>
-<td>ExpiresAt expiration time</td>
-<td>No</td>
-</tr>
-<tr>
 <td>created_at</td>
 <td>dateTime</td>
 <td>CreatedAt created time</td>
@@ -6751,6 +6758,12 @@
 <td>invited_by_user_id</td>
 <td>string</td>
 <td>InvitedByUserID defines foreign key</td>
+<td>No</td>
+</tr>
+<tr>
+<td>org_unit</td>
+<td>string</td>
+<td>OrgUnit defines org-unit</td>
 <td>No</td>
 </tr>
 <tr>

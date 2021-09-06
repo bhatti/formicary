@@ -45,7 +45,7 @@ func NewUserController(
 // responses:
 //   200: userQueryResponse
 func (uc *UserController) queryUsers(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := uc.userManager.QueryUsers(
 		qc,
@@ -71,6 +71,7 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 		c.Param("id"),
 		c.FormValue("email"),
 		c.FormValue("slackChannel"),
+		c.FormValue("slackToken"),
 		c.FormValue("when"),
 	)
 	if err != nil {
@@ -87,7 +88,7 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 func (uc *UserController) postUser(c web.WebContext) error {
 	// TODO remove this as users will be added after oauth signup
 	now := time.Now()
-	user := common.NewUser("", "", "", false)
+	user := common.NewUser("", "", "", "", false)
 	err := json.NewDecoder(c.Request().Body).Decode(user)
 	if err != nil {
 		return err
@@ -112,7 +113,7 @@ func (uc *UserController) postUser(c web.WebContext) error {
 // responses:
 //   200: userResponse
 func (uc *UserController) putUser(c web.WebContext) error {
-	user := common.NewUser("", "", "", false)
+	user := common.NewUser("", "", "", "", false)
 	err := json.NewDecoder(c.Request().Body).Decode(user)
 	if err != nil {
 		return err

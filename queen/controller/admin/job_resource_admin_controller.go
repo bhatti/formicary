@@ -52,9 +52,9 @@ func NewJobResourceAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryJobResources - queries job-resource
 func (jraCtr *JobResourceAdminController) queryJobResources(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
-	resources, total, err := jraCtr.jobResourceRepository.Query(
+	recs, total, err := jraCtr.jobResourceRepository.Query(
 		qc,
 		params,
 		page,
@@ -66,10 +66,10 @@ func (jraCtr *JobResourceAdminController) queryJobResources(c web.WebContext) er
 	baseURL := fmt.Sprintf("/dashboard/jobs/resources?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
 	res := map[string]interface{}{
-		"Resources":  resources,
+		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          params["q"],
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/res/index", res)

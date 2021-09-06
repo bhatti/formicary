@@ -40,16 +40,18 @@ func NewSystemConfigAdminController(
 // ********************************* HTTP Handlers ***********************************
 // querySystemConfigs - queries system-config
 func (jraCtr *SystemConfigAdminController) querySystemConfigs(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	configs, total, err := jraCtr.systemConfigRepository.Query(params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
 	baseURL := fmt.Sprintf("/configs?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Configs": configs,
+	res := map[string]interface{}{
+		"Configs":    configs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "configs/index", res)

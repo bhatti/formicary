@@ -3,15 +3,16 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
-	"strings"
-	"testing"
 )
 
 func Test_InitializeSwaggerStructsForSubscriptionController(t *testing.T) {
@@ -62,9 +63,9 @@ func Test_ShouldCreateAndGetSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@domain.com", "name", false))
+	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
 	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@domain.com")
+		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
 	}
 	require.NoError(t, err)
 	subscription := common.NewFreemiumSubscription(user.ID, "")
@@ -100,9 +101,9 @@ func Test_ShouldUpdateAndGetSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@domain.com", "name", false))
+	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
 	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@domain.com")
+		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
 	}
 	require.NoError(t, err)
 
@@ -147,9 +148,9 @@ func Test_ShouldAddAndDeleteSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@domain.com", "name", false))
+	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
 	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@domain.com")
+		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
 	}
 	require.NoError(t, err)
 

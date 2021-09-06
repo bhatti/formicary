@@ -18,12 +18,12 @@ func Test_ShouldStartAndStopRegistration(t *testing.T) {
 
 	// GIVEN request registry
 	metricsRegistry := metrics.New()
-	queueClient, _ := queue.NewStubClient(cfg)
+	queueClient := queue.NewStubClient(cfg)
 	requestRegistry := NewRequestRegistry(cfg, metricsRegistry)
 
 	// WHEN a tasklet is created and registered
 	registration := types.AntRegistration{
-		AntID:        "myid",
+		AntID:        "ant-id",
 		AntTopic:     "requestTopic",
 		MaxCapacity:  100,
 		Tags:         make([]string, 0),
@@ -92,4 +92,3 @@ func (m *MockExecutorImpl) ListContainers(
 	taskResp.Status = types.COMPLETED
 	return
 }
-

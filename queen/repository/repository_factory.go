@@ -35,6 +35,7 @@ type Factory struct {
 	OrgConfigRepository         *OrganizationConfigRepositoryImpl
 	UserRepository              UserRepository
 	OrgRepository               OrganizationRepository
+	InvitationRepository        InvitationRepository
 	SubscriptionRepository      SubscriptionRepository
 	EmailVerificationRepository EmailVerificationRepository
 	AuditRecordRepository       AuditRecordRepository
@@ -124,10 +125,6 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
-	orgConfigRepository, err := NewOrganizationConfigRepositoryImpl(&serverCfg.DB, db)
-	if err != nil {
-		return nil, err
-	}
 	userRepository, err := NewUserRepositoryImpl(db)
 	if err != nil {
 		return nil, err
@@ -137,6 +134,10 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		return nil, err
 	}
 	orgRepository, err := NewOrganizationRepositoryImpl(&serverCfg.DB, db)
+	if err != nil {
+		return nil, err
+	}
+	invRepository, err := NewInvitationRepositoryImpl(&serverCfg.DB, db)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +152,17 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	}
 
 	cachedOrgRepository, err := NewOrganizationRepositoryCached(serverCfg, orgRepository)
+	if err != nil {
+		return nil, err
+	}
+	orgConfigRepository, err := NewOrganizationConfigRepositoryImpl(&serverCfg.DB, db,
+		func(
+			qc *common.QueryContext,
+			id string,
+			kind UpdateKind,
+			obj interface{}) {
+			cachedOrgRepository.ClearCacheFor(qc.OrganizationID, "")
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -172,9 +184,9 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 			common.NewQueryContext("", "", ""),
 			common.NewOrganization("", "formicary.org", "org.formicary")); err == nil {
 			_, _ = cachedUserRepository.Create(common.NewUser(
-				org.ID, "admin", "admin", true))
+				org.ID, "admin", "admin", "support@formicary.io", true))
 			_, _ = cachedUserRepository.Create(common.NewUser(
-				org.ID, "bhatti", "bhatti", false))
+				org.ID, "bhatti", "bhatti", "bhatti@formicary.io", false))
 			_, _ = errorCodeRepository.Save(common.NewErrorCode(
 				"*", "job timed out", "ERR_JOB_TIMEOUT"))
 			_, _ = errorCodeRepository.Save(common.NewErrorCode(
@@ -233,6 +245,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		OrgConfigRepository:         orgConfigRepository,
 		UserRepository:              cachedUserRepository,
 		OrgRepository:               cachedOrgRepository,
+		InvitationRepository:        invRepository,
 		SubscriptionRepository:      subscriptionRepository,
 		EmailVerificationRepository: cachedEmailVerificationRepository,
 	}

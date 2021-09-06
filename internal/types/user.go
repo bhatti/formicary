@@ -67,11 +67,8 @@ type User struct {
 	// InvitationCode defines code for invitation
 	InvitationCode string `json:"-" gorm:"-"`
 	// AgreeTerms defines code for invitation
-	AgreeTerms    bool                              `json:"-" gorm:"-"`
-	Notify        map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
-	NotifyEmail   string                            `json:"-" gorm:"-"`
-	NotifyChannel string                            `json:"-" gorm:"-"`
-	NotifyWhen    NotifyWhen                        `json:"-" gorm:"-"`
+	AgreeTerms bool                              `json:"-" gorm:"-"`
+	Notify     map[NotifyChannel]JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`
@@ -82,10 +79,15 @@ func NewUser(
 	orgID string,
 	username string,
 	name string,
+	email string,
 	admin bool) *User {
+	if email == "" && strings.Contains(username, "@") {
+		email = username
+	}
 	user := &User{
 		OrganizationID: orgID,
 		Username:       username,
+		Email:          strings.ToLower(email),
 		Name:           name,
 		Admin:          admin,
 		Active:         true,
@@ -93,9 +95,6 @@ func NewUser(
 		Notify:         make(map[NotifyChannel]JobNotifyConfig),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
-	}
-	if strings.Contains(username, "@") {
-		user.Email = username
 	}
 	return user
 }
@@ -156,19 +155,46 @@ func (u *User) AfterLoad() error {
 			u.Notify = map[NotifyChannel]JobNotifyConfig{EmailChannel: cfg}
 		}
 	}
-	if len(u.Notify) == 0 {
-		u.NotifyEmail = u.Email
-		u.NotifyWhen = NotifyWhenOnFailure
-	} else {
-		emailCfg := u.Notify[EmailChannel]
-		u.NotifyEmail = strings.Join(emailCfg.Recipients, ",")
-		u.NotifyWhen = emailCfg.When
-		slackCfg := u.Notify[SlackChannel]
-		u.NotifyChannel = strings.Join(slackCfg.Recipients, ",")
-		if u.NotifyWhen == "" {
-			u.NotifyWhen = slackCfg.When
-		}
+	return nil
+}
+
+// NotifyWhen returns when
+func (u *User) NotifyWhen() NotifyWhen {
+	for _, v := range u.Notify {
+		return v.When
 	}
+	return NotifyWhenOnFailure
+}
+
+// NotifyEmail returns notify email
+func (u *User) NotifyEmail() string {
+	emailCfg := u.Notify[EmailChannel]
+	return strings.Join(emailCfg.Recipients, ",")
+}
+
+// SetNotifyEmail sets notify email
+func (u *User) SetNotifyEmail(email string, when NotifyWhen) error {
+	notifyCfg, err := JobNotifyConfigWithEmail(email, when)
+	if err != nil {
+		return err
+	}
+	u.Notify[EmailChannel] = notifyCfg
+	return nil
+}
+
+// NotifyChannel returns slack channel
+func (u *User) NotifyChannel() string {
+	slackCfg := u.Notify[SlackChannel]
+	return strings.Join(slackCfg.Recipients, ",")
+}
+
+// SetNotifyChannel sets slack channel
+func (u *User) SetNotifyChannel(channel string, when NotifyWhen) error {
+	notifyCfg, err := JobNotifyConfigWithChannel(channel, when)
+	if err != nil {
+		return err
+	}
+	u.Notify[SlackChannel] = notifyCfg
 	return nil
 }
 
@@ -203,10 +229,6 @@ func (u *User) Validate() (err error) {
 		u.Errors["Email"] = err.Error()
 	}
 
-	if u.OrgUnit != "" && u.BundleID == "" {
-		err = errors.New("bundleID is not specified")
-		u.Errors["BundleID"] = err.Error()
-	}
 	if len(u.OrgUnit) > 100 {
 		err = errors.New("org-unit is too long")
 		u.Errors["OrgUnit"] = err.Error()
@@ -253,6 +275,9 @@ func (u *User) HasOrganization() bool {
 
 // CommonEmailExtension checks for common email extensions
 func CommonEmailExtension(email string) bool {
+	if strings.HasSuffix(email, ".edu") {
+		return true
+	}
 	match, _ := regexp.MatchString(publicEmailExt, email)
 	return match
 }

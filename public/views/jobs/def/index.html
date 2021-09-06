@@ -38,7 +38,7 @@ values are passed from job parameters, configuration or job-context/results of p
         </tr>
         </thead>
         <tbody>
-        {{range .Jobs}}
+        {{range .Records}}
         <tr>
             <td class="col-sm-1"><a href="/dashboard/jobs/definitions/{{.ID}}">{{.JobType}}</a></td>
             <td class="col-sm-1"><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/queen/repository"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"plexobject.com/formicary/internal/math"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/queen/manager"
-	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
 
 	"plexobject.com/formicary/internal/health"
@@ -33,9 +33,8 @@ type JobScheduler struct {
 	queueClient                   queue.Client
 	jobManager                    *manager.JobManager
 	artifactManager               *manager.ArtifactManager
+	userManager                   *manager.UserManager
 	errorRepository               repository.ErrorCodeRepository
-	userRepository                repository.UserRepository
-	orgRepository                 repository.OrganizationRepository
 	resourceManager               resource.Manager
 	metricsRegistry               *metrics.Registry
 	monitor                       *health.Monitor
@@ -56,10 +55,9 @@ func New(
 	queueClient queue.Client,
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
-	errorRepository repository.ErrorCodeRepository,
-	userRepository repository.UserRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	resourceManager resource.Manager,
+	errorRepository repository.ErrorCodeRepository,
 	monitor *health.Monitor,
 	metricsRegistry *metrics.Registry,
 ) *JobScheduler {
@@ -70,8 +68,7 @@ func New(
 		jobManager:                    jobManager,
 		artifactManager:               artifactManager,
 		errorRepository:               errorRepository,
-		userRepository:                userRepository,
-		orgRepository:                 orgRepository,
+		userManager:                   userManager,
 		resourceManager:               resourceManager,
 		monitor:                       monitor,
 		metricsRegistry:               metricsRegistry,
@@ -204,10 +201,9 @@ func (js *JobScheduler) scheduleJob(
 		js.queueClient,
 		js.jobManager,
 		js.artifactManager,
-		js.errorRepository,
-		js.userRepository,
-		js.orgRepository,
+		js.userManager,
 		js.resourceManager,
+		js.errorRepository,
 		js.metricsRegistry,
 		request,
 		map[string]*common.AntReservation{},

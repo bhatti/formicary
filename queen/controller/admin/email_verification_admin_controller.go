@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
@@ -27,7 +28,7 @@ func NewEmailVerificationAdminController(
 		webserver:   webserver,
 	}
 	webserver.POST("/dashboard/users/:user/create_verify_email", ctr.createEmailVerification, acl.New(acl.EmailVerification, acl.Create)).Name = "create_admin_email_verification"
-	webserver.GET("/dashboard/users/:user/wait_verification/:id", ctr.waitEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_admin_email"
+	webserver.GET("/dashboard/users/verify_email/:id", ctr.showEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_admin_email"
 	webserver.POST("/dashboard/users/:user/verify_email", ctr.verifyEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_admin_email"
 	webserver.GET("/dashboard/users/email_verifications", ctr.queryEmailVerifications, acl.New(acl.EmailVerification, acl.Query)).Name = "email_admin_verifications"
 
@@ -38,7 +39,7 @@ func NewEmailVerificationAdminController(
 // queryEmailVerifications - queries error-code
 func (ctr *EmailVerificationAdminController) queryEmailVerifications(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	recs, total, err := ctr.userManager.QueryEmailVerifications(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
@@ -49,6 +50,7 @@ func (ctr *EmailVerificationAdminController) queryEmailVerifications(c web.WebCo
 		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "email_verification/index", res)
@@ -71,21 +73,21 @@ func (ctr *EmailVerificationAdminController) createEmailVerification(c web.WebCo
 		ev := types.NewEmailVerification(email, user)
 		err = ev.Validate()
 		if err == nil {
-			_, err = ctr.userManager.CreateEmailVerifications(qc, ev)
+			_, err = ctr.userManager.CreateEmailVerification(qc, ev)
 			id = ev.ID
 		}
 	}
 	web.RenderDBUserFromSession(c, res)
 	if err != nil {
 		res["Error"] = err
-		return c.Render(http.StatusOK, "email_verification/wait", res)
+		return c.Render(http.StatusOK, "email_verification/verify_email", res)
 	}
-	return c.Redirect(http.StatusFound, "/dashboard/users/"+user.ID+"/wait_verification/" + id)
+	return c.Redirect(http.StatusFound, "/dashboard/users/verify_email/"+id)
 }
 
-func (ctr *EmailVerificationAdminController) waitEmailVerification(c web.WebContext) (err error) {
+func (ctr *EmailVerificationAdminController) showEmailVerification(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
-	res := map[string]interface{}{}
+	res := map[string]interface{}{"EmailCode": ""}
 	user := web.GetDBUserFromSession(c)
 	id := c.Param("id")
 	if user == nil {
@@ -99,14 +101,15 @@ func (ctr *EmailVerificationAdminController) waitEmailVerification(c web.WebCont
 			res["Error"] = err
 		} else {
 			res["Email"] = rec.Email
+			res["EmailCode"] = rec.EmailCode
 		}
 	}
 	web.RenderDBUserFromSession(c, res)
-	return c.Render(http.StatusOK, "email_verification/wait", res)
+	return c.Render(http.StatusOK, "email_verification/verify_email", res)
 }
 
 func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.WebContext) (err error) {
-	res := map[string]interface{}{}
+	res := map[string]interface{}{"EmailCode": ""}
 	qc := web.BuildQueryContext(c)
 	user := web.GetDBUserFromSession(c)
 	id := c.Param("id")
@@ -125,8 +128,9 @@ func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.WebCo
 		res["ID"] = id
 		if rec, dbErr := ctr.userManager.GetVerifiedEmailByID(qc, id); dbErr == nil {
 			res["Email"] = rec.Email
+			res["EmailCode"] = rec.EmailCode
 		}
-		return c.Render(http.StatusOK, "email_verification/wait", res)
+		return c.Render(http.StatusOK, "email_verification/verify_email", res)
 	}
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/"+user.ID))
 }

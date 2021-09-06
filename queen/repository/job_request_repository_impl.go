@@ -757,6 +757,16 @@ func (jrr *JobRequestRepositoryImpl) QueryOrphanRequests(
 	return
 }
 
+// clearOrphanJobParams remove orphan request params
+func (jrr *JobRequestRepositoryImpl) clearOrphanJobParams(tx *gorm.DB, req *types.JobRequest) {
+	paramIDs := make([]string, len(req.Params))
+	for i, c := range req.Params {
+		paramIDs[i] = c.ID
+	}
+
+	tx.Where("id NOT IN (?) AND job_request_id = ?", paramIDs, req.ID).Delete(types.JobRequestParam{})
+}
+
 // Query finds matching job-request by parameters
 func (jrr *JobRequestRepositoryImpl) Query(
 	qc *common.QueryContext,
@@ -767,15 +777,7 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	jobState := params["job_state"]
 	jobRequests = make([]*types.JobRequest, 0)
 	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Limit(pageSize).Offset(page * pageSize)
-	q := params["q"]
-	if q != nil {
-		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("id = ? OR job_type LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR quick_search LIKE ?",
-			reqID, qs, qs, qs, qs, qs)
-	} else {
-		tx = jrr.addQueryParams(params, tx)
-	}
+	tx = jrr.addQuery(params, tx)
 	if len(order) == 0 {
 		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING {
 			tx = tx.Order("job_priority DESC").Order("created_at")
@@ -808,8 +810,28 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	return
 }
 
-func (jrr *JobRequestRepositoryImpl) addQueryParams(
-	params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+// Count counts records by query
+func (jrr *JobRequestRepositoryImpl) Count(
+	qc *common.QueryContext,
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := jrr.db.Model(&types.JobRequest{})
+	tx = qc.AddOrgElseUserWhere(tx)
+	tx = jrr.addQuery(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		err = res.Error
+	}
+	return
+}
+
+func (jrr *JobRequestRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("id = ? OR job_type LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR quick_search LIKE ?",
+			reqID, qs, qs, qs, qs, qs)
+	}
 	jobState := params["job_state"]
 	if jobState != nil {
 		delete(params, "job_state")
@@ -824,29 +846,5 @@ func (jrr *JobRequestRepositoryImpl) addQueryParams(
 			tx = tx.Where("job_state = ?", jobState)
 		}
 	}
-	return addQueryParamsWhere(params, tx)
-}
-
-// Count counts records by query
-func (jrr *JobRequestRepositoryImpl) Count(
-	qc *common.QueryContext,
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := jrr.db.Model(&types.JobRequest{})
-	tx = qc.AddOrgElseUserWhere(tx)
-	tx = jrr.addQueryParams(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		err = res.Error
-	}
-	return
-}
-
-// clearOrphanJobParams remove orphan request params
-func (jrr *JobRequestRepositoryImpl) clearOrphanJobParams(tx *gorm.DB, req *types.JobRequest) {
-	paramIDs := make([]string, len(req.Params))
-	for i, c := range req.Params {
-		paramIDs[i] = c.ID
-	}
-
-	tx.Where("id NOT IN (?) AND job_request_id = ?", paramIDs, req.ID).Delete(types.JobRequestParam{})
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

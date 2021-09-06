@@ -3,126 +3,22 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"testing"
 
-	"plexobject.com/formicary/internal/artifacts"
-	"plexobject.com/formicary/internal/metrics"
-	"plexobject.com/formicary/internal/queue"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
-	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
-	"plexobject.com/formicary/queen/repository"
-	"plexobject.com/formicary/queen/resource"
 	"plexobject.com/formicary/queen/stats"
 	"plexobject.com/formicary/queen/types"
 )
 
-func newTestUserManager(serverCfg *config.ServerConfig, t *testing.T) *manager.UserManager {
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
-	userRepository, err := repository.NewTestUserRepository()
-	require.NoError(t, err)
-	orgRepository, err := repository.NewTestOrganizationRepository()
-	require.NoError(t, err)
-
-	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
-	require.NoError(t, err)
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	require.NoError(t, err)
-
-	notifier, err := notify.New(
-		serverCfg,
-		make(map[common.NotifyChannel]types.Sender),
-		emailVerificationRepository,
-		)
-	require.NoError(t, err)
-	userManager, err := manager.NewUserManager(
-		serverCfg,
-		auditRecordRepository,
-		userRepository,
-		orgRepository,
-		emailVerificationRepository,
-		subscriptionRepository,
-		notifier,
-	)
-	require.NoError(t, err)
-	var qc = common.NewQueryContext("test-user", "test-org", "")
-	_, _ = userRepository.Create(common.NewUser("test-org", "test-user", "bob", false))
-	_, _ = orgRepository.Create(qc, common.NewOrganization("owner", "org-unit", "org-bundle"))
-	return userManager
-}
-
-func newTestJobManager(serverCfg *config.ServerConfig, t *testing.T) *manager.JobManager {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
-	queueClient, _ := queue.NewStubClient(&serverCfg.CommonConfig)
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	require.NoError(t, err)
-	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
-	require.NoError(t, err)
-	jobRequestRepository, err := repository.NewTestJobRequestRepository()
-	require.NoError(t, err)
-	jobExecutionRepository, err := repository.NewTestJobExecutionRepository()
-	require.NoError(t, err)
-	artifactRepository, err := repository.NewTestArtifactRepository()
-	require.NoError(t, err)
-	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
-	require.NoError(t, err)
-
-	artifactService, err := artifacts.NewStub(nil)
-	require.NoError(t, err)
-	artifactManager, err := manager.NewArtifactManager(
-		serverCfg,
-		artifactRepository,
-		artifactService)
-	jobStatsRegistry := stats.NewJobStatsRegistry()
-	metricsRegistry := metrics.New()
-
-	notifier, err := notify.New(
-		serverCfg,
-		make(map[common.NotifyChannel]types.Sender),
-		emailVerificationRepository)
-	require.NoError(t, err)
-	resourceManager := resource.New(serverCfg, queueClient)
-	jobManager, err := manager.NewJobManager(
-		serverCfg,
-		auditRecordRepository,
-		jobDefinitionRepository,
-		jobRequestRepository,
-		jobExecutionRepository,
-		newTestUserManager(serverCfg, t),
-		resourceManager,
-		artifactManager,
-		jobStatsRegistry,
-		metricsRegistry,
-		queueClient,
-		notifier,
-	)
-	require.NoError(t, err)
-	job, err := jobManager.SaveJobDefinition(qc, newTestJobDefinition("my-job"))
-	if err != nil {
-		t.Fatalf("unexpected error %s", err)
-	}
-	req, err := types.NewJobRequestFromDefinition(job)
-	if err != nil {
-		t.Fatalf("unexpected error %s", err)
-	}
-	_, err = jobManager.SaveJobRequest(common.NewQueryContext(req.UserID, req.OrganizationID, ""), req)
-	if err != nil {
-		t.Fatalf("unexpected error %s", err)
-	}
-	return jobManager
-}
-
 func Test_ShouldQueryJobDefinitions(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	_ = jobDefinitionQueryResponseBody{}
 	_ = jobDefinitionQueryParams{}
@@ -142,7 +38,7 @@ func Test_ShouldQueryJobDefinitions(t *testing.T) {
 }
 
 func Test_ShouldGetJobDefinitionsYAML(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -163,7 +59,7 @@ func Test_ShouldGetJobDefinitionsYAML(t *testing.T) {
 }
 
 func Test_ShouldStatsJobDefinitions(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -183,7 +79,7 @@ func Test_ShouldStatsJobDefinitions(t *testing.T) {
 }
 
 func Test_ShouldUploadAndGetJobDefinitionWithYAML(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -214,7 +110,7 @@ func Test_ShouldUploadAndGetJobDefinitionWithYAML(t *testing.T) {
 }
 
 func Test_ShouldUploadAndGetJobDefinition(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -245,7 +141,7 @@ func Test_ShouldUploadAndGetJobDefinition(t *testing.T) {
 }
 
 func Test_ShouldUploadAndPauseJobDefinition(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -276,7 +172,7 @@ func Test_ShouldUploadAndPauseJobDefinition(t *testing.T) {
 }
 
 func Test_ShouldUploadAndUnpauseJobDefinition(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
@@ -307,7 +203,7 @@ func Test_ShouldUploadAndUnpauseJobDefinition(t *testing.T) {
 }
 
 func Test_ShouldUpdateConcurrency(t *testing.T) {
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)

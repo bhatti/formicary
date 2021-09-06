@@ -76,7 +76,7 @@ func (rs RequestState) Completed() bool {
 	return rs == COMPLETED
 }
 
-// Failed failed status
+// Failed returns failed status
 func (rs RequestState) Failed() bool {
 	return rs == FAILED || rs == CANCELLED
 }
@@ -113,7 +113,7 @@ func (rs RequestState) Waiting() bool {
 
 // Running returns true if state is running
 func (rs RequestState) Running() bool {
-	return rs == STARTED || rs == EXECUTING
+	return rs == STARTED || rs == EXECUTING || rs == RUNNING
 }
 
 // Done returns true if state is done
@@ -132,4 +132,57 @@ func (rs RequestState) Unknown() bool {
 		rs != STARTED &&
 		rs != HISTORY &&
 		rs != SUSPENDED
+}
+
+const (
+	successColor   = "darkseagreen4"
+	failColor      = "firebrick4"
+	unknownColor   = "goldenrod3"
+	executingColor = "skyblue2"
+	defaultColor   = "gray"
+)
+
+// DotColor for drawing dot image
+func (rs RequestState) DotColor() string {
+	if rs.Completed() {
+		return successColor
+	} else if rs.Failed() {
+		return failColor
+	} else if rs.Executing() {
+		return executingColor
+	} else if rs.Unknown() {
+		return unknownColor
+	} else {
+		return defaultColor
+	}
+}
+
+// SlackColor slack color
+func (rs RequestState) SlackColor() string {
+	if rs.Completed() {
+		return "#28a745"
+	} else if rs.Failed() {
+		return "#dc3545"
+	} else if rs.Executing() {
+		return "#17a2b8"
+	} else if rs.Unknown() {
+		return "#6c757d"
+	} else {
+		return "#fd7e14"
+	}
+}
+
+// Emoji getter
+func (rs RequestState) Emoji() string {
+	if rs.Completed() {
+		return "✅"
+	} else if rs.Failed() {
+		return "❌"
+	} else if rs.Executing() {
+		return "➰"
+	} else if rs.Unknown() {
+		return "⚠️"
+	} else {
+		return ""
+	}
 }

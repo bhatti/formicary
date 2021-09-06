@@ -12,7 +12,7 @@ type OrganizationConfigRepository interface {
 		params map[string]interface{},
 		page int,
 		pageSize int,
-		order []string) (jobs []*common.OrganizationConfig, totalRecords int64, err error)
+		order []string) (recs []*common.OrganizationConfig, totalRecords int64, err error)
 	// Count of configs
 	Count(
 		qc *common.QueryContext,

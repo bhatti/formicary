@@ -1,10 +1,11 @@
 package repository
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
-	"testing"
 )
 
 func Test_ShouldNotFindUnknownEmailVerification(t *testing.T) {
@@ -13,7 +14,7 @@ func Test_ShouldNotFindUnknownEmailVerification(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND user
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = qc.UserID
 
 	// WHEN finding unknown verification
@@ -29,10 +30,10 @@ func Test_ShouldFindEmailVerification(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND user
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = qc.UserID
 
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	saved, err := repo.Create(ev)
 
 	require.NoError(t, err)
@@ -43,17 +44,16 @@ func Test_ShouldFindEmailVerification(t *testing.T) {
 	require.NoError(t, err)
 }
 
-
 func Test_ShouldDeleteEmailVerification(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestEmailVerificationRepository()
 	require.NoError(t, err)
 
 	// AND user
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = qc.UserID
 
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	_, err = repo.Create(ev)
 	require.NoError(t, err)
 
@@ -78,10 +78,10 @@ func Test_ShouldVerifyEmailVerification(t *testing.T) {
 	userRepository.Clear()
 
 	// AND user
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = qc.UserID
 
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	_, err = verificationRepository.Create(ev)
 
 	// THEN it should not fail

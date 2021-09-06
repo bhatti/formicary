@@ -47,8 +47,7 @@ func Test_ShouldSaveUserWithoutOrg(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without org-id
-	ec := common.NewUser("", "username", "name", false)
-	ec.Email = "test@formicary.io"
+	ec := common.NewUser("", "username", "name", "test@formicary.io", false)
 	_, err = repo.Create(ec)
 
 	// THEN it should not fail
@@ -64,8 +63,7 @@ func Test_ShouldNotSaveUserWithoutUsername(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without username
-	ec := common.NewUser("org", "", "name", false)
-	ec.Email = "test@formicary.io"
+	ec := common.NewUser("org", "", "name", "test@formicary.io", false)
 	_, err = repo.Create(ec)
 
 	// THEN it should fail
@@ -82,8 +80,7 @@ func Test_ShouldNotSaveUserWithoutName(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without name
-	ec := common.NewUser("org", "user", "", false)
-	ec.Email = "test@formicary.io"
+	ec := common.NewUser("org", "user", "", "test@formicary.io", false)
 	_, err = repo.Create(ec)
 
 	// THEN it should fail
@@ -100,8 +97,7 @@ func Test_ShouldSaveValidUserWithSubscription(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN creating a valid user
-	u := common.NewUser("test-org", "username", "name", false)
-	u.Email = "test@formicary.io"
+	u := common.NewUser("test-org", "username", "name", "test@formicary.io", false)
 	// Saving valid user
 	saved, err := userRepository.Create(u)
 
@@ -128,8 +124,7 @@ func Test_ShouldSaveValidUser(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a valid user
-	u := common.NewUser(qc.OrganizationID, "username", "name", false)
-	u.Email = "test@formicary.io"
+	u := common.NewUser(qc.OrganizationID, "username", "name", "test@formicary.io", false)
 	// Saving valid user
 	saved, err := repo.Create(u)
 
@@ -163,8 +158,7 @@ func Test_ShouldDeletingPersistentUser(t *testing.T) {
 		t.Fatalf("unexpected error %v while creating user repository", err)
 	}
 
-	u := common.NewUser("test-org", "user", "name", false)
-	u.Email = "test@formicary.io"
+	u := common.NewUser("test-org", "user", "name", "test@formicary.io", false)
 
 	// Saving valid user
 	saved, err := repo.Create(u)
@@ -196,8 +190,12 @@ func Test_ShouldSaveAndQueryUsers(t *testing.T) {
 	// AND a set of users in the database
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 5; j++ {
-			u := common.NewUser(fmt.Sprintf("org_%d", i), fmt.Sprintf("username_%d_%d", i, j), "name", true)
-			u.Email = fmt.Sprintf("username_%d_%d@formicary.io", i, j)
+			u := common.NewUser(
+				fmt.Sprintf("org_%d", i),
+				fmt.Sprintf("username_%d_%d", i, j),
+				"name",
+				fmt.Sprintf("username_%d_%d@formicary.io", i, j),
+				true)
 			if _, err := repo.Create(u); err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
@@ -238,8 +236,7 @@ func Test_ShouldAddSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND an existing user
-	u := common.NewUser("test-org", "username", "name", false)
-	u.Email = "test@formicary.io"
+	u := common.NewUser("test-org", "username", "name", "test@formicary.io", false)
 	// Saving valid user
 	saved, err := repo.Create(u)
 	require.NoError(t, err)
@@ -274,8 +271,7 @@ func Test_ShouldAddToken(t *testing.T) {
 	repo.Clear()
 
 	// AND an existing user
-	u := common.NewUser("test-org", "username-tok", "name", false)
-	u.Email = "test@formicary.io"
+	u := common.NewUser("test-org", "username-tok", "name", "test@formicary.io", false)
 	// Saving valid user
 	saved, err := repo.Create(u)
 	require.NoError(t, err)

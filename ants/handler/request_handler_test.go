@@ -21,8 +21,7 @@ func Test_ShouldStartAndStopRequestHandler(t *testing.T) {
 	metricsRegistry := metrics.New()
 	antCfg := newTestAntConfig()
 	require.NoError(t, antCfg.Validate())
-	queueClient, err := queue.NewStubClient(&antCfg.CommonConfig)
-	require.NoError(t, err)
+	queueClient := queue.NewStubClient(&antCfg.CommonConfig)
 
 	requestRegistry := tasklet.NewRequestRegistry(&antCfg.CommonConfig, metricsRegistry)
 	artifactService, err := artifacts.NewStub(&antCfg.S3)

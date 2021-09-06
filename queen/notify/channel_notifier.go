@@ -1,59 +1,70 @@
 package notify
 
 import (
-	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
+	"sync"
+
+	"github.com/sirupsen/logrus"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/utils"
-	"sync"
 )
 
 // Notifier defines operations to notify job results
 type Notifier interface {
 	NotifyJob(
-		ctx context.Context,
+		qc *common.QueryContext,
 		user *common.User,
 		org *common.Organization,
 		job *types.JobDefinition,
 		request types.IJobRequest,
 		lastRequestState common.RequestState) error
 	SendEmailVerification(
-		ctx context.Context,
+		qc *common.QueryContext,
 		user *common.User,
 		org *common.Organization,
 		ev *types.EmailVerification,
+	) error
+	EmailUserInvitation(
+		qc *common.QueryContext,
+		user *common.User,
+		org *common.Organization,
+		inv *types.UserInvitation,
 	) error
 }
 
 // DefaultNotifier defines operations to send email
 type DefaultNotifier struct {
-	cfg                 *config.ServerConfig
-	senders             map[common.NotifyChannel]types.Sender
-	emailRepository     repository.EmailVerificationRepository
-	jobsTemplates        map[string]string
-	verifyEmailTemplate string
-	lock sync.RWMutex
+	cfg                    *config.ServerConfig
+	senders                map[common.NotifyChannel]types.Sender
+	emailRepository        repository.EmailVerificationRepository
+	jobsTemplates          map[string]string
+	verifyEmailTemplate    string
+	userInvitationTemplate string
+	lock                   sync.RWMutex
 }
 
 // New constructor
 func New(
 	cfg *config.ServerConfig,
-	senders map[common.NotifyChannel]types.Sender,
 	emailRepository repository.EmailVerificationRepository,
-) (Notifier, error) {
+) (*DefaultNotifier, error) {
 	n := &DefaultNotifier{
 		cfg:             cfg,
-		senders:         senders,
+		senders:         make(map[common.NotifyChannel]types.Sender),
 		emailRepository: emailRepository,
-		jobsTemplates: make(map[string]string),
+		jobsTemplates:   make(map[string]string),
 	}
 	if b, err := loadTemplate(cfg.Notify.VerifyEmailTemplateFile, cfg.PublicDir); err == nil {
 		n.verifyEmailTemplate = string(b)
+	} else {
+		return nil, err
+	}
+	if b, err := loadTemplate(cfg.Notify.UserInvitationTemplateFile, cfg.PublicDir); err == nil {
+		n.userInvitationTemplate = string(b)
 	} else {
 		return nil, err
 	}
@@ -61,10 +72,14 @@ func New(
 	return n, nil
 }
 
+// AddSender adds sender for channel
+func (n *DefaultNotifier) AddSender(channel common.NotifyChannel, sender types.Sender) {
+	n.senders[channel] = sender
+}
 
 // SendEmailVerification sends email with code to verify
 func (n *DefaultNotifier) SendEmailVerification(
-	ctx context.Context,
+	qc *common.QueryContext,
 	user *common.User,
 	org *common.Organization,
 	ev *types.EmailVerification) (err error) {
@@ -75,9 +90,10 @@ func (n *DefaultNotifier) SendEmailVerification(
 		"UserID":    ev.UserID,
 		"Name":      user.Name,
 		"User":      user,
+		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
 		"Email":     ev.Email,
 		"EmailCode": ev.EmailCode,
-		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
+		"VerifyID":  ev.ID,
 		"Title":     "Email Verification",
 	}
 
@@ -97,12 +113,13 @@ func (n *DefaultNotifier) SendEmailVerification(
 		return nil
 	}
 	if err = sender.SendMessage(
-		ctx,
+		qc,
 		user,
 		org,
 		[]string{ev.Email},
 		"Email Verification",
-		msg); err != nil {
+		msg,
+		make(map[string]interface{})); err != nil {
 		return err
 	}
 
@@ -115,9 +132,71 @@ func (n *DefaultNotifier) SendEmailVerification(
 	return
 }
 
+// EmailUserInvitation sends email with invitation
+func (n *DefaultNotifier) EmailUserInvitation(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization,
+	inv *types.UserInvitation,
+) error {
+	if user == nil {
+		return fmt.Errorf("user is not specified")
+	}
+	params := map[string]interface{}{
+		"UserID":         user.ID,
+		"Name":           user.Name,
+		"User":           user,
+		"URLPrefix":      n.cfg.CommonConfig.ExternalBaseURL,
+		"Email":          inv.Email,
+		"InvitationCode": inv.InvitationCode,
+		"ID":             inv.ID,
+		"Title":          "User Invitation",
+	}
+
+	msg, err := utils.ParseTemplate(n.userInvitationTemplate, params)
+	if err != nil {
+		return err
+	}
+
+	sender := n.senders[common.EmailChannel]
+	if sender == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":      "DefaultNotifier",
+			"UserID":         user.ID,
+			"Name":           user.Name,
+			"User":           user,
+			"Email":          inv.Email,
+			"InvitationCode": inv.InvitationCode,
+			"ID":             inv.ID,
+		}).Warnf("no email setup, ignoring sending user-invitation")
+		return nil
+	}
+	if err = sender.SendMessage(
+		qc,
+		user,
+		org,
+		[]string{inv.Email},
+		"Your are invited to the Formicary",
+		msg,
+		make(map[string]interface{})); err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"Component":      "DefaultNotifier",
+		"UserID":         user.ID,
+		"Name":           user.Name,
+		"User":           user,
+		"Email":          inv.Email,
+		"InvitationCode": inv.InvitationCode,
+		"ID":             inv.ID,
+	}).Infof("sent user invitation")
+	return nil
+}
+
 // NotifyJob sends message to recipients
 func (n *DefaultNotifier) NotifyJob(
-	ctx context.Context,
+	qc *common.QueryContext,
 	user *common.User,
 	org *common.Organization,
 	job *types.JobDefinition,
@@ -129,14 +208,21 @@ func (n *DefaultNotifier) NotifyJob(
 	}
 	subject := fmt.Sprintf("%sJob %s - %d %s", prefix, job.JobType, request.GetID(), request.GetJobState())
 
+	link := fmt.Sprintf("%s/dashboard/jobs/requests/%d", n.cfg.CommonConfig.ExternalBaseURL, request.GetID())
 	params := map[string]interface{}{
 		"Job":       request,
 		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
 		"Title":     subject,
+		"Link":      link,
 	}
 
 	if user != nil {
 		params["User"] = user
+	}
+	opts := map[string]interface{}{
+		types.Color: request.GetJobState().SlackColor(),
+		types.Link:  link,
+		types.Emoji: request.GetJobState().Emoji(),
 	}
 
 	var recipients []string
@@ -144,14 +230,14 @@ func (n *DefaultNotifier) NotifyJob(
 	var failed []string
 	var senders []common.NotifyChannel
 	total := 0
-	notify := job.Notify
-	if len(notify) == 0 && user != nil {
-		notify = user.Notify
+	jobNotify := job.Notify
+	if len(jobNotify) == 0 && user != nil {
+		jobNotify = user.Notify
 	}
 	var verifiedEmails map[string]bool
 
 	whens := make([]common.NotifyWhen, 0)
-	for k, v := range notify {
+	for k, v := range jobNotify {
 		sender := n.senders[k]
 		if sender == nil {
 			return fmt.Errorf("no sender for %s", sender)
@@ -186,12 +272,13 @@ func (n *DefaultNotifier) NotifyJob(
 					}
 				}
 				if sendErr := sender.SendMessage(
-					ctx,
+					qc,
 					user,
 					org,
 					[]string{recipient},
 					subject,
-					msg); sendErr != nil {
+					msg,
+					opts); sendErr != nil {
 					err = sendErr
 					failed = append(failed, recipient)
 				} else {
@@ -244,4 +331,3 @@ func loadTemplate(name string, dir string) ([]byte, error) {
 	}
 	return b, nil
 }
-

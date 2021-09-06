@@ -30,7 +30,7 @@ func NewUserRepositoryCached(
 func (urc *UserRepositoryCached) Get(
 	qc *common.QueryContext,
 	id string) (*common.User, error) {
-	item, err := urc.cache.Fetch("User:"+id + qc.String(),
+	item, err := urc.cache.Fetch("User:"+id+qc.String(),
 		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
 			return urc.adapter.Get(qc, id)
 		})
@@ -44,7 +44,7 @@ func (urc *UserRepositoryCached) Get(
 func (urc *UserRepositoryCached) GetByUsername(
 	qc *common.QueryContext,
 	username string) (*common.User, error) {
-	item, err := urc.cache.Fetch("Username:"+username + qc.String(),
+	item, err := urc.cache.Fetch("Username:"+username+qc.String(),
 		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
 			return urc.adapter.GetByUsername(qc, username)
 		})
@@ -66,8 +66,7 @@ func (urc *UserRepositoryCached) Delete(
 	if err != nil {
 		return err
 	}
-	urc.cache.DeletePrefix("User:" + id)
-	urc.cache.DeletePrefix("Username:" + org.Username)
+	urc.ClearCacheFor(id, org.Username)
 	return nil
 }
 
@@ -78,8 +77,7 @@ func (urc *UserRepositoryCached) Create(
 	if err != nil {
 		return nil, err
 	}
-	urc.cache.DeletePrefix("User:" + saved.ID)
-	urc.cache.DeletePrefix("Username:" + saved.Username)
+	urc.ClearCacheFor(saved.ID, saved.Username)
 	return saved, nil
 }
 
@@ -91,8 +89,7 @@ func (urc *UserRepositoryCached) Update(
 	if err != nil {
 		return nil, err
 	}
-	urc.cache.DeletePrefix("User:" + saved.ID)
-	urc.cache.DeletePrefix("Username:" + saved.Username)
+	urc.ClearCacheFor(saved.ID, saved.Username)
 	return saved, nil
 }
 
@@ -163,4 +160,16 @@ func (urc *UserRepositoryCached) Clear() {
 	urc.cache.DeletePrefix("User")
 	urc.cache.DeletePrefix("Username")
 	urc.adapter.Clear()
+}
+
+// ClearCacheFor - clears cache
+func (urc *UserRepositoryCached) ClearCacheFor(
+	id string,
+	username string) {
+	if id != "" {
+		urc.cache.DeletePrefix("User:" + id)
+	}
+	if username != "" {
+		urc.cache.DeletePrefix("Username:" + username)
+	}
 }

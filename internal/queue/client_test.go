@@ -194,7 +194,7 @@ func newStub() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewStubClient(cfg)
+	return NewStubClient(cfg), nil
 	//cfg.Kafka.Group = ""
 	//return newKafkaClient(cfg)
 	//return newPulsarClient(&cfg.Pulsar)

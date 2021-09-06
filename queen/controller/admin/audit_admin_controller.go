@@ -31,16 +31,12 @@ func NewAuditAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryAudits - queries audit
 func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(ctx)
-	var qs string
-	if params["q"] != nil {
-		qs = params["q"].(string)
-	}
+	params, order, page, pageSize, q, qs := controller.ParseParams(ctx)
 	var kind string
 	if params["kind"] != nil {
 		kind = params["kind"].(string)
 	}
-	audits, total, err := c.auditRecordRepository.Query(
+	recs, total, err := c.auditRecordRepository.Query(
 		params,
 		page,
 		pageSize,
@@ -50,7 +46,8 @@ func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
 	}
 	baseURL := fmt.Sprintf("/dashboard/audits?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Audits": audits,
+	res := map[string]interface{}{
+		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
 		"Q":          qs,

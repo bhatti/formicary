@@ -42,5 +42,8 @@ smtp:
     password: ""
     host: ""
     port: 0
-    jobs_template_file: views/email/notify_job.html
-    verify_email_template_file: views/email/verify_email.html
+notify:
+    email_jobs_template_file: views/notify/email_notify_job.html
+    slack_jobs_template_file: views/notify/slack_notify_job.txt
+    verify_email_template_file: views/notify/verify_email.html
+    user_invitation_template_file: views/notify/user_invitation.html

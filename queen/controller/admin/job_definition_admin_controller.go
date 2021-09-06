@@ -59,29 +59,29 @@ func NewJobDefinitionAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryJobDefinitions - queries job-definition
 func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	if params["public_plugin"] == nil {
 		params["public_plugin"] = false
 	}
 	qc := web.BuildQueryContext(c)
-	jobs, total, err := jdaCtr.jobManager.QueryJobDefinitions(qc, params, page, pageSize, order)
+	recs, total, err := jdaCtr.jobManager.QueryJobDefinitions(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
 	baseURL := fmt.Sprintf("/dashboard/jobs/definitions?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
 	res := map[string]interface{}{
-		"Jobs":       jobs,
+		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          c.QueryParam("q"),
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/index", res)
 }
 func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	params["public_plugin"] = true
 	jobs, total, err := jdaCtr.jobManager.QueryJobDefinitions(common.NewQueryContext("", "", ""), params, page, pageSize, order)
 	if err != nil {
@@ -93,7 +93,7 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 		"Jobs":       jobs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          c.QueryParam("q"),
+		"Q":          qs,
 	}
 	for _, job := range jobs {
 		job.CanEdit = (job.OrganizationID != "" && qc.OrganizationID != "" && qc.OrganizationID == job.OrganizationID) || qc.UserID == job.UserID || qc.Admin()

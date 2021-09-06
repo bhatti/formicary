@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -54,6 +55,7 @@ func (ur *UserRepositoryImpl) GetByUsername(
 		Where("active = ?", true).
 		First(&user)
 	if res.Error != nil {
+		debug.PrintStack()
 		return nil, common.NewNotFoundError(res.Error)
 	}
 	if err := user.AfterLoad(); err != nil {
@@ -186,53 +188,6 @@ func (ur *UserRepositoryImpl) Update(
 		return old.AfterLoad()
 	})
 	return old, err
-}
-
-// Query finds matching configs
-func (ur *UserRepositoryImpl) Query(
-	qc *common.QueryContext,
-	params map[string]interface{},
-	page int,
-	pageSize int,
-	order []string) (recs []*common.User, totalRecords int64, err error) {
-	recs = make([]*common.User, 0)
-	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Limit(pageSize).
-		Offset(page*pageSize).Where("active = ?", true)
-	q := params["q"]
-	if q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("name LIKE ? OR username LIKE ? OR email LIKE ? OR sticky_message LIKE ?",
-			qs, qs, qs, qs)
-	} else {
-		tx = addQueryParamsWhere(params, tx)
-	}
-	for _, ord := range order {
-		tx = tx.Order(ord)
-	}
-	res := tx.Find(&recs)
-	if res.Error != nil {
-		err = res.Error
-		return nil, 0, err
-	}
-	for _, rec := range recs {
-		_ = rec.AfterLoad()
-	}
-	totalRecords, _ = ur.Count(qc, params)
-	return
-}
-
-// Count counts records by query
-func (ur *UserRepositoryImpl) Count(
-	qc *common.QueryContext,
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db.Model(&common.User{})).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		err = res.Error
-		return 0, err
-	}
-	return
 }
 
 // AddSession adds session
@@ -382,6 +337,56 @@ func (ur *UserRepositoryImpl) HasToken(
 		return false
 	}
 	return totalRecords > 0
+}
+
+// Query finds matching configs
+func (ur *UserRepositoryImpl) Query(
+	qc *common.QueryContext,
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (recs []*common.User, totalRecords int64, err error) {
+	recs = make([]*common.User, 0)
+	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Limit(pageSize).
+		Offset(page*pageSize).Where("active = ?", true)
+	tx = ur.addQuery(params, tx)
+	for _, ord := range order {
+		tx = tx.Order(ord)
+	}
+	res := tx.Find(&recs)
+	if res.Error != nil {
+		err = res.Error
+		return nil, 0, err
+	}
+	for _, rec := range recs {
+		_ = rec.AfterLoad()
+	}
+	totalRecords, _ = ur.Count(qc, params)
+	return
+}
+
+// Count counts records by query
+func (ur *UserRepositoryImpl) Count(
+	qc *common.QueryContext,
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db.Model(&common.User{})).Where("active = ?", true)
+	tx = ur.addQuery(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		err = res.Error
+		return 0, err
+	}
+	return
+}
+
+func (ur *UserRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("name LIKE ? OR username LIKE ? OR email LIKE ? OR sticky_message LIKE ?",
+			qs, qs, qs, qs)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }
 
 // countToken validates token

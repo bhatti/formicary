@@ -115,7 +115,7 @@ func (tsm *TaskExecutionStateMachine) TaskKey() string {
 
 // SetTaskToExecuting - Set task to EXECUTING from READY
 func (tsm *TaskExecutionStateMachine) SetTaskToExecuting(
-	ctx context.Context) error {
+	_ context.Context) error {
 	tsm.TaskExecution.TaskState = common.EXECUTING
 	saveError := tsm.JobManager.UpdateTaskExecutionState(
 		tsm.TaskExecution.ID,
@@ -136,7 +136,7 @@ func (tsm *TaskExecutionStateMachine) SetTaskToExecuting(
 
 // FinalizeTaskState - saves task (completed or failed) and updates job execution context
 func (tsm *TaskExecutionStateMachine) FinalizeTaskState(
-	ctx context.Context) (err error) {
+	_ context.Context) (err error) {
 	now := time.Now()
 	if tsm.TaskExecution.TaskState.Completed() {
 		tsm.TaskExecution.ErrorCode = ""

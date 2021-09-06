@@ -10,15 +10,15 @@ import (
 type StubClientImpl struct {
 	SentMessagesByTopic map[string][]MessageEvent      // topic => list of events
 	SubscribersByTopic  map[string]map[string]Callback // topic => [subscriber-id => callback]
-	lock             sync.RWMutex
+	lock                sync.RWMutex
 }
 
 // NewStubClient stub implementation of queue
-func NewStubClient(_ *types.CommonConfig) (Client, error) {
+func NewStubClient(_ *types.CommonConfig) Client {
 	return &StubClientImpl{
 		SentMessagesByTopic: make(map[string][]MessageEvent),
 		SubscribersByTopic:  make(map[string]map[string]Callback),
-	}, nil
+	}
 }
 
 // Subscribe a consumer

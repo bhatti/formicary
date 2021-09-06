@@ -408,49 +408,6 @@ func (jer *JobExecutionRepositoryImpl) Save(
 	return jobExec, err
 }
 
-// Query finds matching job-execution by parameters
-func (jer *JobExecutionRepositoryImpl) Query(
-	params map[string]interface{},
-	page int,
-	pageSize int,
-	order []string) (jobs []*types.JobExecution, totalRecords int64, err error) {
-	jobs = make([]*types.JobExecution, 0)
-	tx := jer.db.Preload("Tasks").
-		Preload("Contexts").
-		Preload("Tasks.Contexts").
-		Limit(pageSize).
-		Offset(page*pageSize).
-		Where("active = ?", true)
-
-	tx = addQueryParamsWhere(params, tx)
-	for _, ord := range order {
-		tx = tx.Order(ord)
-	}
-	res := tx.Find(&jobs)
-	if res.Error != nil {
-		return nil, 0, err
-	}
-	for _, j := range jobs {
-		if err = j.AfterLoad(); err != nil {
-			return
-		}
-	}
-	totalRecords, _ = jer.Count(params)
-	return
-}
-
-// Count counts records by query
-func (jer *JobExecutionRepositoryImpl) Count(
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := jer.db.Model(&types.JobExecution{}).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		return 0, err
-	}
-	return
-}
-
 // DeleteTask job-execution
 func (jer *JobExecutionRepositoryImpl) DeleteTask(
 	id string) error {
@@ -599,7 +556,51 @@ func (jer *JobExecutionRepositoryImpl) createJobContexts(
 	return nil
 }
 
+// Query finds matching job-execution by parameters
+func (jer *JobExecutionRepositoryImpl) Query(
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (jobs []*types.JobExecution, totalRecords int64, err error) {
+	jobs = make([]*types.JobExecution, 0)
+	tx := jer.db.Preload("Tasks").
+		Preload("Contexts").
+		Preload("Tasks.Contexts").
+		Limit(pageSize).
+		Offset(page*pageSize).
+		Where("active = ?", true)
+
+	tx = addQueryParamsWhere(params, tx)
+	for _, ord := range order {
+		tx = tx.Order(ord)
+	}
+	res := tx.Find(&jobs)
+	if res.Error != nil {
+		return nil, 0, err
+	}
+	for _, j := range jobs {
+		if err = j.AfterLoad(); err != nil {
+			return
+		}
+	}
+	totalRecords, _ = jer.Count(params)
+	return
+}
+
+// Count counts records by query
+func (jer *JobExecutionRepositoryImpl) Count(
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := jer.db.Model(&types.JobExecution{}).Where("active = ?", true)
+	tx = addQueryParamsWhere(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		return 0, err
+	}
+	return
+}
+
 // clear - for testing
 func (jer *JobExecutionRepositoryImpl) clear() {
 	clearDB(jer.db)
 }
+

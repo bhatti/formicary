@@ -3,14 +3,14 @@ package manager
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/internal/utils"
-	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"time"
 
 	yaml "gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/internal/utils"
+	"plexobject.com/formicary/internal/web"
 
 	"plexobject.com/formicary/queen/stats"
 
@@ -993,14 +993,14 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 
 // NotifyJobMessage notifies job results
 func (jm *JobManager) NotifyJobMessage(
-	ctx context.Context,
+	qc *common.QueryContext,
 	user *common.User,
 	org *common.Organization,
 	job *types.JobDefinition,
 	request types.IJobRequest,
 	lastRequestState common.RequestState,
 ) error {
-	return jm.jobsNotifier.NotifyJob(ctx, user, org, job, request, lastRequestState)
+	return jm.jobsNotifier.NotifyJob(qc, user, org, job, request, lastRequestState)
 }
 
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
@@ -1040,9 +1040,8 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		// Send notification asynchronously
 		// TODO add background process for message notifications with database persistence
 		go func() {
-			ctx := context.Background()
 			if notifyErr := jm.NotifyJobMessage(
-				ctx,
+				qc,
 				user,
 				org,
 				job,
@@ -1285,21 +1284,8 @@ func (jm *JobManager) CheckSubscriptionQuota(
 			}
 		}
 		if dirty {
-			if dbErr := jm.userManager.UpdateStickyMessage(qc, user, org); dbErr != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":    "JobManager",
-					"User":         user,
-					"Organization": org,
-					"Error":        dbErr,
-				}).Warnf("failed to set sticky message")
-			} else {
-				logrus.WithFields(logrus.Fields{
-					"Component":    "JobManager",
-					"User":         user,
-					"Organization": org,
-					"Error":        dbErr,
-				}).Infof("updated sticky message")
-			}
+			// ignore if update failed
+			_ = jm.userManager.UpdateStickyMessage(qc, user, org)
 		}
 	}
 	return

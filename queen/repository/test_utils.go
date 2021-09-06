@@ -2,12 +2,9 @@ package repository
 
 import (
 	"fmt"
-	"math/rand"
-	"plexobject.com/formicary/internal/crypto"
-	"plexobject.com/formicary/internal/events"
-	"time"
-
 	"gorm.io/gorm"
+	"math/rand"
+	"plexobject.com/formicary/internal/events"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
@@ -27,20 +24,9 @@ const testDBSource = "/tmp/formicary_sqlite.db"
 func NewTestFactory() (*Factory, error) {
 	if testFactory == nil {
 		var err error
-		serverCfg := &config.ServerConfig{}
-		serverCfg.S3.AccessKeyID = "admin"
-		serverCfg.S3.SecretAccessKey = "password"
-		serverCfg.S3.Bucket = "test-bucket"
-		serverCfg.Pulsar.URL = "test"
-		serverCfg.Redis.Host = "test"
+		serverCfg := config.TestServerConfig()
 		serverCfg.DB.DBType = testDB
 		serverCfg.DB.DataSource = fmt.Sprintf("%s_%d", testDBSource, rand.Int())
-		serverCfg.DB.MaxIdleConns = 10
-		serverCfg.DB.MaxOpenConns = 20
-		serverCfg.DB.MaxOpenConns = 20
-		serverCfg.DB.EncryptionKey = string(crypto.SHA256Key("test-key"))
-		serverCfg.DB.ConnMaxIdleTime = 1 * time.Hour
-		serverCfg.DB.ConnMaxLifeTime = 4 * time.Hour
 		if err = serverCfg.Validate(); err != nil {
 			return nil, err
 		}
@@ -144,6 +130,15 @@ func NewTestOrganizationRepository() (OrganizationRepository, error) {
 		return nil, err
 	}
 	return f.OrgRepository, nil
+}
+
+// NewTestInvitationRepository Creating a test repository for user-invitation
+func NewTestInvitationRepository() (InvitationRepository, error) {
+	f, err := NewTestFactory()
+	if err != nil {
+		return nil, err
+	}
+	return f.InvitationRepository, nil
 }
 
 // NewTestSubscriptionRepository Creating a test repository for subscription

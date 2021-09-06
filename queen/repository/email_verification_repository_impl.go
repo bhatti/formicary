@@ -51,13 +51,6 @@ func (ur *EmailVerificationRepositoryImpl) Create(
 	if res.Error != nil {
 		return nil, res.Error
 	}
-	logrus.WithFields(logrus.Fields{
-		"Component": "EmailVerificationRepositoryImpl",
-		"Ev":        ev,
-		"Code":      ev.EmailCode,
-		"Verified":  ev.VerifiedAt,
-		"Expires":   ev.ExpiresAt,
-	}).Warnf(">>>> added email verification")
 	return ev, nil
 }
 
@@ -66,7 +59,7 @@ func (ur *EmailVerificationRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*types.EmailVerification, error) {
 	var ev types.EmailVerification
-	res := qc.AddUserWhere(ur.db).Where("id = ?", id).First(&ev)
+	res := qc.AddUserWhere(ur.db).Where("id = ? OR email_code = ?", id, id).First(&ev)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -113,6 +106,32 @@ func (ur *EmailVerificationRepositoryImpl) GetVerifiedEmails(
 	return
 }
 
+// Verify performs email verification
+func (ur *EmailVerificationRepositoryImpl) Verify(
+	qc *common.QueryContext,
+	userID string,
+	code string) (rec *types.EmailVerification, err error) {
+	res := qc.AddUserWhere(ur.db).Model(&types.EmailVerification{}).
+		Where("user_id = ?", userID).
+		Where("email_code = ?", code).
+		Where("expires_at > ?", time.Now()).
+		Where("verified_at is NULL").
+		Updates(map[string]interface{}{"verified_at": time.Now()})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	updated := res.RowsAffected
+	var ev types.EmailVerification
+	res = ur.db.Where("email_code = ?", code).First(&ev)
+	if res.Error != nil {
+		return nil, common.NewNotFoundError(res.Error)
+	}
+	if ev.VerifiedAt == nil && updated != 1 {
+		return nil, common.NewNotFoundError("could not verify email")
+	}
+	return &ev, nil
+}
+
 // Query finds matching configs
 func (ur *EmailVerificationRepositoryImpl) Query(
 	qc *common.QueryContext,
@@ -122,7 +141,7 @@ func (ur *EmailVerificationRepositoryImpl) Query(
 	order []string) (recs []*types.EmailVerification, totalRecords int64, err error) {
 	recs = make([]*types.EmailVerification, 0)
 	tx := qc.AddUserWhere(ur.db).Limit(pageSize).Offset(page * pageSize)
-	tx = addQueryParamsWhere(params, tx)
+	tx = ur.addQuery(params, tx)
 	if len(order) > 0 {
 		for _, ord := range order {
 			tx = tx.Order(ord)
@@ -144,7 +163,7 @@ func (ur *EmailVerificationRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
 	tx := qc.AddUserWhere(ur.db).Model(&types.EmailVerification{})
-	tx = addQueryParamsWhere(params, tx)
+	tx = ur.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {
 		err = res.Error
@@ -153,33 +172,18 @@ func (ur *EmailVerificationRepositoryImpl) Count(
 	return
 }
 
-// Verify performs email verification
-func (ur *EmailVerificationRepositoryImpl) Verify(
-	qc *common.QueryContext,
-	userID string,
-	code string) (rec *types.EmailVerification, err error) {
-	res := qc.AddUserWhere(ur.db).Model(&types.EmailVerification{}).
-		Where("user_id = ?", userID).
-		Where("email_code = ?", code).
-		Where("expires_at > ?", time.Now()).
-		Where("verified_at is NULL").
-		Updates(map[string]interface{}{"verified_at": time.Now()})
-	if res.Error != nil {
-		logrus.WithFields(logrus.Fields{
-			"Component": "EmailVerificationRepositoryImpl",
-			"Method":    "Verify",
-			"Error":     res.Error,
-		}).Warnf("failed to verify email")
-		return nil, res.Error
+func (ur *EmailVerificationRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("email LIKE ? OR email_code LIKE ? OR user_id LIKE ?",
+			qs, qs, qs)
 	}
-	updated := res.RowsAffected
-	var ev types.EmailVerification
-	res = ur.db.Where("email_code = ?", code).First(&ev)
-	if res.Error != nil {
-		return nil, common.NewNotFoundError(res.Error)
+	verified := params["verified"]
+	if verified == "true" || verified == true {
+		tx = tx.Where("verified_at is NOT NULL")
+	} else if verified == "false" || verified == false {
+		tx = tx.Where("verified_at is NULL")
 	}
-	if ev.VerifiedAt == nil && updated != 1 {
-		return nil, common.NewNotFoundError("could not verify email")
-	}
-	return &ev, nil
+	return addQueryParamsWhere(filterParams(params, "q", "verified"), tx)
 }

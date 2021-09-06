@@ -1576,6 +1576,9 @@ definitions:
       job_version:
         type: string
         x-go-name: JobVersion
+      messaging_queue:
+        type: string
+        x-go-name: MessagingQueue
       method:
         $ref: '#/definitions/TaskMethod'
       on_completed:
@@ -1864,11 +1867,6 @@ definitions:
   UserInvitation:
     description: UserInvitation represents a user session
     properties:
-      accepted_at:
-        description: ExpiresAt expiration time
-        format: date-time
-        type: string
-        x-go-name: AcceptedAt
       created_at:
         description: CreatedAt created time
         format: date-time
@@ -1897,6 +1895,10 @@ definitions:
         description: InvitedByUserID defines foreign key
         type: string
         x-go-name: InvitedByUserID
+      org_unit:
+        description: OrgUnit defines org-unit
+        type: string
+        x-go-name: OrgUnit
       organization_id:
         description: OrganizationID defines foreign key
         type: string
@@ -2445,8 +2447,8 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
-      - description: Paused is used to stop further processing of job and it can be
-          used during maintenance, upgrade or debugging.
+      - description: Paused is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
         in: query
         name: paused
         type: boolean
@@ -2456,7 +2458,8 @@ paths:
         name: public_plugin
         type: boolean
         x-go-name: PublicPlugin
-      - description: Tags is aggregation of task tags and it can be searched via `tags:in`
+      - description: Tags is aggregation of task tags, and it can be searched via
+          `tags:in`
         in: query
         name: tags
         type: string
@@ -2711,8 +2714,8 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
-      - description: Paused is used to stop further processing of job and it can be
-          used during maintenance, upgrade or debugging.
+      - description: Paused is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
         in: query
         name: paused
         type: boolean
@@ -2722,7 +2725,8 @@ paths:
         name: public_plugin
         type: boolean
         x-go-name: PublicPlugin
-      - description: Tags is aggregation of task tags and it can be searched via `tags:in`
+      - description: Tags is aggregation of task tags, and it can be searched via
+          `tags:in`
         in: query
         name: tags
         type: string
@@ -3470,6 +3474,10 @@ paths:
         name: email
         type: string
         x-go-name: Email
+      - in: query
+        name: slackChannel
+        type: string
+        x-go-name: SlackChannel
       - in: query
         name: when
         type: string

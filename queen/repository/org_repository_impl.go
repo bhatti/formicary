@@ -254,58 +254,6 @@ func (orc *OrganizationRepositoryImpl) Update(
 	return old, err
 }
 
-// Query finds matching configs
-func (orc *OrganizationRepositoryImpl) Query(
-	qc *common.QueryContext, // TODO fix
-	params map[string]interface{},
-	page int,
-	pageSize int,
-	order []string) (recs []*common.Organization, totalRecords int64, err error) {
-	recs = make([]*common.Organization, 0)
-	tx := orc.db.Limit(pageSize).
-		Offset(page*pageSize).
-		Where("active = ?", true).
-		Preload("Configs")
-	q := params["q"]
-	if q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("bundle_id LIKE ? OR owner_user_id LIKE ? OR id LIKE ? OR org_unit LIKE ? OR sticky_message LIKE ?",
-			qs, qs, qs, qs, qs)
-	} else {
-		tx = addQueryParamsWhere(params, tx)
-	}
-
-	for _, ord := range order {
-		tx = tx.Order(ord)
-	}
-	res := tx.Find(&recs)
-	if res.Error != nil {
-		err = res.Error
-		return nil, 0, err
-	}
-	totalRecords, _ = orc.Count(qc, params)
-	for _, org := range recs {
-		if err := org.AfterLoad(orc.encryptionKey(org)); err != nil {
-			return nil, 0, err
-		}
-	}
-	return
-}
-
-// Count counts records by query
-func (orc *OrganizationRepositoryImpl) Count(
-	_ *common.QueryContext, // TODO fix
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := orc.db.Model(&common.Organization{}).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		err = res.Error
-		return 0, err
-	}
-	return
-}
-
 // AddInvitation adds invitation
 func (orc *OrganizationRepositoryImpl) AddInvitation(invitation *types.UserInvitation) error {
 	err := invitation.ValidateBeforeSave()
@@ -390,6 +338,61 @@ func (orc *OrganizationRepositoryImpl) AcceptInvitation(email string, code strin
 			fmt.Errorf("failed to accept invitation rows %v", res.RowsAffected))
 	}
 	return orc.FindInvitation(email, code)
+}
+
+// Query finds matching configs
+func (orc *OrganizationRepositoryImpl) Query(
+	qc *common.QueryContext, // TODO fix
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (recs []*common.Organization, totalRecords int64, err error) {
+	recs = make([]*common.Organization, 0)
+	tx := orc.db.Limit(pageSize).
+		Offset(page*pageSize).
+		Where("active = ?", true).
+		Preload("Configs")
+	tx = orc.addQuery(params, tx)
+
+	for _, ord := range order {
+		tx = tx.Order(ord)
+	}
+	res := tx.Find(&recs)
+	if res.Error != nil {
+		err = res.Error
+		return nil, 0, err
+	}
+	totalRecords, _ = orc.Count(qc, params)
+	for _, org := range recs {
+		if err := org.AfterLoad(orc.encryptionKey(org)); err != nil {
+			return nil, 0, err
+		}
+	}
+	return
+}
+
+// Count counts records by query
+func (orc *OrganizationRepositoryImpl) Count(
+	_ *common.QueryContext, // TODO fix
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := orc.db.Model(&common.Organization{}).Where("active = ?", true)
+	tx = orc.addQuery(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		err = res.Error
+		return 0, err
+	}
+	return
+}
+
+func (orc *OrganizationRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("bundle_id LIKE ? OR owner_user_id LIKE ? OR id LIKE ? OR org_unit LIKE ? OR sticky_message LIKE ?",
+			qs, qs, qs, qs, qs)
+	}
+	return addQueryParamsWhere(filterParams(params, "q", "verified"), tx)
 }
 
 func (orc *OrganizationRepositoryImpl) encryptionKey(

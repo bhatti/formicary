@@ -1,14 +1,15 @@
 package types
 
 import (
-	"github.com/stretchr/testify/require"
-	common "plexobject.com/formicary/internal/types"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	common "plexobject.com/formicary/internal/types"
 )
 
 func Test_ShouldFailEmailVerificationValidationWithoutEmail(t *testing.T) {
-	user := common.NewUser("", "username", "", false)
+	user := common.NewUser("", "username", "", "email@formicary.io", false)
 	user.ID = "blah"
 	emailVerification := NewEmailVerification("", user)
 	require.Error(t, emailVerification.Validate())
@@ -17,7 +18,7 @@ func Test_ShouldFailEmailVerificationValidationWithoutEmail(t *testing.T) {
 }
 
 func Test_ShouldFailEmailVerificationValidationWithBadEmail(t *testing.T) {
-	user := common.NewUser("", "username", "", false)
+	user := common.NewUser("", "username", "", "email@formicary.io", false)
 	user.ID = "blah"
 	user.OrganizationID = "blah"
 	emailVerification := NewEmailVerification("bademail", user)
@@ -28,16 +29,16 @@ func Test_ShouldFailEmailVerificationValidationWithBadEmail(t *testing.T) {
 }
 
 func Test_ShouldFailEmailVerificationValidationWithoutUserID(t *testing.T) {
-	user := common.NewUser("org", "username", "", false)
-	emailVerification := NewEmailVerification("good@email.com", user)
+	user := common.NewUser("org", "username", "", "email@formicary.io", false)
+	emailVerification := NewEmailVerification("good@formicary.io", user)
 	require.Error(t, emailVerification.Validate())
 	require.Contains(t, emailVerification.Validate().Error(), "user-id is not specified")
 }
 
 func Test_ShouldVerifyEmailVerificationValidation(t *testing.T) {
-	user := common.NewUser("org", "username", "", false)
+	user := common.NewUser("org", "username", "", "email@formicary.io", false)
 	user.ID = "blah"
-	emailVerification := NewEmailVerification("good@email.com", user)
+	emailVerification := NewEmailVerification("good@formicary.io", user)
 	require.NoError(t, emailVerification.Validate())
 	require.Equal(t, "formicary_email_verifications", emailVerification.TableName())
 }

@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"plexobject.com/formicary/internal/health"
+	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/web"
+	"plexobject.com/formicary/queen/config"
 	"strings"
 	"testing"
 )
@@ -19,8 +21,8 @@ func Test_InitializeSwaggerStructsForHealth(t *testing.T) {
 
 func Test_ShouldQueryHealth(t *testing.T) {
 	// GIVEN health controller
-	cfg := newTestConfig()
-	queueClient := newTestQueueClient(cfg, t)
+	cfg := config.TestServerConfig()
+	queueClient := queue.NewStubClient(&cfg.CommonConfig)
 	webServer := web.NewStubWebServer()
 	heathMonitor, err := health.New(&cfg.CommonConfig, queueClient)
 	require.NoError(t, err)

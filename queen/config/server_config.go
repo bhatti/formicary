@@ -31,9 +31,10 @@ type ServerConfig struct {
 
 // NotifyConfig -- Defines notification config
 type NotifyConfig struct {
-	EmailJobsTemplateFile   string `yaml:"email_jobs_template_file" mapstructure:"email_jobs_template_file"`
-	SlackJobsTemplateFile   string `yaml:"slack_jobs_template_file" mapstructure:"slack_jobs_template_file"`
-	VerifyEmailTemplateFile string `yaml:"verify_email_template_file" mapstructure:"verify_email_template_file"`
+	EmailJobsTemplateFile      string `yaml:"email_jobs_template_file" mapstructure:"email_jobs_template_file"`
+	SlackJobsTemplateFile      string `yaml:"slack_jobs_template_file" mapstructure:"slack_jobs_template_file"`
+	VerifyEmailTemplateFile    string `yaml:"verify_email_template_file" mapstructure:"verify_email_template_file"`
+	UserInvitationTemplateFile string `yaml:"user_invitation_template_file" mapstructure:"user_invitation_template_file"`
 }
 
 // SMTPConfig -- Defines email config
@@ -131,88 +132,95 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	return &config, nil
 }
 
+// Validate validates notify config
+func (c *JobsConfig) Validate() error {
+	if c.AntRegistrationAliveTimeout == 0 {
+		c.AntRegistrationAliveTimeout = 15 * time.Second
+	}
+	if c.JobSchedulerLeaderInterval == 0 {
+		c.JobSchedulerLeaderInterval = 15 * time.Second
+	}
+	if c.AntReservationTimeout == 0 {
+		c.AntReservationTimeout = 1 * time.Hour
+	}
+	if c.JobSchedulerCheckPendingJobsInterval == 0 {
+		c.JobSchedulerCheckPendingJobsInterval = 1 * time.Second
+	}
+	if c.NotReadyJobsMaxWait == 0 {
+		c.NotReadyJobsMaxWait = 30 * time.Second
+	}
+	if c.DBObjectCache == 0 {
+		c.DBObjectCache = 30 * time.Second
+	}
+	if c.DBObjectCacheSize == 0 {
+		c.DBObjectCacheSize = 10000
+	}
+	if c.MaxScheduleAttempts == 0 {
+		c.MaxScheduleAttempts = 10000
+	}
+	if c.OrphanRequestsTimeout == 0 {
+		c.OrphanRequestsTimeout = 60 * time.Second
+	}
+	if c.OrphanRequestsUpdateInterval == 0 {
+		c.OrphanRequestsUpdateInterval = 15 * time.Second
+	}
+	if c.MissingCronJobsInterval == 0 {
+		c.MissingCronJobsInterval = 60 * time.Second
+	}
+	if c.MaxForkTaskletCapacity == 0 {
+		c.MaxForkTaskletCapacity = 100
+	}
+	if c.MaxForkAwaitTaskletCapacity == 0 {
+		c.MaxForkAwaitTaskletCapacity = 100
+	}
+	if c.MaxMessagingTaskletCapacity == 0 {
+		c.MaxMessagingTaskletCapacity = 100
+	}
+	if c.ExpireArtifactsTaskletCapacity == 0 {
+		c.ExpireArtifactsTaskletCapacity = 100
+	}
+	return nil
+}
+
+// Validate validates
+func (c *DBConfig) Validate() error {
+	if c.MaxConcurrency == 0 {
+		c.MaxConcurrency = 20
+	}
+	if c.MaxIdleConns == 0 {
+		c.MaxIdleConns = 10
+	}
+	if c.MaxOpenConns == 0 {
+		c.MaxOpenConns = 20
+	}
+	if c.MaxOpenConns == 0 {
+		c.MaxOpenConns = 20
+	}
+	if c.ConnMaxIdleTime == 0 {
+		c.ConnMaxIdleTime = 1 * time.Hour
+	}
+	if c.ConnMaxLifeTime == 0 {
+		c.ConnMaxLifeTime = 4 * time.Hour
+	}
+	return nil
+}
+
 // Validate validates
 func (c *ServerConfig) Validate() error {
-	if c.Jobs.AntRegistrationAliveTimeout == 0 {
-		c.Jobs.AntRegistrationAliveTimeout = 15 * time.Second
+	if err := c.Notify.Validate(); err != nil {
+		return err
 	}
-	if c.Jobs.JobSchedulerLeaderInterval == 0 {
-		c.Jobs.JobSchedulerLeaderInterval = 15 * time.Second
+	if err := c.Jobs.Validate(); err != nil {
+		return err
 	}
-	if c.Jobs.AntReservationTimeout == 0 {
-		c.Jobs.AntReservationTimeout = 1 * time.Hour
+	if err := c.DB.Validate(); err != nil {
+		return err
 	}
-	if c.Jobs.JobSchedulerCheckPendingJobsInterval == 0 {
-		c.Jobs.JobSchedulerCheckPendingJobsInterval = 1 * time.Second
-	}
-	if c.Jobs.NotReadyJobsMaxWait == 0 {
-		c.Jobs.NotReadyJobsMaxWait = 30 * time.Second
-	}
-	if c.Jobs.DBObjectCache == 0 {
-		c.Jobs.DBObjectCache = 30 * time.Second
-	}
-	if c.Jobs.DBObjectCacheSize == 0 {
-		c.Jobs.DBObjectCacheSize = 10000
-	}
-	if c.Jobs.MaxScheduleAttempts == 0 {
-		c.Jobs.MaxScheduleAttempts = 10000
-	}
-	if c.Jobs.OrphanRequestsTimeout == 0 {
-		c.Jobs.OrphanRequestsTimeout = 60 * time.Second
-	}
-	if c.Jobs.OrphanRequestsUpdateInterval == 0 {
-		c.Jobs.OrphanRequestsUpdateInterval = 15 * time.Second
-	}
-	if c.Jobs.MissingCronJobsInterval == 0 {
-		c.Jobs.MissingCronJobsInterval = 60 * time.Second
+	if err := c.Auth.Validate(); err != nil {
+		return err
 	}
 	if c.URLPresignedExpirationMinutes == 0 {
 		c.URLPresignedExpirationMinutes = 60 * 12
-	}
-	if c.Jobs.MaxForkTaskletCapacity == 0 {
-		c.Jobs.MaxForkTaskletCapacity = 100
-	}
-	if c.Jobs.MaxForkAwaitTaskletCapacity == 0 {
-		c.Jobs.MaxForkAwaitTaskletCapacity = 100
-	}
-	if c.Jobs.MaxMessagingTaskletCapacity == 0 {
-		c.Jobs.MaxMessagingTaskletCapacity = 100
-	}
-	if c.Jobs.ExpireArtifactsTaskletCapacity == 0 {
-		c.Jobs.ExpireArtifactsTaskletCapacity = 100
-	}
-	if c.DB.MaxConcurrency == 0 {
-		c.DB.MaxConcurrency = 20
-	}
-	if c.DB.MaxIdleConns == 0 {
-		c.DB.MaxIdleConns = 10
-	}
-	if c.DB.MaxOpenConns == 0 {
-		c.DB.MaxOpenConns = 20
-	}
-	if c.DB.MaxOpenConns == 0 {
-		c.DB.MaxOpenConns = 20
-	}
-	if c.DB.ConnMaxIdleTime == 0 {
-		c.DB.ConnMaxIdleTime = 1 * time.Hour
-	}
-	if c.DB.ConnMaxLifeTime == 0 {
-		c.DB.ConnMaxLifeTime = 4 * time.Hour
-	}
-	if c.Auth.MaxAge == 0 {
-		c.Auth.MaxAge = 7 * 24 * time.Hour
-	}
-	if c.Auth.TokenMaxAge == 0 {
-		c.Auth.TokenMaxAge = 30 * 3 * 24 * time.Hour
-	}
-	if c.Auth.GoogleCallbackHost == "" {
-		c.Auth.GoogleCallbackHost = "localhost"
-	}
-	if c.Auth.GithubCallbackHost == "" {
-		c.Auth.GithubCallbackHost = "localhost"
-	}
-	if c.Auth.CookieName == "" {
-		c.Auth.CookieName = "formicary-session"
 	}
 	if c.DefaultArtifactExpiration == 0 {
 		c.DefaultArtifactExpiration = types.DefaultArtifactsExpirationDuration
@@ -304,6 +312,9 @@ func (s *NotifyConfig) Validate() error {
 	}
 	if s.VerifyEmailTemplateFile == "" {
 		return types.NewValidationError(fmt.Errorf("email-notification template not specified"))
+	}
+	if s.UserInvitationTemplateFile == "" {
+		return types.NewValidationError(fmt.Errorf("user-invitation template not specified"))
 	}
 	return nil
 }

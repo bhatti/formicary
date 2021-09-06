@@ -49,7 +49,7 @@ func NewJobResourceController(
 // responses:
 //   200: jobResourceQueryResponse
 func (jobResCtrl *JobResourceController) queryJobResources(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := jobResCtrl.jobResourceRepository.Query(
 		qc,

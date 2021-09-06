@@ -100,7 +100,7 @@ func (ac *ArtifactAdminController) saveArtifact(
 
 // queryArtifacts - queries artifact
 func (ac *ArtifactAdminController) queryArtifacts(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	records, total, err := ac.artifactManager.QueryArtifacts(context.Background(), qc, params, page, pageSize, order)
 	if err != nil {
@@ -108,10 +108,11 @@ func (ac *ArtifactAdminController) queryArtifacts(c web.WebContext) error {
 	}
 	baseURL := fmt.Sprintf("/artifacts?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Artifacts": records,
+	res := map[string]interface{}{
+		"Records":    records,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          params["q"],
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "artifacts/index", res)

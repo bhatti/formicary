@@ -1,175 +1,215 @@
 <!doctype html>
 <html>
-    <head>
-        <title>Formicary Signin</title>
-        <!-- Custom styles for this template -->
-        <link href="/css/custom.css" rel="stylesheet">
-        <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+<head>
+    <title>Formicary Signin</title>
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
 
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-        <style>
-body        { padding-top:70px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1><span class="fa fa-lock"></span> Formicary Signup</h1>
-            <section class="group">
-                <form action="/dashboard/users" method="POST">
-                    {{ with .User }}
-                    <div class="form-group">
-                        {{ with .Errors.Error }}
-                        <p class="error" align="center">{{ . }}</p>
-                        {{ end }}
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        body {
+            padding-top: 70px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1><span class="fa fa-lock"></span> Formicary Signup</h1>
+    <section class="group">
+        <form action="/dashboard/users" method="POST">
+            {{ with .InvitationID }}
+            <input type="hidden" name="inv_id" value="{{.}}">
+            {{end}}
+            {{ with .User }}
+            <div class="form-group">
+                {{ with .Errors.Error }}
+                <p class="error" align="center">{{ . }}</p>
+                {{ end }}
+            </div>
+
+            <div class="form-group">
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Username: </label>
+                    <div class="col-sm-10">
+                        <b>{{ .Username }}</b>
                     </div>
+                </div>
+            </div>
 
-                    <div class="form-group">
-                        <div class="row">
-                            <label class="col-sm-2 col-form-label">Username: </label>
-                            <div class="col-sm-10">
-                                <b>{{ .Username }}</b>
-                            </div>
-                        </div>
+            <div class="form-group">
+                {{ with .Errors.Name }}
+                <p class="error" align="center">{{ . }}</p>
+                {{ end }}
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Name: </label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control col-sm-6" name="name" id="name"
+                               value="{{ .Name }}"
+                               placeholder="your name">
                     </div>
+                </div>
+            </div>
 
-                    <div class="form-group">
-                        {{ with .Errors.Name }}
-                        <p class="error" align="center">{{ . }}</p>
-                        {{ end }}
-                        <div class="row">
-                            <label class="col-sm-2 col-form-label">Name: </label>
-                            <div class="col-sm-10">
-                                <input type="text" class="form-control col-sm-6" name="name" id="name"
-                                       value="{{ .Name }}"
-                                       placeholder="your name">
-                            </div>
-                        </div>
+            <div class="form-group">
+                {{ with .Errors.Email }}
+                <p class="error" align="center">{{ . }}</p>
+                {{ end }}
+                <div class="row">
+                    <label class="col-sm-2 col-form-label">Email: </label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control col-sm-6" name="email" id="email"
+                               value="{{ .Email }}"
+                               placeholder="your email address">
                     </div>
+                </div>
+            </div>
 
-                    <div class="form-group">
-                        {{ with .Errors.Email }}
-                        <p class="error" align="center">{{ . }}</p>
-                        {{ end }}
-                        <div class="row">
-                            <label class="col-sm-2 col-form-label">Email: </label>
-                            <div class="col-sm-10">
-                                <input type="text" class="form-control col-sm-6" name="email" id="email"
-                                       value="{{ .Email }}"
-                                       placeholder="your email address">
-                            </div>
-                        </div>
+            <div class="form-group">
+                <div class="row">
+                    <label for="individual" class="col-sm-2 col-form-label">Type: </label>
+                    <div class="col-sm-10">
+                        <input
+                                type="radio"
+                                class="btn-check"
+                                name="accountType"
+                                id="individual"
+                                autocomplete="off"
+                                value="individual"
+                                checked
+                                onclick="handleAccountType(this);"
+                        />
+                        <label class="btn btn-secondary" for="individual">Individual</label>
+
+                        <input
+                                type="radio"
+                                class="btn-check"
+                                name="accountType"
+                                id="organization"
+                                autocomplete="off"
+                                value="organization"
+                                onclick="handleAccountType(this);"/>
+                        <label class="btn btn-secondary" for="organization">Organization</label>
+
                     </div>
+                </div>
+            </div>
+            <script>
+                function handleAccountType(type) {
+                    document.getElementById('showOrg').hidden = type.value === 'individual';
+                    document.getElementById("invitationCode").disabled = type.value === 'individual';
+                    var orgUnit = document.getElementById("orgUnit");
+                    if (orgUnit != null) {
+                        orgUnit.disabled = type.value === 'individual';
+                    }
 
-                    <div class="form-group">
-                        <div class="row">
-                            <label for="individual" class="col-sm-2 col-form-label">Type: </label>
-                            <div class="col-sm-10">
-                                <input
-                                        type="radio"
-                                        class="btn-check"
-                                        name="accountType"
-                                        id="individual"
-                                        autocomplete="off"
-                                        value="individual"
-                                        checked
-                                        onclick="handleAccountType(this);"
-                                />
-                                <label class="btn btn-secondary" for="individual">Individual</label>
+                    var bundle = document.getElementById("bundle");
+                    if (bundle != null) {
+                        bundle.disabled = type.value === 'individual';
+                    }
+                }
 
-                                <input type="radio" class="btn-check" name="accountType" id="organization" autocomplete="off" value="organization" onclick="handleAccountType(this);" />
-                                <label class="btn btn-secondary" for="organization">Organization</label>
+                function initAccountType() {
+                    {{if .HasOrganization }}
+                    handleAccountType({value: 'organization'});
+                    document.getElementById('organization').checked = true;
+                    {{else}}
+                    handleAccountType({value: 'individual'});
+                    document.getElementById('individual').checked = true;
+                    {{end}}
+                }
 
-                            </div>
-                        </div>
-                    </div>
-                    <script>
-                        function handleAccountType(type) {
-                            document.getElementById('showOrg').hidden = type.value === 'individual';
-                            document.getElementById("invitationCode").disabled = type.value === 'individual';
-                            document.getElementById("orgUnit").disabled = type.value === 'individual';
-                            document.getElementById("bundle").disabled = type.value === 'individual';
-                        }
-                        function initAccountType() {
-                            {{if .HasOrganization }}
-                            handleAccountType({value: 'organization'});
-                            {{else}}
-                            handleAccountType({value: 'individual'});
-                            {{end}}
-                        }
-                        if(window.addEventListener){
-                            window.addEventListener('load', initAccountType);
-                        }else{
-                            window.attachEvent('onload', initAccountType);
-                        }
-                    </script>
+                if (window.addEventListener) {
+                    window.addEventListener('load', initAccountType);
+                } else {
+                    window.attachEvent('onload', initAccountType);
+                }
+            </script>
 
-                    <div id="showOrg">
-                        <div class="form-group">
-                            {{ with .Errors.InvitationCode }}
-                            <p class="error" align="center">{{ . }}</p>
-                            {{ end }}
-                            <div class="row">
-                                <label for="invitationCode" class="col-sm-2 col-form-label">Invitation Code: (optional) </label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control col-sm-6" name="invitationCode" id="invitationCode"
-                                           value="{{ .InvitationCode }}"
-                                           placeholder="optional invitation code">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            {{ with .Errors.OrgUnit }}
-                            <p class="error" align="center">{{ . }}</p>
-                            {{ end }}
-                            <div class="row">
-                                <label for="orgUnit" class="col-sm-2 col-form-label">Organization: </label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control col-sm-6" name="orgUnit" id="orgUnit" value="{{ .OrgUnit}}"
-                                           placeholder="organization name" autocorrect="off" spellcheck="false" autocomplete="off">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            {{ with .Errors.BundleID }}
-                            <p class="error" align="center">{{ . }}</p>
-                            {{ end }}
-                            <div class="row">
-                                <label for="bundle" class="col-sm-2 col-form-label">Bundle: </label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control col-sm-6" name="bundle" id="bundle" value="{{ .BundleID }}"
-                                           placeholder="Use reverse domain of organization such as com.plexobject">
-                                    Use reverse domain of organization such as com.plexobject or io.formicary for your organization bundle.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group row">
-                        {{ with .Errors.AgreeTerms }}
-                        <p class="error" align="center">{{ . }}</p>
-                        {{ end }}
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="agree" id="agreeTerms" name="agreeTerms">
-                            <label class="form-check-label" for="agreeTerms">
-                                Agree to <a href="/terms_service" target="new_resource">Terms of Services</a> and <a href="/privacy_policies" target="new_resource">Privacy Policies</a>.
-                            </label>
-                        </div>
-                    </div>
-                    <div class="form-group row">
-                        <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-primary">Save</button>
-                        </div>
-                    </div>
+            <div id="showOrg">
+                <div class="form-group">
+                    {{ with .Errors.InvitationCode }}
+                    <p class="error" align="center">{{ . }}</p>
                     {{ end }}
-                </form>
+                    <div class="row">
+                        <label for="invitationCode" class="col-sm-2 col-form-label">Invitation Code: (optional) </label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control col-sm-6" name="invitationCode" id="invitationCode"
+                                   value="{{ .InvitationCode }}"
+                                   placeholder="optional invitation code">
+                        </div>
+                    </div>
+                </div>
 
-                <footer class="group-footer">
-                </footer>
+                <div class="form-group">
+                    {{ with .Errors.OrgUnit }}
+                    <p class="error" align="center">{{ . }}</p>
+                    {{ end }}
+                    <div class="row">
+                        <label for="orgUnit" class="col-sm-2 col-form-label">Organization: </label>
+                        <div class="col-sm-10">
+                            {{ if not .InvitationCode }}
+                            <input type="text" class="form-control col-sm-6" name="orgUnit" id="orgUnit"
+                                   value="{{ .OrgUnit}}" readonly>
+                            {{ else }}
+                            <input type="text" class="form-control col-sm-6" name="orgUnit" id="orgUnit"
+                                   value="{{ .OrgUnit}}"
+                                   placeholder="organization name" autocorrect="off" spellcheck="false"
+                                   autocomplete="off">
+                            {{ end }}
+                        </div>
+                    </div>
+                </div>
 
-            </section>
-        </div>
-    </body>
+                {{ if not .InvitationCode }}
+                <div class="form-group">
+                    {{ with .Errors.BundleID }}
+                    <p class="error" align="center">{{ . }}</p>
+                    {{ end }}
+                    <div class="row">
+                        <label for="bundle" class="col-sm-2 col-form-label">Bundle: </label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control col-sm-6" name="bundle" id="bundle"
+                                   value="{{ .BundleID }}"
+                                   placeholder="Use reverse domain of organization such as com.plexobject">
+                            Use reverse domain of organization such as com.plexobject or io.formicary for your
+                            organization bundle.
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+
+            <div class="form-group row">
+                {{ with .Errors.AgreeTerms }}
+                <p class="error" align="center">{{ . }}</p>
+                {{ end }}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="agree" id="agreeTerms" name="agreeTerms">
+                    <label class="form-check-label" for="agreeTerms">
+                        Agree to <a href="/terms_service" target="new_resource">Terms of Services</a> and <a
+                            href="/privacy_policies" target="new_resource">Privacy Policies</a>.
+                    </label>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-sm-10 offset-sm-2">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+            {{ end }}
+        </form>
+
+        <footer class="group-footer">
+            <blockquote class="blockquote-footer">
+                   <span class="font-italic">
+                     Note: The individual account lacks certain features such as inviting other users, slack/team communication and shared configuration.
+                   </span>
+            </blockquote>
+        </footer>
+
+    </section>
+</div>
+</body>
 </html> 

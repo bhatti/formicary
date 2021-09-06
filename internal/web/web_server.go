@@ -39,7 +39,7 @@ type Server interface {
 
 // DefaultWebServer defines default web server
 type DefaultWebServer struct {
-	commonCfg *types.CommonConfig
+	commonCfg      *types.CommonConfig
 	e              *echo.Echo
 	apiGroup       *echo.Group
 	dashboardGroup *echo.Group
@@ -49,9 +49,9 @@ type DefaultWebServer struct {
 // NewDefaultWebServer creates new instance of web server
 func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 	ws := &DefaultWebServer{commonCfg: commonCfg, e: echo.New(), authEnabled: commonCfg.Auth.Enabled}
-	ws.e.Static("/", commonCfg.PublicDir + "assets")
-	ws.e.Static("/docs", commonCfg.PublicDir + "docs")
-	ws.e.File("/favicon.ico", commonCfg.PublicDir + "assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
+	ws.e.Static("/", commonCfg.PublicDir+"assets")
+	ws.e.Static("/docs", commonCfg.PublicDir+"docs")
+	ws.e.File("/favicon.ico", commonCfg.PublicDir+"assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
 	defaultLoggerConfig := middleware.LoggerConfig{
 		Skipper: middleware.DefaultSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","id":"${id}","remote_ip":"${remote_ip}",` +
@@ -84,8 +84,10 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 				authCookie, _ := c.Cookie(commonCfg.Auth.CookieName)
 				logrus.WithFields(logrus.Fields{
 					"Component":  "DefaultWebServer",
+					"URL":        c.Request().URL,
 					"AuthCookie": authCookie,
 				}).Warn("redirecting to login")
+				c.SetCookie(commonCfg.Auth.RedirectCookie(c.Request().URL.String()))
 				return c.Redirect(http.StatusTemporaryRedirect, "/login")
 			},
 		}
@@ -105,7 +107,7 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
 	var err error
-	ws.e.Renderer, err = NewTemplateRenderer(commonCfg.PublicDir + "views", ".html", commonCfg.Development)
+	ws.e.Renderer, err = NewTemplateRenderer(commonCfg.PublicDir+"views", ".html", commonCfg.Development)
 	if err != nil {
 		return nil, err
 	}

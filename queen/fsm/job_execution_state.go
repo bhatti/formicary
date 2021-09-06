@@ -45,8 +45,7 @@ type JobExecutionStateMachine struct {
 	JobManager          *manager.JobManager
 	ArtifactManager     *manager.ArtifactManager
 	ErrorCodeRepository repository.ErrorCodeRepository
-	userRepository      repository.UserRepository
-	orgRepository       repository.OrganizationRepository
+	userManager         *manager.UserManager
 	ResourceManager     resource.Manager
 	MetricsRegistry     *metrics.Registry
 	Request             types.IJobRequest
@@ -69,10 +68,9 @@ func NewJobExecutionStateMachine(
 	queueClient queue.Client,
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
-	errorCodeRepository repository.ErrorCodeRepository,
-	userRepository repository.UserRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	resourceManager resource.Manager,
+	errorCodeRepository repository.ErrorCodeRepository,
 	metricsRegistry *metrics.Registry,
 	request types.IJobRequest,
 	reservations map[string]*common.AntReservation) *JobExecutionStateMachine {
@@ -82,8 +80,7 @@ func NewJobExecutionStateMachine(
 		QueueClient:         queueClient,
 		JobManager:          jobManager,
 		ArtifactManager:     artifactManager,
-		userRepository:      userRepository,
-		orgRepository:       orgRepository,
+		userManager:         userManager,
 		ErrorCodeRepository: errorCodeRepository,
 		ResourceManager:     resourceManager,
 		MetricsRegistry:     metricsRegistry,
@@ -98,11 +95,8 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	if jsm.serverCfg == nil {
 		return fmt.Errorf("server-config is not specified")
 	}
-	if jsm.userRepository == nil {
-		return fmt.Errorf("userRepository is not specified")
-	}
-	if jsm.orgRepository == nil {
-		return fmt.Errorf("orgRepository is not specified")
+	if jsm.userManager == nil {
+		return fmt.Errorf("userManager is not specified")
 	}
 	if jsm.Request == nil {
 		return fmt.Errorf("job-request is not specified")
@@ -131,7 +125,7 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 
 	// loading user and organization from request
 	if jsm.Request.GetUserID() != "" {
-		jsm.User, err = jsm.userRepository.Get(
+		jsm.User, err = jsm.userManager.GetUser(
 			jsm.QueryContext(),
 			jsm.Request.GetUserID())
 		if err != nil {
@@ -140,7 +134,7 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 
 	if jsm.Request.GetOrganizationID() != "" {
-		jsm.Organization, err = jsm.orgRepository.Get(
+		jsm.Organization, err = jsm.userManager.GetOrganization(
 			jsm.QueryContext(),
 			jsm.Request.GetOrganizationID())
 		if err != nil {
@@ -167,7 +161,7 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 
 	if jsm.User == nil && jsm.JobDefinition.UserID != "" && !jsm.JobDefinition.PublicPlugin {
-		jsm.User, err = jsm.userRepository.Get(
+		jsm.User, err = jsm.userManager.GetUser(
 			jsm.QueryContext(),
 			jsm.JobDefinition.UserID)
 		if err != nil {
@@ -175,7 +169,7 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		}
 	}
 	if jsm.Organization == nil && jsm.JobDefinition.OrganizationID != "" && !jsm.JobDefinition.PublicPlugin {
-		jsm.Organization, err = jsm.orgRepository.Get(
+		jsm.Organization, err = jsm.userManager.GetOrganization(
 			jsm.QueryContext(),
 			jsm.JobDefinition.OrganizationID)
 		if err != nil {
@@ -364,7 +358,7 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 }
 
 // SetJobStatusToExecuting sets job request/execution status to EXECUTING
-func (jsm *JobExecutionStateMachine) SetJobStatusToExecuting(ctx context.Context) (err error) {
+func (jsm *JobExecutionStateMachine) SetJobStatusToExecuting(_ context.Context) (err error) {
 	// Mark job request and execution to EXECUTING (from READY unless execution was already running)
 	if err = jsm.JobManager.SetJobRequestAndExecutingStatusToExecuting(
 		jsm.JobExecution.ID); err != nil {
@@ -400,7 +394,7 @@ func (jsm *JobExecutionStateMachine) ScheduleFailed(
 }
 
 // LaunchFailed is called when job-launcher fails to launch job and request and execution is marked as failed.
-func (jsm *JobExecutionStateMachine) LaunchFailed(ctx context.Context, err error) error {
+func (jsm *JobExecutionStateMachine) LaunchFailed(_ context.Context, err error) error {
 	saveError := jsm.failed(common.READY, false, err, "")
 	// treating error sending lifecycle event as non-fatal error
 	// using fresh context in case deadline reached
@@ -433,7 +427,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCancelled(
 
 // ExecutionFailed is called when job fails to execute
 func (jsm *JobExecutionStateMachine) ExecutionFailed(
-	ctx context.Context,
+	_ context.Context,
 	errorCode string,
 	errorMsg string) error {
 	if jsm.JobExecution.JobState.IsTerminal() {
@@ -458,7 +452,8 @@ func (jsm *JobExecutionStateMachine) ExecutionFailed(
 }
 
 // ExecutionCompleted is called when job completes successfully
-func (jsm *JobExecutionStateMachine) ExecutionCompleted(ctx context.Context) (saveError error) {
+func (jsm *JobExecutionStateMachine) ExecutionCompleted(
+	_ context.Context) (saveError error) {
 	now := time.Now()
 
 	jsm.Request.SetJobState(common.COMPLETED)

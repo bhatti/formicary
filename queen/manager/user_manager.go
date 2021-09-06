@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	common "plexobject.com/formicary/internal/types"
@@ -19,8 +18,12 @@ type UserManager struct {
 	auditRecordRepository       repository.AuditRecordRepository
 	userRepository              repository.UserRepository
 	orgRepository               repository.OrganizationRepository
+	orgConfigRepository         repository.OrganizationConfigRepository
+	invRepository               repository.InvitationRepository
 	emailVerificationRepository repository.EmailVerificationRepository
 	subscriptionRepository      repository.SubscriptionRepository
+	jobExecRepository           repository.JobExecutionRepository
+	artifactRepository          repository.ArtifactRepository
 	notifier                    notify.Notifier
 }
 
@@ -30,8 +33,12 @@ func NewUserManager(
 	auditRecordRepository repository.AuditRecordRepository,
 	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
+	orgConfigRepository repository.OrganizationConfigRepository,
+	invRepository repository.InvitationRepository,
 	emailVerificationRepository repository.EmailVerificationRepository,
 	subscriptionRepository repository.SubscriptionRepository,
+	jobExecRepository repository.JobExecutionRepository,
+	artifactRepository repository.ArtifactRepository,
 	notifier notify.Notifier) (*UserManager, error) {
 	if serverCfg == nil {
 		return nil, fmt.Errorf("server-config is not specified")
@@ -51,6 +58,18 @@ func NewUserManager(
 	if orgRepository == nil {
 		return nil, fmt.Errorf("org-repository is not specified")
 	}
+	if orgConfigRepository == nil {
+		return nil, fmt.Errorf("org-config-repository is not specified")
+	}
+	if invRepository == nil {
+		return nil, fmt.Errorf("invitation-repository is not specified")
+	}
+	if jobExecRepository == nil {
+		return nil, fmt.Errorf("jobExecution-repository is not specified")
+	}
+	if artifactRepository == nil {
+		return nil, fmt.Errorf("artifact-repository is not specified")
+	}
 	if notifier == nil {
 		return nil, fmt.Errorf("notifier is not specified")
 	}
@@ -60,8 +79,12 @@ func NewUserManager(
 		auditRecordRepository:       auditRecordRepository,
 		userRepository:              userRepository,
 		orgRepository:               orgRepository,
+		orgConfigRepository:         orgConfigRepository,
+		invRepository:               invRepository,
 		emailVerificationRepository: emailVerificationRepository,
 		subscriptionRepository:      subscriptionRepository,
+		jobExecRepository:           jobExecRepository,
+		artifactRepository:          artifactRepository,
 		notifier:                    notifier,
 	}, nil
 }
@@ -84,10 +107,54 @@ func (m *UserManager) SaveAudit(
 	return m.auditRecordRepository.Save(record)
 }
 
-// CreateEmailNotification starts process for email verification
-func (m *UserManager) CreateEmailNotification(
-	ev *types.EmailVerification) (*types.EmailVerification, error) {
-	return m.emailVerificationRepository.Create(ev)
+// AddStickyMessageForEmail updates sticky message for email failure
+func (m *UserManager) AddStickyMessageForEmail(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization,
+	err error) error {
+	if user != nil && user.StickyMessage == "" {
+		user.StickyMessage = fmt.Sprintf("email-error: %s", err)
+		return m.UpdateStickyMessage(qc, user, org)
+	}
+	return nil
+}
+
+// ClearStickyMessageForEmail updates sticky message for email success
+func (m *UserManager) ClearStickyMessageForEmail(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization) error {
+	if user != nil && strings.Contains(user.StickyMessage, "email-error") {
+		user.StickyMessage = ""
+		return m.UpdateStickyMessage(qc, user, org)
+	}
+	return nil
+}
+
+// AddStickyMessageForSlack updates sticky message for slack failure
+func (m *UserManager) AddStickyMessageForSlack(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization,
+	err error) error {
+	if user != nil && user.StickyMessage == "" {
+		user.StickyMessage = fmt.Sprintf("slack-error: Slack messages could not be sent due to '%s'", err)
+		return m.UpdateStickyMessage(qc, user, org)
+	}
+	return nil
+}
+
+// ClearStickyMessageForSlack updates sticky message for slack success
+func (m *UserManager) ClearStickyMessageForSlack(
+	qc *common.QueryContext,
+	user *common.User,
+	org *common.Organization) error {
+	if user != nil && strings.Contains(user.StickyMessage, "slack-error") {
+		user.StickyMessage = ""
+		return m.UpdateStickyMessage(qc, user, org)
+	}
+	return nil
 }
 
 // UpdateStickyMessage updates sticky message
@@ -95,7 +162,24 @@ func (m *UserManager) UpdateStickyMessage(
 	qc *common.QueryContext,
 	user *common.User,
 	org *common.Organization) error {
-	return m.orgRepository.UpdateStickyMessage(qc, user, org)
+	err := m.orgRepository.UpdateStickyMessage(qc, user, org)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "UserManager",
+			"User":          user,
+			"Organization":  org,
+			"StickyMessage": user.StickyMessage,
+			"Error":         err,
+		}).Warnf("failed to set sticky message")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "UserManager",
+			"User":          user,
+			"Organization":  org,
+			"StickyMessage": user.StickyMessage,
+		}).Infof("updated sticky message")
+	}
+	return err
 }
 
 // GetUser find user by id
@@ -162,16 +246,25 @@ func (m *UserManager) CreateUser(
 	}
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(saved, types.UserUpdated, qc))
 
-	subscription := common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)
-	if subscription, err = m.subscriptionRepository.Create(subscription); err == nil {
+	if _, verifyErr := m.CreateEmailVerification(qc, types.NewEmailVerification(user.Email, user)); verifyErr != nil {
 		logrus.WithFields(logrus.Fields{
-			"Component":    "SubscriptionController",
+			"Component": "UserManager",
+			"User":      user,
+			"Email":     user.Email,
+			"Error":     verifyErr,
+		}).Errorf("failed to send email verification")
+	}
+
+	if subscription, err := m.subscriptionRepository.Create(
+		common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)); err == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "UserManager",
 			"Subscription": subscription,
 		}).Info("created Subscription")
 		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"Component":    "SubscriptionController",
+			"Component":    "UserManager",
 			"Subscription": subscription,
 			"Error":        err,
 		}).Errorf("failed to create Subscription")
@@ -214,38 +307,64 @@ func (m *UserManager) UpdateUser(
 	return saved, nil
 }
 
+// GetSlackToken returns slack token
+func (m *UserManager) GetSlackToken(
+	qc *common.QueryContext,
+	org *common.Organization,
+) (token string, err error) {
+	if qc.OrganizationID == "" {
+		return "", nil
+	}
+	if org != nil {
+		return org.GetConfigString(types.SlackToken), nil
+	}
+	recs, _, err := m.orgConfigRepository.Query(
+		qc,
+		map[string]interface{}{"name": types.SlackToken},
+		0,
+		1,
+		make([]string, 0),
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(recs) == 0 {
+		return "", nil
+	}
+	return recs[0].Value, nil
+}
+
 // UpdateUserNotification updates user settings for notification
 func (m *UserManager) UpdateUserNotification(
 	qc *common.QueryContext,
 	id string,
 	email string,
 	slackChannel string,
+	slackToken string,
 	when string,
 ) (user *common.User, err error) {
 	user, err = m.GetUser(qc, id)
 	if err != nil {
 		return nil, err
 	}
-	user.NotifyChannel = strings.TrimSpace(slackChannel)
-	user.NotifyEmail = strings.TrimSpace(email)
-	user.NotifyWhen = common.NotifyWhen(strings.TrimSpace(when))
-	if user.NotifyEmail == "" && slackChannel == "" {
+	slackChannel = strings.TrimSpace(slackChannel)
+	email = strings.TrimSpace(email)
+	notifyWhen := common.NotifyWhen(strings.TrimSpace(when))
+	if email == "" && slackChannel == "" {
 		return user, common.NewValidationError("no email or slack channel specified")
 	}
 	user.Notify = make(map[common.NotifyChannel]common.JobNotifyConfig)
 
-	if user.NotifyEmail != "" {
-		var notifyCfg common.JobNotifyConfig
-		notifyCfg, err = common.JobNotifyConfigWithEmail(user.NotifyEmail, user.NotifyWhen)
+	if email != "" {
+		err = user.SetNotifyEmail(email, notifyWhen)
 		if err != nil {
 			return user, err
 		}
-		user.Notify[common.EmailChannel] = notifyCfg
 	}
-	if user.NotifyChannel != "" {
-		user.Notify[common.SlackChannel] = common.JobNotifyConfig{
-			Recipients: []string{user.NotifyChannel},
-			When:       user.NotifyWhen,
+	if slackChannel != "" {
+		err = user.SetNotifyChannel(slackChannel, notifyWhen)
+		if err != nil {
+			return user, err
 		}
 	}
 
@@ -258,8 +377,24 @@ func (m *UserManager) UpdateUserNotification(
 	if err != nil {
 		return user, err
 	}
-
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
+
+	if slackToken != "" && qc.OrganizationID != "" {
+		cfg, err := common.NewOrganizationConfig(
+			qc.OrganizationID,
+			types.SlackToken,
+			slackToken,
+			true)
+		if err != nil {
+			return saved, err
+		}
+		cfg, err = m.orgConfigRepository.Save(qc, cfg)
+		if err != nil {
+			return saved, err
+		}
+		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(cfg, qc))
+	}
+
 	return saved, nil
 }
 
@@ -322,7 +457,7 @@ func (m *UserManager) InviteUser(
 	qc *common.QueryContext,
 	user *common.User,
 	inv *types.UserInvitation,
-) error {
+) (err error) {
 	if user == nil {
 		return fmt.Errorf("failed to find user in session for invitation")
 	}
@@ -330,9 +465,24 @@ func (m *UserManager) InviteUser(
 	if orgID == "" {
 		return fmt.Errorf("organization is not available for invitation")
 	}
+	org, err := m.GetOrganization(qc, user.OrganizationID)
+	if err != nil {
+		return err
+	}
 	inv.InvitedByUserID = user.ID
 	inv.OrganizationID = orgID
-	if err := m.orgRepository.AddInvitation(inv); err != nil {
+	inv.OrgUnit = org.OrgUnit
+
+	if err = m.invRepository.Create(inv); err != nil {
+		return err
+	}
+	err = m.notifier.EmailUserInvitation(
+		qc,
+		user,
+		org,
+		inv)
+	if err != nil {
+		_ = m.invRepository.Delete(inv.ID)
 		return err
 	}
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromInvite(inv, qc))
@@ -346,6 +496,23 @@ func (m *UserManager) InviteUser(
 	return nil
 }
 
+// GetInvitation get invitation
+func (m *UserManager) GetInvitation(
+	id string) (*types.UserInvitation, error) {
+	return m.invRepository.Get(id)
+}
+
+// QueryInvitations query invitations
+func (m *UserManager) QueryInvitations(
+	qc *common.QueryContext,
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string,
+) ([]*types.UserInvitation, int64, error) {
+	return m.invRepository.Query(qc, params, page, pageSize, order)
+}
+
 // BuildOrgWithInvitation checks existing when signing up
 func (m *UserManager) BuildOrgWithInvitation(
 	user *common.User) (org *common.Organization, err error) {
@@ -353,23 +520,44 @@ func (m *UserManager) BuildOrgWithInvitation(
 	if user.OrgUnit != "" {
 		org, _ = m.orgRepository.GetByUnit(qc, user.OrgUnit)
 		if org != nil {
-			needInvitation := true
 			if user.InvitationCode != "" {
-				if inv, err := m.orgRepository.AcceptInvitation(user.Email, user.InvitationCode); err == nil {
+				if inv, err := m.invRepository.Accept(user.Email, user.InvitationCode); err == nil {
 					org, err = m.orgRepository.Get(qc, inv.OrganizationID)
 					if err != nil {
 						return nil, fmt.Errorf("failed to find organization in invitation %s due to %s",
 							inv.OrganizationID, err.Error())
 					}
-					needInvitation = false
 					user.OrganizationID = org.ID
+					user.BundleID = org.BundleID
+					user.OrgUnit = org.OrgUnit
+					logrus.WithFields(logrus.Fields{
+						"Component":  "OrganizationAdminController",
+						"Org":        org,
+						"User":       user,
+						"Invitation": inv,
+					}).Infof("accepted invitation")
+				} else {
+					logrus.WithFields(logrus.Fields{
+						"Component": "OrganizationAdminController",
+						"Org":       org,
+						"User":      user,
+						"Error":     err,
+					}).Warnf("failed to accept invitation")
+					err = fmt.Errorf("invitation-code is not valid, please contact admin of your organization to re-invite you to the organization")
+					user.Errors["OrgUnit"] = err.Error()
+					return nil, err
 				}
-			}
-			if needInvitation {
-				user.Errors["OrgUnit"] = "Organization already exists, please contact admin of your organization to invite you to this organization."
-				return nil, fmt.Errorf("organization already exists, please contact admin of your organization to invite you to this organization")
+			} else {
+				err = fmt.Errorf("organization already exists, please contact admin of your organization to invite you to the organization")
+				user.Errors["OrgUnit"] = err.Error()
+				return nil, err
 			}
 		} else {
+			if user.BundleID == "" {
+				err = fmt.Errorf("bundleID is not specified")
+				user.Errors["BundleID"] = err.Error()
+				return nil, err
+			}
 			org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
 		}
 	}
@@ -404,8 +592,8 @@ func (m *UserManager) GetVerifiedEmails(
 	return m.emailVerificationRepository.GetVerifiedEmails(qc, userID)
 }
 
-// CreateEmailVerifications adds email verifications
-func (m *UserManager) CreateEmailVerifications(
+// CreateEmailVerification adds email verifications
+func (m *UserManager) CreateEmailVerification(
 	qc *common.QueryContext,
 	emailVerification *types.EmailVerification) (*types.EmailVerification, error) {
 	user, err := m.GetUser(qc, emailVerification.UserID)
@@ -424,7 +612,7 @@ func (m *UserManager) CreateEmailVerifications(
 		return nil, err
 	}
 	err = m.notifier.SendEmailVerification(
-		context.Background(),
+		qc,
 		user,
 		org,
 		saved)
@@ -437,6 +625,9 @@ func (m *UserManager) CreateEmailVerifications(
 	logrus.WithFields(logrus.Fields{
 		"Component":         "UserManager",
 		"EmailVerification": saved,
+		"Code":              saved.EmailCode,
+		"Verified":          saved.VerifiedAt,
+		"Expires":           saved.ExpiresAt,
 	}).Infof("created email verification")
 	return saved, nil
 }
@@ -472,6 +663,29 @@ func (m *UserManager) VerifyEmail(
 				"EmailVerification": rec,
 			}).Infof("verified email verification")
 		}
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":         "UserManager",
+			"User":              user,
+			"EmailVerification": rec,
+			"Error":             err,
+		}).Warnf("failed to verify email")
 	}
 	return
+}
+
+/////////////////////////////////////////// RESOURCES METHODS ////////////////////////////////////////////
+
+// GetCPUResourceUsage usage
+func (m *UserManager) GetCPUResourceUsage(
+	qc *common.QueryContext,
+	ranges []types.DateRange) ([]types.ResourceUsage, error) {
+	return m.jobExecRepository.GetResourceUsage(qc, ranges)
+}
+
+// GetStorageResourceUsage usage
+func (m *UserManager) GetStorageResourceUsage(
+	qc *common.QueryContext,
+	ranges []types.DateRange) ([]types.ResourceUsage, error) {
+	return m.artifactRepository.GetResourceUsage(qc, ranges)
 }

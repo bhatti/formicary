@@ -31,7 +31,7 @@ func NewOrganizationController(
 	webserver.POST("/api/orgs", orgCtrl.postOrganization, acl.New(acl.Organization, acl.Create)).Name = "create_org"
 	webserver.PUT("/api/orgs/:id", orgCtrl.putOrganization, acl.New(acl.Organization, acl.Update)).Name = "update_org"
 	webserver.DELETE("/api/orgs/:id", orgCtrl.deleteOrganization, acl.New(acl.Organization, acl.Delete)).Name = "delete_org"
-	webserver.POST("/api/orgs/:id/invite", orgCtrl.inviteUser, acl.New(acl.Organization, acl.Invite)).Name = "invite_user"
+	webserver.POST("/api/orgs/:id/invite", orgCtrl.inviteUser, acl.New(acl.UserInvitation, acl.Update)).Name = "accept_invitation"
 	return orgCtrl
 }
 
@@ -44,7 +44,7 @@ func NewOrganizationController(
 //   200: orgQueryResponse
 func (oc *OrganizationController) queryOrganizations(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := oc.userManager.QueryOrgs(qc, params, page, pageSize, order)
 	if err != nil {
 		return err

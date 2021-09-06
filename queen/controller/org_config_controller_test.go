@@ -3,14 +3,15 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
-	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
 )
@@ -98,7 +99,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	// WHEN saving organization config
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", false))
+	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
 	err = ctrl.postOrganizationConfig(ctx)
 
 	// THEN it should return saved config
@@ -109,7 +110,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	// WHEN updating organization config
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", false))
+	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putOrganizationConfig(ctx)
 	// THEN it should return updated config

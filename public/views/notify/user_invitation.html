@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="">
+        <meta name="author" content="">
+        <title>{{.Title}}</title>
+        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+
+    <body>
+        <div class="container-fluid">
+            <p>Hi there,</p>
+            <p>You are being invited to the <a href="{{$.URLPrefix}}/dashboard/users/new">Formicary</a> by {{.Name}}. The Formicary is a cloud platform for building CI/CD solutions and
+            customized workflows for repetitive and scheduled tasks.</p>
+            <p>Please enter the one time following code into verification field at signup.</p>
+           
+            <p> <b>Invitation code: {{.InvitationCode}}</b></p>
+
+            <p>If you want to create an account, please click on the link: <a href="{{$.URLPrefix}}/dashboard/users/new?inv_id={{.InvitationCode}}">{{$.URLPrefix}}/dashboard/users/new?inv_id={{.InvitationCode}}</a>.
+
+            <p>Regards,</p>
+            <p>Formicary Support</p>
+        </div>  
+    </body>
+</html>

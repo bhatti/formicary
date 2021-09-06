@@ -181,10 +181,10 @@ func startAdminControllers(
 		repoFactory.OrgConfigRepository,
 		webServer)
 	admin.NewOrganizationAdminController(
-		repoFactory.AuditRecordRepository,
-		repoFactory.OrgRepository,
-		repoFactory.JobExecutionRepository,
-		repoFactory.ArtifactRepository,
+		userManager,
+		webServer)
+	admin.NewInvitationAdminController(
+		userManager,
 		webServer)
 	admin.NewJobDefinitionAdminController(
 		jobManager,

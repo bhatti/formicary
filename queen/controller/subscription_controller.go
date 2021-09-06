@@ -52,7 +52,7 @@ func NewSubscriptionController(
 //   200: subscriptionQueryResponse
 func (cc *SubscriptionController) querySubscriptions(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := cc.subscriptionRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {
 		return err

@@ -66,9 +66,16 @@
                     </tbody>
                 </table>
             </div>
-            <div align="center">
-                You are receiving this email from your jobs on the <a href="{{.URLPrefix}}">Formicary application</a>. <a href="{{.URLPrefix}}/dashboard/users/{{.Job.UserID}}">Manage email notification</a>.
-            </div>
+            <blockquote class="blockquote">
+                   <span class="font-italic">
+                    Visit <a href="{{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}">{{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}</a> for more details.
+                   </span>
+            </blockquote>
+            <blockquote class="blockquote-footer">
+                   <span class="font-italic">
+                    You are receiving this email from your jobs on the <a href="{{.URLPrefix}}">Formicary platform</a>. <a href="{{.URLPrefix}}/dashboard/users/{{.Job.UserID}}">Manage email notification</a>.
+                   </span>
+            </blockquote>
         </div>  
     </body>
 </html>

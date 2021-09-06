@@ -3,16 +3,19 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/manager"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
-	"strings"
-	"testing"
 )
 
 func Test_InitializeSwaggerStructsForEmailVerification(t *testing.T) {
@@ -26,20 +29,20 @@ func Test_InitializeSwaggerStructsForEmailVerification(t *testing.T) {
 
 func Test_ShouldQueryEmailVerifications(t *testing.T) {
 	// GIVEN error-code controller
+	cfg := config.TestServerConfig()
 	emailVerifyRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = "user-id"
-	u.Email = "email@mail.com"
 	userRepository, err := repository.NewTestUserRepository()
 	u, err = userRepository.Create(u)
 	require.NoError(t, err)
 
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	_, err = emailVerifyRepository.Create(ev)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewEmailVerificationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewEmailVerificationController(manager.AssertTestUserManager(cfg, t), webServer)
 
 	// WHEN querying error codes
 	reader := io.NopCloser(strings.NewReader(""))
@@ -55,20 +58,20 @@ func Test_ShouldQueryEmailVerifications(t *testing.T) {
 
 func Test_ShouldCreateAndGetEmailVerification(t *testing.T) {
 	// GIVEN error-code controller
+	cfg := config.TestServerConfig()
 	webServer := web.NewStubWebServer()
-	ctrl := NewEmailVerificationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewEmailVerificationController(manager.AssertTestUserManager(cfg, t), webServer)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
 
 	// WHEN creating error-code
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = "user-id"
-	u.Email = "email@mail.com"
 	u, err = userRepository.Create(u)
 
 	require.NoError(t, err)
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	b, err := json.Marshal(ev)
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))
@@ -93,18 +96,17 @@ func Test_ShouldCreateAndGetEmailVerification(t *testing.T) {
 func Test_ShouldUpdateAndVerifyEmailVerification(t *testing.T) {
 	// GIVEN error-code controller
 	webServer := web.NewStubWebServer()
-	ctrl := NewEmailVerificationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewEmailVerificationController(manager.AssertTestUserManager(nil, t), webServer)
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
 
 	// WHEN updating error code
-	u := common.NewUser("", "username", "name", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", false)
 	u.ID = "user-id"
-	u.Email = "email@mail.com"
 	u, err = userRepository.Create(u)
 	require.NoError(t, err)
-	ev := types.NewEmailVerification("email@mail.com", u)
+	ev := types.NewEmailVerification("email@formicary.io", u)
 	b, err := json.Marshal(ev)
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))

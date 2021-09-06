@@ -50,6 +50,8 @@ const (
 	PrivacyPolicies Resource = "PrivacyPolicies"
 	// EmailVerification resource
 	EmailVerification Resource = "EmailVerification"
+	// UserInvitation resource
+	UserInvitation Resource = "UserInvitation"
 )
 
 const (
@@ -317,7 +319,8 @@ func DefaultPermissions() []*Permission {
 		New(Subscription, None),
 		New(TermsService, View|Read),
 		New(PrivacyPolicies, View|Read),
-		New(EmailVerification, Create|View|Read|Verify),
+		New(EmailVerification, Create|View|Read|Verify|Query),
+		New(UserInvitation, Create|View|Update|Read|Query|Invite),
 	}
 }
 
@@ -347,5 +350,6 @@ func AdminPermissions() []*Permission {
 		New(Health, Create|Read|Update|Delete|Query),
 		New(Profile, Create|Read|Update|Delete|Query),
 		New(EmailVerification, Create|Read|Update|Delete|Query),
+		New(UserInvitation, Create|View|Update|Read|Query|Invite),
 	}
 }

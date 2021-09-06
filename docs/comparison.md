@@ -7,6 +7,7 @@
 | **Definition Format** | Python    | API       | YAML      | YAML         | YAML      | TOML      | DSL         |
 | **Artifacts**         | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **NPM/Maven/etc Caching** | No        | Yes       | Yes       | Yes      | No        | Yes       | No          |
+| **Dynamic Workflow**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Job Priority**      | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Task/Workers Tags** | Yes       | No        | No        | Yes          | No        | Yes       | Yes (Agents)|
 | **Conditional Flow**  | Yes       | No        | No        | Yes          | No        | No        | No          |

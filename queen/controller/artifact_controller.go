@@ -40,7 +40,7 @@ func NewArtifactController(
 // responses:
 //   200: artifactsQueryResponse
 func (ac *ArtifactController) queryArtifacts(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	records, total, err := ac.artifactManager.QueryArtifacts(context.Background(), qc, params, page, pageSize, order)
 	if err != nil {

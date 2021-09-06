@@ -16,29 +16,35 @@ import (
 type OrganizationConfigRepositoryImpl struct {
 	dbConfig *config.DBConfig
 	db       *gorm.DB
+	*BaseRepositoryImpl
 }
 
 // NewOrganizationConfigRepositoryImpl creates new instance for org-config-repository
 func NewOrganizationConfigRepositoryImpl(
 	dbConfig *config.DBConfig,
 	db *gorm.DB,
+	objectUpdatedHandler ObjectUpdatedHandler,
 ) (*OrganizationConfigRepositoryImpl, error) {
-	return &OrganizationConfigRepositoryImpl{dbConfig: dbConfig, db: db}, nil
+	return &OrganizationConfigRepositoryImpl{
+		dbConfig:           dbConfig,
+		db:                 db,
+		BaseRepositoryImpl: NewBaseRepositoryImpl(objectUpdatedHandler),
+	}, nil
 }
 
 // Get method finds OrganizationConfig by id
 func (scr *OrganizationConfigRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*common.OrganizationConfig, error) {
-	var config common.OrganizationConfig
-	res := qc.AddOrgElseUserWhere(scr.db).Where("id = ?", id).First(&config)
+	var cfg common.OrganizationConfig
+	res := qc.AddOrgElseUserWhere(scr.db).Where("id = ?", id).First(&cfg)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
-	if err := config.AfterLoad(scr.encryptionKey(qc)); err != nil {
+	if err := cfg.AfterLoad(scr.encryptionKey(qc)); err != nil {
 		return nil, err
 	}
-	return &config, nil
+	return &cfg, nil
 }
 
 // clear - for testing
@@ -58,6 +64,7 @@ func (scr *OrganizationConfigRepositoryImpl) Delete(
 		return common.NewNotFoundError(
 			fmt.Errorf("failed to delete org-config with id %v, rows %v", id, res.RowsAffected))
 	}
+	scr.FireObjectUpdatedHandler(qc, id, ObjectDeleted, nil)
 	return nil
 }
 
@@ -90,6 +97,9 @@ func (scr *OrganizationConfigRepositoryImpl) Save(
 		}
 		return nil
 	})
+	if err == nil {
+		scr.FireObjectUpdatedHandler(qc, config.ID, ObjectUpdated, config)
+	}
 	return config, err
 }
 

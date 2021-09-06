@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// RedirectCookieName for persisting url after login
+const RedirectCookieName = "redirect_url"
+
 // AuthConfig -- Defines auth config
 type AuthConfig struct {
 	Enabled            bool          `yaml:"enabled" mapstructure:"enabled"`
@@ -31,6 +34,7 @@ func (c *AuthConfig) SessionCookie(token string, expiration time.Time) *http.Coo
 	cookie.Expires = expiration
 	cookie.Path = "/"
 	cookie.HttpOnly = true
+	cookie.Secure = c.Secure
 	return cookie
 }
 
@@ -52,6 +56,7 @@ func (c *AuthConfig) ExpiredCookie(name string) *http.Cookie {
 	cookie.Expires = time.Unix(0, 0)
 	cookie.Path = "/"
 	cookie.HttpOnly = true
+	cookie.Secure = c.Secure
 	return cookie
 }
 
@@ -68,6 +73,31 @@ func (c *AuthConfig) LoginStateCookie() *http.Cookie {
 	cookie.Expires = time.Now().Add(15 * time.Minute)
 	cookie.Path = "/"
 	cookie.HttpOnly = true
+	cookie.Secure = c.Secure
+	return cookie
+}
+
+// RedirectCookie returns cookie with saved url
+func (c *AuthConfig) RedirectCookie(url string) *http.Cookie {
+	cookie := new(http.Cookie)
+	cookie.Name = RedirectCookieName
+	cookie.Value = url
+	cookie.Expires = time.Now().Add(time.Minute * 15)
+	cookie.Path = "/"
+	cookie.HttpOnly = true
+	cookie.Secure = c.Secure
+	return cookie
+}
+
+// ClearRedirectCookie returns cookie with saved url
+func (c *AuthConfig) ClearRedirectCookie() *http.Cookie {
+	cookie := new(http.Cookie)
+	cookie.Name = RedirectCookieName
+	cookie.Value = ""
+	cookie.Expires = time.Unix(0, 0)
+	cookie.Path = "/"
+	cookie.HttpOnly = true
+	cookie.Secure = c.Secure
 	return cookie
 }
 
@@ -83,6 +113,21 @@ func (c *AuthConfig) Validate() error {
 		if c.GoogleClientSecret == "" && c.GithubClientSecret == "" {
 			return fmt.Errorf("auth client_secret is not specified for google or github")
 		}
+	}
+	if c.MaxAge == 0 {
+		c.MaxAge = 7 * 24 * time.Hour
+	}
+	if c.TokenMaxAge == 0 {
+		c.TokenMaxAge = 30 * 3 * 24 * time.Hour
+	}
+	if c.GoogleCallbackHost == "" {
+		c.GoogleCallbackHost = "localhost"
+	}
+	if c.GithubCallbackHost == "" {
+		c.GithubCallbackHost = "localhost"
+	}
+	if c.CookieName == "" {
+		c.CookieName = "formicary-session"
 	}
 	return nil
 }

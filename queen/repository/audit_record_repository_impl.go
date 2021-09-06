@@ -2,12 +2,11 @@ package repository
 
 import (
 	"fmt"
-	"sort"
-	"time"
-
 	"github.com/twinj/uuid"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
+	"sort"
+	"time"
 )
 
 // AuditRecordRepositoryImpl implements AuditRecordRepository using gorm O/R mapping
@@ -27,6 +26,26 @@ func (arr *AuditRecordRepositoryImpl) GetKinds() (kinds []types.AuditKind, err e
 	return
 }
 
+// Save persists audit-record
+func (arr *AuditRecordRepositoryImpl) Save(
+	record *types.AuditRecord) (*types.AuditRecord, error) {
+	err := record.ValidateBeforeSave()
+	if err != nil {
+		return nil, err
+	}
+	err = arr.db.Transaction(func(tx *gorm.DB) error {
+		var res *gorm.DB
+		record.ID = uuid.NewV4().String()
+		record.CreatedAt = time.Now()
+		res = tx.Create(record)
+		if res.Error != nil {
+			return res.Error
+		}
+		return nil
+	})
+	return record, err
+}
+
 // Query finds matching audit-records by parameters
 func (arr *AuditRecordRepositoryImpl) Query(
 	params map[string]interface{},
@@ -36,14 +55,7 @@ func (arr *AuditRecordRepositoryImpl) Query(
 	records = make([]*types.AuditRecord, 0)
 	tx := arr.db.Limit(pageSize).Offset(page * pageSize)
 
-	q := params["q"]
-	delete(params, "q")
-	if q != "" && q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("target_id LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR message LIKE ?",
-			qs, qs, qs, q, qs)
-	}
-	tx = addQueryParamsWhere(params, tx)
+	tx = arr.addQuery(params, tx)
 
 	if len(order) == 0 {
 		tx = tx.Order("created_at desc")
@@ -65,7 +77,7 @@ func (arr *AuditRecordRepositoryImpl) Query(
 func (arr *AuditRecordRepositoryImpl) Count(
 	params map[string]interface{}) (totalRecords int64, err error) {
 	tx := arr.db.Model(&types.AuditRecord{})
-	tx = addQueryParamsWhere(params, tx)
+	tx = arr.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {
 		err = res.Error
@@ -79,22 +91,12 @@ func (arr *AuditRecordRepositoryImpl) clear() {
 	clearDB(arr.db)
 }
 
-// Save persists audit-record
-func (arr *AuditRecordRepositoryImpl) Save(
-	record *types.AuditRecord) (*types.AuditRecord, error) {
-	err := record.ValidateBeforeSave()
-	if err != nil {
-		return nil, err
+func (arr *AuditRecordRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("target_id LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR kind = ? OR message LIKE ?",
+			qs, qs, qs, q, qs)
 	}
-	err = arr.db.Transaction(func(tx *gorm.DB) error {
-		var res *gorm.DB
-		record.ID = uuid.NewV4().String()
-		record.CreatedAt = time.Now()
-		res = tx.Create(record)
-		if res.Error != nil {
-			return res.Error
-		}
-		return nil
-	})
-	return record, err
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

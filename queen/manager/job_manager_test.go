@@ -3,17 +3,11 @@ package manager
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"plexobject.com/formicary/internal/metrics"
-	"plexobject.com/formicary/queen/notify"
 	"testing"
 
-	"plexobject.com/formicary/internal/artifacts"
-	"plexobject.com/formicary/internal/queue"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
-	"plexobject.com/formicary/queen/resource"
-	"plexobject.com/formicary/queen/stats"
 	"plexobject.com/formicary/queen/types"
 )
 
@@ -22,7 +16,8 @@ func Test_ShouldNotThrowErrorWhenSavingCronJobDefinitionAgain(t *testing.T) {
 	// GIVEN: a job definition with cron trigger is created
 	job := newTestJobDefinition("test-job")
 	job.CronTrigger = "0 0 * * * * *"
-	jobManager, jobRequestRepository, err := newTestJobManager()
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepository, err := newTestJobManager(serverCfg)
 	require.NoError(t, err)
 	_, userKey := job.GetCronScheduleTimeAndUserKey()
 	// AND: no other request exists
@@ -61,115 +56,18 @@ func verifyAutomaticallyCreatedJobRequest(
 	}
 }
 
-func newTestJobManager() (*JobManager, *repository.JobRequestRepositoryImpl, error) {
-	serverCfg := &config.ServerConfig{}
-	serverCfg.S3.AccessKeyID = "admin"
-	serverCfg.S3.SecretAccessKey = "password"
-	serverCfg.S3.Bucket = "bucket"
-	serverCfg.Pulsar.URL = "test"
-	serverCfg.Redis.Host = "localhost"
-
-
-	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
-	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
-	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
-
-	if err := serverCfg.Validate(); err != nil {
-		return nil, nil, err
-	}
-	queueClient, err := queue.NewStubClient(&serverCfg.CommonConfig)
+func newTestJobManager(
+	serverCfg *config.ServerConfig,
+	) (*JobManager, *repository.JobRequestRepositoryImpl, error) {
+	mgr, err := TestJobManager(serverCfg)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	jobStatsRegistry := stats.NewJobStatsRegistry()
-	artifactService, err := artifacts.NewStub(&serverCfg.S3)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	userRepository, err := repository.NewTestUserRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-	orgRepository, err := repository.NewTestOrganizationRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
-	if err != nil {
-		return nil, nil, err
-	}
 	jobRequestRepository, err := repository.NewTestJobRequestRepository()
 	if err != nil {
 		return nil, nil, err
 	}
-	jobExecutionRepository, err := repository.NewTestJobExecutionRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-	artifactRepository, err := repository.NewTestArtifactRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-	emailVerificationRepository, err := repository.NewTestEmailVerificationRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
-	if err != nil {
-		return nil, nil, err
-	}
-	artifactManager, err := NewArtifactManager(
-		serverCfg,
-		artifactRepository,
-		artifactService)
-	if err != nil {
-		return nil, nil, err
-	}
-	resourceManager := resource.New(serverCfg, queueClient)
-
-	metricsRegistry := metrics.New()
-
-	notifier, err := notify.New(
-		serverCfg,
-		make(map[common.NotifyChannel]types.Sender),
-		emailVerificationRepository)
-	if err != nil {
-		return nil, nil, err
-	}
-	userManager, err := NewUserManager(
-		serverCfg,
-		auditRecordRepository,
-		userRepository,
-		orgRepository,
-		emailVerificationRepository,
-		subscriptionRepository,
-		notifier,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	mgr, err := NewJobManager(
-		serverCfg,
-		auditRecordRepository,
-		jobDefinitionRepository,
-		jobRequestRepository,
-		jobExecutionRepository,
-		userManager,
-		resourceManager,
-		artifactManager,
-		jobStatsRegistry,
-		metricsRegistry,
-		queueClient,
-		notifier,
-		)
 	return mgr, jobRequestRepository, err
 }
 

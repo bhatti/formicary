@@ -136,10 +136,22 @@ func (ac *AuthController) providerAuthCallback(c web.WebContext) error {
 	if oldUser != nil {
 		_, _ = ac.auditRecordRepository.Save(types.NewAuditRecordFromUser(oldUser, types.UserLogin,
 			common.NewQueryContextFromUser(oldUser, nil, c.Request().RemoteAddr)))
-		http.Redirect(c.Response(), c.Request(), "/dashboard", http.StatusTemporaryRedirect)
+		if redirectCookie, err := c.Cookie(common.RedirectCookieName); err == nil && redirectCookie.Value != "" {
+			c.SetCookie(ac.commonCfg.Auth.ClearRedirectCookie())
+			http.Redirect(c.Response(), c.Request(), redirectCookie.Value, http.StatusTemporaryRedirect)
+		} else {
+			http.Redirect(c.Response(), c.Request(), "/dashboard", http.StatusTemporaryRedirect)
+		}
 	}
 
-	http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusTemporaryRedirect)
+	if redirectCookie, err := c.Cookie(common.RedirectCookieName); err == nil &&
+		strings.HasPrefix(redirectCookie.Value, "/dashboard/users/new") {
+		c.SetCookie(ac.commonCfg.Auth.ClearRedirectCookie())
+		http.Redirect(c.Response(), c.Request(), redirectCookie.Value, http.StatusTemporaryRedirect)
+	} else {
+		http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusTemporaryRedirect)
+	}
+
 	return nil
 }
 
@@ -187,6 +199,7 @@ func (ac *AuthController) logout(c web.WebContext) error {
 	user := web.GetDBLoggedUserFromSession(c)
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.CookieName))
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.LoginStateCookieName()))
+	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(common.RedirectCookieName))
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie("JSESSIONID"))
 	http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
 	if user != nil {
@@ -349,6 +362,7 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 		claims.OrgID,
 		claims.UserName,
 		"",
+		"",
 		false,
 	)
 
@@ -357,8 +371,11 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 	user.PictureURL = claims.PictureURL
 	user.AuthProvider = claims.AuthProvider
 	// not using query-context here because we just need to find user
-	dbUser, _ = ac.userRepository.GetByUsername(common.NewQueryContext("", "", ""), user.Username)
-	if dbUser != nil {
+	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext("", "", ""), user.Username)
+	if err != nil {
+		// can't delete cookie
+		//c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.CookieName))
+	} else {
 		if dbUser.OrganizationID != "" {
 			dbOrg, _ := ac.orgRepository.Get(
 				common.NewQueryContext("", "", ""),

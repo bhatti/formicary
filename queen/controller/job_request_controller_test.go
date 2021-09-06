@@ -31,9 +31,10 @@ func Test_InitializeSwaggerStructsForJobRequest(t *testing.T) {
 
 func Test_ShouldQueryJobRequests(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobRequestController(mgr, webServer)
+	addJobRequest(t, mgr)
 
 	// WHEN querying jobs
 	reader := io.NopCloser(strings.NewReader(""))
@@ -49,7 +50,7 @@ func Test_ShouldQueryJobRequests(t *testing.T) {
 
 func Test_ShouldGetJobRequests(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	jobReq := addJobRequest(t, mgr)
 
 	webServer := web.NewStubWebServer()
@@ -69,7 +70,7 @@ func Test_ShouldGetJobRequests(t *testing.T) {
 
 func Test_ShouldStatsJobRequests(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	_ = addJobRequest(t, mgr)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobRequestController(mgr, webServer)
@@ -88,7 +89,7 @@ func Test_ShouldStatsJobRequests(t *testing.T) {
 
 func Test_ShouldSubmitJobRequest(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	job := getTestJobDefinition(t, mgr)
 	jobReq, err := types.NewJobRequestFromDefinition(job)
 	require.NoError(t, err)
@@ -119,7 +120,7 @@ func Test_ShouldSubmitJobRequest(t *testing.T) {
 
 func Test_ShouldGetWaitTimes(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	job := addJobRequest(t, mgr)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobRequestController(mgr, webServer)
@@ -138,7 +139,7 @@ func Test_ShouldGetWaitTimes(t *testing.T) {
 
 func Test_ShouldCancelJobRequest(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	job := addJobRequest(t, mgr)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobRequestController(mgr, webServer)
@@ -155,7 +156,7 @@ func Test_ShouldCancelJobRequest(t *testing.T) {
 
 func Test_ShouldRestartJobRequest(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	job := addJobRequest(t, mgr)
 	err := mgr.CancelJobRequest(common.NewQueryContext("", "", ""), job.ID)
 	require.NoError(t, err)
@@ -174,7 +175,7 @@ func Test_ShouldRestartJobRequest(t *testing.T) {
 
 func Test_ShouldGetRecentDeadIDs(t *testing.T) {
 	// GIVEN job-request controller
-	mgr := newTestJobManager(newTestConfig(), t)
+	mgr := manager.AssertTestJobManager(nil, t)
 	_ = addJobRequest(t, mgr)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobRequestController(mgr, webServer)
@@ -221,4 +222,3 @@ func addJobRequest(t *testing.T, mgr *manager.JobManager) *types.JobRequest {
 	}
 	return jobReq
 }
-

@@ -59,7 +59,7 @@ func NewJobDefinitionController(
 // responses:
 //   200: jobDefinitionQueryResponse
 func (jobDefCtrl *JobDefinitionController) queryJobDefinitions(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	if params["public_plugin"] == nil {
 		params["public_plugin"] = false
 	}
@@ -81,7 +81,7 @@ func (jobDefCtrl *JobDefinitionController) queryJobDefinitions(c web.WebContext)
 // responses:
 //   200: jobDefinitionQueryResponse
 func (jobDefCtrl *JobDefinitionController) queryPlugins(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	params["public_plugin"] = true
 	recs, total, err := jobDefCtrl.jobManager.QueryJobDefinitions(
 		common.NewQueryContext("", "", ""),
@@ -301,11 +301,11 @@ type jobDefinitionQueryParams struct {
 	JobType string `yaml:"job_type" json:"job_type"`
 	// Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering
 	Platform string `json:"platform"`
-	// Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.
+	// Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
 	Paused bool `json:"paused"`
 	// PublicPlugin means job is public plugin
 	PublicPlugin bool `json:"public_plugin"`
-	// Tags is aggregation of task tags and it can be searched via `tags:in`
+	// Tags is aggregation of task tags, and it can be searched via `tags:in`
 	Tags string `json:"tags"`
 }
 

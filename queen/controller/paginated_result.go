@@ -81,7 +81,8 @@ func ParseParams(c web.WebContext) (
 	order []string,
 	page int,
 	pageSize int,
-	q string) {
+	q string,
+	qs string) {
 	page = 0
 	pageSize = 200
 	params = make(map[string]interface{})
@@ -99,5 +100,8 @@ func ParseParams(c web.WebContext) (
 		}
 	}
 	q += fmt.Sprintf("pageSize=%d&", pageSize)
+	if params["q"] != nil {
+		qs = params["q"].(string)
+	}
 	return
 }

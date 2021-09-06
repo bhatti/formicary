@@ -30,7 +30,7 @@ func Test_InitializeSwaggerStructsForArtifact(t *testing.T) {
 
 func Test_ShouldQueryArtifacts(t *testing.T) {
 	// GIVEN artifact controller
-	mgr := newTestArtifactManager(newTestConfig(), t)
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
 	webServer := web.NewStubWebServer()
 	ctrl := NewArtifactController(mgr, webServer)
 	reader := io.NopCloser(strings.NewReader("test-data"))
@@ -51,7 +51,7 @@ func Test_ShouldQueryArtifacts(t *testing.T) {
 
 func Test_ShouldUploadAndGetArtifact(t *testing.T) {
 	// GIVEN artifact controller
-	mgr := newTestArtifactManager(newTestConfig(), t)
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
 	webServer := web.NewStubWebServer()
 	ctrl := NewArtifactController(mgr, webServer)
 
@@ -77,7 +77,7 @@ func Test_ShouldUploadAndGetArtifact(t *testing.T) {
 
 func Test_ShouldUploadAndDeleteArtifact(t *testing.T) {
 	// GIVEN artifact controller
-	mgr := newTestArtifactManager(newTestConfig(), t)
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
 	webServer := web.NewStubWebServer()
 	ctrl := NewArtifactController(mgr, webServer)
 	reader := io.NopCloser(strings.NewReader("test-data"))
@@ -98,19 +98,6 @@ func Test_ShouldUploadAndDeleteArtifact(t *testing.T) {
 
 	// THEN it should not fail
 	require.NoError(t, err)
-}
-
-func newTestConfig() *config.ServerConfig {
-	serverCfg := &config.ServerConfig{}
-	serverCfg.S3.AccessKeyID = "admin"
-	serverCfg.S3.SecretAccessKey = "password"
-	serverCfg.Pulsar.URL = "test"
-	serverCfg.Redis.Host = "localhost"
-	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
-	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
-	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
-	_ = serverCfg.Validate()
-	return serverCfg
 }
 
 func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manager.ArtifactManager {
@@ -136,4 +123,3 @@ func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manag
 	}
 	return mgr
 }
-

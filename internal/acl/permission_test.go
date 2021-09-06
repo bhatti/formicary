@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -52,6 +53,7 @@ func Test_ShouldPermissions(t *testing.T) {
 	require.True(t, perms.Has(Artifact, Read))
 	require.True(t, perms.Has(Artifact, View))
 	require.True(t, perms.Has(Artifact, Upload))
+	fmt.Printf("%s\n", ser)
 }
 
 // Verify wild permissions

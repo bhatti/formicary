@@ -41,16 +41,18 @@ func NewErrorCodeAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryErrorCodes - queries error-code
 func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
-	errors, total, err := jraCtr.errorCodeRepository.Query(params, page, pageSize, order)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
+	recs, total, err := jraCtr.errorCodeRepository.Query(params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
 	baseURL := fmt.Sprintf("/dashboard/errors?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Errors": errors,
+	res := map[string]interface{}{
+		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "errors/index", res)

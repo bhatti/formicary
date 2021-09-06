@@ -484,9 +484,9 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
-| paused | query | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No | boolean |
+| paused | query | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
-| tags | query | Tags is aggregation of task tags and it can be searched via `tags:in` | No | string |
+| tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
 ##### Responses
 
@@ -758,9 +758,9 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
-| paused | query | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No | boolean |
+| paused | query | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
-| tags | query | Tags is aggregation of task tags and it can be searched via `tags:in` | No | string |
+| tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
 ##### Responses
 
@@ -1581,6 +1581,7 @@ Updates user notification.
 | ---- | ---------- | ----------- | -------- | ---- |
 | id | path |  | Yes | string |
 | email | formData |  | No | string |
+| slackChannel | query |  | No | string |
 | when | query |  | No | string |
 | Body | body |  | No | [User](#user) |
 
@@ -2227,6 +2228,7 @@ the database.
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_definition_id | string | JobDefinitionID defines foreign key for JobDefinition | No |
 | job_version | string |  | No |
+| messaging_queue | string |  | No |
 | method | [TaskMethod](#taskmethod) |  | No |
 | on_completed | string |  | No |
 | on_exit_code | object |  | No |
@@ -2317,13 +2319,13 @@ UserInvitation represents a user session
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| accepted_at | dateTime | ExpiresAt expiration time | No |
 | created_at | dateTime | CreatedAt created time | No |
 | email | string | Email defines invitee | No |
 | expires_at | dateTime | ExpiresAt expiration time | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | invitation_code | string | InvitationCode defines code | No |
 | invited_by_user_id | string | InvitedByUserID defines foreign key | No |
+| org_unit | string | OrgUnit defines org-unit | No |
 | organization_id | string | OrganizationID defines foreign key | No |
 
 #### UserJobTypeKey

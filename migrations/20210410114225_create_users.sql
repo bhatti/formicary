@@ -88,7 +88,7 @@
       token_name VARCHAR(100) NOT NULL,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       sha256 VARCHAR(64) NOT NULL,
-      expires_at TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP NOT NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_user_tokens_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)
     );
@@ -97,10 +97,11 @@
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       email VARCHAR(100) NOT NULL,
       organization_id VARCHAR(36) NOT NULL,
+      org_unit VARCHAR(100) NOT NULL,
       invited_by_user_id VARCHAR(36) NOT NULL,
       invitation_code VARCHAR(50) NOT NULL,
       accepted_at TIMESTAMP NULL DEFAULT NULL,
-      expires_at TIMESTAMP NULL,
+      expires_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_user_invitation_fk FOREIGN KEY (invited_by_user_id) REFERENCES formicary_users(id)
     );

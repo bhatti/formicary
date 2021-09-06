@@ -38,7 +38,7 @@ func NewContainerExecutionController(
 // responses:
 //   200: containerExecutionsQueryResponse
 func (cec *ContainerExecutionController) queryContainerExecutions(c web.WebContext) error {
-	_, order, page, pageSize, _ := ParseParams(c)
+	_, order, page, pageSize, _, _ := ParseParams(c)
 	sortField := ""
 	if len(order) > 0 {
 		sortField = order[0]

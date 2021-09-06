@@ -36,7 +36,7 @@ func NewEmailVerificationController(
 // responses:
 //   200: emailVerificationQueryResponse
 func (uc *EmailVerificationController) queryEmailVerifications(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := uc.userManager.QueryEmailVerifications(
 		qc,
@@ -63,7 +63,7 @@ func (uc *EmailVerificationController) createEmailVerification(c web.WebContext)
 	}
 	qc := web.BuildQueryContext(c)
 	emailVerification.UserID = qc.UserID
-	saved, err := uc.userManager.CreateEmailVerifications(qc, emailVerification)
+	saved, err := uc.userManager.CreateEmailVerification(qc, emailVerification)
 	if err != nil {
 		return err
 	}

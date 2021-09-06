@@ -1,17 +1,21 @@
 package slack
 
 import (
-	"context"
 	"github.com/stretchr/testify/require"
 	"os"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/types"
 	"testing"
-	"time"
 )
 
 func Test_ShouldSendSlackMessage(t *testing.T) {
-	sender, err := New(testServerConfig())
+	qc := common.NewQueryContext("", "", "").WithAdmin()
+	serverCfg := config.TestServerConfig()
+	userMgr, err := manager.TestUserManager(serverCfg)
+	require.NoError(t, err)
+	sender, err := New(serverCfg, userMgr)
 	require.NoError(t, err)
 	org := common.NewOrganization("owner", "unit", "bundle")
 	token := os.Getenv("SLACK_TOKEN")
@@ -19,30 +23,16 @@ func Test_ShouldSendSlackMessage(t *testing.T) {
 		t.Logf("skip sending slack because token is not defined")
 		return
 	}
-	_, _ = org.AddConfig(slackToken, token, true)
+	_, _ = org.AddConfig(types.SlackToken, token, true)
 	err = sender.SendMessage(
-		context.Background(),
+		qc,
 		nil,
 		org,
 		[]string{"#formicary"},
-		"my message",
-		"Test message")
+		"Job FAILED",
+		`
+Message here
+`,
+		map[string]interface{}{types.Color: "#dc3545", types.Link: "https://formicary.io"})
 	require.NoError(t, err)
-}
-
-func testServerConfig() *config.ServerConfig {
-	serverCfg := &config.ServerConfig{}
-	serverCfg.S3.AccessKeyID = "admin"
-	serverCfg.S3.SecretAccessKey = "password"
-	serverCfg.Pulsar.URL = "test"
-	serverCfg.Jobs.JobSchedulerLeaderInterval = 2 * time.Second
-	serverCfg.Jobs.JobSchedulerCheckPendingJobsInterval = 2 * time.Second
-	serverCfg.Jobs.OrphanRequestsTimeout = 5 * time.Second
-	serverCfg.Jobs.OrphanRequestsUpdateInterval = 2 * time.Second
-	serverCfg.Jobs.MissingCronJobsInterval = 2 * time.Second
-
-	serverCfg.Notify.EmailJobsTemplateFile = "../../public/views/notify/email_notify_job.html"
-	serverCfg.Notify.SlackJobsTemplateFile = "../../public/views/notify/slack_notify_job.txt"
-	serverCfg.Notify.VerifyEmailTemplateFile = "../../public/views/notify/verify_email.html"
-	return serverCfg
 }

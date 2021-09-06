@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	common "plexobject.com/formicary/internal/types"
 	"time"
 
@@ -17,45 +18,6 @@ type LogEventRepositoryImpl struct {
 // NewLogEventRepositoryImpl creates new instance for audit-record-repository
 func NewLogEventRepositoryImpl(db *gorm.DB) (*LogEventRepositoryImpl, error) {
 	return &LogEventRepositoryImpl{db: db}, nil
-}
-
-// Query finds matching audit-records by parameters
-func (l *LogEventRepositoryImpl) Query(
-	params map[string]interface{},
-	page int,
-	pageSize int,
-	order []string) (records []*events.LogEvent, totalRecords int64, err error) {
-	records = make([]*events.LogEvent, 0)
-	tx := l.db.Limit(pageSize).Offset(page * pageSize)
-	if len(order) > 0 {
-		for _, ord := range order {
-			tx = tx.Order(ord)
-		}
-	}
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Find(&records)
-	if res.Error != nil {
-		err = res.Error
-		return nil, 0, err
-	}
-	for _, r := range records {
-		r.AfterLoad()
-	}
-	totalRecords, _ = l.Count(params)
-	return
-}
-
-// Count counts records by query
-func (l *LogEventRepositoryImpl) Count(
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := l.db.Model(&events.LogEvent{})
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		err = res.Error
-		return 0, err
-	}
-	return
 }
 
 // clear - for testing
@@ -108,4 +70,53 @@ func (l *LogEventRepositoryImpl) DeleteByTaskExecutionID(taskExecutionID string)
 		return 0, res.Error
 	}
 	return res.RowsAffected, nil
+}
+
+// Query finds matching audit-records by parameters
+func (l *LogEventRepositoryImpl) Query(
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (records []*events.LogEvent, totalRecords int64, err error) {
+	records = make([]*events.LogEvent, 0)
+	tx := l.db.Limit(pageSize).Offset(page * pageSize)
+	if len(order) > 0 {
+		for _, ord := range order {
+			tx = tx.Order(ord)
+		}
+	}
+	tx = l.addQuery(params, tx)
+	res := tx.Find(&records)
+	if res.Error != nil {
+		err = res.Error
+		return nil, 0, err
+	}
+	for _, r := range records {
+		r.AfterLoad()
+	}
+	totalRecords, _ = l.Count(params)
+	return
+}
+
+// Count counts records by query
+func (l *LogEventRepositoryImpl) Count(
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := l.db.Model(&events.LogEvent{})
+	tx = l.addQuery(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		err = res.Error
+		return 0, err
+	}
+	return
+}
+
+func (l *LogEventRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("user_id LIKE ? OR encoded_message LIKE ? OR job_request_id = ?",
+			qs, qs, q)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

@@ -31,6 +31,11 @@
            aria-controls="permission" aria-selected="false">Permissions</a>
     </li>
     {{end}}
+    {{if .User.HasOrganization}}
+    <li class="nav-item">
+        <a class="nav-link" id="invite-tab" href="/dashboard/orgs/{{.User.OrganizationID}}">Organization</a>
+    </li>
+    {{end}}
 </ul>
 
 <div class="tab-content" id="userViewContent">
@@ -243,6 +248,16 @@
                 </div>
                 <div class="form-group">
                     <div class="row">
+                        <label class="col-sm-2 col-form-label">Slack Token: </label>
+                        <div class="col-sm-10">
+                            <input type="password" class="form-control col-sm-6" name="slackToken" id="slackToken"
+                                   value="{{ $.SlackToken }}"
+                                   placeholder="your slack token to post chat messages">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="row">
                         <label class="col-sm-2 col-form-label">Email(s): </label>
                         <div class="col-sm-10">
                             <input type="text" class="form-control col-sm-6" name="email" id="email"
@@ -289,8 +304,17 @@
                 </form>
                 {{ end }}
             </div>
-            <b>Note:</b><i>Slack messages require that you add an organization config for <b>SlackToken</b>.
-            Email notifications will only be sent to the verified email addresses.</i>
+            <blockquote class="blockquote-footer">
+                   <span class="font-italic">
+                       The Slack support requires an organization account and your Slack token will be saved as a
+                         <a href="/dashboard/orgs/{{$.User.OrganizationID}}/configs">secret organization config</a>.
+                   </span>
+            </blockquote>
+            <blockquote class="blockquote-footer">
+                   <span class="font-italic">
+                     The email notifications will only be sent to the verified email addresses.
+                   </span>
+            </blockquote>
             {{end}}
         </section>
     </div>

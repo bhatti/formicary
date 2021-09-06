@@ -28,7 +28,7 @@
         </tr>
         </thead>
         <tbody>
-        {{range .Requests}}
+        {{range .Records}}
         <tr id="jobs_row_{{.ID}}">
             <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ID}}</a></td>
             <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.ShortJobType}}</a></td>

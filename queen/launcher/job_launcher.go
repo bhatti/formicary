@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/repository"
 	"sync"
 
 	"plexobject.com/formicary/queen/resource"
@@ -16,7 +17,6 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/fsm"
-	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/supervisor"
 )
 
@@ -27,10 +27,9 @@ type JobLauncher struct {
 	queueClient         queue.Client
 	jobManager          *manager.JobManager
 	artifactManager     *manager.ArtifactManager
-	errorCodeRepository repository.ErrorCodeRepository
-	userRepository      repository.UserRepository
-	orgRepository       repository.OrganizationRepository
+	userManager         *manager.UserManager
 	resourceManager     resource.Manager
+	errorCodeRepository repository.ErrorCodeRepository
 	metricsRegistry     *metrics.Registry
 	eventBus            evbus.Bus
 	supervisors         map[uint64]*supervisor.JobSupervisor
@@ -43,10 +42,9 @@ func New(
 	queueClient queue.Client,
 	jobManager *manager.JobManager,
 	artifactManager *manager.ArtifactManager,
-	errorCodeRepository repository.ErrorCodeRepository,
-	userRepository repository.UserRepository,
-	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	resourceManager resource.Manager,
+	errorCodeRepository repository.ErrorCodeRepository,
 	metricsRegistry *metrics.Registry,
 ) *JobLauncher {
 	return &JobLauncher{
@@ -56,8 +54,7 @@ func New(
 		jobManager:          jobManager,
 		artifactManager:     artifactManager,
 		errorCodeRepository: errorCodeRepository,
-		userRepository:      userRepository,
-		orgRepository:       orgRepository,
+		userManager:         userManager,
 		resourceManager:     resourceManager,
 		metricsRegistry:     metricsRegistry,
 		eventBus:            evbus.New(),
@@ -131,10 +128,9 @@ func (jl *JobLauncher) launchJob(
 		jl.queueClient,
 		jl.jobManager,
 		jl.artifactManager,
-		jl.errorCodeRepository,
-		jl.userRepository,
-		jl.orgRepository,
+		jl.userManager,
 		jl.resourceManager,
+		jl.errorCodeRepository,
 		jl.metricsRegistry,
 		requestInfo,
 		allocationsByTaskType)

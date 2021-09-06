@@ -12,12 +12,13 @@
     <body>
         <div class="container-fluid">
             <p>Hi {{.Name}},</p>
-            <p>Please enter the one time following code into email verification field found in your account settings:</p>
+            <p>Please enter the one time following code into email verification field at <a href="{{$.URLPrefix}}/dashboard/users/verify_email/{{.VerifyID}}">{{$.URLPrefix}}/dashboard/users/verify_email/{{.VerifyID}}</a>.</p>
            
             <p> <b>Verification code: {{.EmailCode}}</b></p>
             {{ with .Email }}
             <p> Email: {{.}}</p>
             {{ end  }}
+
             <p><a href="{{$.URLPrefix}}/dashboard/users/{{.UserID}}">Your Profile</a></p>
 
             <p>If you did not sign up for an account at Formicary.io, please ignore this email.</p>

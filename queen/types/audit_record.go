@@ -47,6 +47,8 @@ const (
 	EmailVerificationCreated AuditKind = "EMAIL_VERIFICATION_CREATED"
 	// EmailVerificationVerified verified
 	EmailVerificationVerified AuditKind = "EMAIL_VERIFICATION_VERIFIED"
+	// OrgConfigUpdated updated
+	OrgConfigUpdated AuditKind = "ORG_CONFIG_UPDATED"
 )
 
 // AuditRecord defines audit-record
@@ -226,7 +228,7 @@ func NewAuditRecordFromOrganization(org *common.Organization, qc *common.QueryCo
 // NewAuditRecordFromOrganizationConfig creates new instance of audit-record
 func NewAuditRecordFromOrganizationConfig(cfg *common.OrganizationConfig, qc *common.QueryContext) *AuditRecord {
 	return &AuditRecord{
-		Kind:           OrganizationUpdated,
+		Kind:           OrgConfigUpdated,
 		Message:        fmt.Sprintf("organization config updated %s", cfg),
 		UserID:         qc.UserID,
 		OrganizationID: cfg.OrganizationID,

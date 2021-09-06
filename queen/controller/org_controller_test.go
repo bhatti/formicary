@@ -3,14 +3,16 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
-	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/manager"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
 )
@@ -36,7 +38,7 @@ func Test_ShouldQueryOrgs(t *testing.T) {
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewOrganizationController(manager.AssertTestUserManager(nil, t), webServer)
 
 	// WHEN querying organizations
 	reader := io.NopCloser(strings.NewReader(""))
@@ -61,7 +63,7 @@ func Test_ShouldGetOrgByID(t *testing.T) {
 	_, err = organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewOrganizationController(manager.AssertTestUserManager(nil, t), webServer)
 
 	// WHEN getting organization
 	reader := io.NopCloser(strings.NewReader(""))
@@ -87,10 +89,10 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	webServer := web.NewStubWebServer()
 
 	// WHEN saving organization
-	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewOrganizationController(manager.AssertTestUserManager(nil, t), webServer)
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", false))
+	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
 	err = ctrl.postOrganization(ctx)
 
 	// THEN it should not fail nad return organization
@@ -101,7 +103,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	// WHEN updating organization
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser(saved.ID, "username", "name", false))
+	ctx.Set(web.DBUser, common.NewUser(saved.ID, "username", "name", "email@formicary.io", false))
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putOrganization(ctx)
 
@@ -122,7 +124,7 @@ func Test_ShouldDeleteOrg(t *testing.T) {
 	saved, err := organizationRepository.Create(qc, org)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
-	ctrl := NewOrganizationController(newTestUserManager(newTestConfig(), t), webServer)
+	ctrl := NewOrganizationController(manager.AssertTestUserManager(nil, t), webServer)
 
 	// WHEN deleting organization
 	reader := io.NopCloser(strings.NewReader(""))

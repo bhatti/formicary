@@ -9,7 +9,6 @@ import (
 	"plexobject.com/formicary/queen/email"
 	"plexobject.com/formicary/queen/notify"
 	"plexobject.com/formicary/queen/slack"
-	"plexobject.com/formicary/queen/types"
 	"time"
 
 	"plexobject.com/formicary/internal/artifacts"
@@ -84,8 +83,31 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	senders := make(map[common.NotifyChannel]types.Sender)
-	emailSender, err := email.New(serverCfg)
+	notifier, err := notify.New(
+		serverCfg,
+		repoFactory.EmailVerificationRepository)
+	if err != nil {
+		return err
+	}
+
+	userManager, err := manager.NewUserManager(
+		serverCfg,
+		repoFactory.AuditRecordRepository,
+		repoFactory.UserRepository,
+		repoFactory.OrgRepository,
+		repoFactory.OrgConfigRepository,
+		repoFactory.InvitationRepository,
+		repoFactory.EmailVerificationRepository,
+		repoFactory.SubscriptionRepository,
+		repoFactory.JobExecutionRepository,
+		repoFactory.ArtifactRepository,
+		notifier,
+	)
+	if err != nil {
+		return err
+	}
+
+	emailSender, err := email.New(serverCfg, userManager)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Queen",
@@ -93,9 +115,10 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			"Error":     err,
 		}).Warnf("failed to create email-sender")
 	} else {
-		senders[common.EmailChannel] = emailSender
+		notifier.AddSender(common.EmailChannel, emailSender)
 	}
-	slackSender, err := slack.New(serverCfg)
+
+	slackSender, err := slack.New(serverCfg, userManager)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Queen",
@@ -103,32 +126,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			"Error":     err,
 		}).Warnf("failed to create slack-sender")
 	} else {
-		senders[common.SlackChannel] = slackSender
-	}
-	notifier, err := notify.New(
-		serverCfg,
-		senders,
-		repoFactory.EmailVerificationRepository)
-	if err != nil {
-		return err
-	}
-	logrus.WithFields(logrus.Fields{
-		"Component": "Queen",
-		"Senders":   senders,
-		"ID":        serverCfg.ID,
-	}).Infof("notifiers configured")
-
-	userManager, err := manager.NewUserManager(
-		serverCfg,
-		repoFactory.AuditRecordRepository,
-		repoFactory.UserRepository,
-		repoFactory.OrgRepository,
-		repoFactory.EmailVerificationRepository,
-		repoFactory.SubscriptionRepository,
-		notifier,
-	)
-	if err != nil {
-		return err
+		notifier.AddSender(common.SlackChannel, slackSender)
 	}
 
 	jobManager, err := manager.NewJobManager(
@@ -160,10 +158,9 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			queueClient,
 			jobManager,
 			artifactManager,
-			repoFactory.ErrorCodeRepository,
-			repoFactory.UserRepository,
-			repoFactory.OrgRepository,
+			userManager,
 			resourceManager,
+			repoFactory.ErrorCodeRepository,
 			healthMonitor,
 			metricsRegistry,
 		)
@@ -225,10 +222,9 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		jobManager,
 		artifactManager,
-		repoFactory.ErrorCodeRepository,
-		repoFactory.UserRepository,
-		repoFactory.OrgRepository,
+		userManager,
 		resourceManager,
+		repoFactory.ErrorCodeRepository,
 		metricsRegistry)
 	if err = jobLauncher.Start(ctx); err != nil {
 		return err

@@ -41,7 +41,7 @@ func NewSystemConfigController(
 // responses:
 //   200: sysConfigQueryResponse
 func (cc *SystemConfigController) querySystemConfigs(c web.WebContext) error {
-	params, order, page, pageSize, _ := ParseParams(c)
+	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := cc.systemConfigRepository.Query(params, page, pageSize, order)
 	if err != nil {
 		return err

@@ -39,29 +39,29 @@ func NewMessagingHandler(
 }
 
 // Start starts subscription
-func (rh *MessagingHandler) Start(
+func (h *MessagingHandler) Start(
 	ctx context.Context,
 ) (err error) {
-	if rh.id == "" {
+	if h.id == "" {
 		return fmt.Errorf("id is not specified")
 	}
-	if rh.requestTopic == "" {
+	if h.requestTopic == "" {
 		return fmt.Errorf("requestTopic is not specified")
 	}
-	return rh.queueClient.Subscribe(
+	return h.queueClient.Subscribe(
 		ctx,
-		rh.requestTopic,
-		rh.id,
+		h.requestTopic,
+		h.id,
 		make(map[string]string),
 		true, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
-			err = rh.execute(ctx, event.Payload)
+			err = h.execute(ctx, event.Payload)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "MessagingHandler",
 					"Payload":   string(event.Payload),
-					"Target":    rh.id,
+					"Target":    h.id,
 					"Error":     err}).Error("failed to execute")
 				return err
 			}
@@ -71,18 +71,18 @@ func (rh *MessagingHandler) Start(
 }
 
 // Stop stops subscription
-func (rh *MessagingHandler) Stop(
+func (h *MessagingHandler) Stop(
 	ctx context.Context,
 ) (err error) {
-	return rh.queueClient.UnSubscribe(
+	return h.queueClient.UnSubscribe(
 		ctx,
-		rh.requestTopic,
-		rh.id,
+		h.requestTopic,
+		h.id,
 	)
 }
 
 // execute request
-func (rh *MessagingHandler) execute(
+func (h *MessagingHandler) execute(
 	ctx context.Context,
 	reqPayload []byte) (err error) {
 	var req types.TaskRequest
@@ -110,7 +110,7 @@ func (rh *MessagingHandler) execute(
 	if err != nil {
 		return err
 	}
-	_, err = rh.queueClient.Send(
+	_, err = h.queueClient.Send(
 		ctx,
 		req.ResponseTopic,
 		make(map[string]string),

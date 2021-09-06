@@ -15,7 +15,8 @@ import (
 
 func Test_ShouldExpireArtifacts(t *testing.T) {
 	// GIVEN artifact-manager
-	serverCfg := newTestServerConfig()
+
+	serverCfg := config.TestServerConfig()
 	err := serverCfg.Validate()
 	require.NoError(t, err)
 
@@ -46,7 +47,7 @@ func Test_ShouldExpireArtifacts(t *testing.T) {
 
 func Test_ShouldUploadArtifacts(t *testing.T) {
 	// GIVEN artifact-manager
-	serverCfg := newTestServerConfig()
+	serverCfg := config.TestServerConfig()
 	err := serverCfg.Validate()
 	require.NoError(t, err)
 
@@ -113,14 +114,4 @@ func newTestArtifactManager(t *testing.T, err error, serverCfg *config.ServerCon
 		artifactService)
 	require.NoError(t, err)
 	return mgr
-}
-
-func newTestServerConfig() *config.ServerConfig {
-	serverCfg := &config.ServerConfig{}
-	serverCfg.S3.AccessKeyID = "admin"
-	serverCfg.S3.SecretAccessKey = "password"
-	serverCfg.S3.Bucket = "bucket"
-	serverCfg.Pulsar.URL = "test"
-	serverCfg.Redis.Host = "localhost"
-	return serverCfg
 }

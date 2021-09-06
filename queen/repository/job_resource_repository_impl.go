@@ -181,59 +181,6 @@ func (jrr *JobResourceRepositoryImpl) MatchByTags(
 	return
 }
 
-// Query finds matching job-resource by parameters
-func (jrr *JobResourceRepositoryImpl) Query(
-	qc *common.QueryContext,
-	params map[string]interface{},
-	page int,
-	pageSize int,
-	order []string) (resources []*types.JobResource, totalRecords int64, err error) {
-	resources = make([]*types.JobResource, 0)
-	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Configs").
-		Limit(pageSize).
-		Offset(page*pageSize).
-		Where("active = ?", true)
-	q := params["q"]
-	if q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("resource_type LIKE ? OR description LIKE ? OR platform LIKE ? OR category = ? OR tags_serialized LIKE ?",
-			qs, qs, qs, q, qs)
-	} else {
-		tx = addQueryParamsWhere(params, tx)
-	}
-
-	if len(order) == 0 {
-		order = []string{"resource_type"}
-	}
-	for _, ord := range order {
-		tx = tx.Order(ord)
-	}
-	res := tx.Find(&resources)
-	if res.Error != nil {
-		return nil, 0, err
-	}
-	for _, resource := range resources {
-		if err = resource.AfterLoad(); err != nil {
-			return
-		}
-	}
-	totalRecords, _ = jrr.Count(qc, params)
-	return
-}
-
-// Count counts records by query
-func (jrr *JobResourceRepositoryImpl) Count(
-	qc *common.QueryContext,
-	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{})).Where("active = ?", true)
-	tx = addQueryParamsWhere(params, tx)
-	res := tx.Count(&totalRecords)
-	if res.Error != nil {
-		return 0, err
-	}
-	return
-}
-
 // Allocate job-resource
 func (jrr *JobResourceRepositoryImpl) Allocate(
 	resource *types.JobResource,
@@ -374,4 +321,60 @@ func (jrr *JobResourceRepositoryImpl) DeleteConfig(
 		res := tx.Delete(cfg)
 		return res.Error
 	})
+}
+
+// Query finds matching job-resource by parameters
+func (jrr *JobResourceRepositoryImpl) Query(
+	qc *common.QueryContext,
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (resources []*types.JobResource, totalRecords int64, err error) {
+	resources = make([]*types.JobResource, 0)
+	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Configs").
+		Limit(pageSize).
+		Offset(page*pageSize).
+		Where("active = ?", true)
+	tx = jrr.addQuery(params, tx)
+
+	if len(order) == 0 {
+		order = []string{"resource_type"}
+	}
+	for _, ord := range order {
+		tx = tx.Order(ord)
+	}
+	res := tx.Find(&resources)
+	if res.Error != nil {
+		return nil, 0, err
+	}
+	for _, resource := range resources {
+		if err = resource.AfterLoad(); err != nil {
+			return
+		}
+	}
+	totalRecords, _ = jrr.Count(qc, params)
+	return
+}
+
+// Count counts records by query
+func (jrr *JobResourceRepositoryImpl) Count(
+	qc *common.QueryContext,
+	params map[string]interface{}) (totalRecords int64, err error) {
+	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{})).Where("active = ?", true)
+	tx = jrr.addQuery(params, tx)
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		return 0, err
+	}
+	return
+}
+
+func (jrr *JobResourceRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("resource_type LIKE ? OR description LIKE ? OR platform LIKE ? OR category = ? OR tags_serialized LIKE ?",
+			qs, qs, qs, q, qs)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

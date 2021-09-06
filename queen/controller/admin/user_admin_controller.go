@@ -55,9 +55,9 @@ func NewUserAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryUsers - queries user
 func (uc *UserAdminController) queryUsers(c web.WebContext) error {
-	params, order, page, pageSize, q := controller.ParseParams(c)
+	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
-	users, total, err := uc.userManager.QueryUsers(
+	recs, total, err := uc.userManager.QueryUsers(
 		qc,
 		params,
 		page,
@@ -68,10 +68,11 @@ func (uc *UserAdminController) queryUsers(c web.WebContext) error {
 	}
 	baseURL := fmt.Sprintf("/users?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
-	res := map[string]interface{}{"Users": users,
+	res := map[string]interface{}{
+		"Records":    recs,
 		"Pagination": pagination,
 		"BaseURL":    baseURL,
-		"Q":          params["q"],
+		"Q":          qs,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/index", res)
@@ -83,8 +84,17 @@ func (uc *UserAdminController) newUser(c web.WebContext) error {
 	if user == nil {
 		return fmt.Errorf("failed to find user in session to create user")
 	}
+	invID := c.QueryParam("inv_id")
+	if invID != "" {
+		if inv, err := uc.userManager.GetInvitation(invID); err == nil {
+			user.OrganizationID = inv.OrganizationID
+			user.InvitationCode = inv.InvitationCode
+			user.OrgUnit = inv.OrgUnit
+		}
+	}
 	res := map[string]interface{}{
-		"User": user,
+		"User":         user,
+		"InvitationID": invID,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/new", res)
@@ -92,20 +102,30 @@ func (uc *UserAdminController) newUser(c web.WebContext) error {
 
 // createUser - saves a new user
 func (uc *UserAdminController) createUser(c web.WebContext) (err error) {
+	invID := c.FormValue("inv_id")
 	user, err := uc.createUserFromForm(c)
 	if err != nil {
 		if user == nil {
-			user = common.NewUser("", "", "", false)
+			user = common.NewUser("", "", "", "", false)
 			user.Errors = map[string]string{"Error": err.Error()}
 			initUserFromForm(c, user)
 		}
+		if invID != "" {
+			if inv, err := uc.userManager.GetInvitation(invID); err == nil {
+				user.OrganizationID = inv.OrganizationID
+				user.InvitationCode = inv.InvitationCode
+				user.OrgUnit = inv.OrgUnit
+			}
+		}
 		logrus.WithFields(logrus.Fields{
-			"Component": "UserAdminController",
-			"User":      user,
-			"Error":     err,
+			"Component":  "UserAdminController",
+			"User":       user,
+			"Invitation": user.InvitationCode,
+			"Error":      err,
 		}).Errorf("failed to save user")
 		res := map[string]interface{}{
-			"User": user,
+			"User":         user,
+			"InvitationID": invID,
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "users/new", res)
@@ -196,6 +216,10 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 		unverifiedEmails = newUnverifiedEmails
 	}
 	res["UnverifiedEmails"] = unverifiedEmails
+	if user.OrganizationID != "" {
+		org := web.GetDBOrgFromSession(c)
+		res["SlackToken"], _ = uc.userManager.GetSlackToken(qc, org)
+	}
 
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/view", res)
@@ -207,7 +231,7 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.GetUser(qc, id)
 	if err != nil {
-		user = common.NewUser("", "", "", false)
+		user = common.NewUser("", "", "", "", false)
 		user.Errors = map[string]string{"Error": err.Error()}
 	}
 	res := map[string]interface{}{
@@ -226,6 +250,7 @@ func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err err
 		c.Param("id"),
 		c.FormValue("email"),
 		c.FormValue("slackChannel"),
+		c.FormValue("slackToken"),
 		c.FormValue("when"),
 	)
 
@@ -251,12 +276,11 @@ func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user := common.NewUser(
 		qc.OrganizationID,
-		"",
+		qc.Username,
 		c.FormValue("name"),
+		c.FormValue("email"),
 		false)
 	user.ID = c.Param("id")
-	user.Email = c.FormValue("email")
-	user.Username = qc.Username
 	err = user.Validate()
 
 	if err == nil {
@@ -357,15 +381,15 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 	if err != nil {
 		return nil, err
 	}
-
 	saved, err = uc.saveNewUser(user)
 	if err != nil {
 		return user, err
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"Component": "UserAdminController",
-		"User":      saved,
+		"Component":    "UserAdminController",
+		"Organization": org,
+		"User":         saved,
 	}).Infof("created user")
 
 	if org != nil {
