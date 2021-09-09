@@ -136,13 +136,13 @@ func Test_ShouldSaveValidJobDefinitionWithoutConfig(t *testing.T) {
 
 	// WHEN retrieving job by id
 	loaded, err := repo.Get(qc, saved.ID)
-	// THEN it should should match
+	// THEN it should match
 	require.NoError(t, err)
 	require.NoError(t, loaded.Equals(job))
 
 	// WHEN retrieving job by job-type
 	loaded, err = repo.GetByType(qc, job.JobType)
-	// THEN it should should match
+	// THEN it should match
 	require.NoError(t, err)
 	require.NoError(t, loaded.Equals(job))
 }
@@ -637,7 +637,7 @@ func Test_ShouldSaveJobDefinitionWithMultipleVersions(t *testing.T) {
 	params := make(map[string]interface{})
 	params["job_type"] = "io.formicary.test.version-job"
 	res, total, err := repo.Query(qc, params, 0, 100, []string{"job_type desc"})
-	// THEN only one job should be active with latest version
+	// THEN only one job should be active with the latest version
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Equal(t, 1, len(res))
@@ -674,6 +674,36 @@ func Test_ShouldGetJobTypesAndCronTriggerForJobDefinition(t *testing.T) {
 	require.Equal(t, 5, len(all))
 }
 
+func Test_ShouldSaveIterateJobFromYaml(t *testing.T) {
+	// GIVEN a job-definition repository
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+
+	b, err := ioutil.ReadFile("../../docs/examples/iterate-job.yaml")
+	require.NoError(t, err)
+	job, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	saved, err := repo.Save(common.NewQueryContext("", "", ""), job)
+	require.NoError(t, err)
+	job, err = repo.GetByType(common.NewQueryContext("", "", ""), saved.JobType)
+	require.NoError(t, err)
+
+	require.Equal(t, 5, len(job.Tasks))
+	task, _, err := job.GetDynamicTask(
+		"task-1",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(1, false)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(task.Script))
+	task, _, err = job.GetDynamicTask(
+		"task-4",
+		map[string]common.VariableValue{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(task.Script))
+}
+
 func Test_ShouldSaveJobDefinitionFromYaml(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
@@ -697,13 +727,15 @@ func Test_ShouldSaveJobDefinitionFromYaml(t *testing.T) {
 		loaded, err := repo.GetByType(common.NewQueryContext("", "", ""), saved.JobType)
 		require.NoError(t, err)
 		for _, next := range loaded.Tasks {
-			params := map[string]interface{}{
-				"Token":             "tok1",
-				"IsWindowsPlatform": true,
-				"Platform":          "LINUX",
-				"OSVersion":         "20.04.1",
-				"Nonce":             1,
-				"JobID":             1,
+			params := map[string]common.VariableValue{
+				"Token":             common.NewVariableValue("tok1", false),
+				"IsWindowsPlatform": common.NewVariableValue(true, false),
+				"Platform":          common.NewVariableValue("Linux", false),
+				"OSVersion":         common.NewVariableValue("20.04.1", false),
+				"Language":          common.NewVariableValue("GO", false),
+				"IsMpeg4":           common.NewVariableValue(true, false),
+				"Nonce":             common.NewVariableValue(1, false),
+				"JobID":             common.NewVariableValue(1, false),
 			}
 			dynTask, opts, err := job.GetDynamicTask(next.TaskType, params)
 			require.NoError(t, err)

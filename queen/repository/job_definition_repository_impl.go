@@ -32,13 +32,13 @@ func NewJobDefinitionRepositoryImpl(dbConfig *config.DBConfig, db *gorm.DB) (*Jo
 // Get method finds JobDefinition by id
 func (jdr *JobDefinitionRepositoryImpl) Get(
 	qc *common.QueryContext,
-	id string) (*types.JobDefinition, error) {
+	id string) (job *types.JobDefinition, err error) {
 	if id == "" {
 		debug.PrintStack()
 		return nil, common.NewValidationError(
 			fmt.Errorf("job-id is not specified for fetching job-definition"))
 	}
-	var job types.JobDefinition
+	job = &types.JobDefinition{}
 	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
 	res := jdr.db.Preload("Tasks").
 		Preload("Configs").
@@ -46,11 +46,11 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 		Preload("Tasks.Variables").
 		Where("id = ?", id).
 		Where("public_plugin = ? OR "+scopeCond, true, scopeArg).
-		First(&job)
+		First(job)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
-	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
+	if job, err = jdr.postProcessJob(qc, job); err != nil {
 		return nil, err
 	}
 	if !job.PublicPlugin && !qc.Admin() {
@@ -59,7 +59,7 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
-				"JobDefinition": &job,
+				"JobDefinition": job,
 				"QC":            qc,
 			}).Warnf("job owner %s / %s didn't match query context %s",
 				job.UserID, job.OrganizationID, qc)
@@ -70,7 +70,7 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	for _, t := range job.Tasks {
 		sort.Slice(t.Variables, func(i, j int) bool { return t.Variables[i].Name < t.Variables[j].Name })
 	}
-	return &job, nil
+	return job, nil
 }
 
 // GetByTypeAndSemanticVersion - finds JobDefinition by type and version
@@ -84,7 +84,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByTypeAndSemanticVersion(
 // GetByType finds JobDefinition by type -- there should be one job-definition per type
 func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	qc *common.QueryContext,
-	jobType string) (*types.JobDefinition, error) {
+	jobType string) (job *types.JobDefinition, err error) {
 	semVersion := ""
 	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
 	jobTypeAndVersion := strings.Split(jobType, ":")
@@ -96,7 +96,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		debug.PrintStack()
 		return nil, common.NewValidationError("job-type is not specified")
 	}
-	var job types.JobDefinition
+	job = &types.JobDefinition{}
 	tx := jdr.db.Preload("Tasks").
 		Preload("Configs").
 		Preload("Variables").
@@ -105,27 +105,28 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 
 	var res *gorm.DB
 	if semVersion == "" {
-		res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(&job)
+		res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(job)
 	} else {
-		res = tx.Where("sem_version = ? AND public_plugin = ?", semVersion, true).First(&job)
+		res = tx.Where("sem_version = ? AND public_plugin = ?", semVersion, true).First(job)
 		if res.Error != nil {
-			res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(&job)
+			res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(job)
 		}
 	}
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
 
-	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
-		return nil, common.NewValidationError(err)
+	if job, err = jdr.postProcessJob(qc, job); err != nil {
+		return nil, err
 	}
+
 	if !job.PublicPlugin && !qc.Admin() {
 		if (job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID) ||
 			(job.OrganizationID == "" && job.UserID != qc.UserID) {
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
-				"JobDefinition": &job,
+				"JobDefinition": job,
 				"QC":            qc,
 			}).Warnf("job owner %s / %s didn't match query context %s",
 				job.UserID, job.OrganizationID, qc)
@@ -136,7 +137,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	for _, t := range job.Tasks {
 		sort.Slice(t.Variables, func(i, j int) bool { return t.Variables[i].Name < t.Variables[j].Name })
 	}
-	return &job, nil
+	return job, nil
 }
 
 // SetPaused - sets paused status job-definition -- only admin can do it so no need for query context
@@ -441,8 +442,8 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 		err = res.Error
 		return nil, 0, err
 	}
-	for _, j := range jobs {
-		if err = j.AfterLoad(jdr.encryptionKey(qc)); err != nil {
+	for i, job := range jobs {
+		if jobs[i], err = jdr.postProcessJob(qc, job); err != nil {
 			return
 		}
 	}
@@ -507,4 +508,18 @@ func (jdr *JobDefinitionRepositoryImpl) addQuery(params map[string]interface{}, 
 			qs, qs, qs, qs, q, q)
 	}
 	return addQueryParamsWhere(filterParams(params, "q"), tx)
+}
+
+func (jdr *JobDefinitionRepositoryImpl) postProcessJob(
+	qc *common.QueryContext,
+	job *types.JobDefinition,
+) (*types.JobDefinition, error) {
+	// job.UsesTemplate
+	if parsedJob, err := types.ReloadFromYaml(job.RawYaml); err == nil {
+		job = parsedJob
+	}
+	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
+		return nil, err
+	}
+	return job, nil
 }

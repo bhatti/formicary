@@ -47,7 +47,22 @@ func NewLogStreamer(
 		antID:           antCfg.ID,
 		maxMessageSize:  antCfg.MaxStreamingLogMessageSize,
 	}
-	streamer.jobTrace, err = trace.NewJobTrace(streamer.publish, antCfg.OutputLimit, taskReq.GetMaskFields())
+	masks := []string{
+		"AWS_ENDPOINT",
+		"AWS_ACCESS_KEY_ID",
+		"AWS_URL",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_DEFAULT_REGION",
+		antCfg.S3.Endpoint,
+		antCfg.S3.AccessKeyID,
+		antCfg.S3.SecretAccessKey,
+		antCfg.S3.Region,
+	}
+	masks = append(masks, taskReq.GetMaskFields()...)
+	streamer.jobTrace, err = trace.NewJobTrace(
+		streamer.publish,
+		antCfg.OutputLimit,
+		masks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job trace due to %v", err)
 	}

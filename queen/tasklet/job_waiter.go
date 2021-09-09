@@ -161,14 +161,14 @@ func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []uint64, err error) {
 	for i, taskType := range waitingTaskTypes {
 		reqKey := taskType + forkedJobIDSuffix
 		v := taskReq.Variables[reqKey]
-		if v == nil {
+		if v.Value == nil {
 			return nil, fmt.Errorf("failed to find job-id for %s", reqKey)
 		}
-		switch v.(type) {
+		switch v.Value.(type) {
 		case uint64:
-			jobIDs[i] = v.(uint64)
+			jobIDs[i] = v.Value.(uint64)
 		default:
-			jobIDs[i], err = strconv.ParseUint(fmt.Sprintf("%v", v), 0, 64)
+			jobIDs[i], err = strconv.ParseUint(fmt.Sprintf("%v", v.Value), 0, 64)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse job-id %v k due to %v", v, err)
 			}

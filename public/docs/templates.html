@@ -1,0 +1,52 @@
+<h2 id="using-templates-in-job-definition">Using Templates in Job Definition</h2>
+<p>Following example shows how you can use templates in job definitions to dynamically define job behavior:</p>
+<pre><code class="lang-yaml">job_type: iterate-job
+parse_template_on_load: true
+tasks:
+{{- range $val := Iterate 5 }}
+- task_type: task-{{$val}}
+  script:
+    - echo executing task for {{$val}}
+  container:
+    image: alpine
+  {{ if lt $val 4 }}
+  on_completed: task-{{ Add $val 1}}
+  {{ end  }}
+{{ end  }}
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: iterate-job
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="range-loop">Range Loop</h5>
+<p>The <code>range</code> keyword defines a loop that is executed 5 times, e.g.</p>
+<pre><code>{{- range $val := Iterate 5 }}
+</code></pre><h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, however above template defines task-type dynamically, e.g.</p>
+<pre><code class="lang-yaml">- task_type: task-{{$val}}
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, which in this using template variables, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    - echo executing task for {{$val}}
+</code></pre>
+<h5 id="if-condition">If condition</h5>
+<p>The if condition is used to define next task to run dynamically, e.g.</p>
+<pre><code>  {{ if lt $val 4 }}
+  on_completed: task-{{ Add $val 1}}
+  {{ end  }}
+</code></pre><h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @iterate-job.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+   -H &quot;Content-Type: application/json&quot; \
+   --data &#39;{&quot;job_type&quot;: &quot;iterate-job&quot; }&#39; $SERVER/api/jobs/requests
+</code></pre>

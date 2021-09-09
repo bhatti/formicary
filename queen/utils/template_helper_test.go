@@ -9,6 +9,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func Test_ShouldFailOnNoVariables(t *testing.T) {
+	// GIVEN a template string
+	str := `
+{{with .Account -}}
+Account: {{.}}
+{{- end}}
+Money: {{.Money}}
+{{if .Note -}}
+Note: {{.Note}}
+{{- end}}
+`
+
+	// WHEN parsing template
+	_, err := ParseTemplate(str, map[string]interface{}{})
+
+	// THEN it should not fail without params
+	require.NoError(t, err)
+
+	// AND it should not fail with params
+	_, err = ParseTemplate(str, map[string]interface{}{"Account": "x123", "Money": 12, "Note": "ty"})
+	require.NoError(t, err)
+}
+
 func Test_ShouldParseExpression(t *testing.T) {
 	// GIVEN a template string
 	str := `{"device_id": {{.device_id}}, "description": "

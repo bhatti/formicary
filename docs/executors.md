@@ -5,9 +5,85 @@ The shell executor forks a shell process from ant work for executing commands de
 require any additional configuration, but it's recommended to use a unique user for the ant worker with proper
 permissions because a user may invoke any command on the machine.
 
-### Docker Executor
+### REST
+RES API Executor invokes external HTTP APIs using GET, POST, PUT or DELTE actions, e.g.
+```
+job_type: http-job
+tasks:
+- task_type: get
+  method: HTTP_GET
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: post
+- task_type: post
+  method: HTTP_POST_JSON
+  script:
+    - https://jsonplaceholder.typicode.com/todos
+  on_completed: put
+- task_type: put
+  method: HTTP_PUT_JSON
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: delete
+- task_type: delete
+  method: HTTP_DELETE
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+```
 
-### Kubernetes Executor
+### Docker
+The Docker executor starts a main container for executing script named after job/task name and a helper container
+wth `-helper` suffix for managing artifacts. The initial docker config are defined by the ant config that are available for all jobs such as:
+
+- helper_image - helper image
+- host - Docker host
+- registry server - docker registry
+- environment - environment variables
+- pull_policy - image pull policy such as `never`, `always`, `if-not-present`.
+
+```yaml
+common:
+  id: test-id
+  messaging_provider: "REDIS_MESSAGING"
+tags:
+  - tag1
+  - tag2
+methods:
+  - DOCKER
+docker:
+  registry:
+    registry: docker-registry-server
+    username: docker-registry-user
+    password: docker-registry-pass
+    pull_policy: if-not-present
+  host: kubernetes-host
+```
+
+Above configuration applies to all jobs, but a docker task can define following properties for each job-definition:
+
+- name - the name of task that is used for pod-name
+- environment - environment variables to set within the container
+- working_directory - for script execution
+- container - main container to execute, which defines:
+    - image
+    - image_definition
+- network_mode
+- host_network e.g.,
+
+```yaml
+name: task1
+method: DOCKER
+environment:
+  AWS-KEY: Mykey
+container:
+  image: ubuntu:16.04
+privileged: true
+network_mode: mod1
+host_network: true
+```
+
+
+### Kubernetes
 
 The Kubernetes executor starts a main container for executing script named after job/task name and a helper container
 wth `-helper` suffix for managing artifacts. A task may define dependent services that will start with `svc-` prefix.
@@ -40,7 +116,6 @@ tags:
   - tag1
   - tag2
 methods:
-  - DOCKER
   - KUBERNETES
 kubernetes:
   registry:

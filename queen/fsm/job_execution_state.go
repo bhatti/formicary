@@ -748,41 +748,49 @@ func (jsm *JobExecutionStateMachine) buildSecretConfigs() []string {
 }
 
 // buildDynamicParams builds config params
-func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]interface{} {
-	res := make(map[string]interface{})
+func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.VariableValue {
+	res := make(map[string]common.VariableValue)
 	if jsm.Organization != nil {
 		for _, v := range jsm.Organization.Configs {
-			res[v.Name], _ = v.GetParsedValue()
+			if vv, err := v.GetVariableValue(); err == nil {
+				res[v.Name] = vv
+			}
 		}
 	}
 	if jsm.JobDefinition != nil {
 		for _, v := range jsm.JobDefinition.Configs {
-			res[v.Name], _ = v.GetParsedValue()
+			if vv, err := v.GetVariableValue(); err == nil {
+				res[v.Name] = vv
+			}
 		}
 	}
 	return res
 }
 
 // buildDynamicParams builds job params
-func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]interface{}) map[string]interface{} {
+func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]common.VariableValue) map[string]common.VariableValue {
 	res := jsm.buildDynamicConfigs()
-	res["JobID"] = jsm.Request.GetID()
-	res["JobType"] = jsm.JobDefinition.JobType
-	res["JobRetry"] = jsm.Request.GetRetried()
-	for k, v := range jsm.JobDefinition.NameValueVariables.(map[string]interface{}) {
-		res[k] = v
+	res["JobID"] = common.NewVariableValue(jsm.Request.GetID(), false)
+	res["JobType"] = common.NewVariableValue(jsm.JobDefinition.JobType, false)
+	res["JobRetry"] = common.NewVariableValue(jsm.Request.GetRetried(), false)
+	for _, next := range jsm.JobDefinition.Variables {
+		if vv, err := next.GetVariableValue(); err == nil {
+			res[next.Name] = vv
+		}
 	}
 	for k, v := range taskDefParams {
 		res[k] = v
 	}
-	for _, p := range jsm.Request.GetParams() {
-		if v, err := p.GetParsedValue(); err == nil {
-			res[p.Name] = v
+	for _, next := range jsm.Request.GetParams() {
+		if vv, err := next.GetVariableValue(); err == nil {
+			res[next.Name] = vv
 		}
 	}
 	if jsm.JobExecution != nil {
-		for _, v := range jsm.JobExecution.Contexts {
-			res[v.Name], _ = v.GetParsedValue()
+		for _, next := range jsm.JobExecution.Contexts {
+			if vv, err := next.GetVariableValue(); err == nil {
+				res[next.Name] = vv
+			}
 		}
 	}
 	return res

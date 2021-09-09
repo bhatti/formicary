@@ -207,6 +207,13 @@ parameters:
 - GitBranch
 - GitCommit
 
+### REST based ant workers
+Use See [REST executors](executors.md#REST) for invoking external REST APIs when executing a job.
+
+### Customized Messaging ant workers
+See [Customized executors](executors.md#Customized) for building a customized messaging ant worker.
+
+
 ### Notifications
 You can configure your user profile to receive job notificatios via email or slack, e.g.
 ![Notifications](notifications.png)
@@ -228,6 +235,8 @@ And then add token in your organization configurations, e.g.
 - [Static Golang Analusis using go-kart](go-kart.md) for scanning GO source code.
 
 - [Scanning containers using Trivy](trivy-scan.md) for scanning containers for security.
+
+- [Using Templates](templates.md) for example of using templates in job definitions.
 
 - [Advanced Kubernetes](advanced_k8.md) for using advanced kubernetes configs.
 

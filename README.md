@@ -118,6 +118,8 @@ can be used as input of another task.
 - [Building Docker images Using Docker-in-Docker](docs/dind.md)
 - [Scanning containers using Trivy](docs/trivy-scan.md)
 - [Advanced Kubernetes](docs/advanced_k8.md)
+- [Using Templates](docs/templates.md)
+
 
 #### Job / Task Definition Configuration Options
 [Job / Task Definition Configuration](docs/definition_options.md)
@@ -135,6 +137,10 @@ can be used as input of another task.
 
 #### Executors
 [Ant Executors](docs/executors.md)
+- [Docker executors](executors.md#Docker) for using docker containers.
+- [Kubernetes executors](executors.md#Kubernetes) for using kubernetes containers.
+- [REST executors](executors.md#REST) for invoking external REST APIs when executing a job.
+- [Customized executors](executors.md#Customized) for building a customized messaging ant worker.
 
 #### Development
 [Formicary Development Guide](docs/development.md)

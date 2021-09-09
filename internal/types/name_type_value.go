@@ -21,9 +21,9 @@ type NameTypeValue struct {
 	// Type defines type of property value
 	Type string `yaml:"type" json:"type"`
 	// Value defines value of property that can be string, number, boolean or JSON structure
-	Value string `value:"value" json:"value"`
+	Value string `yaml:"value" json:"value"`
 	// Secret for encryption
-	Secret bool `value:"secret" json:"secret"`
+	Secret bool `yaml:"secret" json:"secret"`
 	// ParsedValue defines value of property
 	ParsedValue interface{} `yaml:"-" json:"-" gorm:"-"`
 }
@@ -92,6 +92,15 @@ func (nv *NameTypeValue) Decrypt(key []byte) error {
 		}
 	}
 	return nil
+}
+
+// GetVariableValue returns value
+func (nv NameTypeValue) GetVariableValue() (val VariableValue, err error) {
+	v, err := nv.GetParsedValue()
+	if err != nil {
+		return val, err
+	}
+	return NewVariableValue(v, nv.Secret), nil
 }
 
 // GetParsedValue parses value

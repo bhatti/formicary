@@ -22,7 +22,7 @@ import (
 type CommandRunner struct {
 	executor.BaseCommandRunner
 	client         web.HTTPClient
-	variables      map[string]interface{}
+	variables      map[string]types.VariableValue
 	cancel         context.CancelFunc
 	future         async.Awaiter
 	httpStatusCode int
@@ -36,7 +36,7 @@ func NewCommandRunner(
 	e *executor.BaseExecutor,
 	cmd string,
 	helper bool,
-	variables map[string]interface{}) (*CommandRunner, error) {
+	variables map[string]types.VariableValue) (*CommandRunner, error) {
 	base := executor.NewBaseCommandRunner(e, cmd, helper)
 
 	runner := CommandRunner{
@@ -181,18 +181,18 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 	return
 }
 
-func variablesAsJSON(variables map[string]interface{}) ([]byte, error) {
+func variablesAsJSON(variables map[string]types.VariableValue) ([]byte, error) {
 	params := variablesAsFormParams(variables)
 	return json.Marshal(params)
 }
 
-func variablesAsFormParams(variables map[string]interface{}) map[string]string {
+func variablesAsFormParams(variables map[string]types.VariableValue) map[string]string {
 	params := make(map[string]string)
 	for k, v := range variables {
-		if reflect.TypeOf(v).String() == "string" {
-			params[k] = v.(string)
+		if reflect.TypeOf(v.Value).String() == "string" {
+			params[k] = v.Value.(string)
 		} else {
-			params[k] = fmt.Sprintf("%v", v)
+			params[k] = fmt.Sprintf("%v", v.Value)
 		}
 	}
 	return params

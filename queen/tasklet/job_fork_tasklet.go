@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/events"
-	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/queue"
@@ -111,15 +110,12 @@ func (t *JobForkTasklet) Execute(
 	}
 	req.JobVersion = taskReq.ExecutorOpts.ForkJobVersion
 	for k, v := range taskReq.Variables {
-		_, _ = req.AddParam(k, v)
+		if !v.Secret {
+			_, _ = req.AddParam(k, v.Value)
+		}
 	}
 	_, _ = req.AddParam(common.ForkedJob, true)
 	req.ParentID = taskReq.JobRequestID
-	for k, v := range taskReq.Variables {
-		if strings.HasPrefix(k, types.ParentJobTypePrefix) {
-			_, _ = req.AddParam(k, v)
-		}
-	}
 	_, _ = req.AddParam(fmt.Sprintf("%s_%d", types.ParentJobTypePrefix, req.ParentID), taskReq.JobType)
 
 	saved, err := t.jobManager.SaveJobRequest(common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, ""), req)

@@ -67,7 +67,7 @@ func (h *Executor) GetRuntimeInfo(
 func (h *Executor) AsyncHelperExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return h.doAsyncExecute(ctx, cmd, true, variables)
 }
@@ -76,7 +76,7 @@ func (h *Executor) AsyncHelperExecute(
 func (h *Executor) AsyncExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return h.doAsyncExecute(ctx, cmd, false, variables)
 }
@@ -117,7 +117,7 @@ func (h *Executor) doAsyncExecute(
 	ctx context.Context,
 	cmd string,
 	helper bool,
-	variables map[string]interface{}) (executor.CommandRunner, error) {
+	variables map[string]types.VariableValue) (executor.CommandRunner, error) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if h.State == executor.Removing {

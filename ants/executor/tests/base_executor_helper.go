@@ -87,7 +87,7 @@ func DoTestExecuteWithSimpleList(
 		require.NoError(t, err)
 
 		// WHEN a command is executed asynchronously
-		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]interface{}))
+		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]types.VariableValue))
 		require.NoError(t, err)
 
 		// AND is then awaited for the completion
@@ -138,7 +138,7 @@ func DoTestExecuteWithTimeout(
 		require.NoError(t, err)
 
 		// WHEN a command that takes a long time is executed asynchronously
-		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]interface{}))
+		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]types.VariableValue))
 		require.NoError(t, err)
 		// AND is then awaited for the completion
 		stdout, stderr, err := runner.Await(ctx)
@@ -188,7 +188,7 @@ func DoTestExecuteWithBadCommand(
 		require.NoError(t, err)
 
 		// WHEN an invalid command is executed asynchronously
-		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]interface{}))
+		runner, err := exec.AsyncExecute(ctx, cmd, make(map[string]types.VariableValue))
 		require.NoError(t, err)
 
 		// AND is then awaited for the completion
@@ -238,7 +238,7 @@ func DoTestListExecutors(
 			opts.Name = fmt.Sprintf("%s-%d", containerName, i)
 			exec, err := provider.NewExecutor(ctx, jobTrace, opts)
 			require.NoError(t, err)
-			_, err = exec.AsyncExecute(ctx, cmd, make(map[string]interface{}))
+			_, err = exec.AsyncExecute(ctx, cmd, make(map[string]types.VariableValue))
 			require.NoError(t, err)
 		}
 

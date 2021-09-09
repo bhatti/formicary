@@ -51,8 +51,7 @@ type TaskRequest struct {
 	AfterScript     []string               `json:"after_script" yaml:"after_script"`
 	Script          []string               `json:"script" yaml:"script"`
 	Timeout         time.Duration          `json:"timeout" yaml:"timeout"`
-	Variables       map[string]interface{} `json:"variables" yaml:"variables"`
-	SecretConfigs   []string               `json:"secret_configs" yaml:"secret_configs"`
+	Variables       map[string]VariableValue `json:"variables" yaml:"variables"`
 	ExecutorOpts    *ExecutorOptions       `json:"executor_opts" yaml:"executor_opts"`
 	AdminUser       bool                   `json:"admin_user" yaml:"admin_user"`
 
@@ -85,8 +84,8 @@ func (req *TaskRequest) String() string {
 }
 
 // AddVariable adds variable or parameter to request
-func (req *TaskRequest) AddVariable(name string, value interface{}) {
-	req.Variables[name] = value
+func (req *TaskRequest) AddVariable(name string, value interface{}, secret bool) {
+	req.Variables[name] = NewVariableValue(value, secret)
 }
 
 // CacheArtifactID returns artifact-id for caching
@@ -109,8 +108,10 @@ func (req *TaskRequest) CacheArtifactID(prefix string, key string) string {
 // GetMaskFields returns sensitive fields that will be filtered
 func (req *TaskRequest) GetMaskFields() (res []string) {
 	res = make([]string, 0)
-	for _, v := range req.SecretConfigs {
-		res = append(res, fmt.Sprintf("%s", v))
+	for _, v := range req.Variables {
+		if v.Secret {
+			res = append(res, fmt.Sprintf("%s", v.Value))
+		}
 	}
 	return
 }

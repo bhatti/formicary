@@ -248,7 +248,7 @@ func (re *RequestExecutorImpl) asyncExecuteCommand(
 	ctx context.Context,
 	container executor.Executor,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 	helper bool) (stdout []byte, stderr []byte, exitCode int, exitMessage string, err error) {
 	var runner executor.CommandRunner
 	if helper {
@@ -275,12 +275,6 @@ func (re *RequestExecutorImpl) preProcess(
 	ctx context.Context,
 	taskReq *types.TaskRequest) (container executor.Executor, err error) {
 	//taskReq.ExecutorOpts.Debug = true
-
-	taskReq.SecretConfigs = append(taskReq.SecretConfigs,
-		"AWS_ENDPOINT", "AWS_ACCESS_KEY_ID", "AWS_URL",
-		"AWS_SECRET_ACCESS_KEY", "AWS_DEFAULT_REGION",
-		re.antCfg.S3.Endpoint, re.antCfg.S3.AccessKeyID,
-		re.antCfg.S3.SecretAccessKey, re.antCfg.S3.Region)
 
 	logStreamer, err := logs.NewLogStreamer(
 		ctx,

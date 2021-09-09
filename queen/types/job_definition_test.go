@@ -246,16 +246,25 @@ func Test_ShouldJobDefinitionValidateWithoutMethods(t *testing.T) {
 func Test_ShouldEvaluateFilter(t *testing.T) {
 	// GIVEN - job definition is created
 	job := newTestJobDefinition("name")
-	data := map[string]interface{}{"Count": 10, "Flag": true}
+	data := map[string]common.VariableValue{
+		"Count": common.NewVariableValue(10, false),
+		"Flag":  common.NewVariableValue(true, false),
+	}
 	require.False(t, job.Filtered(data))
 	job.filter = "{{if and (gt .Count 5) .Flag}}true{{end}}"
 	require.True(t, job.Filtered(data))
 	job.filter = "{{if and (gt .Count 5) (eq .Flag true)}}true{{end}}"
 	require.True(t, job.Filtered(data))
 
-	data = map[string]interface{}{"Count": 1, "Flag": true}
+	data = map[string]common.VariableValue{
+		"Count": common.NewVariableValue(1, false),
+		"Flag":  common.NewVariableValue(true, false),
+	}
 	require.False(t, job.Filtered(data))
-	data = map[string]interface{}{"Count": 10, "Flag": false}
+	data = map[string]common.VariableValue{
+		"Count": common.NewVariableValue(10, false),
+		"Flag":  common.NewVariableValue(false, false),
+	}
 	require.False(t, job.Filtered(data))
 }
 
@@ -478,6 +487,28 @@ func Test_ShouldSerializeJsonJobDefinition(t *testing.T) {
 	require.NoError(t, job.Equals(loaded))
 }
 
+// Test iterate loop
+func Test_ShouldBuildIterateJob(t *testing.T) {
+	// GIVEN job-definition loaded from pipeline yaml
+	b, err := ioutil.ReadFile("../../docs/examples/iterate-job.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(job.Tasks))
+	task, _, err := job.GetDynamicTask(
+		"task-1",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(1, false)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(task.Script))
+	task, _, err = job.GetDynamicTask(
+		"task-4",
+		map[string]common.VariableValue{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(task.Script))
+}
+
 // Test json serialization of yaml job definition
 func Test_ShouldSerializeFromYAML(t *testing.T) {
 	// GIVEN job-definition loaded from pipeline yaml
@@ -489,13 +520,22 @@ func Test_ShouldSerializeFromYAML(t *testing.T) {
 	require.Equal(t, 0, job.Tasks[0].TaskOrder)
 	require.Equal(t, 1, job.Tasks[1].TaskOrder)
 	require.Equal(t, 2, job.Tasks[2].TaskOrder)
-	task, _, err := job.GetDynamicTask("combine", map[string]interface{}{"JobRetry": 1})
+	task, _, err := job.GetDynamicTask(
+		"combine",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(1, false)},
+	)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(task.Script))
-	task, _, err = job.GetDynamicTask("combine", map[string]interface{}{"JobRetry": 4})
+	task, _, err = job.GetDynamicTask(
+		"combine",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(4, false)},
+	)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(task.Script))
-	task, _, err = job.GetDynamicTask("combine", map[string]interface{}{})
+	task, _, err = job.GetDynamicTask(
+		"combine",
+		map[string]common.VariableValue{},
+	)
 	require.Error(t, err) // should fail without JobRetry
 }
 
@@ -569,14 +609,14 @@ func Test_ShouldGetDynamicTaskForJobDefinition(t *testing.T) {
 
 		for _, task := range job.Tasks {
 			// WHEN finding dynamic task by type and params
-			params := map[string]interface{}{
-				"Token":             "tok1",
-				"IsWindowsPlatform": true,
-				"Platform":          "IOS",
-				"OSVersion":         "13.2",
-				"Language":          "GO",
-				"IsMpeg4":           true,
-				"Nonce":             1,
+			params := map[string]common.VariableValue{
+				"Token":             common.NewVariableValue("tok1", false),
+				"IsWindowsPlatform": common.NewVariableValue(true, false),
+				"Platform":          common.NewVariableValue("IOS", false),
+				"OSVersion":         common.NewVariableValue("13.2", false),
+				"Language":          common.NewVariableValue("GO", false),
+				"IsMpeg4":           common.NewVariableValue(true, false),
+				"Nonce":             common.NewVariableValue(1, false),
 			}
 			dynTask, _, err := job.GetDynamicTask(task.TaskType, params)
 			require.NoError(t, err)
@@ -624,12 +664,12 @@ func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, job)
 	require.NotEqual(t, "", job.Filter())
-	params := map[string]interface{}{
-		"Target": "charlie",
+	params := map[string]common.VariableValue{
+		"Target": common.NewVariableValue("charlie", false),
 	}
 	require.True(t, job.Filtered(params))
-	params = map[string]interface{}{
-		"Target": "bob",
+	params = map[string]common.VariableValue{
+		"Target": common.NewVariableValue("bob", false),
 	}
 	require.False(t, job.Filtered(params))
 	require.NotEqual(t, "", job.CronAndScheduleTime())
@@ -719,15 +759,17 @@ func Test_ShouldParseTimeout(t *testing.T) {
 	require.NotNil(t, job)
 
 	// WHEN fetching dynamic task
-	params := map[string]interface{}{}
-	for k, v := range job.NameValueVariables.(map[string]interface{}) {
-		params[k] = v
+	params := map[string]common.VariableValue{}
+	for _, next := range job.Variables {
+		if vv, err := next.GetVariableValue(); err == nil {
+			params[next.Name] = vv
+		}
 	}
 	task, _, err := job.GetDynamicTask("trigger", params)
 
 	// THEN it should not fail
 	require.NoError(t, err)
-	require.Equal(t, time.Duration(1 * time.Minute), job.Timeout)
+	require.Equal(t, 1*time.Minute, job.Timeout)
 	require.Equal(t, 0, len(task.Variables))
 	require.Equal(t, common.TaskMethod("MESSAGING"), task.Method)
 }
@@ -743,9 +785,11 @@ func Test_ShouldParseVariables(t *testing.T) {
 	require.NotNil(t, job)
 
 	// WHEN fetching dynamic task
-	params := map[string]interface{}{}
-	for k, v := range job.NameValueVariables.(map[string]interface{}) {
-		params[k] = v
+	params := map[string]common.VariableValue{}
+	for _, next := range job.Variables {
+		if vv, err := next.GetVariableValue(); err == nil {
+			params[next.Name] = vv
+		}
 	}
 	task, _, err := job.GetDynamicTask("scan", params)
 

@@ -1,0 +1,13 @@
+job_type: iterate-job
+parse_template_on_load: true
+tasks:
+{{- range $val := Iterate 5 }}
+- task_type: task-{{$val}}
+  script:
+    - echo executing task for {{$val}}
+  container:
+    image: alpine
+  {{ if lt $val 4 }}
+  on_completed: task-{{ Add $val 1}}
+  {{ end  }}
+{{ end  }}

@@ -12,7 +12,7 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-// State state of executor
+// State defines state of the executor
 // https://godoc.org/github.com/docker/docker/api/types#ExecutorState
 type State string
 
@@ -70,7 +70,7 @@ type TraceWriter interface {
 		msg string) (err error)
 }
 
-// Executor interface defines methods for starting a executor and executing commands
+// Executor interface defines methods for starting an executor and executing commands
 // swagger:ignore
 type Executor interface {
 	GetID() string            // executor id
@@ -84,14 +84,14 @@ type Executor interface {
 	AsyncExecute(
 		ctx context.Context,
 		cmd string,
-		variables map[string]interface{},
+		variables map[string]types.VariableValue,
 	) (CommandRunner, error) // executes command asynchronously
 	AsyncHelperExecute(
 		ctx context.Context,
 		cmd string,
-		variables map[string]interface{},
+		variables map[string]types.VariableValue,
 	) (CommandRunner, error) // executes command asynchronously on helper container
-	Stop() error             // stops executor
+	Stop() error // stops executor
 	GetStartedAt() time.Time
 	GetEndedAt() *time.Time
 	Elapsed() string // time since executor started

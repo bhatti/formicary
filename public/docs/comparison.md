@@ -1,6 +1,6 @@
 ### Comparison with other Actions, DAG, Jobs, Pipeline or Workflow Solutions
 
-| Feature               | Airwatch  | Azure     | CircleCI  | Formicary    | GitHub    | Gitlab    | Jenkins     |
+| Feature               | Airflow  | Azure     | CircleCI  | Formicary    | GitHub    | Gitlab    | Jenkins     |
 |-----------------------|-----------|-----------|-----------|--------------|-----------|-----------|-------------|
 | **Tool Category**     | DAG       | CI-CD     | CD-CD     | DAG-Workflow | CI-CD     | CI-CD     | CI-CD       |
 | **Docker Images**     | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Indirectly  |
@@ -34,8 +34,9 @@
 | **Delay before Retry**| Yes       | No        | No        | Yes          | No        | No        | No          |
 | **JWT Auth**          | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **Email Notifications** | No      | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
-| **Usage Reports**     | No       | No         | No        | Yes          | No        | No        | No         |
-| **Jobs Stats**        | No       | No         | No        | Yes          | No        | No        | No         |
+| **Slack Notifications** | No      | No        | No        | Yes          | No        | No        | No          |
+| **Usage Reports**     | No       | No         | No        | Yes          | No        | No        | No          |
+| **Jobs Stats**        | No       | No         | No        | Yes          | No        | No        | No          |
 | **User Mgmt**         | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **Plugins**           | Yes       | Yes       | Yes       | Yes          | Yes       | No        | Yes         |
 | **Multi-tenancy**     | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |

@@ -67,7 +67,7 @@ func (se *Executor) GetRuntimeInfo(
 func (se *Executor) AsyncHelperExecute(
 	_ context.Context,
 	cmd string,
-	_ map[string]interface{},
+	_ map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return se.doAsyncExecute(cmd, true)
 }
@@ -76,7 +76,7 @@ func (se *Executor) AsyncHelperExecute(
 func (se *Executor) AsyncExecute(
 	_ context.Context,
 	cmd string,
-	_ map[string]interface{},
+	_ map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return se.doAsyncExecute(cmd, false)
 }

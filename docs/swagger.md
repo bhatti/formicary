@@ -1870,7 +1870,7 @@ submitted.
 | methods | string | Methods is aggregation of task methods | No |
 | notify | object |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
-| paused | boolean | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No |
+| paused | boolean | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | platform | string | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No |
 | public_plugin | boolean | PublicPlugin means job is public plugin | No |
 | required_params | [ string ] | RequiredParams from job request (and plugin) | No |
@@ -1878,7 +1878,7 @@ submitted.
 | retry | long | Retry defines max number of tries a job can be retried where it re-runs failed job | No |
 | sem_version | string | SemVersion - semantic version is used for external version, which can be used for public plugins. | No |
 | tags | string | Tags are used to use specific followers that support the tags defined by ants. Tags is aggregation of task tags | No |
-| tasks | [ [TaskDefinition](#taskdefinition) ] | Tasks defines one to many relationships between job and tasks, where tasks defines a directed acyclic graph of tasks that are executed for the job. | No |
+| tasks | [ [TaskDefinition](#taskdefinition) ] | Tasks defines one to many relationships between job and tasks, where a job defines a directed acyclic graph of tasks that are executed for the job. | No |
 | timeout | [Duration](#duration) |  | No |
 | updated_at | dateTime | UpdatedAt job update time | No |
 | url | string | URL defines url for job | No |

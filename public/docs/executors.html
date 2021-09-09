@@ -1,8 +1,78 @@
 <h2 id="executors">Executors</h2>
 <h3 id="shell-or-local-executor">Shell or Local Executor</h3>
 <p>The shell executor forks a shell process from ant work for executing commands defined under <code>script</code>. It does not require any additional configuration, but it&#39;s recommended to use a unique user for the ant worker with proper permissions because a user may invoke any command on the machine.</p>
-<h3 id="docker-executor">Docker Executor</h3>
-<h3 id="kubernetes-executor">Kubernetes Executor</h3>
+<h3 id="rest">REST</h3>
+<p>RES API Executor invokes external HTTP APIs using GET, POST, PUT or DELTE actions, e.g.</p>
+<pre><code>job_type: http-job
+tasks:
+- task_type: get
+  method: HTTP_GET
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: post
+- task_type: post
+  method: HTTP_POST_JSON
+  script:
+    - https://jsonplaceholder.typicode.com/todos
+  on_completed: put
+- task_type: put
+  method: HTTP_PUT_JSON
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_completed: delete
+- task_type: delete
+  method: HTTP_DELETE
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+</code></pre><h3 id="docker">Docker</h3>
+<p>The Docker executor starts a main container for executing script named after job/task name and a helper container wth <code>-helper</code> suffix for managing artifacts. The initial docker config are defined by the ant config that are available for all jobs such as:</p>
+<ul>
+<li>helper_image - helper image</li>
+<li>host - Docker host</li>
+<li>registry server - docker registry</li>
+<li>environment - environment variables</li>
+<li>pull_policy - image pull policy such as <code>never</code>, <code>always</code>, <code>if-not-present</code>.</li>
+</ul>
+<pre><code class="lang-yaml">common:
+  id: test-id
+  messaging_provider: &quot;REDIS_MESSAGING&quot;
+tags:
+  - tag1
+  - tag2
+methods:
+  - DOCKER
+docker:
+  registry:
+    registry: docker-registry-server
+    username: docker-registry-user
+    password: docker-registry-pass
+    pull_policy: if-not-present
+  host: kubernetes-host
+</code></pre>
+<p>Above configuration applies to all jobs, but a docker task can define following properties for each job-definition:</p>
+<ul>
+<li>name - the name of task that is used for pod-name</li>
+<li>environment - environment variables to set within the container</li>
+<li>working_directory - for script execution</li>
+<li>container - main container to execute, which defines:<ul>
+<li>image</li>
+<li>image_definition</li>
+</ul>
+</li>
+<li>network_mode</li>
+<li>host_network e.g.,</li>
+</ul>
+<pre><code class="lang-yaml">name: task1
+method: DOCKER
+environment:
+  AWS-KEY: Mykey
+container:
+  image: ubuntu:16.04
+privileged: true
+network_mode: mod1
+host_network: true
+</code></pre>
+<h3 id="kubernetes">Kubernetes</h3>
 <p>The Kubernetes executor starts a main container for executing script named after job/task name and a helper container wth <code>-helper</code> suffix for managing artifacts. A task may define dependent services that will start with <code>svc-</code> prefix. The initial kubernetes config are defined by the ant config that are available for all jobs such as:</p>
 <ul>
 <li>namespace - namespace of Kubernetes environment</li>
@@ -31,7 +101,6 @@ tags:
   - tag1
   - tag2
 methods:
-  - DOCKER
   - KUBERNETES
 kubernetes:
   registry:

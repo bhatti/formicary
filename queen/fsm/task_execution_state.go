@@ -146,10 +146,10 @@ func (tsm *TaskExecutionStateMachine) FinalizeTaskState(
 	tsm.TaskExecution.EndedAt = &now
 	// optionally release resource if completed
 	/*
-	if tsm.TaskExecution.TaskState.Completed() {
-		delete(tsm.Reservations, tsm.TaskDefinition.TaskType)
-	}
-	 */
+		if tsm.TaskExecution.TaskState.Completed() {
+			delete(tsm.Reservations, tsm.TaskDefinition.TaskType)
+		}
+	*/
 
 	// SaveFile job context from task result
 	_ = tsm.JobManager.UpdateJobExecutionContext(
@@ -225,7 +225,6 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 		AfterScript:     tsm.TaskDefinition.AfterScript,
 		Timeout:         tsm.TaskDefinition.Timeout,
 		Variables:       tsm.buildDynamicParams(),
-		SecretConfigs:   tsm.buildSecretConfigs(),
 		ExecutorOpts:    tsm.ExecutorOptions,
 		StartedAt:       time.Now(),
 	}
@@ -249,7 +248,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
 	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.ID
 
-	if taskReq.Variables["debug"] == "true" || taskReq.Variables["debug"] == true {
+	if taskReq.Variables["debug"].Value == "true" || taskReq.Variables["debug"].Value == true {
 		taskReq.ExecutorOpts.Debug = true
 	}
 
@@ -435,10 +434,11 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 	return allocation, nil
 }
 
-func (tsm *TaskExecutionStateMachine) buildDynamicParams() map[string]interface{} {
-	res := tsm.JobExecutionStateMachine.buildDynamicParams(tsm.TaskDefinition.NameValueVariables.(map[string]interface{}))
-	res["TaskType"] = tsm.taskType
-	res["TaskRetry"] = tsm.TaskExecution.Retried
+func (tsm *TaskExecutionStateMachine) buildDynamicParams() map[string]common.VariableValue {
+	res := tsm.JobExecutionStateMachine.buildDynamicParams(
+		tsm.TaskDefinition.GetNameValueVariables())
+	res["TaskType"] = common.NewVariableValue(tsm.taskType, false)
+	res["TaskRetry"] = common.NewVariableValue(tsm.TaskExecution.Retried, false)
 	return res
 }
 

@@ -227,28 +227,36 @@ func (dg *Generator) buildTree() (node *Node, nodes map[string]*Node, err error)
 	nodes = make(map[string]*Node)
 	_, arrowColor, _ := dg.getTaskStateStateColor(firstTask.TaskType)
 	node = &Node{task: firstTask, arrowColor: arrowColor}
-	dg.addNodes(node, firstTask, nodes)
+	dg.addNodes(node, nodes)
 	return
 }
 
-func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition, nodes map[string]*Node) {
-	if parentNode == nil || parentTask == nil {
+func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
+	if parentNode == nil || parentNode.task == nil {
 		return
 	}
-	params := map[string]interface{}{"JobRetry": 0, "TaskRetry": 0, "Nonce": 0}
+	params := map[string]common.VariableValue{
+		"JobRetry":  common.NewVariableValue(0, false),
+		"TaskRetry": common.NewVariableValue(0, false),
+		"Nonce":     common.NewVariableValue(0, false),
+	}
 	var fromExecTask *types.TaskExecution
 	if dg.jobExecution != nil {
-		fromExecTask = dg.jobExecution.GetTask(parentTask.TaskType)
+		fromExecTask = dg.jobExecution.GetTask(parentNode.task.TaskType)
 		for _, c := range dg.jobExecution.Contexts {
-			params[c.Name], _ = c.GetParsedValue()
+			if vv, err := c.GetVariableValue(); err == nil {
+				params[c.Name] = vv
+			}
 		}
 	}
-	if dynTask, _, err := dg.jobDefinition.GetDynamicTask(parentTask.TaskType, params); err == nil {
-		parentTask = dynTask
-	}
-	nodes[parentTask.TaskType] = parentNode
-	parentNode.state, parentNode.color, parentNode.bold = dg.getTaskStateStateColor(parentTask.TaskType)
+	nodes[parentNode.task.TaskType] = parentNode
+	parentNode.state, parentNode.color, parentNode.bold = dg.getTaskStateStateColor(parentNode.task.TaskType)
 
+	if dynTask, _, err := dg.jobDefinition.GetDynamicTask(
+		parentNode.task.TaskType,
+		params); err == nil {
+		parentNode.task = dynTask
+	}
 	if parentNode.task.Method == common.ForkJob {
 		childTask := types.NewTaskDefinition(parentNode.task.ForkJobType, "ForkedJob")
 		childNode := &Node{task: childTask, color: "gray", arrow: common.RequestState("fork"), arrowColor: parentNode.state.DotColor()}
@@ -273,7 +281,7 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 		}
 	}
 
-	for state, target := range parentTask.OnExitCode {
+	for state, target := range parentNode.task.OnExitCode {
 		childTask := dg.jobDefinition.GetTask(target)
 		if childTask == nil {
 			continue
@@ -283,7 +291,7 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 			var nextTask *types.TaskDefinition
 			parentNode.arrowColor = fromExecTask.TaskState.DotColor()
 			nextTask, parentNode.decision, _ = dg.jobDefinition.GetNextTask(
-				parentTask,
+				parentNode.task,
 				fromExecTask.TaskState,
 				fromExecTask.ExitCode)
 			if nextTask != nil {
@@ -309,7 +317,7 @@ func (dg *Generator) addNodes(parentNode *Node, parentTask *types.TaskDefinition
 				}
 			}
 		}
-		dg.addNodes(childNode, childTask, nodes)
+		dg.addNodes(childNode, nodes)
 		parentNode.children = append(parentNode.children, childNode)
 	}
 }

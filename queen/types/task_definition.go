@@ -456,6 +456,17 @@ func (td *TaskDefinition) addVariablesFromNameValueVariables() error {
 	return nil
 }
 
+// GetNameValueVariables returns name/value variables
+func (td *TaskDefinition) GetNameValueVariables() (res map[string]common.VariableValue) {
+	res = make(map[string]common.VariableValue)
+	for _, next := range td.Variables {
+		if vv, err := next.GetVariableValue(); err == nil {
+			res[next.Name] = vv
+		}
+	}
+	return
+}
+
 // AddExitCode adds exit code
 func (td *TaskDefinition) AddExitCode(status string, task string) *TaskDefinition {
 	td.OnExitCode[common.NewRequestState(status)] = task

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"plexobject.com/formicary/queen/utils"
 	"strings"
 	"time"
 
@@ -42,22 +43,7 @@ func NewTemplateRenderer(
 	tmpl.ext = ext
 	tmpl.devel = devel
 
-	tmpl.funcs = template.FuncMap{
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
-			if len(values)%2 != 0 {
-				return nil, errors.New("invalid dict call")
-			}
-			dict := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				key, ok := values[i].(string)
-				if !ok {
-					return nil, errors.New("dict keys must be strings")
-				}
-				dict[key] = values[i+1]
-			}
-			return dict, nil
-		},
-	}
+	tmpl.funcs = utils.TemplateFuncs()
 
 	if err = tmpl.Load(); err != nil {
 		tmpl = nil // drop for GC

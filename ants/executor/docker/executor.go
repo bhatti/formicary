@@ -103,7 +103,7 @@ func (de *Executor) GetRuntimeInfo(ctx context.Context) string {
 func (de *Executor) AsyncHelperExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return de.doAsyncExecute(ctx, de.helperID, cmd, true, variables)
 }
@@ -112,7 +112,7 @@ func (de *Executor) AsyncHelperExecute(
 func (de *Executor) AsyncExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return de.doAsyncExecute(ctx, de.ID, cmd, false, variables)
 }
@@ -163,7 +163,7 @@ func (de *Executor) doAsyncExecute(
 	containerName string,
 	cmd string,
 	helper bool,
-	_ map[string]interface{},
+	_ map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	de.lock.Lock()
 	defer de.lock.Unlock()

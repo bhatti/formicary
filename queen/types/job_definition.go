@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"math/big"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	yaml "gopkg.in/yaml.v3"
 
@@ -104,7 +106,7 @@ type JobDefinition struct {
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
-	// Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.
+	// Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
 	Paused bool `yaml:"-" json:"paused"`
 	// PublicPlugin means job is public plugin
 	PublicPlugin bool `yaml:"public_plugin,omitempty" json:"public_plugin"`
@@ -112,6 +114,8 @@ type JobDefinition struct {
 	RequiredParams []string `yaml:"required_params,omitempty" json:"required_params" gorm:"-"`
 	// UsesTemplate means the task is optional and can fail without failing entire job
 	UsesTemplate bool `yaml:"-" json:"-"`
+	// ParseTemplateOnLoad
+	ParseTemplateOnLoad bool `yaml:"parse_template_on_load" json:"-" gorm:"-"`
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// Tags is aggregation of task tags
 	Tags string `yaml:"tags,omitempty" json:"tags"`
@@ -119,8 +123,8 @@ type JobDefinition struct {
 	Methods string `yaml:"methods,omitempty" json:"methods"`
 	// RawYaml stores raw YAML of job definition
 	RawYaml string `yaml:"-" json:"-"`
-	// Tasks defines one to many relationships between job and tasks, where tasks defines a
-	// directed acyclic graph of tasks that are executed for the job.
+	// Tasks defines one to many relationships between job and tasks, where a job defines
+	// a directed acyclic graph of tasks that are executed for the job.
 	Tasks []*TaskDefinition `yaml:"tasks" json:"tasks" gorm:"ForeignKey:JobDefinitionID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// Configs defines config properties of job that are used as parameters for the job template or task request when executing on a remote
 	// ant follower. Both config and variables provide similar capabilities but config can be updated for all job versions and can store
@@ -133,7 +137,7 @@ type JobDefinition struct {
 	CreatedAt time.Time `yaml:"-" json:"created_at"`
 	// UpdatedAt job update time
 	UpdatedAt time.Time `yaml:"-" json:"updated_at"`
-	// Active is used to soft delete job definition
+	// Active is used to softly delete job definition
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
 	CanEdit            bool                                            `yaml:"-" json:"-" gorm:"-"`
@@ -160,54 +164,6 @@ func NewJobDefinition(jobType string) *JobDefinition {
 		NameValueVariables: make(map[string]interface{}),
 		RawYaml:            "",
 	}
-}
-
-// NewJobDefinitionFromYaml creates new instance of job-definition
-func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
-	if len(b) == 0 {
-		return nil, fmt.Errorf("no input specified")
-	}
-	if len(b) > 1024*1024*64 { // 64K
-		return nil, fmt.Errorf("job definition is too big")
-	}
-	var jobTypeRegex *regexp.Regexp
-	if jobTypeRegex, err = regexp.Compile(`job_type:\s+(.*)\s+`); err != nil {
-		return nil, err
-	}
-	yamlSource := strings.TrimSpace(string(b))
-	names := jobTypeRegex.FindStringSubmatch(yamlSource)
-	if len(names) <= 1 {
-		return nil, fmt.Errorf("failed to find job-type in %v", names)
-	}
-	if strings.Contains(yamlSource, "{{") && strings.Contains(yamlSource, "}}") {
-		partialYaml, err := removeTemplateVariables(yamlSource)
-		if err != nil {
-			return nil, err
-		}
-		job = NewJobDefinition("")
-		err = yaml.Unmarshal([]byte(partialYaml), &job)
-	} else {
-		job = NewJobDefinition("")
-		err = yaml.Unmarshal(b, &job)
-	}
-	for i, task := range job.Tasks {
-		task.TaskOrder = i
-	}
-	if err != nil {
-		return nil, err
-	}
-	if len(job.Notify) > 0 {
-		if b, err := json.Marshal(job.Notify); err == nil {
-			job.NotifySerialized = string(b)
-		} else {
-			return nil, err
-		}
-	}
-	job.RawYaml = yamlSource
-	if err = job.Validate(); err != nil {
-		return nil, err
-	}
-	return job, nil
 }
 
 // TableName overrides default table name
@@ -265,9 +221,13 @@ func (jd *JobDefinition) Filter() string {
 }
 
 // Filtered checks filter condition
-func (jd *JobDefinition) Filtered(data map[string]interface{}) bool {
+func (jd *JobDefinition) Filtered(vars map[string]common.VariableValue) bool {
 	if jd.Filter() == "" {
 		return false
+	}
+	data := make(map[string]interface{})
+	for k, v := range vars {
+		data[k] = v.Value
 	}
 	resData, err := utils.ParseTemplate(jd.Filter(), data)
 	if err != nil {
@@ -279,9 +239,13 @@ func (jd *JobDefinition) Filtered(data map[string]interface{}) bool {
 // GetDynamicTask next task to run from YAML config
 func (jd *JobDefinition) GetDynamicTask(
 	taskType string,
-	data map[string]interface{}) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
-	if data == nil {
-		data = make(map[string]interface{})
+	vars map[string]common.VariableValue) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
+	if vars == nil {
+		vars = make(map[string]common.VariableValue)
+	}
+	data := make(map[string]interface{})
+	for k, v := range vars {
+		data[k] = v.Value
 	}
 	task = jd.GetTask(taskType)
 	if task == nil {
@@ -332,7 +296,8 @@ func (jd *JobDefinition) GetDynamicTask(
 			"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
 			"Error":     err,
 		}).Error("failed to unmarshal yaml task")
-		return nil, nil, fmt.Errorf("failed to parse %s due to %v", taskType, err)
+		debug.PrintStack()
+		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
 	}
 	_ = task.addVariablesFromNameValueVariables()
 
@@ -966,17 +931,8 @@ func (jd *JobDefinition) ValidateBeforeSave(key []byte) error {
 	}
 
 	// Update configs
-	{
-		nameValueVariables, err := utils.ParseNameValueConfigs(jd.NameValueVariables)
-		if err != nil {
-			return err
-		}
-		jd.NameValueVariables = nameValueVariables
-		for n, v := range nameValueVariables {
-			if _, err := jd.AddVariable(n, v); err != nil {
-				return err
-			}
-		}
+	if err := jd.addVariablesFromNameValueVariables(); err != nil {
+		return err
 	}
 	for _, cfg := range jd.Configs {
 		if err := cfg.ValidateBeforeSave(key); err != nil {
@@ -996,6 +952,20 @@ func (jd *JobDefinition) ValidateBeforeSave(key []byte) error {
 		}
 	}
 
+	return nil
+}
+
+func (jd *JobDefinition) addVariablesFromNameValueVariables() error {
+	nameValueVariables, err := utils.ParseNameValueConfigs(jd.NameValueVariables)
+	if err != nil {
+		return err
+	}
+	jd.NameValueVariables = nameValueVariables
+	for n, v := range nameValueVariables {
+		if _, err := jd.AddVariable(n, v); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1232,6 +1202,73 @@ func (jd *JobDefinition) buildTags() string {
 	return buf.String()
 }
 
+// NewJobDefinitionFromYaml creates new instance of job-definition
+func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
+	if len(b) == 0 {
+		return nil, fmt.Errorf("no input specified")
+	}
+	if len(b) > 1024*1024*256 { // 256K
+		return nil, fmt.Errorf("job definition is too big")
+	}
+	var jobTypeRegex *regexp.Regexp
+	if jobTypeRegex, err = regexp.Compile(`job_type:\s+(.*)\s+`); err != nil {
+		return nil, err
+	}
+	yamlSource := strings.TrimSpace(string(b))
+	names := jobTypeRegex.FindStringSubmatch(yamlSource)
+	if len(names) <= 1 {
+		return nil, fmt.Errorf("failed to find job-type in %v", names)
+	}
+	job = &JobDefinition{}
+
+	preparse := utils.ParseYamlTag(yamlSource, "parse_template_on_load:")
+	if strings.TrimSpace(preparse) == "true" {
+		yamlSource = preparseYaml(yamlSource)
+	}
+	if strings.Contains(yamlSource, "{{") && strings.Contains(yamlSource, "}}") {
+		partialYaml, err := removeTemplateVariables(yamlSource)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal([]byte(partialYaml), job)
+	} else {
+		err = yaml.Unmarshal([]byte(yamlSource), job)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_ = job.addVariablesFromNameValueVariables()
+	for i, task := range job.Tasks {
+		task.TaskOrder = i
+	}
+	job.RawYaml = yamlSource
+	if err = job.Validate(); err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+// ReloadFromYaml reload job from yaml
+func ReloadFromYaml(rawYaml string) (loaded *JobDefinition, err error) {
+	if len(rawYaml) == 0 {
+		return nil, fmt.Errorf("no yaml specified")
+	}
+	loaded = &JobDefinition{}
+	var loadedYaml string
+	if loadedYaml, err = utils.ParseTemplate(rawYaml, make(map[string]interface{})); err == nil &&
+		rawYaml != loadedYaml {
+		err = yaml.Unmarshal([]byte(loadedYaml), loaded)
+	}
+	if err == nil {
+		_ = loaded.addVariablesFromNameValueVariables()
+		for i, task := range loaded.Tasks {
+			task.TaskOrder = i
+		}
+		err = loaded.Validate()
+	}
+	return
+}
+
 func removeTemplateVariables(
 	yamlSource string) (partialYaml string, err error) {
 	var templateRegex, emptyLineRegex *regexp.Regexp
@@ -1252,4 +1289,20 @@ func removeTemplateVariables(
 	partialYaml = templateRegex.ReplaceAllString(sb.String(), "")
 	partialYaml = emptyLineRegex.ReplaceAllString(partialYaml, "")
 	return partialYaml, nil
+}
+
+func preparseYaml(yamlSource string) string {
+	data := make(map[string]interface{})
+	lineVariables := utils.ParseYamlTag(yamlSource, "job_variables:")
+	for _, line := range strings.Split(lineVariables, "\n") {
+		nv := strings.Split(line, ":")
+		if len(nv) == 2 {
+			data[strings.TrimSpace(nv[0])] = strings.TrimSpace(nv[1])
+		}
+	}
+	if loadedYaml, err := utils.ParseTemplate(yamlSource, data); err == nil &&
+		yamlSource != loadedYaml {
+		yamlSource = loadedYaml
+	}
+	return yamlSource
 }

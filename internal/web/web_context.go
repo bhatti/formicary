@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strings"
 
 	common "plexobject.com/formicary/internal/types"
 )
@@ -149,6 +150,9 @@ func BuildQueryContext(c WebContext) *common.QueryContext {
 
 // IsWhiteListURL checks if path is white listed -- does not require authentication
 func IsWhiteListURL(path string, method string) bool {
+	if strings.HasPrefix(path, "/docs") && method == "GET" {
+		return true
+	}
 	whitelistGetURLs := map[string]bool{
 		"/":                     true,
 		"/login":                true,

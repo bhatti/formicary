@@ -12,13 +12,13 @@ func Test_ShouldVerifyTaskKeyForTaskRequest(t *testing.T) {
 	require.Equal(t, "102-task", req.Key())
 	require.Equal(t, "user/job-102/task", req.KeyPath())
 	require.NotEqual(t, "", req.String())
-	req.AddVariable("name", "value")
+	req.AddVariable("name", "value", true)
 }
 
 func Test_ShouldVerifyMaskFieldsForTaskRequest(t *testing.T) {
 	req := newTestTaskRequest()
 	require.Equal(t, 0, len(req.GetMaskFields()))
-	req.SecretConfigs = []string {"a"}
+	req.AddVariable("a", "value", true)
 	require.Equal(t, 1, len(req.GetMaskFields()))
 }
 
@@ -66,6 +66,6 @@ func newTestTaskRequest() *TaskRequest {
 			MainContainer:   &ContainerDefinition{},
 			HelperContainer: &ContainerDefinition{},
 		},
-		Variables: make(map[string]interface{}),
+		Variables: make(map[string]VariableValue),
 	}
 }

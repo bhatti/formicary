@@ -87,7 +87,8 @@ func ParseNameValueConfigs(input interface{}) (nameValueConfigs map[string]inter
 	case map[string]interface{}:
 		nameValueConfigs = input.(map[string]interface{})
 	default:
-		err = fmt.Errorf("unknown type %s for config %input", reflect.TypeOf(input), t)
+		err = fmt.Errorf("unknown type %s for config %v input",
+			reflect.TypeOf(input), t)
 	}
 	return
 }

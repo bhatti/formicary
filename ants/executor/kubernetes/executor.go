@@ -95,7 +95,7 @@ func (ke *Executor) GetRuntimeInfo(ctx context.Context) string {
 func (ke *Executor) AsyncHelperExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return ke.doAsyncExecute(ctx, ke.BaseExecutor.GetHelperName(), cmd, true, variables)
 }
@@ -104,7 +104,7 @@ func (ke *Executor) AsyncHelperExecute(
 func (ke *Executor) AsyncExecute(
 	ctx context.Context,
 	cmd string,
-	variables map[string]interface{},
+	variables map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
 	return ke.doAsyncExecute(ctx, ke.BaseExecutor.Name, cmd, false, variables)
 }
@@ -260,7 +260,7 @@ func (ke *Executor) doAsyncExecute(
 	containerName string,
 	cmd string,
 	helper bool,
-	_ map[string]interface{}) (executor.CommandRunner, error) {
+	_ map[string]types.VariableValue) (executor.CommandRunner, error) {
 	ke.lock.Lock()
 	defer ke.lock.Unlock()
 

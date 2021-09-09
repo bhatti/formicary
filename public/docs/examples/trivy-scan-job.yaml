@@ -4,6 +4,7 @@ url: https://aquasecurity.github.io/trivy/v0.19.0/
 max_concurrency: 2
 job_variables:
   CI_COMMIT_SHA: db65c90a07e753e71db5143c877940f4c11a33e1
+  CI_AUTHOR: bhatti
 tasks:
 - task_type: scan
   working_dir: /trivy-ci-test
