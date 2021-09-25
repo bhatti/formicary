@@ -218,7 +218,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 		return common.NewNotFoundError(res.Error)
 	}
 	if res.RowsAffected != 1 {
-		old, err := jrr.Get(common.NewQueryContext("", "", ""), id)
+		old, err := jrr.Get(common.NewQueryContext(nil, ""), id)
 		if err != nil {
 			return common.NewNotFoundError(err)
 		}
@@ -313,13 +313,13 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 	jobType string) error {
 	sql := "SELECT id FROM formicary_job_requests WHERE job_type = ? AND job_state = ? AND cron_triggered = ?"
 	args := []interface{}{jobType, common.PENDING, true}
-	if !qc.Admin() {
-		if qc.OrganizationID != "" {
+	if !qc.IsAdmin() {
+		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
-			args = append(args, qc.OrganizationID)
-		} else if qc.UserID != "" {
+			args = append(args, qc.GetOrganizationID())
+		} else if qc.GetUserID() != "" {
 			sql += " AND user_id = ?"
-			args = append(args, qc.UserID)
+			args = append(args, qc.GetUserID())
 		}
 	}
 	rows, err := jrr.db.Raw(sql, args...).Limit(100).Rows()
@@ -361,13 +361,13 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 	// TODO check for cron schedule
 	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ? WHERE id = ? AND cron_triggered = ? AND job_state = ?"
 	args := []interface{}{time.Now(), time.Now(), uuid.NewV4().String(), id, true, common.PENDING}
-	if !qc.Admin() {
-		if qc.OrganizationID != "" {
+	if !qc.IsAdmin() {
+		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
-			args = append(args, qc.OrganizationID)
-		} else if qc.UserID != "" {
+			args = append(args, qc.GetOrganizationID())
+		} else if qc.GetUserID() != "" {
 			sql += " AND user_id = ?"
-			args = append(args, qc.UserID)
+			args = append(args, qc.GetUserID())
 		}
 	}
 	res := jrr.db.Exec(sql, args...)
@@ -386,13 +386,13 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
 		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN (?)"
 	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, []common.RequestState{common.COMPLETED, common.PENDING}}
-	if !qc.Admin() {
-		if qc.OrganizationID != "" {
+	if !qc.IsAdmin() {
+		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
-			args = append(args, qc.OrganizationID)
-		} else if qc.UserID != "" {
+			args = append(args, qc.GetOrganizationID())
+		} else if qc.GetUserID() != "" {
 			sql += " AND user_id = ?"
-			args = append(args, qc.UserID)
+			args = append(args, qc.GetUserID())
 		}
 	}
 	res := jrr.db.Exec(sql, args...)
@@ -466,15 +466,15 @@ func (jrr *JobRequestRepositoryImpl) JobCountsByDays(
 	var sql string
 	scopeSelect := ""
 	scopeWhere := ""
-	if qc.Admin() {
-	} else if qc.OrganizationID != "" {
+	if qc.IsAdmin() {
+	} else if qc.HasOrganization() {
 		scopeSelect = "organization_id,"
 		scopeWhere = "WHERE organization_id = ? "
-		args = append(args, qc.OrganizationID)
-	} else if qc.UserID != "" {
+		args = append(args, qc.GetOrganizationID())
+	} else if qc.GetUserID() != "" {
 		scopeSelect = "user_id,"
 		scopeWhere = "WHERE user_id = ? "
-		args = append(args, qc.UserID)
+		args = append(args, qc.GetUserID())
 	}
 
 	if jrr.dbType == "sqlite" {
@@ -527,15 +527,15 @@ func (jrr *JobRequestRepositoryImpl) JobCounts(
 	args := []interface{}{start, end}
 	scopeSelect := ""
 	scopeWhere := ""
-	if qc.Admin() {
-	} else if qc.OrganizationID != "" {
+	if qc.IsAdmin() {
+	} else if qc.HasOrganization() {
 		scopeSelect = "organization_id,"
 		scopeWhere = "AND organization_id = ? "
-		args = append(args, qc.OrganizationID)
-	} else if qc.UserID != "" {
+		args = append(args, qc.GetOrganizationID())
+	} else if qc.GetUserID() != "" {
 		scopeSelect = "user_id,"
 		scopeWhere = "AND user_id = ? "
-		args = append(args, qc.UserID)
+		args = append(args, qc.GetUserID())
 	}
 	var sql string
 	if jrr.dbType == "sqlite" {

@@ -2,11 +2,12 @@ package repository
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/crypto"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
-	"time"
 
 	"github.com/twinj/uuid"
 	"gorm.io/gorm"
@@ -17,15 +18,20 @@ import (
 type OrganizationRepositoryImpl struct {
 	dbConfig *config.DBConfig
 	db       *gorm.DB
+	*BaseRepositoryImpl
 }
 
 // NewOrganizationRepositoryImpl creates new instance for org-repository
 func NewOrganizationRepositoryImpl(
 	dbConfig *config.DBConfig,
-	db *gorm.DB) (*OrganizationRepositoryImpl, error) {
+	db *gorm.DB,
+	objectUpdatedHandler ObjectUpdatedHandler,
+) (*OrganizationRepositoryImpl, error) {
 	return &OrganizationRepositoryImpl{
-			dbConfig: dbConfig,
-			db:       db},
+			dbConfig:           dbConfig,
+			db:                 db,
+			BaseRepositoryImpl: NewBaseRepositoryImpl(objectUpdatedHandler),
+		},
 		nil
 }
 
@@ -123,9 +129,9 @@ func (orc *OrganizationRepositoryImpl) Clear() {
 
 // Delete org
 func (orc *OrganizationRepositoryImpl) Delete(
-	_ *common.QueryContext, // TODO fix
-	id string) error {
-	return orc.db.Transaction(func(tx *gorm.DB) error {
+	qc *common.QueryContext,
+	id string) (err error) {
+	err = orc.db.Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&common.Organization{}).
 			Where("id = ?", id).
 			Where("active = ?", true).
@@ -156,6 +162,10 @@ func (orc *OrganizationRepositoryImpl) Delete(
 		}).Warnf("removing org and users")
 		return nil
 	})
+	if err == nil {
+		orc.FireObjectUpdatedHandler(qc, id, ObjectDeleted, nil)
+	}
+	return
 }
 
 // Create persists org
@@ -195,26 +205,30 @@ func (orc *OrganizationRepositoryImpl) Create(
 
 // UpdateStickyMessage updates sticky message for user and org
 func (orc *OrganizationRepositoryImpl) UpdateStickyMessage(
-	_ *common.QueryContext,
+	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) error {
-	return orc.db.Transaction(func(tx *gorm.DB) error {
+) (err error) {
+	err = orc.db.Transaction(func(tx *gorm.DB) error {
 		if user != nil {
 			res := tx.Exec("update formicary_users set sticky_message = ? where id = ?", user.StickyMessage, user.ID)
 			if res.Error != nil {
 				return fmt.Errorf("fail to set sticky message '%s' for user '%s' due to '%s'",
 					user.StickyMessage, user.ID, res.Error)
 			}
+			orc.FireObjectUpdatedHandler(qc, user.ID, ObjectUpdated, user)
 		}
-		if org != nil {
-			res := tx.Exec("update formicary_orgs set sticky_message = ? where id = ?", org.StickyMessage, org.ID)
+		if user.HasOrganization() {
+			res := tx.Exec("update formicary_orgs set sticky_message = ? where id = ?",
+				user.Organization.StickyMessage, user.OrganizationID)
 			if res.Error != nil {
 				return fmt.Errorf("fail to set sticky message '%s' for org '%s' due to '%s'",
-					org.StickyMessage, org.ID, res.Error)
+					user.Organization.StickyMessage, user.OrganizationID, res.Error)
 			}
+			orc.FireObjectUpdatedHandler(qc, user.OrganizationID, ObjectUpdated, user.Organization)
 		}
 		return nil
 	})
+	return
 }
 
 // Update persists org
@@ -233,7 +247,7 @@ func (orc *OrganizationRepositoryImpl) Update(
 	if !qc.Matches(old.OwnerUserID, old.ID) {
 		return nil, common.NewPermissionError(
 			fmt.Errorf("organization '%s' with id '%s' cannot be edited by non-member %s",
-				org.OrgUnit, old.ID, qc.OrganizationID))
+				org.OrgUnit, old.ID, qc.GetOrganizationID()))
 	}
 	err = orc.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
@@ -251,6 +265,9 @@ func (orc *OrganizationRepositoryImpl) Update(
 		}
 		return nil
 	})
+	if err == nil {
+		orc.FireObjectUpdatedHandler(qc, org.ID, ObjectUpdated, org)
+	}
 	return old, err
 }
 
@@ -342,7 +359,7 @@ func (orc *OrganizationRepositoryImpl) AcceptInvitation(email string, code strin
 
 // Query finds matching configs
 func (orc *OrganizationRepositoryImpl) Query(
-	qc *common.QueryContext, // TODO fix
+	qc *common.QueryContext,
 	params map[string]interface{},
 	page int,
 	pageSize int,
@@ -373,7 +390,7 @@ func (orc *OrganizationRepositoryImpl) Query(
 
 // Count counts records by query
 func (orc *OrganizationRepositoryImpl) Count(
-	_ *common.QueryContext, // TODO fix
+	_ *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
 	tx := orc.db.Model(&common.Organization{}).Where("active = ?", true)
 	tx = orc.addQuery(params, tx)

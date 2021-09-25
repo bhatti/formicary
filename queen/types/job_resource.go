@@ -12,7 +12,7 @@ import (
 
 // BasicResource defines common properties of a resource, which can be used to implement mutex/semaphores for a job.
 // These mutex/semaphores can represent external resources that job requires and can be used to determine
-// concurrency of jobs. For example, a job may need a license key to connect to a third party service and
+// concurrency of jobs. For example, a job may need a license key to connect to a third party service, and
 // it may only accept upto five connections that can be allocated via resources.
 type BasicResource struct {
 	// ResourceType defines type of resource such as Device, CPU, Memory
@@ -46,7 +46,7 @@ type ResourceCriteriaConfig struct {
 // JobResource represents a virtual resource, which can be used to implement mutex/semaphores for a job.
 // Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc.
 // You can use them as mutex, semaphores or quota system to determine concurrency of jobs.
-// For example, a job may need a license key to connect to a third party service and it may only accept upto
+// For example, a job may need a license key to connect to a third party service, and it may only accept upto
 // five connections that can be allocated via resources.
 type JobResource struct {
 	//gorm.Model
@@ -62,7 +62,7 @@ type JobResource struct {
 	Quota int `yaml:"quota" json:"quota"`
 	// LeaseTimeout specifies max time to wait for release of resource otherwise it's automatically released.
 	LeaseTimeout time.Duration `yaml:"lease_timeout,omitempty" json:"lease_timeout"`
-	// Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.
+	// Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
 	Paused bool `yaml:"-" json:"paused"`
 	// Configs defines config properties of job
 	Configs []*JobResourceConfig `yaml:"-" json:"-" gorm:"ForeignKey:JobResourceID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
@@ -76,7 +76,7 @@ type JobResource struct {
 	CreatedAt time.Time `yaml:"-" json:"created_at"`
 	// UpdatedAt job update time
 	UpdatedAt time.Time `yaml:"-" json:"updated_at"`
-	// Active is used to soft delete job resource
+	// Active is used to softly delete job resource
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties
 	NameValueConfigs map[string]interface{} `yaml:"resource_variables,omitempty" json:"resource_variables" gorm:"-"`

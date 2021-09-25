@@ -10,19 +10,14 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
-var testFactory *Factory
-
-//const testDB = "mysql"
-//const testDBSource = "formicary_user_dev:formicary_pass@tcp(localhost:3306)/formicary_dev?charset=utf8mb4&parseTime=true&loc=Local"
+var testLocator *Locator
 
 const testDB = "sqlite"
-const testDBSource = "/tmp/formicary_sqlite.db"
+const testDBSource = "/tmp/formicary_test_db.sqlite"
 
-//const testDBSource = ":memory:"
-
-// NewTestFactory Creating a test database connection
-func NewTestFactory() (*Factory, error) {
-	if testFactory == nil {
+// NewTestLocator uses test database for repositories
+func NewTestLocator() (*Locator, error) {
+	if testLocator == nil {
 		var err error
 		serverCfg := config.TestServerConfig()
 		serverCfg.DB.DBType = testDB
@@ -30,21 +25,21 @@ func NewTestFactory() (*Factory, error) {
 		if err = serverCfg.Validate(); err != nil {
 			return nil, err
 		}
-		testFactory, err = NewFactory(serverCfg)
-		//testFactory, err = NewFactory("sqlite", defaultSqliteMemTestDB)
+		testLocator, err = NewLocator(serverCfg)
+		//testLocator, err = NewLocator("sqlite", defaultSqliteMemTestDB)
 		if err != nil {
 			return nil, err
 		}
-		if testFactory.db == nil {
+		if testLocator.db == nil {
 			return nil, fmt.Errorf("failed to find test database %v", err)
 		}
 	}
-	return testFactory, nil
+	return testLocator, nil
 }
 
 // NewTestLogEventRepository Creating a test repository for log-event
 func NewTestLogEventRepository() (*LogEventRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +48,7 @@ func NewTestLogEventRepository() (*LogEventRepositoryImpl, error) {
 
 // NewTestAuditRecordRepository Creating a test repository for audit-record
 func NewTestAuditRecordRepository() (AuditRecordRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +57,7 @@ func NewTestAuditRecordRepository() (AuditRecordRepository, error) {
 
 // NewTestErrorCodeRepository Creating a test repository for error-code
 func NewTestErrorCodeRepository() (*ErrorCodeRepositoryCached, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +66,7 @@ func NewTestErrorCodeRepository() (*ErrorCodeRepositoryCached, error) {
 
 // NewTestJobDefinitionRepository Creating a test repository for job-definition
 func NewTestJobDefinitionRepository() (JobDefinitionRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +75,7 @@ func NewTestJobDefinitionRepository() (JobDefinitionRepository, error) {
 
 // NewTestJobRequestRepository Creating a test repository for job-request
 func NewTestJobRequestRepository() (*JobRequestRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +84,7 @@ func NewTestJobRequestRepository() (*JobRequestRepositoryImpl, error) {
 
 // NewTestJobExecutionRepository Creating a test repository for job-execution
 func NewTestJobExecutionRepository() (*JobExecutionRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +93,7 @@ func NewTestJobExecutionRepository() (*JobExecutionRepositoryImpl, error) {
 
 // NewTestArtifactRepository Creating a test repository for artifact
 func NewTestArtifactRepository() (*ArtifactRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +102,7 @@ func NewTestArtifactRepository() (*ArtifactRepositoryImpl, error) {
 
 // NewTestJobResourceRepository Creating a test repository for resources
 func NewTestJobResourceRepository() (*JobResourceRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +111,7 @@ func NewTestJobResourceRepository() (*JobResourceRepositoryImpl, error) {
 
 // NewTestUserRepository a test repository for users
 func NewTestUserRepository() (UserRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +120,7 @@ func NewTestUserRepository() (UserRepository, error) {
 
 // NewTestOrganizationRepository Creating a test repository for org
 func NewTestOrganizationRepository() (OrganizationRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +129,7 @@ func NewTestOrganizationRepository() (OrganizationRepository, error) {
 
 // NewTestInvitationRepository Creating a test repository for user-invitation
 func NewTestInvitationRepository() (InvitationRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +138,7 @@ func NewTestInvitationRepository() (InvitationRepository, error) {
 
 // NewTestSubscriptionRepository Creating a test repository for subscription
 func NewTestSubscriptionRepository() (SubscriptionRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +147,7 @@ func NewTestSubscriptionRepository() (SubscriptionRepository, error) {
 
 // NewTestSystemConfigRepository Creating a test repository for system config
 func NewTestSystemConfigRepository() (*SystemConfigRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +156,7 @@ func NewTestSystemConfigRepository() (*SystemConfigRepositoryImpl, error) {
 
 // NewTestEmailVerificationRepository Creating a test repository for email verification
 func NewTestEmailVerificationRepository() (EmailVerificationRepository, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +165,7 @@ func NewTestEmailVerificationRepository() (EmailVerificationRepository, error) {
 
 // NewTestOrgConfigRepository Creating a test repository for system config
 func NewTestOrgConfigRepository() (*OrganizationConfigRepositoryImpl, error) {
-	f, err := NewTestFactory()
+	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
@@ -23,9 +24,9 @@ func NewEmailVerificationController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.POST("/api/users/:id/verify_email", emailVerificationCtrl.createEmailVerification, acl.New(acl.EmailVerification, acl.Create)).Name = "create_email_verification"
-	webserver.PUT("/api/users/:id/verify_email/:code", emailVerificationCtrl.verifyEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_email"
-	webserver.GET("/api/users/email_verifications", emailVerificationCtrl.queryEmailVerifications, acl.New(acl.EmailVerification, acl.Query)).Name = "email_verifications"
+	webserver.POST("/api/users/:id/verify_email", emailVerificationCtrl.createEmailVerification, acl.NewPermission(acl.EmailVerification, acl.Create)).Name = "create_email_verification"
+	webserver.PUT("/api/users/:id/verify_email/:code", emailVerificationCtrl.verifyEmailVerification, acl.NewPermission(acl.User, acl.Update)).Name = "verify_email"
+	webserver.GET("/api/users/email_verifications", emailVerificationCtrl.queryEmailVerifications, acl.NewPermission(acl.EmailVerification, acl.Query)).Name = "email_verifications"
 	return emailVerificationCtrl
 }
 
@@ -62,7 +63,7 @@ func (uc *EmailVerificationController) createEmailVerification(c web.WebContext)
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	emailVerification.UserID = qc.UserID
+	emailVerification.UserID = qc.GetUserID()
 	saved, err := uc.userManager.CreateEmailVerification(qc, emailVerification)
 	if err != nil {
 		return err
@@ -78,7 +79,7 @@ func (uc *EmailVerificationController) createEmailVerification(c web.WebContext)
 func (uc *EmailVerificationController) verifyEmailVerification(c web.WebContext) error {
 	// TODO remove this as emailVerifications will be added after oauth signup
 	qc := web.BuildQueryContext(c)
-	rec, err := uc.userManager.VerifyEmail(qc, qc.UserID, c.Param("code"))
+	rec, err := uc.userManager.VerifyEmail(qc, qc.GetUserID(), c.Param("code"))
 	if err != nil {
 		return err
 	}

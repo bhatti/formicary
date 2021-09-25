@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
 )
 
@@ -12,10 +11,8 @@ func Test_ShouldNotFindUnknownEmailVerification(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-
-	// AND user
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
-	u.ID = qc.UserID
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN finding unknown verification
 	_, err = repo.Get(qc, "blah")
@@ -28,12 +25,11 @@ func Test_ShouldFindEmailVerification(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestEmailVerificationRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	// AND user
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
-	u.ID = qc.UserID
-
-	ev := types.NewEmailVerification("email@formicary.io", u)
+	// AND email-verification
+	ev := types.NewEmailVerification("email@formicary.io", qc.User)
 	saved, err := repo.Create(ev)
 
 	require.NoError(t, err)
@@ -48,12 +44,11 @@ func Test_ShouldDeleteEmailVerification(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestEmailVerificationRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	// AND user
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
-	u.ID = qc.UserID
-
-	ev := types.NewEmailVerification("email@formicary.io", u)
+	// AND email-verification
+	ev := types.NewEmailVerification("email@formicary.io", qc.User)
 	_, err = repo.Create(ev)
 	require.NoError(t, err)
 
@@ -76,12 +71,11 @@ func Test_ShouldVerifyEmailVerification(t *testing.T) {
 	userRepository, err := NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	// AND user
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
-	u.ID = qc.UserID
-
-	ev := types.NewEmailVerification("email@formicary.io", u)
+	// AND email-verification
+	ev := types.NewEmailVerification("email@formicary.io", qc.User)
 	_, err = verificationRepository.Create(ev)
 
 	// THEN it should not fail
@@ -93,14 +87,14 @@ func Test_ShouldVerifyEmailVerification(t *testing.T) {
 	require.Equal(t, int64(1), total)
 
 	// AND should verify it
-	saved, err := verificationRepository.Verify(qc, u.ID, ev.EmailCode)
+	saved, err := verificationRepository.Verify(qc, qc.User.ID, ev.EmailCode)
 	require.NoError(t, err)
 	require.Equal(t, ev.EmailCode, saved.EmailCode)
 
 	// AND should work with verify again
-	saved, err = verificationRepository.Verify(qc, u.ID, ev.EmailCode)
+	saved, err = verificationRepository.Verify(qc, qc.User.ID, ev.EmailCode)
 	require.NoError(t, err)
 
-	emails := verificationRepository.GetVerifiedEmails(qc, u.ID)
+	emails := verificationRepository.GetVerifiedEmails(qc, qc.User.ID)
 	require.Equal(t, 1, len(emails))
 }

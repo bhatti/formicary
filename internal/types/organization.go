@@ -25,12 +25,13 @@ type Organization struct {
 	Salt string `json:"salt"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently by org
 	MaxConcurrency int    `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	// StickyMessage defines an error message that needs user attention
 	StickyMessage  string `json:"sticky_message" gorm:"sticky_message"`
 	// LicensePolicy defines license policy
 	LicensePolicy string `yaml:"external_id" json:"license_policy"`
 	// Configs defines config properties of org
 	Configs []*OrganizationConfig `yaml:"-" json:"-" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
-	// Subscription
+	// Subscription defines quota policy and usage period
 	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	// Active is used to softly delete org
 	Active bool `yaml:"-" json:"-"`

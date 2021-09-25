@@ -89,8 +89,8 @@ func (t *ArtifactTransferService) uploadArtifacts(
 		ID:          id,
 		Name:        name,
 		ContentType: "application/zip",
-		Metadata:    map[string]string{},
-		Tags:        map[string]string{},
+		Metadata:    make(map[string]string),
+		Tags:        make(map[string]string),
 		ExpiresAt:   expiration,
 	}
 

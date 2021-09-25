@@ -9,7 +9,6 @@ type Sender interface {
 	SendMessage(
 		qc *common.QueryContext,
 		user *common.User,
-		org *common.Organization,
 		to []string,
 		subject string,
 		body string,

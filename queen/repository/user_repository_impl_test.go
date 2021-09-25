@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"plexobject.com/formicary/internal/acl"
 	"testing"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 func Test_ShouldGetUserWithNonExistingId(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN finding non-existing user
@@ -28,6 +31,8 @@ func Test_ShouldGetUserWithNonExistingId(t *testing.T) {
 func Test_ShouldDeleteUserByNonExistingId(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN deleting non-existing user
@@ -47,7 +52,7 @@ func Test_ShouldSaveUserWithoutOrg(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without org-id
-	ec := common.NewUser("", "username", "name", "test@formicary.io", false)
+	ec := common.NewUser("", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	_, err = repo.Create(ec)
 
 	// THEN it should not fail
@@ -63,7 +68,7 @@ func Test_ShouldNotSaveUserWithoutUsername(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without username
-	ec := common.NewUser("org", "", "name", "test@formicary.io", false)
+	ec := common.NewUser("org", "", "name", "test@formicary.io", acl.NewRoles(""))
 	_, err = repo.Create(ec)
 
 	// THEN it should fail
@@ -80,7 +85,7 @@ func Test_ShouldNotSaveUserWithoutName(t *testing.T) {
 	repo.Clear()
 
 	// WHEN creating a user without name
-	ec := common.NewUser("org", "user", "", "test@formicary.io", false)
+	ec := common.NewUser("org", "user", "", "test@formicary.io", acl.NewRoles(""))
 	_, err = repo.Create(ec)
 
 	// THEN it should fail
@@ -95,21 +100,19 @@ func Test_ShouldSaveValidUserWithSubscription(t *testing.T) {
 	require.NoError(t, err)
 	subscriptionRepository, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
-
-	// WHEN creating a valid user
-	u := common.NewUser("test-org", "username", "name", "test@formicary.io", false)
-	// Saving valid user
-	saved, err := userRepository.Create(u)
-
-	// THEN it should not fail
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	subscription, err := subscriptionRepository.Create(common.NewFreemiumSubscription(saved.ID, ""))
+	// WHEN creating subscription
+	subscription, err := subscriptionRepository.Create(qc, common.NewFreemiumSubscription(qc.User))
 	require.NoError(t, err)
 
 	// AND retrieving user by id should not fail
-	loaded, err := userRepository.Get(common.NewQueryContext(saved.ID, saved.OrganizationID, saved.Salt), saved.ID)
+	loaded, err := userRepository.Get(qc, qc.GetUserID())
 	require.NoError(t, err)
+
+	require.NotNil(t, loaded.Organization)
+	require.Equal(t, qc.GetOrganizationID(), loaded.Organization.ID)
 
 	require.NotNil(t, loaded.Subscription)
 	require.Equal(t, subscription.ID, loaded.Subscription.ID)
@@ -120,11 +123,17 @@ func Test_ShouldSaveValidUser(t *testing.T) {
 	// GIVEN a user repository
 	repo, err := NewTestUserRepository()
 	require.NoError(t, err)
+	orgRepository, err := NewTestOrganizationRepository()
+	require.NoError(t, err)
 
 	repo.Clear()
+	// AND org
+	org := common.NewOrganization("", "unit2", "bundle2")
+	org, err = orgRepository.Create(common.NewQueryContext(nil, ""), org)
+	require.NoError(t, err)
 
 	// WHEN creating a valid user
-	u := common.NewUser(qc.OrganizationID, "username", "name", "test@formicary.io", false)
+	u := common.NewUser(org.ID, "username", "name", "test@formicary.io", acl.NewRoles(""))
 	// Saving valid user
 	saved, err := repo.Create(u)
 
@@ -132,20 +141,25 @@ func Test_ShouldSaveValidUser(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND retrieving user by id should not fail
-	loaded, err := repo.Get(common.NewQueryContext(saved.ID, saved.OrganizationID, saved.Salt), saved.ID)
+	loaded, err := repo.Get(common.NewQueryContext(saved, ""), saved.ID)
 	require.NoError(t, err)
 
 	// AND comparing saved object should match
 	require.NoError(t, saved.Equals(loaded))
 
+	require.NotNil(t, loaded.Organization)
+	require.Equal(t, u.OrganizationID, loaded.Organization.ID)
+
+	anotherUser := common.NewUser("org", "someone@formicary.io", "", "", acl.NewRoles(""))
+	anotherUser.ID = "123"
 	// WHEN updating user by another
-	_, err = repo.Update(common.NewQueryContext("bad", "", ""), saved)
+	_, err = repo.Update(common.NewQueryContext(anotherUser, ""), saved)
 
 	// THEN it should fail
 	require.Error(t, err)
 
 	// WHEN updating by same user
-	_, err = repo.Update(common.NewQueryContext(saved.ID, saved.OrganizationID, saved.Salt), saved)
+	_, err = repo.Update(common.NewQueryContext(saved, ""), saved)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -157,8 +171,10 @@ func Test_ShouldDeletingPersistentUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error %v while creating user repository", err)
 	}
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	u := common.NewUser("test-org", "user", "name", "test@formicary.io", false)
+	u := common.NewUser(qc.User.OrganizationID, "user", "name", "test@formicary.io", acl.NewRoles(""))
 
 	// Saving valid user
 	saved, err := repo.Create(u)
@@ -195,7 +211,7 @@ func Test_ShouldSaveAndQueryUsers(t *testing.T) {
 				fmt.Sprintf("username_%d_%d", i, j),
 				"name",
 				fmt.Sprintf("username_%d_%d@formicary.io", i, j),
-				true)
+				acl.NewRoles(""))
 			if _, err := repo.Create(u); err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
@@ -204,7 +220,9 @@ func Test_ShouldSaveAndQueryUsers(t *testing.T) {
 	params := make(map[string]interface{})
 
 	// WHEN querying users
-	_, total, err := repo.Query(common.NewQueryContext("", "", ""), params, 0, 1000, []string{"id"})
+	_, total, err := repo.Query(
+		common.NewQueryContext(nil, ""),
+		params, 0, 1000, []string{"id"})
 
 	// THEN it should not fail and match number of expected records
 	require.NoError(t, err)
@@ -212,14 +230,16 @@ func Test_ShouldSaveAndQueryUsers(t *testing.T) {
 
 	// WHEN querying users by org-id
 	params["organization_id"] = "org_0"
-	_, total, err = repo.Query(common.NewQueryContext("", "", ""), params, 0, 1000, make([]string, 0))
+	_, total, err = repo.Query(
+		common.NewQueryContextFromIDs("", "org_0"),
+		params, 0, 1000, make([]string, 0))
 	// THEN it should not fail and match number of expected records
 	require.NoError(t, err)
 	require.Equal(t, int64(5), total)
 
 	// WHEN querying users by org-id
 	_, total, err = repo.Query(
-		common.NewQueryContext("", "org_0", ""),
+		common.NewQueryContext(nil, ""),
 		params,
 		0,
 		1000,
@@ -236,7 +256,7 @@ func Test_ShouldAddSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND an existing user
-	u := common.NewUser("test-org", "username", "name", "test@formicary.io", false)
+	u := common.NewUser("test-org", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	// Saving valid user
 	saved, err := repo.Create(u)
 	require.NoError(t, err)
@@ -271,7 +291,7 @@ func Test_ShouldAddToken(t *testing.T) {
 	repo.Clear()
 
 	// AND an existing user
-	u := common.NewUser("test-org", "username-tok", "name", "test@formicary.io", false)
+	u := common.NewUser("test-org", "username-tok", "name", "test@formicary.io", acl.NewRoles(""))
 	// Saving valid user
 	saved, err := repo.Create(u)
 	require.NoError(t, err)
@@ -279,7 +299,7 @@ func Test_ShouldAddToken(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		// WHEN creating API token
 		tokenName := fmt.Sprintf("tok-name_%d", i)
-		tok := types.NewUserToken(saved.ID, saved.OrganizationID, tokenName)
+		tok := types.NewUserToken(saved, tokenName)
 		err = repo.AddToken(tok)
 		if err == nil {
 			t.Fatalf("expecting error")
@@ -302,21 +322,21 @@ func Test_ShouldAddToken(t *testing.T) {
 	}
 
 	// WHEN finding api tokens
-	toks, err := repo.GetTokens(common.NewQueryContext("", "", ""), saved.ID)
+	toks, err := repo.GetTokens(common.NewQueryContext(nil, ""), saved.ID)
 
 	// THEN it should not fail and match expected number of records
 	require.NoError(t, err)
 	require.Equal(t, 10, len(toks))
 
 	// WHEN revoking api token
-	err = repo.RevokeToken(common.NewQueryContext(saved.ID, "test-org", ""), saved.ID, toks[0].ID)
+	err = repo.RevokeToken(common.NewQueryContext(saved, ""), saved.ID, toks[0].ID)
 	require.NoError(t, err)
 
 	// THEN should not find revoked api token
 	require.False(t, repo.HasToken(saved.ID, "tok-name", "abc"))
 
 	// WHEN finding all tokens
-	toks, err = repo.GetTokens(common.NewQueryContext("", "", ""), saved.ID)
+	toks, err = repo.GetTokens(common.NewQueryContext(nil, ""), saved.ID)
 	// THEN it should not fail and match expected number of records
 	require.NoError(t, err)
 	require.Equal(t, 9, len(toks))

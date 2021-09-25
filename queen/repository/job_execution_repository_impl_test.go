@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twinj/uuid"
-
 	common "plexobject.com/formicary/internal/types"
 
 	"plexobject.com/formicary/queen/types"
@@ -46,9 +44,11 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 	require.NoError(t, err)
 	jobExecutionRepository, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN creating jobExec-execution
-	jobExec, err := NewTestJobExecution("valid-jobExec-without-config")
+	jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-config")
 	require.NoError(t, err)
 
 	// THEN should be able to save valid jobExec
@@ -105,15 +105,17 @@ func Test_ShouldSaveValidJobExecutionWithoutContext(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN creating a job-execution without context
-	jobExec, err := NewTestJobExecution("valid-jobExec-without-context")
+	jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-context")
 	require.NoError(t, err)
 
 	// THEN Saving valid jobExec should succeed
 	savedExec, err := repo.Save(jobExec)
 	require.NoError(t, err)
-	err = addTestArtifacts(savedExec)
+	err = saveTestArtifacts(qc.User, savedExec)
 	require.NoError(t, err)
 
 	// Retrieving jobExec by id
@@ -142,10 +144,12 @@ func Test_ShouldSaveValidJobExecutionWithContext(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// Creating a job-execution
 	// WHEN creating a job-execution with context
-	jobExec, err := NewTestJobExecution("valid-job-with-context")
+	jobExec, err := NewTestJobExecution(qc, "valid-job-with-context")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -165,13 +169,15 @@ func Test_ShouldSaveTaskExecutionConcurrently(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	errors := make([]string, 0)
 	// WHEN creating a job-execution in different go-routines concurrently
 	for i := 0; i < 10; i++ {
-		jobExec, _ := NewTestJobExecution("valid-job-with-config")
+		jobExec, _ := NewTestJobExecution(qc, "valid-job-with-config")
 		lock.Lock()
 		jobExec, err = repo.Save(jobExec)
 		lock.Unlock()
@@ -211,9 +217,11 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN creating a job-execution
-	jobExec, err := NewTestJobExecution("valid-job-with-config")
+	jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -282,9 +290,11 @@ func Test_ShouldUpdateStateForTaskExecution(t *testing.T) {
 	// GIVEN repositories
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN Creating a job-execution
-	jobExec, err := NewTestJobExecution("valid-job-with-config")
+	jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -315,14 +325,16 @@ func Test_ShouldQueryJobExecutionQueryByJobType(t *testing.T) {
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	jobExecs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		exec, err := NewTestJobExecution(fmt.Sprintf("query-job-%v", i))
+		exec, err := NewTestJobExecution(qc, fmt.Sprintf("query-job-%v", i))
 		require.NoError(t, err)
 		savedExec, err := repo.Save(exec)
 		require.NoError(t, err)
-		err = addTestArtifacts(savedExec)
+		err = saveTestArtifacts(qc.User, savedExec)
 		require.NoError(t, err)
 		jobExecs[i] = exec
 	}
@@ -358,11 +370,13 @@ func Test_ShouldJobExecutionAccounting(t *testing.T) {
 	jobExecutionRepository, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	jobExecutionRepository.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	jobs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		job, err := NewTestJobExecution(fmt.Sprintf("job-exec-account-%v", i))
+		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-account-%v", i))
 		require.NoError(t, err)
 		job.StartedAt = time.Now().Add(-10 * time.Second)
 		saved, err := jobExecutionRepository.Save(job)
@@ -403,11 +417,13 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	jobs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		job, err := NewTestJobExecution(fmt.Sprintf("job-exec-query-operator-%v", i))
+		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-query-operator-%v", i))
 		require.NoError(t, err)
 		saved, err := repo.Save(job)
 		require.NoError(t, err)
@@ -470,7 +486,10 @@ func Test_ShouldUpdateValidJobExecution(t *testing.T) {
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	repo.clear()
-	jobExec, err := NewTestJobExecution("test-jobExec-for-update")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	jobExec, err := NewTestJobExecution(qc, "test-jobExec-for-update")
 	require.NoError(t, err)
 
 	// AND previously savedExec jobExec execution
@@ -508,7 +527,10 @@ func Test_ShouldDeleteTaskValidJobExecution(t *testing.T) {
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	repo.clear()
-	job, err := NewTestJobExecution("test-job-for-delete-task")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := NewTestJobExecution(qc, "test-job-for-delete-task")
 	require.NoError(t, err)
 
 	// AND previously saved job-execution
@@ -537,7 +559,10 @@ func Test_ShouldDeleteValidJobExecution(t *testing.T) {
 	repo, err := NewTestJobExecutionRepository()
 	require.NoError(t, err)
 	repo.clear()
-	job, err := NewTestJobExecution("test-job-for-delete")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := NewTestJobExecution(qc, "test-job-for-delete")
 	require.NoError(t, err)
 
 	// AND previously saved job
@@ -556,67 +581,4 @@ func Test_ShouldDeleteValidJobExecution(t *testing.T) {
 	// AND retrieving job execution by id should fail
 	_, err = repo.Get(saved.ID)
 	require.Error(t, err)
-}
-
-// Creating a test job
-func NewTestJobExecution(name string) (*types.JobExecution, error) {
-	job, err := saveTestJobDefinition(name, "")
-	if err != nil {
-		return nil, err
-	}
-	jobRequestRepo, err := NewTestJobRequestRepository()
-	if err != nil {
-		return nil, err
-	}
-	req, err := types.NewJobRequestFromDefinition(job)
-	if err != nil {
-		return nil, err
-	}
-	_, _ = req.AddParam("jk1", "jv1")
-	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
-	_, _ = req.AddParam("jk3", true)
-	_, _ = req.AddParam("jk4", 50.10)
-	_, err = jobRequestRepo.Save(req)
-	if err != nil {
-		return nil, err
-	}
-
-	jobExec := types.NewJobExecution(req.ToInfo())
-	_, _ = jobExec.AddContext("jk1", "jv1")
-	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
-	_, _ = jobExec.AddContext("jk3", "jv3")
-	for _, t := range job.Tasks {
-		task := jobExec.AddTask(t)
-		_, _ = task.AddContext("tk1", "v1")
-		_, _ = task.AddContext("tk2", []string{"i", "j", "k"})
-	}
-	return jobExec, nil
-}
-
-// SaveFile artifacts
-func addTestArtifacts(jobExec *types.JobExecution) error {
-	artifactRepository, err := NewTestArtifactRepository()
-	if err != nil {
-		return err
-	}
-	for _, task := range jobExec.Tasks {
-		for i := 0; i < 5; i++ {
-			art := common.NewArtifact("bucket", "name", "group", "kind", 123, "sha", 54)
-			art.ID = uuid.NewV4().String()
-			art.AddMetadata("n1", "v1")
-			art.AddMetadata("n2", "v2")
-			art.AddTag("t1", "v1")
-			art.AddTag("t2", "v2")
-			art.JobRequestID = jobExec.JobRequestID
-			art.JobExecutionID = jobExec.ID
-			art.TaskExecutionID = task.ID
-			art.ExpiresAt = time.Now().Add(time.Hour)
-			art.Bucket = "test"
-			_, err := artifactRepository.Save(art)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

@@ -1,6 +1,6 @@
 // Package docs Formicary API.
 //
-// The formicary is a distributed job management system based on leader/follower design for executing a directed acyclic graph
+// The formicary is a distributed job management system based on Leader-Follower design for executing a directed acyclic graph
 // of tasks.
 //
 //     Schemes: http, https

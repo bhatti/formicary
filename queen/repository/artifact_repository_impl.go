@@ -50,8 +50,8 @@ func (ar *ArtifactRepositoryImpl) GetResourceUsage(
 				return nil, err
 			}
 			usage.ResourceType = types.DiskResource
-			usage.UserID = qc.UserID
-			usage.OrganizationID = qc.OrganizationID
+			usage.UserID = qc.GetUserID()
+			usage.OrganizationID = qc.GetOrganizationID()
 			usage.StartDate = r.StartDate
 			usage.EndDate = r.EndDate
 			usage.ValueUnit = "bytes"
@@ -166,7 +166,6 @@ func (ar *ArtifactRepositoryImpl) Get(
 		Where("active = ?", true).
 		First(&art)
 	if res.Error != nil {
-		debug.PrintStack()
 		return nil, common.NewNotFoundError(res.Error)
 	}
 	if err := art.AfterLoad(); err != nil {
@@ -228,6 +227,21 @@ func (ar *ArtifactRepositoryImpl) Update(
 		return nil, common.NewPermissionError(
 			fmt.Errorf("artifact owner %s / %s didn't match query context %s",
 				art.UserID, art.OrganizationID, qc))
+	}
+	if oldArtifact, err := ar.Get(
+		qc,
+		art.ID); err == nil {
+		for k, v := range art.Metadata {
+			oldArtifact.AddMetadata(k, v)
+		}
+		oldArtifact.UserID = art.UserID
+		oldArtifact.TaskType = art.TaskType
+		oldArtifact.OrganizationID = art.OrganizationID
+		oldArtifact.JobRequestID = art.JobRequestID
+		oldArtifact.JobExecutionID = art.JobExecutionID
+		oldArtifact.TaskExecutionID = art.TaskExecutionID
+		oldArtifact.Group = art.Group
+		art = oldArtifact
 	}
 	art.Active = true
 	err = ar.db.Transaction(func(tx *gorm.DB) error {

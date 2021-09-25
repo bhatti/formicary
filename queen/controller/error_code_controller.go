@@ -25,11 +25,11 @@ func NewErrorCodeController(
 		errorCodeRepository: repo,
 		webserver:           webserver,
 	}
-	webserver.GET("/api/errors", ecCtrl.queryErrorCodes, acl.New(acl.ErrorCode, acl.Query)).Name = "query_errors"
-	webserver.GET("/api/errors/:id", ecCtrl.getErrorCode, acl.New(acl.ErrorCode, acl.View)).Name = "get_error"
-	webserver.POST("/api/errors", ecCtrl.postErrorCode, acl.New(acl.ErrorCode, acl.Create)).Name = "create_error"
-	webserver.PUT("/api/errors/:id", ecCtrl.putErrorCode, acl.New(acl.ErrorCode, acl.Update)).Name = "update_error"
-	webserver.DELETE("/api/errors/:id", ecCtrl.deleteErrorCode, acl.New(acl.ErrorCode, acl.Delete)).Name = "delete_error"
+	webserver.GET("/api/errors", ecCtrl.queryErrorCodes, acl.NewPermission(acl.ErrorCode, acl.Query)).Name = "query_errors"
+	webserver.GET("/api/errors/:id", ecCtrl.getErrorCode, acl.NewPermission(acl.ErrorCode, acl.View)).Name = "get_error"
+	webserver.POST("/api/errors", ecCtrl.postErrorCode, acl.NewPermission(acl.ErrorCode, acl.Create)).Name = "create_error"
+	webserver.PUT("/api/errors/:id", ecCtrl.putErrorCode, acl.NewPermission(acl.ErrorCode, acl.Update)).Name = "update_error"
+	webserver.DELETE("/api/errors/:id", ecCtrl.deleteErrorCode, acl.NewPermission(acl.ErrorCode, acl.Delete)).Name = "delete_error"
 	return ecCtrl
 }
 
@@ -172,4 +172,3 @@ type errorCoderIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
-

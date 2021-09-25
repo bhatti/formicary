@@ -2,13 +2,14 @@ package admin
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
+	"time"
+
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
-	"time"
 
 	"plexobject.com/formicary/internal/web"
 )
@@ -27,7 +28,7 @@ func NewDashboardAdminController(
 		dashboardStats: dashboardStats,
 		webserver:      webserver,
 	}
-	webserver.GET("/dashboard", jraCtr.dashboard, acl.New(acl.Dashboard, acl.View)).Name = "admin_dashboard"
+	webserver.GET("/dashboard", jraCtr.dashboard, acl.NewPermission(acl.Dashboard, acl.View)).Name = "admin_dashboard"
 
 	return jraCtr
 }
@@ -52,7 +53,7 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 	res["Health"] = healthStatusResponse
 
 	// RBAC assumes empty org is admin
-	if qc.Admin() {
+	if qc.IsAdmin() {
 		ants := ctr.dashboardStats.AntRegistrations()
 		res["AntRegistrations"] = ants
 		res["AntRegistrationsCount"] = len(ants)
@@ -114,7 +115,7 @@ func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 		res["UserCounts"] = total
 	}
 
-	if qc.Admin() {
+	if qc.IsAdmin() {
 		if total, err := ctr.dashboardStats.OrgCounts(); err == nil {
 			res["OrgCounts"] = total
 		}

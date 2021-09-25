@@ -21,8 +21,8 @@ func NewDefaultController(
 	ctrl := &DefaultController{
 		webserver: webserver,
 	}
-	webserver.GET("/", ctrl.health, acl.New(acl.Health, acl.Metrics)).Name = "ant_health"
-	webserver.GET("/metrics", web.WrapHandler(promhttp.Handler()), acl.New(acl.Health, acl.Metrics))
+	webserver.GET("/", ctrl.health, acl.NewPermission(acl.Health, acl.Metrics)).Name = "ant_health"
+	webserver.GET("/metrics", web.WrapHandler(promhttp.Handler()), acl.NewPermission(acl.Health, acl.Metrics))
 	if err := prometheus.Register(prometheus.NewBuildInfoCollector()); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "AntController",

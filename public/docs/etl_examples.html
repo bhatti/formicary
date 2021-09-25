@@ -1,6 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h2 id="etl-examples">ETL Examples</h2>
 <h3 id="job-configuration">Job Configuration</h3>
 <p>Following example defines job-definition with a simple ETL:</p>
+<p><img class='img-fluid' src="etl-workflow.png" alt="ETL Workflow"></p>
 <pre><code class="lang-yaml">job_type: etl-job
 description: Simple ETL pipeline example
 max_concurrency: 1
@@ -111,3 +161,6 @@ tasks:
   --data &#39;{&quot;job_type&quot;: &quot;etl-job&quot;, &quot;params&quot;: { &quot;Symbol&quot;: &quot;MSFT&quot; } }&#39; $SERVER/jobs/requests
 </code></pre>
 <p>The above example kicks off <code>etl-job</code> job with <code>&quot;Symbol&quot;: &quot;MSFT&quot;</code> tparameters for the stock symbol.</p>
+</div>  
+</body>
+</html>

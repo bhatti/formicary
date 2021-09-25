@@ -4,21 +4,23 @@
 The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the 
 execution specifications are defined in a job configuration. A job defines directed acyclic 
 graph (DAG) of tasks for the order of execution, which can also be considered as 
-a workflow for the execution path of tasks. The tasks defined in the job
-configuration can choose supported executors such as DOCKER, KUBERNETES, HTTP, SHELL, etc. 
+a workflow for the execution path of tasks. The task defines a unit of work, which can be executing using
+DOCKER, KUBERNETES, HTTP, SHELL, MESSAGING or other executors.
 
-*Note:* The formicary uses job-definition to define specification or metadata of the job and an instance
+*Note:* The formicary uses a yaml based job-definition to specify the metadata and workflow of the job and an instance
 of job-definition called `job-execution` is created upon submitting job-request.
 
 ### Job Configuration
-Following is an example of job configuration:
+Following is an example of ``hello-world`` job configuration that defines three tasks:
+
+![Hello World Workflow](hello-world.png)
+
 ```yaml
-job_type: hello_world
+job_type: hello-world
 description: A hello world example
 max_concurrency: 1
 tasks:
 - task_type: hello
-  method: KUBERNETES
   container:
     image: alpine
   script:
@@ -29,7 +31,6 @@ tasks:
       - hello.txt
   on_completed: world
 - task_type: world
-  method: KUBERNETES
   container:
     image: alpine
   script:
@@ -40,7 +41,6 @@ tasks:
       - world.txt
   on_completed: combine
 - task_type: combine
-  method: KUBERNETES
   container:
     image: alpine
   dependencies:
@@ -59,7 +59,7 @@ job_variables:
 #### Job Type
 The `job_type` defines type of the job that will be used when submitting a job for new execution.
 ```yaml
-job_type: hello_world
+job_type: hello-world
 ```
 
 #### Description
@@ -69,7 +69,7 @@ description: A hello world example
 ```
 
 #### Concurrency
-You can optionally add `max_concurrency` to limit maximum instances of the job, e.g.
+You can optionally add `max_concurrency` to limit maximum instances of the job that can be executed concurrently, e.g.
 ```yaml
 max_concurrency: 1
 ```
@@ -150,7 +150,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/yaml" \
-    --data-binary hello_world.yaml $SERVER/api/jobs/definitions
+    --data-binary hello-world.yaml $SERVER/api/jobs/definitions
 ```
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to
 the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.
@@ -161,9 +161,9 @@ You can then submit the job as follows:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    --data '{"job_type": "hello_world", "params": {"Target": "bob"}}' $SERVER/api/jobs/requests
+    --data '{"job_type": "hello-world", "params": {"Target": "bob"}}' $SERVER/api/jobs/requests
 ```
-The above example kicks off `hello_world` job and passes `bob` as parameter to replace `Target` variable in the job definition.
+The above example kicks off `hello-world` job and passes `bob` as parameter to replace `Target` variable in the job definition.
 
 ### Scheduling Job in future
 See [Job Scheduling](howto.md#Scheduling_Future) for submitting a job at scheduled.

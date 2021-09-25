@@ -45,6 +45,7 @@ type TaskDefinition struct {
 	Method common.TaskMethod `yaml:"method" json:"method"`
 	// Description of task
 	Description string `yaml:"description,omitempty" json:"description"`
+	// HostNetwork defines kubernetes/docker config for host_network
 	HostNetwork string `json:"host_network,omitempty" yaml:"host_network,omitempty" gorm:"-"`
 	// AllowFailure means the task is optional and can fail without failing entire job
 	AllowFailure bool `yaml:"allow_failure,omitempty" json:"allow_failure"`
@@ -60,10 +61,13 @@ type TaskDefinition struct {
 	// DelayBetweenRetries defines time between retry of task
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
 	// OnExitCodeSerialized defines next task to execute
-	OnExitCodeSerialized string                         `yaml:"-" json:"-"`
-	OnExitCode           map[common.RequestState]string `yaml:"on_exit_code,omitempty" json:"on_exit_code" gorm:"-"`
-	OnCompleted          string                         `yaml:"on_completed,omitempty" json:"on_completed" gorm:"on_completed"`
-	OnFailed             string                         `yaml:"on_failed,omitempty" json:"on_failed" gorm:"on_failed"`
+	OnExitCodeSerialized string `yaml:"-" json:"-"`
+	// OnExitCode defines next task to run based on exit code
+	OnExitCode map[common.RequestState]string `yaml:"on_exit_code,omitempty" json:"on_exit_code" gorm:"-"`
+	// OnCompleted defines next task to run based on completion
+	OnCompleted string `yaml:"on_completed,omitempty" json:"on_completed" gorm:"on_completed"`
+	// OnFailed defines next task to run based on failure
+	OnFailed string `yaml:"on_failed,omitempty" json:"on_failed" gorm:"on_failed"`
 	// Variables defines properties of task
 	Variables []*TaskDefinitionVariable `yaml:"-" json:"-" gorm:"ForeignKey:TaskDefinitionID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// CreatedAt job creation time
@@ -73,20 +77,32 @@ type TaskDefinition struct {
 	TaskOrder int       `yaml:"-" json:"-" gorm:"task_order"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
 	NameValueVariables interface{}       `yaml:"variables,omitempty" json:"variables" gorm:"-"`
+	// Header defines HTTP headers
 	Headers            map[string]string `yaml:"headers,omitempty" json:"headers" gorm:"-"`
+	// BeforeScript defines list of commands that are executed before main script
 	BeforeScript       []string          `yaml:"before_script,omitempty" json:"before_script" gorm:"-"`
+	// AfterScript defines list of commands that are executed after main script for cleanup
 	AfterScript        []string          `yaml:"after_script,omitempty" json:"after_script" gorm:"-"`
+	// Script defines list of commands to execute in container
 	Script             []string          `yaml:"script,omitempty" json:"script" gorm:"-"`
+	// Resources defines resources required by the task
 	Resources          BasicResource     `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// For example, you may start a follower that processes payments and the task will be routed to that follower
 	Tags             []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
+	// Except is used to filter task execution based on certain condition
 	Except           string   `yaml:"except,omitempty" json:"except" gorm:"-"`
+	// JobVersion defines job version
 	JobVersion       string   `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
+	// Dependencies defines dependent tasks for downloading artifacts
 	Dependencies     []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
+	// ArtifactIDs defines id of artifacts that are automatically downloaded for job-execution
 	ArtifactIDs      []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
+	// ForkJobType defines type of job to work
 	ForkJobType      string   `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
+	// AwaitForkedTasks defines list of jobs to wait for completion
 	AwaitForkedTasks []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
+	// MessagingQueue is used by MESSAGING executor to send task request to the messaging queue
 	MessagingQueue   string   `json:"messaging_queue,omitempty" yaml:"messaging_queue,omitempty" gorm:"-"`
 	unknownKeys      map[string]interface{}
 	lookupVariables  *cutils.SafeMap

@@ -37,18 +37,18 @@ func NewJobDefinitionController(
 		webserver:        webserver,
 	}
 
-	webserver.GET("/api/jobs/definitions", jobDefCtrl.queryJobDefinitions, acl.New(acl.JobDefinition, acl.Query)).Name = "query_job_definitions"
-	webserver.GET("/api/jobs/plugins", jobDefCtrl.queryPlugins, acl.New(acl.JobDefinition, acl.Query)).Name = "query_job_plugins"
-	webserver.GET("/api/jobs/definitions/:id", jobDefCtrl.getJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "get_job_definition"
-	webserver.POST("/api/jobs/definitions", jobDefCtrl.postJobDefinition, acl.New(acl.JobDefinition, acl.Create)).Name = "create_job_definition"
-	webserver.DELETE("/api/jobs/definitions/:id", jobDefCtrl.deleteJobDefinition, acl.New(acl.JobDefinition, acl.Delete)).Name = "delete_job_definition"
-	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
-	webserver.POST("/api/jobs/definitions/:id/pause", jobDefCtrl.pauseJobDefinition, acl.New(acl.JobDefinition, acl.Pause)).Name = "pause_job_definitions"
-	webserver.POST("/api/jobs/definitions/:id/unpause", jobDefCtrl.unpauseJobDefinition, acl.New(acl.JobDefinition, acl.Unpause)).Name = "unpause_job_definitions"
-	webserver.GET("/api/jobs/definitions/:id/dot", jobDefCtrl.dotJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
-	webserver.GET("/api/jobs/definitions/:id/dot.png", jobDefCtrl.dotImageJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
-	webserver.PUT("/api/jobs/definitions/:id/concurrency", jobDefCtrl.updateConcurrencyJobDefinition, acl.New(acl.JobDefinition, acl.Update)).Name = "update_concurrency_job_definition"
-	webserver.GET("/api/jobs/definitions/stats", jobDefCtrl.statsJobDefinition, acl.New(acl.JobDefinition, acl.Metrics)).Name = "stats_job_definition"
+	webserver.GET("/api/jobs/definitions", jobDefCtrl.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_definitions"
+	webserver.GET("/api/jobs/plugins", jobDefCtrl.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_plugins"
+	webserver.GET("/api/jobs/definitions/:id", jobDefCtrl.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_job_definition"
+	webserver.POST("/api/jobs/definitions", jobDefCtrl.postJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "create_job_definition"
+	webserver.DELETE("/api/jobs/definitions/:id", jobDefCtrl.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_job_definition"
+	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
+	webserver.POST("/api/jobs/definitions/:id/pause", jobDefCtrl.pauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Pause)).Name = "pause_job_definitions"
+	webserver.POST("/api/jobs/definitions/:id/unpause", jobDefCtrl.unpauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Unpause)).Name = "unpause_job_definitions"
+	webserver.GET("/api/jobs/definitions/:id/dot", jobDefCtrl.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
+	webserver.GET("/api/jobs/definitions/:id/dot.png", jobDefCtrl.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
+	webserver.PUT("/api/jobs/definitions/:id/concurrency", jobDefCtrl.updateConcurrencyJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "update_concurrency_job_definition"
+	webserver.GET("/api/jobs/definitions/stats", jobDefCtrl.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_job_definition"
 	return jobDefCtrl
 }
 
@@ -84,7 +84,7 @@ func (jobDefCtrl *JobDefinitionController) queryPlugins(c web.WebContext) error 
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	params["public_plugin"] = true
 	recs, total, err := jobDefCtrl.jobManager.QueryJobDefinitions(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		params,
 		page,
 		pageSize,
@@ -128,8 +128,8 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.WebContext) (
 		return common.NewValidationError(
 			fmt.Errorf("unable to unmarshal due to '%s'", err.Error()))
 	}
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.GetUserID()
+	job.OrganizationID = qc.GetOrganizationID()
 	saved, err := jobDefCtrl.jobManager.SaveJobDefinition(qc, job)
 	if err != nil {
 		return err

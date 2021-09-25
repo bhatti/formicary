@@ -116,7 +116,7 @@ func (jl *JobLauncher) launchJob(
 	}
 
 	requestInfo, err := jl.jobManager.GetJobRequest(
-		common.NewQueryContext("", "", "").WithAdmin(),
+		common.NewQueryContext(nil, "").WithAdmin(),
 		requestID)
 	if err != nil {
 		return err

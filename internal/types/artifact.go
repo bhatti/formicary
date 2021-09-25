@@ -122,6 +122,9 @@ func (a *Artifact) AddMetadata(name string, value string) {
 	} else if lowerName == "organization_id" || lowerName == "org" || lowerName == "org_id" {
 		a.OrganizationID = value
 	} else {
+		if a.Metadata == nil {
+			a.Metadata = make(map[string]string)
+		}
 		a.Metadata[name] = value
 	}
 }

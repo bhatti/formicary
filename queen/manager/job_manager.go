@@ -121,7 +121,7 @@ func (jm *JobManager) SaveAudit(
 // GetCronTriggeredJobTypes returns types of jobs that are triggered by cron
 func (jm *JobManager) GetCronTriggeredJobTypes() ([]types.JobTypeCronTrigger, error) {
 	cronTriggersByJobType, err := jm.jobDefinitionRepository.GetJobTypesAndCronTrigger(
-		common.NewQueryContext("", "", "").WithAdmin())
+		common.NewQueryContext(nil, "").WithAdmin())
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 		}).Warnf("skip scheduling cron job request because it's already running")
 		return nil
 	}
-	qc := common.NewQueryContext(request.UserID, request.OrganizationID, "")
+	qc := common.NewQueryContextFromIDs(request.UserID, request.OrganizationID)
 	if oldReq != nil {
 		var oldReqFull *types.JobRequest
 		switch oldReq.(type) {
@@ -491,8 +491,8 @@ func (jm *JobManager) GetDotImageForJobDefinition(
 func (jm *JobManager) SaveJobRequest(
 	qc *common.QueryContext,
 	request *types.JobRequest) (saved *types.JobRequest, err error) {
-	request.UserID = qc.UserID
-	request.OrganizationID = qc.OrganizationID
+	request.UserID = qc.GetUserID()
+	request.OrganizationID = qc.GetOrganizationID()
 	jobDefinition, err := jm.GetJobDefinitionByType(qc, request.GetJobType(), request.GetJobVersion())
 	if err != nil {
 		return nil, err
@@ -506,17 +506,7 @@ func (jm *JobManager) SaveJobRequest(
 		if err != nil {
 			return nil, err
 		}
-		var org *common.Organization
-		if user.OrganizationID != "" {
-			org, err = jm.userManager.GetOrganization(
-				qc,
-				user.OrganizationID)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		_, _, err = jm.CheckSubscriptionQuota(qc, user, org)
+		_, _, err = jm.CheckSubscriptionQuota(qc, user)
 		if err != nil {
 			return nil, err
 		}
@@ -906,7 +896,6 @@ func (jm *JobManager) GetDotImageForJobRequest(
 func (jm *JobManager) BuildPostWebhookHandler() web.PostWebhookHandler {
 	return func(
 		qc *common.QueryContext,
-		org *common.Organization,
 		jobType string,
 		jobVersion string,
 		params map[string]string,
@@ -922,8 +911,8 @@ func (jm *JobManager) BuildPostWebhookHandler() web.PostWebhookHandler {
 		}
 		webhookSecret := jobDef.GetConfigString("GithubWebhookSecret")
 		if webhookSecret == "" {
-			if org != nil {
-				webhookSecret = org.GetConfigString("GithubWebhookSecret")
+			if qc.HasOrganization() {
+				webhookSecret = qc.User.Organization.GetConfigString("GithubWebhookSecret")
 			}
 		}
 		if webhookSecret == "" {
@@ -995,12 +984,16 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 func (jm *JobManager) NotifyJobMessage(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	job *types.JobDefinition,
 	request types.IJobRequest,
 	lastRequestState common.RequestState,
 ) error {
-	return jm.jobsNotifier.NotifyJob(qc, user, org, job, request, lastRequestState)
+	return jm.jobsNotifier.NotifyJob(
+		qc,
+		user,
+		job,
+		request,
+		lastRequestState)
 }
 
 // FinalizeJobRequestAndExecutionState updates final state of job-execution and job-request
@@ -1008,7 +1001,6 @@ func (jm *JobManager) NotifyJobMessage(
 func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	job *types.JobDefinition,
 	req types.IJobRequest,
 	jobExec *types.JobExecution,
@@ -1043,7 +1035,6 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 			if notifyErr := jm.NotifyJobMessage(
 				qc,
 				user,
-				org,
 				job,
 				req,
 				lastRequestState); notifyErr != nil {
@@ -1250,7 +1241,7 @@ func (jm *JobManager) overrideCancelRequest(
 func (jm *JobManager) CheckSubscriptionQuota(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
+) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
 	if jm.serverCfg.SubscriptionQuotaEnabled {
 		cpuUsage, diskUsage, err = jm.doCheckSubscriptionQuota(qc, user)
 		dirty := false
@@ -1264,12 +1255,12 @@ func (jm *JobManager) CheckSubscriptionQuota(
 				}
 				dirty = true
 			}
-			if org != nil && org.StickyMessage == "" {
+			if user.HasOrganization() && user.Organization.StickyMessage == "" {
 				switch quotaErr := err.(type) {
 				case *common.QuotaExceededError:
-					org.StickyMessage = quotaErr.Internal.Error()
+					user.Organization.StickyMessage = quotaErr.Internal.Error()
 				default:
-					org.StickyMessage = err.Error()
+					user.Organization.StickyMessage = err.Error()
 				}
 				dirty = true
 			}
@@ -1278,14 +1269,16 @@ func (jm *JobManager) CheckSubscriptionQuota(
 				user.StickyMessage = ""
 				dirty = true
 			}
-			if org != nil && strings.Contains(org.StickyMessage, "quota-error") {
-				org.StickyMessage = ""
+			if user.HasOrganization() && strings.Contains(
+				user.Organization.StickyMessage,
+				"quota-error") {
+				user.Organization.StickyMessage = ""
 				dirty = true
 			}
 		}
 		if dirty {
 			// ignore if update failed
-			_ = jm.userManager.UpdateStickyMessage(qc, user, org)
+			_ = jm.userManager.UpdateStickyMessage(qc, user)
 		}
 	}
 	return

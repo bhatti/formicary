@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/web"
 )
@@ -17,8 +18,8 @@ func NewIndexController(
 	ctr := &IndexController{
 		webserver: webserver,
 	}
-	webserver.GET("/terms_service", ctr.terms, acl.New(acl.TermsService, acl.View)).Name = "terms_service"
-	webserver.GET("/privacy_policies", ctr.privacy, acl.New(acl.TermsService, acl.View)).Name = "privacy_policies"
+	webserver.GET("/terms_service", ctr.terms, acl.NewPermission(acl.TermsService, acl.View)).Name = "terms_service"
+	webserver.GET("/privacy_policies", ctr.privacy, acl.NewPermission(acl.TermsService, acl.View)).Name = "privacy_policies"
 
 	return ctr
 }

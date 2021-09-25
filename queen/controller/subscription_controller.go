@@ -2,14 +2,15 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
+	"time"
+
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
-	"time"
 )
 
 // SubscriptionController structure
@@ -35,11 +36,11 @@ func NewSubscriptionController(
 		auditRecordRepository:  auditRecordRepository,
 		webserver:              webserver,
 	}
-	webserver.GET("/api/subscriptions", ctr.querySubscriptions, acl.New(acl.Subscription, acl.Query)).Name = "query_subscriptions"
-	webserver.GET("/api/subscriptions/:id", ctr.getSubscription, acl.New(acl.Subscription, acl.View)).Name = "get_subscription"
-	webserver.POST("/api/subscriptions", ctr.postSubscription, acl.New(acl.Subscription, acl.Create)).Name = "create_subscription"
-	webserver.PUT("/api/subscriptions/:id", ctr.putSubscription, acl.New(acl.Subscription, acl.Update)).Name = "update_subscription"
-	webserver.DELETE("/api/subscriptions/:id", ctr.deleteSubscription, acl.New(acl.Subscription, acl.Delete)).Name = "delete_subscription"
+	webserver.GET("/api/subscriptions", ctr.querySubscriptions, acl.NewPermission(acl.Subscription, acl.Query)).Name = "query_subscriptions"
+	webserver.GET("/api/subscriptions/:id", ctr.getSubscription, acl.NewPermission(acl.Subscription, acl.View)).Name = "get_subscription"
+	webserver.POST("/api/subscriptions", ctr.postSubscription, acl.NewPermission(acl.Subscription, acl.Create)).Name = "create_subscription"
+	webserver.PUT("/api/subscriptions/:id", ctr.putSubscription, acl.NewPermission(acl.Subscription, acl.Update)).Name = "update_subscription"
+	webserver.DELETE("/api/subscriptions/:id", ctr.deleteSubscription, acl.NewPermission(acl.Subscription, acl.Delete)).Name = "delete_subscription"
 	return ctr
 }
 
@@ -66,7 +67,7 @@ func (cc *SubscriptionController) querySubscriptions(c web.WebContext) error {
 // responses:
 //   200: subscriptionResponse
 func (cc *SubscriptionController) postSubscription(c web.WebContext) (err error) {
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	subscription, err := cc.buildSubscription(c)
 	if err != nil {
 		return err
@@ -81,7 +82,7 @@ func (cc *SubscriptionController) postSubscription(c web.WebContext) (err error)
 			"Subscription": subscription,
 		}).Info("updated Subscription")
 	} else {
-		saved, err = cc.subscriptionRepository.Create(subscription)
+		saved, err = cc.subscriptionRepository.Create(qc, subscription)
 		logrus.WithFields(logrus.Fields{
 			"Component":    "SubscriptionController",
 			"Subscription": subscription,
@@ -217,7 +218,7 @@ type subscriptionIDParams struct {
 }
 
 func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.Subscription, error) {
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	subscription := &common.Subscription{
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -252,7 +253,7 @@ func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.S
 			oldSubscription = user.Subscription
 		}
 	}
-	freeSubscription := common.NewFreemiumSubscription("", "")
+	freeSubscription := common.NewFreemiumSubscription(&common.User{})
 	// recent subscription
 	if oldSubscription != nil && oldSubscription.StartedAt.Unix() > time.Now().Add(time.Hour*-48).Unix() {
 		subscription.ID = oldSubscription.ID

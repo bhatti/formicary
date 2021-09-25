@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/queen/resource"
 
@@ -22,8 +23,8 @@ func NewAntAdminController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/dashboard/ants", wac.queryAnts, acl.New(acl.AntExecutor, acl.Query)).Name = "query_admin_ants"
-	webserver.GET("/dashboard/ants/:id", wac.getAnt, acl.New(acl.AntExecutor, acl.View)).Name = "get_admin_ant"
+	webserver.GET("/dashboard/ants", wac.queryAnts, acl.NewPermission(acl.AntExecutor, acl.Query)).Name = "query_admin_ants"
+	webserver.GET("/dashboard/ants/:id", wac.getAnt, acl.NewPermission(acl.AntExecutor, acl.View)).Name = "get_admin_ant"
 	return wac
 }
 

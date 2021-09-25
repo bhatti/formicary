@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/queen/manager"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func Test_ShouldQueryUsers(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("org", "username", "name", "test@formicary.io", false)
+	user := common.NewUser("org", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	_, err = userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -59,7 +60,7 @@ func Test_ShouldGetUserByID(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("org", "username", "name", "test@formicary.io", false)
+	user := common.NewUser("org", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	_, err = userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -83,7 +84,7 @@ func Test_ShouldUpdateUserEmail(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("builder", "bob", "name", "test@formicary.io", false)
+	user := common.NewUser("builder", "bob", "name", "test@formicary.io", acl.NewRoles(""))
 	b, err := json.Marshal(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -92,7 +93,7 @@ func Test_ShouldUpdateUserEmail(t *testing.T) {
 	// WHEN saving user
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("user-id", user.ID, "name", "test@formicary.io", true))
+	ctx.Set(web.DBUser, common.NewUser("user-id", user.ID, "name", "test@formicary.io", acl.NewRoles("Admin[]")))
 	err = ctrl.postUser(ctx)
 
 	// THEN it should not fail and create the user
@@ -126,7 +127,7 @@ func Test_ShouldSaveUser(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("builder", "bob", "name", "test@formicary.io", false)
+	user := common.NewUser("builder", "bob", "name", "test@formicary.io", acl.NewRoles(""))
 	b, err := json.Marshal(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -135,7 +136,7 @@ func Test_ShouldSaveUser(t *testing.T) {
 	// WHEN saving user
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("user-id", user.ID, "name", "test@formicary.io", true))
+	ctx.Set(web.DBUser, common.NewUser("user-id", user.ID, "name", "test@formicary.io", acl.NewRoles("Admin[]")))
 	err = ctrl.postUser(ctx)
 
 	// THEN it should not fail and create the user
@@ -160,7 +161,7 @@ func Test_ShouldDeleteUser(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("org", "username", "name", "test@formicary.io", false)
+	user := common.NewUser("org", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	saved, err := userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
@@ -181,7 +182,7 @@ func Test_ShouldAddUserToken(t *testing.T) {
 	userRepository, err := repository.NewTestUserRepository()
 	require.NoError(t, err)
 	userRepository.Clear()
-	user := common.NewUser("org", "username", "name", "test@formicary.io", false)
+	user := common.NewUser("org", "username", "name", "test@formicary.io", acl.NewRoles(""))
 	saved, err := userRepository.Create(user)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()

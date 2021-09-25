@@ -1,6 +1,7 @@
 package types
 
 import (
+	"plexobject.com/formicary/internal/acl"
 	"testing"
 	"time"
 
@@ -9,22 +10,22 @@ import (
 )
 
 func Test_ShouldFailUserInvitationValidationWithoutEmail(t *testing.T) {
-	org := common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
-	user := common.NewUser("", "username", "", "mail@formicary.io", false)
+	user := common.NewUser("", "username", "", "mail@formicary.io", acl.NewRoles(""))
+	user.Organization = common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
 	user.ID = "blah"
 	user.OrganizationID = "blah"
-	invitation := NewUserInvitation("", user, org)
+	invitation := NewUserInvitation("", user)
 	require.Error(t, invitation.Validate())
 	require.Contains(t, invitation.Validate().Error(), "email is not valid")
 	require.Contains(t, invitation.String(), "blah")
 }
 
 func Test_ShouldFailUserInvitationValidationWithBadEmail(t *testing.T) {
-	org := common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
-	user := common.NewUser("", "username", "", "mail@formicary.io", false)
+	user := common.NewUser("", "username", "", "mail@formicary.io", acl.NewRoles(""))
+	user.Organization = common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
 	user.ID = "blah"
 	user.OrganizationID = "blah"
-	invitation := NewUserInvitation("bad-email", user, org)
+	invitation := NewUserInvitation("bad-email", user)
 	invitation.InvitationCode = ""
 	invitation.ExpiresAt = time.Now().Add(-1 * time.Minute)
 	require.Error(t, invitation.Validate())
@@ -32,28 +33,28 @@ func Test_ShouldFailUserInvitationValidationWithBadEmail(t *testing.T) {
 }
 
 func Test_ShouldFailUserInvitationValidationWithoutUserID(t *testing.T) {
-	org := common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
-	user := common.NewUser("org", "username", "", "mail@formicary.io", false)
+	user := common.NewUser("org", "username", "", "mail@formicary.io", acl.NewRoles(""))
+	user.Organization = common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
 	user.OrganizationID = "blah"
-	invitation := NewUserInvitation("good@formicary.io", user, org)
+	invitation := NewUserInvitation("good@formicary.io", user)
 	require.Error(t, invitation.Validate())
 	require.Contains(t, invitation.Validate().Error(), "invited-by-user is not specified")
 }
 
 func Test_ShouldFailUserInvitationValidationWithoutOrganization(t *testing.T) {
-	org := common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
-	user := common.NewUser("", "username", "", "mail@formicary.io", false)
+	user := common.NewUser("", "username", "", "mail@formicary.io", acl.NewRoles(""))
+	user.Organization = common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
 	user.ID = "blah"
-	invitation := NewUserInvitation("good@formicary.io", user, org)
+	invitation := NewUserInvitation("good@formicary.io", user)
 	require.Error(t, invitation.Validate())
-	require.Contains(t, invitation.Validate().Error(), "org is not specified")
+	require.Contains(t, invitation.Validate().Error(), "org-unit is not specified")
 }
 
 func Test_ShouldVerifyUserInvitationValidation(t *testing.T) {
-	org := common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
-	user := common.NewUser("org", "username", "", "mail@formicary.io", false)
+	user := common.NewUser("org", "username", "", "mail@formicary.io", acl.NewRoles(""))
+	user.Organization = common.NewOrganization("owner-user-id", "my-unit", "my-bundle")
 	user.ID = "blah"
-	invitation := NewUserInvitation("good@formicary.io", user, org)
+	invitation := NewUserInvitation("good@formicary.io", user)
 	require.NoError(t, invitation.Validate())
 	require.Equal(t, "formicary_user_invitations", invitation.TableName())
 }

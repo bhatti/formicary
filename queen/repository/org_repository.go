@@ -33,7 +33,7 @@ type OrganizationRepository interface {
 	UpdateStickyMessage(
 		qc *common.QueryContext,
 		user *common.User,
-		org *common.Organization) error
+		) error
 	// Query - queries orgs
 	Query(
 		qc *common.QueryContext,

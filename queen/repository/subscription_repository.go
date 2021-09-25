@@ -23,6 +23,7 @@ type SubscriptionRepository interface {
 		id string) error
 	// Create - Saves subscription
 	Create(
+		qc *common.QueryContext,
 		subscription *common.Subscription) (*common.Subscription, error)
 	// Update - Saves subscription
 	Update(

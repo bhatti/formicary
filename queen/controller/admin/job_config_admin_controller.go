@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+
 	common "plexobject.com/formicary/internal/types"
 
 	"plexobject.com/formicary/internal/acl"
@@ -14,7 +15,7 @@ import (
 
 // JobConfigAdminController structure
 type JobConfigAdminController struct {
-	auditRecordRepository repository.AuditRecordRepository
+	auditRecordRepository   repository.AuditRecordRepository
 	jobDefinitionRepository repository.JobDefinitionRepository
 	webserver               web.Server
 }
@@ -25,17 +26,17 @@ func NewJobConfigAdminController(
 	jobDefinitionRepository repository.JobDefinitionRepository,
 	webserver web.Server) *JobConfigAdminController {
 	jraCtr := &JobConfigAdminController{
-		auditRecordRepository: auditRecordRepository,
+		auditRecordRepository:   auditRecordRepository,
 		jobDefinitionRepository: jobDefinitionRepository,
 		webserver:               webserver,
 	}
-	webserver.GET("/dashboard/jobs/definitions/:job/configs", jraCtr.queryJobConfigs, acl.New(acl.JobDefinition, acl.View)).Name = "query_admin_job_configs"
-	webserver.GET("/dashboard/jobs/definitions/:job/configs/new", jraCtr.newJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "new_admin_job_configs"
-	webserver.POST("/dashboard/jobs/definitions/:job/configs", jraCtr.createJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "create_admin_job_configs"
-	webserver.POST("/dashboard/jobs/definitions/:job/configs/:id", jraCtr.updateJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "update_admin_job_configs"
-	webserver.GET("/dashboard/jobs/definitions/:job/configs/:id", jraCtr.getJobConfig, acl.New(acl.JobDefinition, acl.View)).Name = "get_admin_job_configs"
-	webserver.GET("/dashboard/jobs/definitions/:job/configs/:id/edit", jraCtr.editJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "edit_admin_job_configs"
-	webserver.POST("/dashboard/jobs/definitions/:job/configs/:id/delete", jraCtr.deleteJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "delete_admin_job_configs"
+	webserver.GET("/dashboard/jobs/definitions/:job/configs", jraCtr.queryJobConfigs, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "query_admin_job_configs"
+	webserver.GET("/dashboard/jobs/definitions/:job/configs/new", jraCtr.newJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "new_admin_job_configs"
+	webserver.POST("/dashboard/jobs/definitions/:job/configs", jraCtr.createJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "create_admin_job_configs"
+	webserver.POST("/dashboard/jobs/definitions/:job/configs/:id", jraCtr.updateJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "update_admin_job_configs"
+	webserver.GET("/dashboard/jobs/definitions/:job/configs/:id", jraCtr.getJobConfig, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_admin_job_configs"
+	webserver.GET("/dashboard/jobs/definitions/:job/configs/:id/edit", jraCtr.editJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "edit_admin_job_configs"
+	webserver.POST("/dashboard/jobs/definitions/:job/configs/:id/delete", jraCtr.deleteJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "delete_admin_job_configs"
 	return jraCtr
 }
 

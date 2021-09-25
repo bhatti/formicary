@@ -27,7 +27,7 @@ immediately scheduled if the `scheduled_at` is in the past.
 
 ### Cron
 
-See [Job Filtering](definition_options.md#cron_trigger) for scheduling job at a regular interval using cron syntax.
+See [Cron Triggers](definition_options.md#cron_trigger) for scheduling job at a regular interval using cron syntax.
 
 ### Job-Filtering
 
@@ -52,7 +52,7 @@ curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/yaml" \
 ```
 
 ### OnExitCode
-See [Job Filtering](definition_options.md#on_exit) for usage of multiple exit paths using on-exit.
+See [On Exit](definition_options.md#on_exit) for usage of multiple exit paths using on-exit.
 
 ### Caching
 

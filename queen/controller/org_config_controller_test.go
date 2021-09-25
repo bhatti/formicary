@@ -26,14 +26,18 @@ func Test_InitializeSwaggerStructsForOrganizationConfig(t *testing.T) {
 }
 
 func Test_ShouldQueryOrgConfigs(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 
 	configRepository, err := repository.NewTestOrgConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig("org", "name", 10,
+	orgCfg, err := common.NewOrganizationConfig(
+		qc.GetOrganizationID(),
+		"name",
+		10,
 		true)
 	require.NoError(t, err)
 	_, err = configRepository.Save(qc, orgCfg)
@@ -55,13 +59,14 @@ func Test_ShouldQueryOrgConfigs(t *testing.T) {
 }
 
 func Test_ShouldGetOrgConfig(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	configRepository, err := repository.NewTestOrgConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig("org", "name", 10,
+	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
 		true)
 	require.NoError(t, err)
 	_, err = configRepository.Save(qc, orgCfg)
@@ -88,7 +93,9 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	require.NoError(t, err)
 	configRepository, err := repository.NewTestOrgConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig("org", "name", 10,
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
 		true)
 	require.NoError(t, err)
 	b, err := json.Marshal(orgCfg)
@@ -99,7 +106,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	// WHEN saving organization config
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
+	ctx.Set(web.DBUser, qc.User)
 	err = ctrl.postOrganizationConfig(ctx)
 
 	// THEN it should return saved config
@@ -110,7 +117,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	// WHEN updating organization config
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putOrganizationConfig(ctx)
 	// THEN it should return updated config
@@ -120,13 +127,14 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 }
 
 func Test_ShouldDeleteOrgConfig(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	configRepository, err := repository.NewTestOrgConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig("org", "name", 10,
+	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
 		true)
 	require.NoError(t, err)
 	saved, err := configRepository.Save(qc, orgCfg)

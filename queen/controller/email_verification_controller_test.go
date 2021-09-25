@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
 	"strings"
@@ -32,7 +33,7 @@ func Test_ShouldQueryEmailVerifications(t *testing.T) {
 	cfg := config.TestServerConfig()
 	emailVerifyRepository, err := repository.NewTestEmailVerificationRepository()
 	require.NoError(t, err)
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", acl.NewRoles(""))
 	u.ID = "user-id"
 	userRepository, err := repository.NewTestUserRepository()
 	u, err = userRepository.Create(u)
@@ -66,7 +67,7 @@ func Test_ShouldCreateAndGetEmailVerification(t *testing.T) {
 	userRepository.Clear()
 
 	// WHEN creating error-code
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", acl.NewRoles(""))
 	u.ID = "user-id"
 	u, err = userRepository.Create(u)
 
@@ -102,7 +103,7 @@ func Test_ShouldUpdateAndVerifyEmailVerification(t *testing.T) {
 	userRepository.Clear()
 
 	// WHEN updating error code
-	u := common.NewUser("", "username", "name", "email@formicary.io", false)
+	u := common.NewUser("", "username", "name", "email@formicary.io", acl.NewRoles(""))
 	u.ID = "user-id"
 	u, err = userRepository.Create(u)
 	require.NoError(t, err)

@@ -22,7 +22,7 @@ import (
 func StartWebServer(
 	_ context.Context,
 	serverCfg *config.ServerConfig,
-	repoFactory *repository.Factory,
+	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	dashboardStats *manager.DashboardManager,
@@ -85,7 +85,7 @@ func startWebsocket(
 
 func startControllers(
 	_ *config.ServerConfig,
-	repoFactory *repository.Factory,
+	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	resourceManager resource.Manager,
@@ -152,7 +152,7 @@ func startControllers(
 
 func startAdminControllers(
 	serverCfg *config.ServerConfig,
-	repoFactory *repository.Factory,
+	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
 	dashboardStats *manager.DashboardManager,

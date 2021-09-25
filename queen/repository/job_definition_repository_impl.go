@@ -53,15 +53,15 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	if job, err = jdr.postProcessJob(qc, job); err != nil {
 		return nil, err
 	}
-	if !job.PublicPlugin && !qc.Admin() {
-		if (job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID) ||
-			(job.OrganizationID == "" && job.UserID != qc.UserID) {
+	if !job.PublicPlugin && !qc.IsAdmin() {
+		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
+			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
 				"JobDefinition": job,
 				"QC":            qc,
-			}).Warnf("job owner %s / %s didn't match query context %s",
+			}).Warnf("JobDefinitionRepositoryImpl.Get job owner %s / %s didn't match query context %s",
 				job.UserID, job.OrganizationID, qc)
 			return nil, common.NewPermissionError(
 				fmt.Errorf("cannot access job by id %s", id))
@@ -120,15 +120,15 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		return nil, err
 	}
 
-	if !job.PublicPlugin && !qc.Admin() {
-		if (job.OrganizationID != "" && job.OrganizationID != qc.OrganizationID) ||
-			(job.OrganizationID == "" && job.UserID != qc.UserID) {
+	if !job.PublicPlugin && !qc.IsAdmin() {
+		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
+			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
 				"JobDefinition": job,
 				"QC":            qc,
-			}).Warnf("job owner %s / %s didn't match query context %s",
+			}).Warnf("JobDefinitionRepositoryImpl.GetByType job owner %s / %s didn't match query context %s",
 				job.UserID, job.OrganizationID, qc)
 			return nil, common.NewPermissionError(
 				fmt.Errorf("cannot access job by type %s", jobType))
@@ -203,13 +203,13 @@ func (jdr *JobDefinitionRepositoryImpl) GetJobTypesAndCronTrigger(
 	qc *common.QueryContext) ([]types.JobTypeCronTrigger, error) {
 	sql := "SELECT distinct user_id, organization_id, job_type, cron_trigger FROM formicary_job_definitions WHERE active = ? "
 	args := []interface{}{true}
-	if qc.Admin() {
-	} else if qc.OrganizationID != "" {
+	if qc.IsAdmin() {
+	} else if qc.GetOrganizationID() != "" {
 		sql += " AND organization_id = ? "
-		args = append(args, qc.OrganizationID)
-	} else if qc.UserID != "" {
+		args = append(args, qc.GetOrganizationID())
+	} else if qc.GetUserID() != "" {
 		sql += " AND user_id = ? "
-		args = append(args, qc.UserID)
+		args = append(args, qc.GetUserID())
 	}
 	sql += " limit 1000000"
 
@@ -287,11 +287,11 @@ func (jdr *JobDefinitionRepositoryImpl) DeleteConfig(
 func (jdr *JobDefinitionRepositoryImpl) Save(
 	qc *common.QueryContext,
 	job *types.JobDefinition) (*types.JobDefinition, error) {
-	if qc.UserID != job.UserID {
-		return nil, fmt.Errorf("user-id doesn't match '%s:%s'", qc.UserID, job.UserID)
+	if qc.GetUserID() != job.UserID {
+		return nil, fmt.Errorf("user-id doesn't match '%s:%s'", qc.GetUserID(), job.UserID)
 	}
-	if qc.OrganizationID != job.OrganizationID {
-		return nil, fmt.Errorf("organization-id doesn't match '%s:%s'", qc.OrganizationID, job.OrganizationID)
+	if qc.GetOrganizationID() != job.OrganizationID {
+		return nil, fmt.Errorf("organization-id doesn't match '%s:%s'", qc.GetOrganizationID(), job.OrganizationID)
 	}
 	err := job.ValidateBeforeSave(jdr.encryptionKey(qc))
 	if err != nil {
@@ -497,7 +497,7 @@ func (jdr *JobDefinitionRepositoryImpl) encryptionKey(
 	if jdr.dbConfig.EncryptionKey == "" {
 		return nil
 	}
-	return crypto.SHA256Key(jdr.dbConfig.EncryptionKey + qc.Salt)
+	return crypto.SHA256Key(jdr.dbConfig.EncryptionKey + qc.GetSalt())
 }
 
 func (jdr *JobDefinitionRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {

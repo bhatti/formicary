@@ -47,7 +47,6 @@ func (d *DefaultEmailSender) JobNotifyTemplateFile() string {
 func (d *DefaultEmailSender) SendMessage(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	to []string,
 	subject string,
 	body string,
@@ -88,13 +87,11 @@ func (d *DefaultEmailSender) SendMessage(
 		_ = d.userManager.AddStickyMessageForEmail(
 			qc,
 			user,
-			org,
 			err)
 	} else {
 		_ = d.userManager.ClearStickyMessageForSlack(
 			qc,
 			user,
-			org,
 		)
 	}
 	return err

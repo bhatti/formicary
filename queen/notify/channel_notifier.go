@@ -18,20 +18,17 @@ type Notifier interface {
 	NotifyJob(
 		qc *common.QueryContext,
 		user *common.User,
-		org *common.Organization,
 		job *types.JobDefinition,
 		request types.IJobRequest,
 		lastRequestState common.RequestState) error
 	SendEmailVerification(
 		qc *common.QueryContext,
 		user *common.User,
-		org *common.Organization,
 		ev *types.EmailVerification,
 	) error
 	EmailUserInvitation(
 		qc *common.QueryContext,
 		user *common.User,
-		org *common.Organization,
 		inv *types.UserInvitation,
 	) error
 }
@@ -81,7 +78,6 @@ func (n *DefaultNotifier) AddSender(channel common.NotifyChannel, sender types.S
 func (n *DefaultNotifier) SendEmailVerification(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	ev *types.EmailVerification) (err error) {
 	if user == nil {
 		return fmt.Errorf("user is not specified")
@@ -115,7 +111,6 @@ func (n *DefaultNotifier) SendEmailVerification(
 	if err = sender.SendMessage(
 		qc,
 		user,
-		org,
 		[]string{ev.Email},
 		"Email Verification",
 		msg,
@@ -136,7 +131,6 @@ func (n *DefaultNotifier) SendEmailVerification(
 func (n *DefaultNotifier) EmailUserInvitation(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	inv *types.UserInvitation,
 ) error {
 	if user == nil {
@@ -174,7 +168,6 @@ func (n *DefaultNotifier) EmailUserInvitation(
 	if err = sender.SendMessage(
 		qc,
 		user,
-		org,
 		[]string{inv.Email},
 		"Your are invited to the Formicary",
 		msg,
@@ -198,7 +191,6 @@ func (n *DefaultNotifier) EmailUserInvitation(
 func (n *DefaultNotifier) NotifyJob(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	job *types.JobDefinition,
 	request types.IJobRequest,
 	lastRequestState common.RequestState) (err error) {
@@ -262,7 +254,7 @@ func (n *DefaultNotifier) NotifyJob(
 					if recipient != user.Email {
 						if verifiedEmails == nil {
 							verifiedEmails = n.emailRepository.GetVerifiedEmails(
-								common.NewQueryContext("", "", "").WithAdmin(),
+								common.NewQueryContext(nil, "").WithAdmin(),
 								user.ID)
 						}
 						if !verifiedEmails[recipient] {
@@ -274,7 +266,6 @@ func (n *DefaultNotifier) NotifyJob(
 				if sendErr := sender.SendMessage(
 					qc,
 					user,
-					org,
 					[]string{recipient},
 					subject,
 					msg,

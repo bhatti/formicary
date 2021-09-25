@@ -1968,7 +1968,7 @@ info:
     name: Support
     url: http://formicary.io
   description: |-
-    The formicary is a distributed job management system based on leader/follower design for executing a directed acyclic graph
+    The formicary is a distributed job management system based on Leader-follower design for executing a directed acyclic graph
     of tasks.
   license:
     name: AGPL

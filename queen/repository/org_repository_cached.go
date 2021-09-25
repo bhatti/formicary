@@ -104,8 +104,8 @@ func (orc *OrganizationRepositoryCached) Create(
 func (orc *OrganizationRepositoryCached) UpdateStickyMessage(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) error {
-	return orc.adapter.UpdateStickyMessage(qc, user, org)
+) error {
+	return orc.adapter.UpdateStickyMessage(qc, user)
 }
 
 // Update persists org

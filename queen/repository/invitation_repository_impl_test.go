@@ -2,6 +2,7 @@ package repository
 
 import (
 	"github.com/stretchr/testify/require"
+	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
 	"testing"
@@ -35,15 +36,17 @@ func Test_ShouldAddInvitation(t *testing.T) {
 	orgRepo.Clear()
 	userRepo.Clear()
 
-	// AND an existing organization
-	org, err := orgRepo.Create(qc, common.NewOrganization("user", "org1", "bundle1"))
-	require.NoError(t, err)
-	user := common.NewUser(org.ID, "user1", "name", "test@formicary.io", false)
-	user, err = userRepo.Create(user)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
+	// AND an existing organization
+	user := common.NewUser(qc.User.Organization.ID, "user1", "name", "test@formicary.io", acl.NewRoles(""))
+	user, err = userRepo.Create(user)
+	require.NoError(t, err)
+	user.Organization = qc.User.Organization
+
 	// WHEN adding an invitation
-	inv := types.NewUserInvitation("touser@formicary.io", user, org)
+	inv := types.NewUserInvitation("touser@formicary.io", user)
 	err = invRepo.Create(inv)
 	require.NoError(t, err)
 	loaded, err := invRepo.Get(inv.ID)

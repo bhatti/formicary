@@ -3,7 +3,7 @@
 Following example shows how you can use templates in job definitions to dynamically define job behavior:
 ```yaml
 job_type: iterate-job
-parse_template_on_load: true
+dynamic_template_tasks: true
 tasks:
 {{- range $val := Iterate 5 }}
 - task_type: task-{{$val}}

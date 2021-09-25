@@ -236,7 +236,7 @@ func (js *JobScheduler) scheduleJob(
 
 		if jobStateMachine.JobDefinition.DeleteFilteredCronJobs() {
 			// mark cron job that filtered as deleted
-			_ = js.jobManager.DeleteJobRequest(common.NewQueryContext("", "", ""), request.ID)
+			_ = js.jobManager.DeleteJobRequest(common.NewQueryContext(nil, ""), request.ID)
 			logrus.WithFields(logrus.Fields{
 				"Component":        "JobScheduler",
 				"ID":               js.serverCfg.ID,

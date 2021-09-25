@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"plexobject.com/formicary/internal/acl"
 	"reflect"
 	"regexp"
 	"strings"
@@ -21,8 +22,8 @@ import (
 	"plexobject.com/formicary/queen/config"
 )
 
-// Factory acts as locator for repositories that are used to access database objects
-type Factory struct {
+// Locator provides access to repositories that are used to access database objects
+type Locator struct {
 	db                          *gorm.DB
 	ArtifactRepository          *ArtifactRepositoryImpl
 	LogEventRepository          *LogEventRepositoryImpl
@@ -41,12 +42,12 @@ type Factory struct {
 	AuditRecordRepository       AuditRecordRepository
 }
 
-// NewFactory creates new repository factory
+// NewLocator creates new repository locator
 // See https://gorm.io/docs/v2_release_note.html -- go get gorm.io/gorm
-func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
+func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	maskRegex := regexp.MustCompile(`.*@`)
 	log.WithFields(log.Fields{
-		"Component":      "RepositoryFactory",
+		"Component":      "RepositoryLocator",
 		"DbType":         serverCfg.DB.DBType,
 		"DataSourceName": maskRegex.ReplaceAllString(serverCfg.DB.DataSource, "*****"),
 	}).Infof("Connecting...")
@@ -71,6 +72,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err
@@ -80,6 +82,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	sqlDB.SetConnMaxIdleTime(serverCfg.DB.ConnMaxIdleTime * time.Hour)
 	sqlDB.SetConnMaxLifetime(serverCfg.DB.ConnMaxLifeTime * time.Hour)
 
+	// audit records
 	artifactRepository, err := NewArtifactRepositoryImpl(db)
 	if err != nil {
 		return nil, err
@@ -88,10 +91,14 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// logging events
 	logEventRepository, err := NewLogEventRepositoryImpl(db)
 	if err != nil {
 		return nil, err
 	}
+
+	// error codes
 	errorCodeRepository, err := NewErrorCodeRepositoryImpl(db)
 	if err != nil {
 		return nil, err
@@ -100,6 +107,8 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// jobs related repositories
 	jobDefinitionRepository, err := NewJobDefinitionRepositoryImpl(&serverCfg.DB, db)
 	if err != nil {
 		return nil, err
@@ -108,7 +117,6 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
-
 	jobRequestRepository, err := NewJobRequestRepositoryImpl(db, serverCfg.DB.DBType)
 	if err != nil {
 		return nil, err
@@ -121,10 +129,14 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// config repository
 	systemConfigRepository, err := NewSystemConfigRepositoryImpl(db)
 	if err != nil {
 		return nil, err
 	}
+
+	// user repository
 	userRepository, err := NewUserRepositoryImpl(db)
 	if err != nil {
 		return nil, err
@@ -133,24 +145,19 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 	if err != nil {
 		return nil, err
 	}
-	orgRepository, err := NewOrganizationRepositoryImpl(&serverCfg.DB, db)
-	if err != nil {
-		return nil, err
-	}
-	invRepository, err := NewInvitationRepositoryImpl(&serverCfg.DB, db)
-	if err != nil {
-		return nil, err
-	}
 
-	subscriptionRepository, err := NewSubscriptionRepositoryImpl(db)
+	// organization repository
+	orgRepository, err := NewOrganizationRepositoryImpl(&serverCfg.DB, db,
+		func(
+			qc *common.QueryContext,
+			id string,
+			kind UpdateKind,
+			obj interface{}) {
+			cachedUserRepository.ClearCacheForOrg(qc.GetOrganizationID())
+		})
 	if err != nil {
 		return nil, err
 	}
-	emailVerificationRepository, err := NewEmailVerificationRepositoryImpl(db)
-	if err != nil {
-		return nil, err
-	}
-
 	cachedOrgRepository, err := NewOrganizationRepositoryCached(serverCfg, orgRepository)
 	if err != nil {
 		return nil, err
@@ -161,32 +168,61 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 			id string,
 			kind UpdateKind,
 			obj interface{}) {
-			cachedOrgRepository.ClearCacheFor(qc.OrganizationID, "")
+			cachedOrgRepository.ClearCacheFor(qc.GetOrganizationID(), "")
 		})
 	if err != nil {
 		return nil, err
 	}
+	invRepository, err := NewInvitationRepositoryImpl(&serverCfg.DB, db)
+	if err != nil {
+		return nil, err
+	}
 
+	// subscription repository
+	subscriptionRepository, err := NewSubscriptionRepositoryImpl(
+		db, func(
+			qc *common.QueryContext,
+			id string,
+			kind UpdateKind,
+			obj interface{}) {
+			cachedOrgRepository.ClearCacheFor(qc.GetOrganizationID(), "")
+			cachedUserRepository.ClearCacheFor(qc.GetUserID(), "")
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// audit records
 	cachedAuditRepository, err := NewAuditRecordRepositoryCached(serverCfg, auditRecordRepository)
 	if err != nil {
 		return nil, err
 	}
-	cachedEmailVerificationRepository, err := NewEmailVerificationRepositoryCached(serverCfg, emailVerificationRepository)
+
+	// email verification
+	emailVerificationRepository, err := NewEmailVerificationRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
+	cachedEmailVerificationRepository, err := NewEmailVerificationRepositoryCached(
+		serverCfg,
+		emailVerificationRepository)
 	if err != nil {
 		return nil, err
 	}
 
+	// tests use sqlite
 	if serverCfg.DB.DBType == "sqlite" {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}
 		if org, err := cachedOrgRepository.Create(
-			common.NewQueryContext("", "", ""),
+			common.NewQueryContext(nil, ""),
 			common.NewOrganization("", "formicary.org", "org.formicary")); err == nil {
 			_, _ = cachedUserRepository.Create(common.NewUser(
-				org.ID, "admin", "admin", "support@formicary.io", true))
+				org.ID, "admin", "admin", "support@formicary.io", acl.NewRoles("Admin[]")))
 			_, _ = cachedUserRepository.Create(common.NewUser(
-				org.ID, "bhatti", "bhatti", "bhatti@formicary.io", false))
+				org.ID, "bhatti", "bhatti", "bhatti@formicary.io", acl.NewRoles("Admin[]")))
 			_, _ = errorCodeRepository.Save(common.NewErrorCode(
 				"*", "job timed out", "ERR_JOB_TIMEOUT"))
 			_, _ = errorCodeRepository.Save(common.NewErrorCode(
@@ -231,7 +267,7 @@ func NewFactory(serverCfg *config.ServerConfig) (factory *Factory, err error) {
 		}
 	}
 
-	f := &Factory{
+	f := &Locator{
 		db:                          db,
 		ArtifactRepository:          artifactRepository,
 		LogEventRepository:          logEventRepository,

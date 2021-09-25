@@ -88,7 +88,7 @@ func (jrr *JobResourceRepositoryImpl) Save(resource *types.JobResource) (*types.
 		return nil, common.NewValidationError(err)
 	}
 	err = jrr.db.Transaction(func(tx *gorm.DB) error {
-		qc := common.NewQueryContext(resource.UserID, resource.OrganizationID, "")
+		qc := common.NewQueryContextFromIDs(resource.UserID, resource.OrganizationID)
 		old, err := jrr.getByExternalID(qc, resource.ExternalID)
 		if err == nil {
 			resource.ID = old.ID

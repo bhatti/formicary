@@ -5,31 +5,35 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
+	"sync"
 )
 
 // UserRepositoryCached implements UserRepository with caching support
 type UserRepositoryCached struct {
-	serverConf *config.ServerConfig
-	adapter    UserRepository
-	cache      *ccache.Cache
+	serverConf     *config.ServerConfig
+	adapter        UserRepository
+	cache          *ccache.Cache
+	lock           sync.RWMutex
+	orgIDToUserIDs map[string][]string
 }
 
 // NewUserRepositoryCached creates new instance for user-repository
 func NewUserRepositoryCached(
 	serverConf *config.ServerConfig,
-	adapter UserRepository) (UserRepository, error) {
+	adapter UserRepository) (*UserRepositoryCached, error) {
 	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(1000))
 	return &UserRepositoryCached{
-		adapter:    adapter,
-		serverConf: serverConf,
-		cache:      cache,
+		adapter:        adapter,
+		serverConf:     serverConf,
+		cache:          cache,
+		orgIDToUserIDs: make(map[string][]string),
 	}, nil
 }
 
 // Get method finds User by id
 func (urc *UserRepositoryCached) Get(
 	qc *common.QueryContext,
-	id string) (*common.User, error) {
+	id string) (user *common.User, err error) {
 	item, err := urc.cache.Fetch("User:"+id+qc.String(),
 		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
 			return urc.adapter.Get(qc, id)
@@ -37,13 +41,15 @@ func (urc *UserRepositoryCached) Get(
 	if err != nil {
 		return nil, err
 	}
-	return item.Value().(*common.User), nil
+	user = item.Value().(*common.User)
+	urc.addUserOrgMapping(user)
+	return
 }
 
 // GetByUsername method finds User by username
 func (urc *UserRepositoryCached) GetByUsername(
 	qc *common.QueryContext,
-	username string) (*common.User, error) {
+	username string) (user *common.User, err error) {
 	item, err := urc.cache.Fetch("Username:"+username+qc.String(),
 		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
 			return urc.adapter.GetByUsername(qc, username)
@@ -51,7 +57,9 @@ func (urc *UserRepositoryCached) GetByUsername(
 	if err != nil {
 		return nil, err
 	}
-	return item.Value().(*common.User), nil
+	user = item.Value().(*common.User)
+	urc.addUserOrgMapping(user)
+	return
 }
 
 // Delete org
@@ -72,25 +80,27 @@ func (urc *UserRepositoryCached) Delete(
 
 // Create persists org
 func (urc *UserRepositoryCached) Create(
-	org *common.User) (*common.User, error) {
-	saved, err := urc.adapter.Create(org)
+	org *common.User) (saved *common.User, err error) {
+	saved, err = urc.adapter.Create(org)
 	if err != nil {
 		return nil, err
 	}
 	urc.ClearCacheFor(saved.ID, saved.Username)
-	return saved, nil
+	urc.addUserOrgMapping(saved)
+	return
 }
 
 // Update persists org
 func (urc *UserRepositoryCached) Update(
 	qc *common.QueryContext,
-	org *common.User) (*common.User, error) {
-	saved, err := urc.adapter.Update(qc, org)
+	org *common.User) (saved *common.User, err error) {
+	saved, err = urc.adapter.Update(qc, org)
 	if err != nil {
 		return nil, err
 	}
 	urc.ClearCacheFor(saved.ID, saved.Username)
-	return saved, nil
+	urc.addUserOrgMapping(saved)
+	return
 }
 
 // Query finds matching configs
@@ -172,4 +182,43 @@ func (urc *UserRepositoryCached) ClearCacheFor(
 	if username != "" {
 		urc.cache.DeletePrefix("Username:" + username)
 	}
+}
+
+// ClearCacheForOrg - clears cache for org
+func (urc *UserRepositoryCached) ClearCacheForOrg(
+	orgID string,
+) {
+	if orgID != "" {
+		userids := urc.getUserOrgMapping(orgID)
+		for _, id := range userids {
+			urc.cache.DeletePrefix("User:" + id)
+		}
+	}
+}
+
+func (urc *UserRepositoryCached) addUserOrgMapping(user *common.User) {
+	if user != nil {
+		urc.addUserIDOrgMapping(user.ID, user.OrganizationID)
+	}
+}
+
+func (urc *UserRepositoryCached) addUserIDOrgMapping(userID string, orgID string) {
+	if userID != "" && orgID != "" {
+		urc.lock.Lock()
+		defer urc.lock.Unlock()
+		userids := append(urc.orgIDToUserIDs[orgID], userID)
+		urc.orgIDToUserIDs[orgID] = userids
+	}
+}
+
+func (urc *UserRepositoryCached) getUserOrgMapping(orgID string) (userids []string) {
+	if orgID != "" {
+		urc.lock.RLock()
+		defer urc.lock.RUnlock()
+		userids = urc.orgIDToUserIDs[orgID]
+	}
+	if userids == nil {
+		userids = make([]string, 0)
+	}
+	return
 }

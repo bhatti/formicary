@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/health"
 	"plexobject.com/formicary/internal/web"
@@ -21,7 +22,7 @@ func NewHealthAdminController(
 		heathMonitor: heathMonitor,
 		webserver:    webserver,
 	}
-	webserver.GET("/dashboard/health", h.getHealth, acl.New(acl.Health, acl.View)).Name = "get_admin_health"
+	webserver.GET("/dashboard/health", h.getHealth, acl.NewPermission(acl.Health, acl.View)).Name = "get_admin_health"
 	return h
 }
 

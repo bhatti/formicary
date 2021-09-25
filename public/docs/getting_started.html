@@ -1,15 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h2 id="getting-started">Getting Started</h2>
 <h3 id="job-definition">Job Definition</h3>
-<p>The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the execution specifications are defined in a job configuration. A job defines directed acyclic graph (DAG) of tasks for the order of execution, which can also be considered as a workflow for the execution path of tasks. The tasks defined in the job configuration can choose supported executors such as DOCKER, KUBERNETES, HTTP, SHELL, etc. </p>
-<p><em>Note:</em> The formicary uses job-definition to define specification or metadata of the job and an instance of job-definition called <code>job-execution</code> is created upon submitting job-request.</p>
+<p>The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the execution specifications are defined in a job configuration. A job defines directed acyclic graph (DAG) of tasks for the order of execution, which can also be considered as a workflow for the execution path of tasks. The task defines a unit of work, which can be executing using DOCKER, KUBERNETES, HTTP, SHELL, MESSAGING or other executors.</p>
+<p><b>Note:</b> The formicary uses a yaml based job-definition to specify the metadata and workflow of the job and an instance of job-definition called <code>job-execution</code> is created upon submitting job-request.</p>
 <h3 id="job-configuration">Job Configuration</h3>
-<p>Following is an example of job configuration:</p>
-<pre><code class="lang-yaml">job_type: hello_world
+<p>Following is an example of <code>hello-world</code> job configuration that defines three tasks:</p>
+<p><img class='img-fluid' src="hello-world.png" alt="Hello World Workflow"></p>
+<pre><code class="lang-yaml">job_type: hello-world
 description: A hello world example
 max_concurrency: 1
 tasks:
 - task_type: hello
-  method: KUBERNETES
   container:
     image: alpine
   script:
@@ -20,7 +69,6 @@ tasks:
       - hello.txt
   on_completed: world
 - task_type: world
-  method: KUBERNETES
   container:
     image: alpine
   script:
@@ -31,7 +79,6 @@ tasks:
       - world.txt
   on_completed: combine
 - task_type: combine
-  method: KUBERNETES
   container:
     image: alpine
   dependencies:
@@ -48,14 +95,14 @@ job_variables:
 </code></pre>
 <h4 id="job-type">Job Type</h4>
 <p>The <code>job_type</code> defines type of the job that will be used when submitting a job for new execution.</p>
-<pre><code class="lang-yaml">job_type: hello_world
+<pre><code class="lang-yaml">job_type: hello-world
 </code></pre>
 <h4 id="description">Description</h4>
 <p>You can optionally add <code>description</code> of the job, e.g.</p>
 <pre><code class="lang-yaml">description: A hello world example
 </code></pre>
 <h4 id="concurrency">Concurrency</h4>
-<p>You can optionally add <code>max_concurrency</code> to limit maximum instances of the job, e.g.</p>
+<p>You can optionally add <code>max_concurrency</code> to limit maximum instances of the job that can be executed concurrently, e.g.</p>
 <pre><code class="lang-yaml">max_concurrency: 1
 </code></pre>
 <h4 id="tasks">Tasks</h4>
@@ -110,19 +157,22 @@ job_variables:
 <p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard UI or API such as:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/yaml&quot; \
-    --data-binary hello_world.yaml $SERVER/api/jobs/definitions
+    --data-binary hello-world.yaml $SERVER/api/jobs/definitions
 </code></pre>
 <p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
 <h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
 <p>You can then submit the job as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: {&quot;Target&quot;: &quot;bob&quot;}}&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;hello-world&quot;, &quot;params&quot;: {&quot;Target&quot;: &quot;bob&quot;}}&#39; $SERVER/api/jobs/requests
 </code></pre>
-<p>The above example kicks off <code>hello_world</code> job and passes <code>bob</code> as parameter to replace <code>Target</code> variable in the job definition.</p>
+<p>The above example kicks off <code>hello-world</code> job and passes <code>bob</code> as parameter to replace <code>Target</code> variable in the job definition.</p>
 <h3 id="scheduling-job-in-future">Scheduling Job in future</h3>
 <p>See <a href="howto.html#Scheduling_Future">Job Scheduling</a> for submitting a job at scheduled.</p>
 <h3 id="scheduling-job-request-with-regular-interval">Scheduling Job Request with regular interval</h3>
 <p>See <a href="howto.html#Cron">Regular Scheduling</a> for submitting a job at scheduled interval.</p>
 <h3 id="filtering-job-request">Filtering Job Request</h3>
 <p>See <a href="definition_options.html#filter">Job Filtering</a> for filtering scheduled job.</p>
+</div>  
+</body>
+</html>

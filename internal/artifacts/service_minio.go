@@ -7,17 +7,18 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/minio/minio-go/v7/pkg/encrypt"
-	"github.com/twinj/uuid"
 	"io"
 	"net/url"
 	"os"
-	"plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/internal/utils"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/twinj/uuid"
+	"plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/utils"
 )
 
 // Adapter captures client for Minio
@@ -69,7 +70,7 @@ func (a *Adapter) Get(
 // SaveFile saves artifact from file
 func (a *Adapter) SaveFile(
 	ctx context.Context,
-	prefix string,
+	_ string,
 	artifact *types.Artifact,
 	filePath string) error {
 	// checking file size
@@ -156,8 +157,8 @@ func (a *Adapter) SaveBytes(
 		SHA256:        hex256,
 		ContentLength: int64(len(data)),
 		ContentType:   "application/octet-stream",
-		Metadata:      map[string]string{},
-		Tags:          map[string]string{},
+		Metadata:      make(map[string]string),
+		Tags:          make(map[string]string),
 	}
 	// calling save data that supports general purpose reader
 	if err := a.SaveData(ctx, prefix, artifact, bytes.NewReader(data)); err != nil {
@@ -184,7 +185,7 @@ func (a *Adapter) SaveData(
 	if err := a.checkBucket(ctx); err != nil {
 		return err
 	}
-	// we need SHA256 as ID so we can't calculate it on the fly
+	// we need SHA256 as ID, so we can't calculate it on the fly
 	//hasher := sha256.New()
 	//tee := io.TeeReader(reader, hasher)
 	//sum256 := hasher.Sum(nil)

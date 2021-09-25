@@ -22,8 +22,8 @@ func NewAntRegistrationController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/api/ants", wrc.queryAntRegistrations, acl.New(acl.AntExecutor, acl.Query)).Name = "query_ants"
-	webserver.GET("/api/ants/:id", wrc.getAntRegistration, acl.New(acl.AntExecutor, acl.View)).Name = "get_ant"
+	webserver.GET("/api/ants", wrc.queryAntRegistrations, acl.NewPermission(acl.AntExecutor, acl.Query)).Name = "query_ants"
+	webserver.GET("/api/ants/:id", wrc.getAntRegistration, acl.NewPermission(acl.AntExecutor, acl.View)).Name = "get_ant"
 	return wrc
 }
 

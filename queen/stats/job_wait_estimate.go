@@ -7,7 +7,9 @@ import (
 
 // JobWaitEstimate stores estimated wait times for given job-request.
 type JobWaitEstimate struct {
+	// JobStats defines statistics that are used for calculating wait-time
 	JobStats   *JobStats
+	// JobRequest defines request to estimate
 	JobRequest *types.JobRequestInfo
 	// QueueNumber number in queue
 	QueueNumber int `json:"queue_number"`

@@ -3,17 +3,18 @@ package manager
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/artifacts"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
-	"time"
 )
 
 // ArtifactManager  for managing artifacts
@@ -126,9 +127,9 @@ func (am *ArtifactManager) UploadArtifact(
 		Name:           uuid.NewV4().String(),
 		Metadata:       params,
 		Kind:           common.ArtifactKindUser,
-		Tags:           map[string]string{},
-		UserID:         qc.UserID,
-		OrganizationID: qc.OrganizationID,
+		Tags:           make(map[string]string),
+		UserID:         qc.GetUserID(),
+		OrganizationID: qc.GetOrganizationID(),
 		ExpiresAt:      time.Now().Add(common.DefaultArtifactsExpirationDuration),
 	}
 

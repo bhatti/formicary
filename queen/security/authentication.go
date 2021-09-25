@@ -13,7 +13,10 @@ import (
 )
 
 // BuildToken builds JWT token
-func BuildToken(user *common.User, secret string, age time.Duration) (strToken string, expiration time.Time, err error) {
+func BuildToken(
+	user *common.User,
+	secret string,
+	age time.Duration) (strToken string, expiration time.Time, err error) {
 	if user == nil {
 		err = common.NewPermissionError("user is not specified for building token")
 		return
@@ -27,7 +30,7 @@ func BuildToken(user *common.User, secret string, age time.Duration) (strToken s
 		BundleID:     user.BundleID,
 		PictureURL:   user.PictureURL,
 		AuthProvider: user.AuthProvider,
-		Admin:        user.Admin,
+		Admin:        user.IsAdmin(),
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiration.Unix(),
 		},

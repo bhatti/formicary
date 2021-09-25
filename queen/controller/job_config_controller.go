@@ -3,10 +3,11 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
-	common "plexobject.com/formicary/internal/types"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	common "plexobject.com/formicary/internal/types"
 
 	"plexobject.com/formicary/internal/acl"
 
@@ -32,11 +33,11 @@ func NewJobConfigController(
 		jobDefinitionRepository: jobDefinitionRepository,
 		webserver:               webserver,
 	}
-	webserver.GET("/api/jobs/definitions/:job/configs", cfgCtrl.queryJobConfigs, acl.New(acl.JobDefinition, acl.View)).Name = "query_job_configs"
-	webserver.GET("/api/jobs/definitions/:job/configs/:id", cfgCtrl.getJobConfig, acl.New(acl.JobDefinition, acl.View)).Name = "get_job_config"
-	webserver.POST("/api/jobs/definitions/:job/configs", cfgCtrl.postJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "create_job_config"
-	webserver.PUT("/api/jobs/definitions/:job/configs/:id", cfgCtrl.putJobConfig, acl.New(acl.JobDefinition, acl.View)).Name = "update_job_config"
-	webserver.DELETE("/api/jobs/definitions/:job/configs/:id", cfgCtrl.deleteJobConfig, acl.New(acl.JobDefinition, acl.Update)).Name = "delete_job_config"
+	webserver.GET("/api/jobs/definitions/:job/configs", cfgCtrl.queryJobConfigs, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "query_job_configs"
+	webserver.GET("/api/jobs/definitions/:job/configs/:id", cfgCtrl.getJobConfig, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_job_config"
+	webserver.POST("/api/jobs/definitions/:job/configs", cfgCtrl.postJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "create_job_config"
+	webserver.PUT("/api/jobs/definitions/:job/configs/:id", cfgCtrl.putJobConfig, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "update_job_config"
+	webserver.DELETE("/api/jobs/definitions/:job/configs/:id", cfgCtrl.deleteJobConfig, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "delete_job_config"
 	return cfgCtrl
 }
 

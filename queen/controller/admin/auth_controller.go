@@ -3,9 +3,10 @@ package admin
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v4/middleware"
 
 	"plexobject.com/formicary/queen/types"
 
@@ -45,19 +46,19 @@ func NewAuthController(
 		webserver:             webServer,
 	}
 	webServer.GET("/", ac.root, nil).Name = "root"
-	webServer.GET("/login", ac.login, acl.New(acl.User, acl.Login)).Name = "login"
-	webServer.GET("/logout", ac.logout, acl.New(acl.User, acl.Logout)).Name = "logout"
+	webServer.GET("/login", ac.login, acl.NewPermission(acl.User, acl.Login)).Name = "login"
+	webServer.GET("/logout", ac.logout, acl.NewPermission(acl.User, acl.Logout)).Name = "logout"
 	for _, authProvider := range authProviders {
 		ac.authProviders[authProvider.AuthLoginURL()] = authProvider
 		ac.authProviders[authProvider.AuthLoginCallbackURL()] = authProvider
 		webServer.GET(
 			authProvider.AuthLoginURL(),
 			ac.providerAuth,
-			acl.New(acl.User, acl.Login)).Name = "provider_auth"
+			acl.NewPermission(acl.User, acl.Login)).Name = "provider_auth"
 		webServer.GET(
 			authProvider.AuthLoginCallbackURL(),
 			ac.providerAuthCallback,
-			acl.New(acl.User, acl.Login)).Name = "provider_auth_callback"
+			acl.NewPermission(acl.User, acl.Login)).Name = "provider_auth_callback"
 		if authProvider.AuthWebhookCallbackURL() != "" {
 			apiConfig := middleware.JWTConfig{
 				Claims:      &web.JwtClaims{},
@@ -68,7 +69,7 @@ func NewAuthController(
 			webServer.POST(
 				authProvider.AuthWebhookCallbackURL(),
 				authProvider.AuthWebhookCallbackHandle,
-				acl.New(acl.User, acl.Login),
+				acl.NewPermission(acl.User, acl.Login),
 				middleware.JWTWithConfig(apiConfig)).Name = "provider_auth_webhook_callback"
 		}
 	}
@@ -135,8 +136,9 @@ func (ac *AuthController) providerAuthCallback(c web.WebContext) error {
 
 	if oldUser != nil {
 		_, _ = ac.auditRecordRepository.Save(types.NewAuditRecordFromUser(oldUser, types.UserLogin,
-			common.NewQueryContextFromUser(oldUser, nil, c.Request().RemoteAddr)))
-		if redirectCookie, err := c.Cookie(common.RedirectCookieName); err == nil && redirectCookie.Value != "" {
+			common.NewQueryContext(oldUser, c.Request().RemoteAddr)))
+		if redirectCookie, err := c.Cookie(common.RedirectCookieName); err == nil && redirectCookie.Value != "" &&
+			!strings.HasPrefix(redirectCookie.Value, "/dashboard/users/new") {
 			c.SetCookie(ac.commonCfg.Auth.ClearRedirectCookie())
 			http.Redirect(c.Response(), c.Request(), redirectCookie.Value, http.StatusTemporaryRedirect)
 		} else {
@@ -201,20 +203,20 @@ func (ac *AuthController) logout(c web.WebContext) error {
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.LoginStateCookieName()))
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(common.RedirectCookieName))
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie("JSESSIONID"))
-	http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
 	if user != nil {
 		_, _ = ac.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserLogout, qc))
 	}
+	http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
 	return nil
 }
 
 func (ac *AuthController) postLogin(user *common.User) (cookie *http.Cookie, oldUser *common.User, err error) {
 	// not using query-context here because we just need to find user
 	oldUser, _ = ac.userRepository.GetByUsername(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		user.Username)
 	if oldUser != nil {
-		user.Admin = oldUser.Admin
+		user.CopyRolesPermissions(oldUser)
 	}
 	token, expiration, err := security.BuildToken(
 		user,
@@ -363,7 +365,7 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 		claims.UserName,
 		"",
 		"",
-		false,
+		acl.NewRoles(""),
 	)
 
 	user.Name = claims.Name
@@ -371,29 +373,30 @@ func (ac *AuthController) addSessionUser(c web.WebContext) (
 	user.PictureURL = claims.PictureURL
 	user.AuthProvider = claims.AuthProvider
 	// not using query-context here because we just need to find user
-	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext("", "", ""), user.Username)
+	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext(nil, ""), user.Username)
 	if err != nil {
 		// can't delete cookie
 		//c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.CookieName))
 	} else {
-		if dbUser.OrganizationID != "" {
-			dbOrg, _ := ac.orgRepository.Get(
-				common.NewQueryContext("", "", ""),
+		if dbUser.OrganizationID != "" && dbUser.Organization == nil {
+			dbUser.Organization, _ = ac.orgRepository.Get(
+				common.NewQueryContext(nil, ""),
 				dbUser.OrganizationID)
-			if dbOrg != nil {
-				dbUser.OrgUnit = dbOrg.OrgUnit
-				dbUser.BundleID = dbOrg.BundleID
-				dbUser.Subscription = dbOrg.Subscription
-				user.OrgUnit = dbOrg.OrgUnit
-				user.BundleID = dbOrg.BundleID
-				user.Salt = dbOrg.Salt
-				user.OrganizationID = dbOrg.ID
-				user.PictureURL = dbUser.PictureURL
-				user.AuthProvider = dbUser.AuthProvider
-				user.Subscription = dbOrg.Subscription
-				c.Set(web.DBOrg, dbOrg)
-			}
 		}
+
+		if dbUser.Organization != nil {
+			dbUser.OrgUnit = dbUser.Organization.OrgUnit
+			dbUser.BundleID = dbUser.Organization.BundleID
+			dbUser.Subscription = dbUser.Organization.Subscription
+			user.OrgUnit = dbUser.Organization.OrgUnit
+			user.BundleID = dbUser.Organization.BundleID
+			user.Salt = dbUser.Organization.Salt
+			user.OrganizationID = dbUser.Organization.ID
+			user.PictureURL = dbUser.PictureURL
+			user.AuthProvider = dbUser.AuthProvider
+			user.Subscription = dbUser.Organization.Subscription
+		}
+
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
 				"Component":    "AuthController",

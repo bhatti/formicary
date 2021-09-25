@@ -20,9 +20,13 @@ const ParentJobTypePrefix = "ParentJobType"
 type UserJobTypeKey interface {
 	// GetJobType defines the type of job
 	GetJobType() string
+	// GetJobVersion defines the version of job
 	GetJobVersion() string
+	// GetOrganizationID defines the organization-id of the job creator
 	GetOrganizationID() string
+	// GetUserID defines the user-id of the job creator
 	GetUserID() string
+	// GetUserJobTypeKey defines a unique key for the user and job
 	GetUserJobTypeKey() string
 }
 
@@ -32,10 +36,13 @@ type IJobRequestSummary interface {
 	GetID() uint64
 	// GetJobType defines the type of job
 	GetJobType() string
+	// GetJobVersion defines the version of job
 	GetJobVersion() string
 	// GetJobState defines state of job that is maintained throughout the lifecycle of a job
 	GetJobState() types.RequestState
+	// GetOrganizationID defines the organization-id of the job creator
 	GetOrganizationID() string
+	// GetUserID defines the user-id of the job creator
 	GetUserID() string
 	//GetUserJobTypeKey key of job-type
 	GetUserJobTypeKey() string
@@ -176,8 +183,8 @@ func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
 		JobVersion:      job.SemVersion,
 		JobDefinitionID: job.ID,
 		JobState:        types.PENDING,
-		UserID:          job.UserID,
 		Platform:        job.Platform,
+		UserID:          job.UserID,
 		OrganizationID:  job.OrganizationID,
 		ScheduledAt:     time.Now(),
 		lookupParams:    make(map[string]*JobRequestParam),

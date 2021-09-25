@@ -111,7 +111,7 @@
                 }
 
                 function initAccountType() {
-                    {{if .HasOrganization }}
+                    {{if .HasOrganizationOrInvitationCode}}
                     handleAccountType({value: 'organization'});
                     document.getElementById('organization').checked = true;
                     {{else}}
@@ -138,6 +138,7 @@
                             <input type="text" class="form-control col-sm-6" name="invitationCode" id="invitationCode"
                                    value="{{ .InvitationCode }}"
                                    placeholder="optional invitation code">
+                            <i>You don't need to fill-in organization-unit or bundle with invitation-code.</i>
                         </div>
                     </div>
                 </div>
@@ -149,7 +150,7 @@
                     <div class="row">
                         <label for="orgUnit" class="col-sm-2 col-form-label">Organization: </label>
                         <div class="col-sm-10">
-                            {{ if not .InvitationCode }}
+                            {{ if .HasInvitationCode }}
                             <input type="text" class="form-control col-sm-6" name="orgUnit" id="orgUnit"
                                    value="{{ .OrgUnit}}" readonly>
                             {{ else }}
@@ -173,8 +174,8 @@
                             <input type="text" class="form-control col-sm-6" name="bundle" id="bundle"
                                    value="{{ .BundleID }}"
                                    placeholder="Use reverse domain of organization such as com.plexobject">
-                            Use reverse domain of organization such as com.plexobject or io.formicary for your
-                            organization bundle.
+                            <i>Use reverse domain of organization such as com.plexobject or io.formicary for your
+                                organization bundle.</i>
                         </div>
                     </div>
                 </div>

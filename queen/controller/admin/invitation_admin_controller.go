@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/queen/manager"
 
@@ -26,10 +27,10 @@ func NewInvitationAdminController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.GET("/dashboard/orgs/invite/:org", jraCtr.newInvite, acl.New(acl.UserInvitation, acl.Read)).Name = "new_admin_new_invite_user"
-	webserver.POST("/dashboard/orgs/invite/:org", jraCtr.invite, acl.New(acl.UserInvitation, acl.Update)).Name = "new_admin_invite_user"
-	webserver.GET("/dashboard/orgs/invited/:id", jraCtr.invited, acl.New(acl.UserInvitation, acl.Read)).Name = "new_admin_invited_user"
-	webserver.GET("/dashboard/orgs/invitations", jraCtr.invitations, acl.New(acl.UserInvitation, acl.Query)).Name = "new_admin_invitations"
+	webserver.GET("/dashboard/orgs/invite/:org", jraCtr.newInvite, acl.NewPermission(acl.UserInvitation, acl.Read)).Name = "new_admin_new_invite_user"
+	webserver.POST("/dashboard/orgs/invite/:org", jraCtr.invite, acl.NewPermission(acl.UserInvitation, acl.Update)).Name = "new_admin_invite_user"
+	webserver.GET("/dashboard/orgs/invited/:id", jraCtr.invited, acl.NewPermission(acl.UserInvitation, acl.Read)).Name = "new_admin_invited_user"
+	webserver.GET("/dashboard/orgs/invitations", jraCtr.invitations, acl.NewPermission(acl.UserInvitation, acl.Query)).Name = "new_admin_invitations"
 	return jraCtr
 }
 
@@ -38,36 +39,21 @@ func NewInvitationAdminController(
 // newInvite - invites to org
 func (oc *InvitationAdminController) newInvite(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
-	user := web.GetDBLoggedUserFromSession(c)
-	if user == nil {
-		return fmt.Errorf("failed to find user in session")
-	}
-	id := c.Param("org")
-	orgID := user.OrganizationID
-	if user.Admin && id != "" {
-		org, err := oc.userManager.GetOrganization(qc, id)
-		if err != nil {
-			return err
-		}
-		orgID = org.ID
-	}
-	if orgID == "" {
+	if !qc.HasOrganization() {
 		logrus.WithFields(logrus.Fields{
 			"Component": "InvitationAdminController",
-			"Admin":     user.Admin,
-			"Org":       id,
-			"User":      user,
+			"User":      qc.User,
 		}).Warnf("no orgs for invitation")
 		return fmt.Errorf("organization is not available for invitation")
 	}
 
 	inv := &types.UserInvitation{}
-	inv.InvitedByUserID = user.ID
-	inv.OrganizationID = orgID
+	inv.InvitedByUserID = qc.GetUserID()
+	inv.OrganizationID = qc.GetOrganizationID()
 
 	res := map[string]interface{}{
 		"Invitation": inv,
-		"User":       user,
+		"User":       qc.User,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "orgs/inv/new", res)
@@ -76,30 +62,18 @@ func (oc *InvitationAdminController) newInvite(c web.WebContext) (err error) {
 // invite - adds invitation
 func (oc *InvitationAdminController) invite(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
-	user := web.GetDBLoggedUserFromSession(c)
-	if user == nil {
-		return fmt.Errorf("failed to find user in session for invitation")
-	}
-	id := c.Param("org")
-	orgID := user.OrganizationID
-	if user.Admin && id != "" {
-		org, err := oc.userManager.GetOrganization(qc, id)
-		if err != nil {
-			return err
-		}
-		orgID = org.ID
-	}
-	if orgID == "" {
+	if !qc.User.HasOrganization() {
 		return fmt.Errorf("organization is not available for invitation")
 	}
 	inv := &types.UserInvitation{}
 	inv.Email = c.FormValue("email")
-	inv.InvitedByUserID = user.ID
-	inv.OrganizationID = orgID
-	if err = oc.userManager.InviteUser(qc, user, inv); err != nil {
+	inv.InvitedByUserID = qc.GetUserID()
+	inv.OrganizationID = qc.GetOrganizationID()
+	if err = oc.userManager.InviteUser(qc, qc.User, inv); err != nil {
 		res := map[string]interface{}{
 			"Invitation": inv,
-			"User":       user,
+			"User":       qc.User,
+			"Error":      err.Error(),
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "orgs/inv/new", res)

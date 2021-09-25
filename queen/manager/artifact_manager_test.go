@@ -5,7 +5,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"io"
 	"plexobject.com/formicary/internal/artifacts"
-	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
 	"strings"
@@ -22,7 +21,8 @@ func Test_ShouldExpireArtifacts(t *testing.T) {
 
 	mgr := newTestArtifactManager(t, err, serverCfg)
 
-	qc := types.NewQueryContext("test-user", "test-org", "")
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	for i:=0; i<10; i++ {
 		in := io.NopCloser(strings.NewReader("test"))
 		_, err := mgr.UploadArtifact(
@@ -50,13 +50,15 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 	serverCfg := config.TestServerConfig()
 	err := serverCfg.Validate()
 	require.NoError(t, err)
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 
 	mgr := newTestArtifactManager(t, err, serverCfg)
 
 	// WHEN querying artifacts
 	_, total, err := mgr.QueryArtifacts(
 		context.Background(),
-		types.NewQueryContext("", "", ""),
+		qc,
 		make(map[string]interface{}),
 		0,
 		100,
@@ -68,7 +70,6 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 
 	// GIVEN uploaded artifact
 	in := io.NopCloser(strings.NewReader("test"))
-	qc := types.NewQueryContext("test-user", "test-org", "")
 	art, err := mgr.UploadArtifact(
 		context.Background(),
 		qc,
@@ -87,7 +88,7 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 	require.Equal(t, art.ID, loaded.ID)
 
 	// WHEN deleting artifact
-	err = mgr.DeleteArtifact(context.Background(), types.NewQueryContext("", "", ""), art.ID)
+	err = mgr.DeleteArtifact(context.Background(), qc, art.ID)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -95,7 +96,7 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 	// WHEN getting artifact after delete
 	_, err = mgr.GetArtifact(
 		context.Background(),
-		types.NewQueryContext("", "", ""),
+		qc,
 		art.ID)
 
 	// THEN it should fail

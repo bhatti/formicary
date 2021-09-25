@@ -89,7 +89,7 @@ func (t *JobForkTasklet) PreExecute(
 func (t *JobForkTasklet) Execute(
 	_ context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
-	queryContext := common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, "")
+	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
 	jobDef, err := t.jobManager.GetJobDefinitionByType(
 		queryContext,
 		taskReq.ExecutorOpts.ForkJobType,
@@ -118,7 +118,9 @@ func (t *JobForkTasklet) Execute(
 	req.ParentID = taskReq.JobRequestID
 	_, _ = req.AddParam(fmt.Sprintf("%s_%d", types.ParentJobTypePrefix, req.ParentID), taskReq.JobType)
 
-	saved, err := t.jobManager.SaveJobRequest(common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, ""), req)
+	saved, err := t.jobManager.SaveJobRequest(
+		common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID),
+		req)
 	if err != nil {
 		return buildTaskResponseWithError(taskReq, err)
 	}

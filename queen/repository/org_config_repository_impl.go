@@ -165,5 +165,5 @@ func (scr *OrganizationConfigRepositoryImpl) encryptionKey(
 	if scr.dbConfig.EncryptionKey == "" {
 		return nil
 	}
-	return crypto.SHA256Key(scr.dbConfig.EncryptionKey + qc.Salt)
+	return crypto.SHA256Key(scr.dbConfig.EncryptionKey + qc.GetSalt())
 }

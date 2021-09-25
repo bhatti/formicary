@@ -27,10 +27,10 @@ func NewEmailVerificationAdminController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.POST("/dashboard/users/:user/create_verify_email", ctr.createEmailVerification, acl.New(acl.EmailVerification, acl.Create)).Name = "create_admin_email_verification"
-	webserver.GET("/dashboard/users/verify_email/:id", ctr.showEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_admin_email"
-	webserver.POST("/dashboard/users/:user/verify_email", ctr.verifyEmailVerification, acl.New(acl.User, acl.Update)).Name = "verify_admin_email"
-	webserver.GET("/dashboard/users/email_verifications", ctr.queryEmailVerifications, acl.New(acl.EmailVerification, acl.Query)).Name = "email_admin_verifications"
+	webserver.POST("/dashboard/users/:user/create_verify_email", ctr.createEmailVerification, acl.NewPermission(acl.EmailVerification, acl.Create)).Name = "create_admin_email_verification"
+	webserver.GET("/dashboard/users/verify_email/:id", ctr.showEmailVerification, acl.NewPermission(acl.User, acl.Update)).Name = "verify_admin_email"
+	webserver.POST("/dashboard/users/:user/verify_email", ctr.verifyEmailVerification, acl.NewPermission(acl.User, acl.Update)).Name = "verify_admin_email"
+	webserver.GET("/dashboard/users/email_verifications", ctr.queryEmailVerifications, acl.NewPermission(acl.EmailVerification, acl.Query)).Name = "email_admin_verifications"
 
 	return ctr
 }
@@ -121,7 +121,7 @@ func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.WebCo
 	} else {
 		res["User"] = user
 	}
-	_, err = ctr.userManager.VerifyEmail(qc, qc.UserID, c.FormValue("code"))
+	_, err = ctr.userManager.VerifyEmail(qc, qc.GetUserID(), c.FormValue("code"))
 	web.RenderDBUserFromSession(c, res)
 	if err != nil {
 		res["Error"] = err

@@ -26,6 +26,8 @@ func Test_InitializeSwaggerStructsForSubscriptionController(t *testing.T) {
 
 func Test_ShouldQuerySubscriptions(t *testing.T) {
 	// GIVEN subscription controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
 	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
@@ -34,8 +36,8 @@ func Test_ShouldQuerySubscriptions(t *testing.T) {
 	require.NoError(t, err)
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	subscription := common.NewFreemiumSubscription("user", "org")
-	_, err = subscriptionRepository.Create(subscription)
+	subscription := common.NewFreemiumSubscription(qc.User)
+	_, err = subscriptionRepository.Create(qc, subscription)
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
@@ -54,6 +56,8 @@ func Test_ShouldQuerySubscriptions(t *testing.T) {
 
 func Test_ShouldCreateAndGetSubscription(t *testing.T) {
 	// GIVEN subscription controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
 	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
@@ -63,12 +67,8 @@ func Test_ShouldCreateAndGetSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
-	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
-	}
-	require.NoError(t, err)
-	subscription := common.NewFreemiumSubscription(user.ID, "")
+	subscription := common.NewFreemiumSubscription(qc.User)
+
 	b, err := json.Marshal(subscription)
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))
@@ -92,6 +92,8 @@ func Test_ShouldCreateAndGetSubscription(t *testing.T) {
 
 func Test_ShouldUpdateAndGetSubscription(t *testing.T) {
 	// GIVEN subscription controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
 	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
@@ -101,14 +103,9 @@ func Test_ShouldUpdateAndGetSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
-	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
-	}
-	require.NoError(t, err)
 
 	// WHEN updating subscription
-	subscription := common.NewFreemiumSubscription(user.ID, "")
+	subscription := common.NewFreemiumSubscription(qc.User)
 	b, err := json.Marshal(subscription)
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))
@@ -139,6 +136,8 @@ func Test_ShouldUpdateAndGetSubscription(t *testing.T) {
 
 func Test_ShouldAddAndDeleteSubscription(t *testing.T) {
 	// GIVEN subscription controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	subscriptionRepository, err := repository.NewTestSubscriptionRepository()
 	require.NoError(t, err)
 	userRepository, err := repository.NewTestUserRepository()
@@ -148,14 +147,9 @@ func Test_ShouldAddAndDeleteSubscription(t *testing.T) {
 	auditRepository, err := repository.NewTestAuditRecordRepository()
 	webServer := web.NewStubWebServer()
 	ctrl := NewSubscriptionController(subscriptionRepository, userRepository, orgRepository, auditRepository, webServer)
-	user, err := userRepository.Create(common.NewUser("", "user@formicary.io", "name", "", false))
-	if err != nil {
-		user, err = userRepository.GetByUsername(common.NewQueryContext("", "", ""), "user@formicary.io")
-	}
-	require.NoError(t, err)
 
 	// WHEN adding subscription
-	subscription := common.NewFreemiumSubscription(user.ID, "")
+	subscription := common.NewFreemiumSubscription(qc.User)
 	b, err := json.Marshal(subscription)
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))

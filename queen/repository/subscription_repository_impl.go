@@ -13,11 +13,18 @@ import (
 // SubscriptionRepositoryImpl implements SubscriptionRepository using gorm O/R mapping
 type SubscriptionRepositoryImpl struct {
 	db *gorm.DB
+	*BaseRepositoryImpl
 }
 
 // NewSubscriptionRepositoryImpl creates new instance for subscription-repository
-func NewSubscriptionRepositoryImpl(db *gorm.DB) (*SubscriptionRepositoryImpl, error) {
-	return &SubscriptionRepositoryImpl{db: db}, nil
+func NewSubscriptionRepositoryImpl(
+	db *gorm.DB,
+	objectUpdatedHandler ObjectUpdatedHandler,
+) (*SubscriptionRepositoryImpl, error) {
+	return &SubscriptionRepositoryImpl{
+		db:                 db,
+		BaseRepositoryImpl: NewBaseRepositoryImpl(objectUpdatedHandler),
+	}, nil
 }
 
 // Query finds matching subscriptions by parameters
@@ -104,11 +111,13 @@ func (sr *SubscriptionRepositoryImpl) Delete(
 		return common.NewNotFoundError(
 			fmt.Errorf("failed to delete subscription with id %v, rows %v", id, res.RowsAffected))
 	}
+	sr.FireObjectUpdatedHandler(qc, id, ObjectDeleted, nil)
 	return nil
 }
 
 // Create persists subscription
 func (sr *SubscriptionRepositoryImpl) Create(
+	qc *common.QueryContext,
 	subscription *common.Subscription) (*common.Subscription, error) {
 	err := subscription.Validate()
 	if err != nil {
@@ -136,6 +145,9 @@ func (sr *SubscriptionRepositoryImpl) Create(
 		}
 		return nil
 	})
+	if err == nil {
+		sr.FireObjectUpdatedHandler(qc, subscription.ID, ObjectUpdated, subscription)
+	}
 	return subscription, err
 }
 
@@ -176,5 +188,8 @@ func (sr *SubscriptionRepositoryImpl) Update(
 		}
 		return nil
 	})
+	if err == nil {
+		sr.FireObjectUpdatedHandler(qc, subscription.ID, ObjectUpdated, subscription)
+	}
 	return subscription, err
 }

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
@@ -30,11 +29,12 @@ func Test_ShouldQueryJobConfigs(t *testing.T) {
 	// GIVEN job config controller
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	var qc = common.NewQueryContext("test-user", "test-org", "")
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 
 	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-	job, err := jobDefinitionRepository.Save(qc, newTestJobDefinition("my-job"))
+	job, err := repository.SaveTestJobDefinition(qc, "my-job", "")
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobConfigController(auditRecordRepository, jobDefinitionRepository, webServer)
@@ -43,6 +43,7 @@ func Test_ShouldQueryJobConfigs(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["job"] = job.ID
 	err = ctrl.queryJobConfigs(ctx)
 	require.NoError(t, err)
@@ -53,14 +54,15 @@ func Test_ShouldQueryJobConfigs(t *testing.T) {
 }
 
 func Test_ShouldGetJobConfig(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN job config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 
 	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-	job, err := jobDefinitionRepository.Save(qc, newTestJobDefinition("my-job"))
+	job, err := repository.SaveTestJobDefinition(qc, "my-job", "")
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobConfigController(auditRecordRepository, jobDefinitionRepository, webServer)
@@ -69,6 +71,7 @@ func Test_ShouldGetJobConfig(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["job"] = job.ID
 	ctx.Params["id"] = job.Configs[0].ID
 	err = ctrl.getJobConfig(ctx)
@@ -80,15 +83,14 @@ func Test_ShouldGetJobConfig(t *testing.T) {
 }
 
 func Test_ShouldUpdateJobConfig(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
-	user := common.NewUser("test-org", "username", "name", "email@formicary.io", false)
-	user.ID = qc.UserID
 	// GIVEN job config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-	job, err := jobDefinitionRepository.Save(qc, newTestJobDefinition("my-job"))
+	job, err := repository.SaveTestJobDefinition(qc, "my-job", "")
 	require.NoError(t, err)
 	require.NotNil(t, job)
 	jobCfg, err := job.AddConfig("k1", "v1", false)
@@ -101,7 +103,7 @@ func Test_ShouldUpdateJobConfig(t *testing.T) {
 	// WHEN saving job config
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, user)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["job"] = job.ID
 	err = ctrl.postJobConfig(ctx)
 
@@ -113,7 +115,7 @@ func Test_ShouldUpdateJobConfig(t *testing.T) {
 	// WHEN updating job config
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, user)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["job"] = job.ID
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putJobConfig(ctx)
@@ -124,13 +126,14 @@ func Test_ShouldUpdateJobConfig(t *testing.T) {
 }
 
 func Test_ShouldDeleteJobConfig(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN job config controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobDefinitionRepository, err := repository.NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-	job, err := jobDefinitionRepository.Save(qc, newTestJobDefinition("my-job"))
+	job, err := repository.SaveTestJobDefinition(qc, "my-job", "")
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobConfigController(auditRecordRepository, jobDefinitionRepository, webServer)
@@ -140,6 +143,7 @@ func Test_ShouldDeleteJobConfig(t *testing.T) {
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
 	ctx.Params["job"] = job.ID
 	ctx.Params["id"] = job.Configs[0].ID
+	ctx.Set(web.DBUser, qc.User)
 	err = ctrl.deleteJobConfig(ctx)
 
 	// THEN it should not fail

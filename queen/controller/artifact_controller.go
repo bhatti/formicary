@@ -25,11 +25,11 @@ func NewArtifactController(
 		artifactManager: artifactManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/api/artifacts", ac.queryArtifacts, acl.New(acl.Artifact, acl.Query)).Name = "query_artifacts"
-	webserver.GET("/api/artifacts/:id", ac.getArtifact, acl.New(acl.Artifact, acl.View)).Name = "get_artifact"
-	webserver.GET("/api/artifacts/:id/download", ac.downloadArtifact, acl.New(acl.Artifact, acl.View)).Name = "download_artifact"
-	webserver.POST("/api/artifacts", ac.uploadArtifact, acl.New(acl.Artifact, acl.Upload)).Name = "post_artifact"
-	webserver.DELETE("/api/artifacts/:id", ac.deleteArtifact, acl.New(acl.Artifact, acl.Delete)).Name = "delete_artifact"
+	webserver.GET("/api/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_artifacts"
+	webserver.GET("/api/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_artifact"
+	webserver.GET("/api/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_artifact"
+	webserver.POST("/api/artifacts", ac.uploadArtifact, acl.NewPermission(acl.Artifact, acl.Upload)).Name = "post_artifact"
+	webserver.DELETE("/api/artifacts/:id", ac.deleteArtifact, acl.NewPermission(acl.Artifact, acl.Delete)).Name = "delete_artifact"
 	return ac
 }
 

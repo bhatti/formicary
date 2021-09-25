@@ -17,7 +17,7 @@ import (
 // DashboardManager for managing artifacts
 type DashboardManager struct {
 	serverCfg         *config.ServerConfig
-	repositoryFactory *repository.Factory
+	repositoryFactory *repository.Locator
 	jobStatsRegistry  *stats.JobStatsRegistry
 	resourceManager   resource.Manager
 	heathMonitor      *health.Monitor
@@ -33,7 +33,7 @@ type HealthStatusResponse struct {
 // NewDashboardManager manages stats
 func NewDashboardManager(
 	serverCfg *config.ServerConfig,
-	repositoryFactory *repository.Factory,
+	repositoryFactory *repository.Locator,
 	jobStatsRegistry *stats.JobStatsRegistry,
 	resourceManager resource.Manager,
 	heathMonitor *health.Monitor,
@@ -227,7 +227,7 @@ func (s *DashboardManager) OrgCounts() (int64, error) {
 		s.serverCfg.Jobs.DBObjectCache*2, func() (interface{}, error) {
 			params := make(map[string]interface{})
 			return s.repositoryFactory.OrgRepository.Count(
-				common.NewQueryContext("", "", ""),
+				common.NewQueryContext(nil, ""),
 				params)
 		})
 	if err != nil {
@@ -254,7 +254,7 @@ func (s *DashboardManager) JobDefinitionCounts(
 
 // PluginCounts - finds plugin counts
 func (s *DashboardManager) PluginCounts() (int64, error) {
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	key := fmt.Sprintf("PluginCounts:%s", qc.String())
 	item, err := s.cache.Fetch(key,
 		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {

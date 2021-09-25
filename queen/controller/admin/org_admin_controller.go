@@ -3,9 +3,10 @@ package admin
 import (
 	"fmt"
 	"net/http"
+	"time"
+
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
-	"time"
 
 	"plexobject.com/formicary/internal/acl"
 
@@ -29,13 +30,13 @@ func NewOrganizationAdminController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.GET("/dashboard/orgs", jraCtr.queryOrganizations, acl.New(acl.Organization, acl.Query)).Name = "query_admin_orgs"
-	webserver.GET("/dashboard/orgs/new", jraCtr.newOrganization, acl.New(acl.Organization, acl.Create)).Name = "new_admin_orgs"
-	webserver.POST("/dashboard/orgs", jraCtr.createOrganization, acl.New(acl.Organization, acl.Create)).Name = "create_admin_orgs"
-	webserver.POST("/dashboard/orgs/:id", jraCtr.updateOrganization, acl.New(acl.Organization, acl.Update)).Name = "update_admin_orgs"
-	webserver.GET("/dashboard/orgs/:id", jraCtr.getOrganization, acl.New(acl.Organization, acl.View)).Name = "get_admin_orgs"
-	webserver.GET("/dashboard/orgs/:id/edit", jraCtr.editOrganization, acl.New(acl.Organization, acl.Update)).Name = "edit_admin_orgs"
-	webserver.POST("/dashboard/orgs/:id/delete", jraCtr.deleteOrganization, acl.New(acl.Organization, acl.Delete)).Name = "delete_admin_orgs"
+	webserver.GET("/dashboard/orgs", jraCtr.queryOrganizations, acl.NewPermission(acl.Organization, acl.Query)).Name = "query_admin_orgs"
+	webserver.GET("/dashboard/orgs/new", jraCtr.newOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "new_admin_orgs"
+	webserver.POST("/dashboard/orgs", jraCtr.createOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "create_admin_orgs"
+	webserver.POST("/dashboard/orgs/:id", jraCtr.updateOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_admin_orgs"
+	webserver.GET("/dashboard/orgs/:id", jraCtr.getOrganization, acl.NewPermission(acl.Organization, acl.View)).Name = "get_admin_orgs"
+	webserver.GET("/dashboard/orgs/:id/edit", jraCtr.editOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "edit_admin_orgs"
+	webserver.POST("/dashboard/orgs/:id/delete", jraCtr.deleteOrganization, acl.NewPermission(acl.Organization, acl.Delete)).Name = "delete_admin_orgs"
 	return jraCtr
 }
 
@@ -132,8 +133,8 @@ func (oc *OrganizationAdminController) getOrganization(c web.WebContext) error {
 	}
 	resources := make([]map[string]interface{}, 0)
 	orgQC := qc
-	if qc.Admin() {
-		orgQC = common.NewQueryContext("", id, "")
+	if qc.IsAdmin() {
+		orgQC = common.NewQueryContextFromIDs("", id)
 	}
 	if cpuUsage, err := oc.userManager.GetCPUResourceUsage(
 		orgQC, ranges); err == nil {
@@ -210,10 +211,10 @@ func (oc *OrganizationAdminController) deleteOrganization(c web.WebContext) erro
 func buildOrganization(c web.WebContext) *common.Organization {
 	qc := web.BuildQueryContext(c)
 	org := common.NewOrganization(
-		qc.UserID,
+		qc.GetUserID(),
 		c.FormValue("orgUnit"),
 		c.FormValue("orgBundle"),
 	)
-	org.OwnerUserID = qc.UserID
+	org.OwnerUserID = qc.GetUserID()
 	return org
 }

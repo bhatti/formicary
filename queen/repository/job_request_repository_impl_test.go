@@ -17,6 +17,8 @@ func Test_ShouldGetJobRequestNonExistingId(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN fetching non-existing request-id
 	_, err = repo.Get(qc, 143242)
@@ -89,16 +91,18 @@ func Test_ShouldSaveValidJobRequest(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a job-definition in the database
-	job, err := saveTestJobDefinition("test-job-for-request-without-params", "")
+	job, err := SaveTestJobDefinition(qc, "test-job-for-request-without-params", "")
 	require.NoError(t, err)
 
 	// WHEN saving request
 	req, err := types.NewJobRequestFromDefinition(job)
 	require.NoError(t, err)
-	req.UserID = "test-user"
-	req.OrganizationID = "test-org"
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
 	_, _ = req.AddParam("jk1", "jv1")
 	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
 	saved, err := repo.Save(req)
@@ -139,8 +143,10 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// AND a job-definition
-	job, err := saveTestJobDefinition("test-job-for-state-update", "")
+	job, err := SaveTestJobDefinition(qc, "test-job-for-state-update", "")
 	require.NoError(t, err)
 
 	// WHEN updating state of non-existing request should fail
@@ -151,8 +157,8 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	// WHEN saving a job-request
 	req, err := types.NewJobRequestFromDefinition(job)
 	require.NoError(t, err)
-	req.UserID = "test-user"
-	req.OrganizationID = "test-org"
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
 	// Saving request
 	_, err = repo.Save(req)
 	require.NoError(t, err)
@@ -179,8 +185,10 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// AND a job-definition
-	job, err := saveTestJobDefinition("test-job-for-state-update", "")
+	job, err := SaveTestJobDefinition(qc, "test-job-for-state-update", "")
 	require.NoError(t, err)
 
 	// WHEN marking nonexisting request as executing
@@ -191,8 +199,8 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 	// WHEN saving job-request
 	req, err := types.NewJobRequestFromDefinition(job)
 	require.NoError(t, err)
-	req.UserID = "test-user"
-	req.OrganizationID = "test-org"
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
 	_, err = repo.Save(req)
 	require.NoError(t, err)
 
@@ -228,8 +236,10 @@ func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// AND a job-definition
-	job, err := saveTestJobDefinition("test-job-for-priority-update", "")
+	job, err := SaveTestJobDefinition(qc, "test-job-for-priority-update", "")
 	require.NoError(t, err)
 
 	// WHEN updating priority of non-existing request
@@ -240,8 +250,8 @@ func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 	// GIVE a saved a job-request
 	req, err := types.NewJobRequestFromDefinition(job)
 	require.NoError(t, err)
-	req.UserID = "test-user"
-	req.OrganizationID = "test-org"
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
 	_, err = repo.Save(req)
 	require.NoError(t, err)
 
@@ -264,7 +274,9 @@ func Test_ShouldQueryJobRequest(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
-	job, err := saveTestJobDefinition("simple-job-for-query", "")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "simple-job-for-query", "")
 	require.NoError(t, err)
 
 	// AND a set of job requests in the database
@@ -277,8 +289,8 @@ func Test_ShouldQueryJobRequest(t *testing.T) {
 		for j := 0; j < max; j++ {
 			_, _ = req.AddParam(fmt.Sprintf("k%v", j), j)
 		}
-		req.UserID = "test-user"
-		req.OrganizationID = "test-org"
+		req.UserID = qc.User.ID
+		req.OrganizationID = qc.User.OrganizationID
 		saved, err := repo.Save(req)
 		require.NoError(t, err)
 		requests[saved.ID] = saved
@@ -310,16 +322,18 @@ func Test_ShouldUpdateAndQueryWithMultipleOperators(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of job requests in the database
 	requests := make([]*types.JobRequest, 10)
 	for i := 0; i < 10; i++ {
-		job, err := saveTestJobDefinition(fmt.Sprintf("job-for-requests-with-params-%v", i), "")
+		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-requests-with-params-%v", i), "")
 		require.NoError(t, err)
 		req, err := types.NewJobRequestFromDefinition(job)
 		require.NoError(t, err)
-		req.UserID = "test-user"
-		req.OrganizationID = "test-org"
+		req.UserID = qc.User.ID
+		req.OrganizationID = qc.User.OrganizationID
 		max := rand.Intn(5) + 2
 		for j := 0; j < max; j++ {
 			_, _ = req.AddParam(fmt.Sprintf("k%v", j), j)
@@ -402,6 +416,8 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	now := time.Now()
 
@@ -410,7 +426,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		jobType := fmt.Sprintf("time-job-%v-%v", i, now.Format("15:04:05"))
 		jobTypes = append(jobTypes, jobType)
-		job, err := saveTestJobDefinition(jobType, "")
+		job, err := SaveTestJobDefinition(qc, jobType, "")
 		require.NoError(t, err)
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
 			common.EXECUTING, common.COMPLETED, common.FAILED}
@@ -445,6 +461,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	now := time.Now()
 	cronTriggers := []string{"0 0 * * * * *", "0 0 0 * * * *", "0 0 0 * * 0 *",
@@ -453,7 +471,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 	// AND a set of test requests in the database
 	for i := 0; i < 10; i++ {
 		jobType := fmt.Sprintf("cron-job-%v-%v", i, now.Format("15:04:05"))
-		job, err := saveTestJobDefinition(jobType, cronTriggers[i%len(cronTriggers)])
+		job, err := SaveTestJobDefinition(qc, jobType, cronTriggers[i%len(cronTriggers)])
 		require.NoError(t, err)
 		jobTypes = append(jobTypes, types.NewJobTypeCronTrigger(job))
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
@@ -466,8 +484,8 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				require.NoError(t, err)
 				_, _ = req.AddParam("p1", "v1")
 				_, _ = req.AddParam("p2", "v2")
-				req.UserID = "test-user"
-				req.OrganizationID = "test-org"
+				req.UserID = qc.User.ID
+				req.OrganizationID = qc.User.OrganizationID
 				_, err = repo.Save(req)
 				require.NoError(t, err)
 				req.JobState = jobState
@@ -507,20 +525,22 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	now := time.Now()
 	// GIVEN a job-resource repository
-	repo, err := NewTestJobRequestRepository()
+	jobRequestRepository, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
-	repo.Clear()
+	jobRequestRepository.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	start := time.Now()
 
 	// WHEN scheduling jobs with empty database
-	infos, err := repo.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 100)
+	infos, err := jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 100)
 	// THEN it should match 0 count
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
 
 	// GIVEN a test requests in the database
 	for i := 0; i < 5; i++ {
-		job, err := saveTestJobDefinition(fmt.Sprintf("job-for-infos-%v-%v", i, now.Format("15:04:05")), "")
+		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-infos-%v-%v", i, now.Format("15:04:05")), "")
 		require.NoError(t, err)
 		// half will be saved as PENDING and half as READY
 		for j := 0; j < 20; j++ {
@@ -530,7 +550,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
 			// first two outer rows should leave 10 * 2 = pending jobs
 			req.ScheduledAt = start.Add(time.Duration(i-1) * time.Second)
-			_, err = repo.Save(req)
+			_, err = jobRequestRepository.Save(req)
 			require.NoError(t, err)
 			if j%2 == 0 {
 				req.JobState = common.PENDING
@@ -539,7 +559,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 			}
 			req.JobPriority = j
 			// updating state and priority
-			_, err = repo.Save(req)
+			_, err = jobRequestRepository.Save(req)
 			require.NoError(t, err)
 		}
 	}
@@ -547,20 +567,21 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	params := make(map[string]interface{})
 
 	// WHEN counting request
-	total, err := repo.Count(common.NewQueryContext("", "", ""), params)
+	total, err := jobRequestRepository.Count(common.NewQueryContext(nil, ""), params)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(100), total)
 
+	fmt.Printf("========\n")
 	// WHEN counting request by organization
-	total, err = repo.Count(common.NewQueryContext("", "org_0", ""), params)
+	total, err = jobRequestRepository.Count(common.NewQueryContextFromIDs("", "org_0"), params)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(20), total)
 
 	// WHEN querying PENDING requests
-	jobs, total, err := repo.Query(
-		common.NewQueryContext("", "", ""),
+	jobs, total, err := jobRequestRepository.Query(
+		common.NewQueryContext(nil, ""),
 		map[string]interface{}{"job_state": common.PENDING}, 0, 20, []string{})
 	// THEN it should match expected count
 	require.NoError(t, err)
@@ -568,27 +589,27 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.Equal(t, 20, len(jobs))
 
 	// WHEN scheduling jobs (top pending jobs)
-	infos, err = repo.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = repo.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
 		require.NoError(t, err)
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = repo.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = repo.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
 		require.NoError(t, err)
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = repo.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
 	// THEN it should return 0 records
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
@@ -600,11 +621,13 @@ func Test_ShouldQueryDeadIDs(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	states := []string{"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED",
 		"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED"}
 	// AND a test requests in the database
 	for i := 0; i < 20; i++ {
-		job, err := saveTestJobDefinition("dead-job", "")
+		job, err := SaveTestJobDefinition(qc, "dead-job", "")
 		require.NoError(t, err)
 		for _, state := range states {
 			req, err := types.NewJobRequestFromDefinition(job)
@@ -614,8 +637,8 @@ func Test_ShouldQueryDeadIDs(t *testing.T) {
 
 			// updating state
 			req.JobState = common.NewRequestState(state)
-			req.UserID = "test-user"
-			req.OrganizationID = "test-org"
+			req.UserID = qc.User.ID
+			req.OrganizationID = qc.User.OrganizationID
 			_, err = repo.Save(req)
 			require.NoError(t, err)
 		}
@@ -651,7 +674,9 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
-	job, err := saveTestJobDefinition("job-for-aggregate-states", "")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "job-for-aggregate-states", "")
 	require.NoError(t, err)
 	states := []string{"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED",
 		"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED"}
@@ -678,7 +703,7 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 	params["job_type"] = job.JobType
 
 	// WHEN querying jobs by job-type and PENDING
-	recs, total, err := repo.Query(common.NewQueryContext("", "", ""), params, 0, 10, make([]string, 0))
+	recs, total, err := repo.Query(common.NewQueryContext(nil, ""), params, 0, 10, make([]string, 0))
 	for _, rec := range recs {
 		require.Equal(t, common.PENDING, rec.JobState)
 	}
@@ -689,7 +714,7 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 
 	// WHEN querying job requests by DONE state
 	params["job_state"] = "DONE"
-	recs, total, err = repo.Query(common.NewQueryContext("", "", ""), params, 0, 50, make([]string, 0))
+	recs, total, err = repo.Query(common.NewQueryContext(nil, ""), params, 0, 50, make([]string, 0))
 	for _, rec := range recs {
 		if rec.JobState != "FAILED" && rec.JobState != "COMPLETED" && rec.JobState != "CANCELLED" {
 			t.Fatalf("unexpected state of req %v", rec)
@@ -702,7 +727,7 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 
 	// WHEN querying jobs by RUNNING state
 	params["job_state"] = "RUNNING"
-	recs, total, err = repo.Query(common.NewQueryContext("", "", ""), params, 0, 100, make([]string, 0))
+	recs, total, err = repo.Query(common.NewQueryContext(nil, ""), params, 0, 100, make([]string, 0))
 	for _, rec := range recs {
 		if rec.JobState != "STARTED" && rec.JobState != "EXECUTING" {
 			t.Fatalf("unexpected state of req %v", rec)
@@ -715,7 +740,7 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 
 	// WHEN querying state by WAITING
 	params["job_state"] = "WAITING"
-	recs, total, err = repo.Query(common.NewQueryContext("", "", ""), params, 0, 100, make([]string, 0))
+	recs, total, err = repo.Query(common.NewQueryContext(nil, ""), params, 0, 100, make([]string, 0))
 	for _, rec := range recs {
 		if rec.JobState != "PENDING" && rec.JobState != "READY" {
 			t.Fatalf("unexpected state of req %v", rec)
@@ -734,11 +759,13 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	states := []string{"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED"}
 
 	// GIVEN a set of test requests in the database
 	for i := 0; i < 10; i++ {
-		job, err := saveTestJobDefinition(fmt.Sprintf("job-for-stale-%v-%v", i, now), "")
+		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-stale-%v-%v", i, now), "")
 		require.NoError(t, err)
 		for j, state := range states {
 			req, err := types.NewJobRequestFromDefinition(job)
@@ -757,7 +784,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 
 	// WHEN querying jobs
 	_, total, err := repo.Query(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		map[string]interface{}{}, 0, 10000, []string{})
 	// THEN it should match expected count
 	require.NoError(t, err)
@@ -766,7 +793,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 
 	// WHEN querying RUNNING state
 	_, total, err = repo.Query(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		map[string]interface{}{"job_state": "RUNNING"}, 0, 10000, []string{})
 	// THEN it should match expected count
 	require.NoError(t, err)
@@ -790,7 +817,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 
 	for _, rec := range recs {
 		// WHEN restarting orphan requests
-		err = repo.Restart(common.NewQueryContext(rec.UserID, "", ""), rec.ID)
+		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID)
 		require.NoError(t, err)
 		// AND incrementing schedule attempts
 		err = repo.IncrementScheduleAttempts(
@@ -808,11 +835,13 @@ func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	states := []string{"PENDING", "READY", "STARTED", "EXECUTING", "FAILED", "COMPLETED", "CANCELLED"}
 
 	// GIVEN a set of test requests in the database
 	for i := 0; i < 10; i++ {
-		job, err := saveTestJobDefinition(fmt.Sprintf("job-for-stale-%v-%v", i, now), "")
+		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-stale-%v-%v", i, now), "")
 		require.NoError(t, err)
 		for j, state := range states {
 			req, err := types.NewJobRequestFromDefinition(job)
@@ -831,7 +860,7 @@ func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 
 	// WHEN querying jobs
 	_, total, err := repo.Query(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		map[string]interface{}{}, 0, 10000, []string{})
 	// THEN it should match expected count
 	require.NoError(t, err)
@@ -852,6 +881,8 @@ func Test_ShouldGetJobCountsByDaysWithDifferentJobTypesStatusesAndErrorCodes(t *
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN counting an empty database
 	params := make(map[string]interface{})
@@ -861,17 +892,17 @@ func Test_ShouldGetJobCountsByDaysWithDifferentJobTypesStatusesAndErrorCodes(t *
 	require.Equal(t, int64(0), total)
 
 	// WHEN getting counts from empty database
-	counts, err := repo.JobCountsByDays(common.NewQueryContext("", "", ""), 10)
+	counts, err := repo.JobCountsByDays(common.NewQueryContext(nil, ""), 10)
 	// THEN it should match 0 count
 	require.NoError(t, err)
 	require.Equal(t, 0, len(counts))
 
-	addTestJobRequests(t, repo)
+	require.NoError(t, SaveTestJobRequests(qc, "job-counts"))
 
 	params["job_state"] = "DONE"
 
 	// WHEN counting by DONE state
-	total, err = repo.Count(common.NewQueryContext("", "", ""), params)
+	total, err = repo.Count(common.NewQueryContext(nil, ""), params)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(200), total)
@@ -879,20 +910,20 @@ func Test_ShouldGetJobCountsByDaysWithDifferentJobTypesStatusesAndErrorCodes(t *
 	params["job_state"] = "DONE"
 	// WHEN querying by DONE state
 	_, total, err = repo.Query(
-		common.NewQueryContext("", "", ""),
+		common.NewQueryContext(nil, ""),
 		params, 0, 1000, make([]string, 0))
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(200), total)
 
 	// WHEN getting job counts by days
-	counts, err = repo.JobCountsByDays(common.NewQueryContext("", "", ""), 10)
+	counts, err = repo.JobCountsByDays(common.NewQueryContext(nil, ""), 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(counts))
 
 	// WHEN counting by org-id
-	counts, err = repo.JobCountsByDays(common.NewQueryContext("", "org_0", ""), 10)
+	counts, err = repo.JobCountsByDays(common.NewQueryContextFromIDs("", "org_0"), 10)
 	// THEN it should not fail
 	require.NoError(t, err)
 }
@@ -905,6 +936,8 @@ func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testin
 	repo, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	params := make(map[string]interface{})
 
 	// WHEN counting an empty database
@@ -914,12 +947,12 @@ func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testin
 	require.Equal(t, int64(0), total)
 
 	// WHEN getting counts from empty database
-	counts, err := repo.JobCounts(common.NewQueryContext("", "", ""), start, end)
+	counts, err := repo.JobCounts(common.NewQueryContext(nil, ""), start, end)
 	// THEN it should match 0count
 	require.NoError(t, err)
 	require.Equal(t, 0, len(counts))
 
-	addTestJobRequests(t, repo)
+	require.NoError(t, SaveTestJobRequests(qc, "job-counts-with-status"))
 
 	params["job_state"] = "DONE"
 
@@ -939,78 +972,13 @@ func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testin
 	end = time.Now().Add(24 * time.Hour)
 
 	// WHEN getting counts
-	_, err = repo.JobCounts(common.NewQueryContext("", "", ""), start, end)
+	_, err = repo.JobCounts(common.NewQueryContext(nil, ""), start, end)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN getting counts by org
-	_, err = repo.JobCounts(common.NewQueryContext("", "org_0", ""), start, end)
+	_, err = repo.JobCounts(common.NewQueryContextFromIDs("", "org_0"), start, end)
 	// THEN it should not fail
 	require.NoError(t, err)
-}
-
-// Saving job-execution for given request
-func saveTestJobExecutionForRequest(req *types.JobRequest, job *types.JobDefinition) (*types.JobExecution, error) {
-	repo, err := NewTestJobExecutionRepository()
-	if err != nil {
-		return nil, err
-	}
-	jobExec := types.NewJobExecution(req.ToInfo())
-	_, _ = jobExec.AddContext("jk1", "jv1")
-	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
-	_, _ = jobExec.AddContext("jk3", "jv3")
-	for _, t := range job.Tasks {
-		task := jobExec.AddTask(t)
-		_, _ = task.AddContext("tk1", "v1")
-		_, _ = task.AddContext("tk2", []string{"i", "j", "k"})
-	}
-	return repo.Save(jobExec)
-}
-
-// helper method to create a job and save it in the database.
-func saveTestJobDefinition(name string, cronTrigger string) (*types.JobDefinition, error) {
-	repo, err := NewTestJobDefinitionRepository()
-	if err != nil {
-		return nil, fmt.Errorf("unexpected error %v while creating a job repository", err)
-	}
-	job := newTestJobDefinition(name)
-	job.CronTrigger = cronTrigger
-	return repo.Save(qc, job)
-}
-
-func addTestJobRequests(t *testing.T, repo *JobRequestRepositoryImpl) {
-	errorCodes := []string{"ERR_CODE1", "ERR_CODE2"}
-	// GIVEN a set of test job requests in the database
-	for i := 0; i < 20; i++ {
-		job, err := saveTestJobDefinition(fmt.Sprintf("job-for-counts-%v", i), "")
-		require.NoError(t, err)
-		for j := 0; j < 15; j++ {
-			req, err := types.NewJobRequestFromDefinition(job)
-			require.NoError(t, err)
-			req.OrganizationID = fmt.Sprintf("org_%d", i)
-			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
-			req.JobPriority = rand.Intn(100)
-			_, err = repo.Save(req)
-			require.NoError(t, err)
-			if j < 5 {
-				if j%2 == 0 {
-					req.JobState = common.PENDING
-				} else {
-					req.JobState = common.READY
-				}
-			} else if j%2 == 0 {
-				req.JobState = common.COMPLETED
-			} else {
-				req.JobState = common.FAILED
-				req.ErrorCode = errorCodes[i%len(errorCodes)]
-			}
-			req.UserID = "test-user"
-			req.OrganizationID = "test-org"
-
-			// updating state and error code
-			_, err = repo.Save(req)
-			require.NoError(t, err)
-		}
-	}
 }
 

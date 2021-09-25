@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
@@ -22,7 +23,7 @@ func NewAuditController(
 		auditRecordRepository: auditRecordRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/api/audits", c.queryAudits, acl.New(acl.Audit, acl.Query)).Name = "query_audits"
+	webserver.GET("/api/audits", c.queryAudits, acl.NewPermission(acl.Audit, acl.Query)).Name = "query_audits"
 	return c
 }
 

@@ -40,17 +40,21 @@ type UserInvitation struct {
 func NewUserInvitation(
 	email string,
 	byUser *common.User,
-	org *common.Organization,
-) *UserInvitation {
-	return &UserInvitation{
+) (inv *UserInvitation) {
+	inv = &UserInvitation{
 		Email:           email,
 		InvitationCode:  randomString(20),
 		InvitedByUserID: byUser.ID,
 		OrganizationID:  byUser.OrganizationID,
-		OrgUnit:         org.OrgUnit,
 		ExpiresAt:       time.Now().Add(time.Hour * 24 * 3),
 		CreatedAt:       time.Now(),
 	}
+	if byUser.HasOrganization() {
+		inv.OrgUnit = byUser.Organization.OrgUnit
+	} else {
+		inv.OrgUnit = byUser.OrgUnit
+	}
+	return
 }
 
 // TableName overrides default table name

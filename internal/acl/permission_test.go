@@ -7,7 +7,7 @@ import (
 
 // Verify permission
 func Test_ShouldMatchPermission(t *testing.T) {
-	p := New(JobRequest, Read|Update)
+	p := NewPermission(JobRequest, Read|Update)
 
 	require.True(t, p.Has(Read))
 	require.True(t, p.Has(Update))
@@ -15,19 +15,19 @@ func Test_ShouldMatchPermission(t *testing.T) {
 }
 
 // Verify marshal
-func Test_ShouldMarshalPermissions(t *testing.T) {
-	ser := Marshal([]*Permission{
-		New(JobRequest, Submit|Execute),
-		New(JobDefinition, Create|Read|Update),
-		New(JobResource, Delete|View|Write),
-		New(User, View|Write),
-		New(Organization, View|Write),
-		New(SystemConfig, View|Write),
-		New(OrgConfig, View|Write),
-		New(ErrorCode, View|Write),
-		New(Artifact, View|Write),
+func Test_ShouldMarshalPermissionsPermissions(t *testing.T) {
+	ser := MarshalPermissions([]*Permission{
+		NewPermission(JobRequest, Submit|Execute),
+		NewPermission(JobDefinition, Create|Read|Update),
+		NewPermission(JobResource, Delete|View|Write),
+		NewPermission(User, View|Write),
+		NewPermission(Organization, View|Write),
+		NewPermission(SystemConfig, View|Write),
+		NewPermission(OrgConfig, View|Write),
+		NewPermission(ErrorCode, View|Write),
+		NewPermission(Artifact, View|Write),
 	})
-	perms := Unmarshal(ser)
+	perms := UnmarshalPermissions(ser)
 	require.Equal(t, 9, len(perms))
 	require.Equal(t, JobRequest, perms[0].Resource)
 	require.True(t, perms[0].Has(Submit))
@@ -52,7 +52,7 @@ func Test_ShouldPermissions(t *testing.T) {
 	require.True(t, perms.Has(Artifact, Read))
 	require.True(t, perms.Has(Artifact, View))
 	require.True(t, perms.Has(Artifact, Upload))
-	t.Logf("%s", ser)
+	t.Logf("permissions: %s", ser)
 }
 
 // Verify wild permissions

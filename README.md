@@ -1,21 +1,17 @@
 # formicary
 
-The formicary is a distributed "job management system" that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell or http executors.
+The formicary is a distributed "job management system" that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.
 
 ## Overview
 
 The formicary is a distributed "job management system" for executing background jobs that are executed remotely using
-Docker/Kubernetes/Shell/HTTP and other protocols. A job is comprises directed acyclic graph of tasks and job definition is defined in a yaml configuration file.
-The architecture is based on a queen (leader) and ant (follower/worker) pattern
-where queen node schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant workers
-that match tags specified by the task and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen server
-encompasses resource-manager, job-scheduler, job-launcher, job/task supervisors, where job-scheduler finds next job to 
-execute based on resource-manager and hands-off job to job-launcher, which then uses job-supervisor to orchestrate the job.
-The job-supervisor delegates job-execution to task-supervisor, which sends the request to a remote ant worker and then waits for the response.
-After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. 
+Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task 
+defines a unit of work. The formicary architecture is based on the *Leader-Follower* (or master/worker) pattern 
+where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers 
+based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc.
 The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, 
 which can be used by other tasks as input for their work. This allows building stages of tasks using
-Pipes and Filter pattern, where artifacts and variables can be passed from one task to another so that output of a task 
+*Pipes and Filter* pattern, where artifacts and variables can be passed from one task to another so that output of a task 
 can be used as input of another task.
 
 ## Features:
@@ -48,7 +44,7 @@ can be used as input of another task.
 
 ## Requirements:
 
-- GO 1.15+
+- GO 1.16+
 - Install Docker https://hub.docker.com/search?type=edition&offering=community
 - Kubernetes, e.g. Install minikube - https://minikube.sigs.k8s.io/docs/start/
 - Uses Redis https://redis.io/ or Apache pulsar https://pulsar.apache.org for messaging

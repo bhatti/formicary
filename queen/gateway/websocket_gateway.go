@@ -43,7 +43,7 @@ func New(
 		logsArchiver: logsArchiver,
 		registry:     NewLeaseRegistry(),
 	}
-	webserver.GET("/ws/subscriptions", gw.Register, acl.New(acl.Websocket, acl.Subscribe)).Name = "websocket_subscription"
+	webserver.GET("/ws/subscriptions", gw.Register, acl.NewPermission(acl.Websocket, acl.Subscribe)).Name = "websocket_subscription"
 	return gw
 }
 

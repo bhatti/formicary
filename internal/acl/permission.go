@@ -111,8 +111,8 @@ type Permission struct {
 	Actions  int      `json:"action"`
 }
 
-// New Constructor
-func New(resource Resource, actions int) *Permission {
+// NewPermission Constructor
+func NewPermission(resource Resource, actions int) *Permission {
 	return &Permission{Resource: resource, Actions: actions}
 }
 
@@ -210,8 +210,8 @@ func (p *Permission) LongString() string {
 	return fmt.Sprintf("%s: %s", p.Resource, p.LongAction())
 }
 
-// Marshal permissions to string
-func Marshal(perms []*Permission) string {
+// MarshalPermissions permissions to string
+func MarshalPermissions(perms []*Permission) string {
 	if len(perms) == 0 {
 		return ""
 	}
@@ -225,19 +225,19 @@ func Marshal(perms []*Permission) string {
 	return sb.String()
 }
 
-// Unmarshal converts string to permissions
-func Unmarshal(s string) []*Permission {
+// UnmarshalPermissions converts string to permissions
+func UnmarshalPermissions(s string) []*Permission {
 	res := make([]*Permission, 0)
 	if s == "" {
 		return res
 	}
-	words := strings.Split(s, ";")
-	for _, w := range words {
-		resourceAction := strings.Split(w, "=")
+	lines := strings.Split(s, ";")
+	for _, line := range lines {
+		resourceAction := strings.Split(line, "=")
 		if len(resourceAction) == 2 {
 			if action, err := strconv.Atoi(strings.TrimSpace(resourceAction[1])); err == nil {
 				resource := Resource(strings.TrimSpace(resourceAction[0]))
-				res = append(res, New(resource, action))
+				res = append(res, NewPermission(resource, action))
 			}
 		}
 	}
@@ -252,7 +252,7 @@ type Permissions struct {
 
 // NewPermissions Constructor
 func NewPermissions(str string) *Permissions {
-	perms := Unmarshal(str)
+	perms := UnmarshalPermissions(str)
 	lookup := make(map[Resource]*Permission)
 	hasWildcard := false
 	for _, p := range perms {
@@ -284,7 +284,7 @@ func (p *Permissions) Marshal() string {
 		perms[i] = p
 		i++
 	}
-	return Marshal(perms)
+	return MarshalPermissions(perms)
 }
 
 // String to string
@@ -294,62 +294,62 @@ func (p *Permissions) String() string {
 
 // DefaultPermissionsString string permissions
 func DefaultPermissionsString() string {
-	return Marshal(DefaultPermissions())
+	return MarshalPermissions(DefaultPermissions())
 }
 
 // DefaultPermissions default permissions
 func DefaultPermissions() []*Permission {
 	return []*Permission{
-		New(Audit, None),
-		New(Websocket, Subscribe),
-		New(Dashboard, View),
-		New(JobRequest, View|Execute|Submit|Cancel|Restart),
-		New(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
-		New(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
-		New(User, Read|Update|Delete|Login|Logout|Query|Signup),
-		New(Organization, Read|Update|Delete|Invite),
-		New(OrgConfig, Create|Read|Update|Delete|Query),
-		New(Artifact, Upload|Read|Query|Delete),
-		New(ErrorCode, None),
-		New(SystemConfig, None),
-		New(AntExecutor, None),
-		New(Container, None),
-		New(Health, None),
-		New(Profile, None),
-		New(Subscription, None),
-		New(TermsService, View|Read),
-		New(PrivacyPolicies, View|Read),
-		New(EmailVerification, Create|View|Read|Verify|Query),
-		New(UserInvitation, Create|View|Update|Read|Query|Invite),
+		NewPermission(Audit, None),
+		NewPermission(Websocket, Subscribe),
+		NewPermission(Dashboard, View),
+		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart),
+		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
+		NewPermission(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
+		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
+		NewPermission(Organization, Read|Update|Delete|Invite),
+		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
+		NewPermission(Artifact, Upload|Read|Query|Delete),
+		NewPermission(ErrorCode, None),
+		NewPermission(SystemConfig, None),
+		NewPermission(AntExecutor, None),
+		NewPermission(Container, None),
+		NewPermission(Health, None),
+		NewPermission(Profile, None),
+		NewPermission(Subscription, None),
+		NewPermission(TermsService, View|Read),
+		NewPermission(PrivacyPolicies, View|Read),
+		NewPermission(EmailVerification, Create|View|Read|Verify|Query),
+		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
 	}
 }
 
 // AdminPermissions admin permissions
 func AdminPermissions() []*Permission {
 	return []*Permission{
-		New(Audit, Query|View|Read),
-		New(AntExecutor, Query|View|Read),
-		New(Container, Query|View|Read|Delete),
-		New(ErrorCode, Query|View|Read|Create|Update|Delete),
-		New(Websocket, Subscribe),
-		New(Dashboard, View),
-		New(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
-		New(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
-		New(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
-		New(User, Read|Update|Delete|Login|Logout|Query|Signup),
-		New(Organization, Read|Update|Delete|Invite),
-		New(OrgConfig, Create|Read|Update|Delete|Query),
-		New(Artifact, Upload|Read|Query|Delete),
-		New(Subscription, Create|Read|Update|Delete|Query),
-		New(TermsService, View|Read),
-		New(PrivacyPolicies, View|Read),
-		New(ErrorCode, Create|Read|Update|Delete|Query),
-		New(SystemConfig, Create|Read|Update|Delete|Query),
-		New(AntExecutor, Create|Read|Update|Delete|Query),
-		New(Container, Create|Read|Update|Delete|Query),
-		New(Health, Create|Read|Update|Delete|Query),
-		New(Profile, Create|Read|Update|Delete|Query),
-		New(EmailVerification, Create|Read|Update|Delete|Query),
-		New(UserInvitation, Create|View|Update|Read|Query|Invite),
+		NewPermission(Audit, Query|View|Read),
+		NewPermission(AntExecutor, Query|View|Read),
+		NewPermission(Container, Query|View|Read|Delete),
+		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
+		NewPermission(Websocket, Subscribe),
+		NewPermission(Dashboard, View),
+		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
+		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
+		NewPermission(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
+		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
+		NewPermission(Organization, Read|Update|Delete|Invite),
+		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
+		NewPermission(Artifact, Upload|Read|Query|Delete),
+		NewPermission(Subscription, Create|Read|Update|Delete|Query),
+		NewPermission(TermsService, View|Read),
+		NewPermission(PrivacyPolicies, View|Read),
+		NewPermission(ErrorCode, Create|Read|Update|Delete|Query),
+		NewPermission(SystemConfig, Create|Read|Update|Delete|Query),
+		NewPermission(AntExecutor, Create|Read|Update|Delete|Query),
+		NewPermission(Container, Create|Read|Update|Delete|Query),
+		NewPermission(Health, Create|Read|Update|Delete|Query),
+		NewPermission(Profile, Create|Read|Update|Delete|Query),
+		NewPermission(EmailVerification, Create|Read|Update|Delete|Query),
+		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
 	}
 }

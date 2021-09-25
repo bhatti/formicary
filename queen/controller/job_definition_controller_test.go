@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
 
-	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
@@ -47,7 +47,7 @@ func Test_ShouldGetJobDefinitionsYAML(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
-	ctx.Params["type"] = "my-job"
+	ctx.Params["type"] = "io.formicary.test.my-job"
 	err := ctrl.getYamlJobDefinition(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -86,7 +86,7 @@ func Test_ShouldUploadAndGetJobDefinitionWithYAML(t *testing.T) {
 	_ = jobDefinitionUploadParams{}
 	_ = jobDefinitionBody{}
 	_ = jobDefinitionIDParams{}
-	newJob := newTestJobDefinition("job")
+	newJob := repository.NewTestJobDefinition(&common.User{}, "test-job")
 	b, err := json.Marshal(newJob)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -117,7 +117,7 @@ func Test_ShouldUploadAndGetJobDefinition(t *testing.T) {
 	_ = jobDefinitionUploadParams{}
 	_ = jobDefinitionBody{}
 	_ = jobDefinitionIDParams{}
-	newJob := newTestJobDefinition("job")
+	newJob := repository.NewTestJobDefinition(&common.User{}, "test-job")
 	b, err := json.Marshal(newJob)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -147,7 +147,7 @@ func Test_ShouldUploadAndPauseJobDefinition(t *testing.T) {
 	ctrl := NewJobDefinitionController(mgr, jobStatsRegistry, webServer)
 	_ = jobDefinitionUploadParams{}
 	_ = jobDefinitionIDParams{}
-	newJob := newTestJobDefinition("job")
+	newJob := repository.NewTestJobDefinition(&common.User{}, "test-job")
 	b, err := json.Marshal(newJob)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -179,7 +179,7 @@ func Test_ShouldUploadAndUnpauseJobDefinition(t *testing.T) {
 	_ = jobDefinitionUploadParams{}
 	_ = jobDefinitionIDParams{}
 	_ = emptyResponseBody{}
-	newJob := newTestJobDefinition("job")
+	newJob := repository.NewTestJobDefinition(&common.User{}, "test-job")
 	b, err := json.Marshal(newJob)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -210,7 +210,7 @@ func Test_ShouldUpdateConcurrency(t *testing.T) {
 	_ = jobDefinitionIDParams{}
 	_ = jobDefinitionUploadParams{}
 	_ = jobDefinitionConcurrencyParams{}
-	newJob := newTestJobDefinition("job")
+	newJob := repository.NewTestJobDefinition(&common.User{}, "test-job")
 	b, err := json.Marshal(newJob)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -233,17 +233,4 @@ func Test_ShouldUpdateConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error %s %v", err, queryOut)
 	}
-}
-
-func newTestJobDefinition(name string) *types.JobDefinition {
-	job := types.NewJobDefinition(name)
-	job.UserID = "test-user"
-	job.OrganizationID = "test-org"
-	job.MaxConcurrency = rand.Int() + 1
-	task1 := types.NewTaskDefinition("task1", common.Shell)
-	task1.Method = common.Docker
-	job.AddTask(task1)
-	_, _ = job.AddConfig("name", "value", false)
-	job.UpdateRawYaml()
-	return job
 }

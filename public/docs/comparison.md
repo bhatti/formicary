@@ -1,20 +1,22 @@
 ### Comparison with other Actions, DAG, Jobs, Pipeline or Workflow Solutions
 
-| Feature               | Airflow  | Azure     | CircleCI  | Formicary    | GitHub    | Gitlab    | Jenkins     |
+| Feature               | Airflow   | Azure     | CircleCI  | Formicary    | GitHub    | Gitlab    | Jenkins     |
 |-----------------------|-----------|-----------|-----------|--------------|-----------|-----------|-------------|
 | **Tool Category**     | DAG       | CI-CD     | CD-CD     | DAG-Workflow | CI-CD     | CI-CD     | CI-CD       |
+| **Definition Format** | Python    | UI        | YAML      | YAML         | YAML      | TOML      | DSL         |
 | **Docker Images**     | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Indirectly  |
-| **Definition Format** | Python    | API       | YAML      | YAML         | YAML      | TOML      | DSL         |
+| **K8 Svc/Vols/labels**| Yes       | No        | No        | Yes          | No        | Yes       | No          |
+| **K8 Lmt CPU/Memory** | Yes       | No        | No        | Yes          | No        | Yes       | No          |
+| **Job/Task API**      | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
+| **Request Params**    | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
 | **Artifacts**         | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
-| **NPM/Maven/etc Caching** | No        | Yes       | Yes       | Yes      | No        | Yes       | No          |
+| **NPM/Mvn/.. Caching**| No        | Yes       | Yes       | Yes          | No        | Yes       | No          |
 | **Dynamic Workflow**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Job Priority**      | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Task/Workers Tags** | Yes       | No        | No        | Yes          | No        | Yes       | Yes (Agents)|
 | **Conditional Flow**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Cron/Scheduling**   | Yes       | Yes       | Yes       | Yes          | No        | Yes       | Yes         |
-| **Job/Task API**      | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
-| **Limit CPU/Memory**  | Yes       | No        | No        | Yes          | No        | Yes       | No          |
-| **Request Params**    | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
+| **Streaming Logs**    | No        | Yes       | Yes       | Yes          | No        | Yes       | Yes         |
 | **Task Variables**    | Yes       | No        | Yes       | Yes          | NO        | Yes       | No          |
 | **Job Config/Secrets**| Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
 | **Org Config/Secrets**| No        | No        | Yes       | Yes          | No        | No        | No          |
@@ -22,10 +24,11 @@
 | **Template Support**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Shell Execution**   | Yes       | Yes       | No        | Yes          | No        | No        | Yes         |
 | **HTTP Execution**    | via Python| via Script| via Script| Native Exec. | via Script| via Script| via Script  |
+| **Messaging Exec**    | No        | No        | No        | Yes          | No        | No        | No          |
 | **Queuing Library**   | Celery    | Internal  | Internal  | Redis, Kafka or Pulsar| Internal | Internal  | NA  |
 | **Lifecycle Events**  | No        | No        | No        | Yes          | No        | No        | No          |
 | **Job Retries**       | Yes       | Yes       | No        | Yes          | No        | Yes       | No          |
-| **Job/Task Filtering** | No       | No        | No        | Yes          | No        | Yes       | No          |
+| **Job/Task Filtering**| No        | No        | No        | Yes          | No        | Yes       | No          |
 | **Job Timeout**       | Yes       | Yes       | No        | Yes          | No        | Yes       | No          |
 | **Task Retries**      | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Task Timeout**      | Yes       | No        | No        | Yes          | No        | No        | No          |
@@ -35,10 +38,15 @@
 | **JWT Auth**          | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **Email Notifications** | No      | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
 | **Slack Notifications** | No      | No        | No        | Yes          | No        | No        | No          |
-| **Usage Reports**     | No       | No         | No        | Yes          | No        | No        | No          |
-| **Jobs Stats**        | No       | No         | No        | Yes          | No        | No        | No          |
-| **User Mgmt**         | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
-| **Plugins**           | Yes       | Yes       | Yes       | Yes          | Yes       | No        | Yes         |
+| **Tags based routing**| No        | No        | No        | Yes          | No        | Yes       | No          |
+| **Webhooks**          | No        | No        | No        | Yes          | No        | No        | No          |
+| **Usage Reports**     | No        | No        | No        | Yes          | No        | No        | No          |
+| **Admin Dashboard**   | No        | No        | No        | Yes          | No        | No        | No          |
+| **Jobs Stats**        | No        | No        | No        | Yes          | No        | No        | No          |
+| **User Mgmt**         | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
+| **Usage Quota **      | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
+| **RBAC/ACL Security** | No        | No        | No        | Yes          | No        | No        | No          |
+| **Fork / Plugins**    | Yes       | Yes       | Yes       | Yes          | Yes       | No        | Yes         |
 | **Multi-tenancy**     | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 
 

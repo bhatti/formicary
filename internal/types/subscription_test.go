@@ -13,7 +13,7 @@ func Test_ShouldCreateSubscription(t *testing.T) {
 }
 
 func Test_ShouldCreateFreemiumSubscription(t *testing.T) {
-	subs := NewFreemiumSubscription("user", "org")
+	subs := NewFreemiumSubscription(&User{ID: "123", OrganizationID: "456"})
 	require.NotNil(t, subs)
 	require.NoError(t, subs.Validate())
 	require.NotEqual(t, "", subs.StartedString())

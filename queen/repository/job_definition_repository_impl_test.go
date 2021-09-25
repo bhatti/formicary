@@ -18,9 +18,11 @@ func Test_ShouldGetJobDefinitionWithNonExistingId(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN finding non-existing job-definition
-	_, err = repo.Get(common.NewQueryContext("", "", ""), "missing_id")
+	_, err = repo.Get(qc, "missing_id")
 
 	// THEN it should fail
 	require.Error(t, err)
@@ -31,6 +33,8 @@ func Test_ShouldGetJobDefinitionWithNonExistingId(t *testing.T) {
 func Test_ShouldGetByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN finding non-existing job-definition by type
@@ -57,9 +61,11 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND existing job-definition
-	job := newTestJobDefinition("job-with-max-concurrency")
+	job := NewTestJobDefinition(qc.User, "job-with-max-concurrency")
 	saved, err := repo.Save(qc, job)
 	require.NoError(t, err)
 
@@ -82,6 +88,8 @@ func Test_ShouldSetConcurrencyForJobDefinitionWithExistingType(t *testing.T) {
 func Test_ShouldDeleteByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN deleting non-existing job-definition
@@ -111,11 +119,13 @@ func Test_ShouldSaveJobDefinitionWithoutJobType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN saving a job without job-type
 	job := types.NewJobDefinition("")
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
 	_, err = repo.Save(qc, job)
 	// THEN it should fail
 	require.Error(t, err)
@@ -127,9 +137,11 @@ func Test_ShouldSaveValidJobDefinitionWithoutConfig(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// Saving valid job
-	job := newTestJobDefinition("valid-job-without-config")
+	job := NewTestJobDefinition(qc.User, "valid-job-without-config")
 	saved, err := repo.Save(qc, job)
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -153,9 +165,11 @@ func Test_ShouldSaveValidPlugin(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// WHEN creating a plugin job and regular jobs
 	for i := 0; i < 10; i++ {
-		job := newTestJobDefinition(fmt.Sprintf("test-plugin-%d", i))
+		job := NewTestJobDefinition(qc.User, fmt.Sprintf("test-plugin-%d", i))
 		if i%2 == 0 {
 			job.PublicPlugin = true
 			job.SemVersion = "1.0"
@@ -190,8 +204,10 @@ func Test_ShouldSaveValidJobDefinitionWithSemVersion(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// WHEN creating a plugin job
-	job := newTestJobDefinition("TestPlugin")
+	job := NewTestJobDefinition(qc.User, "TestPlugin")
 	job.PublicPlugin = true
 	_, _ = job.AddVariable("jk1", "jv1")
 	for i := 0; i < 10; i++ {
@@ -253,8 +269,10 @@ func Test_ShouldSaveValidJobDefinitionWithConfig(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// Creating a job
-	job := newTestJobDefinition("valid-job-with-config-override")
+	job := NewTestJobDefinition(qc.User, "valid-job-with-config-override")
 	_, _ = job.AddVariable("jk1", "jv1")
 	_, _ = job.AddVariable("jk2", true)
 	_, _ = job.AddConfig("a1", "b1", false)
@@ -283,7 +301,9 @@ func Test_ShouldUpdateValidJobDefinition(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	repo.Clear()
-	job := newTestJobDefinition("test-job-for-update")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job := NewTestJobDefinition(qc.User, "test-job-for-update")
 
 	// WHEN saving job
 	saved, err := repo.Save(qc, job)
@@ -326,11 +346,13 @@ func Test_ShouldPausingPersistentJobDefinition(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND an existing job
 	job := types.NewJobDefinition("test.test-job-for-pause")
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
 	task1 := types.NewTaskDefinition("task1", common.Shell)
 	job.AddTask(task1)
 	job.UpdateRawYaml()
@@ -349,11 +371,13 @@ func Test_ShouldSaveJobDefinitionWithSecretConfigSeparately(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	//repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN adding a job-definition with secret keys
 	job := types.NewJobDefinition("my-test-job")
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
 	_, _ = job.AddVariable("v1", "first")
 	_, _ = job.AddVariable("v2", 200)
 	_, _ = job.AddConfig("k0", "some-secret", true)
@@ -395,11 +419,13 @@ func Test_ShouldSaveJobDefinitionWithSecretConfig(t *testing.T) {
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 	//repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN adding a job-definition with secret keys
 	job := types.NewJobDefinition("my-job")
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
 	_, _ = job.AddVariable("v1", "first")
 	_, _ = job.AddVariable("v2", 200)
 	_, _ = job.AddConfig("k1", "my-test-secret", true)
@@ -432,11 +458,13 @@ func Test_ShouldDeletePersistentJobDefinition(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND an existing job
 	job := types.NewJobDefinition("test.test-job-for-delete")
-	job.UserID = qc.UserID
-	job.OrganizationID = qc.OrganizationID
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
 	task1 := types.NewTaskDefinition("task1", common.Shell)
 	job.AddTask(task1)
 	job.UpdateRawYaml()
@@ -444,7 +472,7 @@ func Test_ShouldDeletePersistentJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN deleting job by id
-	err = repo.Delete(common.NewQueryContext("", "", ""), saved.ID)
+	err = repo.Delete(qc, saved.ID)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -460,12 +488,15 @@ func Test_ShouldJobDefinitionQueryByJobType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-
 	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
 	jobs := make([]*types.JobDefinition, 0)
 	// AND a set of jobs in the database
 	for i := 0; i < 10; i++ {
-		job := newTestJobDefinition(fmt.Sprintf("query-job-%v", i))
+		job := NewTestJobDefinition(qc.User, fmt.Sprintf("query-job-%v", i))
 		saved, err := repo.Save(qc, job)
 		require.NoError(t, err)
 		jobs = append(jobs, saved)
@@ -493,14 +524,16 @@ func Test_ShouldDeleteJobDefinitionConfigWithMultipleVersions(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-
 	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of jobs in the database
 	for i := 0; i < 10; i++ {
 		job := types.NewJobDefinition("io.formicary.test.version-job")
-		job.UserID = "test-user"
-		job.OrganizationID = "test-org"
+		job.UserID = qc.User.ID
+		job.OrganizationID = qc.User.OrganizationID
 		if i == 0 {
 			_, _ = job.AddConfig("cf1", "v1", false)
 			_, _ = job.AddConfig("cf2", "v2", false)
@@ -542,14 +575,16 @@ func Test_ShouldSaveJobDefinitionConfigWithMultipleVersions(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-
 	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of jobs in the database
 	for i := 0; i < 10; i++ {
 		job := types.NewJobDefinition("io.formicary.test.version-job")
-		job.UserID = "test-user"
-		job.OrganizationID = "test-org"
+		job.UserID = qc.User.ID
+		job.OrganizationID = qc.User.OrganizationID
 		if i == 0 {
 			_, _ = job.AddConfig("cf1", "v1", true)
 			_, _ = job.AddConfig("cf2", "v2", false)
@@ -591,14 +626,16 @@ func Test_ShouldSaveJobDefinitionWithMultipleVersions(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-
 	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of jobs in the database
 	for i := 0; i < 10; i++ {
 		job := types.NewJobDefinition("io.formicary.test.version-job")
-		job.UserID = "test-user"
-		job.OrganizationID = "test-org"
+		job.UserID = qc.User.ID
+		job.OrganizationID = qc.User.OrganizationID
 		if i == 0 {
 			_, _ = job.AddConfig("cf1", "v1", false)
 			_, _ = job.AddConfig("cf2", "v2", false)
@@ -649,27 +686,37 @@ func Test_ShouldGetJobTypesAndCronTriggerForJobDefinition(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
-
 	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	qc2, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of jobs in the database
 	for i := 0; i < 10; i++ {
-		job := newTestJobDefinition(fmt.Sprintf("job-def-trigger-type-%v", i))
+		var job *types.JobDefinition
 		if i%2 == 0 {
+			job = NewTestJobDefinition(qc.User, fmt.Sprintf("job-def-trigger-type-%v", i))
 			job.CronTrigger = "0 19 * * *"
-			job.OrganizationID = "one"
+			_, err = repo.Save(qc, job)
 		} else {
-			job.OrganizationID = "two"
+			job = NewTestJobDefinition(qc2.User, fmt.Sprintf("job-def-trigger-type-%v", i))
+			_, err = repo.Save(qc2, job)
 		}
-		_, err := repo.Save(common.NewQueryContext(job.UserID, job.OrganizationID, ""), job)
 		require.NoError(t, err)
 	}
 	// WHEN finding job-types and cron trigger
-	all, err := repo.GetJobTypesAndCronTrigger(common.NewQueryContext("", "", "").WithAdmin())
+	all, err := repo.GetJobTypesAndCronTrigger(qc.WithAdmin())
 	// THEN it should not fail and return matching job-types
 	require.NoError(t, err)
 	require.Equal(t, 10, len(all))
-	all, err = repo.GetJobTypesAndCronTrigger(common.NewQueryContext("", "one", ""))
+
+	all, err = repo.GetJobTypesAndCronTrigger(qc)
+	require.NoError(t, err)
+	require.Equalf(t, 5, len(all), fmt.Sprintf("qc %s", qc))
+
+	all, err = repo.GetJobTypesAndCronTrigger(qc2)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(all))
 }
@@ -684,9 +731,9 @@ func Test_ShouldSaveIterateJobFromYaml(t *testing.T) {
 	require.NoError(t, err)
 	job, err := types.NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
-	saved, err := repo.Save(common.NewQueryContext("", "", ""), job)
+	saved, err := repo.Save(common.NewQueryContext(nil, ""), job)
 	require.NoError(t, err)
-	job, err = repo.GetByType(common.NewQueryContext("", "", ""), saved.JobType)
+	job, err = repo.GetByType(common.NewQueryContext(nil, ""), saved.JobType)
 	require.NoError(t, err)
 
 	require.Equal(t, 5, len(job.Tasks))
@@ -722,9 +769,9 @@ func Test_ShouldSaveJobDefinitionFromYaml(t *testing.T) {
 		require.NoError(t, err)
 		job, err := types.NewJobDefinitionFromYaml(b)
 		require.NoError(t, err)
-		saved, err := repo.Save(common.NewQueryContext("", "", ""), job)
+		saved, err := repo.Save(common.NewQueryContext(nil, ""), job)
 		require.NoError(t, err)
-		loaded, err := repo.GetByType(common.NewQueryContext("", "", ""), saved.JobType)
+		loaded, err := repo.GetByType(common.NewQueryContext(nil, ""), saved.JobType)
 		require.NoError(t, err)
 		for _, next := range loaded.Tasks {
 			params := map[string]common.VariableValue{
@@ -753,10 +800,13 @@ func Test_ShouldJobDefinitionQueryWithDifferentOperators(t *testing.T) {
 	require.NoError(t, err)
 	repo.Clear()
 
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
 	// AND a set of job definitions in the database
 	jobs := make([]*types.JobDefinition, 0)
 	for i := 0; i < 10; i++ {
-		job := newTestJobDefinition(fmt.Sprintf("job-def-query-operator-%v", i))
+		job := NewTestJobDefinition(qc.User, fmt.Sprintf("job-def-query-operator-%v", i))
 		saved, err := repo.Save(qc, job)
 		require.NoError(t, err)
 		jobs = append(jobs, saved)
@@ -811,48 +861,12 @@ func Test_ShouldJobDefinitionQueryWithDifferentOperators(t *testing.T) {
 	require.Equal(t, int64(9), total)
 
 	// WHEN querying by another user
-	_, total, err = repo.Query(common.NewQueryContext("a", "b", ""), params, 0, 100, []string{"job_type desc"})
+	qc2, err := NewTestQC()
+	_, total, err = repo.Query(qc2, params, 0, 100, []string{"job_type desc"})
 	if err != nil {
 		t.Fatalf("unexpected query error %v", err)
 	}
 	// THEN it should not find data for other user
 	require.NoError(t, err)
 	require.Equal(t, int64(0), total)
-}
-
-// Creating a test job
-func newTestJobDefinition(name string) *types.JobDefinition {
-	job := types.NewJobDefinition("io.formicary.test." + name)
-	job.UserID = "test-user"
-	job.OrganizationID = "test-org"
-	_, _ = job.AddVariable("jk1", "jv1")
-	_, _ = job.AddVariable("jk2", map[string]int{"a": 1, "b": 2})
-	_, _ = job.AddVariable("jk3", "jv3")
-	for i := 1; i < 10; i++ {
-		task := types.NewTaskDefinition(fmt.Sprintf("task%d", i), common.Shell)
-		if i < 9 {
-			task.OnExitCode["completed"] = fmt.Sprintf("task%d", i+1)
-		}
-		prefix := fmt.Sprintf("t%d", i)
-		task.BeforeScript = []string{prefix + "_cmd1", prefix + "_cmd2", prefix + "_cmd3"}
-		task.AfterScript = []string{prefix + "_cmd1", prefix + "_cmd2", prefix + "_cmd3"}
-		task.Script = []string{prefix + "_cmd1", prefix + "_cmd2", prefix + "_cmd3"}
-		task.Headers = map[string]string{prefix + "_h1": "1", prefix + "_h2": "true", prefix + "_h3": "three"}
-		_, _ = task.AddVariable(prefix+"k1", "v1")
-		_, _ = task.AddVariable(prefix+"k2", []string{"i", "j", "k"})
-		_, _ = task.AddVariable(prefix+"k3", "v3")
-		_, _ = task.AddVariable(prefix+"k4", 14.123)
-		_, _ = task.AddVariable(prefix+"k5", true)
-		_, _ = task.AddVariable(prefix+"k6", 50)
-		_, _ = task.AddVariable(prefix+"k7", map[string]string{"i": "a", "j": "b", "k": "c"})
-		_, _ = task.AddVariable(prefix+"k8", 4.881)
-		task.Method = common.Docker
-		if i%2 == 1 {
-			task.AlwaysRun = true
-		}
-		job.AddTask(task)
-	}
-	job.UpdateRawYaml()
-
-	return job
 }

@@ -46,13 +46,14 @@ func (r *InvitationRepositoryImpl) Create(invitation *types.UserInvitation) erro
 			fmt.Errorf("invitation code %s already exists", invitation.InvitationCode))
 	}
 
-	_ = r.db.Model(&common.User{}).
-		Where("email = ?", invitation.Email).
-		Count(&total)
-	if total > 0 {
-		return common.NewDuplicateError(
-			fmt.Errorf("user with email %s already exists", invitation.Email))
-	}
+	// disabling following check because it can reveal users
+	//_ = r.db.Model(&common.User{}).
+	//	Where("email = ?", invitation.Email).
+	//	Count(&total)
+	//if total > 0 {
+	//	return common.NewDuplicateError(
+	//		fmt.Errorf("user with email %s already exists", invitation.Email))
+	//}
 	res := r.db.Model(&types.UserInvitation{}).
 		Where("organization_id = ?", invitation.OrganizationID).
 		Where("accepted_at is NULL").

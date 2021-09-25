@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
-	"time"
 )
 
 // OrganizationController structure
@@ -26,12 +27,12 @@ func NewOrganizationController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.GET("/api/orgs", orgCtrl.queryOrganizations, acl.New(acl.Organization, acl.Query)).Name = "query_orgs"
-	webserver.GET("/api/orgs/:id", orgCtrl.getOrganization, acl.New(acl.Organization, acl.View)).Name = "get_org"
-	webserver.POST("/api/orgs", orgCtrl.postOrganization, acl.New(acl.Organization, acl.Create)).Name = "create_org"
-	webserver.PUT("/api/orgs/:id", orgCtrl.putOrganization, acl.New(acl.Organization, acl.Update)).Name = "update_org"
-	webserver.DELETE("/api/orgs/:id", orgCtrl.deleteOrganization, acl.New(acl.Organization, acl.Delete)).Name = "delete_org"
-	webserver.POST("/api/orgs/:id/invite", orgCtrl.inviteUser, acl.New(acl.UserInvitation, acl.Update)).Name = "accept_invitation"
+	webserver.GET("/api/orgs", orgCtrl.queryOrganizations, acl.NewPermission(acl.Organization, acl.Query)).Name = "query_orgs"
+	webserver.GET("/api/orgs/:id", orgCtrl.getOrganization, acl.NewPermission(acl.Organization, acl.View)).Name = "get_org"
+	webserver.POST("/api/orgs", orgCtrl.postOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "create_org"
+	webserver.PUT("/api/orgs/:id", orgCtrl.putOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_org"
+	webserver.DELETE("/api/orgs/:id", orgCtrl.deleteOrganization, acl.NewPermission(acl.Organization, acl.Delete)).Name = "delete_org"
+	webserver.POST("/api/orgs/:id/invite", orgCtrl.inviteUser, acl.NewPermission(acl.UserInvitation, acl.Update)).Name = "accept_invitation"
 	return orgCtrl
 }
 
@@ -89,7 +90,7 @@ func (oc *OrganizationController) putOrganization(c web.WebContext) error {
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	org.ID = qc.OrganizationID
+	org.ID = qc.GetOrganizationID()
 	saved, err := oc.userManager.UpdateOrg(qc, org)
 	if err != nil {
 		return err

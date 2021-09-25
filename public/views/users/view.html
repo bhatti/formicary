@@ -25,10 +25,10 @@
            aria-selected="false">Notification</a>
     </li>
     {{end}}
-    {{if .Admin}}
+    {{if $.Admin}}
     <li class="nav-item">
         <a class="nav-link" id="permission-tab" data-toggle="tab" href="#permission" role="tab"
-           aria-controls="permission" aria-selected="false">Permissions</a>
+           aria-controls="permission" aria-selected="false">Roles & Permissions</a>
     </li>
     {{end}}
     {{if .User.HasOrganization}}
@@ -51,12 +51,12 @@
             <div align="right">
                 <a href="/dashboard/users/{{.User.ID}}/edit">Edit Profile</a>
             </div>
-            {{ if .User.Admin }}
+            {{ if .User.IsAdmin }}
             <div class="form-group">
                 <div class="row">
-                    <label class="col-sm-2 col-form-label">Admin: </label>
+                    <label class="col-sm-2 col-form-label">Roles: </label>
                     <div class="col-sm-10">
-                        <b>{{ .User.Admin }}</b>
+                        <b>{{ .User.RolesList}}</b>
                     </div>
                 </div>
             </div>
@@ -365,7 +365,30 @@
     </div>
     <div class="tab-pane fade" id="permission" role="tabpanel" aria-labelledby="permission-tab">
         <section class="group">
-            {{if .Admin}}
+            {{if $.Admin}}
+            <header class="group-header">
+                <h4 class="group-title">Roles</h4>
+            </header>
+            <div class="table-responsive">
+                <table class="table table-sm table-border">
+                    <thead class="thead-dark">
+                    <tr>
+                        <th class="col-sm-2">Type</th>
+                        <th class="col-sm-4">Scope</th>
+                    </tr>
+                    </thead>
+                    {{range .User.RolesList}}
+                    <tr scope="row">
+                        <td class="col-sm-2">
+                            <dt class="col-sm-2"><b>{{ .RoleType }}:</b></dt>
+                        </td>
+                        <td class="col-sm-4">
+                            <dd class="col-sm-4">{{ .Scope }}</dd>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </table>
+            </div>
             <header class="group-header">
                 <h4 class="group-title">Permissions</h4>
             </header>

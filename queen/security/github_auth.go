@@ -91,7 +91,6 @@ func (g *GithubAuth) AuthWebhookCallbackHandle(c web.WebContext) (err error) {
 
 	return g.callback(
 		qc,
-		web.GetDBOrgFromSession(c),
 		jobType,
 		jobVersion,
 		params,
@@ -196,7 +195,7 @@ func getUserInfoFromGithub(
 
 func buildWebhookEvent(
 	c web.WebContext,
-	) (event github.WebhookEvent, err error) {
+) (event github.WebhookEvent, err error) {
 	body, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
 		return event, err

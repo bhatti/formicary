@@ -5,14 +5,14 @@ module plexobject.com/formicary
 go 1.15
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.4.7 // indirect
+	github.com/ClickHouse/clickhouse-go v1.4.8 // indirect
 	github.com/DataDog/zstd v1.3.6-0.20190409195224-796139022798 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/Shopify/sarama v1.29.0
 	github.com/apache/pulsar-client-go v0.3.0
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/containerd/containerd v1.4.3 // indirect
-	github.com/denisenkom/go-mssqldb v0.10.0 // indirect
+	github.com/denisenkom/go-mssqldb v0.11.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
@@ -34,7 +34,7 @@ require (
 	github.com/labstack/echo/v4 v4.3.0
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/lestrrat-go/jwx v1.2.0
-	github.com/lib/pq v1.10.2 // indirect
+	github.com/lib/pq v1.10.3 // indirect
 	github.com/markelog/trie v0.0.0-20171230083431-098fa99650c0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/minio/minio-go/v7 v7.0.9
@@ -57,7 +57,7 @@ require (
 	github.com/twinj/uuid v1.0.0
 	github.com/xdg-go/scram v1.0.2
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect

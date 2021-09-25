@@ -13,6 +13,8 @@ func Test_ShouldNot_GetOrganizationConfig_WithNonExistingId(t *testing.T) {
 	// GIVEN an org-config repository
 	repo, err := NewTestOrgConfigRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// WHEN fetching an org-config with unknown id
 	_, err = repo.Get(qc, "missing_id")
 	// THEN it should fail
@@ -24,6 +26,8 @@ func Test_ShouldNot_GetOrganizationConfig_WithNonExistingId(t *testing.T) {
 func Test_ShouldNot_DeleteOrganizationConfig_WithNonExistingType(t *testing.T) {
 	// GIVEN an org-config repository
 	repo, err := NewTestOrgConfigRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 	// WHEN deleting an org-config with unknown id
 	err = repo.Delete(qc, "non-existing-error")
@@ -37,7 +41,9 @@ func Test_Should_SaveOrganizationConfig(t *testing.T) {
 	// GIVEN an org-config repository
 	repo, err := NewTestOrgConfigRepository()
 	require.NoError(t, err)
-	c, err := common.NewOrganizationConfig("test-org", "default", "k1", true)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	c, err := common.NewOrganizationConfig(qc.User.OrganizationID, "default", "k1", true)
 	require.NoError(t, err)
 
 	// WHEN saving org config
@@ -69,37 +75,33 @@ func Test_ShouldSavePersistentOrganizationWithConfig(t *testing.T) {
 	require.NoError(t, err)
 	orgConfigRepo, err := NewTestOrgConfigRepository()
 	require.NoError(t, err)
-
 	orgRepo.Clear()
-	org := common.NewOrganization("user", "test-org", "bundle")
 
-	// AND saved org
-	saved, err := orgRepo.Create(qc, org)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN saving org config
-	c1, err := common.NewOrganizationConfig(saved.ID, "k1", "secret", true)
+	c1, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "k1", "secret", true)
 	require.NoError(t, err)
 	_, err = orgConfigRepo.Save(qc, c1)
 	require.NoError(t, err)
-	c2, err := common.NewOrganizationConfig(saved.ID, "k2", "next-secret", true)
+	c2, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "k2", "next-secret", true)
 	require.NoError(t, err)
 	_, err = orgConfigRepo.Save(qc, c2)
 	require.NoError(t, err)
 
 	// THEN should find system-config by id
-	loaded, err := orgRepo.Get(qc, saved.ID)
+	loaded, err := orgRepo.Get(qc, qc.GetOrganizationID())
 	require.NoError(t, err)
 
 	// AND Comparing saved object should be equal
-	require.Equal(t, org.OrgUnit, loaded.OrgUnit)
 	require.Equal(t, 2, len(loaded.Configs))
 	require.Equal(t, "secret", loaded.GetConfig("k1").Value)
 	require.Equal(t, "next-secret", loaded.GetConfig("k2").Value)
 
 	recs, total, err := orgConfigRepo.Query(
-		common.NewQueryContext("", org.ID, ""),
-		map[string]interface{}{"organization_id": org.ID}, 0, 100, make([]string, 0))
+		common.NewQueryContextFromIDs("", c1.OrganizationID),
+		map[string]interface{}{"organization_id": c1.OrganizationID}, 0, 100, make([]string, 0))
 	require.NoError(t, err)
 	require.Equal(t, int64(2), total)
 	require.Equal(t, 2, len(recs))
@@ -112,8 +114,10 @@ func Test_ShouldDeletingPersistentOrganizationConfig(t *testing.T) {
 	// GIVEN an org-config repository
 	repo, err := NewTestOrgConfigRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	c, err := common.NewOrganizationConfig("test-org", "default", "k1", true)
+	c, err := common.NewOrganizationConfig(qc.User.OrganizationID, "default", "k1", true)
 	require.NoError(t, err)
 
 	// WHEN Saving valid system-config
@@ -135,10 +139,13 @@ func Test_ShouldGetAllOrganizationConfigs(t *testing.T) {
 	repo, err := NewTestOrgConfigRepository()
 	require.NoError(t, err)
 	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
 	// WHEN creating a set of orgs
 	for i := 0; i < 10; i++ {
 		c, err := common.NewOrganizationConfig(
-			"test-org",
+			qc.User.OrganizationID,
 			fmt.Sprintf("name-%v", i),
 			fmt.Sprintf("value_%v", i),
 			true)

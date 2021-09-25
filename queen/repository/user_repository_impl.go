@@ -2,7 +2,7 @@ package repository
 
 import (
 	"fmt"
-	"runtime/debug"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -32,6 +32,7 @@ func (ur *UserRepositoryImpl) Get(
 	var user common.User
 	now := time.Now()
 	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("id = ?", id).
+		Preload("Organization").
 		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
@@ -51,11 +52,11 @@ func (ur *UserRepositoryImpl) GetByUsername(
 	now := time.Now()
 	var user common.User
 	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("username = ?", username).
+		Preload("Organization").
 		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
 	if res.Error != nil {
-		debug.PrintStack()
 		return nil, common.NewNotFoundError(res.Error)
 	}
 	if err := user.AfterLoad(); err != nil {
@@ -91,7 +92,7 @@ func (ur *UserRepositoryImpl) Delete(
 	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db.Model(&common.User{})).
 		Where("id = ?", id).
 		Where("active = ?", true).
-		Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
+		Updates(map[string]interface{}{"active": false, "organization_id": "", "updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
@@ -142,9 +143,15 @@ func (ur *UserRepositoryImpl) Update(
 		return nil, common.NewNotFoundError(
 			fmt.Errorf("username %s does not exists", user.Username))
 	}
-	if !qc.Admin() && !qc.Matches(old.ID, old.OrganizationID) {
+	if !qc.IsAdmin() && !qc.Matches(old.ID, old.OrganizationID) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "UserRepositoryImpl",
+			"OldUser":   old,
+			"NewUser":   user,
+			"QC":        qc,
+		}).Error("unauthorized update by user")
 		return nil, common.NewPermissionError(
-			fmt.Errorf("user '%s' with id '%s' cannot be edited by another '%s'", user.Username, old.ID, qc.UserID))
+			fmt.Errorf("user '%s' cannot be edited by someone else", user.Username))
 	}
 	err = ur.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
@@ -170,7 +177,13 @@ func (ur *UserRepositoryImpl) Update(
 		if user.AuthID != "" {
 			old.AuthID = user.AuthID
 		}
-		old.OrganizationID = qc.OrganizationID
+		if qc.IsAdmin() {
+			if user.OrganizationID != "" {
+				old.OrganizationID = user.OrganizationID
+			}
+		} else {
+			old.OrganizationID = qc.GetOrganizationID()
+		}
 		if user.BundleID != "" {
 			old.BundleID = user.BundleID
 		}

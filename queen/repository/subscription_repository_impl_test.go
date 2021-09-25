@@ -12,8 +12,10 @@ func Test_ShouldGetSubscriptionWithNonExistingId(t *testing.T) {
 	// GIVEN subscription repository
 	repo, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	// WHEN loading non existing subscription
+	// WHEN loading nonexisting subscription
 	_, err = repo.Get(qc, "missing_id")
 
 	// THEN it should fail
@@ -26,9 +28,11 @@ func Test_ShouldSavingPersistentSubscription(t *testing.T) {
 	// GIVEN subscription repository
 	repo, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
-	subscription := common.NewFreemiumSubscription("test-user", "test-org")
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	subscription := common.NewFreemiumSubscription(qc.User)
 	// WHEN Saving valid subscription
-	saved, err := repo.Create(subscription)
+	saved, err := repo.Create(qc, subscription)
 	require.NoError(t, err)
 
 	// THEN Retrieving should not fail
@@ -41,10 +45,12 @@ func Test_ShouldUpdatePersistentSubscription(t *testing.T) {
 	// GIVEN subscription repository
 	repo, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	subscription := common.NewFreemiumSubscription("test-user", "test-org")
+	subscription := common.NewFreemiumSubscription(qc.User)
 	// AND Saving valid subscription
-	saved, err := repo.Create(subscription)
+	saved, err := repo.Create(qc, subscription)
 	require.NoError(t, err)
 
 	saved.DiskQuota += 10
@@ -66,10 +72,12 @@ func Test_ShouldDeletingPersistentSubscription(t *testing.T) {
 	// GIVEN subscription repository
 	repo, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	subscription := common.NewFreemiumSubscription("test-user", "test-org")
+	subscription := common.NewFreemiumSubscription(qc.User)
 	// AND Saving valid subscription
-	saved, err := repo.Create(subscription)
+	saved, err := repo.Create(qc, subscription)
 	require.NoError(t, err)
 
 	// WHEN Deleting subscription by id
@@ -88,24 +96,27 @@ func Test_ShouldSaveAndQuerySubscriptions(t *testing.T) {
 	repo, err := NewTestSubscriptionRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of subscriptions
 	for i := 0; i < 10; i++ {
-		subscription := common.NewFreemiumSubscription(qc.UserID, fmt.Sprintf("test-org-%d", i))
-		_, err = repo.Create(subscription)
+		subscription := common.NewFreemiumSubscription(qc.User)
+		subscription.OrganizationID = fmt.Sprintf("test-org-%d", i)
+		_, err = repo.Create(qc, subscription)
 		require.NoError(t, err)
 	}
 	params := make(map[string]interface{})
 
 	// WHEN querying by org
-	params["organization_id"] = "test-org-1"
-	_, total, err := repo.Query(common.NewQueryContext("", "test-org-1", ""), params, 0, 1000, make([]string, 0))
+	params["organization_id"] = "test-org-0"
+	_, total, err := repo.Query(qc.WithAdmin(), params, 0, 1000, make([]string, 0))
 	require.NoError(t, err)
 	// THEN it should match expected count
-	require.Equal(t, int64(1), total)
+	require.Equalf(t, int64(1), total, fmt.Sprintf("matching org %s", qc.User.OrganizationID))
 
 	// WHEN querying as a different user
-	_, total, err = repo.Query(common.NewQueryContext("x", "y", ""), params, 0, 1000, make([]string, 0))
+	_, total, err = repo.Query(common.NewQueryContextFromIDs("x", "y"), params, 0, 1000, make([]string, 0))
 	require.NoError(t, err)
 	// THEN it should not return data
 	require.Equal(t, int64(0), total)

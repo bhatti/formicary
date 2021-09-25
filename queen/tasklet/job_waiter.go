@@ -27,7 +27,7 @@ type JobWaiter struct {
 func NewJobWaiter(
 	jobManager *manager.JobManager,
 	taskReq *common.TaskRequest) (*JobWaiter, error) {
-	queryContext := common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, "") // TODO salt
+	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
 
 	requestIDs, err := buildJobIDs(taskReq)
 	if err != nil {
@@ -131,7 +131,7 @@ func (jw *JobWaiter) Poll() (bool, error) {
 	return jw.completed(), nil
 }
 
-// UpdateFromJobLifecycleEvent checks if received job that its' waiting
+// UpdateFromJobLifecycleEvent checks if received job that it's waiting
 func (jw *JobWaiter) UpdateFromJobLifecycleEvent(
 	jobExecutionLifecycleEvent *events.JobExecutionLifecycleEvent) error {
 	if jw.matchesJobIDs(jobExecutionLifecycleEvent) {

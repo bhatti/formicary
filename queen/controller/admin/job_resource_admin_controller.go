@@ -3,11 +3,12 @@ package admin
 import (
 	"fmt"
 	"net/http"
-	"plexobject.com/formicary/internal/acl"
-	common "plexobject.com/formicary/internal/types"
 	"strconv"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/acl"
+	common "plexobject.com/formicary/internal/types"
 
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/web"
@@ -33,19 +34,19 @@ func NewJobResourceAdminController(
 		jobResourceRepository: jobResourceRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/dashboard/jobs/resources", jraCtr.queryJobResources, acl.New(acl.JobResource, acl.Query)).Name = "query_admin_job_resources"
-	webserver.GET("/dashboard/jobs/resources/new", jraCtr.newJobResource, acl.New(acl.JobResource, acl.Create)).Name = "new_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources", jraCtr.createJobResource, acl.New(acl.JobResource, acl.Create)).Name = "create_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id", jraCtr.updateJobResource, acl.New(acl.JobResource, acl.Update)).Name = "update_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id/pause", jraCtr.pauseJobResource, acl.New(acl.JobResource, acl.Pause)).Name = "pause_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id/unpause", jraCtr.unpauseJobResource, acl.New(acl.JobResource, acl.Unpause)).Name = "unpause_admin_job_resources"
-	webserver.GET("/dashboard/jobs/resources/:id", jraCtr.getJobResource, acl.New(acl.JobResource, acl.View)).Name = "get_admin_job_resources"
-	webserver.GET("/dashboard/jobs/resources/:id/edit", jraCtr.editJobResource, acl.New(acl.JobResource, acl.Update)).Name = "edit_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id/delete", jraCtr.deleteJobResource, acl.New(acl.JobResource, acl.Delete)).Name = "delete_admin_job_resources"
-	webserver.GET("/dashboard/jobs/resources/:id/configs/new", jraCtr.newJobResourceConfig, acl.New(acl.JobResource, acl.Update)).Name = "new_admin_job_resource_config"
-	webserver.GET("/dashboard/jobs/resources/:id/configs/:config/edit", jraCtr.editJobResourceConfig, acl.New(acl.JobResource, acl.Update)).Name = "edit_admin_job_resource_config"
-	webserver.POST("/dashboard/jobs/resources/:id/configs/:config/delete", jraCtr.deleteJobResourceConfig, acl.New(acl.JobResource, acl.Update)).Name = "delete_admin_job_resource_config"
-	webserver.POST("/dashboard/jobs/resources/:id/configs", jraCtr.saveJobResourceConfig, acl.New(acl.JobResource, acl.Query)).Name = "save_admin_job_resource_config"
+	webserver.GET("/dashboard/jobs/resources", jraCtr.queryJobResources, acl.NewPermission(acl.JobResource, acl.Query)).Name = "query_admin_job_resources"
+	webserver.GET("/dashboard/jobs/resources/new", jraCtr.newJobResource, acl.NewPermission(acl.JobResource, acl.Create)).Name = "new_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources", jraCtr.createJobResource, acl.NewPermission(acl.JobResource, acl.Create)).Name = "create_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id", jraCtr.updateJobResource, acl.NewPermission(acl.JobResource, acl.Update)).Name = "update_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id/pause", jraCtr.pauseJobResource, acl.NewPermission(acl.JobResource, acl.Pause)).Name = "pause_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id/unpause", jraCtr.unpauseJobResource, acl.NewPermission(acl.JobResource, acl.Unpause)).Name = "unpause_admin_job_resources"
+	webserver.GET("/dashboard/jobs/resources/:id", jraCtr.getJobResource, acl.NewPermission(acl.JobResource, acl.View)).Name = "get_admin_job_resources"
+	webserver.GET("/dashboard/jobs/resources/:id/edit", jraCtr.editJobResource, acl.NewPermission(acl.JobResource, acl.Update)).Name = "edit_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id/delete", jraCtr.deleteJobResource, acl.NewPermission(acl.JobResource, acl.Delete)).Name = "delete_admin_job_resources"
+	webserver.GET("/dashboard/jobs/resources/:id/configs/new", jraCtr.newJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Update)).Name = "new_admin_job_resource_config"
+	webserver.GET("/dashboard/jobs/resources/:id/configs/:config/edit", jraCtr.editJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Update)).Name = "edit_admin_job_resource_config"
+	webserver.POST("/dashboard/jobs/resources/:id/configs/:config/delete", jraCtr.deleteJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Update)).Name = "delete_admin_job_resource_config"
+	webserver.POST("/dashboard/jobs/resources/:id/configs", jraCtr.saveJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Query)).Name = "save_admin_job_resource_config"
 	return jraCtr
 }
 
@@ -291,7 +292,7 @@ func buildResource(c web.WebContext) *types.JobResource {
 	resource.ExternalID = c.FormValue("externalID")
 	resource.LeaseTimeout, _ = time.ParseDuration(c.FormValue("leaseTimeout"))
 	qc := web.BuildQueryContext(c)
-	resource.OrganizationID = qc.OrganizationID
-	resource.UserID = qc.UserID
+	resource.OrganizationID = qc.GetOrganizationID()
+	resource.UserID = qc.GetUserID()
 	return resource
 }

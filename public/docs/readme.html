@@ -1,7 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h1 id="formicary">formicary</h1>
-<p>The formicary is a distributed &quot;job management system&quot; that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell or http executors.</p>
+<p>The formicary is a distributed &quot;job management system&quot; that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.</p>
 <h2 id="overview">Overview</h2>
-<p>The formicary is a distributed &quot;job management system&quot; for executing background jobs that are executed remotely using Docker/Kubernetes/Shell/HTTP and other protocols. A job is comprises directed acyclic graph of tasks and job definition is defined in a yaml configuration file. The architecture is based on a queen (leader) and ant (follower/worker) pattern where queen node schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant workers that match tags specified by the task and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen server encompasses resource-manager, job-scheduler, job-launcher, job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off job to job-launcher, which then uses job-supervisor to orchestrate the job. The job-supervisor delegates job-execution to task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using Pipes and Filter pattern, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task.</p>
+<p>The formicary is a distributed &quot;job management system&quot; for executing background jobs that are executed remotely using Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task defines a unit of work. The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using <b>Pipes and Filter</b> pattern, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task.</p>
 <h2 id="features-">Features:</h2>
 <ul>
 <li>Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.</li>
@@ -29,7 +78,7 @@
 </ul>
 <h2 id="requirements-">Requirements:</h2>
 <ul>
-<li>GO 1.15+</li>
+<li>GO 1.16+</li>
 <li>Install Docker <a href="https://hub.docker.com/search?type=edition&amp;offering=community">https://hub.docker.com/search?type=edition&amp;offering=community</a></li>
 <li>Kubernetes, e.g. Install minikube - <a href="https://minikube.sigs.k8s.io/docs/start/">https://minikube.sigs.k8s.io/docs/start/</a></li>
 <li>Uses Redis <a href="https://redis.io/">https://redis.io/</a> or Apache pulsar <a href="https://pulsar.apache.org">https://pulsar.apache.org</a> for messaging</li>
@@ -110,3 +159,6 @@
 </ul>
 <h4 id="development">Development</h4>
 <p><a href="docs/development.html">Formicary Development Guide</a></p>
+</div>  
+</body>
+</html>

@@ -111,11 +111,10 @@ func (m *UserManager) SaveAudit(
 func (m *UserManager) AddStickyMessageForEmail(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	err error) error {
 	if user != nil && user.StickyMessage == "" {
 		user.StickyMessage = fmt.Sprintf("email-error: %s", err)
-		return m.UpdateStickyMessage(qc, user, org)
+		return m.UpdateStickyMessage(qc, user)
 	}
 	return nil
 }
@@ -124,10 +123,10 @@ func (m *UserManager) AddStickyMessageForEmail(
 func (m *UserManager) ClearStickyMessageForEmail(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) error {
+) error {
 	if user != nil && strings.Contains(user.StickyMessage, "email-error") {
 		user.StickyMessage = ""
-		return m.UpdateStickyMessage(qc, user, org)
+		return m.UpdateStickyMessage(qc, user)
 	}
 	return nil
 }
@@ -136,11 +135,10 @@ func (m *UserManager) ClearStickyMessageForEmail(
 func (m *UserManager) AddStickyMessageForSlack(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	err error) error {
 	if user != nil && user.StickyMessage == "" {
 		user.StickyMessage = fmt.Sprintf("slack-error: Slack messages could not be sent due to '%s'", err)
-		return m.UpdateStickyMessage(qc, user, org)
+		return m.UpdateStickyMessage(qc, user)
 	}
 	return nil
 }
@@ -149,10 +147,10 @@ func (m *UserManager) AddStickyMessageForSlack(
 func (m *UserManager) ClearStickyMessageForSlack(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) error {
+) error {
 	if user != nil && strings.Contains(user.StickyMessage, "slack-error") {
 		user.StickyMessage = ""
-		return m.UpdateStickyMessage(qc, user, org)
+		return m.UpdateStickyMessage(qc, user)
 	}
 	return nil
 }
@@ -161,13 +159,13 @@ func (m *UserManager) ClearStickyMessageForSlack(
 func (m *UserManager) UpdateStickyMessage(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization) error {
-	err := m.orgRepository.UpdateStickyMessage(qc, user, org)
+) error {
+	err := m.orgRepository.UpdateStickyMessage(qc, user)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":     "UserManager",
 			"User":          user,
-			"Organization":  org,
+			"Organization":  user.Organization,
 			"StickyMessage": user.StickyMessage,
 			"Error":         err,
 		}).Warnf("failed to set sticky message")
@@ -175,7 +173,7 @@ func (m *UserManager) UpdateStickyMessage(
 		logrus.WithFields(logrus.Fields{
 			"Component":     "UserManager",
 			"User":          user,
-			"Organization":  org,
+			"Organization":  user.Organization,
 			"StickyMessage": user.StickyMessage,
 		}).Infof("updated sticky message")
 	}
@@ -218,11 +216,13 @@ func (m *UserManager) RevokeUserToken(
 // CreateUserToken adds new token
 func (m *UserManager) CreateUserToken(
 	qc *common.QueryContext,
-	user *common.User,
 	token string,
 ) (*types.UserToken, error) {
-	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, token)
-	strTok, expiration, err := security.BuildToken(user, m.serverCfg.Auth.JWTSecret, m.serverCfg.Auth.TokenMaxAge)
+	tok := types.NewUserToken(qc.User, token)
+	strTok, expiration, err := security.BuildToken(
+		qc.User,
+		m.serverCfg.Auth.JWTSecret,
+		m.serverCfg.Auth.TokenMaxAge)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,8 @@ func (m *UserManager) CreateUser(
 	}
 
 	if subscription, err := m.subscriptionRepository.Create(
-		common.NewFreemiumSubscription(saved.ID, saved.OrganizationID)); err == nil {
+		qc,
+		common.NewFreemiumSubscription(saved)); err == nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":    "UserManager",
 			"Subscription": subscription,
@@ -278,16 +279,18 @@ func (m *UserManager) PostSignup(
 	user *common.User) (err error) {
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserSignup, qc))
 
-	subscription := common.NewFreemiumSubscription(user.ID, user.OrganizationID)
-	if subscription, err = m.subscriptionRepository.Create(subscription); err == nil {
+	subscription := common.NewFreemiumSubscription(user)
+	if subscription, err = m.subscriptionRepository.Create(
+		qc,
+		subscription); err == nil {
 		logrus.WithFields(logrus.Fields{
-			"Component":    "UserAdminController",
+			"Component":    "UserManager",
 			"Subscription": subscription,
 		}).Info("created Subscription")
 		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"Component":    "UserAdminController",
+			"Component":    "UserManager",
 			"Subscription": subscription,
 			"Error":        err,
 		}).Errorf("failed to create Subscription")
@@ -312,7 +315,7 @@ func (m *UserManager) GetSlackToken(
 	qc *common.QueryContext,
 	org *common.Organization,
 ) (token string, err error) {
-	if qc.OrganizationID == "" {
+	if !qc.HasOrganization() {
 		return "", nil
 	}
 	if org != nil {
@@ -379,9 +382,9 @@ func (m *UserManager) UpdateUserNotification(
 	}
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
 
-	if slackToken != "" && qc.OrganizationID != "" {
+	if slackToken != "" && qc.HasOrganization() {
 		cfg, err := common.NewOrganizationConfig(
-			qc.OrganizationID,
+			qc.GetOrganizationID(),
 			types.SlackToken,
 			slackToken,
 			true)
@@ -461,17 +464,12 @@ func (m *UserManager) InviteUser(
 	if user == nil {
 		return fmt.Errorf("failed to find user in session for invitation")
 	}
-	orgID := user.OrganizationID
-	if orgID == "" {
-		return fmt.Errorf("organization is not available for invitation")
-	}
-	org, err := m.GetOrganization(qc, user.OrganizationID)
-	if err != nil {
-		return err
+	if !user.HasOrganization() {
+		return fmt.Errorf("user does not belong to organization")
 	}
 	inv.InvitedByUserID = user.ID
-	inv.OrganizationID = orgID
-	inv.OrgUnit = org.OrgUnit
+	inv.OrganizationID = user.OrganizationID
+	inv.OrgUnit = user.Organization.OrgUnit
 
 	if err = m.invRepository.Create(inv); err != nil {
 		return err
@@ -479,7 +477,6 @@ func (m *UserManager) InviteUser(
 	err = m.notifier.EmailUserInvitation(
 		qc,
 		user,
-		org,
 		inv)
 	if err != nil {
 		_ = m.invRepository.Delete(inv.ID)
@@ -487,10 +484,10 @@ func (m *UserManager) InviteUser(
 	}
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromInvite(inv, qc))
 	logrus.WithFields(logrus.Fields{
-		"Component":  "OrganizationAdminController",
-		"Admin":      user.Admin,
-		"Org":        orgID,
+		"Component":  "UserManager",
+		"Admin":      user.IsAdmin(),
 		"User":       user,
+		"Org":        user.Organization,
 		"Invitation": inv,
 	}).Infof("user invited")
 	return nil
@@ -516,50 +513,50 @@ func (m *UserManager) QueryInvitations(
 // BuildOrgWithInvitation checks existing when signing up
 func (m *UserManager) BuildOrgWithInvitation(
 	user *common.User) (org *common.Organization, err error) {
-	qc := common.NewQueryContext("", "", "")
-	if user.OrgUnit != "" {
+	if !user.HasOrganizationOrInvitationCode() {
+		return
+	}
+	qc := common.NewQueryContext(nil, "")
+	if user.InvitationCode != "" {
+		if inv, err := m.invRepository.Accept(user.Email, user.InvitationCode); err == nil {
+			org, err = m.orgRepository.Get(qc, inv.OrganizationID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find organization in invitation %s due to %s",
+					inv.OrganizationID, err.Error())
+			}
+			user.OrganizationID = org.ID
+			user.BundleID = org.BundleID
+			user.OrgUnit = org.OrgUnit
+			logrus.WithFields(logrus.Fields{
+				"Component":  "UserManager",
+				"Org":        org,
+				"User":       user,
+				"Invitation": inv,
+			}).Infof("accepted invitation")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component": "UserManager",
+				"Org":       org,
+				"User":      user,
+				"Error":     err,
+			}).Warnf("failed to accept invitation")
+			err = fmt.Errorf("invitation-code is not valid, please contact admin of your organization to re-invite you to the organization")
+			user.Errors["OrgUnit"] = err.Error()
+			return nil, err
+		}
+	} else {
 		org, _ = m.orgRepository.GetByUnit(qc, user.OrgUnit)
 		if org != nil {
-			if user.InvitationCode != "" {
-				if inv, err := m.invRepository.Accept(user.Email, user.InvitationCode); err == nil {
-					org, err = m.orgRepository.Get(qc, inv.OrganizationID)
-					if err != nil {
-						return nil, fmt.Errorf("failed to find organization in invitation %s due to %s",
-							inv.OrganizationID, err.Error())
-					}
-					user.OrganizationID = org.ID
-					user.BundleID = org.BundleID
-					user.OrgUnit = org.OrgUnit
-					logrus.WithFields(logrus.Fields{
-						"Component":  "OrganizationAdminController",
-						"Org":        org,
-						"User":       user,
-						"Invitation": inv,
-					}).Infof("accepted invitation")
-				} else {
-					logrus.WithFields(logrus.Fields{
-						"Component": "OrganizationAdminController",
-						"Org":       org,
-						"User":      user,
-						"Error":     err,
-					}).Warnf("failed to accept invitation")
-					err = fmt.Errorf("invitation-code is not valid, please contact admin of your organization to re-invite you to the organization")
-					user.Errors["OrgUnit"] = err.Error()
-					return nil, err
-				}
-			} else {
-				err = fmt.Errorf("organization already exists, please contact admin of your organization to invite you to the organization")
-				user.Errors["OrgUnit"] = err.Error()
-				return nil, err
-			}
-		} else {
-			if user.BundleID == "" {
-				err = fmt.Errorf("bundleID is not specified")
-				user.Errors["BundleID"] = err.Error()
-				return nil, err
-			}
-			org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
+			err = fmt.Errorf("organization already exists, please contact admin of your organization to invite you to the organization")
+			user.Errors["OrgUnit"] = err.Error()
+			return nil, err
 		}
+		if user.BundleID == "" {
+			err = fmt.Errorf("bundleID is not specified")
+			user.Errors["BundleID"] = err.Error()
+			return nil, err
+		}
+		org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
 	}
 	return
 }
@@ -600,13 +597,6 @@ func (m *UserManager) CreateEmailVerification(
 	if err != nil {
 		return nil, err
 	}
-	var org *common.Organization
-	if user.OrganizationID != "" {
-		org, err = m.GetOrganization(qc, user.OrganizationID)
-		if err != nil {
-			return nil, err
-		}
-	}
 	saved, err := m.emailVerificationRepository.Create(emailVerification)
 	if err != nil {
 		return nil, err
@@ -614,7 +604,6 @@ func (m *UserManager) CreateEmailVerification(
 	err = m.notifier.SendEmailVerification(
 		qc,
 		user,
-		org,
 		saved)
 	if err != nil {
 		_ = m.emailVerificationRepository.Delete(qc, emailVerification.ID)

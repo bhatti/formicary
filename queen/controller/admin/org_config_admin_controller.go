@@ -2,8 +2,9 @@ package admin
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
@@ -29,13 +30,13 @@ func NewOrganizationConfigAdminController(
 		orgConfigRepository:   orgConfigRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/dashboard/orgs/:org/configs", jraCtr.queryOrganizationConfigs, acl.New(acl.Organization, acl.View)).Name = "query_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/new", jraCtr.newOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "new_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs", jraCtr.createOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "create_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs/:id", jraCtr.updateOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "update_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/:id", jraCtr.getOrganizationConfig, acl.New(acl.Organization, acl.View)).Name = "get_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/:id/edit", jraCtr.editOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "edit_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs/:id/delete", jraCtr.deleteOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "delete_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs", jraCtr.queryOrganizationConfigs, acl.NewPermission(acl.Organization, acl.View)).Name = "query_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/new", jraCtr.newOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "new_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs", jraCtr.createOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "create_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs/:id", jraCtr.updateOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/:id", jraCtr.getOrganizationConfig, acl.NewPermission(acl.Organization, acl.View)).Name = "get_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/:id/edit", jraCtr.editOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "edit_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs/:id/delete", jraCtr.deleteOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "delete_admin_org_configs"
 	return jraCtr
 }
 
@@ -48,7 +49,7 @@ func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.
 	if err != nil {
 		return err
 	}
-	baseURL := fmt.Sprintf("/orgs/%s/configs?%s", qc.OrganizationID, q)
+	baseURL := fmt.Sprintf("/orgs/%s/configs?%s", qc.GetOrganizationID(), q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
 	res := map[string]interface{}{
 		"Configs":    configs,
@@ -65,7 +66,7 @@ func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.
 	qc := web.BuildQueryContext(c)
 	//orgID := c.Param("org")
 	config, err := common.NewOrganizationConfig(
-		qc.OrganizationID,
+		qc.GetOrganizationID(),
 		c.FormValue("name"),
 		c.FormValue("value"),
 		c.FormValue("secret") == "on")
@@ -83,7 +84,7 @@ func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.
 		return c.Render(http.StatusOK, "orgs/configs/new", res)
 	}
 	_, _ = jraCtr.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(config, qc))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.OrganizationID, config.ID))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), config.ID))
 }
 
 // updateOrganizationConfig - updates org-config
@@ -91,7 +92,7 @@ func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.
 	qc := web.BuildQueryContext(c)
 	//orgID := c.Param("org")
 	config, err := common.NewOrganizationConfig(
-		qc.OrganizationID,
+		qc.GetOrganizationID(),
 		c.FormValue("name"),
 		c.FormValue("value"),
 		c.FormValue("secret") == "on")
@@ -111,7 +112,7 @@ func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.
 		return c.Render(http.StatusOK, "orgs/configs/edit", res)
 	}
 	_, _ = jraCtr.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(config, qc))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.OrganizationID, config.ID))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), config.ID))
 }
 
 // newOrganizationConfig - creates a new org config
@@ -172,5 +173,5 @@ func (jraCtr *OrganizationConfigAdminController) deleteOrganizationConfig(c web.
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", qc.OrganizationID))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", qc.GetOrganizationID()))
 }

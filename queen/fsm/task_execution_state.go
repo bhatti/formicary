@@ -204,7 +204,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 
 	taskReq := &common.TaskRequest{
 		UserID:          tsm.Request.GetUserID(),
-		AdminUser:       tsm.User != nil && tsm.User.Admin,
+		AdminUser:       tsm.User != nil && tsm.User.IsAdmin(),
 		OrganizationID:  tsm.Request.GetOrganizationID(),
 		JobDefinitionID: tsm.JobDefinition.ID,
 		JobRequestID:    tsm.Request.GetID(),
@@ -352,51 +352,7 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 			tsm.taskType, taskResp.ErrorMessage)
 	}
 
-	for i, artifact := range taskResp.Artifacts {
-		oldArtifact, err := tsm.ArtifactManager.GetArtifact(
-			context.Background(),
-			tsm.QueryContext(),
-			artifact.ID)
-		if err == nil {
-			for k, v := range artifact.Metadata {
-				oldArtifact.AddMetadata(k, v)
-			}
-			artifact = oldArtifact
-		}
-		if tsm.ExecutorOptions.Method == common.ForkJob {
-			artifact.TaskType = fmt.Sprintf("%d::%s", artifact.JobRequestID, artifact.TaskType)
-		} else {
-			artifact.TaskType = tsm.TaskExecution.TaskType
-		}
-
-		artifact.UserID = tsm.Request.GetUserID()
-		artifact.OrganizationID = tsm.Request.GetOrganizationID()
-		artifact.JobRequestID = tsm.Request.GetID()
-		artifact.JobExecutionID = tsm.JobExecution.ID
-		artifact.TaskExecutionID = tsm.TaskExecution.ID
-		artifact.Group = tsm.Request.GetGroup()
-		artifact.AddMetadata("status", string(taskResp.Status))
-
-		if _, saveErr := tsm.ArtifactManager.UpdateArtifact(
-			context.Background(),
-			tsm.QueryContext(),
-			artifact); saveErr != nil {
-			logrus.WithFields(
-				logrus.Fields{
-					"Component": "TaskExecutionStateMachine",
-					"Error":     saveErr,
-					"Response":  taskResp,
-					"Artifact":  artifact,
-				}).Error("failed to save artifact")
-			taskResp.AdditionalError(fmt.Sprintf(
-				"failed to save artifact %v due to '%v'",
-				artifact, saveErr), true)
-		} else {
-			artifactContextKey := fmt.Sprintf("%s_ArtifactURL_%d", tsm.taskType, i+1)
-			_, _ = tsm.JobExecution.AddContext(artifactContextKey, artifact.URL)
-			tsm.TaskExecution.AddArtifact(artifact)
-		}
-	}
+	tsm.updateArtifactsFromResponse(taskResp)
 
 	if len(taskResp.Warnings) > 0 {
 		_, _ = tsm.TaskExecution.AddContext("Warnings", taskResp.Warnings)
@@ -469,6 +425,43 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		return fmt.Errorf("failed to send task-execution event due to %v", err)
 	}
 	return nil
+}
+
+func (tsm *TaskExecutionStateMachine) updateArtifactsFromResponse(taskResp *common.TaskResponse) {
+	for i, artifact := range taskResp.Artifacts {
+		if tsm.ExecutorOptions.Method == common.ForkJob {
+			artifact.TaskType = fmt.Sprintf("%d::%s", artifact.JobRequestID, artifact.TaskType)
+		} else {
+			artifact.TaskType = tsm.TaskExecution.TaskType
+		}
+		artifact.UserID = tsm.Request.GetUserID()
+		artifact.OrganizationID = tsm.Request.GetOrganizationID()
+		artifact.JobRequestID = tsm.Request.GetID()
+		artifact.JobExecutionID = tsm.JobExecution.ID
+		artifact.TaskExecutionID = tsm.TaskExecution.ID
+		artifact.Group = tsm.Request.GetGroup()
+		artifact.AddMetadata("status", string(taskResp.Status))
+
+		if _, saveErr := tsm.ArtifactManager.UpdateArtifact(
+			context.Background(),
+			tsm.QueryContext(),
+			artifact); saveErr != nil {
+			logrus.WithFields(
+				logrus.Fields{
+					"Component": "TaskExecutionStateMachine",
+					"Error":     saveErr,
+					"Response":  taskResp,
+					"Artifact":  artifact,
+				}).Error("failed to save artifact")
+			taskResp.AdditionalError(fmt.Sprintf(
+				"failed to save artifact %v due to '%v'",
+				artifact, saveErr), true)
+		} else {
+			artifactContextKey := fmt.Sprintf("%s_ArtifactURL_%d", tsm.taskType, i+1)
+			_, _ = tsm.JobExecution.AddContext(artifactContextKey, artifact.URL)
+			tsm.TaskExecution.AddArtifact(artifact)
+		}
+	}
 }
 
 // LogFields for logging

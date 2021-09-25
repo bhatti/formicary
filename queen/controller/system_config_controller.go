@@ -3,8 +3,9 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
-	"plexobject.com/formicary/internal/acl"
 	"time"
+
+	"plexobject.com/formicary/internal/acl"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
@@ -25,11 +26,11 @@ func NewSystemConfigController(
 		systemConfigRepository: repo,
 		webserver:              webserver,
 	}
-	webserver.GET("/api/configs", cfgCtrl.querySystemConfigs, acl.New(acl.SystemConfig, acl.Query)).Name = "query_configs"
-	webserver.GET("/api/configs/:id", cfgCtrl.getSystemConfig, acl.New(acl.SystemConfig, acl.View)).Name = "get_config"
-	webserver.POST("/api/configs", cfgCtrl.postSystemConfig, acl.New(acl.SystemConfig, acl.Create)).Name = "create_config"
-	webserver.PUT("/api/configs/:id", cfgCtrl.putSystemConfig, acl.New(acl.SystemConfig, acl.Update)).Name = "update_config"
-	webserver.DELETE("/api/configs/:id", cfgCtrl.deleteSystemConfig, acl.New(acl.SystemConfig, acl.Delete)).Name = "delete_config"
+	webserver.GET("/api/configs", cfgCtrl.querySystemConfigs, acl.NewPermission(acl.SystemConfig, acl.Query)).Name = "query_configs"
+	webserver.GET("/api/configs/:id", cfgCtrl.getSystemConfig, acl.NewPermission(acl.SystemConfig, acl.View)).Name = "get_config"
+	webserver.POST("/api/configs", cfgCtrl.postSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Create)).Name = "create_config"
+	webserver.PUT("/api/configs/:id", cfgCtrl.putSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Update)).Name = "update_config"
+	webserver.DELETE("/api/configs/:id", cfgCtrl.deleteSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Delete)).Name = "delete_config"
 	return cfgCtrl
 }
 

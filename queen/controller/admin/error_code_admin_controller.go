@@ -28,13 +28,13 @@ func NewErrorCodeAdminController(
 		errorCodeRepository: repo,
 		webserver:           webserver,
 	}
-	webserver.GET("/dashboard/errors", jraCtr.queryErrorCodes, acl.New(acl.ErrorCode, acl.View)).Name = "query_admin_error_codes"
-	webserver.GET("/dashboard/errors/new", jraCtr.newErrorCode, acl.New(acl.ErrorCode, acl.View)).Name = "new_admin_error_code"
-	webserver.POST("/dashboard/errors", jraCtr.createErrorCode, acl.New(acl.ErrorCode, acl.Create)).Name = "create_admin_error_code"
-	webserver.POST("/dashboard/errors/:id", jraCtr.updateErrorCode, acl.New(acl.ErrorCode, acl.Update)).Name = "update_admin_error_code"
-	webserver.GET("/dashboard/errors/:id", jraCtr.getErrorCode, acl.New(acl.ErrorCode, acl.View)).Name = "get_admin_error_code"
-	webserver.GET("/dashboard/errors/:id/edit", jraCtr.editErrorCode, acl.New(acl.ErrorCode, acl.Upload)).Name = "edit_admin_error_code"
-	webserver.POST("/dashboard/errors/:id/delete", jraCtr.deleteErrorCode, acl.New(acl.ErrorCode, acl.Delete)).Name = "delete_admin_error_code"
+	webserver.GET("/dashboard/errors", jraCtr.queryErrorCodes, acl.NewPermission(acl.ErrorCode, acl.View)).Name = "query_admin_error_codes"
+	webserver.GET("/dashboard/errors/new", jraCtr.newErrorCode, acl.NewPermission(acl.ErrorCode, acl.View)).Name = "new_admin_error_code"
+	webserver.POST("/dashboard/errors", jraCtr.createErrorCode, acl.NewPermission(acl.ErrorCode, acl.Create)).Name = "create_admin_error_code"
+	webserver.POST("/dashboard/errors/:id", jraCtr.updateErrorCode, acl.NewPermission(acl.ErrorCode, acl.Update)).Name = "update_admin_error_code"
+	webserver.GET("/dashboard/errors/:id", jraCtr.getErrorCode, acl.NewPermission(acl.ErrorCode, acl.View)).Name = "get_admin_error_code"
+	webserver.GET("/dashboard/errors/:id/edit", jraCtr.editErrorCode, acl.NewPermission(acl.ErrorCode, acl.Upload)).Name = "edit_admin_error_code"
+	webserver.POST("/dashboard/errors/:id/delete", jraCtr.deleteErrorCode, acl.NewPermission(acl.ErrorCode, acl.Delete)).Name = "delete_admin_error_code"
 	return jraCtr
 }
 

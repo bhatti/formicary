@@ -3,8 +3,9 @@ package admin
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
@@ -26,8 +27,8 @@ func NewExecutionContainerAdminController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/dashboard/executors", eca.queryExecutionContainers, acl.New(acl.Container, acl.Query)).Name = "query_admin_executors"
-	webserver.POST("/dashboard/executors/:id/delete", eca.deleteExecutionContainer, acl.New(acl.Container, acl.Delete)).Name = "delete_admin_executor"
+	webserver.GET("/dashboard/executors", eca.queryExecutionContainers, acl.NewPermission(acl.Container, acl.Query)).Name = "query_admin_executors"
+	webserver.POST("/dashboard/executors/:id/delete", eca.deleteExecutionContainer, acl.NewPermission(acl.Container, acl.Delete)).Name = "delete_admin_executor"
 	return eca
 }
 

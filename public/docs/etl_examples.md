@@ -4,6 +4,8 @@
 
 Following example defines job-definition with a simple ETL:
 
+![ETL Workflow](etl-workflow.png)
+
 ```yaml
 job_type: etl-job
 description: Simple ETL pipeline example

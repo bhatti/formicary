@@ -27,13 +27,13 @@ func NewSystemConfigAdminController(
 		systemConfigRepository: repo,
 		webserver:              webserver,
 	}
-	webserver.GET("/dashboard/configs", jraCtr.querySystemConfigs, acl.New(acl.SystemConfig, acl.Query)).Name = "query_admin_system_configs"
-	webserver.GET("/dashboard/configs/new", jraCtr.newSystemConfig, acl.New(acl.SystemConfig, acl.Create)).Name = "new_admin_system_configs"
-	webserver.POST("/dashboard/configs", jraCtr.createSystemConfig, acl.New(acl.SystemConfig, acl.Create)).Name = "create_admin_system_configs"
-	webserver.POST("/dashboard/configs/:id", jraCtr.updateSystemConfig, acl.New(acl.SystemConfig, acl.Update)).Name = "update_admin_system_configs"
-	webserver.GET("/dashboard/configs/:id", jraCtr.getSystemConfig, acl.New(acl.SystemConfig, acl.View)).Name = "get_admin_system_configs"
-	webserver.GET("/dashboard/configs/:id/edit", jraCtr.editSystemConfig, acl.New(acl.SystemConfig, acl.Update)).Name = "edit_admin_system_configs"
-	webserver.POST("/dashboard/configs/:id/delete", jraCtr.deleteSystemConfig, acl.New(acl.SystemConfig, acl.Delete)).Name = "delete_admin_system_configs"
+	webserver.GET("/dashboard/configs", jraCtr.querySystemConfigs, acl.NewPermission(acl.SystemConfig, acl.Query)).Name = "query_admin_system_configs"
+	webserver.GET("/dashboard/configs/new", jraCtr.newSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Create)).Name = "new_admin_system_configs"
+	webserver.POST("/dashboard/configs", jraCtr.createSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Create)).Name = "create_admin_system_configs"
+	webserver.POST("/dashboard/configs/:id", jraCtr.updateSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Update)).Name = "update_admin_system_configs"
+	webserver.GET("/dashboard/configs/:id", jraCtr.getSystemConfig, acl.NewPermission(acl.SystemConfig, acl.View)).Name = "get_admin_system_configs"
+	webserver.GET("/dashboard/configs/:id/edit", jraCtr.editSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Update)).Name = "edit_admin_system_configs"
+	webserver.POST("/dashboard/configs/:id/delete", jraCtr.deleteSystemConfig, acl.NewPermission(acl.SystemConfig, acl.Delete)).Name = "delete_admin_system_configs"
 	return jraCtr
 }
 

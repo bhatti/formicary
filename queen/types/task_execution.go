@@ -19,7 +19,7 @@ type TaskExecution struct {
 	JobExecutionID string `json:"job_execution_id"`
 	// TaskType defines type of task
 	TaskType string `json:"task_type"`
-	// Method TaskMethod defines method of communication
+	// Method defines method of communication
 	Method types.TaskMethod `yaml:"method" json:"method"`
 	// TaskState defines state of task that is maintained throughout the lifecycle of a task
 	TaskState types.RequestState `json:"task_state"`
@@ -244,6 +244,9 @@ func (te *TaskExecution) AfterLoad() error {
 			return err
 		}
 		te.lookupContexts[c.Name] = c
+	}
+	for _, a := range te.Artifacts {
+		_ = a.AfterLoad()
 	}
 	return nil
 }

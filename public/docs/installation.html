@@ -1,3 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h2 id="installation">Installation</h2>
 <h3 id="setup-database">Setup Database</h3>
 <p>The formicary by default uses sqlite3 but supports other relational database such as postgres, mysql and mssql. You don&#39;t need to setup anything if you are using sqlite but other databases will require you to create the database, users and permissions, e.g.</p>
@@ -34,7 +83,7 @@
 <ul>
 <li>bin/pulsar standalone</li>
 </ul>
-<p><em>Note</em>: You will need to change configuration to provide the messaging provider to <code>messaging_provider: REDIS_MESSAGING</code>, <code>messaging_provider: PULSAR_MESSAGING</code> or <code>messaging_provider: KAFKA_MESSAGING</code></p>
+<p><b>Note</b>: You will need to change configuration to provide the messaging provider to <code>messaging_provider: REDIS_MESSAGING</code>, <code>messaging_provider: PULSAR_MESSAGING</code> or <code>messaging_provider: KAFKA_MESSAGING</code></p>
 <h3 id="containers-execution">Containers Execution</h3>
 <p>The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. You don&#39;t need to install anything for HTTP and Shell executors but Docker and Kubernetes require access to the server environment.</p>
 <h4 id="install-docker">Install Docker</h4>
@@ -74,3 +123,6 @@
 </ul>
 <h3 id="define-test-config">Define Test config</h3>
 <p>See <a href="configuration.html">Configuration</a> for configuration of queen server and ant-workers.</p>
+</div>  
+</body>
+</html>

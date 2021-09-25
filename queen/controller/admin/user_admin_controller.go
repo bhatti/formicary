@@ -2,8 +2,11 @@ package admin
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
@@ -11,8 +14,6 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
-	"strings"
-	"time"
 )
 
 // UserAdminController structure
@@ -38,17 +39,17 @@ func NewUserAdminController(
 		artifactRepository: artifactRepository,
 		webserver:          webserver,
 	}
-	webserver.GET("/dashboard/users", jraCtr.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_admin_users"
-	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.New(acl.User, acl.Signup)).Name = "new_admin_users"
-	webserver.POST("/dashboard/users", jraCtr.createUser, acl.New(acl.User, acl.Signup)).Name = "create_admin_users"
-	webserver.POST("/dashboard/users/:id", jraCtr.updateUser, acl.New(acl.User, acl.Update)).Name = "update_admin_users"
-	webserver.POST("/dashboard/users/:id/notify", jraCtr.updateUserNotification, acl.New(acl.User, acl.Update)).Name = "update_admin_users_notify"
-	webserver.GET("/dashboard/users/:id", jraCtr.getUser, acl.New(acl.User, acl.View)).Name = "get_admin_users"
-	webserver.GET("/dashboard/users/:id/edit", jraCtr.editUser, acl.New(acl.User, acl.Update)).Name = "edit_admin_users"
-	webserver.POST("/dashboard/users/:id/delete", jraCtr.deleteUser, acl.New(acl.User, acl.Delete)).Name = "delete_admin_users"
-	webserver.GET("/dashboard/users/:user/tokens/new", jraCtr.newUserToken, acl.New(acl.User, acl.Update)).Name = "new_admin_user_token"
-	webserver.POST("/dashboard/users/:user/tokens", jraCtr.createUserToken, acl.New(acl.User, acl.Update)).Name = "create_admin_user_token"
-	webserver.POST("/dashboard/users/:user/tokens/:id/delete", jraCtr.deleteUserToken, acl.New(acl.User, acl.Update)).Name = "delete_admin_user_token"
+	webserver.GET("/dashboard/users", jraCtr.queryUsers, acl.NewPermission(acl.User, acl.Query)).Name = "query_admin_users"
+	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.NewPermission(acl.User, acl.Signup)).Name = "new_admin_users"
+	webserver.POST("/dashboard/users", jraCtr.createUser, acl.NewPermission(acl.User, acl.Signup)).Name = "create_admin_users"
+	webserver.POST("/dashboard/users/:id", jraCtr.updateUser, acl.NewPermission(acl.User, acl.Update)).Name = "update_admin_users"
+	webserver.POST("/dashboard/users/:id/notify", jraCtr.updateUserNotification, acl.NewPermission(acl.User, acl.Update)).Name = "update_admin_users_notify"
+	webserver.GET("/dashboard/users/:id", jraCtr.getUser, acl.NewPermission(acl.User, acl.View)).Name = "get_admin_users"
+	webserver.GET("/dashboard/users/:id/edit", jraCtr.editUser, acl.NewPermission(acl.User, acl.Update)).Name = "edit_admin_users"
+	webserver.POST("/dashboard/users/:id/delete", jraCtr.deleteUser, acl.NewPermission(acl.User, acl.Delete)).Name = "delete_admin_users"
+	webserver.GET("/dashboard/users/:user/tokens/new", jraCtr.newUserToken, acl.NewPermission(acl.User, acl.Update)).Name = "new_admin_user_token"
+	webserver.POST("/dashboard/users/:user/tokens", jraCtr.createUserToken, acl.NewPermission(acl.User, acl.Update)).Name = "create_admin_user_token"
+	webserver.POST("/dashboard/users/:user/tokens/:id/delete", jraCtr.deleteUserToken, acl.NewPermission(acl.User, acl.Update)).Name = "delete_admin_user_token"
 	return jraCtr
 }
 
@@ -106,7 +107,7 @@ func (uc *UserAdminController) createUser(c web.WebContext) (err error) {
 	user, err := uc.createUserFromForm(c)
 	if err != nil {
 		if user == nil {
-			user = common.NewUser("", "", "", "", false)
+			user = common.NewUser("", "", "", "", acl.NewRoles(""))
 			user.Errors = map[string]string{"Error": err.Error()}
 			initUserFromForm(c, user)
 		}
@@ -163,8 +164,8 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 	}
 	resources := make([]map[string]interface{}, 0)
 	userQC := qc.WithOrganizationIDColumn("")
-	if qc.Admin() {
-		userQC = common.NewQueryContext(id, "", "")
+	if qc.IsAdmin() {
+		userQC = common.NewQueryContextFromIDs(id, "")
 	}
 	if cpuUsage, err := uc.jobExecRepository.GetResourceUsage(
 		userQC, ranges); err == nil {
@@ -216,9 +217,8 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 		unverifiedEmails = newUnverifiedEmails
 	}
 	res["UnverifiedEmails"] = unverifiedEmails
-	if user.OrganizationID != "" {
-		org := web.GetDBOrgFromSession(c)
-		res["SlackToken"], _ = uc.userManager.GetSlackToken(qc, org)
+	if user.HasOrganization() {
+		res["SlackToken"], _ = uc.userManager.GetSlackToken(qc, user.Organization)
 	}
 
 	web.RenderDBUserFromSession(c, res)
@@ -231,7 +231,7 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.GetUser(qc, id)
 	if err != nil {
-		user = common.NewUser("", "", "", "", false)
+		user = common.NewUser("", "", "", "", acl.NewRoles(""))
 		user.Errors = map[string]string{"Error": err.Error()}
 	}
 	res := map[string]interface{}{
@@ -275,11 +275,11 @@ func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err err
 func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user := common.NewUser(
-		qc.OrganizationID,
-		qc.Username,
+		qc.GetOrganizationID(),
+		qc.GetUsername(),
 		c.FormValue("name"),
 		c.FormValue("email"),
-		false)
+		acl.NewRoles(""))
 	user.ID = c.Param("id")
 	err = user.Validate()
 
@@ -320,7 +320,9 @@ func (uc *UserAdminController) deleteUser(c web.WebContext) error {
 // newUserToken new token
 func (uc *UserAdminController) newUserToken(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	tok := types.NewUserToken(qc.UserID, qc.OrganizationID, "")
+	tok := types.NewUserToken(
+		qc.User,
+		"")
 	res := map[string]interface{}{
 		"Token": tok,
 	}
@@ -331,17 +333,22 @@ func (uc *UserAdminController) newUserToken(c web.WebContext) error {
 // deleteUserToken - deletes user token by id
 func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userManager.RevokeUserToken(qc, qc.UserID, c.Param("id"))
+	err := uc.userManager.RevokeUserToken(
+		qc,
+		qc.GetUserID(),
+		c.Param("id"))
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, "/dashboard/users/"+qc.UserID)
+	return c.Redirect(http.StatusFound, "/dashboard/users/"+qc.GetUserID())
 }
 
 // createUserToken - saves a new token
 func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
 	qc := web.BuildQueryContext(c)
-	tok, err := uc.userManager.CreateUserToken(qc, web.GetDBLoggedUserFromSession(c), c.FormValue("token"))
+	tok, err := uc.userManager.CreateUserToken(
+		qc,
+		c.FormValue("token"))
 	if err != nil {
 		return err
 	}
@@ -405,7 +412,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 					"Error":     err,
 				}).Errorf("failed to save organization")
 				// delete user as well
-				adminQC := common.NewQueryContext("", "", "").WithAdmin()
+				adminQC := common.NewQueryContext(nil, "").WithAdmin()
 				_ = uc.userManager.DeleteUser(adminQC, saved.ID)
 				return nil, err
 			}
@@ -421,11 +428,11 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 
 		// update user with org
 		if savedOrg != nil {
+			org = savedOrg
 			saved.OrganizationID = savedOrg.ID
 			saved.BundleID = savedOrg.BundleID
-			org = savedOrg
 			// disabling query context here
-			adminQC := common.NewQueryContext(saved.ID, savedOrg.ID, "").WithAdmin()
+			adminQC := common.NewQueryContext(nil, "").WithAdmin()
 			_, err = uc.userManager.UpdateUser(adminQC, saved)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
@@ -445,8 +452,8 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 			}
 		}
 	}
-
-	qc := common.NewQueryContextFromUser(saved, org, c.Request().RemoteAddr)
+	saved.Organization = org
+	qc := common.NewQueryContext(saved, c.Request().RemoteAddr)
 	_ = uc.userManager.PostSignup(qc, saved)
 	return saved, nil
 }
@@ -461,7 +468,7 @@ func initUserFromForm(c web.WebContext, user *common.User) {
 }
 
 func (uc *UserAdminController) saveNewUser(user *common.User) (saved *common.User, err error) {
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	saved, err = uc.userManager.CreateUser(qc, user)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		saved, err = uc.userManager.UpdateUser(qc, user)
@@ -472,8 +479,7 @@ func (uc *UserAdminController) saveNewUser(user *common.User) (saved *common.Use
 func (uc *UserAdminController) saveNewOrg(
 	_ web.WebContext,
 	org *common.Organization) (saved *common.Organization, err error) {
-	//qc := web.BuildQueryContext(c)
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	saved, err = uc.userManager.CreateOrg(qc, org)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		saved, err = uc.userManager.UpdateOrg(qc, org)

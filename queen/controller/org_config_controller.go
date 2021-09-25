@@ -2,10 +2,11 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
-	common "plexobject.com/formicary/internal/types"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	common "plexobject.com/formicary/internal/types"
 
 	"plexobject.com/formicary/internal/acl"
 
@@ -31,11 +32,11 @@ func NewOrganizationConfigController(
 		auditRecordRepository: auditRecordRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/api/orgs/:org/configs", cfgCtrl.queryOrganizationConfigs, acl.New(acl.Organization, acl.View)).Name = "query_org_configs"
-	webserver.GET("/api/orgs/:org/configs/:id", cfgCtrl.getOrganizationConfig, acl.New(acl.Organization, acl.View)).Name = "get_org_config"
-	webserver.POST("/api/orgs/:org/configs", cfgCtrl.postOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "create_org_config"
-	webserver.PUT("/api/orgs/:org/configs/:id", cfgCtrl.putOrganizationConfig, acl.New(acl.Organization, acl.View)).Name = "update_org_config"
-	webserver.DELETE("/api/orgs/:org/configs/:id", cfgCtrl.deleteOrganizationConfig, acl.New(acl.Organization, acl.Update)).Name = "delete_org_config"
+	webserver.GET("/api/orgs/:org/configs", cfgCtrl.queryOrganizationConfigs, acl.NewPermission(acl.Organization, acl.View)).Name = "query_org_configs"
+	webserver.GET("/api/orgs/:org/configs/:id", cfgCtrl.getOrganizationConfig, acl.NewPermission(acl.Organization, acl.View)).Name = "get_org_config"
+	webserver.POST("/api/orgs/:org/configs", cfgCtrl.postOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "create_org_config"
+	webserver.PUT("/api/orgs/:org/configs/:id", cfgCtrl.putOrganizationConfig, acl.NewPermission(acl.Organization, acl.View)).Name = "update_org_config"
+	webserver.DELETE("/api/orgs/:org/configs/:id", cfgCtrl.deleteOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "delete_org_config"
 	return cfgCtrl
 }
 
@@ -62,7 +63,7 @@ func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.WebContex
 func (cc *OrganizationConfigController) postOrganizationConfig(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
-	cfg, err := common.NewOrganizationConfig(qc.OrganizationID, "", "", false)
+	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.WebContext)
 	if err != nil {
 		return err
 	}
-	cfg.OrganizationID = qc.OrganizationID
+	cfg.OrganizationID = qc.GetOrganizationID()
 	saved, err := cc.orgConfigRepository.Save(qc, cfg)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -96,7 +97,7 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.WebContext)
 //   200: orgConfig
 func (cc *OrganizationConfigController) putOrganizationConfig(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	cfg, err := common.NewOrganizationConfig(qc.OrganizationID, "", "", false)
+	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
 	if err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func (cc *OrganizationConfigController) putOrganizationConfig(c web.WebContext) 
 	if err != nil {
 		return err
 	}
-	cfg.OrganizationID = qc.OrganizationID
+	cfg.OrganizationID = qc.GetOrganizationID()
 	saved, err := cc.orgConfigRepository.Save(qc, cfg)
 	if err != nil {
 		return err

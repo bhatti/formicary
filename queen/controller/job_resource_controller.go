@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"plexobject.com/formicary/internal/acl"
 	"time"
+
+	"plexobject.com/formicary/internal/acl"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
@@ -29,16 +30,16 @@ func NewJobResourceController(
 		jobResourceRepository: jobResourceRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/api/jobs/resources", jobResCtrl.queryJobResources, acl.New(acl.JobResource, acl.Query)).Name = "query_job_resources"
-	webserver.GET("/api/jobs/resources/:id", jobResCtrl.getJobResource, acl.New(acl.JobResource, acl.View)).Name = "get_job_resource"
-	webserver.POST("/api/jobs/resources", jobResCtrl.postJobResource, acl.New(acl.JobResource, acl.Create)).Name = "create_job_resource"
-	webserver.POST("/api/jobs/resources/:id/pause", jobResCtrl.pauseJobResource, acl.New(acl.JobResource, acl.Pause)).Name = "pause_job_resource"
-	webserver.POST("/api/jobs/resources/:id/unpause", jobResCtrl.unpauseJobResource, acl.New(acl.JobResource, acl.Unpause)).Name = "unpause_job_resource"
-	webserver.PUT("/api/jobs/resources/:id", jobResCtrl.putJobResource, acl.New(acl.JobResource, acl.Update)).Name = "update_job_resource"
-	webserver.DELETE("/api/jobs/resources/:id", jobResCtrl.deleteJobResource, acl.New(acl.JobResource, acl.Delete)).Name = "delete_job_resource"
+	webserver.GET("/api/jobs/resources", jobResCtrl.queryJobResources, acl.NewPermission(acl.JobResource, acl.Query)).Name = "query_job_resources"
+	webserver.GET("/api/jobs/resources/:id", jobResCtrl.getJobResource, acl.NewPermission(acl.JobResource, acl.View)).Name = "get_job_resource"
+	webserver.POST("/api/jobs/resources", jobResCtrl.postJobResource, acl.NewPermission(acl.JobResource, acl.Create)).Name = "create_job_resource"
+	webserver.POST("/api/jobs/resources/:id/pause", jobResCtrl.pauseJobResource, acl.NewPermission(acl.JobResource, acl.Pause)).Name = "pause_job_resource"
+	webserver.POST("/api/jobs/resources/:id/unpause", jobResCtrl.unpauseJobResource, acl.NewPermission(acl.JobResource, acl.Unpause)).Name = "unpause_job_resource"
+	webserver.PUT("/api/jobs/resources/:id", jobResCtrl.putJobResource, acl.NewPermission(acl.JobResource, acl.Update)).Name = "update_job_resource"
+	webserver.DELETE("/api/jobs/resources/:id", jobResCtrl.deleteJobResource, acl.NewPermission(acl.JobResource, acl.Delete)).Name = "delete_job_resource"
 
-	webserver.DELETE("/dashboard/jobs/resources/:id/configs/:config/delete", jobResCtrl.deleteJobResourceConfig, acl.New(acl.JobResource, acl.Update)).Name = "delete_admin_job_resource_config"
-	webserver.POST("/dashboard/jobs/resources/:id/configs", jobResCtrl.saveJobResourceConfig, acl.New(acl.JobResource, acl.Query)).Name = "save_admin_job_resource_config"
+	webserver.DELETE("/dashboard/jobs/resources/:id/configs/:config/delete", jobResCtrl.deleteJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Update)).Name = "delete_admin_job_resource_config"
+	webserver.POST("/dashboard/jobs/resources/:id/configs", jobResCtrl.saveJobResourceConfig, acl.NewPermission(acl.JobResource, acl.Query)).Name = "save_admin_job_resource_config"
 	return jobResCtrl
 }
 
@@ -88,8 +89,8 @@ func (jobResCtrl *JobResourceController) postJobResource(c web.WebContext) error
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	resource.UserID = qc.UserID
-	resource.OrganizationID = qc.OrganizationID
+	resource.UserID = qc.GetUserID()
+	resource.OrganizationID = qc.GetOrganizationID()
 	saved, err := jobResCtrl.jobResourceRepository.Save(resource)
 	if err != nil {
 		return err
@@ -115,8 +116,8 @@ func (jobResCtrl *JobResourceController) putJobResource(c web.WebContext) error 
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	resource.UserID = qc.UserID
-	resource.OrganizationID = qc.OrganizationID
+	resource.UserID = qc.GetUserID()
+	resource.OrganizationID = qc.GetOrganizationID()
 	saved, err := jobResCtrl.jobResourceRepository.Save(resource)
 	if err != nil {
 		return err

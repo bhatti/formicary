@@ -3,12 +3,13 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
-	"strconv"
-	"time"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/types"
@@ -29,17 +30,17 @@ func NewJobRequestController(
 		webserver:  webserver,
 	}
 
-	webserver.GET("/api/jobs/requests", jobReqCtrl.queryJobRequests, acl.New(acl.JobRequest, acl.Query)).Name = "query_job_requests"
-	webserver.GET("/api/jobs/requests/:id", jobReqCtrl.getJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "get_job_request"
-	webserver.GET("/api/jobs/requests/:id/dot", jobReqCtrl.dotJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "dot_job_request"
-	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
-	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.New(acl.JobRequest, acl.Submit)).Name = "create_job_request"
-	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.New(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
-	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.New(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
-	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.New(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
-	webserver.GET("/api/jobs/requests/:id/wait_time", jobReqCtrl.getWaitTimeJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "get_wait_time_job_requests"
-	webserver.GET("/api/jobs/requests/stats", jobReqCtrl.statsJobRequests, acl.New(acl.JobRequest, acl.Metrics)).Name = "stats_job_requests"
-	webserver.GET("/api/jobs/requests/dead_ids", jobReqCtrl.getDeadIDs, acl.New(acl.JobRequest, acl.Query)).Name = "get_dead_ids"
+	webserver.GET("/api/jobs/requests", jobReqCtrl.queryJobRequests, acl.NewPermission(acl.JobRequest, acl.Query)).Name = "query_job_requests"
+	webserver.GET("/api/jobs/requests/:id", jobReqCtrl.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_job_request"
+	webserver.GET("/api/jobs/requests/:id/dot", jobReqCtrl.dotJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_job_request"
+	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
+	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_job_request"
+	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
+	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
+	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
+	webserver.GET("/api/jobs/requests/:id/wait_time", jobReqCtrl.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_job_requests"
+	webserver.GET("/api/jobs/requests/stats", jobReqCtrl.statsJobRequests, acl.NewPermission(acl.JobRequest, acl.Metrics)).Name = "stats_job_requests"
+	webserver.GET("/api/jobs/requests/dead_ids", jobReqCtrl.getDeadIDs, acl.NewPermission(acl.JobRequest, acl.Query)).Name = "get_dead_ids"
 	return jobReqCtrl
 }
 
@@ -93,8 +94,8 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.WebContext) error
 		return err
 	}
 
-	request.UserID = qc.UserID
-	request.OrganizationID = qc.OrganizationID
+	request.UserID = qc.GetUserID()
+	request.OrganizationID = qc.GetOrganizationID()
 
 	jobDefinition, err := jobReqCtrl.jobManager.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 )
 
 func Test_ShouldSendEmail(t *testing.T) {
-	qc := common.NewQueryContext("", "", "").WithAdmin()
+	qc := common.NewQueryContext(nil, "").WithAdmin()
 	serverCfg := config.TestServerConfig()
 	userMgr := manager.AssertTestUserManager(serverCfg, t)
 	if err := serverCfg.Email.Validate(); err != nil {
@@ -20,7 +20,6 @@ func Test_ShouldSendEmail(t *testing.T) {
 	require.NoError(t, err)
 	err = sender.SendMessage(
 		qc,
-		nil,
 		nil,
 		[]string{"support@formicary.io"},
 		"my email",

@@ -1,5 +1,14 @@
 ## High level Architecture
 
+The formicary architecture is based on the *Leader-Follower* (or master/worker) pattern
+where queen-leader schedules and orchestrates execution of the graph of tasks. The task defines a unit of work, which is distributed among ant-workers
+based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen-leader
+encompasses resource-manager, job-scheduler, job-launcher and job/task supervisors, where job-scheduler finds next job to 
+execute based on resource-manager and hands-off the job to job-launcher. The job-supervisor orchestrates the 
+job execution and delegates task to the task-supervisor, which sends the request to a remote ant worker and then waits for the response.
+After task completion, the task-supervisor persists the results and job-supervisor finds the next task to execute based on 
+exit-values of previous task and persists its state. 
+
 ### Physical Architecture
 Following is a high level physical architecture of the Formicary:
 ![Physical architecture](physical-arch.png)
@@ -82,6 +91,7 @@ send excessive work. Note: You can spawn any number of ant workers that can load
 ### Executor
 An executor abstracts the runtime environment for execution a task. The formicary uses method to define the type 
 of executor. Following executor methods are supported:
+
 |     Executor |   Method |
 | :----------: | :-----------: |
 | Kubernetes Pods | KUBERNETES |
@@ -93,6 +103,9 @@ of executor. Following executor methods are supported:
 | Messaging | MESSAGING |
 
 #### Processing Pipeline (Pipes & Filters)
+The formicary applies pipes & filters pattern where tasks takes parameters or artifacts as input and produce other sets of artifacts and response variables, which in turn 
+can be used by other tasks as input in the data pipeline processing, e.g.
+
 ![Processing Pipeline](pipeline-arch.png)
 
 Following are fundamental concepts in formicary:

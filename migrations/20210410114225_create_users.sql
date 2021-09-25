@@ -18,6 +18,7 @@
     CREATE UNIQUE INDEX formicary_orgs_bundle_ndx ON formicary_orgs(bundle_id);
     CREATE INDEX formicary_orgs_active ON formicary_orgs(active);
     INSERT INTO `formicary_orgs` (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000000', 'formicary', 'io.formicary');
+    INSERT INTO `formicary_orgs` (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000001', 'plexobject', 'com.plexobject');
 
     CREATE TABLE IF NOT EXISTS formicary_org_configs (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -37,7 +38,6 @@
     CREATE TABLE IF NOT EXISTS formicary_users (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       active BOOLEAN NOT NULL DEFAULT TRUE,
-      admin BOOLEAN NOT NULL DEFAULT FALSE,
       locked BOOLEAN NOT NULL DEFAULT FALSE,
       max_concurrency INTEGER NOT NULL DEFAULT 1,
       sticky_message VARCHAR(200),
@@ -49,7 +49,8 @@
       name VARCHAR(100) ,
       email VARCHAR(150),
       notify_serialized LONGTEXT,
-      perms TEXT NOT NULL,
+      serialized_perms TEXT NOT NULL,
+      serialized_roles TEXT NOT NULL,
       picture_url VARCHAR(150),
       url VARCHAR(150),
       auth_provider VARCHAR(50),
@@ -63,8 +64,8 @@
     CREATE INDEX formicary_users_provider_ndx ON formicary_users(auth_provider);
     CREATE INDEX formicary_users_org_ndx ON formicary_users(organization_id);
     CREATE INDEX formicary_users_active_ndx ON formicary_users(active);
-    INSERT INTO `formicary_users` (id, organization_id, username, perms, admin) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', true);
-    INSERT INTO `formicary_users` (id, organization_id, username, perms, admin) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'bhatti', '*=-1', false);
+    INSERT INTO `formicary_users` (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', 'Admin[]');
+    INSERT INTO `formicary_users` (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'bhatti', '*=-1', '');
 
     CREATE TABLE IF NOT EXISTS formicary_user_sessions (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -88,7 +89,7 @@
       token_name VARCHAR(100) NOT NULL,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       sha256 VARCHAR(64) NOT NULL,
-      expires_at TIMESTAMP NOT NULL DEFAULT NULL,
+      expires_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_user_tokens_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)
     );

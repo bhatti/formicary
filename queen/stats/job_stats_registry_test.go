@@ -58,6 +58,6 @@ func Test_ShouldCountJobsAndGetStats(t *testing.T) {
 
 	// AND calling job stats
 
-	stats := jobStatsRegistry.GetStats(common.NewQueryContext("", "", "").WithAdmin(), 0, 500)
+	stats := jobStatsRegistry.GetStats(common.NewQueryContext(nil, "").WithAdmin(), 0, 500)
 	require.Equal(t, 10, len(stats))
 }

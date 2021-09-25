@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/controller"
@@ -24,7 +25,7 @@ func NewAuditAdminController(
 		auditRecordRepository: auditRecordRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/dashboard/audits", ctr.queryAudits, acl.New(acl.User, acl.Query)).Name = "query_admin_audits"
+	webserver.GET("/dashboard/audits", ctr.queryAudits, acl.NewPermission(acl.User, acl.Query)).Name = "query_admin_audits"
 	return ctr
 }
 

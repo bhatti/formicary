@@ -8,12 +8,12 @@ import (
 )
 
 func Test_ShouldVerifyUserTable(t *testing.T) {
-	u := NewUser("org", "username", "name", "email", false)
+	u := NewUser("org", "username", "name", "email", acl.NewRoles(""))
 	require.Equal(t, "formicary_users", u.TableName())
 }
 
 func Test_ShouldStringifyUser(t *testing.T) {
-	u := NewUser("org", "username@gmail.com", "name", "", false)
+	u := NewUser("org", "username@gmail.com", "name", "", acl.NewRoles(""))
 	err := u.AfterLoad()
 	require.NoError(t, err)
 	require.NotEqual(t, "", u.String())
@@ -23,9 +23,9 @@ func Test_ShouldStringifyUser(t *testing.T) {
 }
 
 func Test_ShouldVerifyEqualForUser(t *testing.T) {
-	u1 := NewUser("org1", "username", "name", "", false)
-	u2 := NewUser("org1", "username", "name", "", false)
-	u3 := NewUser("org2", "username", "name", "", false)
+	u1 := NewUser("org1", "username", "name", "", acl.NewRoles(""))
+	u2 := NewUser("org1", "username", "name", "", acl.NewRoles(""))
+	u3 := NewUser("org2", "username", "name", "", acl.NewRoles(""))
 	require.NoError(t, u1.Equals(u2))
 	require.Error(t, u1.Equals(u3))
 	require.Error(t, u1.Equals(nil))
@@ -33,7 +33,7 @@ func Test_ShouldVerifyEqualForUser(t *testing.T) {
 
 // Verify permissions
 func Test_ShouldVerifyUserPermissions(t *testing.T) {
-	u := NewUser("org", "username", "name", "", false)
+	u := NewUser("org", "username", "name", "", acl.NewRoles(""))
 	require.True(t, u.HasPermission(acl.JobRequest, acl.Submit))
 	require.True(t, u.HasPermission(acl.JobRequest, acl.Execute))
 	require.True(t, u.HasPermission(acl.JobDefinition, acl.Create))
@@ -45,7 +45,7 @@ func Test_ShouldVerifyUserPermissions(t *testing.T) {
 
 // Verify permissions for admin
 func Test_ShouldVerifyUserPermissionsForAdmin(t *testing.T) {
-	u := NewUser("org", "username@formicary.io", "name", "", true)
+	u := NewUser("org", "username@formicary.io", "name", "", acl.NewRoles("Admin[]"))
 	require.True(t, u.HasPermission(acl.JobRequest, acl.Upload))
 	require.True(t, u.HasPermission(acl.JobRequest, acl.Execute))
 	require.True(t, u.HasPermission(acl.JobDefinition, acl.Create))

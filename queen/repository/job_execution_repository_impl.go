@@ -97,8 +97,8 @@ func (jer *JobExecutionRepositoryImpl) GetResourceUsage(
 				return nil, err
 			}
 			usage.ResourceType = types.CPUResource
-			usage.UserID = qc.UserID
-			usage.OrganizationID = qc.OrganizationID
+			usage.UserID = qc.GetUserID()
+			usage.OrganizationID = qc.GetOrganizationID()
 			usage.StartDate = r.StartDate
 			usage.EndDate = r.EndDate
 			usage.ValueUnit = "seconds"
@@ -603,4 +603,3 @@ func (jer *JobExecutionRepositoryImpl) Count(
 func (jer *JobExecutionRepositoryImpl) clear() {
 	clearDB(jer.db)
 }
-

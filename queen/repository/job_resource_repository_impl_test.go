@@ -17,6 +17,8 @@ func Test_ShouldGetJobResourceWithNonExistingId(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// WHEN finding non-existing job-resource
 	_, err = repo.Get(qc, "missing_id")
 
@@ -30,6 +32,8 @@ func Test_ShouldPauseByTypeJobResourceWithNonExistingType(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// WHEN pausing non-existing job-resource
 	err = repo.SetPaused(qc, "non-existing-job", true)
 
@@ -42,6 +46,8 @@ func Test_ShouldPauseByTypeJobResourceWithNonExistingType(t *testing.T) {
 func Test_ShouldDeleteByTypeJobResourceWithNonExistingType(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 	// WHEN deleting non-existing job-resource
 	err = repo.Delete(qc, "non-existing-job")
@@ -71,10 +77,12 @@ func Test_ShouldSaveValidJobResourceWithoutConfig(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	resource := newTestResource("valid-resource-without-config")
-	resource.UserID = "test-user"
-	resource.OrganizationID = "test-org"
+	resource.UserID = qc.User.ID
+	resource.OrganizationID = qc.User.OrganizationID
 
 	// WHEN saving valid resource
 	saved, err := repo.Save(resource)
@@ -97,10 +105,12 @@ func Test_ShouldSaveValidJobResourceWithConfig(t *testing.T) {
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	// Creating a job
 	resource := newTestResource("valid-job-with-config")
-	resource.UserID = "test-user"
-	resource.OrganizationID = "test-org"
+	resource.UserID = qc.User.ID
+	resource.OrganizationID = qc.User.OrganizationID
 	_, _ = resource.AddConfig("jk1", "jv1")
 	_, _ = resource.AddConfig("jk2", true)
 
@@ -123,11 +133,13 @@ func Test_ShouldUpdateValidJobResource(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
-
 	repo.clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	resource := newTestResource("test-resource-for-update")
-	resource.UserID = "test-user"
-	resource.OrganizationID = "test-org"
+	resource.UserID = qc.User.ID
+	resource.OrganizationID = qc.User.OrganizationID
 
 	// WHEN saving resource
 	saved, err := repo.Save(resource)
@@ -160,10 +172,12 @@ func Test_ShouldPausingPersistentJobResource(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	resource := newTestResource("test-resource-for-pause")
-	resource.UserID = "test-user"
-	resource.OrganizationID = "test-org"
+	resource.UserID = qc.User.ID
+	resource.OrganizationID = qc.User.OrganizationID
 	err = resource.ValidateBeforeSave()
 	require.NoError(t, err)
 
@@ -182,10 +196,12 @@ func Test_ShouldDeletingPersistentJobResource(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	resource := newTestResource("test-resource-for-delete")
-	resource.UserID = "test-user"
-	resource.OrganizationID = "test-org"
+	resource.UserID = qc.User.ID
+	resource.OrganizationID = qc.User.OrganizationID
 	err = resource.ValidateBeforeSave()
 	require.NoError(t, err)
 
@@ -209,14 +225,16 @@ func Test_ShouldQueryJobResourceByJobType(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
-
 	repo.clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 	resources := make(map[string]*types.JobResource)
 	// AND a set of job-resources in database
 	for i := 0; i < 10; i++ {
 		resource := newTestResource(fmt.Sprintf("query-job-%v", i))
-		resource.UserID = "test-user"
-		resource.OrganizationID = "test-org"
+		resource.UserID = qc.User.ID
+		resource.OrganizationID = qc.User.OrganizationID
 		saved, err := repo.Save(resource)
 		if err != nil {
 			t.Fatalf("unexpected error %v while saving a job", err)
@@ -246,14 +264,16 @@ func Test_ShouldQueryJobResourceWithDifferentOperators(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
-
 	repo.clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of job-resources in database
 	for i := 0; i < 10; i++ {
 		resource := newTestResource(fmt.Sprintf("resource-query-operator-%v", i))
-		resource.UserID = "test-user"
-		resource.OrganizationID = "test-org"
+		resource.UserID = qc.User.ID
+		resource.OrganizationID = qc.User.OrganizationID
 		_, err := repo.Save(resource)
 		if err != nil {
 			t.Fatalf("failed to save resource %v", err)
@@ -367,6 +387,8 @@ func Test_ShouldMatchResources(t *testing.T) {
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	resources := make([]*types.JobResource, 5)
 	tags := []string{"macos bigsur build test deploy", "macos catalina build test",
@@ -380,8 +402,8 @@ func Test_ShouldMatchResources(t *testing.T) {
 		resources[i].Quota = 10
 		resources[i].Tags = utils.SplitTags(tags[i])
 		resources[i].Platform = platforms[i]
-		resources[i].UserID = "test-user"
-		resources[i].OrganizationID = "test-org"
+		resources[i].UserID = qc.User.ID
+		resources[i].OrganizationID = qc.User.OrganizationID
 		resources[i], err = repo.Save(resources[i])
 		require.NoError(t, err)
 	}

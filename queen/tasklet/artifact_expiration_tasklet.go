@@ -86,9 +86,11 @@ func (t *ArtifactExpirationTasklet) PreExecute(
 func (t *ArtifactExpirationTasklet) Execute(
 	ctx context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
-	queryContext := common.NewQueryContext(taskReq.UserID, taskReq.OrganizationID, "")
+	var queryContext *common.QueryContext
 	if taskReq.AdminUser {
-		queryContext = common.NewQueryContext("", "", "").WithAdmin()
+		queryContext = common.NewQueryContext(nil, "").WithAdmin()
+	} else {
+		queryContext = common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
 	}
 
 	expired, size, err := t.artifactManager.ExpireArtifacts(
@@ -113,7 +115,7 @@ func (t *ArtifactExpirationTasklet) Execute(
 		"DefaultArtifactLimit":      t.serverCfg.DefaultArtifactLimit,
 		"TotalExpired":              expired,
 		"TotalSize":                 size,
-		"Admin":                     queryContext.Admin(),
+		"Admin":                     queryContext.IsAdmin(),
 	}).Info("expired artifacts")
 
 	taskResp = common.NewTaskResponse(taskReq)
@@ -121,6 +123,6 @@ func (t *ArtifactExpirationTasklet) Execute(
 	taskResp.AddContext("DefaultArtifactLimit", t.serverCfg.DefaultArtifactLimit)
 	taskResp.AddContext("TotalExpired", expired)
 	taskResp.AddJobContext("TotalSize", size)
-	taskResp.AddJobContext("Admin", queryContext.Admin())
+	taskResp.AddJobContext("Admin", queryContext.IsAdmin())
 	return
 }

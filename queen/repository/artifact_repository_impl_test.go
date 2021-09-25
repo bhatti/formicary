@@ -3,20 +3,18 @@ package repository
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"github.com/twinj/uuid"
 	"testing"
 	"time"
 
-	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
 )
-
-var qc = common.NewQueryContext("test-user", "test-org", "")
 
 // Get operation should fail if artifact doesn't exist
 func Test_ShouldGetArtifactWithNonExistingId(t *testing.T) {
 	// GIVEN artifact repository
 	repo, err := NewTestArtifactRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
 	require.NoError(t, err)
 
 	// WHEN loading nonexisting artifact
@@ -32,8 +30,11 @@ func Test_ShouldSavingPersistentArtifact(t *testing.T) {
 	// GIVEN artifact repository
 	repo, err := NewTestArtifactRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
 	expire := time.Now().Add(10 * time.Second)
-	art := newTestArtifact(expire)
+	art := newTestArtifact(qc.User, expire)
 	// WHEN Saving valid artifact
 	saved, err := repo.Save(art)
 	require.NoError(t, err)
@@ -63,8 +64,10 @@ func Test_ShouldDeletingPersistentArtifact(t *testing.T) {
 	// GIVEN artifact repository
 	repo, err := NewTestArtifactRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
-	art := newTestArtifact(time.Now())
+	art := newTestArtifact(qc.User, time.Now())
 	// AND Saving valid artifact
 	saved, err := repo.Save(art)
 	require.NoError(t, err)
@@ -85,10 +88,12 @@ func Test_ShouldArtifactAccounting(t *testing.T) {
 	repo, err := NewTestArtifactRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND creating a set of artifacts
 	for i := 0; i < 10; i++ {
-		art := newTestArtifact(time.Now())
+		art := newTestArtifact(qc.User, time.Now())
 		art.ContentLength = 100
 		// AND Saving valid artifact
 		_, err = repo.Save(art)
@@ -117,13 +122,15 @@ func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 	repo, err := NewTestArtifactRepository()
 	require.NoError(t, err)
 	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// AND a set of artifacts
 	for i := 0; i < 10; i++ {
 		group := fmt.Sprintf("group_%v", i)
 		kind := fmt.Sprintf("kind_%v", i)
 		for j := 0; j < 5; j++ {
-			art := newTestArtifact(time.Now())
+			art := newTestArtifact(qc.User, time.Now())
 			art.Kind = kind
 			art.Group = group
 			_, err = repo.Save(art)
@@ -147,7 +154,9 @@ func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 	require.Equal(t, int64(5), total)
 
 	// WHEN querying as a different user
-	_, total, err = repo.Query(common.NewQueryContext("x", "y", ""), params, 0, 1000, make([]string, 0))
+	qc2, err := NewTestQC() // using different org/user
+	require.NoError(t, err)
+	_, total, err = repo.Query(qc2, params, 0, 1000, make([]string, 0))
 	require.NoError(t, err)
 	// THEN it should not return data
 	require.Equal(t, int64(0), total)
@@ -156,21 +165,4 @@ func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 	expired, err := repo.ExpiredArtifacts(qc, time.Millisecond, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 50, len(expired))
-}
-
-func newTestArtifact(expire time.Time) *common.Artifact {
-	art := common.NewArtifact("bucket", "name", "group", "kind", 123, "sha", 54)
-	art.ID = uuid.NewV4().String()
-	art.AddMetadata("n1", "v1")
-	art.AddMetadata("n2", "v2")
-	art.AddMetadata("n3", "1")
-	art.AddTag("t1", "v1")
-	art.AddTag("t2", "v2")
-	art.ExpiresAt = expire
-	art.JobExecutionID = "job"
-	art.TaskExecutionID = "task"
-	art.Bucket = "test"
-	art.UserID = "test-user"
-	art.OrganizationID = "test-org"
-	return art
 }

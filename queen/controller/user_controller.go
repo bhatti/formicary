@@ -3,11 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"time"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
-	"time"
 
 	"plexobject.com/formicary/internal/web"
 )
@@ -26,15 +27,15 @@ func NewUserController(
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.GET("/api/users", userCtrl.queryUsers, acl.New(acl.User, acl.Query)).Name = "query_users"
-	webserver.GET("/api/users/:id", userCtrl.getUser, acl.New(acl.User, acl.View)).Name = "get_user"
-	webserver.POST("/api/users", userCtrl.postUser, acl.New(acl.User, acl.Create)).Name = "create_user"
-	webserver.PUT("/api/users/:id", userCtrl.putUser, acl.New(acl.User, acl.Update)).Name = "update_user"
-	webserver.PUT("/api/users/:id/notify", userCtrl.updateUserNotification, acl.New(acl.User, acl.Update)).Name = "update_user_notify"
-	webserver.DELETE("/api/users/:id", userCtrl.deleteUser, acl.New(acl.User, acl.Delete)).Name = "delete_user"
-	webserver.GET("/api/users/:user/tokens", userCtrl.queryUserTokens, acl.New(acl.User, acl.View)).Name = "user_tokens"
-	webserver.POST("/api/users/:user/tokens", userCtrl.createUserToken, acl.New(acl.User, acl.Update)).Name = "create_user_token"
-	webserver.POST("/api/users/:user/tokens/:id/delete", userCtrl.deleteUserToken, acl.New(acl.User, acl.Update)).Name = "delete_user_token"
+	webserver.GET("/api/users", userCtrl.queryUsers, acl.NewPermission(acl.User, acl.Query)).Name = "query_users"
+	webserver.GET("/api/users/:id", userCtrl.getUser, acl.NewPermission(acl.User, acl.View)).Name = "get_user"
+	webserver.POST("/api/users", userCtrl.postUser, acl.NewPermission(acl.User, acl.Create)).Name = "create_user"
+	webserver.PUT("/api/users/:id", userCtrl.putUser, acl.NewPermission(acl.User, acl.Update)).Name = "update_user"
+	webserver.PUT("/api/users/:id/notify", userCtrl.updateUserNotification, acl.NewPermission(acl.User, acl.Update)).Name = "update_user_notify"
+	webserver.DELETE("/api/users/:id", userCtrl.deleteUser, acl.NewPermission(acl.User, acl.Delete)).Name = "delete_user"
+	webserver.GET("/api/users/:user/tokens", userCtrl.queryUserTokens, acl.NewPermission(acl.User, acl.View)).Name = "user_tokens"
+	webserver.POST("/api/users/:user/tokens", userCtrl.createUserToken, acl.NewPermission(acl.User, acl.Update)).Name = "create_user_token"
+	webserver.POST("/api/users/:user/tokens/:id/delete", userCtrl.deleteUserToken, acl.NewPermission(acl.User, acl.Update)).Name = "delete_user_token"
 	return userCtrl
 }
 
@@ -88,13 +89,13 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 func (uc *UserController) postUser(c web.WebContext) error {
 	// TODO remove this as users will be added after oauth signup
 	now := time.Now()
-	user := common.NewUser("", "", "", "", false)
+	user := common.NewUser("", "", "", "", acl.NewRoles(""))
 	err := json.NewDecoder(c.Request().Body).Decode(user)
 	if err != nil {
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	user.OrganizationID = qc.OrganizationID
+	user.OrganizationID = qc.GetOrganizationID()
 	saved, err := uc.userManager.CreateUser(qc, user)
 	if err != nil {
 		return err
@@ -113,14 +114,14 @@ func (uc *UserController) postUser(c web.WebContext) error {
 // responses:
 //   200: userResponse
 func (uc *UserController) putUser(c web.WebContext) error {
-	user := common.NewUser("", "", "", "", false)
+	user := common.NewUser("", "", "", "", acl.NewRoles(""))
 	err := json.NewDecoder(c.Request().Body).Decode(user)
 	if err != nil {
 		return err
 	}
 	qc := web.BuildQueryContext(c)
-	user.OrganizationID = qc.OrganizationID
-	user.ID = qc.UserID
+	user.ID = qc.GetUserID()
+	user.OrganizationID = qc.GetOrganizationID()
 	saved, err := uc.userManager.UpdateUser(qc, user)
 	if err != nil {
 		return err
@@ -174,7 +175,7 @@ func (uc *UserController) queryUserTokens(c web.WebContext) error {
 //   200: emptyResponse
 func (uc *UserController) deleteUserToken(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	err := uc.userManager.RevokeUserToken(qc, qc.UserID, c.Param("id"))
+	err := uc.userManager.RevokeUserToken(qc, qc.GetUserID(), c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -194,7 +195,7 @@ func (uc *UserController) createUserToken(c web.WebContext) (err error) {
 	if name == "" {
 		name = "api token"
 	}
-	tok, err := uc.userManager.CreateUserToken(qc, web.GetDBLoggedUserFromSession(c), name)
+	tok, err := uc.userManager.CreateUserToken(qc, name)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
@@ -27,11 +28,11 @@ func NewArtifactAdminController(
 		artifactManager: artifactManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/dashboard/artifacts", ac.queryArtifacts, acl.New(acl.Artifact, acl.Query)).Name = "query_admin_artifacts"
-	webserver.GET("/dashboard/artifacts/:id", ac.getArtifact, acl.New(acl.Artifact, acl.View)).Name = "get_admin_artifact"
-	webserver.GET("/dashboard/artifacts/:id/download", ac.downloadArtifact, acl.New(acl.Artifact, acl.View)).Name = "download_admin_artifact"
-	webserver.POST("/dashboard/artifacts/:id/delete", ac.deleteArtifact, acl.New(acl.Artifact, acl.Delete)).Name = "delete_admin_artifact"
-	webserver.POST("/dashboard/artifacts", ac.uploadArtifact, acl.New(acl.Artifact, acl.Upload)).Name = "post_admin_artifact"
+	webserver.GET("/dashboard/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_admin_artifacts"
+	webserver.GET("/dashboard/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_admin_artifact"
+	webserver.GET("/dashboard/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_artifact"
+	webserver.POST("/dashboard/artifacts/:id/delete", ac.deleteArtifact, acl.NewPermission(acl.Artifact, acl.Delete)).Name = "delete_admin_artifact"
+	webserver.POST("/dashboard/artifacts", ac.uploadArtifact, acl.NewPermission(acl.Artifact, acl.Upload)).Name = "post_admin_artifact"
 	return ac
 }
 

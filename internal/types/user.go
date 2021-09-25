@@ -19,8 +19,6 @@ type User struct {
 	//gorm.Model
 	// ID defines UUID for primary key
 	ID string `json:"id" gorm:"primary_key"`
-	// OrganizationID defines foreign key for Organization
-	OrganizationID string `json:"organization_id"`
 	// Name of user
 	Name string `json:"name"`
 	// Username defines username
@@ -31,6 +29,11 @@ type User struct {
 	URL string `json:"url"`
 	// PictureURL defines URL for picture
 	PictureURL string `json:"picture_url"`
+
+	// OrganizationID defines foreign key for Organization
+	OrganizationID string        `json:"organization_id"`
+	Organization   *Organization `gorm:"foreignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+
 	// AuthID defines id from external auth provider
 	AuthID string `json:"auth_id" gorm:"auth_id"`
 	// AuthProvider defines provider for external auth provider
@@ -39,18 +42,18 @@ type User struct {
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
 	// NotifySerialized serialized notification
 	NotifySerialized string `yaml:"-,omitempty" json:"-" gorm:"notify_serialized"`
-
+	// StickyMessage defines an error message that needs user attention
 	StickyMessage string `json:"sticky_message" gorm:"sticky_message"`
 	// BundleID defines package or bundle
 	BundleID string `json:"bundle_id"`
-	// Perms defines permissions
-	Perms string `json:"perms"`
+	// SerializedPerms defines permissions
+	SerializedPerms string `json:"-"`
+	// SerializedRoles defines roles
+	SerializedRoles string `json:"-"`
 	// Salt for password
 	Salt string `json:"salt"`
-
+	// Subscription defines quota limits and usage period
 	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:UserID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	// Admin is used for admin role
-	Admin bool `json:"admin"`
 	// EmailVerified for email
 	EmailVerified bool `json:"-"`
 	// Locked account
@@ -72,6 +75,8 @@ type User struct {
 
 	// permissions defines ACL permissions
 	permissions *acl.Permissions `gorm:"-"`
+	// roles defines ACL roles
+	roles *acl.Roles `gorm:"-"`
 }
 
 // NewUser creates new instance of user
@@ -80,21 +85,21 @@ func NewUser(
 	username string,
 	name string,
 	email string,
-	admin bool) *User {
+	roles *acl.Roles) *User {
 	if email == "" && strings.Contains(username, "@") {
 		email = username
 	}
 	user := &User{
-		OrganizationID: orgID,
-		Username:       username,
-		Email:          strings.ToLower(email),
-		Name:           name,
-		Admin:          admin,
-		Active:         true,
-		Perms:          acl.DefaultPermissionsString(),
-		Notify:         make(map[NotifyChannel]JobNotifyConfig),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		OrganizationID:  orgID,
+		Username:        username,
+		Email:           strings.ToLower(email),
+		Name:            name,
+		Active:          true,
+		SerializedPerms: acl.DefaultPermissionsString(),
+		SerializedRoles: roles.String(),
+		Notify:          make(map[NotifyChannel]JobNotifyConfig),
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 	return user
 }
@@ -106,7 +111,7 @@ func (User) TableName() string {
 
 // String provides short summary of user
 func (u *User) String() string {
-	return fmt.Sprintf("Name=%s Org=%s Username=%s", u.Name, u.OrganizationID, u.Username)
+	return fmt.Sprintf("ID=%s Org=%s Username=%s", u.ID, u.OrganizationID, u.Username)
 }
 
 // Equals compares other job-resource for equality
@@ -154,6 +159,9 @@ func (u *User) AfterLoad() error {
 		if cfg, err := JobNotifyConfigWithEmail(u.Email, NotifyWhenOnFailure); err == nil {
 			u.Notify = map[NotifyChannel]JobNotifyConfig{EmailChannel: cfg}
 		}
+	}
+	if u.Organization != nil {
+		u.OrgUnit = u.Organization.OrgUnit
 	}
 	return nil
 }
@@ -273,6 +281,11 @@ func (u *User) HasOrganization() bool {
 	return u.OrganizationID != "" || u.OrgUnit != ""
 }
 
+// HasOrganizationOrInvitationCode - returns true if invitation or organization is populated
+func (u *User) HasOrganizationOrInvitationCode() bool {
+	return u.HasOrganization() || u.InvitationCode != ""
+}
+
 // CommonEmailExtension checks for common email extensions
 func CommonEmailExtension(email string) bool {
 	if strings.HasSuffix(email, ".edu") {
@@ -285,17 +298,58 @@ func CommonEmailExtension(email string) bool {
 // GetPermissions getter
 func (u *User) GetPermissions() *acl.Permissions {
 	if u.permissions == nil {
-		u.permissions = acl.NewPermissions(u.Perms)
+		u.permissions = acl.NewPermissions(u.SerializedPerms)
 	}
 	return u.permissions
 }
 
 // PermissionList getter
 func (u *User) PermissionList() []*acl.Permission {
-	return acl.Unmarshal(u.Perms)
+	return acl.UnmarshalPermissions(u.SerializedPerms)
 }
 
 // HasPermission getter
 func (u *User) HasPermission(resource acl.Resource, action int) bool {
-	return u.Admin || u.GetPermissions().Has(resource, action)
+	return u.IsAdmin() || u.GetPermissions().Has(resource, action)
+}
+
+// GetRoles getter
+func (u *User) GetRoles() *acl.Roles {
+	if u.roles == nil {
+		u.roles = acl.NewRoles(u.SerializedRoles)
+	}
+	return u.roles
+}
+
+// RolesList getter
+func (u *User) RolesList() []*acl.Role {
+	return acl.UnmarshalRoles(u.SerializedRoles)
+}
+
+// HasRole getter
+func (u *User) HasRole(roleType acl.RoleType, scope ...string) bool {
+	return u.GetRoles().HasRole(roleType, scope...)
+}
+
+// CopyRolesPermissions copies roles/permissions
+func (u *User) CopyRolesPermissions(other *User) {
+	u.SerializedPerms = other.SerializedPerms
+	u.SerializedRoles = other.SerializedRoles
+	u.roles = nil
+	u.permissions = nil
+}
+
+// IsAdmin getter
+func (u *User) IsAdmin() bool {
+	return u.GetRoles().IsAdmin()
+}
+
+// IsReadAdmin getter
+func (u *User) IsReadAdmin() bool {
+	return u.GetRoles().IsReadAdmin()
+}
+
+// HasInvitationCode getter
+func (u *User) HasInvitationCode() bool {
+	return u.InvitationCode != ""
 }

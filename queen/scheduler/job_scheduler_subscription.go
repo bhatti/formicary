@@ -233,7 +233,7 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 		for _, missingJobType := range missingJobTypes {
 			// by passing query context for internal use
 			jobDefinition, err := js.jobManager.GetJobDefinitionByType(
-				common.NewQueryContext(missingJobType.UserID, missingJobType.OrganizationID, ""),
+				common.NewQueryContextFromIDs(missingJobType.UserID, missingJobType.OrganizationID),
 				missingJobType.JobType,
 				"")
 			if err != nil {
@@ -243,7 +243,8 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 			if err != nil {
 				continue
 			}
-			request, err = js.jobManager.SaveJobRequest(common.NewQueryContext(missingJobType.UserID, missingJobType.OrganizationID, ""), request)
+			request, err = js.jobManager.SaveJobRequest(
+				common.NewQueryContextFromIDs(missingJobType.UserID, missingJobType.OrganizationID), request)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":             "JobScheduler",

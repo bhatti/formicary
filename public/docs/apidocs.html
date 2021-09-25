@@ -1,16 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h2 id="api-docs">API Docs</h2>
 <h3 id="authentication">Authentication</h3>
-<p>The API access requires access token that you can generate from the UI, e.g., <img src="api_token1.png" alt="Creating Token"></p>
-<p><img src="api_token2.png" alt="Copying Token"></p>
+<p>The API access requires access token that you can generate from the UI, e.g., <img class='img-fluid' src="api_token1.png" alt="Creating Token"></p>
+<p><img class='img-fluid' src="api_token2.png" alt="Copying Token"></p>
 <h3 id="api-specification">API Specification</h3>
-
+<p>See <a href="swagger.html">Swagger API Docs</a> for API specification.</p>
+<h1 id="formicary-api">Formicary API</h1>
+<p>The formicary is a distributed job management system based on <b>Leader-Follower</b> design for executing a directed acyclic graph of tasks.</p>
 <h3 id="security">Security</h3>
 <p><strong>api_key</strong>  </p>
 <table class='table table-sm'>
 <thead>
 <tr>
 <th>apiKey</th>
-<th><em>API Key</em></th>
+<th><b>API Key</b></th>
 </tr>
 </thead>
 <tbody>
@@ -6875,3 +6926,6 @@
 </tr>
 </tbody>
 </table>
+</div>  
+</body>
+</html>

@@ -44,7 +44,7 @@ func (ts *TaskSupervisor) execute(
 	ctx context.Context) (err error) {
 	started := time.Now()
 	if ts.taskStateMachine.TaskDefinition.Timeout > 0 {
-		// timeout will be handled by ant but here we are adding additional check with a bit more buffer
+		// timeout will be handled by ant but here we are adding additional check with additional time
 		ctx, ts.cancel = context.WithTimeout(
 			ctx,
 			ts.taskStateMachine.TaskDefinition.Timeout+1*time.Minute)

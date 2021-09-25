@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/types"
@@ -25,8 +26,8 @@ func NewContainerExecutionController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/api/executors", cec.queryContainerExecutions, acl.New(acl.Container, acl.Query)).Name = "query_executors"
-	webserver.DELETE("/api/executors/:id", cec.deleteContainerExecution, acl.New(acl.Container, acl.Delete)).Name = "delete_executor"
+	webserver.GET("/api/executors", cec.queryContainerExecutions, acl.NewPermission(acl.Container, acl.Query)).Name = "query_executors"
+	webserver.DELETE("/api/executors/:id", cec.deleteContainerExecution, acl.NewPermission(acl.Container, acl.Delete)).Name = "delete_executor"
 	return cec
 }
 
@@ -100,4 +101,3 @@ type containerIDParamsBody struct {
 	// in:path
 	ID string `json:"id"`
 }
-

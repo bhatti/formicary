@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"plexobject.com/formicary/internal/crypto"
+	"plexobject.com/formicary/internal/types"
 	"time"
 )
 
@@ -33,12 +34,11 @@ type UserToken struct {
 
 // NewUserToken creates new instance of user token
 func NewUserToken(
-	userID string,
-	orgID string,
+	user *types.User,
 	tokenName string) *UserToken {
 	return &UserToken{
-		UserID:         userID,
-		OrganizationID: orgID,
+		UserID:         user.ID,
+		OrganizationID: user.OrganizationID,
 		TokenName:      tokenName,
 		Active:         true,
 		CreatedAt:      time.Now(),

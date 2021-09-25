@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/queen/manager"
 	"strings"
 	"testing"
@@ -28,8 +29,9 @@ func Test_InitializeSwaggerStructsForOrganizations(t *testing.T) {
 }
 
 func Test_ShouldQueryOrgs(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -53,8 +55,9 @@ func Test_ShouldQueryOrgs(t *testing.T) {
 }
 
 func Test_ShouldGetOrgByID(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()
@@ -92,7 +95,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	ctrl := NewOrganizationController(manager.AssertTestUserManager(nil, t), webServer)
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", false))
+	ctx.Set(web.DBUser, common.NewUser("org-id", "username", "name", "email@formicary.io", acl.NewRoles("")))
 	err = ctrl.postOrganization(ctx)
 
 	// THEN it should not fail nad return organization
@@ -103,7 +106,7 @@ func Test_ShouldSaveOrg(t *testing.T) {
 	// WHEN updating organization
 	reader = io.NopCloser(bytes.NewReader(b))
 	ctx = web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Set(web.DBUser, common.NewUser(saved.ID, "username", "name", "email@formicary.io", false))
+	ctx.Set(web.DBUser, common.NewUser(saved.ID, "username", "name", "email@formicary.io", acl.NewRoles("")))
 	ctx.Params["id"] = saved.ID
 	err = ctrl.putOrganization(ctx)
 
@@ -114,8 +117,9 @@ func Test_ShouldSaveOrg(t *testing.T) {
 }
 
 func Test_ShouldDeleteOrg(t *testing.T) {
-	var qc = common.NewQueryContext("test-user", "test-org", "")
 	// GIVEN organization controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	organizationRepository, err := repository.NewTestOrganizationRepository()
 	require.NoError(t, err)
 	organizationRepository.Clear()

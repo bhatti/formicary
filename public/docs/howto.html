@@ -1,3 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h2 id="how-to-guides">How-to Guides</h2>
 <h3 id="scheduling">Scheduling</h3>
 <p>Once a job configuration is defined and uploaded, you can submit a new job manually as follows:</p>
@@ -14,7 +63,7 @@
 </code></pre>
 <p>The above example will kick off <code>hello_world</code> job based on <code>scheduled_at</code> time in the future, however the job will be immediately scheduled if the <code>scheduled_at</code> is in the past.</p>
 <h3 id="cron">Cron</h3>
-<p>See <a href="definition_options.html#cron_trigger">Job Filtering</a> for scheduling job at a regular interval using cron syntax.</p>
+<p>See <a href="definition_options.html#cron_trigger">Cron Triggers</a> for scheduling job at a regular interval using cron syntax.</p>
 <h3 id="job-filtering">Job-Filtering</h3>
 <p>See <a href="definition_options.html#filter">Job Filtering</a> for filtering scheduled job.</p>
 <h3 id="configs">Configs</h3>
@@ -27,7 +76,7 @@
   $SERVER/api/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
 </code></pre>
 <h3 id="onexitcode">OnExitCode</h3>
-<p>See <a href="definition_options.html#on_exit">Job Filtering</a> for usage of multiple exit paths using on-exit.</p>
+<p>See <a href="definition_options.html#on_exit">On Exit</a> for usage of multiple exit paths using on-exit.</p>
 <h3 id="caching">Caching</h3>
 <p>Formicary also provides caching for directories that store 3rd party dependencies, e.g., following example shows how all node_modules will be cached:</p>
 <pre><code class="lang-yaml">   cache:
@@ -65,7 +114,7 @@
 <pre><code class="lang-bash">git clone https://&lt;username&gt;:&lt;password&gt;@github.com/&lt;yourid&gt;/&lt;your-project&gt;.git
 </code></pre>
 <h3 id="webhooks">Webhooks</h3>
-<p>You can submit jobs by creating GitHub Webhook, e.g., <img src="github_webhook.png" alt="Github Webhook"></p>
+<p>You can submit jobs by creating GitHub Webhook, e.g., <img class='img-fluid' src="github_webhook.png" alt="Github Webhook"></p>
 <p>First set <code>Payload URL</code> to <code>$SERVER/auth/github/webhook?authorization=&lt;api-token&amp;job=&lt;job-type&gt;</code>, where the <code>api-token</code> can be generated from the dashboard-UI and <code>job</code> points to the job-type that you have configured. Next, set a secret for the payload and add a job configuration for <code>GithubWebhookSecret</code>, e.g.</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/yaml&quot; \
@@ -137,9 +186,9 @@ curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
 <h3 id="customized-messaging-ant-workers">Customized Messaging ant workers</h3>
 <p>See <a href="executors.html#Customized">Customized executors</a> for building a customized messaging ant worker.</p>
 <h3 id="notifications">Notifications</h3>
-<p>You can configure your user profile to receive job notificatios via email or slack, e.g. <img src="notifications.png" alt="Notifications"></p>
-<p>Note: Slack messages require access token and see slack documentation for generating the token, e.g. <img src="slack.png" alt="Slack Token"></p>
-<p>And then add token in your organization configurations, e.g. <img src="org_config.png" alt="Organization Config"></p>
+<p>You can configure your user profile to receive job notificatios via email or slack, e.g. <img class='img-fluid' src="notifications.png" alt="Notifications"></p>
+<p>Note: Slack messages require access token and see slack documentation for generating the token, e.g. <img class='img-fluid' src="slack.png" alt="Slack Token"></p>
+<p>And then add token in your organization configurations, e.g. <img class='img-fluid' src="org_config.png" alt="Organization Config"></p>
 <h3 id="additional-references">Additional References</h3>
 <ul>
 <li><p><a href="expire-artifacts.html">Artifacts Expiration</a> for expiring old artifacts.</p>
@@ -157,3 +206,6 @@ curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
 <li><p><a href="advanced_k8.html">Advanced Kubernetes</a> for using advanced kubernetes configs.</p>
 </li>
 </ul>
+</div>  
+</body>
+</html>

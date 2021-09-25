@@ -41,18 +41,18 @@ func NewJobDefinitionAdminController(
 		startedAt:        time.Now(),
 	}
 
-	webserver.GET("/dashboard/jobs/definitions", jdaCtr.queryJobDefinitions, acl.New(acl.JobDefinition, acl.Query)).Name = "query_admin_job_definitions"
-	webserver.GET("/dashboard/jobs/plugins", jdaCtr.queryPlugins, acl.New(acl.JobDefinition, acl.Query)).Name = "query_admin_job_plugins"
-	webserver.POST("/dashboard/jobs/definitions/upload", jdaCtr.uploadJobDefinition, acl.New(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
-	webserver.GET("/dashboard/jobs/definitions/:id", jdaCtr.getJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "get_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/pause", jdaCtr.pauseJobDefinition, acl.New(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/unpause", jdaCtr.unpauseJobDefinition, acl.New(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.New(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/pause", jdaCtr.pauseJobDefinition, acl.New(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/unpause", jdaCtr.unpauseJobDefinition, acl.New(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
-	webserver.GET("/dashboard/jobs/definitions/:id/dot", jdaCtr.dotJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
-	webserver.GET("/dashboard/jobs/definitions/:id/dot.png", jdaCtr.dotImageJobDefinition, acl.New(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
-	webserver.GET("/dashboard/jobs/definitions/stats", jdaCtr.statsJobDefinition, acl.New(acl.JobDefinition, acl.Metrics)).Name = "stats_admin_job_definition"
+	webserver.GET("/dashboard/jobs/definitions", jdaCtr.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_definitions"
+	webserver.GET("/dashboard/jobs/plugins", jdaCtr.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_plugins"
+	webserver.POST("/dashboard/jobs/definitions/upload", jdaCtr.uploadJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
+	webserver.GET("/dashboard/jobs/definitions/:id", jdaCtr.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/pause", jdaCtr.pauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/unpause", jdaCtr.unpauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/pause", jdaCtr.pauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/unpause", jdaCtr.unpauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
+	webserver.GET("/dashboard/jobs/definitions/:id/dot", jdaCtr.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
+	webserver.GET("/dashboard/jobs/definitions/:id/dot.png", jdaCtr.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
+	webserver.GET("/dashboard/jobs/definitions/stats", jdaCtr.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_admin_job_definition"
 	return jdaCtr
 }
 
@@ -83,7 +83,12 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	params["public_plugin"] = true
-	jobs, total, err := jdaCtr.jobManager.QueryJobDefinitions(common.NewQueryContext("", "", ""), params, page, pageSize, order)
+	jobs, total, err := jdaCtr.jobManager.QueryJobDefinitions(
+		common.NewQueryContext(nil, ""),
+		params,
+		page,
+		pageSize,
+		order)
 	if err != nil {
 		return err
 	}
@@ -96,7 +101,10 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 		"Q":          qs,
 	}
 	for _, job := range jobs {
-		job.CanEdit = (job.OrganizationID != "" && qc.OrganizationID != "" && qc.OrganizationID == job.OrganizationID) || qc.UserID == job.UserID || qc.Admin()
+		job.CanEdit = (job.OrganizationID != "" &&
+			qc.GetOrganizationID() != "" &&
+			qc.GetOrganizationID() == job.OrganizationID) ||
+			qc.GetUserID() == job.UserID || qc.IsAdmin()
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/plugins", res)
@@ -163,8 +171,8 @@ func (jdaCtr *JobDefinitionAdminController) uploadFile(
 	if err != nil {
 		return err
 	}
-	job.OrganizationID = qc.OrganizationID
-	job.UserID = qc.UserID
+	job.OrganizationID = qc.GetOrganizationID()
+	job.UserID = qc.GetUserID()
 	saved, err := jdaCtr.jobManager.SaveJobDefinition(qc, job)
 	if err != nil {
 		return err

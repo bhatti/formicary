@@ -31,7 +31,7 @@ import (
 
 // Start starts all services for formicary server
 func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
-	repoFactory, err := repository.NewFactory(serverCfg)
+	repoFactory, err := repository.NewLocator(serverCfg)
 	if err != nil {
 		return err
 	}

@@ -1,11 +1,12 @@
 package controller
 
 import (
+	"net/http"
+	"net/http/pprof"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"net/http/pprof"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/health"
 	"plexobject.com/formicary/internal/web"
@@ -25,13 +26,13 @@ func NewHealthController(
 		heathMonitor: heathMonitor,
 		webserver:    webserver,
 	}
-	webserver.GET("/api/health", h.getHealth, acl.New(acl.Health, acl.Query)).Name = "get_health"
-	webserver.GET("/api/metrics", web.WrapHandler(promhttp.Handler()), acl.New(acl.Health, acl.Metrics))
+	webserver.GET("/api/health", h.getHealth, acl.NewPermission(acl.Health, acl.Query)).Name = "get_health"
+	webserver.GET("/api/metrics", web.WrapHandler(promhttp.Handler()), acl.NewPermission(acl.Health, acl.Metrics))
 	// Check runtime.SetBlockProfileRate, runtime.SetMutexProfileFraction, go tool pprof.
 	webserver.GET("/api/pprof", func(c web.WebContext) error {
 		pprof.Profile(c.Response(), c.Request())
 		return nil
-	}, acl.New(acl.Profile, acl.View))
+	}, acl.NewPermission(acl.Profile, acl.View))
 	if err := prometheus.Register(prometheus.NewBuildInfoCollector()); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "HealthController",

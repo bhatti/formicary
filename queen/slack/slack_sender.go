@@ -32,14 +32,13 @@ func New(
 func (d *DefaultSlackSender) SendMessage(
 	qc *common.QueryContext,
 	user *common.User,
-	org *common.Organization,
 	to []string,
 	subject string,
 	body string,
 	opts map[string]interface{}) (err error) {
 	var token string
-	if org != nil {
-		token = org.GetConfigString(types.SlackToken)
+	if user.HasOrganization() {
+		token = user.Organization.GetConfigString(types.SlackToken)
 	}
 	if token == "" {
 		return fmt.Errorf("SlackToken is not found in organization config")
@@ -89,7 +88,6 @@ func (d *DefaultSlackSender) SendMessage(
 			_ = d.userManager.AddStickyMessageForSlack(
 				qc,
 				user,
-				org,
 				err)
 			return fmt.Errorf("failed to send message to slack: %s", err)
 		}
@@ -106,7 +104,6 @@ func (d *DefaultSlackSender) SendMessage(
 	_ = d.userManager.ClearStickyMessageForSlack(
 		qc,
 		user,
-		org,
 	)
 	return nil
 }

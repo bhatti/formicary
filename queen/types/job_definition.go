@@ -114,8 +114,8 @@ type JobDefinition struct {
 	RequiredParams []string `yaml:"required_params,omitempty" json:"required_params" gorm:"-"`
 	// UsesTemplate means the task is optional and can fail without failing entire job
 	UsesTemplate bool `yaml:"-" json:"-"`
-	// ParseTemplateOnLoad
-	ParseTemplateOnLoad bool `yaml:"parse_template_on_load" json:"-" gorm:"-"`
+	// DynamicTemplateTasks
+	DynamicTemplateTasks bool `yaml:"dynamic_template_tasks" json:"-" gorm:"-"`
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// Tags is aggregation of task tags
 	Tags string `yaml:"tags,omitempty" json:"tags"`
@@ -1221,9 +1221,8 @@ func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
 	}
 	job = &JobDefinition{}
 
-	preparse := utils.ParseYamlTag(yamlSource, "parse_template_on_load:")
-	if strings.TrimSpace(preparse) == "true" {
-		yamlSource = preparseYaml(yamlSource)
+	if strings.TrimSpace(utils.ParseYamlTag(yamlSource, "dynamic_template_tasks:")) == "true" {
+		yamlSource = loadDynamicTasksFromYaml(yamlSource)
 	}
 	if strings.Contains(yamlSource, "{{") && strings.Contains(yamlSource, "}}") {
 		partialYaml, err := removeTemplateVariables(yamlSource)
@@ -1291,7 +1290,7 @@ func removeTemplateVariables(
 	return partialYaml, nil
 }
 
-func preparseYaml(yamlSource string) string {
+func loadDynamicTasksFromYaml(yamlSource string) string {
 	data := make(map[string]interface{})
 	lineVariables := utils.ParseYamlTag(yamlSource, "job_variables:")
 	for _, line := range strings.Split(lineVariables, "\n") {

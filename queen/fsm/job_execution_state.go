@@ -53,7 +53,6 @@ type JobExecutionStateMachine struct {
 	JobExecution        *types.JobExecution
 	LastJobExecution    *types.JobExecution
 	User                *common.User
-	Organization        *common.Organization
 	Reservations        map[string]*common.AntReservation
 	id                  string
 	serverCfg           *config.ServerConfig
@@ -133,15 +132,6 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		}
 	}
 
-	if jsm.Request.GetOrganizationID() != "" {
-		jsm.Organization, err = jsm.userManager.GetOrganization(
-			jsm.QueryContext(),
-			jsm.Request.GetOrganizationID())
-		if err != nil {
-			return err
-		}
-	}
-
 	// if pin job-definition to the version
 	jsm.JobDefinition, err = jsm.JobManager.GetJobDefinition(
 		jsm.QueryContext(),
@@ -164,14 +154,6 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		jsm.User, err = jsm.userManager.GetUser(
 			jsm.QueryContext(),
 			jsm.JobDefinition.UserID)
-		if err != nil {
-			return err
-		}
-	}
-	if jsm.Organization == nil && jsm.JobDefinition.OrganizationID != "" && !jsm.JobDefinition.PublicPlugin {
-		jsm.Organization, err = jsm.userManager.GetOrganization(
-			jsm.QueryContext(),
-			jsm.JobDefinition.OrganizationID)
 		if err != nil {
 			return err
 		}
@@ -466,7 +448,6 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(
 	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 		jsm.QueryContext(),
 		jsm.User,
-		jsm.Organization,
 		jsm.JobDefinition,
 		jsm.Request,
 		jsm.JobExecution,
@@ -521,7 +502,9 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 			return fmt.Errorf("cannot submit more than jobs because user already running %d jobs",
 				executingUser)
 		}
-		if jsm.Organization != nil && executingOrg >= jsm.Organization.MaxConcurrency {
+		if jsm.User != nil &&
+			jsm.User.HasOrganization() &&
+			executingOrg >= jsm.User.Organization.MaxConcurrency {
 			return fmt.Errorf("cannot submit more than jobs because org already running %d jobs",
 				executingOrg)
 		}
@@ -541,7 +524,7 @@ func (jsm *JobExecutionStateMachine) CheckSubscriptionQuota() (err error) {
 	jsm.cpuUsage, jsm.diskUsage, err = jsm.JobManager.CheckSubscriptionQuota(
 		jsm.QueryContext(),
 		jsm.User,
-		jsm.Organization)
+		)
 	return err
 }
 
@@ -603,10 +586,10 @@ func (jsm *JobExecutionStateMachine) DoesRequireFullRestart() bool {
 
 // QueryContext builds query context
 func (jsm *JobExecutionStateMachine) QueryContext() *common.QueryContext {
-	if jsm.User != nil && jsm.User.Admin {
-		return common.NewQueryContext("", "", "").WithAdmin()
+	if jsm.User != nil && jsm.User.IsAdmin() {
+		return common.NewQueryContext(nil, "").WithAdmin()
 	}
-	return common.NewQueryContext(jsm.Request.GetUserID(), jsm.Request.GetOrganizationID(), "")
+	return common.NewQueryContextFromIDs(jsm.Request.GetUserID(), jsm.Request.GetOrganizationID())
 }
 
 // LogFields common logging fields
@@ -686,7 +669,6 @@ func (jsm *JobExecutionStateMachine) failed(
 		saveExecErr = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 			jsm.QueryContext(),
 			jsm.User,
-			jsm.Organization,
 			jsm.JobDefinition,
 			jsm.Request,
 			jsm.JobExecution,
@@ -730,8 +712,8 @@ func (jsm *JobExecutionStateMachine) failed(
 // buildSecretConfigs builds secret configs
 func (jsm *JobExecutionStateMachine) buildSecretConfigs() []string {
 	res := make([]string, 0)
-	if jsm.Organization != nil {
-		for _, v := range jsm.Organization.Configs {
+	if jsm.User != nil && jsm.User.HasOrganization() {
+		for _, v := range jsm.User.Organization.Configs {
 			if v.Secret {
 				res = append(res, v.Value)
 			}
@@ -750,8 +732,8 @@ func (jsm *JobExecutionStateMachine) buildSecretConfigs() []string {
 // buildDynamicParams builds config params
 func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.VariableValue {
 	res := make(map[string]common.VariableValue)
-	if jsm.Organization != nil {
-		for _, v := range jsm.Organization.Configs {
+	if jsm.User != nil && jsm.User.HasOrganization() {
+		for _, v := range jsm.User.Organization.Configs {
 			if vv, err := v.GetVariableValue(); err == nil {
 				res[v.Name] = vv
 			}

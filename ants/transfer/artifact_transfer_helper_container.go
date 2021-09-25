@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
-	"plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/utils"
 
 	"plexobject.com/formicary/ants/executor"
 
@@ -183,8 +184,8 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		SHA256:        sha256,
 		ContentLength: int64(size),
 		ContentType:   "application/zip",
-		Metadata:      map[string]string{},
-		Tags:          map[string]string{},
+		Metadata:      make(map[string]string),
+		Tags:          make(map[string]string),
 		ExpiresAt:     expiration,
 	}
 

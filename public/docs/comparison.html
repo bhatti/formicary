@@ -1,3 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
 <h3 id="comparison-with-other-actions-dag-jobs-pipeline-or-workflow-solutions">Comparison with other Actions, DAG, Jobs, Pipeline or Workflow Solutions</h3>
 <table class='table table-sm'>
 <thead>
@@ -24,6 +73,16 @@
 <td>CI-CD</td>
 </tr>
 <tr>
+<td><strong>Definition Format</strong></td>
+<td>Python</td>
+<td>UI</td>
+<td>YAML</td>
+<td>YAML</td>
+<td>YAML</td>
+<td>TOML</td>
+<td>DSL</td>
+</tr>
+<tr>
 <td><strong>Docker Images</strong></td>
 <td>Yes</td>
 <td>Yes</td>
@@ -34,14 +93,44 @@
 <td>Indirectly</td>
 </tr>
 <tr>
-<td><strong>Definition Format</strong></td>
-<td>Python</td>
-<td>API</td>
-<td>YAML</td>
-<td>YAML</td>
-<td>YAML</td>
-<td>TOML</td>
-<td>DSL</td>
+<td><strong>K8 Svc/Vols/labels</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>K8 Lmt CPU/Memory</strong></td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Job/Task API</strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Request Params</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td><strong>Artifacts</strong></td>
@@ -54,7 +143,7 @@
 <td>No</td>
 </tr>
 <tr>
-<td><strong>NPM/Maven/etc Caching</strong></td>
+<td><strong>NPM/Mvn/.. Caching</strong></td>
 <td>No</td>
 <td>Yes</td>
 <td>Yes</td>
@@ -114,32 +203,12 @@
 <td>Yes</td>
 </tr>
 <tr>
-<td><strong>Job/Task API</strong></td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
+<td><strong>Streaming Logs</strong></td>
+<td>No</td>
 <td>Yes</td>
 <td>Yes</td>
 <td>Yes</td>
 <td>No</td>
-</tr>
-<tr>
-<td><strong>Limit CPU/Memory</strong></td>
-<td>Yes</td>
-<td>No</td>
-<td>No</td>
-<td>Yes</td>
-<td>No</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td><strong>Request Params</strong></td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
 <td>Yes</td>
 <td>Yes</td>
 </tr>
@@ -212,6 +281,16 @@
 <td>via Script</td>
 <td>via Script</td>
 <td>via Script</td>
+</tr>
+<tr>
+<td><strong>Messaging Exec</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
 </tr>
 <tr>
 <td><strong>Queuing Library</strong></td>
@@ -344,7 +423,37 @@
 <td>No</td>
 </tr>
 <tr>
+<td><strong>Tags based routing</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Webhooks</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
 <td><strong>Usage Reports</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Admin Dashboard</strong></td>
 <td>No</td>
 <td>No</td>
 <td>No</td>
@@ -365,7 +474,7 @@
 </tr>
 <tr>
 <td><strong>User Mgmt</strong></td>
-<td>Yes</td>
+<td>No</td>
 <td>Yes</td>
 <td>Yes</td>
 <td>Yes</td>
@@ -374,7 +483,27 @@
 <td>No</td>
 </tr>
 <tr>
-<td><strong>Plugins</strong></td>
+<td><strong>Usage Quota </strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>RBAC/ACL Security</strong></td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Fork / Plugins</strong></td>
 <td>Yes</td>
 <td>Yes</td>
 <td>Yes</td>
@@ -401,3 +530,6 @@
 <p> <a href="gitlab.html">Gitlab</a></p>
 <h3 id="migrating-from-circleci">Migrating from CircleCI</h3>
 <p> <a href="circleci.html">CircleCI</a></p>
+</div>  
+</body>
+</html>

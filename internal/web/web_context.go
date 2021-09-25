@@ -87,9 +87,6 @@ const AppVersion = "AppVersion"
 // DBUser constant
 const DBUser = "DBUser"
 
-// DBOrg constant
-const DBOrg = "DBOrg"
-
 // AuthDisabled constant
 const AuthDisabled = "AuthDisabled"
 
@@ -104,9 +101,11 @@ func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
 	}
 	if user != nil {
 		res[DBUser] = user
-		res["Admin"] = user.Admin
+		res["Admin"] = user.IsAdmin()
+		res["ReadAdmin"] = user.IsReadAdmin()
 	} else if c.Get(AuthDisabled) != nil {
 		res["Admin"] = true
+		res["ReadAdmin"] = true
 	}
 }
 
@@ -115,15 +114,6 @@ func GetDBUserFromSession(c WebContext) *common.User {
 	user := c.Get(DBUser)
 	if user != nil {
 		return user.(*common.User)
-	}
-	return nil
-}
-
-// GetDBOrgFromSession returns database-org from web context
-func GetDBOrgFromSession(c WebContext) *common.Organization {
-	org := c.Get(DBOrg)
-	if org != nil {
-		return org.(*common.Organization)
 	}
 	return nil
 }
@@ -142,9 +132,8 @@ func GetDBLoggedUserFromSession(c WebContext) *common.User {
 
 // BuildQueryContext returns query-context for scoping queries by user/org
 func BuildQueryContext(c WebContext) *common.QueryContext {
-	return common.NewQueryContextFromUser(
+	return common.NewQueryContext(
 		GetDBLoggedUserFromSession(c),
-		GetDBOrgFromSession(c),
 		c.Request().RemoteAddr)
 }
 

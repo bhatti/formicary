@@ -32,17 +32,17 @@ func NewJobRequestAdminController(
 		jobManager: jobManager,
 		webserver:  webserver,
 	}
-	webserver.GET("/dashboard/jobs/requests", jraCtr.queryJobRequests, acl.New(acl.JobResource, acl.Query)).Name = "query_admin_job_requests"
-	webserver.GET("/dashboard/jobs/requests/new", jraCtr.newJobRequest, acl.New(acl.JobRequest, acl.Submit)).Name = "new_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests", jraCtr.createJobRequest, acl.New(acl.JobRequest, acl.Submit)).Name = "create_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.New(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.New(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.New(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
-	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
-	webserver.GET("/dashboard/jobs/requests/:id/wait_time", jraCtr.getWaitTimeJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "get_wait_time_admin_job_requests"
-	webserver.GET("/dashboard/jobs/requests/:id/dot", jraCtr.dotJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "dot_job_request"
-	webserver.GET("/dashboard/jobs/requests/:id/dot.png", jraCtr.dotImageJobRequest, acl.New(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
-	webserver.GET("/dashboard/jobs/requests/stats", jraCtr.statsJobRequests, acl.New(acl.JobRequest, acl.Metrics)).Name = "stats_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests", jraCtr.queryJobRequests, acl.NewPermission(acl.JobResource, acl.Query)).Name = "query_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/new", jraCtr.newJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "new_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests", jraCtr.createJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/:id/wait_time", jraCtr.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/:id/dot", jraCtr.dotJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_job_request"
+	webserver.GET("/dashboard/jobs/requests/:id/dot.png", jraCtr.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
+	webserver.GET("/dashboard/jobs/requests/stats", jraCtr.statsJobRequests, acl.NewPermission(acl.JobRequest, acl.Metrics)).Name = "stats_admin_job_requests"
 
 	return jraCtr
 }
@@ -267,8 +267,8 @@ func buildRequest(c web.WebContext) *types.JobRequest {
 	request.ScheduleAttempts = 0
 	request.Retried = 0
 	qc := web.BuildQueryContext(c)
-	request.OrganizationID = qc.OrganizationID
-	request.UserID = qc.UserID
+	request.OrganizationID = qc.GetOrganizationID()
+	request.UserID = qc.GetUserID()
 	if request.ScheduledAt.IsZero() {
 		request.ScheduledAt = time.Now()
 	}
