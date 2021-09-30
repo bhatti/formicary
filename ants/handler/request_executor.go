@@ -154,7 +154,7 @@ func (re *RequestExecutorImpl) Execute(
 	}
 	taskResp.Timings.PostScriptFinishedAt = time.Now()
 	// copy applied limits
-	taskResp.AppliedCost = taskReq.ExecutorOpts.AppliedCost
+	taskResp.CostFactor = taskReq.ExecutorOpts.CostFactor
 
 	// let post-process complete with fresh context in case it's cancelled
 	re.postProcess(context.Background(), taskReq, taskResp, container)
@@ -180,14 +180,23 @@ func (re *RequestExecutorImpl) execute(
 	defer cancel()
 
 	doExecute := func(cmd string) ([]byte, error) {
+		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = checkCommandCanExecuteWithoutShell(cmd)
+		_ = container.WriteTraceInfo(fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' request-id '%d'...",
+			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 		stdout, stderr, exitCode, exitMessage, err := re.asyncExecuteCommand(
 			ctx,
 			container,
 			cmd,
 			taskReq.Variables,
 			false)
+		_ = container.WriteTraceInfo(fmt.Sprintf("🏔️ executed command '%s' of task '%s' of job '%s' request-id '%d', exit=%d, error=%s",
+			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err))
 		taskResp.ExitCode = strconv.Itoa(exitCode)
 		taskResp.ExitMessage = exitMessage
+		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = false
+		if err != nil && taskResp.FailedCommand == "" {
+			taskResp.FailedCommand = cmd
+		}
 		if len(stderr) > 0 {
 			// it's already logged on console
 			//container.WriteTraceError(string(stderr))
@@ -197,8 +206,6 @@ func (re *RequestExecutorImpl) execute(
 
 	var lastError error
 	for i, cmd := range cmds {
-		_ = container.WriteTraceInfo(fmt.Sprintf("🎽️ executing command '%s' of task '%s' of job '%s' request-id '%d'...",
-			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 		stdout, err := doExecute(cmd)
 		if err != nil && failOnError {
 			return err
@@ -296,14 +303,14 @@ func (re *RequestExecutorImpl) preProcess(
 
 	// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
 	if re.antCfg.S3.UseSSL {
-		taskReq.ExecutorOpts.Environment["AWS_URL"] = fmt.Sprintf("%s://%s", httpsPrefix, re.antCfg.S3.Endpoint)
+		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpsPrefix, re.antCfg.S3.Endpoint)
 	} else {
-		taskReq.ExecutorOpts.Environment["AWS_URL"] = fmt.Sprintf("%s://%s", httpPrefix, re.antCfg.S3.Endpoint)
+		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpPrefix, re.antCfg.S3.Endpoint)
 	}
-	taskReq.ExecutorOpts.Environment["AWS_ENDPOINT"] = re.antCfg.S3.Endpoint
-	taskReq.ExecutorOpts.Environment["AWS_ACCESS_KEY_ID"] = re.antCfg.S3.AccessKeyID
-	taskReq.ExecutorOpts.Environment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.S3.SecretAccessKey
-	taskReq.ExecutorOpts.Environment["AWS_DEFAULT_REGION"] = re.antCfg.S3.Region
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = re.antCfg.S3.Endpoint
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_ACCESS_KEY_ID"] = re.antCfg.S3.AccessKeyID
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.S3.SecretAccessKey
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_DEFAULT_REGION"] = re.antCfg.S3.Region
 
 	if taskReq.ExecutorOpts.Method == types.Kubernetes {
 		taskReq.ExecutorOpts.HelperContainer.Image = re.antCfg.Kubernetes.HelperImage
@@ -362,7 +369,7 @@ func (re *RequestExecutorImpl) preProcess(
 				"Error":     sendErr,
 			}).Warnf("failed to send lifecycle event container")
 	}
-	_ = container.WriteTraceInfo(fmt.Sprintf("🚀 task '%s' of job '%s' with request-id '%d' starting...",
+	_ = container.WriteTraceInfo(fmt.Sprintf("🚀 starting task '%s' of job '%s' with request-id '%d'...",
 		taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	if taskReq.ExecutorOpts.Debug {
 		_ = container.WriteTraceInfo(fmt.Sprintf("env variables: %v", taskReq.ExecutorOpts.Environment))
@@ -447,8 +454,8 @@ func (re *RequestExecutorImpl) postProcess(
 
 	elapsed := time.Now().Sub(taskReq.StartedAt).String()
 	if taskResp.Status.Failed() {
-		_ = container.WriteTraceError(fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' failed Error=%s Duration=%s",
-			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, elapsed))
+		_ = container.WriteTraceError(fmt.Sprintf("🌋 task '%s' of job '%s' with request-id '%d' failed Error=%s Exit=%s Duration=%s",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, taskResp.ExitCode, elapsed))
 	} else {
 		_ = container.WriteTraceSuccess(fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, elapsed))
@@ -624,4 +631,17 @@ func sendContainerEvent(
 		}
 	}
 	return
+}
+
+func checkCommandCanExecuteWithoutShell(cmd string) bool {
+	for i := 0; i < len(cmd); i++ {
+		if cmd[i] == '&' ||
+			cmd[i] == '|' ||
+			cmd[i] == '>' ||
+			cmd[i] == '<' ||
+			(cmd[i] >= '0' && cmd[i] <= '9') {
+			return false
+		}
+	}
+	return true
 }

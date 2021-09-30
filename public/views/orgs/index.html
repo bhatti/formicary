@@ -23,7 +23,7 @@
         <tbody>
         {{range .Records}}
         <tr>
-            <td>{{.ID}}</td>
+            <td><a href="/dashboard/orgs/{{.ID}}">{{.ID}}</a></td>
             <td>{{.OrgUnit}}</td>
             <td>{{.BundleID}}</td>
             <td class="group row">
@@ -32,11 +32,13 @@
                 </form> &nbsp;
                 <form action="/dashboard/users" method="GET">
                     <input type="hidden" name="organization_id" value="{{.ID}}">
-                    <input type="submit" class="btn btn-primary" value="Users">
+                    <input type="submit" class="btn btn-secondary" value="Users">
                 </form> &nbsp;
+                {{if eq .ID $.DBUserOrg}}
                 <form action="/dashboard/orgs/invite/{{.ID}}" method="GET">
-                    <input type="submit" class="btn btn-primary" value="Invite">
+                    <input type="submit" class="btn btn-info" value="Invite">
                 </form> &nbsp;
+                {{end}}
                 {{if $.Admin}}
                 <form action="/dashboard/orgs/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
                       onsubmit="return confirm('Please confirm deleting this org(' + this['id'].value + ') and all users within the organization?');">

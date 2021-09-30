@@ -236,13 +236,14 @@ func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
 		return
 	}
 	params := map[string]common.VariableValue{
-		"JobRetry":  common.NewVariableValue(0, false),
-		"TaskRetry": common.NewVariableValue(0, false),
-		"Nonce":     common.NewVariableValue(0, false),
+		"JobRetry":       common.NewVariableValue(0, false),
+		"TaskRetry":      common.NewVariableValue(0, false),
+		"Nonce":          common.NewVariableValue(0, false),
+		"JobElapsedSecs": common.NewVariableValue(0, false),
 	}
 	var fromExecTask *types.TaskExecution
 	if dg.jobExecution != nil {
-		fromExecTask = dg.jobExecution.GetTask(parentNode.task.TaskType)
+		_, fromExecTask = dg.jobExecution.GetTask("", parentNode.task.TaskType)
 		for _, c := range dg.jobExecution.Contexts {
 			if vv, err := c.GetVariableValue(); err == nil {
 				params[c.Name] = vv
@@ -300,7 +301,7 @@ func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
 				if childTask != nil && childTask.AlwaysRun {
 					matched := false
 					for _, childTarget := range childTask.OnExitCode {
-						childTargetExec := dg.jobExecution.GetTask(childTarget)
+						_, childTargetExec := dg.jobExecution.GetTask("", childTarget)
 						if childTargetExec != nil {
 							matched = true
 							break
@@ -326,7 +327,7 @@ func (dg *Generator) getTaskStateStateColor(taskType string) (common.RequestStat
 	if dg.jobExecution == nil {
 		return common.UNKNOWN, defaultColor, false
 	}
-	task := dg.jobExecution.GetTask(taskType)
+	_, task := dg.jobExecution.GetTask("", taskType)
 	if task == nil {
 		return common.UNKNOWN, defaultColor, false
 	}

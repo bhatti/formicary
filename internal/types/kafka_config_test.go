@@ -39,7 +39,6 @@ func Test_ShouldBuildTLSConfiguration(t *testing.T) {
 		Brokers:   []string{"a"},
 		Username:  "user",
 		Password:  "pass",
-		Algorithm: "sha256",
 		CertFile:  certFile.Name(),
 		KeyFile:   privFile.Name(),
 		CAFile:    caFile.Name(),
@@ -47,7 +46,6 @@ func Test_ShouldBuildTLSConfiguration(t *testing.T) {
 		UseTLS:    true,
 		UseSasl:   true,
 		RetryMax:  1,
-		Assignor:  "assign",
 		Group:     "group",
 	}
 	caB, privB, err := genCert()
@@ -63,10 +61,6 @@ func Test_ShouldBuildTLSConfiguration(t *testing.T) {
 
 	_, err = c.BuildTLSConfiguration()
 	require.NoError(t, err)
-
-	c.Assignor = "roundrobin"
-	_, err = c.BuildSaramaConfig(true, true)
-	require.NoError(t, err)
 }
 
 func Test_ShouldValidateKafkaConfig(t *testing.T) {
@@ -74,20 +68,14 @@ func Test_ShouldValidateKafkaConfig(t *testing.T) {
 		Brokers:   []string{"a"},
 		Username:  "user",
 		Password:  "pass",
-		Algorithm: "sha256",
 		VerifySSL: true,
 		UseTLS:    true,
 		UseSasl:   true,
 		RetryMax:  1,
-		Assignor:  "assign",
 		Group:     "group",
 	}
-	require.Error(t, c.Validate())
-	require.Contains(t, c.Validate().Error(), "clientID")
-	c.clientID = "123"
 	require.NoError(t, c.Validate())
 	c.RetryMax = 0
-	c.Assignor = ""
 	require.NoError(t, c.Validate())
 }
 

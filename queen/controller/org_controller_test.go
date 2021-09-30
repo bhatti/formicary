@@ -26,6 +26,8 @@ func Test_InitializeSwaggerStructsForOrganizations(t *testing.T) {
 	_ = orgUpdateParams{}
 	_ = orgResponseBody{}
 	_ = userInvitationResponseBody{}
+	_ = usageReport{}
+	_ = usageReportResponse{}
 }
 
 func Test_ShouldQueryOrgs(t *testing.T) {

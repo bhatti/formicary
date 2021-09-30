@@ -60,7 +60,6 @@ func newTestTaskRequest() *TaskRequest {
 		TaskType:        "task",
 		Action:          EXECUTE,
 		Script:          []string{"a"},
-		ResponseTopic:   "resp",
 		ExecutorOpts: &ExecutorOptions{
 			Method:          Kubernetes,
 			MainContainer:   &ContainerDefinition{},

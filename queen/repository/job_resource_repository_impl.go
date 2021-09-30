@@ -27,7 +27,7 @@ func (jrr *JobResourceRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*types.JobResource, error) {
 	var resource types.JobResource
-	res := qc.AddOrgElseUserWhere(jrr.db).Preload("Configs").
+	res := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Configs").
 		Where("id = ?", id).
 		Where("active = ?", true).
 		First(&resource)
@@ -50,7 +50,7 @@ func (jrr *JobResourceRepositoryImpl) SetPaused(
 	qc *common.QueryContext,
 	id string,
 	paused bool) error {
-	res := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{})).
+	res := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{}), false).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{"paused": paused, "updated_at": time.Now()})
 	if res.Error != nil {
@@ -67,7 +67,7 @@ func (jrr *JobResourceRepositoryImpl) SetPaused(
 func (jrr *JobResourceRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id string) error {
-	res := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{})).
+	res := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{}), false).
 		Where("id = ?", id).
 		Where("active = ?", true).
 		Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
@@ -142,7 +142,8 @@ func (jrr *JobResourceRepositoryImpl) Save(resource *types.JobResource) (*types.
 // getLatestByType finds JobDefinition by type without active flag
 func (jrr *JobResourceRepositoryImpl) getByExternalID(qc *common.QueryContext, id string) (*types.JobResource, error) {
 	var resource types.JobResource
-	res := qc.AddOrgElseUserWhere(jrr.db.Model(&resource)).Where("external_id = ?", id).Find(&resource)
+	res := qc.AddOrgElseUserWhere(jrr.db.Model(&resource), true).
+		Where("external_id = ?", id).Find(&resource)
 	if res.Error != nil {
 		return nil, res.Error
 	}
@@ -157,7 +158,8 @@ func (jrr *JobResourceRepositoryImpl) MatchByTags(
 	tags []string,
 	value int) (matching []*types.JobResource, total int, err error) {
 	resources := make([]*types.JobResource, 0)
-	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Configs").
+	tx := qc.AddOrgElseUserWhere(jrr.db, true).
+		Preload("Configs").
 		Preload("Uses", "active = ?", true).
 		Limit(1000).
 		Where("active = ?", true).
@@ -242,7 +244,8 @@ func (jrr *JobResourceRepositoryImpl) GetResourceUses(
 	qc *common.QueryContext,
 	id string) ([]*types.JobResourceUse, error) {
 	uses := make([]*types.JobResourceUse, 0)
-	tx := qc.AddOrgElseUserWhere(jrr.db).Limit(10000).
+	tx := qc.AddOrgElseUserWhere(jrr.db, true).
+		Limit(10000).
 		Where("active = ?", true).Where("job_resource_id = ?", id)
 	res := tx.Where("job_resource_id = ?", id).Find(&uses)
 	if res.Error != nil {
@@ -331,7 +334,8 @@ func (jrr *JobResourceRepositoryImpl) Query(
 	pageSize int,
 	order []string) (resources []*types.JobResource, totalRecords int64, err error) {
 	resources = make([]*types.JobResource, 0)
-	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Configs").
+	tx := qc.AddOrgElseUserWhere(jrr.db, true).
+		Preload("Configs").
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
@@ -360,7 +364,8 @@ func (jrr *JobResourceRepositoryImpl) Query(
 func (jrr *JobResourceRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{})).Where("active = ?", true)
+	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{}), true).
+		Where("active = ?", true)
 	tx = jrr.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {

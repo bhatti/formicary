@@ -23,8 +23,6 @@ const (
 	STARTED RequestState = "STARTED"
 	// CANCELLED request
 	CANCELLED RequestState = "CANCELLED"
-	// SUSPENDED request
-	SUSPENDED RequestState = "SUSPENDED"
 
 	// HISTORY request -- collection of FAILED/COMPLETED/CANCELLED
 	// Grouping use for queries
@@ -36,6 +34,12 @@ const (
 
 	// FATAL request
 	FATAL RequestState = "FATAL"
+
+	// RESTART_JOB request
+	RESTART_JOB RequestState = "RESTART_JOB"
+
+	// RESTART_TASK request
+	RESTART_TASK RequestState = "RESTART_TASK"
 
 	// RESERVED request
 	// Resource management
@@ -131,7 +135,8 @@ func (rs RequestState) Unknown() bool {
 		rs != EXECUTING &&
 		rs != STARTED &&
 		rs != HISTORY &&
-		rs != SUSPENDED
+		rs != RESTART_JOB &&
+		rs != RESTART_TASK
 }
 
 const (

@@ -510,7 +510,50 @@ func Test_ShouldBuildIterateJob(t *testing.T) {
 }
 
 // Test json serialization of yaml job definition
-func Test_ShouldSerializeFromYAML(t *testing.T) {
+func Test_ShouldSerializeSensorFromYAML(t *testing.T) {
+	// GIVEN job-definition loaded from pipeline yaml
+	b, err := ioutil.ReadFile("../../docs/examples/sensor-job.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(job.Tasks))
+	require.Equal(t, 0, job.Tasks[0].TaskOrder)
+	require.Equal(t, 1, job.Tasks[1].TaskOrder)
+	require.Equal(t, 2, job.Tasks[2].TaskOrder)
+	started := time.Now()
+	task, _, err := job.GetDynamicTask(
+		"first",
+		map[string]common.VariableValue{
+			"JobElapsedSecs": common.NewVariableValue(uint(time.Since(started).Seconds()), false),
+		},
+	)
+	require.NoError(t, err)
+	require.NotEqual(t, "", task.Script[0])
+}
+
+// Test json serialization of yaml job definition
+func Test_ShouldETLSerializeFromYAML(t *testing.T) {
+	// GIVEN job-definition loaded from pipeline yaml
+	b, err := ioutil.ReadFile("../../docs/examples/etl-sum-job.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(job.Tasks))
+	require.Equal(t, 0, job.Tasks[0].TaskOrder)
+	require.Equal(t, 1, job.Tasks[1].TaskOrder)
+	require.Equal(t, 2, job.Tasks[2].TaskOrder)
+	task, _, err := job.GetDynamicTask(
+		"extract",
+		map[string]common.VariableValue{
+			"data_string":common.NewVariableValue("{\"1001\": 301.27, \"1002\": 433.21, \"1003\": 502.22}", false),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "{\"1001\": 301.27, \"1002\": 433.21, \"1003\": 502.22}", task.Variables[0].Value)
+}
+
+// Test json serialization of yaml job definition
+func Test_ShouldSerializeHelloWorldFromYAML(t *testing.T) {
 	// GIVEN job-definition loaded from pipeline yaml
 	b, err := ioutil.ReadFile("../../docs/examples/hello_world.yaml")
 	require.NoError(t, err)

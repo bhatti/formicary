@@ -1,0 +1,47 @@
+job_type: etl-stock-job
+description: Simple ETL Stock pipeline example
+max_concurrency: 1
+tasks:
+- task_type: extract
+  method: KUBERNETES
+  container:
+    image: python:3.8-buster
+  before_script:
+    - pip install yfinance --upgrade --no-cache-dir
+  script:
+    - python -c 'import yfinance as yf;import json;stock = yf.Ticker("{{.Symbol}}");j = json.dumps(stock.info);print(j);' > stock.json
+  artifacts:
+    paths:
+      - stock.json
+  on_completed: transform
+- task_type: transform
+  method: KUBERNETES
+  tags:
+  - builder
+  container:
+    image: alpine
+  dependencies:
+    - extract
+  before_script:
+    - apk --update add jq && rm -rf /var/lib/apt/lists/* && rm /var/cache/apk/*
+  script:
+    - jq '.ask,.bid' > askbid.txt
+  artifacts:
+    paths:
+      - askbid.txt
+  on_completed: load
+- task_type: load
+  method: KUBERNETES
+  tags:
+  - builder
+  dependencies:
+    - transform
+  script:
+    - awk '{ sum += $1; n++ } END { if (n > 0) print sum / n; }' askbid.txt > avg.txt
+  after_script:
+    - ls -l
+  container:
+    image: alpine
+  artifacts:
+    paths:
+      - avg.txt

@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // NormalizePrefix adds trailing slash if needed
@@ -132,4 +133,26 @@ func VerifySignature(secret string, expectedHash256 string, body []byte) error {
 		return fmt.Errorf("failed to match '%s' sha256 with '%s'", actualHash, expectedHash256)
 	}
 	return nil
+}
+
+// ParseStartDateTime parses start date
+func ParseStartDateTime(s string) time.Time {
+	start := time.Unix(0, 0)
+	if d, err := time.Parse("2006-01-02T15:04:05-0700", s); err == nil {
+		return d
+	} else if d, err := time.Parse("2006-01-02", s); err == nil {
+		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
+	}
+	return start
+}
+
+// ParseEndDateTime parses end date
+func ParseEndDateTime(s string) time.Time {
+	end := time.Now()
+	if d, err := time.Parse("2006-01-02T15:04:05-0700", s); err == nil {
+		return d
+	} else if d, err := time.Parse("2006-01-02", s); err == nil {
+		return time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 59, 0, d.Location())
+	}
+	return end
 }

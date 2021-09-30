@@ -105,10 +105,12 @@ func (orc *OrganizationRepositoryImpl) lookupBundle(
 func (orc *OrganizationRepositoryImpl) GetByParentID(
 	_ *common.QueryContext,
 	parentID string) (recs []*common.Organization, err error) {
+	now := time.Now()
 	recs = make([]*common.Organization, 0)
 	res := orc.db.Limit(100).
 		Where("parent_id = ?", parentID).
 		Where("active = ?", true).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Preload("Configs").
 		Find(&recs)
 	if res.Error != nil {
@@ -244,7 +246,7 @@ func (orc *OrganizationRepositoryImpl) Update(
 		return nil, common.NewNotFoundError(
 			fmt.Errorf("organization %s does not exists", org.OrgUnit))
 	}
-	if !qc.Matches(old.OwnerUserID, old.ID) {
+	if !qc.Matches(old.OwnerUserID, old.ID, false) {
 		return nil, common.NewPermissionError(
 			fmt.Errorf("organization '%s' with id '%s' cannot be edited by non-member %s",
 				org.OrgUnit, old.ID, qc.GetOrganizationID()))
@@ -364,10 +366,12 @@ func (orc *OrganizationRepositoryImpl) Query(
 	page int,
 	pageSize int,
 	order []string) (recs []*common.Organization, totalRecords int64, err error) {
+	now := time.Now()
 	recs = make([]*common.Organization, 0)
 	tx := orc.db.Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true).
+		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Preload("Configs")
 	tx = orc.addQuery(params, tx)
 

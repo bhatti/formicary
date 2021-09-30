@@ -8,6 +8,10 @@ import (
 
 // ArtifactRepository defines data access methods for artifacts
 type ArtifactRepository interface {
+	// GetResourceUsageByOrgUser - Finds usage between time by user and organization
+	GetResourceUsageByOrgUser(
+		ranges []types.DateRange,
+		limit int) ([]types.ResourceUsage, error)
 	// GetResourceUsage - Finds usage between time
 	GetResourceUsage(
 		qc *common.QueryContext,

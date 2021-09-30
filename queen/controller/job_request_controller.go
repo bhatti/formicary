@@ -3,13 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
-	"time"
-
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
+	"strconv"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/types"
@@ -206,18 +205,8 @@ func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.WebContext) 
 //   200: jobRequestStats
 func (jobReqCtrl *JobRequestController) statsJobRequests(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	start := time.Unix(0, 0)
-	end := time.Now()
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("from")); err == nil {
-		start = d
-	} else if d, err := time.Parse("2006-01-02", c.QueryParam("from")); err == nil {
-		start = time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
-	}
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("to")); err == nil {
-		end = d
-	} else if d, err := time.Parse("2006-01-02", c.QueryParam("to")); err == nil {
-		end = time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 59, 0, d.Location())
-	}
+	start := utils.ParseStartDateTime(c.QueryParam("from"))
+	end := utils.ParseEndDateTime(c.QueryParam("to"))
 	recs, err := jobReqCtrl.jobManager.GetJobRequestCounts(qc, start, end)
 	if err != nil {
 		return err

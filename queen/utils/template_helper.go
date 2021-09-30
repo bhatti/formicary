@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"math/rand"
 	"regexp"
 )
 
@@ -21,7 +22,8 @@ func ParseTemplate(body string, data interface{}) (string, error) {
 	err = t.Execute(&out, data)
 	//err = t.ExecuteTemplate(&out, body, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template due to %s", err)
+		return "", fmt.Errorf("failed to execute template due to %s, data=%v",
+			err, data)
 	}
 	return emptyLineRegex.ReplaceAllString(out.String(), ""), nil
 }
@@ -29,7 +31,7 @@ func ParseTemplate(body string, data interface{}) (string, error) {
 // TemplateFuncs returns template functions
 func TemplateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
+		"Dict": func(values ...interface{}) (map[string]interface{}, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("invalid dict call")
 			}
@@ -53,6 +55,12 @@ func TemplateFuncs() template.FuncMap {
 		},
 		"Add": func(n uint, plus uint) uint {
 			return n + plus
+		},
+		"Unescape": func(s string) template.HTML {
+			return template.HTML(s)
+		},
+		"Random": func(min, max int) int {
+			return rand.Intn(max-min) + min
 		},
 	}
 }

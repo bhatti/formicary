@@ -12,7 +12,7 @@
       timeout BIGINT NOT NULL DEFAULT 0,
       retry_timeout BIGINT NOT NULL DEFAULT 0,
       retry INTEGER NOT NULL DEFAULT 1,
-      delay_between_retries INT(15) NOT NULL DEFAULT 10,
+      delay_between_retries BIGINT NOT NULL DEFAULT 10,
       on_exit_code_serialized TEXT,
       on_completed VARCHAR(100),
       on_failed VARCHAR(100),

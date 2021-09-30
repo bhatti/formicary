@@ -3,7 +3,7 @@
     <header class="group-header">
         <h4 class="group-title">Formicary Dashboard</h4>
     </header>
-    {{ with .DBUser }}
+    {{ with $.DBUser }}
     <div class="form-group">
         <p class="error" align="center">{{ .StickyMessage }}</p>
     </div>
@@ -13,7 +13,7 @@
         <div class="container-fluid">
             <div class="row bg-white has-shadow">
                 <!-- Org counts -->
-                {{if $.Admin }}
+                {{if $.ReadAdmin }}
                 <div class="col-xl-4 col-sm-6">
                     <div class="item d-flex align-items-center">
                         <div class="icon bg-blue"><i class="fa fa-building"></i></div>
@@ -23,7 +23,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-blue"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.OrgCounts}}</strong></div>
+                        <div class="number"><strong><small>{{.OrgCounts}}</small></strong></div>
                     </div>
                 </div>
                 {{end}}
@@ -38,7 +38,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-violet"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.UserCounts}}</strong></div>
+                        <div class="number"><strong><small>{{.UserCounts}}</small></strong></div>
                     </div>
                 </div>
                 {{end}}
@@ -53,7 +53,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-green"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.AntRegistrationsCount}}</strong></div>
+                        <div class="number"><strong><small>{{.AntRegistrationsCount}}</small></strong></div>
                     </div>
                 </div>
                 {{end}}
@@ -67,7 +67,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-orange"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.JobDefinitionCounts}}</strong></div>
+                        <div class="number"><strong><small>{{.JobDefinitionCounts}}</small></strong></div>
                     </div>
                 </div>
                 <!-- Plugins -->
@@ -80,7 +80,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-yellow"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.PluginCounts}}</strong></div>
+                        <div class="number"><strong><small>{{.PluginCounts}}</small></strong></div>
                     </div>
                 </div>
                 <!-- Running Jobs -->
@@ -93,7 +93,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-green"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.SucceededJobsCount}}</strong></div>
+                        <div class="number"><strong><small>{{.SucceededJobsCount}}</small></strong></div>
                     </div>
                 </div>
                 <!-- Pending Jobs -->
@@ -106,7 +106,7 @@
                                      aria-valuemin="0" aria-valuemax="100" class="progress-bar bg-red"></div>
                             </div>
                         </div>
-                        <div class="number"><strong>{{.FailedJobsCount}}</strong></div>
+                        <div class="number"><strong><small>{{.FailedJobsCount}}</small></strong></div>
                     </div>
                 </div>
             </div>
@@ -167,7 +167,7 @@
                         <canvas id="resourceUsageGraph"></canvas>
                     </div>
                 </div>
-                {{if $.Admin}}
+                {{if $.ReadAdmin}}
                 <div class="chart col-lg-3 col-12">
                     {{with .SubscriptionDiskUsage}}
                     <div class="statistic d-flex align-items-center bg-white has-shadow">
@@ -286,7 +286,7 @@
             }
         }});
 
-        {{if $.Admin}}
+        {{if $.ReadAdmin}}
         new Chart(document.getElementById("barChart"), {
             type: 'bar',
             data: JSON.parse({{.ContainerCounts}}),

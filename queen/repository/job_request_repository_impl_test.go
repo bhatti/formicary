@@ -2,10 +2,11 @@ package repository
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	common "plexobject.com/formicary/internal/types"
 
@@ -150,7 +151,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN updating state of non-existing request should fail
-	err = repo.UpdateJobState(7891, "PENDING", "READY", "", "")
+	err = repo.UpdateJobState(7891, "PENDING", "READY", "", "", 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -164,12 +165,12 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND Updating state with non-matching old state should fail
-	err = repo.UpdateJobState(req.ID, "BLAH", "READY", "", "")
+	err = repo.UpdateJobState(req.ID, "BLAH", "READY", "", "", 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, "PENDING", "READY", "", "")
+	err = repo.UpdateJobState(req.ID, "PENDING", "READY", "", "", 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -572,7 +573,6 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(100), total)
 
-	fmt.Printf("========\n")
 	// WHEN counting request by organization
 	total, err = jobRequestRepository.Count(common.NewQueryContextFromIDs("", "org_0"), params)
 	// THEN it should match expected count
@@ -594,7 +594,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0)
 		require.NoError(t, err)
 	}
 
@@ -604,7 +604,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "")
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0)
 		require.NoError(t, err)
 	}
 
@@ -790,7 +790,6 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(70), total)
 
-
 	// WHEN querying RUNNING state
 	_, total, err = repo.Query(
 		common.NewQueryContext(nil, ""),
@@ -821,7 +820,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 		require.NoError(t, err)
 		// AND incrementing schedule attempts
 		err = repo.IncrementScheduleAttempts(
-			rec.ID, time.Duration(rand.Intn(100)), rand.Intn(100), "blah")
+			rec.ID, time.Duration(rand.Intn(100))*time.Second, rand.Intn(100), "blah")
 
 		// THEN it should not fail
 		require.NoError(t, err)
@@ -981,4 +980,3 @@ func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testin
 	// THEN it should not fail
 	require.NoError(t, err)
 }
-

@@ -2,11 +2,8 @@ package types
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/sha512"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/xdg-go/scram"
 	"os"
 	"os/signal"
 	"plexobject.com/formicary/internal/buildversion"
@@ -14,13 +11,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-)
-
-var (
-	// SHA256 constant
-	SHA256 scram.HashGeneratorFcn = sha256.New
-	// SHA512 constant
-	SHA512 scram.HashGeneratorFcn = sha512.New
 )
 
 const httpPrefix = "http"
@@ -383,7 +373,6 @@ func (c *CommonConfig) Validate(_ []string) error {
 	if c.RateLimitPerSecond <= 0 {
 		c.RateLimitPerSecond = 1
 	}
-	c.Kafka.clientID = c.ID
 
 	if c.PublicDir == "" {
 		c.PublicDir = "./public/"

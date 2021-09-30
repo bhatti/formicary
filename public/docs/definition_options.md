@@ -623,7 +623,8 @@ timeout: 60s
 tasks:
 - task_type: trigger
   method: MESSAGING
-  messaging_queue: my-messaging-queue
+  messaging_request_queue: my-messaging-req-queue
+  messaging_reply_queue: my-messaging-reply-queue
 ```
 
 ### Templates

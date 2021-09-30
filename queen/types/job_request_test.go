@@ -197,7 +197,7 @@ func Test_ShouldGetRetriedForJobRequest(t *testing.T) {
 	require.Equal(t, 0, job.GetRetried())
 	require.Equal(t, 1, job.IncrRetried())
 	require.Equal(t, 0, job.ToInfo().GetRetried())
-	require.Equal(t, 0, job.ToInfo().IncrRetried())
+	require.Equal(t, 1, job.ToInfo().IncrRetried())
 }
 
 // Validate JSON serialization

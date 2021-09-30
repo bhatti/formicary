@@ -25,7 +25,7 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) error {
 			}
 			go func() {
 				req.StartedAt = time.Now()
-				if err := t.handleRequest(ctx, req); err != nil {
+				if err := t.handleRequest(ctx, req, event.ReplyTopic()); err != nil {
 					logrus.WithFields(
 						logrus.Fields{
 							"Component":       "BaseTasklet",
@@ -174,7 +174,7 @@ func (t *BaseTasklet) startTickerForRegistration(
 	}()
 }
 
-// send ant registration periodically to let server know that the ant is alive and it knows the load
+// send ant registration periodically to let server know that the ant is alive, and it knows the load
 // of the ant so that it can perform back-pressure if needed.
 func (t *BaseTasklet) sendRegisterAntRequest(
 	ctx context.Context) (err error) {

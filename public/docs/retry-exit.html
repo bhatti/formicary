@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
+<h2 id="retries-and-exit-codes">Retries and Exit codes</h2>
+<p>Following example shows how <code>exit_codes</code> can be used for retries and error codes:</p>
+<pre><code class="lang-yaml">job_type: retry-job
+delay_between_retries: 6s
+retry: 2
+tasks:
+- task_type: first
+  method: HTTP_GET
+  timeout: 15s
+  delay_between_retries: 5s
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_exit_code:
+    10: RESTART_JOB
+  on_completed: second
+- task_type: second
+  container:
+    image: alpine
+  retry: 2
+  script:
+    - exit {{ Random 0 3 }}
+  on_exit_code:
+    1: FATAL
+    2: RESTART_TASK
+    3: ERR_XYZ
+  on_completed: third
+- task_type: third
+  container:
+    image: alpine
+  script:
+    - date
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, which is <code>retry-job</code> in above example.</p>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: first
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: HTTP_GET
+</code></pre>
+<p>or </p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>python:3.8-buster</code> for the python support, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: alpine
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    - exit {{ Random 0 3 }}
+</code></pre>
+<h5 id="next-task">Next Task</h5>
+<p>The next task can be defined using <code>on_completed</code>, <code>on_failed</code> or <code>on_exit</code>, e.g.</p>
+<pre><code class="lang-yaml">  on_completed: second
+</code></pre>
+<p>Above task defines <code>second</code> task as the next task to execute when it completes successfully. The last task won&#39;t use this property, so the job will end.</p>
+<h5 id="exit-codes">Exit Codes</h5>
+<p>The <code>second</code> task defines mapping between exit code and actions, task state or error codes, e.g.</p>
+<pre><code class="lang-yaml">  on_exit_code:
+    1: FATAL
+    2: RESTART_TASK
+    3: ERR_XYZ
+</code></pre>
+<p>In above example, exit-code 1 will mark the task as <code>FAILED</code>, exit-code 2 will restart the entire job, exit-code 3 will mark the task as successful, exit-code 4 sets error code to <code>ERR_XYZ</code> and exit code will restart the task. You may set <code>retry</code> properties to limit number of job or task properties.</p>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/yaml&quot; \
+  --data-binary @retry-job.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  --data &#39;{&quot;job_type&quot;: &quot;retry-job&quot;, &quot;params&quot;: { &quot;Key&quot;: &quot;Value&quot; } }&#39; $SERVER/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>retry-job</code> job with <code>&quot;Key&quot;: &quot;Value&quot;</code> parameters.</p>
+</div>  
+</body>
+</html>

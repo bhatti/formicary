@@ -4,7 +4,7 @@
         <h4 class="group-title">New Job Request</h4>
     </header>
     <form action="/dashboard/jobs/requests" method="POST">
-    {{ template "jobs/req/form" dict "Request" .Request "JobTypes" .JobTypes }}
+    {{ template "jobs/req/form" Dict "Request" .Request "JobTypes" .JobTypes }}
         <div class="form-group row">
             <div class="col-sm-10 offset-sm-2">
                 <button type="submit" class="btn btn-primary">Submit Job Request</button>

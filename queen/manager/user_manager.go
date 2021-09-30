@@ -9,7 +9,9 @@ import (
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/types"
+	"sort"
 	"strings"
+	"time"
 )
 
 // UserManager for managing state of request and its execution
@@ -559,6 +561,83 @@ func (m *UserManager) BuildOrgWithInvitation(
 		org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
 	}
 	return
+}
+
+// GetCPUResourcesByOrgUser returns cpu usage by org/user
+func (m *UserManager) GetCPUResourcesByOrgUser(
+	ranges []types.DateRange,
+	limit int,
+) ([]types.ResourceUsage, error) {
+	return m.jobExecRepository.GetResourceUsageByOrgUser(ranges, limit)
+}
+
+// GetStorageResourcesByOrgUser returns disk usage by org/user
+func (m *UserManager) GetStorageResourcesByOrgUser(
+	ranges []types.DateRange,
+	limit int,
+) ([]types.ResourceUsage, error) {
+	return m.artifactRepository.GetResourceUsageByOrgUser(ranges, limit)
+}
+
+// CombinedResourcesByOrgUser returns combined disk/cpu usage by org/user
+func (m *UserManager) CombinedResourcesByOrgUser(
+	from time.Time,
+	to time.Time,
+	limit int,
+) []types.CombinedResourceUsage {
+	ranges := []types.DateRange{
+		{
+			StartDate: from,
+			EndDate:   to,
+		},
+	}
+
+	usageLookup := make(map[string]types.CombinedResourceUsage)
+	if cpuUsage, err := m.GetCPUResourcesByOrgUser(
+		ranges, 10000); err == nil {
+		for _, usage := range cpuUsage {
+			addUsageRecord(usage, types.CPUResource, usageLookup)
+		}
+	}
+
+	if storageUsage, err := m.GetStorageResourcesByOrgUser(
+		ranges, 10000); err == nil {
+		for _, usage := range storageUsage {
+			addUsageRecord(usage, types.DiskResource, usageLookup)
+		}
+	}
+	combinedUsage := make([]types.CombinedResourceUsage, len(usageLookup))
+	i := 0
+	for _, usage := range usageLookup {
+		combinedUsage[i] = usage
+		i++
+	}
+	sort.Slice(combinedUsage, func(i, j int) bool { return combinedUsage[i].CPUResource.Value > combinedUsage[j].CPUResource.Value })
+	return combinedUsage
+}
+
+func addUsageRecord(
+	usage types.ResourceUsage,
+	resourceType types.ResourceUsageType,
+	usageLookup map[string]types.CombinedResourceUsage) {
+	var record types.CombinedResourceUsage
+	if usage.OrganizationID == "" {
+		record = usageLookup[usage.UserID]
+	} else {
+		record = usageLookup[usage.OrganizationID]
+	}
+	record.UserID = usage.UserID
+	record.OrganizationID = usage.OrganizationID
+	if resourceType == types.CPUResource {
+		record.CPUResource = usage
+	} else {
+		record.DiskResource = usage
+	}
+	if usage.OrganizationID == "" {
+		usageLookup[usage.UserID] = record
+	} else {
+		usageLookup[usage.OrganizationID] = record
+	}
 }
 
 /////////////////////////////////////////// USER METHODS ////////////////////////////////////////////

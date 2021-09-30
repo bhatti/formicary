@@ -203,7 +203,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 	// retry build pod if we can
 	var aliases []string
 	for i := 0; i < maxBuildPodTries; i++ {
-		ke.pod, ke.serviceNames, aliases, ke.ExecutorOptions.AppliedCost, err = ke.adapter.BuildPod(
+		ke.pod, ke.serviceNames, aliases, ke.ExecutorOptions.CostFactor, err = ke.adapter.BuildPod(
 			ctx,
 			ke.ExecutorOptions,
 			initContainers,
@@ -226,7 +226,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 		aliases,
 		ke.ExecutorOptions.Privileged,
 		ke.AntConfig.Kubernetes.AllowPrivilegeEscalation,
-		ke.ExecutorOptions.AppliedCost))
+		ke.ExecutorOptions.CostFactor))
 
 	var status PodPhaseResponse
 	status, err = ke.adapter.AwaitPodRunning(

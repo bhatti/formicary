@@ -111,7 +111,7 @@ func (User) TableName() string {
 
 // String provides short summary of user
 func (u *User) String() string {
-	return fmt.Sprintf("ID=%s Org=%s Username=%s", u.ID, u.OrganizationID, u.Username)
+	return fmt.Sprintf("ID=%s Org=%s Username=%s Roles=%s", u.ID, u.OrganizationID, u.Username, u.SerializedRoles)
 }
 
 // Equals compares other job-resource for equality

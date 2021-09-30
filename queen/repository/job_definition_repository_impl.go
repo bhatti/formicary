@@ -39,7 +39,7 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 			fmt.Errorf("job-id is not specified for fetching job-definition"))
 	}
 	job = &types.JobDefinition{}
-	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
+	scopeCond, scopeArg := qc.AddOrgUserWhereSQL(true)
 	res := jdr.db.Preload("Tasks").
 		Preload("Configs").
 		Preload("Variables").
@@ -48,12 +48,21 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 		Where("public_plugin = ? OR "+scopeCond, true, scopeArg).
 		First(job)
 	if res.Error != nil {
+		log.WithFields(log.Fields{
+			"Component": "JobDefinitionRepositoryImpl",
+			"ID":        id,
+			"QC":        qc,
+			"Scope":     scopeCond,
+			"ScopeArg":  scopeArg,
+		}).Warnf("JobDefinitionRepositoryImpl.Get couldn't find job")
 		return nil, common.NewNotFoundError(res.Error)
 	}
+
 	if job, err = jdr.postProcessJob(qc, job); err != nil {
 		return nil, err
 	}
-	if !job.PublicPlugin && !qc.IsAdmin() {
+
+	if !job.PublicPlugin && !qc.IsReadAdmin() {
 		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
 			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
 			debug.PrintStack()
@@ -61,8 +70,8 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 				"Component":     "JobDefinitionRepositoryImpl",
 				"JobDefinition": job,
 				"QC":            qc,
-			}).Warnf("JobDefinitionRepositoryImpl.Get job owner %s / %s didn't match query context %s",
-				job.UserID, job.OrganizationID, qc)
+			}).Warnf("JobDefinitionRepositoryImpl.Get job owner %s / %s didn't match query context",
+				job.UserID, job.OrganizationID)
 			return nil, common.NewPermissionError(
 				fmt.Errorf("cannot access job by id %s", id))
 		}
@@ -86,7 +95,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	qc *common.QueryContext,
 	jobType string) (job *types.JobDefinition, err error) {
 	semVersion := ""
-	scopeCond, scopeArg := qc.AddOrgUserWhereSQL()
+	scopeCond, scopeArg := qc.AddOrgUserWhereSQL(true)
 	jobTypeAndVersion := strings.Split(jobType, ":")
 	if len(jobTypeAndVersion) == 2 {
 		jobType = jobTypeAndVersion[0]
@@ -120,7 +129,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		return nil, err
 	}
 
-	if !job.PublicPlugin && !qc.IsAdmin() {
+	if !job.PublicPlugin && !qc.IsReadAdmin() {
 		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
 			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
 			debug.PrintStack()
@@ -128,8 +137,8 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 				"Component":     "JobDefinitionRepositoryImpl",
 				"JobDefinition": job,
 				"QC":            qc,
-			}).Warnf("JobDefinitionRepositoryImpl.GetByType job owner %s / %s didn't match query context %s",
-				job.UserID, job.OrganizationID, qc)
+			}).Warnf("JobDefinitionRepositoryImpl.GetByType job owner %s / %s didn't match query context",
+				job.UserID, job.OrganizationID)
 			return nil, common.NewPermissionError(
 				fmt.Errorf("cannot access job by type %s", jobType))
 		}
@@ -160,7 +169,7 @@ func (jdr *JobDefinitionRepositoryImpl) SetPaused(id string, paused bool) error 
 func (jdr *JobDefinitionRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id string) error {
-	res := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{})).
+	res := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{}), false).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
 	if res.Error != nil {
@@ -422,7 +431,7 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 	pageSize int,
 	order []string) (jobs []*types.JobDefinition, totalRecords int64, err error) {
 	jobs = make([]*types.JobDefinition, 0)
-	tx := qc.AddOrgElseUserWhere(jdr.db).Preload("Tasks").
+	tx := qc.AddOrgElseUserWhere(jdr.db, true).Preload("Tasks").
 		//Preload("Configs").
 		Preload("Variables").
 		Preload("Tasks.Variables").
@@ -455,7 +464,7 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 func (jdr *JobDefinitionRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{})).Where("active = ?", true)
+	tx := qc.AddOrgElseUserWhere(jdr.db.Model(&types.JobDefinition{}), true).Where("active = ?", true)
 	tx = jdr.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {
@@ -473,10 +482,11 @@ func (jdr *JobDefinitionRepositoryImpl) getLatestByType(
 	jobType string) (*types.JobDefinition, error) {
 	var job types.JobDefinition
 	var count int64
-	qc.AddOrgElseUserWhere(jdr.db).Model(&job).
+
+	qc.AddOrgElseUserWhere(jdr.db, true).Model(&job).
 		Where("job_type = ?", jobType).
 		Count(&count)
-	res := qc.AddOrgElseUserWhere(jdr.db).Preload("Tasks").Preload("Configs").
+	res := qc.AddOrgElseUserWhere(jdr.db, true).Preload("Tasks").Preload("Configs").
 		Where("job_type = ?", jobType).
 		Where("version = ?", count-1).
 		First(&job)

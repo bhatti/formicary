@@ -5,10 +5,7 @@ module plexobject.com/formicary
 go 1.15
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.4.8 // indirect
-	github.com/DataDog/zstd v1.3.6-0.20190409195224-796139022798 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
-	github.com/Shopify/sarama v1.29.0
 	github.com/apache/pulsar-client-go v0.3.0
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/containerd/containerd v1.4.3 // indirect
@@ -23,16 +20,15 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/goccy/go-graphviz v0.0.9
 	github.com/gomodule/redigo v1.8.4
-	github.com/google/pprof v0.0.0-20210726183535-c50bf4fe5303 // indirect
 	github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75
 	github.com/gorilla/websocket v1.4.2
 	github.com/iancoleman/strcase v0.1.2
-	github.com/ianlancetaylor/demangle v0.0.0-20210724235854-665d3a6fe486 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jpillora/backoff v1.0.0
 	github.com/karlseguin/ccache/v2 v2.0.8
+	github.com/klauspost/compress v1.12.2 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/labstack/echo/v4 v4.3.0
-	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/lestrrat-go/jwx v1.2.0
 	github.com/lib/pq v1.10.3 // indirect
 	github.com/markelog/trie v0.0.0-20171230083431-098fa99650c0
@@ -45,25 +41,23 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/pkg/profile v1.2.1 // indirect
-	github.com/pressly/goose v2.7.0+incompatible // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sanity-io/litter v1.3.0 // indirect
+	github.com/segmentio/kafka-go v0.4.20
 	github.com/sirupsen/logrus v1.7.0
 	github.com/slack-go/slack v0.9.4
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/twinj/uuid v1.0.0
-	github.com/xdg-go/scram v1.0.2
-	github.com/ziutek/mymysql v1.5.4 // indirect
+	github.com/xdg-go/scram v1.0.2 // indirect
+	github.com/xdg/scram v1.0.3 // indirect
+	github.com/xdg/stringprep v1.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.0.0-20210427231257-85d9c07bbe3a // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
-	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
-	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
-	gopkg.in/jcmturner/gokrb5.v7 v7.2.3 // indirect
-	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/stretchr/testify.v1 v1.2.2 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gorm.io/driver/mysql v1.0.4

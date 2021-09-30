@@ -153,23 +153,26 @@ func (dcr *CommandRunner) IsRunning(ctx context.Context) (bool, error) {
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
-func (dcr *CommandRunner) run(ctx context.Context) error {
+func (dcr *CommandRunner) run(ctx context.Context, helper bool) error {
 	info, err := dcr.adapter.Execute(
 		ctx,
 		dcr.ExecutorOptions,
 		dcr.containerName,
 		dcr.Command,
-		dcr.ExecutorOptions.ExecuteCommandWithoutShell)
+		dcr.ExecutorOptions.ExecuteCommandWithoutShell,
+		helper)
 	if err != nil {
 		_ = dcr.BaseExecutor.WriteTraceError(fmt.Sprintf(
 			"⛔ $ %s Error=%v",
 			dcr.Command, err))
 		return err
 	}
+	_ = dcr.ExecutorOptions.Environment.AddFromEnvCommand(dcr.Command)
 	dcr.Host = info.HostName
 	dcr.ContainerIP = info.IPAddress
 	dcr.BaseCommandRunner.ID = info.ID
-	_ = dcr.WriteTrace(fmt.Sprintf("🔄 $ %s", dcr.Command))
+	_ = dcr.WriteTrace(fmt.Sprintf("🔄 $ %s",
+		dcr.Command))
 	dcr.hijack = info.Hijack
 	go func() {
 		_, _ = io.Copy(&dcr.Stdout, info.Hijack.Reader)

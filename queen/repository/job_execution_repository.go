@@ -49,6 +49,10 @@ type JobExecutionRepository interface {
 		id string,
 		oldState common.RequestState,
 		newState common.RequestState) error
+	// GetResourceUsageByOrgUser - Finds usage between time by user and organization
+	GetResourceUsageByOrgUser(
+		ranges []types.DateRange,
+		limit int) ([]types.ResourceUsage, error)
 	// GetResourceUsage usage
 	GetResourceUsage(
 		qc *common.QueryContext,

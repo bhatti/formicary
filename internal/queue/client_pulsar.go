@@ -138,6 +138,8 @@ func (c *ClientPulsar) SendReceive(
 	inTopic string,
 ) (event *MessageEvent, err error) {
 	props[ReplyTopicKey] = inTopic
+	props[CorrelationIDKey] = uuid.NewV4().String()
+
 	// subscribe first
 	var consumer pulsar.Consumer
 	// sendPulsarMessage-receive consumer will retry for a limit time

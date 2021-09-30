@@ -121,7 +121,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	if err != nil {
 		return nil, err
 	}
-	jobExecutionRepository, err := NewJobExecutionRepositoryImpl(db)
+	jobExecutionRepository, err := NewJobExecutionRepositoryImpl(db, serverCfg.DB.DBType)
 	if err != nil {
 		return nil, err
 	}

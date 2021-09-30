@@ -59,7 +59,7 @@ func (ur *EmailVerificationRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*types.EmailVerification, error) {
 	var ev types.EmailVerification
-	res := qc.AddUserWhere(ur.db).Where("id = ? OR email_code = ?", id, id).First(&ev)
+	res := qc.AddUserWhere(ur.db, true).Where("id = ? OR email_code = ?", id, id).First(&ev)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -70,7 +70,7 @@ func (ur *EmailVerificationRepositoryImpl) Get(
 func (ur *EmailVerificationRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id string) error {
-	res := qc.AddUserWhere(ur.db).Where("id = ?", id).Delete(&types.EmailVerification{})
+	res := qc.AddUserWhere(ur.db, false).Where("id = ?", id).Delete(&types.EmailVerification{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -88,7 +88,7 @@ func (ur *EmailVerificationRepositoryImpl) GetVerifiedEmails(
 ) (emails map[string]bool) {
 	emails = make(map[string]bool)
 	recs := make([]*types.EmailVerification, 0)
-	tx := qc.AddUserWhere(ur.db).Limit(100).
+	tx := qc.AddUserWhere(ur.db, true).Limit(100).
 		Where("user_id = ?", userID).
 		Where("verified_at is NOT NULL")
 	res := tx.Find(&recs)
@@ -111,7 +111,7 @@ func (ur *EmailVerificationRepositoryImpl) Verify(
 	qc *common.QueryContext,
 	userID string,
 	code string) (rec *types.EmailVerification, err error) {
-	res := qc.AddUserWhere(ur.db).Model(&types.EmailVerification{}).
+	res := qc.AddUserWhere(ur.db, false).Model(&types.EmailVerification{}).
 		Where("user_id = ?", userID).
 		Where("email_code = ?", code).
 		Where("expires_at > ?", time.Now()).
@@ -140,7 +140,7 @@ func (ur *EmailVerificationRepositoryImpl) Query(
 	pageSize int,
 	order []string) (recs []*types.EmailVerification, totalRecords int64, err error) {
 	recs = make([]*types.EmailVerification, 0)
-	tx := qc.AddUserWhere(ur.db).Limit(pageSize).Offset(page * pageSize)
+	tx := qc.AddUserWhere(ur.db, true).Limit(pageSize).Offset(page * pageSize)
 	tx = ur.addQuery(params, tx)
 	if len(order) > 0 {
 		for _, ord := range order {
@@ -162,7 +162,7 @@ func (ur *EmailVerificationRepositoryImpl) Query(
 func (ur *EmailVerificationRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.AddUserWhere(ur.db).Model(&types.EmailVerification{})
+	tx := qc.AddUserWhere(ur.db, true).Model(&types.EmailVerification{})
 	tx = ur.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {

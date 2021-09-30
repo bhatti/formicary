@@ -62,15 +62,8 @@
                     </dl>
                 </td>
             </tr>
-                {{if .Completed }}
-            <tr class="table-secondary">
-                {{end}}
-                {{if .Failed }}
+            {{if .Failed }}
             <tr class="table-danger">
-                {{end}}
-                {{if .NotTerminal }}
-            <tr class="table-secondary">
-                {{end}}
                 <td colspan="2">
                     <dl class="row">
                         <dt class="col-sm-4"><b>Error Message:</b></dt>
@@ -78,6 +71,21 @@
                     </dl>
                 </td>
             </tr>
+            <tr class="table-danger">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Exit Message:</b></dt>
+                        <dd class="col-sm-8">{{ .ExitMessage }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Failed Command:</b></dt>
+                        <dd class="col-sm-8">{{ .FailedCommand }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{ end }}
             <tr class="table-secondary">
                 <td>
                     <dl class="row">
@@ -103,14 +111,6 @@
                     <dl class="row">
                         <dt class="col-sm-4"><b>Services:</b></dt>
                         <dd class="col-sm-8">{{ .CountServices }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td colspan="2">
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Exit Message:</b></dt>
-                        <dd class="col-sm-8">{{ .ExitMessage }}</dd>
                     </dl>
                 </td>
             </tr>

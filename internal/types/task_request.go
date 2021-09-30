@@ -31,29 +31,28 @@ const (
 // TaskRequest defines structure for incoming requests for task
 // swagger:ignore
 type TaskRequest struct {
-	UserID          string                 `json:"user_id" yaml:"user_id"`
-	OrganizationID  string                 `json:"organization_id" yaml:"organization_id"`
-	JobDefinitionID string                 `json:"job_definition_id" yaml:"job_definition_id"`
-	JobRequestID    uint64                 `json:"job_request_id" yaml:"job_request_id"`
-	JobType         string                 `json:"job_type" yaml:"job_type"`
-	JobTypeVersion  string                 `json:"job_type_version" yaml:"job_type_version"`
-	JobExecutionID  string                 `json:"job_execution_id" yaml:"job_execution_id"`
-	TaskExecutionID string                 `json:"task_execution_id" yaml:"task_execution_id"`
-	TaskType        string                 `json:"task_type" yaml:"task_type"`
-	Platform        string                 `json:"platform" yaml:"platform"`
-	ResponseTopic   string                 `json:"response_topic" yaml:"response_topic"`
-	Action          TaskAction             `json:"action" yaml:"action"`
-	JobRetry        int                    `json:"job_retry" yaml:"job_retry"`
-	TaskRetry       int                    `json:"task_retry" yaml:"task_retry"`
-	AllowFailure    bool                   `json:"allow_failure" yaml:"allow_failure"`
-	Tags            []string               `json:"tags" yaml:"tags"`
-	BeforeScript    []string               `json:"before_script" yaml:"before_script"`
-	AfterScript     []string               `json:"after_script" yaml:"after_script"`
-	Script          []string               `json:"script" yaml:"script"`
-	Timeout         time.Duration          `json:"timeout" yaml:"timeout"`
+	UserID          string                   `json:"user_id" yaml:"user_id"`
+	OrganizationID  string                   `json:"organization_id" yaml:"organization_id"`
+	JobDefinitionID string                   `json:"job_definition_id" yaml:"job_definition_id"`
+	JobRequestID    uint64                   `json:"job_request_id" yaml:"job_request_id"`
+	JobType         string                   `json:"job_type" yaml:"job_type"`
+	JobTypeVersion  string                   `json:"job_type_version" yaml:"job_type_version"`
+	JobExecutionID  string                   `json:"job_execution_id" yaml:"job_execution_id"`
+	TaskExecutionID string                   `json:"task_execution_id" yaml:"task_execution_id"`
+	TaskType        string                   `json:"task_type" yaml:"task_type"`
+	Platform        string                   `json:"platform" yaml:"platform"`
+	Action          TaskAction               `json:"action" yaml:"action"`
+	JobRetry        int                      `json:"job_retry" yaml:"job_retry"`
+	TaskRetry       int                      `json:"task_retry" yaml:"task_retry"`
+	AllowFailure    bool                     `json:"allow_failure" yaml:"allow_failure"`
+	Tags            []string                 `json:"tags" yaml:"tags"`
+	BeforeScript    []string                 `json:"before_script" yaml:"before_script"`
+	AfterScript     []string                 `json:"after_script" yaml:"after_script"`
+	Script          []string                 `json:"script" yaml:"script"`
+	Timeout         time.Duration            `json:"timeout" yaml:"timeout"`
 	Variables       map[string]VariableValue `json:"variables" yaml:"variables"`
-	ExecutorOpts    *ExecutorOptions       `json:"executor_opts" yaml:"executor_opts"`
-	AdminUser       bool                   `json:"admin_user" yaml:"admin_user"`
+	ExecutorOpts    *ExecutorOptions         `json:"executor_opts" yaml:"executor_opts"`
+	AdminUser       bool                     `json:"admin_user" yaml:"admin_user"`
 
 	// Transient local properties for keeping track of request by ants
 	StartedAt time.Time          `json:"-"`
@@ -145,9 +144,6 @@ func (req *TaskRequest) Validate() error {
 		if err := req.ExecutorOpts.Validate(); err != nil {
 			return err
 		}
-	}
-	if req.ResponseTopic == "" {
-		return fmt.Errorf("responseTopic is not specified")
 	}
 	if req.BeforeScript == nil {
 		req.BeforeScript = make([]string, 0)

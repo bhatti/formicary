@@ -14,7 +14,7 @@
       public_plugin BOOLEAN NOT NULL DEFAULT FALSE,
       hard_reset_after_retries INTEGER NOT NULL DEFAULT 3,
       retry INTEGER NOT NULL DEFAULT 0,
-      delay_between_retries INT(15) NOT NULL DEFAULT 10,
+      delay_between_retries BIGINT NOT NULL DEFAULT 10,
       max_concurrency INTEGER NOT NULL DEFAULT 1,
       url VARCHAR(150),
       notify_serialized LONGTEXT,

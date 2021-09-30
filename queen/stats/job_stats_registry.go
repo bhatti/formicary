@@ -19,8 +19,8 @@ type JobStatsRegistry struct {
 	// TODO move stats to redis
 	// TODO add request-ids for each user/org
 	statsByJobType    map[string]*JobStats
-	countByUser       map[string]int
-	countByOrg        map[string]int
+	countByUser       map[string]map[uint64]bool
+	countByOrg        map[string]map[uint64]bool
 	pendingJobsByType map[string]map[uint64]types.IJobRequestSummary
 	lastJobStatus     map[string]*RequestIDAndStatus
 	lock              sync.RWMutex
@@ -30,15 +30,15 @@ type JobStatsRegistry struct {
 func NewJobStatsRegistry() *JobStatsRegistry {
 	return &JobStatsRegistry{
 		statsByJobType:    make(map[string]*JobStats),
-		countByUser:       make(map[string]int),
-		countByOrg:        make(map[string]int),
+		countByUser:       make(map[string]map[uint64]bool),
+		countByOrg:        make(map[string]map[uint64]bool),
 		pendingJobsByType: make(map[string]map[uint64]types.IJobRequestSummary),
 		lastJobStatus:     make(map[string]*RequestIDAndStatus),
 	}
 }
 
 // Pending - adds pending job
-func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary) {
+func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary, reverted bool) {
 	r.lock.Lock()
 	r.lock.Unlock()
 	pendingJobs := r.pendingJobsByType[req.GetUserJobTypeKey()]
@@ -47,13 +47,18 @@ func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary) {
 	}
 	pendingJobs[req.GetID()] = req
 	r.pendingJobsByType[req.GetUserJobTypeKey()] = pendingJobs
+	r.decrUserOrgCount(req)
+	if reverted {
+		stats := r.createOrFindStat(req)
+		stats.RevertedPending()
+	}
 }
 
 // UserOrgExecuting running count
 func (r *JobStatsRegistry) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {
 	r.lock.RLock()
 	r.lock.RUnlock()
-	return r.countByUser[req.GetUserID()], r.countByOrg[req.GetOrganizationID()]
+	return len(r.countByUser[req.GetUserID()]), len(r.countByOrg[req.GetOrganizationID()])
 }
 
 // LastJobStatus status of last job
@@ -75,10 +80,20 @@ func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	stats.Started()
 	r.removePendingJob(req)
 	if req.GetUserID() != "" {
-		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] + 1
+		m := r.countByUser[req.GetUserID()]
+		if m == nil {
+			m = make(map[uint64]bool)
+		}
+		m[req.GetID()] = true
+		r.countByUser[req.GetUserID()] = m
 	}
 	if req.GetOrganizationID() != "" {
-		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] + 1
+		m := r.countByOrg[req.GetOrganizationID()]
+		if m == nil {
+			m = make(map[uint64]bool)
+		}
+		m[req.GetID()] = true
+		r.countByOrg[req.GetOrganizationID()] = m
 	}
 }
 
@@ -89,12 +104,7 @@ func (r *JobStatsRegistry) Cancelled(req types.IJobRequestSummary) {
 	stats := r.createOrFindStat(req)
 	stats.Cancelled()
 	r.removePendingJob(req)
-	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
-		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
-	}
-	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
-		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
-	}
+	r.decrUserOrgCount(req)
 }
 
 // Succeeded when job is succeeded
@@ -104,12 +114,7 @@ func (r *JobStatsRegistry) Succeeded(req types.IJobRequestSummary, latency int64
 	stats := r.createOrFindStat(req)
 	stats.Succeeded(latency)
 	r.removePendingJob(req)
-	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
-		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
-	}
-	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
-		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
-	}
+	r.decrUserOrgCount(req)
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
 }
 
@@ -120,12 +125,7 @@ func (r *JobStatsRegistry) Failed(req types.IJobRequestSummary, latency int64) {
 	stats := r.createOrFindStat(req)
 	stats.Failed(latency)
 	r.removePendingJob(req)
-	if req.GetUserID() != "" && r.countByUser[req.GetUserID()] > 0 {
-		r.countByUser[req.GetUserID()] = r.countByUser[req.GetUserID()] - 1
-	}
-	if req.GetOrganizationID() != "" && r.countByOrg[req.GetOrganizationID()] > 0 {
-		r.countByOrg[req.GetOrganizationID()] = r.countByOrg[req.GetOrganizationID()] - 1
-	}
+	r.decrUserOrgCount(req)
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
 }
 
@@ -203,7 +203,7 @@ func (r *JobStatsRegistry) GetStats(qc *common.QueryContext, offset int, max int
 			break
 		}
 		stat.Calculate()
-		if qc.Matches(stat.JobKey.GetUserID(), stat.JobKey.GetOrganizationID()) {
+		if qc.Matches(stat.JobKey.GetUserID(), stat.JobKey.GetOrganizationID(), true) {
 			stats = append(stats, &JobStats{
 				JobKey:               stat.JobKey,
 				FirstJobAt:           stat.FirstJobAt,
@@ -257,4 +257,17 @@ func (r *JobStatsRegistry) getStats() (stats []*JobStats) {
 		i++
 	}
 	return
+}
+
+func (r *JobStatsRegistry) decrUserOrgCount(req types.IJobRequestSummary) {
+	if req.GetUserID() != "" && len(r.countByUser[req.GetUserID()]) > 0 {
+		m := r.countByUser[req.GetUserID()]
+		delete(m, req.GetID())
+		r.countByUser[req.GetUserID()] = m
+	}
+	if req.GetOrganizationID() != "" && len(r.countByOrg[req.GetOrganizationID()]) > 0 {
+		m := r.countByOrg[req.GetOrganizationID()]
+		delete(m, req.GetID())
+		r.countByOrg[req.GetOrganizationID()] = m
+	}
 }

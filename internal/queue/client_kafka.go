@@ -2,12 +2,15 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/Shopify/sarama"
+	kafka "github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
 	"github.com/twinj/uuid"
+	"io"
+	"net"
 	"plexobject.com/formicary/internal/types"
-	"strings"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,19 +24,32 @@ const ProducerKey = "Producer"
 
 // ClientKafka structure implements interface for queuing messages using Apache Kafka
 type ClientKafka struct {
-	config    *types.CommonConfig
-	lock      sync.Mutex
-	producers map[string]sarama.SyncProducer
-	consumers map[string]*kafkaSubscription
-	closed    bool
+	config           *types.CommonConfig
+	lock             sync.Mutex
+	producers        map[string]*kafka.Writer
+	consumersByTopic map[string]*kafkaSubscription
+	closed           bool
+}
+
+// kafkaSubscription structure
+type kafkaSubscription struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
+	id       string
+	topic    string
+	group    string
+	mx       *SendReceiveMultiplexer
+	reader   *kafka.Reader
+	received int64
+	closed   bool
 }
 
 // newKafkaClient creates structure for implementing queuing operations
 func newKafkaClient(config *types.CommonConfig) (Client, error) {
 	return &ClientKafka{
-		config:    config,
-		producers: make(map[string]sarama.SyncProducer),
-		consumers: make(map[string]*kafkaSubscription),
+		config:           config,
+		producers:        make(map[string]*kafka.Writer),
+		consumersByTopic: make(map[string]*kafkaSubscription),
 	}, nil
 }
 
@@ -48,66 +64,8 @@ func (c *ClientKafka) Subscribe(
 	if cb == nil {
 		return fmt.Errorf("callback function is not specified")
 	}
-	if c.config.Kafka.Group == "" {
-		return c.partitionSubscribe(ctx, topic, id, props, shared, cb)
-	}
-	return c.groupSubscribe(ctx, topic, id, props, shared, cb)
-}
-
-// partitionSubscribe - nonblocking subscribe that calls back handler upon message
-func (c *ClientKafka) partitionSubscribe(
-	ctx context.Context,
-	topic string,
-	id string,
-	props map[string]string,
-	shared bool,
-	cb Callback) (err error) {
-	go func() {
-		for {
-			_, err = c.getOrCreateConsumer(ctx, topic, id, props, shared, cb)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Topic":     topic,
-					"Error":     err,
-					"ID":        id}).
-					Warn("failed to get consumer for subscription, will try again")
-				time.Sleep(1 * time.Second)
-			} else {
-				break
-			}
-		}
-	}()
-	return nil
-}
-
-// groupSubscribe - subscribe to consumer group
-func (c *ClientKafka) groupSubscribe(
-	ctx context.Context,
-	topic string,
-	id string,
-	props map[string]string,
-	shared bool,
-	cb Callback) (err error) {
-	// creating consumer in loop
-	go func() {
-		for {
-			_, err = c.getOrCreateConsumer(ctx, topic, id, props, shared, cb)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Topic":     topic,
-					"Error":     err,
-					"ID":        id}).
-					Warn("failed to get consumer group for subscription, will try again")
-				time.Sleep(1 * time.Second)
-			} else {
-				break
-			}
-		}
-		// will call doReceive in ConsumeClaim
-	}()
-	return nil
+	_, err = c.getOrCreateConsumer(ctx, topic, id, "", props, shared, cb)
+	return
 }
 
 // UnSubscribe - unsubscribe
@@ -129,20 +87,13 @@ func (c *ClientKafka) Send(
 	topic string,
 	props map[string]string,
 	payload []byte,
-	reusableTopic bool) (messageID []byte, err error) {
-	if reusableTopic {
-		return c.sendKafkaMessageWithReusableProducer(
-			ctx,
-			topic,
-			props,
-			payload,
-			true)
-	}
-	return c.sendKafkaMessageWithoutReusableProducer(
+	_ bool) (messageID []byte, err error) {
+	err = c.send(
 		ctx,
 		topic,
 		props,
 		payload)
+	return
 }
 
 // SendReceive - Send and receive message
@@ -154,6 +105,7 @@ func (c *ClientKafka) SendReceive(
 	inTopic string,
 ) (event *MessageEvent, err error) {
 	props[ReplyTopicKey] = inTopic
+	props[CorrelationIDKey] = uuid.NewV4().String()
 	id := uuid.NewV4().String()
 	var subscription *kafkaSubscription
 	cb := func(ctx context.Context, e *MessageEvent) error {
@@ -163,7 +115,15 @@ func (c *ClientKafka) SendReceive(
 		}
 		return nil
 	}
-	subscription, err = c.createConsumer(ctx, inTopic, id, props, false, sarama.OffsetNewest, cb)
+	subscription, err = c.createConsumer(
+		ctx,
+		inTopic,
+		id,
+		props[CorrelationIDKey],
+		0,
+		props,
+		false,
+		cb)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +133,6 @@ func (c *ClientKafka) SendReceive(
 		return nil, err
 	}
 
-	<-subscription.done
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -181,19 +140,20 @@ func (c *ClientKafka) SendReceive(
 	return
 }
 
-// Publish - publishes the message and caches producer if doesn't exist
+// Publish - publishes the message and caches producer if it doesn't exist
 func (c *ClientKafka) Publish(
 	ctx context.Context,
 	topic string,
 	props map[string]string,
 	payload []byte,
-	disableBatching bool) (messageID []byte, err error) {
-	return c.sendKafkaMessageWithReusableProducer(
+	_ bool) (messageID []byte, err error) {
+	err = c.send(
 		ctx,
 		topic,
 		props,
 		payload,
-		disableBatching)
+	)
+	return
 }
 
 // Close - closes all producers and consumers
@@ -203,8 +163,8 @@ func (c *ClientKafka) Close() {
 	for _, next := range c.producers {
 		_ = next.Close()
 	}
-	for _, subscription := range c.consumers {
-		_ = subscription.close()
+	for _, subscription := range c.consumersByTopic {
+		subscription.cancel()
 	}
 	c.closed = true
 }
@@ -216,14 +176,24 @@ func (c *ClientKafka) closeConsumer(
 	defer recoverNilMessage(topic, id)
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	key := buildKey(topic, id)
-	subscription := c.consumers[key]
+	subscription := c.consumersByTopic[topic]
 	if subscription == nil {
 		err = fmt.Errorf("could not find consumer for topic %s and id %s", topic, id)
 		return
 	}
-	err = subscription.close()
-	delete(c.consumers, key)
+	total := subscription.mx.Remove(id)
+	if total == 0 {
+		subscription.cancel()
+		_ = subscription.reader.Close()
+		delete(c.consumersByTopic, topic)
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Group":     subscription.group,
+			"Topic":     topic,
+			"Brokers":   c.config.Kafka.Brokers,
+			"ID":        id}).
+			Infof("closing subscriber")
+	}
 	return
 }
 
@@ -231,30 +201,38 @@ func (c *ClientKafka) getOrCreateConsumer(
 	ctx context.Context,
 	topic string,
 	id string,
+	correlationID string,
 	props map[string]string,
 	shared bool,
 	cb Callback) (subscription *kafkaSubscription, err error) {
+	var offset int64
+	if props["LastOffset"] != "" {
+		offset = kafka.LastOffset
+	} else if props["FirstOffset"] != "" {
+		offset = kafka.FirstOffset
+	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	key := buildKey(topic, id)
-	subscription = c.consumers[key]
+	subscription = c.consumersByTopic[topic]
 
 	if subscription != nil {
+		subscription.mx.Add(id, correlationID, cb)
 		return subscription, nil
 	}
 	subscription, err = c.createConsumer(
 		ctx,
 		topic,
 		id,
+		correlationID,
+		offset,
 		props,
 		shared,
-		sarama.OffsetNewest,
 		cb)
 	if err != nil {
 		return nil, err
 	}
 
-	c.consumers[key] = subscription
+	c.consumersByTopic[topic] = subscription
 	return
 }
 
@@ -262,200 +240,203 @@ func (c *ClientKafka) createConsumer(
 	ctx context.Context,
 	topic string,
 	id string,
-	props map[string]string,
-	_ bool,
+	correlationID string,
 	offset int64,
+	props map[string]string,
+	shared bool,
 	cb Callback) (subscription *kafkaSubscription, err error) {
 	subscription = &kafkaSubscription{
 		id:    id,
 		topic: topic,
-		cb:    cb,
-		done:  make(chan bool),
+		mx:    NewSendReceiveMultiplexer(id, correlationID, cb),
+		group: c.config.Kafka.Group,
 	}
 	subscription.ctx, subscription.cancel = context.WithCancel(ctx)
-
-	clientConfig, err := c.config.Kafka.BuildSaramaConfig(c.config.Debug, props["oldest"] == "true")
-	if err != nil {
-		return nil, err
+	if props["Group"] != "" {
+		subscription.group = props["Group"]
 	}
-	subscription.consumer, err = sarama.NewConsumer(c.config.Kafka.Brokers, clientConfig)
-	if err != nil {
-		return nil, err
-	}
-	if c.config.Kafka.Group == "" {
-		partitions, err := subscription.consumer.Partitions(topic)
-		if err != nil {
-			return nil, err
-		}
-		for _, partition := range partitions {
-			partitionedConsumer, err := subscription.consumer.ConsumePartition(topic, partition, offset)
-			if err != nil {
-				return nil, err
-			}
-			subscription.partitionedConsumers = append(subscription.partitionedConsumers, partitionedConsumer)
-			go func() {
-				for {
-					_, _, done := kafkaReceive(
-						ctx,
-						subscription,
-						partitionedConsumer.Messages(),
-						partitionedConsumer.Errors())
-					if done {
-						_ = c.closeConsumer(topic, id)
-						return
-					}
-				}
-			}()
-		}
-	} else {
-		subscription.consumerGroupReady = make(chan bool)
-		subscription.client, err = sarama.NewConsumerGroup(c.config.Kafka.Brokers, c.config.Kafka.Group, clientConfig)
-		if err != nil {
-			return nil, err
-		}
+	subscription.reader = kafka.NewReader(kafka.ReaderConfig{
+		Brokers:         c.config.Kafka.Brokers,
+		GroupID:         subscription.group,
+		Topic:           topic,
+		StartOffset:     offset,
+		MaxBytes:        10e6,             // 10MB
+		MaxWait:         30 * time.Second, // Maximum amount of time to wait for new data to come when fetching batches of messages from kafka.
+		ReadLagInterval: -1,
+		//QueueCapacity:   1,
+		//MinBytes: 1e3, // 1KB
+		//CommitInterval: time.Second,
+	})
 
-		go func() {
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"Component":     "ClientKafka",
-					"ConsumerGroup": c.config.Kafka.Group,
-					"Topic":         topic,
-					"Offset":        offset,
-					"Brokers":       c.config.Kafka.Brokers,
-					"Error":         err,
-					"ID":            id}).
-					Debugf("consumer group BEGIN!")
-			}
-			for {
-				// `Consume` should be called inside an infinite loop, when a
-				// server-side rebalanced happens, the consumer session will need to be
-				// recreated to get the new claims
-				if err := subscription.client.Consume(ctx, strings.Split(topic, ","), subscription); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"Component":     "ClientKafka",
-						"ConsumerGroup": c.config.Kafka.Group,
-						"Topic":         topic,
-						"Offset":        offset,
-						"Brokers":       c.config.Kafka.Brokers,
-						"Error":         err,
-						"ID":            id}).
-						Errorf("failed to rebalance consumer group!")
-				}
+	go func() {
+		defer func() {
+			err = c.closeConsumer(topic, id)
+			logrus.WithFields(logrus.Fields{
+				"Component":     "ClientKafka",
+				"ConsumerGroup": subscription.group,
+				"ID":            id,
+				"correlationID": correlationID,
+				"Topic":         topic,
+				"Offset":        offset,
+				"Brokers":       c.config.Kafka.Brokers,
+				"Shared":        shared,
+				"Error":         err,
+				"CtxError":      ctx.Err(),
+			}).
+				Infof("exiting subscription loop!")
+
+		}()
+
+		for {
+			if subscription.ctx.Err() != nil {
 				if logrus.IsLevelEnabled(logrus.DebugLevel) {
 					logrus.WithFields(logrus.Fields{
-						"Component":     "ClientKafka",
-						"ConsumerGroup": c.config.Kafka.Group,
-						"Topic":         topic,
-						"Offset":        offset,
-						"Brokers":       c.config.Kafka.Brokers,
-						"Error":         err,
-						"ID":            id}).
-						Debugf("consumer group END!")
+						"Component": "ClientKafka",
+						"Topic":     subscription.topic,
+						"ID":            id,
+						"correlationID": correlationID,
+						"Shared":    shared,
+						}).
+						Debugf("received done signal from context")
 				}
-				// check if context was cancelled, signaling that the consumer should stop
-				if ctx.Err() != nil {
-					return
-				}
-				subscription.consumerGroupReady = make(chan bool)
+				return
 			}
-		}()
+			//msg, err := reader.ReadMessage(subscription.ctx) // auto-commit
+			msg, err := subscription.reader.FetchMessage(subscription.ctx)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					continue
+				}
+				logrus.WithFields(logrus.Fields{
+					"Component": "ClientKafka",
+					"Group":     subscription.group,
+					"Topic":     topic,
+					"ID":            id,
+					"correlationID": correlationID,
+					"Message":   msg,
+					"Shared":    shared,
+					"Error":     err,
+				}).Errorf("failed to receive message")
+				return
+			}
+			atomic.AddInt64(&subscription.received, 1)
+			ack := func() {
+				_ = subscription.reader.CommitMessages(ctx, msg)
+			}
+			nack := func() {
+			}
+			event := kafkaMessageToEvent(msg, ack, nack)
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component": "ClientKafka",
+					"Group":     subscription.group,
+					"ID":            id,
+					"correlationID": correlationID,
+					"Received":  subscription.received,
+					"Partition": msg.Partition,
+					"Offset":    msg.Offset,
+					"Shared":    shared,
+					"Event":     string(event.ID),
+				}).Debugf("received")
+			}
+			_ = subscription.mx.Notify(subscription.ctx, event)
+		}
+	}()
+	logrus.WithFields(logrus.Fields{
+		"Component": "ClientKafka",
+		"Group":     subscription.group,
+		"Topic":     topic,
+		"ID":            id,
+		"correlationID": correlationID,
+		"Offset":    offset,
+		"Brokers":   c.config.Kafka.Brokers,
+		"Shared":    shared,
+		}).
+		Infof("subscribed successfully!")
+	return
+}
+func kafkaMessageToEvent(msg kafka.Message, ack AckHandler, nack AckHandler) (event *MessageEvent) {
+	event = &MessageEvent{
+		Topic:       msg.Topic,
+		Payload:     msg.Value,
+		ID:          []byte(fmt.Sprintf("%d:%d", msg.Partition, msg.Offset)),
+		PublishTime: msg.Time,
+		Properties:  make(map[string]string),
+		Partition:   msg.Partition,
+		Offset:      msg.Offset,
+		Ack:         ack,
+		Nack:        nack,
+	}
+	if msg.Headers != nil && len(msg.Headers) > 0 {
+		for _, h := range msg.Headers {
+			event.Properties[h.Key] = string(h.Value)
+		}
+	}
+	event.ProducerName = event.Properties[ProducerKey]
+	return event
+}
+
+func (c *ClientKafka) send(
+	ctx context.Context,
+	topic string,
+	props map[string]string,
+	payload []byte) error {
+	headers := make([]kafka.Header, len(props))
+	i := 0
+	for k, v := range props {
+		headers[i] = kafka.Header{Key: k, Value: []byte(v)}
+		i++
+	}
+	key := make([]byte, 0)
+	if props[MessageKey] != "" {
+		key = []byte(props[MessageKey])
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component":     "ClientKafka",
-			"ConsumerGroup": c.config.Kafka.Group,
-			"Topic":         topic,
-			"Offset":        offset,
-			"Brokers":       c.config.Kafka.Brokers,
-			"ID":            id}).
-			Debugf("subscribed successfully!")
-	}
-
-	return
-}
-
-func (c *ClientKafka) getOrCreateProducer(
-	topic string,
-) (producer sarama.SyncProducer, err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	producer = c.producers[topic]
-	if producer == nil {
-		clientConfig, err := c.config.Kafka.BuildSaramaConfig(c.config.Debug, false)
-		if err != nil {
-			return nil, err
-		}
-		producer, err = sarama.NewSyncProducer(c.config.Kafka.Brokers, clientConfig)
-		if err != nil {
-			return nil, err
-		}
-		c.producers[topic] = producer
-	}
-	return
-}
-
-// CreateKafkaTopic creates kafka topic
-func (c *ClientKafka) CreateKafkaTopic(
-	topic string,
-	partitions int32,
-	replication int16) (err error) {
-	broker := sarama.NewBroker(c.config.Kafka.Brokers[0])
-	defer func() {
-		_ = broker.Close()
-	}()
-
-	clientConfig, err := c.config.Kafka.BuildSaramaConfig(c.config.Debug, false)
-	if err != nil {
-		return err
-	}
-	err = broker.Open(clientConfig)
-	if err != nil {
-		return err
-	}
-
-	_, err = broker.Connected()
-	if err != nil {
-		return err
-	}
-
-	topicDetail := &sarama.TopicDetail{}
-	topicDetail.NumPartitions = partitions
-	topicDetail.ReplicationFactor = replication
-	topicDetail.ConfigEntries = make(map[string]*string)
-
-	topicDetails := make(map[string]*sarama.TopicDetail)
-	topicDetails[topic] = topicDetail
-
-	request := sarama.CreateTopicsRequest{
-		Timeout:      time.Second * 15,
-		TopicDetails: topicDetails,
-	}
-
-	// Send request to Broker
-	response, err := broker.CreateTopics(&request)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
 			"Component": "ClientKafka",
 			"Topic":     topic,
-			"Error":     err,
-		}).
-			Errorf("failed to create topic")
+			"Value":     string(payload),
+		}).Debugf("sending message")
+	}
+	return c.getProducer(topic).WriteMessages(
+		ctx,
+		kafka.Message{
+			Key:     key,
+			Value:   payload,
+			Headers: headers,
+			Time:    time.Now(),
+		})
+}
+
+// createKafkaTopic creates kafka topic
+func (c *ClientKafka) createKafkaTopic(
+	topic string,
+	partitions int,
+	replication int) (err error) {
+
+	conn, err := kafka.Dial("tcp", c.config.Kafka.Brokers[0])
+	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = conn.Close()
+	}()
 
-	for key, val := range response.TopicErrors {
-		if val.ErrMsg != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientKafka",
-				"Topic":     topic,
-				"Message":   val.ErrMsg,
-				"Key":       key,
-				"Error":     val.Err,
-			}).
-				Warnf("failed to create topic")
-			err = val.Err
-		}
+	controller, err := conn.Controller()
+	if err != nil {
+		return err
 	}
+	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = controllerConn.Close()
+	}()
+
+	topicConfigs := []kafka.TopicConfig{{Topic: topic, NumPartitions: partitions, ReplicationFactor: replication}}
+
+	err = controllerConn.CreateTopics(topicConfigs...)
 	if err == nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientKafka",
@@ -467,88 +448,21 @@ func (c *ClientKafka) CreateKafkaTopic(
 	return
 }
 
-func (c *ClientKafka) sendKafkaMessageWithReusableProducer(
-	ctx context.Context,
-	topic string,
-	props map[string]string,
-	payload []byte,
-	_ bool) (b []byte, err error) {
-	var producer sarama.SyncProducer
-	producer, err = c.getOrCreateProducer(topic)
-	if err != nil {
-		return
-	}
-	return sendKafkaMessage(ctx, producer, topic, props, payload)
-}
-
-func (c *ClientKafka) sendKafkaMessageWithoutReusableProducer(
-	ctx context.Context,
-	topic string,
-	props map[string]string,
-	payload []byte) (b []byte, err error) {
-	var producer sarama.SyncProducer
-	clientConfig, err := c.config.Kafka.BuildSaramaConfig(c.config.Debug, false)
-	if err != nil {
-		return nil, err
-	}
-	producer, err = sarama.NewSyncProducer(c.config.Kafka.Brokers, clientConfig)
-	if err != nil {
-		return
-	}
-	defer func() {
-		_ = producer.Close()
-	}()
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     topic,
-			"Producer":  producer}).
-			Debugf("sending single message...")
-	}
-	return sendKafkaMessage(ctx, producer, topic, props, payload)
-}
-
-// kafkaSubscription structure
-type kafkaSubscription struct {
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	id                   string
-	topic                string
-	cb                   Callback
-	consumer             sarama.Consumer
-	partitionedConsumers []sarama.PartitionConsumer
-	done                 chan bool
-	consumerGroupReady   chan bool // groupConsumer represents a Sarama consumer group consumer
-	client               sarama.ConsumerGroup
-	received             int64
-	closed               bool
-}
-
 func (subscription *kafkaSubscription) close() (err error) {
 	if subscription.closed {
 		return
 	}
-	for _, partitionedConsumer := range subscription.partitionedConsumers {
-		err = partitionedConsumer.Close()
-	}
-	if subscription.consumer != nil {
-		err = subscription.consumer.Close()
-	}
-	if subscription.client != nil {
-		err = subscription.client.Close()
-		close(subscription.consumerGroupReady)
+	if subscription.reader != nil {
+		err = subscription.reader.Close()
 	}
 	if subscription.ctx.Err() != nil {
 		subscription.cancel()
 	}
-	//close(subscription.consumerChannel)
-	close(subscription.done)
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component":     "ClientKafka",
-			"ConsumerGroup": subscription.client != nil,
-			"Topic":         subscription.topic,
-			"ID":            subscription.id}).
+			"Component": "ClientKafka",
+			"Topic":     subscription.topic,
+			"ID":        subscription.id}).
 			Debugf("closing subscription")
 	}
 
@@ -556,180 +470,29 @@ func (subscription *kafkaSubscription) close() (err error) {
 	return
 }
 
-// Setup is run at the beginning of a new session, before ConsumeClaim
-func (subscription *kafkaSubscription) Setup(sarama.ConsumerGroupSession) error {
-	logrus.WithFields(logrus.Fields{
-		"Component":     "ClientKafka",
-		"ConsumerGroup": subscription.client != nil,
-		"Topic":         subscription.topic,
-		"ID":            subscription.id}).
-		Infof("setup consumer session")
-	// Mark the consumer as consumerGroupReady
-	close(subscription.consumerGroupReady)
-	return nil
-}
-
-// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
-func (subscription *kafkaSubscription) Cleanup(sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
-func (subscription *kafkaSubscription) ConsumeClaim(
-	session sarama.ConsumerGroupSession,
-	claim sarama.ConsumerGroupClaim) error {
-	logrus.WithFields(logrus.Fields{
-		"Component":     "ClientKafka",
-		"ConsumerGroup": subscription.client != nil,
-		"Topic":         subscription.topic,
-		"ID":            subscription.id}).
-		Infof("claiming messages")
-	for {
-		message, ack, done := kafkaReceive(
-			subscription.ctx,
-			subscription,
-			claim.Messages(),
-			make(chan *sarama.ConsumerError))
-		if message != nil {
-			if ack {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Topic":     message.Topic,
-					"Message":   string(message.Key),
-					"Timestamp": message.Timestamp}).
-					Infof("message claimed")
-				session.MarkMessage(message, "")
-			} else {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Topic":     message.Topic,
-					"Message":   string(message.Key),
-					"Timestamp": message.Timestamp}).
-					Infof("skip claiming message")
-			}
-		}
-		if done {
-			break
-		}
-	}
-	return nil
-}
-
-func kafkaReceive(
-	ctx context.Context,
-	subscription *kafkaSubscription,
-	consumerChannel <-chan *sarama.ConsumerMessage,
-	errorChannel <-chan *sarama.ConsumerError) (*sarama.ConsumerMessage, bool, bool) {
-	defer recoverNilMessage(subscription.topic, subscription.id)
-	ackFlag := false
-	select {
-	case <-ctx.Done():
-		if logrus.IsLevelEnabled(logrus.DebugLevel) {
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientKafka",
-				"Topic":     subscription.topic,
-				"ID":        subscription.id}).
-				Debug("received done signal from context")
-		}
-		return nil, false, true
-	case <-subscription.done:
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     subscription.topic,
-			"ID":        subscription.id}).
-			Warn("received done signal from channel")
-		return nil, false, true
-	case consumerError := <-errorChannel:
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     subscription.topic,
-			"Error":     consumerError,
-			"ID":        subscription.id}).
-			Warn("received error from consumer")
-		return nil, false, true
-	case msg := <-consumerChannel:
-		if msg == nil {
-			return nil, false, false
-		}
-		atomic.AddInt64(&subscription.received, 1)
-		ack := func() {
-			ackFlag = true
-		}
-		nack := func() {
-			ackFlag = false
-		}
-		event := kafkaMessageToEvent(msg, ack, nack)
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     subscription.topic,
-			"Received":  subscription.received,
-			"Partition": msg.Partition,
-			"Offset":    msg.Offset,
-			"Event":     string(event.ID),
-			"ID":        subscription.id}).
-			Infof("received next message...")
-		if err := subscription.cb(ctx, event); err != nil {
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Topic":     subscription.topic,
-					"ID":        subscription.id,
-					"Message":   string(msg.Value)}).
-					Debug("failed to handle message")
-			}
-		}
-		return msg, ackFlag, false
-	}
-}
-
-func sendKafkaMessage(
-	_ context.Context,
-	producer sarama.SyncProducer,
+func (c *ClientKafka) getProducer(
 	topic string,
-	props map[string]string,
-	payload []byte) ([]byte, error) {
-	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Value: sarama.ByteEncoder(payload),
-	}
-	if props[MessageKey] != "" {
-		msg.Key = sarama.StringEncoder(props[MessageKey])
-	}
-	for k, v := range props {
-		msg.Headers = append(msg.Headers, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
-	}
-	partition, offset, err := producer.SendMessage(msg)
-	if err != nil {
-		return nil, err
-	}
-	msgID := fmt.Sprintf("%d:%d", partition, offset)
-	logrus.WithFields(logrus.Fields{
-		"Component": "ClientKafka",
-		"Topic":     topic,
-		"Partition": partition,
-		"Offset":    offset,
-		"ID":        msgID}).
-		Infof("sent message...")
-	return []byte(msgID), nil
-}
-
-func kafkaMessageToEvent(msg *sarama.ConsumerMessage, ack AckHandler, nack AckHandler) (event *MessageEvent) {
-	event = &MessageEvent{
-		Topic:       msg.Topic,
-		Payload:     msg.Value,
-		ID:          []byte(fmt.Sprintf("%d:%d", msg.Partition, msg.Offset)),
-		PublishTime: msg.Timestamp,
-		Properties:  make(map[string]string),
-		Ack:         ack,
-		Nack:        nack,
-	}
-	if msg.Headers != nil && len(msg.Headers) > 0 {
-		for _, h := range msg.Headers {
-			event.Properties[string(h.Key)] = string(h.Value)
+) *kafka.Writer {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	writer := c.producers[topic]
+	if writer == nil {
+		writer = &kafka.Writer{
+			Addr:         kafka.TCP(c.config.Kafka.Brokers...),
+			Topic:        topic,
+			Balancer:     &kafka.LeastBytes{},
+			Compression:  kafka.Snappy,
+			WriteTimeout: 1 * time.Second,
+			ReadTimeout:  1 * time.Second,
+			BatchTimeout: 10 * time.Millisecond,
+			BatchSize:    10,
 		}
+		c.producers[topic] = writer
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Brokers":   c.config.Kafka.Brokers,
+			"Topic":     topic,
+		}).Infof("adding producer")
 	}
-	event.ProducerName = event.Properties[ProducerKey]
-	return event
+	return writer
 }
-
-//consumerChannel      <-chan *sarama.ConsumerMessage

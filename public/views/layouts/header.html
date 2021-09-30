@@ -128,7 +128,7 @@
                     </li>
                     {{ end }}
                     {{ end }}
-                    {{ if $.Admin }}
+                    {{ if $.ReadAdmin }}
                     <li class="nav-item">
                         <a class="nav-link" aria-expanded="false" href="#admin" data-toggle="collapse">
                             <span data-feather="shield"></span>
@@ -202,9 +202,16 @@
                         </a>
                         <ul id="reports" class="collapse list-group">
                             <li class="nav-item">
-                                <a class="nav-link" href="/dashboard/jobs/definitions/stats">
+                                <a class="nav-link" href="/dashboard/orgs/usage_report">
                                     &nbsp;&nbsp;&nbsp;&nbsp;
                                     <span data-feather="activity"></span>
+                                    Usage Report
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard/jobs/definitions/stats">
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <span data-feather="trending-up"></span>
                                     Realtime Job Stats
                                 </a>
                             </li>

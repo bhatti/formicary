@@ -205,8 +205,10 @@ func Test_ShouldCreateDotForCustomizedExitCode(t *testing.T) {
 
 	exec := newTestJobExecution(definition)
 
-	exec.GetTask("task8").TaskState = common.FAILED
-	exec.GetTask("task9").TaskState = common.READY
+	_, task8 := exec.GetTask("", "task8")
+	task8.TaskState = common.FAILED
+	_, task9 := exec.GetTask("", "task9")
+	task9.TaskState = common.READY
 	exec.JobState = common.FAILED
 
 	// WHEN job jobDefinition and execution is passed to generate dot config

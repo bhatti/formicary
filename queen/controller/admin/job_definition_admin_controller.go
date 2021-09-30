@@ -126,9 +126,10 @@ func (jdaCtr *JobDefinitionAdminController) statsJobDefinition(c web.WebContext)
 		}
 	}
 
-	res := map[string]interface{}{"Stats": jobStats,
-		"FromDate": from.Format("Jan _2, 15:04:05 MST"),
-		"ToDate":   to.Format("Jan _2, 15:04:05 MST"),
+	res := map[string]interface{}{
+		"Stats":    jobStats,
+		"FromDate": from.Format("2006-01-02"),
+		"ToDate":   to.Format("2006-01-02"),
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/stats", res)

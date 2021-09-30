@@ -508,6 +508,21 @@ func (jm *JobManager) SaveJobRequest(
 		}
 		_, _, err = jm.CheckSubscriptionQuota(qc, user)
 		if err != nil {
+			if jobDefinition.CronTrigger != "" {
+				_ = jm.PauseJobDefinition(qc, jobDefinition.ID)
+				logrus.WithFields(logrus.Fields{
+					"Component":       "JobManager",
+					"RequestID":       request.ID,
+					"User":            request.UserID,
+					"Organization":    request.OrganizationID,
+					"JobType":         request.JobType,
+					"UserKey":         request.UserKey,
+					"CronTrigger":     jobDefinition.CronTrigger,
+					"JobDefinitionID": jobDefinition.ID,
+					"Params":          request.ParamString(),
+					"Error":           err,
+				}).Warnf("pausing cron job because subscription is out")
+			}
 			return nil, err
 		}
 	}
@@ -557,7 +572,7 @@ func (jm *JobManager) SaveJobRequest(
 	if err == nil {
 		_ = jm.fireJobRequestChange(saved)
 		jm.metricsRegistry.Incr("job_submitted_total", map[string]string{"JobType": jobDefinition.JobType})
-		jm.jobStatsRegistry.Pending(saved.ToInfo())
+		jm.jobStatsRegistry.Pending(saved.ToInfo(), false)
 		logrus.WithFields(logrus.Fields{
 			"Component":    "JobManager",
 			"RequestID":    request.ID,
@@ -718,7 +733,7 @@ func (jm *JobManager) FindMissingCronScheduledJobsByType(
 
 	// update cron pending jobs
 	for _, info := range activeJobInfos {
-		jm.jobStatsRegistry.Pending(info)
+		jm.jobStatsRegistry.Pending(info, false)
 	}
 	return res, nil
 }
@@ -745,7 +760,7 @@ func (jm *JobManager) IncrementScheduleAttemptsForJobRequest(
 		}).Error("failed to increment schedule attempt for job request")
 	} else {
 		jm.metricsRegistry.Incr("job_rescheduled_total", map[string]string{"JobType": req.JobType})
-		jm.jobStatsRegistry.Pending(req)
+		jm.jobStatsRegistry.Pending(req, false)
 	}
 	return
 }
@@ -757,15 +772,20 @@ func (jm *JobManager) UpdateJobRequestState(
 	oldState common.RequestState,
 	newState common.RequestState,
 	errorMessage string,
-	errorCode string) (err error) {
+	errorCode string,
+	scheduleDelay time.Duration,
+	retried int,
+	reverted bool) (err error) {
 	err = jm.jobRequestRepository.UpdateJobState(
 		req.GetID(),
 		oldState,
 		newState,
 		errorMessage,
-		errorCode)
+		errorCode,
+		scheduleDelay,
+		retried)
 	if newState == common.PENDING {
-		jm.jobStatsRegistry.Pending(req)
+		jm.jobStatsRegistry.Pending(req, reverted)
 	} else if newState.IsTerminal() && req.GetCronTriggered() {
 		var jobDefinition *types.JobDefinition
 		if jobDefinition, err = jm.GetJobDefinitionByType(qc, req.GetJobType(), req.GetJobVersion()); err != nil {
@@ -1329,7 +1349,7 @@ func initializeStatsRegistry(
 	if times, err := jobRequestRepository.GetJobTimes(1000); err == nil {
 		for _, t := range times {
 			if t.Pending() {
-				jobStatsRegistry.Pending(t.ToInfo())
+				jobStatsRegistry.Pending(t.ToInfo(), false)
 				pending++
 			} else if t.Completed() {
 				jobStatsRegistry.Started(t)

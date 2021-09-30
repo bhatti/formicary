@@ -52,6 +52,8 @@ const (
 	EmailVerification Resource = "EmailVerification"
 	// UserInvitation resource
 	UserInvitation Resource = "UserInvitation"
+	// Report resource
+	Report Resource = "Report"
 )
 
 const (
@@ -119,6 +121,17 @@ func NewPermission(resource Resource, actions int) *Permission {
 // Has checks permission
 func (p *Permission) Has(action int) bool {
 	return p.WildAll() || p.Actions&action == action
+}
+
+// ReadOnly checks read-only access
+func (p *Permission) ReadOnly() bool {
+	return p.Has(None) ||
+		p.Has(Read) ||
+		p.Has(View) ||
+		p.Has(Query) ||
+		p.Has(Verify) ||
+		p.Has(Metrics) ||
+		p.Has(Subscribe)
 }
 
 // WildAll checks all access
@@ -321,6 +334,7 @@ func DefaultPermissions() []*Permission {
 		NewPermission(PrivacyPolicies, View|Read),
 		NewPermission(EmailVerification, Create|View|Read|Verify|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
+		NewPermission(Report, None),
 	}
 }
 
@@ -351,5 +365,6 @@ func AdminPermissions() []*Permission {
 		NewPermission(Profile, Create|Read|Update|Delete|Query),
 		NewPermission(EmailVerification, Create|Read|Update|Delete|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
+		NewPermission(Report, View|Read|Query),
 	}
 }

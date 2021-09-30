@@ -33,6 +33,8 @@ type TaskExecution struct {
 	ErrorCode string `json:"error_code"`
 	// ErrorMessage captures error message at the end of job execution if it fails
 	ErrorMessage string `json:"error_message"`
+	// FailedCommand captures command that failed
+	FailedCommand string `json:"failed_command"`
 	// AntID - id of ant with version
 	AntID string `json:"ant_id"`
 	// AntHost - host where ant ran the task
@@ -47,8 +49,8 @@ type TaskExecution struct {
 	TaskOrder int `json:"task_order"`
 	// CountServices
 	CountServices int `json:"count_services"`
-	// AppliedCost
-	AppliedCost float64 `json:"applied_cost"`
+	// CostFactor
+	CostFactor float64 `json:"cost_factor"`
 	// StartedAt job creation time
 	StartedAt time.Time `json:"started_at"`
 	// EndedAt job update time
@@ -82,8 +84,8 @@ func NewTaskExecution(task *TaskDefinition) *TaskExecution {
 
 // String provides short summary of task
 func (te *TaskExecution) String() string {
-	return fmt.Sprintf("TaskType=%s Contexts=%s JobState=%s ExitCode=%s ErrorCode=%s",
-		te.TaskType, te.ContextString(), te.TaskState, te.ExitCode, te.ErrorCode)
+	return fmt.Sprintf("ID=%s TaskType=%s Contexts=%s JobState=%s ExitCode=%s ErrorCode=%s",
+		te.ID, te.TaskType, te.ContextString(), te.TaskState, te.ExitCode, te.ErrorCode)
 }
 
 // ElapsedDuration time duration of job execution
@@ -101,9 +103,9 @@ func (te *TaskExecution) ExecutionCostSecs() int64 {
 		now := time.Now()
 		ended = &now
 	}
-	cost := math.Max64(int64(ended.Sub(te.StartedAt).Seconds()*te.AppliedCost),
+	cost := math.Max64(int64(ended.Sub(te.StartedAt).Seconds()*te.CostFactor),
 		int64(ended.Sub(te.StartedAt).Seconds()))
-	if te.AppliedCost == 0 {
+	if te.CostFactor == 0 {
 		return cost + int64(te.CountServices)*cost
 	}
 	return cost

@@ -108,38 +108,38 @@
 <table class='table table-sm'>
 <thead>
 <tr>
-<th style="text-align:center">Executor</th>
-<th style="text-align:center">Method</th>
+<th style="text-align:left">Executor</th>
+<th style="text-align:left">Method</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:center">Kubernetes Pods</td>
-<td style="text-align:center">KUBERNETES</td>
+<td style="text-align:left">Kubernetes Pods</td>
+<td style="text-align:left">KUBERNETES</td>
 </tr>
 <tr>
-<td style="text-align:center">Docker containers</td>
-<td style="text-align:center">DOCKER</td>
+<td style="text-align:left">Docker containers</td>
+<td style="text-align:left">DOCKER</td>
 </tr>
 <tr>
-<td style="text-align:center">Shell</td>
-<td style="text-align:center">SHELL</td>
+<td style="text-align:left">Shell</td>
+<td style="text-align:left">SHELL</td>
 </tr>
 <tr>
-<td style="text-align:center">HTTP (GET POST, PUT, DELETE)</td>
-<td style="text-align:center">HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE</td>
+<td style="text-align:left">HTTP (GET POST, PUT, DELETE)</td>
+<td style="text-align:left">HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE</td>
 </tr>
 <tr>
-<td style="text-align:center">Fork/Await</td>
-<td style="text-align:center">JOB_FORK, JOB_FORK_AWAIT</td>
+<td style="text-align:left">Fork/Await</td>
+<td style="text-align:left">JOB_FORK, JOB_FORK_AWAIT</td>
 </tr>
 <tr>
-<td style="text-align:center">Artifact/Expiration</td>
-<td style="text-align:center">EXPIRE_ARTIFACTS</td>
+<td style="text-align:left">Artifact/Expiration</td>
+<td style="text-align:left">EXPIRE_ARTIFACTS</td>
 </tr>
 <tr>
-<td style="text-align:center">Messaging</td>
-<td style="text-align:center">MESSAGING</td>
+<td style="text-align:left">Messaging</td>
+<td style="text-align:left">MESSAGING</td>
 </tr>
 </tbody>
 </table>
@@ -158,6 +158,26 @@
 <p>A job-execution represents an instance of job when a job is started by the job-launcher. The job-launcher saves this instance in the database as well and then hands-off the job to job-supervisor for execution and changes the state of job request and execution to <code>EXECUTING</code>. The job supervisor orchestrates the job execution and changes the state of job request and execution to <code>COMPLETED</code> or <code>FAILED</code> state at the end of execution. The formicary fires Job lifecycle events to update these changes of state that can be listened by UI or API clients.</p>
 <h4 id="task-execution">Task Execution</h4>
 <p>A task-execution represents an instance of task when a task is started by the task supervisor. The task supervisor saves task instance in the database and builds a task request that is sent to remote ant worker. The task supervisor waits for the response and then updates the database. The task execution ends with <code>COMPLETED</code> or <code>FAILED</code> state but it also supports <code>exit-code</code> that can be passed by the worker. The orchestration rules can choose the next task to run based on ending <code>state</code> or <code>exit-code</code>.</p>
+<h4 id="job-state-">Job State:</h4>
+<p>A job can be in following states:</p>
+<ul>
+<li>PENDING</li>
+<li>READY</li>
+<li>COMPLETED</li>
+<li>FAILED</li>
+<li>EXECUTING</li>
+<li>STARTED</li>
+<li>CANCELLED</li>
+</ul>
+<h4 id="task-state-">Task State:</h4>
+<p>A task can be in following states:</p>
+<ul>
+<li>READY</li>
+<li>STARTED</li>
+<li>EXECUTING</li>
+<li>COMPLETED</li>
+<li>FAILED</li>
+</ul>
 </div>  
 </body>
 </html>

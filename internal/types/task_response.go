@@ -81,11 +81,12 @@ type TaskResponse struct {
 	ErrorCode       string                 `json:"error_code"`
 	ExitCode        string                 `json:"exit_code"`
 	ExitMessage     string                 `json:"exit_message"`
+	FailedCommand   string                 `json:"failed_command"`
 	TaskContext     map[string]interface{} `json:"task_context"`
 	JobContext      map[string]interface{} `json:"job_context"`
 	Artifacts       []*Artifact            `json:"artifacts"`
 	Warnings        []string               `json:"warnings"`
-	AppliedCost     float64                `json:"applied_cost"`
+	CostFactor      float64                `json:"cost_factor"`
 	Timings         TaskResponseTimings    `json:"timings"`
 }
 

@@ -2,9 +2,11 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
+	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/async"
 	"plexobject.com/formicary/internal/math"
 	"plexobject.com/formicary/internal/types"
@@ -33,6 +35,12 @@ type redisPubSubConnection struct {
 type redisQueueSubscription struct {
 	cb   Callback
 	done chan bool
+}
+
+// HeadersPayload structure
+type HeadersPayload struct {
+	Properties map[string]string
+	Payload    []byte
 }
 
 // newClientRedis creates structure for implementing queuing operations
@@ -106,11 +114,15 @@ func (c *ClientRedis) UnSubscribe(
 func (c *ClientRedis) Send(
 	ctx context.Context,
 	topic string,
-	_ map[string]string,
+	props map[string]string,
 	payload []byte,
 	_ bool) (messageID []byte, err error) {
 	messageID = make([]byte, 0)
-	_, err = c.redisClient.RPush(ctx, topic, payload).Result()
+	data, err := toHeadersPayloadData(props, payload)
+	if err != nil {
+		return nil, err
+	}
+	_, err = c.redisClient.RPush(ctx, topic, data).Result()
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientRedis",
@@ -129,6 +141,11 @@ func (c *ClientRedis) SendReceive(
 	payload []byte,
 	inTopic string,
 ) (event *MessageEvent, err error) {
+	// redis doesn't support consumer groups so only one subscriber can consume it so making reply-topic unique
+	inTopic = inTopic + "-" + uuid.NewV4().String() // make it unique
+	props[CorrelationIDKey] = uuid.NewV4().String()
+	props[ReplyTopicKey] = inTopic
+
 	_, err = c.Send(ctx, outTopic, props, payload, true)
 	if err != nil {
 		return nil, err
@@ -137,15 +154,19 @@ func (c *ClientRedis) SendReceive(
 	return
 }
 
-// Publish - publishes the message and caches producer if doesn't exist
+// Publish - publishes the message and caches producer if it doesn't exist
 func (c *ClientRedis) Publish(
 	ctx context.Context,
 	topic string,
-	_ map[string]string,
+	props map[string]string,
 	payload []byte,
 	_ bool) (messageID []byte, err error) {
 	messageID = make([]byte, 0)
-	err = c.redisClient.Publish(ctx, topic, payload).Err()
+	data, err := toHeadersPayloadData(props, payload)
+	if err != nil {
+		return nil, err
+	}
+	err = c.redisClient.Publish(ctx, topic, data).Err()
 	return
 }
 
@@ -279,7 +300,8 @@ func (c *ClientRedis) addPubSubscriber(
 			}
 			select {
 			case msg := <-sharedConn.topic.Channel():
-				c.notifyPubSubConsumers(ctx, topic, []byte(msg.Payload))
+				hp := toHeadersPayload([]byte(msg.Payload))
+				c.notifyPubSubConsumers(ctx, topic, hp.Properties, hp.Payload)
 				curWait = minWait
 			case <-sharedConn.done:
 				return
@@ -302,7 +324,10 @@ func (c *ClientRedis) addPubSubscriber(
 	return
 }
 
-func (c *ClientRedis) pollQueue(ctx context.Context, inTopic string) (event *MessageEvent, err error) {
+func (c *ClientRedis) pollQueue(
+	ctx context.Context,
+	inTopic string,
+) (event *MessageEvent, err error) {
 	event = &MessageEvent{
 		Topic:        inTopic,
 		ProducerName: "",
@@ -320,7 +345,9 @@ func (c *ClientRedis) pollQueue(ctx context.Context, inTopic string) (event *Mes
 		if err != nil || len(res) < 2 {
 			return false, nil, nil
 		}
-		event.Payload = []byte(res[1])
+		hp := toHeadersPayload([]byte(res[1]))
+		event.Properties = hp.Properties
+		event.Payload = hp.Payload
 		return true, nil, nil
 	}
 
@@ -347,13 +374,14 @@ func (c *ClientRedis) pollQueue(ctx context.Context, inTopic string) (event *Mes
 func (c *ClientRedis) notifyPubSubConsumers(
 	ctx context.Context,
 	topic string,
+	props map[string]string,
 	data []byte) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	event := &MessageEvent{
 		Topic:        topic,
 		ProducerName: "",
-		Properties:   make(map[string]string),
+		Properties:   props,
 		ID:           make([]byte, 0),
 		Payload:      data,
 		PublishTime:  time.Now(),
@@ -380,4 +408,19 @@ func (c *ClientRedis) notifyPubSubConsumers(
 			"Data":      len(data)}).
 			Warn("no consumers found!")
 	}
+}
+
+func toHeadersPayloadData(props map[string]string, payload []byte) ([]byte, error) {
+	hp := HeadersPayload{Properties: props, Payload: payload}
+	return json.Marshal(hp)
+}
+
+func toHeadersPayload(data []byte) *HeadersPayload {
+	hp := HeadersPayload{}
+	err := json.Unmarshal(data, &hp)
+	if err != nil {
+		hp.Properties = make(map[string]string)
+		hp.Payload = data
+	}
+	return &hp
 }

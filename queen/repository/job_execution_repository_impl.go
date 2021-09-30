@@ -15,12 +15,13 @@ import (
 
 // JobExecutionRepositoryImpl implements JobExecutionRepository using gorm O/R mapping
 type JobExecutionRepositoryImpl struct {
-	db *gorm.DB
+	db     *gorm.DB
+	dbType string
 }
 
 // NewJobExecutionRepositoryImpl creates new instance for job-execution-repository
-func NewJobExecutionRepositoryImpl(db *gorm.DB) (*JobExecutionRepositoryImpl, error) {
-	return &JobExecutionRepositoryImpl{db: db}, nil
+func NewJobExecutionRepositoryImpl(db *gorm.DB, dbType string) (*JobExecutionRepositoryImpl, error) {
+	return &JobExecutionRepositoryImpl{db: db, dbType: dbType}, nil
 }
 
 // Get method finds JobExecution by id
@@ -72,6 +73,61 @@ func (jer *JobExecutionRepositoryImpl) ResetStateToReady(id string) error {
 	})
 }
 
+// calcCost
+func (jer *JobExecutionRepositoryImpl) calcCost(
+	id string) (sum int64) {
+	var sql string
+	if jer.dbType == "sqlite" {
+		sql = "SELECT sum((count_services+1) * (ended_at-started_at)) from formicary_task_executions where job_execution_id = ?"
+	} else {
+		sql = "SELECT sum((count_services+1) * (ended_at-started_at)) from formicary_task_executions where job_execution_id = ?"
+	}
+
+	args := []interface{}{id}
+	err := jer.db.Raw(sql, args...).Row().Scan(&sum)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Component":    "JobExecutionRepositoryImpl",
+			"ID": id,
+			"Error": err,
+		}).
+			Warnf("failed to calculate cost of job-execution")
+	}
+	return
+}
+
+// GetResourceUsageByOrgUser - Finds usage between time by user and organization
+func (jer *JobExecutionRepositoryImpl) GetResourceUsageByOrgUser(
+	ranges []types.DateRange,
+	limit int) ([]types.ResourceUsage, error) {
+	res := make([]types.ResourceUsage, 0)
+	if ranges == nil || len(ranges) == 0 {
+		return res, nil
+	}
+	sql := "SELECT user_id, organization_id, COUNT(*) as count, SUM(cpu_secs) as value FROM formicary_job_executions WHERE updated_at >= ? AND updated_at <= ? group by user_id, organization_id order by value desc limit ?"
+	for _, r := range ranges {
+		rows, err := jer.db.Raw(sql, r.StartDate, r.EndDate, limit).Rows()
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			_ = rows.Close()
+		}()
+		for rows.Next() {
+			usage := types.ResourceUsage{}
+			if err = jer.db.ScanRows(rows, &usage); err != nil {
+				return nil, err
+			}
+			usage.ResourceType = types.CPUResource
+			usage.StartDate = r.StartDate
+			usage.EndDate = r.EndDate
+			usage.ValueUnit = "seconds"
+			res = append(res, usage)
+		}
+	}
+	return res, nil
+}
+
 // GetResourceUsage - Finds usage between time
 func (jer *JobExecutionRepositoryImpl) GetResourceUsage(
 	qc *common.QueryContext,
@@ -80,7 +136,7 @@ func (jer *JobExecutionRepositoryImpl) GetResourceUsage(
 	if ranges == nil || len(ranges) == 0 {
 		return res, nil
 	}
-	orgSQL, orgArg := qc.AddOrgUserWhereSQL()
+	orgSQL, orgArg := qc.AddOrgUserWhereSQL(true)
 	sql := "SELECT COUNT(*) as count, SUM(cpu_secs) as value FROM formicary_job_executions WHERE updated_at >= ? AND updated_at <= ? AND " +
 		orgSQL
 	for _, r := range ranges {
@@ -340,10 +396,6 @@ func (jer *JobExecutionRepositoryImpl) Save(
 					Debug("saving job-execution...")
 			}
 		} else {
-			if jobExec.JobState.IsTerminal() {
-				jobExec.CPUSecs = jobExec.ExecutionCostSecs()
-				jobExec.EndedAt = &now
-			}
 			jobExec.UpdatedAt = now
 			jobExec.ID = uuid.NewV4().String()
 			if log.IsLevelEnabled(log.DebugLevel) {
@@ -365,6 +417,16 @@ func (jer *JobExecutionRepositoryImpl) Save(
 		for _, t := range jobExec.Tasks {
 			t.JobExecutionID = jobExec.ID
 			t.Active = true
+		}
+		if jobExec.JobState.IsTerminal() {
+			jobExec.CPUSecs = jobExec.ExecutionCostSecs()
+			if !newJob {
+				cpuSecs := jer.calcCost(jobExec.ID)
+				if cpuSecs > 0 && cpuSecs > jobExec.CPUSecs {
+					jobExec.CPUSecs = cpuSecs
+				}
+			}
+			jobExec.EndedAt = &now
 		}
 		if newJob {
 			res = tx.Omit("Tasks", "Contexts").Create(jobExec)

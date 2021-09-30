@@ -25,7 +25,7 @@ func Test_ShouldCountJobsAndGetStats(t *testing.T) {
 				OrganizationID: orgID,
 			}
 			jobStatsRegistry.SetAntsAvailable(req, true, "")
-			jobStatsRegistry.Pending(req)
+			jobStatsRegistry.Pending(req, false)
 		}
 		for j := 0; j < 5; j++ {
 			req := &types.JobRequestInfo{

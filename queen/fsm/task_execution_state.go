@@ -3,6 +3,7 @@ package fsm
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"plexobject.com/formicary/internal/utils"
@@ -35,7 +36,7 @@ func NewTaskExecutionStateMachine(
 		taskType:                 taskType,
 	}
 
-	tsm.TaskExecution = tsm.JobExecution.GetTask(tsm.taskType)
+	_, tsm.TaskExecution = tsm.JobExecution.GetTask("", tsm.taskType)
 
 	// Load task definition using job params because task is not built yet
 	if tsm.TaskDefinition, tsm.ExecutorOptions, err = tsm.JobDefinition.GetDynamicTask(
@@ -49,6 +50,7 @@ func NewTaskExecutionStateMachine(
 		if tsm.TaskExecution.TaskState.Completed() {
 			return
 		}
+		tsm.JobExecution.DeleteTask(tsm.TaskExecution.ID)
 		// otherwise, let's remove last incomplete or failed task
 		if err = tsm.JobManager.DeleteExecutionTask(tsm.TaskExecution.ID); err != nil {
 			return nil, fmt.Errorf("failed to delete old task due to %v", err)
@@ -96,7 +98,8 @@ func (tsm *TaskExecutionStateMachine) PrepareExecution(
 
 	// load last executed task if exists
 	if tsm.LastJobExecution != nil {
-		tsm.LastTaskExecution = tsm.LastJobExecution.GetTask(
+		_, tsm.LastTaskExecution = tsm.LastJobExecution.GetTask(
+			"", // id
 			tsm.TaskDefinition.TaskType)
 	}
 
@@ -214,7 +217,6 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 		TaskExecutionID: tsm.TaskExecution.ID,
 		TaskType:        tsm.TaskDefinition.TaskType,
 		Platform:        tsm.JobDefinition.Platform,
-		ResponseTopic:   tsm.serverCfg.GetResponseTopic(tsm.TaskKey()),
 		Action:          common.EXECUTE,
 		JobRetry:        tsm.Request.GetRetried(),
 		TaskRetry:       tsm.TaskExecution.Retried,
@@ -238,11 +240,12 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	//}
 	// override name of main container in executor options
 	taskReq.ExecutorOpts.Name = utils.MakeDNS1123Compatible(
-		fmt.Sprintf("formicary-%d-%s-%d-%d",
+		fmt.Sprintf("FRM-%d-%s-%d-%d-%d",
 			tsm.Request.GetID(),
 			tsm.TaskDefinition.ShortTaskType(),
 			tsm.Request.GetRetried(),
-			tsm.TaskExecution.Retried))
+			tsm.TaskExecution.Retried,
+			rand.Intn(10000)))
 	taskReq.ExecutorOpts.PodLabels[common.RequestID] = fmt.Sprintf("%d", tsm.Request.GetID())
 	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
@@ -277,6 +280,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskResponseFromPreviousResult() (*co
 	taskResp.Host = tsm.LastTaskExecution.AntHost
 	taskResp.ExitCode = tsm.LastTaskExecution.ExitCode
 	taskResp.ExitMessage = tsm.LastTaskExecution.ExitMessage
+	taskResp.FailedCommand = tsm.LastTaskExecution.FailedCommand
 
 	taskResp.Status = tsm.LastTaskExecution.TaskState
 	taskResp.ErrorCode = ""
@@ -325,9 +329,10 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 
 	tsm.TaskExecution.AntID = taskResp.AntID
 	tsm.TaskExecution.AntHost = taskResp.Host
+	tsm.TaskExecution.FailedCommand = taskResp.FailedCommand
 	tsm.TaskExecution.ExitCode = taskResp.ExitCode
 	tsm.TaskExecution.ExitMessage = taskResp.ExitMessage
-	tsm.TaskExecution.AppliedCost = taskResp.AppliedCost
+	tsm.TaskExecution.CostFactor = taskResp.CostFactor
 	tsm.TaskExecution.CountServices = len(taskReq.ExecutorOpts.Services)
 
 	// save status and error code/messages

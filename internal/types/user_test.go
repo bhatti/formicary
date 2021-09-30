@@ -40,7 +40,7 @@ func Test_ShouldVerifyUserPermissions(t *testing.T) {
 	require.True(t, u.HasPermission(acl.JobDefinition, acl.Read))
 	require.True(t, u.HasPermission(acl.Artifact, acl.View))
 	require.False(t, u.HasPermission(acl.User, acl.Create))
-	require.Equal(t, 21, len(u.PermissionList()))
+	require.Equal(t, 22, len(u.PermissionList()))
 }
 
 // Verify permissions for admin

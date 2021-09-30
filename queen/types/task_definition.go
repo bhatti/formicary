@@ -76,37 +76,37 @@ type TaskDefinition struct {
 	UpdatedAt time.Time `yaml:"-" json:"updated_at"`
 	TaskOrder int       `yaml:"-" json:"-" gorm:"task_order"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
-	NameValueVariables interface{}       `yaml:"variables,omitempty" json:"variables" gorm:"-"`
+	NameValueVariables interface{} `yaml:"variables,omitempty" json:"variables" gorm:"-"`
 	// Header defines HTTP headers
-	Headers            map[string]string `yaml:"headers,omitempty" json:"headers" gorm:"-"`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers" gorm:"-"`
 	// BeforeScript defines list of commands that are executed before main script
-	BeforeScript       []string          `yaml:"before_script,omitempty" json:"before_script" gorm:"-"`
+	BeforeScript []string `yaml:"before_script,omitempty" json:"before_script" gorm:"-"`
 	// AfterScript defines list of commands that are executed after main script for cleanup
-	AfterScript        []string          `yaml:"after_script,omitempty" json:"after_script" gorm:"-"`
+	AfterScript []string `yaml:"after_script,omitempty" json:"after_script" gorm:"-"`
 	// Script defines list of commands to execute in container
-	Script             []string          `yaml:"script,omitempty" json:"script" gorm:"-"`
+	Script []string `yaml:"script,omitempty" json:"script" gorm:"-"`
 	// Resources defines resources required by the task
-	Resources          BasicResource     `yaml:"resources,omitempty" json:"resources" gorm:"-"`
+	Resources BasicResource `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// For example, you may start a follower that processes payments and the task will be routed to that follower
-	Tags             []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
+	Tags []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
 	// Except is used to filter task execution based on certain condition
-	Except           string   `yaml:"except,omitempty" json:"except" gorm:"-"`
+	Except string `yaml:"except,omitempty" json:"except" gorm:"-"`
 	// JobVersion defines job version
-	JobVersion       string   `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
+	JobVersion string `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`
 	// Dependencies defines dependent tasks for downloading artifacts
-	Dependencies     []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
+	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty" gorm:"-"`
 	// ArtifactIDs defines id of artifacts that are automatically downloaded for job-execution
-	ArtifactIDs      []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
+	ArtifactIDs []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
 	// ForkJobType defines type of job to work
-	ForkJobType      string   `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
+	ForkJobType string `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
 	// AwaitForkedTasks defines list of jobs to wait for completion
-	AwaitForkedTasks []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
-	// MessagingQueue is used by MESSAGING executor to send task request to the messaging queue
-	MessagingQueue   string   `json:"messaging_queue,omitempty" yaml:"messaging_queue,omitempty" gorm:"-"`
-	unknownKeys      map[string]interface{}
-	lookupVariables  *cutils.SafeMap
-	lock             sync.RWMutex
+	AwaitForkedTasks      []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
+	MessagingRequestQueue string   `json:"messaging_request_queue,omitempty" yaml:"messaging_request_queue,omitempty" gorm:"-"`
+	MessagingReplyQueue   string   `json:"messaging_reply_queue,omitempty" yaml:"messaging_reply_queue,omitempty" gorm:"-"`
+	unknownKeys           map[string]interface{}
+	lookupVariables       *cutils.SafeMap
+	lock                  sync.RWMutex
 }
 
 // NewTaskDefinition creates new instance of task-definition
@@ -531,18 +531,35 @@ func (td *TaskDefinition) GetDelayBetweenRetries() time.Duration {
 	return td.DelayBetweenRetries
 }
 
-// HasNext returns true if task has next task to run
+// HasNext returns true if task had next-task set to run
 func (td *TaskDefinition) HasNext() bool {
 	return len(td.OnExitCode) > 0 || td.OnCompleted != "" || td.OnFailed != ""
 }
 
-// IsFatalError checks if error is fatal
-func (td *TaskDefinition) IsFatalError(exitCode string) bool {
+// OverrideStatusAndErrorCode checks if status or error-code can be overridden
+func (td *TaskDefinition) OverrideStatusAndErrorCode(
+	exitCode string) (status common.RequestState, errorCode string) {
 	if td.OnExitCode == nil || len(td.OnExitCode) == 0 {
-		return false
+		return
 	}
-	nextTaskName := td.OnExitCode[common.NewRequestState(exitCode)]
-	return common.NewRequestState(nextTaskName) == common.FATAL
+	target := td.OnExitCode[common.NewRequestState(exitCode)]
+	targetState := common.NewRequestState(target)
+	if targetState == common.FATAL {
+		return common.FAILED, common.ErrorFatal
+	} else if targetState == common.FAILED {
+		return common.FAILED, ""
+	} else if targetState == common.COMPLETED {
+		return common.COMPLETED, ""
+	} else if targetState == common.EXECUTING {
+		return common.EXECUTING, ""
+	} else if targetState == common.RESTART_JOB {
+		return common.FAILED, common.ErrorRestartJob
+	} else if targetState == common.RESTART_TASK {
+		return common.FAILED, common.ErrorRestartTask
+	} else if strings.HasPrefix(target, "ERR_") {
+		return common.FAILED, target
+	}
+	return
 }
 
 // SaveOnExitCode stores serialized OnExitCode

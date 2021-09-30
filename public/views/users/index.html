@@ -22,7 +22,7 @@
         <tbody>
         {{range .Records}}
         <tr>
-            <td>{{.ID}}</td>
+            <td><a href="/dashboard/users/{{.ID}}">{{.ID}}</a></td>
             <td>{{.Username}}</td>
             <td class="group row">
                 <form action="/dashboard/users/{{.ID}}" method="GET">

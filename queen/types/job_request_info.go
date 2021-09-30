@@ -26,6 +26,8 @@ type JobRequestInfo struct {
 	JobState types.RequestState `json:"job_state"`
 	// ScheduleAttempts defines attempts of schedule
 	ScheduleAttempts int `json:"schedule_attempts"`
+	// Retried job tries
+	Retried int `json:"tried"`
 	// OrganizationID defines org who submitted the job
 	OrganizationID string `json:"organization_id"`
 	// UserID defines user who submitted the job
@@ -136,12 +138,13 @@ func (jri *JobRequestInfo) GetUserID() string {
 
 // GetRetried - retry attempts
 func (jri *JobRequestInfo) GetRetried() int {
-	return 0
+	return jri.Retried
 }
 
 // IncrRetried - increment retry attempts
 func (jri *JobRequestInfo) IncrRetried() int {
-	return 0
+	jri.Retried++
+	return jri.Retried
 }
 
 // GetCronTriggered is true if request was triggered by cron

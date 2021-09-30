@@ -37,7 +37,7 @@ func (scr *OrganizationConfigRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*common.OrganizationConfig, error) {
 	var cfg common.OrganizationConfig
-	res := qc.AddOrgElseUserWhere(scr.db).Where("id = ?", id).First(&cfg)
+	res := qc.AddOrgElseUserWhere(scr.db, true).Where("id = ?", id).First(&cfg)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -56,7 +56,7 @@ func (scr *OrganizationConfigRepositoryImpl) clear() {
 func (scr *OrganizationConfigRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id string) error {
-	res := qc.AddOrgElseUserWhere(scr.db).Where("id = ?", id).Delete(&common.OrganizationConfig{})
+	res := qc.AddOrgElseUserWhere(scr.db, false).Where("id = ?", id).Delete(&common.OrganizationConfig{})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
@@ -111,7 +111,7 @@ func (scr *OrganizationConfigRepositoryImpl) Query(
 	pageSize int,
 	order []string) (recs []*common.OrganizationConfig, totalRecords int64, err error) {
 	recs = make([]*common.OrganizationConfig, 0)
-	tx := qc.AddOrgElseUserWhere(scr.db).Limit(pageSize).
+	tx := qc.AddOrgElseUserWhere(scr.db, true).Limit(pageSize).
 		Offset(page * pageSize)
 	tx = addQueryParamsWhere(params, tx)
 	if len(order) == 0 {
@@ -138,7 +138,7 @@ func (scr *OrganizationConfigRepositoryImpl) Query(
 func (scr *OrganizationConfigRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.AddOrgElseUserWhere(scr.db).Model(&common.OrganizationConfig{})
+	tx := qc.AddOrgElseUserWhere(scr.db, true).Model(&common.OrganizationConfig{})
 	tx = addQueryParamsWhere(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {

@@ -170,7 +170,9 @@ func (kcr *CommandRunner) run(
 		if err == nil {
 			kcr.Host = pod.Status.HostIP
 			kcr.ContainerIP = pod.Status.PodIP
-			_ = kcr.BaseExecutor.WriteTrace(fmt.Sprintf("🔄 $ %s", kcr.Command)) //🏃
+			_ = kcr.ExecutorOptions.Environment.AddFromEnvCommand(kcr.Command)
+			_ = kcr.BaseExecutor.WriteTrace(fmt.Sprintf("🔄 $ %s",
+				kcr.Command))
 		} else {
 			//_ = kcr.BaseExecutor.WriteTraceError(
 			//	fmt.Sprintf("❌ %s failed to run! Pod=%s Error=%s",

@@ -103,13 +103,13 @@ func Test_ShouldWithGoodJobExecution(t *testing.T) {
 func Test_ShouldGetFailedTaskError(t *testing.T) {
 	jobExec := testNewJobExecution("test-exec-job")
 	// WHEN getting failed task error without failed task
-	_, err := jobExec.GetFailedTaskError()
+	_, _, err := jobExec.GetFailedTaskError()
 
 	// THEN it should not fail
 	require.NoError(t, err)
 	// WHEN getting failed task error with failed task
 	jobExec.Tasks[0].TaskState = common.CANCELLED
-	_, err = jobExec.GetFailedTaskError()
+	_, _, err = jobExec.GetFailedTaskError()
 	require.Error(t, err)
 }
 

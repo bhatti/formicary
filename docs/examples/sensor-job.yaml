@@ -1,0 +1,43 @@
+job_type: sensor-job
+tasks:
+- task_type: first
+  method: HTTP_GET
+  environment:
+    OLD_ENV_VAR: ijk
+  allow_failure: true
+  timeout: 15s
+  delay_between_retries: 5s
+  script:
+    {{ if lt .JobElapsedSecs 3 }}
+    - https://jsonplaceholder.typicode.com/blaaaaahtodos/1
+    {{ else }}
+    - https://jsonplaceholder.typicode.com/todos/1
+    {{ end }}
+  on_completed: second
+  on_exit_code:
+    404: EXECUTING
+- task_type: second
+  container:
+    image: alpine
+  script:
+      - echo nonce {{.Nonce}}
+      - exit {{ Random 0 5 }}
+  on_exit_code:
+    1: FAILED
+    2: RESTART_JOB
+    3: COMPLETED
+    4: ERR_BLAH
+    5: RESTART_TASK
+  on_completed: third
+- task_type: third
+  container:
+    image: alpine
+  environment:
+    OLD_ENV_VAR: ijk
+  script:
+    - date > date.txt
+    - env NEW_ENV_VAR=xyz
+    - echo variable value is $NEW_ENV_VAR
+  artifacts:
+    paths:
+      - date.txt

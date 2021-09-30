@@ -67,13 +67,20 @@ func getDefaultCapDrop() []string {
 
 func buildVariables(
 	config *config.KubernetesConfig,
-	opts *domain.ExecutorOptions) []api.EnvVar {
+	opts *domain.ExecutorOptions,
+	helper bool) []api.EnvVar {
 	e := make([]api.EnvVar, 0)
 	for k, v := range config.Environment {
 		e = append(e, api.EnvVar{Name: k, Value: v})
 	}
-	for k, v := range opts.Environment {
-		e = append(e, api.EnvVar{Name: k, Value: v})
+	if helper {
+		for k, v := range opts.HelperEnvironment {
+			e = append(e, api.EnvVar{Name: k, Value: v})
+		}
+	} else {
+		for k, v := range opts.Environment {
+			e = append(e, api.EnvVar{Name: k, Value: v})
+		}
 	}
 	return e
 }

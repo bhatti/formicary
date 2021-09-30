@@ -1,7 +1,6 @@
 package notify
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -99,7 +98,6 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 
 	user, job, req := newUserJobRequest("notify-job-failed", common.FAILED)
 
-	fmt.Printf("===begin=====\n")
 	err = notifier.NotifyJob(qc, user, job, req, common.UNKNOWN)
 	require.NoError(t, err)
 	require.Equal(t, 1, sender.sent)

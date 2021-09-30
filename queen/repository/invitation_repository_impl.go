@@ -140,7 +140,7 @@ func (r *InvitationRepositoryImpl) Query(
 	pageSize int,
 	order []string) (recs []*types.UserInvitation, totalRecords int64, err error) {
 	recs = make([]*types.UserInvitation, 0)
-	tx := qc.AddOrgWhere(r.db).Limit(pageSize).Offset(page * pageSize)
+	tx := qc.AddOrgWhere(r.db, true).Limit(pageSize).Offset(page * pageSize)
 	tx = r.addQuery(params, tx)
 
 	for _, ord := range order {

@@ -32,6 +32,21 @@ func Test_ShouldGetAffinityForExecutorOpts(t *testing.T) {
 	require.NotEqual(t, "", opts.String())
 }
 
+func Test_ShouldUpdateEnvForExecutorOpts(t *testing.T) {
+	// GIVEN
+	// WHEN a valid executor-options is created
+	opts := newTestExecutorOptions()
+	err := opts.Validate()
+	// THEN validation should not fail
+	require.NoError(t, err)
+	updated := opts.Environment.AddFromEnvCommand("A=000")
+	require.False(t, updated)
+	require.Equal(t, "", opts.Environment["A"])
+	updated = opts.Environment.AddFromEnvCommand("env A=123")
+	require.True(t, updated)
+	require.Equal(t, "123", opts.Environment["A"])
+}
+
 func newTestExecutorOptions() *ExecutorOptions {
 	opts := NewExecutorOptions("task1", Kubernetes)
 	opts.Environment["ENV1"] = "VAL1"

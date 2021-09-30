@@ -54,6 +54,9 @@ curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/yaml" \
 ### OnExitCode
 See [On Exit](definition_options.md#on_exit) for usage of multiple exit paths using on-exit.
 
+### Retry and Exit codes
+See [Retry and Exit Codes](retry-exit.md) for examples of using retry with exit codes.
+
 ### Caching
 
 Formicary also provides caching for directories that store 3rd party dependencies, e.g.,
@@ -240,3 +243,6 @@ And then add token in your organization configurations, e.g.
 
 - [Advanced Kubernetes](advanced_k8.md) for using advanced kubernetes configs.
 
+- [ETL Examples](etl_examples.md) for defining ETL pipelines.
+
+- [Sensor Jobs](sensor.md) for defining polling tasks.

@@ -137,6 +137,7 @@ func Test_ShouldSaveValidJobExecutionWithoutContext(t *testing.T) {
 	loaded, err = repo.Get(savedExec.ID)
 	require.NoError(t, err)
 	require.Equal(t, common.FAILED, loaded.JobState)
+	require.Equal(t, int64(900), loaded.CPUSecs)
 }
 
 // Saving a job with context should succeed
@@ -235,9 +236,11 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, loaded.Equals(jobExec))
 	require.Equal(t, len(jobExec.Tasks), len(loaded.Tasks))
-
+	now := time.Now()
 	// WHEN creating a new task for the job-execution
 	task := loaded.AddTask(types.NewTaskDefinition("new_task", common.Shell))
+	task.StartedAt = time.Now().Add(-10 * time.Second)
+	task.EndedAt = &now
 	_, _ = task.AddContext("nk1", "new-task")
 	_, _ = task.AddContext("nk2", []int{1, 2, 3})
 
@@ -247,8 +250,9 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	loaded, err = repo.Get(savedExec.ID)
 	require.NoError(t, err)
 	require.Equal(t, len(jobExec.Tasks)+1, len(loaded.Tasks))
+	require.Equal(t, int64(0), loaded.CPUSecs)
 
-	loadedTask := loaded.GetTask("new_task")
+	_, loadedTask := loaded.GetTask("", "new_task")
 	require.NotNil(t, loadedTask)
 
 	require.Equal(t, common.RequestState("READY"), loadedTask.TaskState)
@@ -270,7 +274,7 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	require.Equal(t, len(jobExec.Tasks)+1, len(loaded.Tasks))
 
 	// AND should find new task
-	loadedTask = loaded.GetTask("new_task")
+	_, loadedTask = loaded.GetTask("", "new_task")
 	require.NotNil(t, loadedTask)
 
 	require.Equal(t, common.RequestState("FAILED"), loadedTask.TaskState)
@@ -360,6 +364,55 @@ func Test_ShouldQueryJobExecutionQueryByJobType(t *testing.T) {
 			require.Nil(t, next.Artifacts, next)
 		}
 	}
+}
+
+// Test GetResourceUsage usage by org/user
+func Test_ShouldJobExecutionAccountingByOrgUser(t *testing.T) {
+	// GIVEN repositories
+	jobRequestRepository, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	jobExecutionRepository, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	jobExecutionRepository.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	jobs := make([]*types.JobExecution, 10)
+	// AND creating a set of job-executions
+	for i := 0; i < 10; i++ {
+		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-account-%v", i))
+		require.NoError(t, err)
+		job.StartedAt = time.Now().Add(-10 * time.Second)
+		saved, err := jobExecutionRepository.Save(job)
+		require.NoError(t, err)
+		err = jobRequestRepository.SetReadyToExecute(saved.JobRequestID, saved.ID, "")
+		require.NoError(t, err)
+		jobs[i] = saved
+		err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
+			saved.ID,
+			saved.JobState,
+			common.COMPLETED,
+			"",
+			"",
+			10,
+			0)
+		require.NoError(t, err)
+	}
+	// WHEN querying getting usage with nil range
+	usage, err := jobExecutionRepository.GetResourceUsageByOrgUser(nil, 10000)
+	// THEN no errors and zero result should return
+	require.NoError(t, err)
+	require.Equal(t, 0, len(usage))
+	// WHEN querying getting usage with full range
+	usage, err = jobExecutionRepository.GetResourceUsageByOrgUser([]types.DateRange{{
+		StartDate: time.Now().Add(-1 * time.Minute),
+		EndDate:   time.Now().Add(1 * time.Minute),
+	}}, 10000)
+	// THEN no errors and zero result should return
+	require.NoError(t, err)
+	require.Equal(t, 1, len(usage))
+	require.Equal(t, 10, usage[0].Count)
+	require.Equal(t, int64(100), usage[0].Value)
 }
 
 // Test GetResourceUsage usage
@@ -517,7 +570,8 @@ func Test_ShouldUpdateValidJobExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, loaded.Equals(jobExec))
 	for i := 0; i < len(jobExec.Tasks); i++ {
-		require.NoError(t, jobExec.Tasks[i].Equals(loaded.GetTask(jobExec.Tasks[i].TaskType)))
+		_, loadedTask := loaded.GetTask("", jobExec.Tasks[i].TaskType)
+		require.NoError(t, jobExec.Tasks[i].Equals(loadedTask))
 	}
 }
 

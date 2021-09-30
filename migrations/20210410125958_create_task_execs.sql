@@ -13,14 +13,15 @@
       exit_message TEXT,
       error_code VARCHAR(100),
       error_message TEXT,
+      failed_command TEXT,
       task_order INTEGER DEFAULT 0,
       count_services INTEGER DEFAULT 0,
       retried INTEGER NOT NULL DEFAULT 0,
-      applied_cost DECIMAL(10, 2) DEFAULT 0,
-      started_at TIMESTAMP DEFAULT NOW(),
-      ended_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      created_at TIMESTAMP DEFAULT NOW(),
+      cost_factor DECIMAL(10, 2) DEFAULT 0,
+      started_at TIMESTAMP,
+      ended_at TIMESTAMP,
+      updated_at TIMESTAMP,
+      created_at TIMESTAMP,
       CONSTRAINT formicary_task_executions_job_fk FOREIGN KEY (job_execution_id) REFERENCES formicary_job_executions(id)
     );
 

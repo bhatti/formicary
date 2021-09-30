@@ -115,6 +115,8 @@ can be used as input of another task.
 - [Scanning containers using Trivy](docs/trivy-scan.md)
 - [Advanced Kubernetes](docs/advanced_k8.md)
 - [Using Templates](docs/templates.md)
+- [Sensor Jobs](docs/sensor.md)
+- [Retry and Exit Codes](docs/retry-exit.md)
 
 
 #### Job / Task Definition Configuration Options

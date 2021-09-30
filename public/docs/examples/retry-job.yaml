@@ -1,0 +1,29 @@
+job_type: retry-job
+delay_between_retries: 6s
+retry: 2
+tasks:
+- task_type: first
+  method: HTTP_GET
+  timeout: 15s
+  delay_between_retries: 5s
+  script:
+    - https://jsonplaceholder.typicode.com/todos/1
+  on_exit_code:
+    10: RESTART_JOB
+  on_completed: second
+- task_type: second
+  container:
+    image: alpine
+  retry: 2
+  script:
+    - exit {{ Random 0 3 }}
+  on_exit_code:
+    1: FATAL
+    2: RESTART_TASK
+    3: ERR_XYZ
+  on_completed: third
+- task_type: third
+  container:
+    image: alpine
+  script:
+    - date

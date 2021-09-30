@@ -1,14 +1,14 @@
 ## ETL Examples
 
-### Job Configuration
+### Stock Calculation Job
 
-Following example defines job-definition with a simple ETL:
+Following example defines job-definition for calculating average stock price:
 
 ![ETL Workflow](etl-workflow.png)
 
 ```yaml
-job_type: etl-job
-description: Simple ETL pipeline example
+job_type: etl-stock-job
+description: Simple ETL Stock pipeline example
 max_concurrency: 1
 tasks:
   - task_type: extract
@@ -54,9 +54,54 @@ tasks:
         - avg.txt
 ```
 
+### Simple JSON Sum
+
+Following example defines job-definition for calculating sum from JSON object:
+
+```yaml
+job_type: etl-sum-job
+description: Simple ETL example
+tasks:
+# A simple extract task that defines a JSON string
+- task_type: extract
+  container:
+    image: alpine
+  variables:
+    data_string: '{"1001": 301.27, "1002": 433.21, "1003": 502.22}'
+  script:
+    - >
+      echo '{{.data_string | Unescape}}' > order_data_dict.json
+    - ls -ltr
+  artifacts:
+    paths:
+      - order_data_dict.json
+  on_completed: transform
+# A simple transform task that calculates sum from a JSON string
+- task_type: transform
+  container:
+    image: python:3.8-buster
+  dependencies:
+    - extract
+  script:
+    - cat order_data_dict.json
+    - python -c "import json;f = open('order_data_dict.json');data = json.load(f);sum = sum(data.values());print(sum);f.close()" > sum.txt
+  artifacts:
+    paths:
+      - sum.txt
+  on_completed: load
+# A simple transform task that print (or save) JSON string
+- task_type: load
+  dependencies:
+    - transform
+  script:
+    - cat sum.txt
+  container:
+    image: alpine
+```
+
 #### Job Type
 
-The `job_type` defines type of the job, which is `etl-job` in above example.
+The `job_type` defines type of the job, which is `etl-stock-job` or `etl-sum-job` in above examples.
 
 #### Tasks
 
@@ -159,7 +204,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  --data-binary @etl-job.yaml $SERVER/api/jobs/definitions
+  --data-binary @etl-stock-job.yaml $SERVER/api/jobs/definitions
 ```
 
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to the API
@@ -172,7 +217,7 @@ You can then submit the job as follows:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"job_type": "etl-job", "params": { "Symbol": "MSFT" } }' $SERVER/jobs/requests
+  --data '{"job_type": "etl-stock-job", "params": { "Symbol": "MSFT" } }' $SERVER/jobs/requests
 ```
 
-The above example kicks off `etl-job` job with `"Symbol": "MSFT"` tparameters for the stock symbol.
+The above example kicks off `etl-stock-job` job with `"Symbol": "MSFT"` parameters for the stock symbol.

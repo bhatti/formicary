@@ -48,11 +48,11 @@
 
 <div class="container-fluid">
 <h2 id="etl-examples">ETL Examples</h2>
-<h3 id="job-configuration">Job Configuration</h3>
-<p>Following example defines job-definition with a simple ETL:</p>
+<h3 id="stock-calculation-job">Stock Calculation Job</h3>
+<p>Following example defines job-definition for calculating average stock price:</p>
 <p><img class='img-fluid' src="etl-workflow.png" alt="ETL Workflow"></p>
-<pre><code class="lang-yaml">job_type: etl-job
-description: Simple ETL pipeline example
+<pre><code class="lang-yaml">job_type: etl-stock-job
+description: Simple ETL Stock pipeline example
 max_concurrency: 1
 tasks:
   - task_type: extract
@@ -97,8 +97,49 @@ tasks:
       paths:
         - avg.txt
 </code></pre>
+<h3 id="simple-json-sum">Simple JSON Sum</h3>
+<p>Following example defines job-definition for calculating sum from JSON object:</p>
+<pre><code class="lang-yaml">job_type: etl-sum-job
+description: Simple ETL example
+tasks:
+# A simple extract task that defines a JSON string
+- task_type: extract
+  container:
+    image: alpine
+  variables:
+    data_string: &#39;{&quot;1001&quot;: 301.27, &quot;1002&quot;: 433.21, &quot;1003&quot;: 502.22}&#39;
+  script:
+    - &gt;
+      echo &#39;{{.data_string | Unescape}}&#39; &gt; order_data_dict.json
+    - ls -ltr
+  artifacts:
+    paths:
+      - order_data_dict.json
+  on_completed: transform
+# A simple transform task that calculates sum from a JSON string
+- task_type: transform
+  container:
+    image: python:3.8-buster
+  dependencies:
+    - extract
+  script:
+    - cat order_data_dict.json
+    - python -c &quot;import json;f = open(&#39;order_data_dict.json&#39;);data = json.load(f);sum = sum(data.values());print(sum);f.close()&quot; &gt; sum.txt
+  artifacts:
+    paths:
+      - sum.txt
+  on_completed: load
+# A simple transform task that print (or save) JSON string
+- task_type: load
+  dependencies:
+    - transform
+  script:
+    - cat sum.txt
+  container:
+    image: alpine
+</code></pre>
 <h4 id="job-type">Job Type</h4>
-<p>The <code>job_type</code> defines type of the job, which is <code>etl-job</code> in above example.</p>
+<p>The <code>job_type</code> defines type of the job, which is <code>etl-stock-job</code> or <code>etl-sum-job</code> in above examples.</p>
 <h4 id="tasks">Tasks</h4>
 <p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
 <h5 id="task-type">Task Type</h5>
@@ -151,16 +192,16 @@ tasks:
 <p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/yaml&quot; \
-  --data-binary @etl-job.yaml $SERVER/api/jobs/definitions
+  --data-binary @etl-stock-job.yaml $SERVER/api/jobs/definitions
 </code></pre>
 <p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
 <h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
 <p>You can then submit the job as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-  --data &#39;{&quot;job_type&quot;: &quot;etl-job&quot;, &quot;params&quot;: { &quot;Symbol&quot;: &quot;MSFT&quot; } }&#39; $SERVER/jobs/requests
+  --data &#39;{&quot;job_type&quot;: &quot;etl-stock-job&quot;, &quot;params&quot;: { &quot;Symbol&quot;: &quot;MSFT&quot; } }&#39; $SERVER/jobs/requests
 </code></pre>
-<p>The above example kicks off <code>etl-job</code> job with <code>&quot;Symbol&quot;: &quot;MSFT&quot;</code> tparameters for the stock symbol.</p>
+<p>The above example kicks off <code>etl-stock-job</code> job with <code>&quot;Symbol&quot;: &quot;MSFT&quot;</code> parameters for the stock symbol.</p>
 </div>  
 </body>
 </html>

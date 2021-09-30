@@ -26,6 +26,38 @@ func NewArtifactRepositoryImpl(
 	}, nil
 }
 
+// GetResourceUsageByOrgUser - Finds usage between time by user and organization
+func (ar *ArtifactRepositoryImpl) GetResourceUsageByOrgUser(
+	ranges []types.DateRange,
+	limit int) ([]types.ResourceUsage, error) {
+	res := make([]types.ResourceUsage, 0)
+	if ranges == nil || len(ranges) == 0 {
+		return res, nil
+	}
+	sql := "SELECT user_id, organization_id, COUNT(*) as count, SUM(content_length) as value FROM formicary_artifacts WHERE active = ? AND updated_at >= ? AND updated_at <= ? group by user_id, organization_id order by value desc limit ?"
+	for _, r := range ranges {
+		rows, err := ar.db.Raw(sql, true, r.StartDate, r.EndDate, limit).Rows()
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			_ = rows.Close()
+		}()
+		for rows.Next() {
+			usage := types.ResourceUsage{}
+			if err = ar.db.ScanRows(rows, &usage); err != nil {
+				return nil, err
+			}
+			usage.ResourceType = types.DiskResource
+			usage.StartDate = r.StartDate
+			usage.EndDate = r.EndDate
+			usage.ValueUnit = "bytes"
+			res = append(res, usage)
+		}
+	}
+	return res, nil
+}
+
 // GetResourceUsage - Finds usage between time
 func (ar *ArtifactRepositoryImpl) GetResourceUsage(
 	qc *common.QueryContext,
@@ -34,7 +66,7 @@ func (ar *ArtifactRepositoryImpl) GetResourceUsage(
 	if ranges == nil || len(ranges) == 0 {
 		return res, nil
 	}
-	orgSQL, orgArg := qc.AddOrgUserWhereSQL()
+	orgSQL, orgArg := qc.AddOrgUserWhereSQL(true)
 	sql := "SELECT COUNT(*) as count, SUM(content_length) as value FROM formicary_artifacts WHERE active = ? AND updated_at >= ? AND updated_at <= ? AND " + orgSQL
 	for _, r := range ranges {
 		rows, err := ar.db.Raw(sql, true, r.StartDate, r.EndDate, orgArg).Rows()
@@ -67,7 +99,7 @@ func (ar *ArtifactRepositoryImpl) ExpiredArtifacts(
 	expiration time.Duration,
 	limit int) (records []*common.Artifact, err error) {
 	records = make([]*common.Artifact, 0)
-	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{})).
+	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{}), true).
 		Limit(limit).
 		Where("active = ?", true).
 		Where("expires_at < ? OR updated_at < ?", time.Now(), time.Now().Add(-expiration))
@@ -92,7 +124,7 @@ func (ar *ArtifactRepositoryImpl) Query(
 	pageSize int,
 	order []string) (records []*common.Artifact, total int64, err error) {
 	records = make([]*common.Artifact, 0)
-	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{})).
+	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{}), true).
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
@@ -123,7 +155,7 @@ func (ar *ArtifactRepositoryImpl) Query(
 func (ar *ArtifactRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (total int64, err error) {
-	tx := qc.AddOrgElseUserWhere(ar.db).Where("active = ?", true)
+	tx := qc.AddOrgElseUserWhere(ar.db, true).Where("active = ?", true)
 	tx = ar.addQuery(params, tx)
 	res := tx.Model(&common.Artifact{}).Count(&total)
 	if res.Error != nil {
@@ -143,7 +175,7 @@ func (ar *ArtifactRepositoryImpl) GetBySHA256(
 	qc *common.QueryContext,
 	sha256 string) (*common.Artifact, error) {
 	var art common.Artifact
-	res := qc.AddOrgElseUserWhere(ar.db).
+	res := qc.AddOrgElseUserWhere(ar.db, true).
 		Where("sha256 = ?", sha256).
 		Where("active = ?", true).
 		First(&art)
@@ -161,7 +193,7 @@ func (ar *ArtifactRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*common.Artifact, error) {
 	var art common.Artifact
-	res := qc.AddOrgElseUserWhere(ar.db).
+	res := qc.AddOrgElseUserWhere(ar.db, true).
 		Where("id = ?", id).
 		Where("active = ?", true).
 		First(&art)
@@ -181,7 +213,7 @@ func (ar *ArtifactRepositoryImpl) Delete(
 	tx := ar.db.Model(&common.Artifact{}).
 		Where("id = ?", id).
 		Where("active = ?", true)
-	tx = qc.AddOrgElseUserWhere(tx)
+	tx = qc.AddOrgElseUserWhere(tx, false)
 	res := tx.Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
 	if res.Error != nil {
 		return res.Error
@@ -222,7 +254,7 @@ func (ar *ArtifactRepositoryImpl) Update(
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
-	if !qc.Matches(art.UserID, art.OrganizationID) {
+	if !qc.Matches(art.UserID, art.OrganizationID, false) {
 		// TODO remove user id from the error message
 		return nil, common.NewPermissionError(
 			fmt.Errorf("artifact owner %s / %s didn't match query context %s",

@@ -87,6 +87,9 @@ const AppVersion = "AppVersion"
 // DBUser constant
 const DBUser = "DBUser"
 
+// DBUserOrg constant
+const DBUserOrg = "DBUserOrg"
+
 // AuthDisabled constant
 const AuthDisabled = "AuthDisabled"
 
@@ -101,9 +104,11 @@ func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
 	}
 	if user != nil {
 		res[DBUser] = user
+		res[DBUserOrg] = user.OrganizationID
 		res["Admin"] = user.IsAdmin()
 		res["ReadAdmin"] = user.IsReadAdmin()
 	} else if c.Get(AuthDisabled) != nil {
+		res[DBUserOrg] = ""
 		res["Admin"] = true
 		res["ReadAdmin"] = true
 	}

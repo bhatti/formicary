@@ -48,7 +48,8 @@ func NewDockerExecutor(
 			opts,
 			opts.Name+helperSuffix,
 			opts.HelperContainer.Image,
-			cfg.DefaultShell)
+			cfg.DefaultShell,
+			true)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +61,8 @@ func NewDockerExecutor(
 		opts,
 		opts.Name,
 		opts.MainContainer.Image,
-		cfg.DefaultShell)
+		cfg.DefaultShell,
+		false)
 	if err != nil {
 		if exec.helperID != "" {
 			_ = adapter.Stop(
@@ -177,5 +179,5 @@ func (de *Executor) doAsyncExecute(
 	if err != nil {
 		return nil, err
 	}
-	return runner, runner.run(ctx)
+	return runner, runner.run(ctx, helper)
 }

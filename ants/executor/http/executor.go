@@ -41,7 +41,7 @@ func NewHTTPExecutor(
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(fmt.Sprintf(
 		"🔥 running with formicary %s on %s", cfg.ID, hostName))
-	_ = base.WriteTraceInfo(fmt.Sprintf("📶 preparing http executor"))
+	_ = base.WriteTraceInfo(fmt.Sprintf("🌅 preparing http executor"))
 
 	return &Executor{
 		BaseExecutor: base,
@@ -58,7 +58,7 @@ func (h *Executor) GetRuntimeInfo(
 	defer h.lock.RUnlock()
 	buf.WriteString(fmt.Sprintf("HTTP ID=%s Name=%s Runners=%d", h.ID, h.Name, len(h.runners)))
 	for _, r := range h.runners {
-		buf.WriteString(fmt.Sprintf("🔥 $ %s HTTPCode=%d\n", r.Command, r.httpStatusCode))
+		buf.WriteString(fmt.Sprintf("🔥 $ %s HTTPCode=%d\n", r.Command, r.ExitCode))
 	}
 	return buf.String()
 }

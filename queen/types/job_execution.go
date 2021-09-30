@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"plexobject.com/formicary/internal/math"
 	"strings"
 	"time"
 
@@ -47,10 +48,9 @@ type JobExecution struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	// CPUSecs execution time
 	CPUSecs int64 `json:"cpu_secs"`
-	// Active is used to soft delete job definition
+	// Active is used to softly delete job definition
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
-	lookupTasks    *utils.SafeMap
 	lookupContexts *utils.SafeMap
 }
 
@@ -71,15 +71,14 @@ func NewJobExecution(req IJobRequest) *JobExecution {
 	jobExec.Tasks = make([]*TaskExecution, 0)
 	jobExec.StartedAt = time.Now()
 	jobExec.UpdatedAt = time.Now()
-	jobExec.lookupTasks = utils.NewSafeMap()
 	jobExec.lookupContexts = utils.NewSafeMap()
 	return &jobExec
 }
 
 // String provides short summary of job
 func (je *JobExecution) String() string {
-	return fmt.Sprintf("JobType=%s JobState=%s Context=%s;",
-		je.JobType, je.JobState, je.ContextString())
+	return fmt.Sprintf("ID=%s JobType=%s JobState=%s Context=%s;",
+		je.ID, je.JobType, je.JobState, je.ContextString())
 }
 
 // JobTypeAndVersion with version
@@ -110,7 +109,7 @@ func (je *JobExecution) ElapsedMillis() int64 {
 func (je *JobExecution) CostFactor() float64 {
 	var total float64
 	for _, t := range je.Tasks {
-		total += t.AppliedCost
+		total += t.CostFactor
 	}
 	return total / float64(len(je.Tasks))
 }
@@ -122,11 +121,14 @@ func (je *JobExecution) ExecutionCostSecs() int64 {
 		now := time.Now()
 		ended = &now
 	}
+	if je.CPUSecs > 0 {
+		return math.Max64(int64(ended.Sub(je.StartedAt).Seconds()), je.CPUSecs)
+	}
 	var total int64
 	for _, t := range je.Tasks {
 		total += t.ExecutionCostSecs()
 	}
-	return total
+	return math.Max64(int64(ended.Sub(je.StartedAt).Seconds()), total)
 }
 
 // CanRestart checks if job can be restarted
@@ -145,13 +147,13 @@ func (je *JobExecution) Completed() bool {
 }
 
 // GetFailedTaskError returns error for any non-optional task failed
-func (je *JobExecution) GetFailedTaskError() (string, error) {
+func (je *JobExecution) GetFailedTaskError() (*TaskExecution, string, error) {
 	for _, t := range je.Tasks {
 		if !t.AllowFailure && t.TaskState.Failed() {
-			return t.ErrorCode, fmt.Errorf(t.ErrorMessage)
+			return t, t.ErrorCode, fmt.Errorf(t.ErrorMessage)
 		}
 	}
-	return "", nil
+	return nil, "", nil
 }
 
 // Failed job
@@ -218,24 +220,43 @@ func (je *JobExecution) ContextMap() map[string]interface{} {
 // AddTask adds task
 func (je *JobExecution) AddTask(task *TaskDefinition) *TaskExecution {
 	taskExec := NewTaskExecution(task)
-	if old := je.GetTask(task.TaskType); old == nil {
+	if _, old := je.GetTask("", task.TaskType); old == nil {
 		je.Tasks = append(je.Tasks, taskExec)
 		taskExec.TaskOrder = len(je.Tasks)
 	} else {
 		taskExec.TaskOrder = old.TaskOrder
 	}
 	taskExec.JobExecutionID = je.ID
-	je.lookupTasks.SetObject(task.TaskType, taskExec)
 	return taskExec
 }
 
-// GetTask finds task
-func (je *JobExecution) GetTask(taskType string) *TaskExecution {
-	old := je.lookupTasks.GetObject(taskType)
-	if old == nil {
-		return nil
+// DeleteTask deletes task
+func (je *JobExecution) DeleteTask(id string) bool {
+	matched, task := je.GetTask(id, "")
+	if matched == -1 || task == nil {
+		return false
 	}
-	return old.(*TaskExecution)
+	je.Tasks = append(je.Tasks[:matched], je.Tasks[matched+1:]...)
+	return true
+}
+
+// GetTask finds task
+func (je *JobExecution) GetTask(id string, taskType string) (int, *TaskExecution) {
+	if id != "" {
+		for i, next := range je.Tasks {
+			if next.ID == id {
+				return i, next
+			}
+		}
+	}
+	if taskType != "" {
+		for i, next := range je.Tasks {
+			if next.TaskType == taskType {
+				return i, next
+			}
+		}
+	}
+	return -1, nil
 }
 
 // GetLastTask finds last task that ran
@@ -247,7 +268,7 @@ func (je *JobExecution) GetLastTask() *TaskExecution {
 }
 
 // GetLastExecutedTask finds last task executed that ran
-func (je *JobExecution) GetLastExecutedTask () (last *TaskExecution) {
+func (je *JobExecution) GetLastExecutedTask() (last *TaskExecution) {
 	for _, t := range je.Tasks {
 		if !t.TaskState.Processing() && (last == nil || last.TaskOrder < t.TaskOrder) {
 			last = t
@@ -340,11 +361,11 @@ func (je *JobExecution) Equals(other *JobExecution) error {
 		return fmt.Errorf("expected number of tasks %v but was %v", len(je.Tasks), len(other.Tasks))
 	}
 	for _, t := range other.Tasks {
-		otherT := je.lookupTasks.GetObject(t.TaskType)
+		_, otherT := je.GetTask(t.ID, t.TaskType)
 		if otherT == nil {
 			return fmt.Errorf("could not find task of type %s", t.TaskType)
 		}
-		if err := t.Equals(otherT.(*TaskExecution)); err != nil {
+		if err := t.Equals(otherT); err != nil {
 			return err
 		}
 	}
@@ -354,7 +375,6 @@ func (je *JobExecution) Equals(other *JobExecution) error {
 // AfterLoad initializes context properties
 func (je *JobExecution) AfterLoad() error {
 	je.lookupContexts = utils.NewSafeMap()
-	je.lookupTasks = utils.NewSafeMap()
 	for _, c := range je.Contexts {
 		_, err := c.GetParsedValue()
 		if err != nil {
@@ -366,10 +386,6 @@ func (je *JobExecution) AfterLoad() error {
 		if err := t.AfterLoad(); err != nil {
 			return err
 		}
-		je.lookupTasks.SetObject(t.TaskType, t)
-	}
-	if !je.StartedAt.IsZero() && je.EndedAt != nil {
-		je.CPUSecs = je.ExecutionCostSecs()
 	}
 	return nil
 }
@@ -395,10 +411,6 @@ func (je *JobExecution) ValidateBeforeSave() error {
 		if err := t.ValidateBeforeSave(); err != nil {
 			return err
 		}
-		je.lookupTasks.SetObject(t.TaskType, t)
-	}
-	if !je.StartedAt.IsZero() && je.EndedAt != nil {
-		je.CPUSecs = je.ExecutionCostSecs()
 	}
 
 	return nil

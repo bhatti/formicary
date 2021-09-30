@@ -25,7 +25,7 @@
            aria-selected="false">Notification</a>
     </li>
     {{end}}
-    {{if $.Admin}}
+    {{if $.ReadAdmin}}
     <li class="nav-item">
         <a class="nav-link" id="permission-tab" data-toggle="tab" href="#permission" role="tab"
            aria-controls="permission" aria-selected="false">Roles & Permissions</a>
@@ -365,7 +365,7 @@
     </div>
     <div class="tab-pane fade" id="permission" role="tabpanel" aria-labelledby="permission-tab">
         <section class="group">
-            {{if $.Admin}}
+            {{if $.ReadAdmin}}
             <header class="group-header">
                 <h4 class="group-title">Roles</h4>
             </header>

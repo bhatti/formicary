@@ -45,14 +45,16 @@ type Adapter interface {
 		opts *domain.ExecutorOptions,
 		name string,
 		image string,
-		entrypoint []string) (string, error)
+		entrypoint []string,
+		helper bool) (string, error)
 	List(ctx context.Context) ([]executor.Info, error)
 	Execute(
 		ctx context.Context,
 		opts *domain.ExecutorOptions,
 		containerID string,
 		cmd string,
-		executeCommandWithoutShell bool) (ExecuteInfo, error)
+		executeCommandWithoutShell bool,
+		helper bool) (ExecuteInfo, error)
 	GetLogs(ctx context.Context, name string, waitForNotRunning bool) (io.ReadCloser, error)
 	GetRuntimeInfo(ctx context.Context, container string) string
 }
@@ -74,7 +76,8 @@ func (u *Utils) Execute(
 	opts *domain.ExecutorOptions,
 	containerID string,
 	cmd string,
-	executeCommandWithoutShell bool) (info ExecuteInfo, err error) {
+	executeCommandWithoutShell bool,
+	helper bool) (info ExecuteInfo, err error) {
 	var cmds []string
 	if executeCommandWithoutShell {
 		cmds = strings.Split(cmd, " ")
@@ -86,19 +89,24 @@ func (u *Utils) Execute(
 		AttachStderr: true,
 		AttachStdout: true,
 		Tty:          false,
-		Env:          opts.Environment.AsArray(),
 		Cmd:          cmds,
+	}
+	if helper {
+		execConfig.Env = opts.HelperEnvironment.AsArray()
+	} else {
+		execConfig.Env = opts.Environment.AsArray()
 	}
 	if opts.WorkingDirectory != "" {
 		execConfig.WorkingDir = opts.WorkingDirectory
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component": "DockerAdapter",
-			"Container": containerID,
-			"Command":   cmds,
-			"Options":   opts,
-			"CWD":       execConfig.WorkingDir,
+			"Component":                  "DockerAdapter",
+			"Container":                  containerID,
+			"Command":                    cmds,
+			"Options":                    opts,
+			"CWD":                        execConfig.WorkingDir,
+			"ExecuteCommandWithoutShell": executeCommandWithoutShell,
 		}).Debug("executing...")
 	}
 	containerInfo, err := u.cli.ContainerInspect(ctx, containerID)
@@ -145,7 +153,8 @@ func (u *Utils) Build(
 	opts *domain.ExecutorOptions,
 	name string,
 	image string,
-	entrypoint []string) (string, error) {
+	entrypoint []string,
+	helper bool) (string, error) {
 	started := time.Now()
 	// using fresh context so that it doesn't timeout
 	ctx = context.Background()
@@ -165,7 +174,11 @@ func (u *Utils) Build(
 		AttachStderr: true,
 		OpenStdin:    false,
 		StdinOnce:    false,
-		Env:          opts.Environment.AsArray(),
+	}
+	if helper {
+		containerConfig.Env = opts.HelperEnvironment.AsArray()
+	} else {
+		containerConfig.Env = opts.Environment.AsArray()
 	}
 
 	containerConfig.Entrypoint = entrypoint

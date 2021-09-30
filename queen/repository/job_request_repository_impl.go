@@ -52,7 +52,7 @@ func (jrr *JobRequestRepositoryImpl) Get(
 			fmt.Errorf("id is not specified for job-request"))
 	}
 	var req types.JobRequest
-	res := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Where("id = ?", id).First(&req)
+	res := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Params").Where("id = ?", id).First(&req)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -72,7 +72,7 @@ func (jrr *JobRequestRepositoryImpl) GetByUserKey(
 	qc *common.QueryContext,
 	userKey string) (*types.JobRequest, error) {
 	var req types.JobRequest
-	res := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Where("user_key = ?", userKey).First(&req)
+	res := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Params").Where("user_key = ?", userKey).First(&req)
 	if res.Error != nil {
 		return nil, common.NewNotFoundError(res.Error)
 	}
@@ -93,11 +93,14 @@ func (jrr *JobRequestRepositoryImpl) Clear() {
 }
 
 // UpdateJobState sets state of job-request
-func (jrr *JobRequestRepositoryImpl) UpdateJobState(id uint64,
+func (jrr *JobRequestRepositoryImpl) UpdateJobState(
+	id uint64,
 	oldState common.RequestState,
 	newState common.RequestState,
 	errorMessage string,
-	errorCode string) error {
+	errorCode string,
+	scheduleDelay time.Duration,
+	retried int) error {
 	var job types.JobRequest
 	tx := jrr.db.Model(&job).Where("id = ?", id)
 	if oldState != "" {
@@ -108,6 +111,29 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(id uint64,
 		updates["error_message"] = errorMessage
 		updates["error_code"] = errorCode
 	}
+	if newState == common.PENDING {
+		if scheduleDelay > 0 {
+			updates["scheduled_at"] = time.Now().Add(scheduleDelay)
+		}
+		if retried > 0 {
+			updates["retried"] = retried
+		}
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "JobRequestRepositoryImpl",
+			"Method":       "UpdateJobState",
+			"Updates":      updates,
+			"ID":           id,
+			"OldState":     oldState,
+			"NewState":     newState,
+			"ErrorMessage": errorMessage,
+			"ErrorCode":    errorCode,
+			"Delay":        scheduleDelay,
+			"Retried":      retried,
+		}).Debugf("updating job state")
+	}
+
 	res := tx.Updates(updates)
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
@@ -235,7 +261,7 @@ func (jrr *JobRequestRepositoryImpl) UpdatePriority(
 	id uint64,
 	priority int32) error {
 	var job types.JobRequest
-	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&job)).Where("id = ?", id)
+	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&job), false).Where("id = ?", id)
 	res := tx.Updates(map[string]interface{}{"job_priority": priority, "updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
@@ -260,7 +286,7 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 			req.ID, req.JobState))
 	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
-		tx := qc.AddOrgElseUserWhere(db).Model(&types.JobRequest{}).Where("id = ?", id)
+		tx := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).Where("id = ?", id)
 		res := tx.Updates(map[string]interface{}{
 			"job_state":     common.CANCELLED,
 			"error_code":    common.ErrorJobCancelled,
@@ -274,7 +300,7 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 				fmt.Errorf("failed to mark job-request as cancel with id %v", id))
 		}
 		if req.JobExecutionID != "" {
-			tx := qc.AddOrgElseUserWhere(db).Model(&types.JobExecution{}).Where("id = ?", req.JobExecutionID)
+			tx := qc.AddOrgElseUserWhere(db, false).Model(&types.JobExecution{}).Where("id = ?", req.JobExecutionID)
 			res := tx.Updates(map[string]interface{}{
 				"job_state":     common.CANCELLED,
 				"error_message": "job request cancelled",
@@ -415,7 +441,7 @@ func (jrr *JobRequestRepositoryImpl) IncrementScheduleAttempts(
 	res := jrr.db.Exec(
 		"UPDATE formicary_job_requests SET schedule_attempts = schedule_attempts + 1, "+
 			"scheduled_at = ?, job_priority = job_priority - ?, error_message = ?, updated_at = ? WHERE id = ?",
-		time.Now().Add(scheduleSecs*time.Second), decrPriority, errorMessage, time.Now(), id)
+		time.Now().Add(scheduleSecs), decrPriority, errorMessage, time.Now(), id)
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
@@ -509,13 +535,16 @@ func (jrr *JobRequestRepositoryImpl) JobCountsByDays(
 		}
 		stats = append(stats, &stat)
 	}
-	logrus.WithFields(logrus.Fields{
-		"Component": "JobRequestRepositoryImpl",
-		"Method":    "JobCountsByDays",
-		"SQL":       sql,
-		"Args":      args,
-		"Stats":     len(stats),
-	}).Infof("job counts by days")
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobRequestRepositoryImpl",
+			"Method":    "JobCountsByDays",
+			"SQL":       sql,
+			"Args":      args,
+			"Stats":     len(stats),
+		}).Debugf("job counts by days")
+	}
+
 	return stats, nil
 }
 
@@ -613,7 +642,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 	args := []interface{}{true, jobTypes, jobStates}
 
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE " +
+		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE " +
 		" cron_triggered = ? AND ((job_type IN (?) AND job_state IN (?)"
 	if len(userIDs) > 0 {
 		sql += " AND user_id IN (?)"
@@ -677,7 +706,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	state common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered FROM formicary_job_requests WHERE job_type in " +
+		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions where paused is false and active is true)" +
 		" AND job_state = ? AND scheduled_at <= ? ORDER BY job_priority DESC, created_at LIMIT ?"
 
@@ -776,7 +805,7 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	order []string) (jobRequests []*types.JobRequest, totalRecords int64, err error) {
 	jobState := params["job_state"]
 	jobRequests = make([]*types.JobRequest, 0)
-	tx := qc.AddOrgElseUserWhere(jrr.db).Preload("Params").Limit(pageSize).Offset(page * pageSize)
+	tx := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Params").Limit(pageSize).Offset(page * pageSize)
 	tx = jrr.addQuery(params, tx)
 	if len(order) == 0 {
 		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING {
@@ -815,7 +844,7 @@ func (jrr *JobRequestRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
 	tx := jrr.db.Model(&types.JobRequest{})
-	tx = qc.AddOrgElseUserWhere(tx)
+	tx = qc.AddOrgElseUserWhere(tx, true)
 	tx = jrr.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {

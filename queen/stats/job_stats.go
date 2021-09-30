@@ -99,6 +99,11 @@ func (j *JobStats) Failed(latency int64) {
 	j.failedJobsMinMax.Add(latency)
 }
 
+// RevertedPending when job is reverted back to pending
+func (j *JobStats) RevertedPending() {
+	atomic.AddInt32(&j.ExecutingJobs, -1)
+}
+
 // Calculate average/min/max
 func (j *JobStats) Calculate() {
 	j.SucceededJobsAverage = j.succeededJobsMinMax.Average()

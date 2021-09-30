@@ -43,15 +43,15 @@ func (ts *TaskSupervisor) Execute(
 func (ts *TaskSupervisor) execute(
 	ctx context.Context) (err error) {
 	started := time.Now()
-	if ts.taskStateMachine.TaskDefinition.Timeout > 0 {
+
+	timeout := ts.taskStateMachine.TaskDefinition.Timeout
+	if timeout == 0 && ts.serverCfg.MaxTaskTimeout > 0 {
+		timeout = ts.serverCfg.MaxTaskTimeout
+	}
+
+	if timeout > 0 {
 		// timeout will be handled by ant but here we are adding additional check with additional time
-		ctx, ts.cancel = context.WithTimeout(
-			ctx,
-			ts.taskStateMachine.TaskDefinition.Timeout+1*time.Minute)
-	} else if ts.serverCfg.MaxTaskTimeout > 0 {
-		ctx, ts.cancel = context.WithTimeout(
-			ctx,
-			ts.serverCfg.MaxTaskTimeout)
+		ctx, ts.cancel = context.WithTimeout(ctx, timeout+time.Second*2)
 	} else {
 		ctx, ts.cancel = context.WithCancel(ctx)
 	}
@@ -81,10 +81,12 @@ func (ts *TaskSupervisor) execute(
 		saveErr := ts.taskStateMachine.FinalizeTaskState(ctx)
 		if ts.taskStateMachine.TaskExecution.Failed() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("failed to run task '%s'!", ts.taskStateMachine.TaskDefinition.TaskType)
+				Warnf("failed to run task '%s', exit=%s!",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
 		} else {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Infof("completed task successfully '%s'!", ts.taskStateMachine.TaskDefinition.TaskType)
+				Infof("completed task successfully '%s', exit=%s!",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
 		}
 	}()
 
@@ -137,19 +139,23 @@ func (ts *TaskSupervisor) tryExecuteTask(
 		}
 	}
 
-	executing := false
-
 	// Try running the task with retry loop - by default it will run once if no retry is set
-	for ; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
+	for executing := true; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
 		taskReq.TaskRetry = ts.taskStateMachine.TaskExecution.Retried
 		// send request and wait synchronously for response
 		taskResp, err := ts.invoke(ctx, taskReq)
 		if err == nil {
+			err = ctx.Err()
+		}
+
+		if err == nil {
 			err = ts.taskStateMachine.UpdateTaskFromResponse(taskReq, taskResp)
 			executing = taskResp.Status == common.EXECUTING
 			// error will be nil if status is COMPLETED
-			if (err == nil && !executing) ||
-				ts.taskStateMachine.TaskExecution.Retried == ts.taskStateMachine.TaskDefinition.Retry ||
+			if executing {
+				// will keep calling task
+			} else if err == nil ||
+				ts.taskStateMachine.TaskExecution.Retried >= ts.taskStateMachine.TaskDefinition.Retry ||
 				taskResp.Status == common.FATAL {
 				break
 			}
@@ -157,11 +163,13 @@ func (ts *TaskSupervisor) tryExecuteTask(
 			logrus.WithFields(
 				ts.taskStateMachine.LogFields(
 					"TaskSupervisor",
-				)).Warnf("retrying task=%s status=%s retried=%d wait=%s ...",
+				)).Warnf("retrying task=%s status=%s exit=%s retried=%d delay=%s executing=%v",
 				ts.taskStateMachine.TaskDefinition.TaskType,
 				taskResp.Status,
+				taskResp.ExitCode,
 				ts.taskStateMachine.TaskExecution.Retried,
-				sleepDuration)
+				sleepDuration,
+				executing)
 			time.Sleep(sleepDuration)
 		} else {
 			break
@@ -184,23 +192,37 @@ func (ts *TaskSupervisor) invoke(
 		ts.taskStateMachine.Reservation.AntTopic,
 		make(map[string]string),
 		b,
-		taskReq.ResponseTopic); err != nil {
+		ts.serverCfg.GetResponseTopicTaskReply()); err != nil {
 		return nil, err
 	}
+	if event == nil {
+		return nil, fmt.Errorf("received nil response from request %v", taskReq)
+	}
 	taskResp = common.NewTaskResponse(taskReq)
-	err = json.Unmarshal(event.Payload, taskResp)
-
-	if ts.taskStateMachine.TaskDefinition.IsFatalError(taskResp.ExitCode) {
-		if taskResp.ErrorCode != "" {
-			taskResp.AddContext("ErrorCode", taskResp.ErrorCode)
-		}
-		taskResp.ErrorCode = common.ErrorFatal
-		taskResp.Status = common.FATAL
+	if err = json.Unmarshal(event.Payload, taskResp); err != nil {
+		return nil, err
+	}
+	newState, newErrorCode := ts.taskStateMachine.TaskDefinition.OverrideStatusAndErrorCode(taskResp.ExitCode)
+	if newState != "" {
 		logrus.WithFields(logrus.Fields{
-			"Component": "TaskSupervisor",
-			"Task":      ts.taskStateMachine.TaskDefinition,
-			"TaskResp":  taskResp,
-		}).Warnf("marking response with fatal error")
+			"Component":         "TaskSupervisor",
+			"Task":              ts.taskStateMachine.TaskDefinition,
+			"OriginalState":     taskResp.Status,
+			"OriginalErrorCode": taskResp.ErrorCode,
+			"ExitCode":          taskResp.ExitCode,
+			"NewState":          newState,
+			"NewErrorCode":      newErrorCode,
+			"TaskResp":          taskResp,
+			"RequestID":         ts.taskStateMachine.Request.GetID(),
+			"Retried":           ts.taskStateMachine.Request.GetRetried(),
+		}).Warnf("overriding state and error code")
+		taskResp.Status = newState
+		if taskResp.ErrorCode != "" {
+			taskResp.AddContext("OriginalErrorCode", taskResp.ErrorCode)
+		}
+		if newErrorCode != "" {
+			taskResp.ErrorCode = newErrorCode
+		}
 	}
 	event.Ack() // auto-ack
 	return

@@ -387,7 +387,6 @@ func (u *Utils) BuildPod(
 		aliasNames[i] = fmt.Sprintf("h:%v, ip=%s;", a.Hostnames, a.IP)
 	}
 
-	env := buildVariables(&u.config.Kubernetes, opts)
 	privileged := opts.Privileged
 	var totalCost float64
 	for i, service := range opts.Services {
@@ -423,7 +422,7 @@ func (u *Utils) BuildPod(
 			serviceRequests,
 			serviceLimits,
 			volumeMounts,
-			env,
+			buildVariables(&u.config.Kubernetes, opts, false),
 			privileged)
 		serviceNames = append(serviceNames, podServices[i].Name)
 	}
@@ -459,7 +458,7 @@ func (u *Utils) BuildPod(
 			requests,
 			limits,
 			volumeMounts,
-			env,
+			buildVariables(&u.config.Kubernetes, opts, false),
 			privileged))
 		//serviceNames = append(serviceNames, opts.Name)
 	}
@@ -501,7 +500,7 @@ func (u *Utils) BuildPod(
 			helperRequests,
 			helperLimits,
 			volumeMounts,
-			env,
+			buildVariables(&u.config.Kubernetes, opts, true),
 			privileged))
 		//serviceNames = append(serviceNames, helperName)
 	}
@@ -638,13 +637,14 @@ func (u *Utils) Execute(
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component": "KubernetesAdapter",
-			"POD":       pod.Name,
-			"Namespace": pod.Namespace,
-			"ID":        pod.UID,
-			"Command":   cmd,
-			"Container": containerName,
-			"Status":    pod.Status.Phase,
+			"Component":                  "KubernetesAdapter",
+			"POD":                        pod.Name,
+			"Namespace":                  pod.Namespace,
+			"ID":                         pod.UID,
+			"Command":                    cmd,
+			"Container":                  containerName,
+			"Status":                     pod.Status.Phase,
+			"ExecuteCommandWithoutShell": executeCommandWithoutShell,
 		}).Debug("executing...")
 	}
 

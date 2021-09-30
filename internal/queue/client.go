@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// CorrelationIDKey constant
+const CorrelationIDKey = "CorrelationID"
+
 // Callback - callback method for consumer
 type Callback func(ctx context.Context, event *MessageEvent) error
 
@@ -24,20 +27,36 @@ type MessageEvent struct {
 	// Properties Return the properties attached to the message.
 	Properties map[string]string
 
-	// Payload get the payload of the message
+	// Payload get the Payload of the message
 	Payload []byte
 
 	// ID get the unique message ID associated with this message.
 	ID []byte
 
-	// PublishTime get the publish time of this message.
+	// PublishTime get the publishing time of this message.
 	PublishTime time.Time
+
+	// Partition if available
+	Partition int
+
+	// Offset if available
+	Offset int64
 
 	// Ack call handles ack
 	Ack AckHandler
 
 	// Nack call handles nack
 	Nack AckHandler
+}
+
+// CoRelationID returns correlation-id
+func (e *MessageEvent) CoRelationID() string {
+	return e.Properties[CorrelationIDKey]
+}
+
+// ReplyTopic returns reply-topic
+func (e *MessageEvent) ReplyTopic() string {
+	return e.Properties[ReplyTopicKey]
 }
 
 // Client interface for queuing messages
@@ -67,7 +86,7 @@ type Client interface {
 		payload []byte,
 		inTopic string,
 	) (event *MessageEvent, err error)
-	// Publish - caches producer if doesn't exist and sends a message
+	// Publish - caches producer if it doesn't exist and sends a message
 	Publish(
 		ctx context.Context,
 		topic string,
@@ -84,6 +103,8 @@ func NewMessagingClient(config *types.CommonConfig) (Client, error) {
 		return newClientRedis(&config.Redis)
 	} else if config.MessagingProvider == types.PulsarMessagingProvider {
 		return newPulsarClient(&config.Pulsar)
+	} else if config.MessagingProvider == types.KafkaMessagingProvider {
+		return newKafkaClient(config)
 	} else {
 		return nil, fmt.Errorf("unsupported messaging provider %s", config.MessagingProvider)
 	}

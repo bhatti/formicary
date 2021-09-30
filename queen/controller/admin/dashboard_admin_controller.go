@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"plexobject.com/formicary/internal/utils"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -37,14 +38,9 @@ func NewDashboardAdminController(
 // dashboard -
 func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
 	qc := web.BuildQueryContext(c)
-	start := time.Unix(0, 0)
-	end := time.Now()
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("start")); err == nil {
-		start = d
-	}
-	if d, err := time.Parse("2006-01-02T15:04:05-0700", c.QueryParam("end")); err == nil {
-		end = d
-	}
+	start := utils.ParseStartDateTime(c.QueryParam("start"))
+	end := utils.ParseEndDateTime(c.QueryParam("end"))
+
 	res := make(map[string]interface{})
 	jobStats := ctr.dashboardStats.GetJobStats(qc)
 	res["JobStats"] = jobStats

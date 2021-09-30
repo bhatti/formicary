@@ -249,8 +249,18 @@ func (c *ServerConfig) NewJobSchedulerLeaderEvent() events.JobSchedulerLeaderEve
 	}
 }
 
-// GetResponseTopic response topic
-func (c *ServerConfig) GetResponseTopic(suffix string) string {
+// GetResponseTopicAntRegistration response topic
+func (c *ServerConfig) GetResponseTopicAntRegistration() string {
+	return c.BuildResponseTopic("ant-registration")
+}
+
+// GetResponseTopicTaskReply response topic
+func (c *ServerConfig) GetResponseTopicTaskReply() string {
+	return c.BuildResponseTopic("task-reply")
+}
+
+// BuildResponseTopic response topic
+func (c *ServerConfig) BuildResponseTopic(suffix string) string {
 	return types.PersistentTopic(
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,

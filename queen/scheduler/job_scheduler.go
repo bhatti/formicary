@@ -270,7 +270,7 @@ func (js *JobScheduler) scheduleJob(
 		request.JobPriority = request.JobPriority - decrPriority
 		_ = js.jobManager.IncrementScheduleAttemptsForJobRequest(
 			request,
-			time.Duration(scheduleSecs),
+			time.Duration(scheduleSecs) * time.Second,
 			decrPriority,
 			err.Error())
 		// will try again

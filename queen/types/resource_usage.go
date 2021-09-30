@@ -15,14 +15,22 @@ const (
 	CPUResource ResourceUsageType = "CPU"
 )
 
+// CombinedResourceUsage defines use of a combined resource
+type CombinedResourceUsage struct {
+	OrganizationID string        `json:"organization_id"`
+	UserID         string        `json:"user_id"`
+	CPUResource    ResourceUsage `json:"cpu_resource"`
+	DiskResource   ResourceUsage `json:"disk_resource"`
+}
+
 // ResourceUsage defines use of a resource
 type ResourceUsage struct {
 	StartDate      time.Time         `json:"start_date"`
 	EndDate        time.Time         `json:"end_date"`
 	ResourceType   ResourceUsageType `json:"resource_type"`
 	OrganizationID string            `json:"organization_id"`
-	Count          int               `json:"count"`
 	UserID         string            `json:"user_id"`
+	Count          int               `json:"count"`
 	Value          int64             `json:"value"`
 	ValueUnit      string            `json:"value_unit"`
 	RemainingQuota int64             `json:"remaining_quota"`

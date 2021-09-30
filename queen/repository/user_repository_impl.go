@@ -31,8 +31,12 @@ func (ur *UserRepositoryImpl) Get(
 	id string) (*common.User, error) {
 	var user common.User
 	now := time.Now()
-	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("id = ?", id).
+	res := qc.WithUserIDColumn("id").
+		AddOrgElseUserWhere(ur.db, true).
+		Where("id = ?", id).
 		Preload("Organization").
+		Preload("Organization.Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
+		Preload("Organization.Configs").
 		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
@@ -51,8 +55,12 @@ func (ur *UserRepositoryImpl) GetByUsername(
 	username string) (*common.User, error) {
 	now := time.Now()
 	var user common.User
-	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Where("username = ?", username).
+	res := qc.WithUserIDColumn("id").
+		AddOrgElseUserWhere(ur.db, true).
+		Where("username = ?", username).
 		Preload("Organization").
+		Preload("Organization.Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
+		Preload("Organization.Configs").
 		Preload("Subscription", "active = ? AND started_at <= ? AND ended_at >= ?", true, now, now).
 		Where("active = ?", true).
 		First(&user)
@@ -89,7 +97,8 @@ func (ur *UserRepositoryImpl) Clear() {
 func (ur *UserRepositoryImpl) Delete(
 	qc *common.QueryContext,
 	id string) error {
-	res := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db.Model(&common.User{})).
+	res := qc.WithUserIDColumn("id").
+		AddOrgElseUserWhere(ur.db.Model(&common.User{}), false).
 		Where("id = ?", id).
 		Where("active = ?", true).
 		Updates(map[string]interface{}{"active": false, "organization_id": "", "updated_at": time.Now()})
@@ -143,7 +152,7 @@ func (ur *UserRepositoryImpl) Update(
 		return nil, common.NewNotFoundError(
 			fmt.Errorf("username %s does not exists", user.Username))
 	}
-	if !qc.IsAdmin() && !qc.Matches(old.ID, old.OrganizationID) {
+	if !qc.IsAdmin() && !qc.Matches(old.ID, old.OrganizationID, false) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "UserRepositoryImpl",
 			"OldUser":   old,
@@ -303,7 +312,8 @@ func (ur *UserRepositoryImpl) RevokeToken(
 	qc *common.QueryContext,
 	userID string,
 	id string) error {
-	res := qc.WithUserIDColumn("user_id").AddUserWhere(ur.db.Model(&types.UserToken{})).
+	res := qc.WithUserIDColumn("user_id").
+		AddUserWhere(ur.db.Model(&types.UserToken{}), false).
 		Where("user_id = ?", userID).
 		Where("id = ?", id).
 		Where("active = ?", true).
@@ -324,7 +334,8 @@ func (ur *UserRepositoryImpl) GetTokens(
 	qc *common.QueryContext,
 	userID string) ([]*types.UserToken, error) {
 	recs := make([]*types.UserToken, 0)
-	tx := qc.WithUserIDColumn("user_id").AddUserWhere(ur.db).
+	tx := qc.WithUserIDColumn("user_id").
+		AddUserWhere(ur.db, true).
 		Where("user_id = ?", userID).
 		Where("expires_at > ?", time.Now()).
 		Where("active = ?", true)
@@ -360,7 +371,9 @@ func (ur *UserRepositoryImpl) Query(
 	pageSize int,
 	order []string) (recs []*common.User, totalRecords int64, err error) {
 	recs = make([]*common.User, 0)
-	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db).Limit(pageSize).
+	tx := qc.WithUserIDColumn("id").
+		AddOrgElseUserWhere(ur.db, true).
+		Limit(pageSize).
 		Offset(page*pageSize).Where("active = ?", true)
 	tx = ur.addQuery(params, tx)
 	for _, ord := range order {
@@ -382,7 +395,9 @@ func (ur *UserRepositoryImpl) Query(
 func (ur *UserRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	tx := qc.WithUserIDColumn("id").AddOrgElseUserWhere(ur.db.Model(&common.User{})).Where("active = ?", true)
+	tx := qc.WithUserIDColumn("id").
+		AddOrgElseUserWhere(ur.db.Model(&common.User{}), true).
+		Where("active = ?", true)
 	tx = ur.addQuery(params, tx)
 	res := tx.Count(&totalRecords)
 	if res.Error != nil {

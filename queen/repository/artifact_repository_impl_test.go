@@ -116,6 +116,40 @@ func Test_ShouldArtifactAccounting(t *testing.T) {
 	require.Equal(t, int64(1000), usage[0].Value)
 }
 
+// Test GetResourceUsage usage by org/user
+func Test_ShouldArtifactAccountingByOrgUser(t *testing.T) {
+	// GIVEN repositories
+	repo, err := NewTestArtifactRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	// AND creating a set of artifacts
+	for i := 0; i < 10; i++ {
+		art := newTestArtifact(qc.User, time.Now())
+		art.ContentLength = 100
+		// AND Saving valid artifact
+		_, err = repo.Save(art)
+		require.NoError(t, err)
+	}
+	// WHEN querying getting usage with nil range
+	usage, err := repo.GetResourceUsageByOrgUser(nil, 10000)
+	// THEN no errors and zero result should return
+	require.NoError(t, err)
+	require.Equal(t, 0, len(usage))
+	// WHEN querying getting usage with full range
+	usage, err = repo.GetResourceUsageByOrgUser([]types.DateRange{{
+		StartDate: time.Now().Add(-1 * time.Minute),
+		EndDate:   time.Now().Add(1 * time.Minute),
+	}}, 10000)
+	// THEN no errors and zero result should return
+	require.NoError(t, err)
+	require.Equal(t, 1, len(usage))
+	require.Equal(t, 10, usage[0].Count)
+	require.Equal(t, int64(1000), usage[0].Value)
+}
+
 // Test SaveFile and query
 func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 	// GIVEN artifact repository

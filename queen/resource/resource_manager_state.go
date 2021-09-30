@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/queen/config"
@@ -103,7 +102,7 @@ func (s *State) reserve(
 		}
 	}
 
-	// Select ant with least workload
+	// Select ant with the least workload
 	reservations := make([]*common.AntReservation, 0)
 	for antID, count := range availableAnts {
 		if count != 2 { // 1 for method + 1 for tag
@@ -118,7 +117,7 @@ func (s *State) reserve(
 		}
 
 		// matching all tags for the ant
-		// Note: we wont' check capacity here as it's already checked in HasAntsForJobTags
+		// Note: we won't check capacity here as it's already checked in HasAntsForJobTags
 		if registration.Supports(method, tags) {
 			reservations = append(reservations,
 				common.NewAntReservation(
@@ -417,7 +416,6 @@ func (s *State) terminateContainer(
 		return fmt.Errorf("failed to find ant with id %s", antID)
 	}
 	taskReq := &common.TaskRequest{
-		ResponseTopic: s.serverCfg.GetResponseTopic(uuid.NewV4().String()),
 		Action:        common.TERMINATE,
 		ExecutorOpts:  common.NewExecutorOptions(id, method),
 		StartedAt:     time.Now(),
@@ -430,7 +428,7 @@ func (s *State) terminateContainer(
 			registration.AntTopic,
 			make(map[string]string),
 			b,
-			taskReq.ResponseTopic); err == nil {
+			s.serverCfg.GetResponseTopicAntRegistration()); err == nil {
 			defer event.Ack() // auto-ack
 			taskResp := common.NewTaskResponse(taskReq)
 			err = json.Unmarshal(event.Payload, taskResp)
@@ -447,7 +445,6 @@ func (s *State) addContainers(
 	ctx context.Context,
 	registration *common.AntRegistration) {
 	taskReq := &common.TaskRequest{
-		ResponseTopic: s.serverCfg.GetResponseTopic(uuid.NewV4().String()),
 		Action:        common.LIST,
 		ExecutorOpts:  common.NewExecutorOptions("", registration.Methods[0]),
 		StartedAt:     time.Now(),
@@ -458,7 +455,15 @@ func (s *State) addContainers(
 			registration.AntTopic,
 			make(map[string]string),
 			b,
-			taskReq.ResponseTopic); err == nil {
+			s.serverCfg.GetResponseTopicAntRegistration()); err == nil {
+			if event == nil {
+				logrus.WithFields(logrus.Fields{
+					"Component": "ResourceManager",
+					"AntID":     registration.AntID,
+					"Topic":     registration.AntTopic,
+				}).Errorf("received nil event")
+				return
+			}
 			defer event.Ack() // auto-ack
 			taskResp := common.NewTaskResponse(taskReq)
 			err = json.Unmarshal(event.Payload, taskResp)

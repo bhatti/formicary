@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"plexobject.com/formicary/internal/utils"
 	"time"
 
 	"plexobject.com/formicary/internal/acl"
@@ -33,6 +34,7 @@ func NewOrganizationController(
 	webserver.PUT("/api/orgs/:id", orgCtrl.putOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_org"
 	webserver.DELETE("/api/orgs/:id", orgCtrl.deleteOrganization, acl.NewPermission(acl.Organization, acl.Delete)).Name = "delete_org"
 	webserver.POST("/api/orgs/:id/invite", orgCtrl.inviteUser, acl.NewPermission(acl.UserInvitation, acl.Update)).Name = "accept_invitation"
+	webserver.GET("/api/orgs/usage_report", orgCtrl.usageReport, acl.NewPermission(acl.Report, acl.View)).Name = "admin_usage_report"
 	return orgCtrl
 }
 
@@ -145,6 +147,18 @@ func (oc *OrganizationController) inviteUser(c web.WebContext) (err error) {
 	return c.JSON(http.StatusOK, inv)
 }
 
+// swagger:route POST /api/orgs/usage_report organizations usageReport
+// `This requires admin access`
+// Shows usage report by organization and user
+// responses:
+//   200: usageReportResponse
+func (oc *OrganizationController) usageReport(c web.WebContext) error {
+	from := utils.ParseStartDateTime(c.QueryParam("from"))
+	to := utils.ParseEndDateTime(c.QueryParam("to"))
+	combinedUsage := oc.userManager.CombinedResourcesByOrgUser(from, to, 10000)
+	return c.JSON(http.StatusOK, combinedUsage)
+}
+
 // ********************************* Swagger types ***********************************
 
 // swagger:parameters queryOrgs
@@ -179,6 +193,16 @@ type orgIDParams struct {
 	ID string `json:"id"`
 }
 
+// swagger:parameters usageReport
+// The parameters for finding usage report
+type usageReport struct {
+	// in:query
+	// From ISO date
+	From string `json:"from"`
+	// TO ISO date
+	To string `json:"to"`
+}
+
 // swagger:parameters postOrganization
 // The request body includes organization for persistence.
 type orgCreateParams struct {
@@ -207,4 +231,11 @@ type orgResponseBody struct {
 type userInvitationResponseBody struct {
 	// in:body
 	Body types.UserInvitation
+}
+
+// Usage Report
+// swagger:response usageReportResponse
+type usageReportResponse struct {
+	// in:body
+	Body []types.CombinedResourceUsage
 }

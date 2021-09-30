@@ -140,10 +140,19 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 			Message: fmt.Sprintf("authentication required for accessing %s %s", c.Request().Method, c.Path()),
 		}
 	}
-	if !user.IsAdmin() && !user.HasPermission(perm.Resource, perm.Actions) {
-		return &echo.HTTPError{
-			Code:    http.StatusUnauthorized,
-			Message: fmt.Sprintf("permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
+	if perm.ReadOnly() {
+		if !user.IsReadAdmin() && !user.HasPermission(perm.Resource, perm.Actions) {
+			return &echo.HTTPError{
+				Code:    http.StatusUnauthorized,
+				Message: fmt.Sprintf("read-permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
+			}
+		}
+	} else {
+		if !user.IsAdmin() && !user.HasPermission(perm.Resource, perm.Actions) {
+			return &echo.HTTPError{
+				Code:    http.StatusUnauthorized,
+				Message: fmt.Sprintf("permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
+			}
 		}
 	}
 	return nil

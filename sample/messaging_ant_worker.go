@@ -22,6 +22,7 @@ import (
 type MessagingHandler struct {
 	id           string
 	requestTopic string
+	responseTopic string
 	queueClient  queue.Client
 }
 
@@ -29,11 +30,13 @@ type MessagingHandler struct {
 func NewMessagingHandler(
 	id string,
 	requestTopic string,
+	responseTopic string,
 	queueClient queue.Client,
 ) *MessagingHandler {
 	return &MessagingHandler{
 		id:           id,
 		requestTopic: requestTopic,
+		responseTopic: responseTopic,
 		queueClient:  queueClient,
 	}
 }
@@ -47,6 +50,9 @@ func (h *MessagingHandler) Start(
 	}
 	if h.requestTopic == "" {
 		return fmt.Errorf("requestTopic is not specified")
+	}
+	if h.responseTopic == "" {
+		return fmt.Errorf("responseTopic is not specified")
 	}
 	return h.queueClient.Subscribe(
 		ctx,
@@ -112,14 +118,14 @@ func (h *MessagingHandler) execute(
 	}
 	_, err = h.queueClient.Send(
 		ctx,
-		req.ResponseTopic,
+		responseTopic,
 		make(map[string]string),
 		resPayload,
 		false)
 	logrus.WithFields(logrus.Fields{
 		"ID":            id,
 		"RequestTopic":  requestTopic,
-		"ResponseTopic": req.ResponseTopic,
+		"ResponseTopic": responseTopic,
 		"Status":        resp.Status,
 	}).
 		Infof("sent reply")
@@ -128,6 +134,7 @@ func (h *MessagingHandler) execute(
 
 var cfgFile string
 var requestTopic string
+var responseTopic string
 var id string
 
 // rootCmd represents the base command when called without any subcommands
@@ -164,6 +171,7 @@ func startAntWorker(_ *cobra.Command, _ []string) error {
 	ant := NewMessagingHandler(
 		id,
 		requestTopic,
+		responseTopic,
 		queueClient)
 	return ant.Start(context.Background())
 }
@@ -182,6 +190,7 @@ func init() {
 		"config file (default is $HOME/.formicary.yaml)")
 
 	rootCmd.Flags().StringVar(&requestTopic, "requestTopic", "", "request topic")
+	rootCmd.Flags().StringVar(&responseTopic, "responseTopic", "", "response topic")
 	rootCmd.Flags().StringVar(&id, "id", "", "id of messaging ant-worker")
 
 	logrus.SetFormatter(&logrus.TextFormatter{

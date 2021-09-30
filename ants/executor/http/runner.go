@@ -25,7 +25,6 @@ type CommandRunner struct {
 	variables      map[string]types.VariableValue
 	cancel         context.CancelFunc
 	future         async.Awaiter
-	httpStatusCode int
 	running        bool
 }
 
@@ -66,7 +65,6 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 	stdout = res.([]byte)
 	stderr = make([]byte, 0)
 	scr.Err = err
-	scr.ExitCode = scr.httpStatusCode
 
 	if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
 		_, _ = scr.Trace.Write(stdout)
@@ -78,7 +76,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"ID":        scr.ID,
 			"Name":      scr.Name,
 			"Endpoint":  scr.Command,
-			"HTTPCode":  scr.httpStatusCode,
+			"HTTPCode":  scr.ExitCode,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing http request")
@@ -92,7 +90,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"ID":        scr.ID,
 			"Name":      scr.Name,
 			"Endpoint":  scr.Command,
-			"HTTPCode":  scr.httpStatusCode,
+			"HTTPCode":  scr.ExitCode,
 			"Error":     err,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
@@ -129,12 +127,12 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 	var j []byte
 	switch scr.Method {
 	case types.HTTPGet:
-		out, scr.httpStatusCode, err = scr.client.Get(
+		out, scr.ExitCode, err = scr.client.Get(
 			ctx,
 			scr.Command,
 			scr.Headers)
 	case types.HTTPPostForm:
-		out, scr.httpStatusCode, err = scr.client.PostForm(
+		out, scr.ExitCode, err = scr.client.PostForm(
 			ctx,
 			scr.Command,
 			scr.Headers,
@@ -147,7 +145,7 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 		if scr.Headers == nil || len(scr.Headers) == 0 {
 			scr.Headers = map[string]string{"Content-type": "application/json"}
 		}
-		out, scr.httpStatusCode, err = scr.client.PostJSON(
+		out, scr.ExitCode, err = scr.client.PostJSON(
 			ctx,
 			scr.Command,
 			scr.Headers,
@@ -160,7 +158,7 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 		if scr.Headers == nil || len(scr.Headers) == 0 {
 			scr.Headers = map[string]string{"Content-type": "application/json"}
 		}
-		out, scr.httpStatusCode, err = scr.client.PutJSON(
+		out, scr.ExitCode, err = scr.client.PutJSON(
 			ctx,
 			scr.Command,
 			scr.Headers,
@@ -170,7 +168,7 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 		if err != nil {
 			return nil, err
 		}
-		out, scr.httpStatusCode, err = scr.client.Delete(
+		out, scr.ExitCode, err = scr.client.Delete(
 			ctx,
 			scr.Command,
 			scr.Headers,

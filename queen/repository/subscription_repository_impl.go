@@ -35,7 +35,7 @@ func (sr *SubscriptionRepositoryImpl) Query(
 	pageSize int,
 	order []string) (records []*common.Subscription, total int64, err error) {
 	records = make([]*common.Subscription, 0)
-	tx := qc.AddOrgElseUserWhere(sr.db.Model(&common.Subscription{})).
+	tx := qc.AddOrgElseUserWhere(sr.db.Model(&common.Subscription{}), true).
 		Limit(pageSize).
 		Offset(page*pageSize).
 		Where("active = ?", true)
@@ -64,7 +64,7 @@ func (sr *SubscriptionRepositoryImpl) Query(
 func (sr *SubscriptionRepositoryImpl) Count(
 	qc *common.QueryContext,
 	params map[string]interface{}) (total int64, err error) {
-	tx := qc.AddOrgElseUserWhere(sr.db).Where("active = ?", true)
+	tx := qc.AddOrgElseUserWhere(sr.db, true).Where("active = ?", true)
 	tx = addQueryParamsWhere(params, tx)
 	res := tx.Model(&common.Subscription{}).Count(&total)
 	if res.Error != nil {
@@ -84,7 +84,7 @@ func (sr *SubscriptionRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (*common.Subscription, error) {
 	var subscription common.Subscription
-	res := qc.AddOrgElseUserWhere(sr.db).
+	res := qc.AddOrgElseUserWhere(sr.db, true).
 		Where("id = ?", id).
 		Where("active = ?", true).
 		First(&subscription)
@@ -102,7 +102,7 @@ func (sr *SubscriptionRepositoryImpl) Delete(
 	tx := sr.db.Model(&common.Subscription{}).
 		Where("id = ?", id).
 		Where("active = ?", true)
-	tx = qc.AddOrgElseUserWhere(tx)
+	tx = qc.AddOrgElseUserWhere(tx, false)
 	res := tx.Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
 	if res.Error != nil {
 		return res.Error
@@ -160,7 +160,7 @@ func (sr *SubscriptionRepositoryImpl) Update(
 		return nil, common.NewValidationError(err)
 	}
 
-	if !qc.Matches(subscription.UserID, subscription.OrganizationID) {
+	if !qc.Matches(subscription.UserID, subscription.OrganizationID, false) {
 		logrus.WithFields(logrus.Fields{
 			"Component":    "SubscriptionRepositoryImpl",
 			"Subscription": subscription,

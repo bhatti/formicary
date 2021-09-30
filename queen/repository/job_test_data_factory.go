@@ -172,13 +172,16 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobExecut
 	if err != nil {
 		return nil, err
 	}
-
+	now := time.Now()
 	jobExec := types.NewJobExecution(req.ToInfo())
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
 	_, _ = jobExec.AddContext("jk3", "jv3")
-	for _, t := range job.Tasks {
+	for i, t := range job.Tasks {
 		task := jobExec.AddTask(t)
+		task.StartedAt = now.Add(time.Duration(i) * time.Second)
+		endedAt := now.Add(time.Duration(i+100) * time.Second)
+		task.EndedAt = &endedAt
 		_, _ = task.AddContext("tk1", "v1")
 		_, _ = task.AddContext("tk2", []string{"i", "j", "k"})
 	}

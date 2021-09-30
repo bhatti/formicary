@@ -69,14 +69,14 @@ func (js *JobSupervisor) tryExecuteJob(
 			fmt.Errorf("failed to set job-execution state to EXECUTING due to %s", err.Error()))
 	}
 
-	if js.jobStateMachine.JobDefinition.Timeout > 0 {
+	timeout := js.jobStateMachine.JobDefinition.Timeout
+	if js.jobStateMachine.JobDefinition.Timeout == 0 && js.serverCfg.MaxJobTimeout > 0 {
+		timeout = js.serverCfg.MaxJobTimeout
+	}
+	if timeout > 0 {
 		ctx, js.cancel = context.WithTimeout(
 			ctx,
-			js.jobStateMachine.JobDefinition.Timeout)
-	} else if js.serverCfg.MaxJobTimeout > 0 {
-		ctx, js.cancel = context.WithTimeout(
-			ctx,
-			js.serverCfg.MaxJobTimeout)
+			timeout+time.Second*2)
 	} else {
 		ctx, js.cancel = context.WithCancel(ctx)
 	}
@@ -112,14 +112,27 @@ func (js *JobSupervisor) tryExecuteJob(
 		errorCode, err = js.executeNextTask(ctx, task.TaskType)
 		if err == nil {
 			// if task had on-failed to next task, we will try to find failed status of that task
-			errorCode, err = js.jobStateMachine.JobExecution.GetFailedTaskError()
+			var failedTask *types.TaskExecution
+			failedTask, errorCode, err = js.jobStateMachine.JobExecution.GetFailedTaskError()
+			if failedTask != nil {
+				logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+					Infof("overriding error-code and error from task-execution job='%s' retried=%d error-code=%s error=%s failed-task=%s, active=%v",
+						js.jobStateMachine.JobDefinition.JobType,
+						js.jobStateMachine.Request.GetRetried(),
+						errorCode,
+						err,
+						failedTask,
+						failedTask.Active)
+			}
 		}
 
-		if err == nil || errorCode == common.ErrorFatal ||
+		// quit retrying upon success, fatal error or if job needs to be restarted and rescheduled later
+		if err == nil || errorCode == common.ErrorFatal || errorCode == common.ErrorRestartJob ||
 			js.jobStateMachine.Request.GetRetried() == js.jobStateMachine.JobDefinition.Retry {
 			break
 		}
 
+		// retry after a short delay
 		sleepDuration := js.jobStateMachine.JobDefinition.GetDelayBetweenRetries()
 
 		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
@@ -132,6 +145,7 @@ func (js *JobSupervisor) tryExecuteJob(
 		time.Sleep(sleepDuration)
 	}
 
+	// check if job ran successfully
 	if err == nil {
 		logrus.WithFields(js.jobStateMachine.LogFields(
 			"JobSupervisor",
@@ -139,10 +153,13 @@ func (js *JobSupervisor) tryExecuteJob(
 		return js.jobStateMachine.ExecutionCompleted(ctx)
 	}
 
-	// Check finalized task if job failed
+	// check finalized task if job failed
 	for _, lastTask := range js.jobStateMachine.JobDefinition.GetLastAlwaysRunTasks() {
-		if lastTask != nil && js.jobStateMachine.JobExecution.GetTask(lastTask.TaskType) == nil {
-			_, _ = js.submitTask(ctx, lastTask.TaskType)
+		if lastTask != nil {
+			_, lastTaskExists := js.jobStateMachine.JobExecution.GetTask("", lastTask.TaskType)
+			if lastTaskExists == nil {
+				_, _ = js.submitTask(ctx, lastTask.TaskType)
+			}
 		}
 	}
 
@@ -151,6 +168,14 @@ func (js *JobSupervisor) tryExecuteJob(
 			"JobSupervisor",
 		)).Debugf("job '%s' failed with error-code '%s' and error '%s'",
 			js.jobStateMachine.JobDefinition.JobType, errorCode, err)
+	}
+
+	// check if job was restarted to put back in the queue
+	if errorCode == common.ErrorRestartJob {
+		if err == nil {
+			err = fmt.Errorf("forcing job to restarted state")
+		}
+		return js.jobStateMachine.RestartJobBackToPending(err)
 	}
 
 	// job failed

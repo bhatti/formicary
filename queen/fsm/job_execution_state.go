@@ -3,6 +3,7 @@ package fsm
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -54,6 +55,7 @@ type JobExecutionStateMachine struct {
 	LastJobExecution    *types.JobExecution
 	User                *common.User
 	Reservations        map[string]*common.AntReservation
+	StartedAt           time.Time
 	id                  string
 	serverCfg           *config.ServerConfig
 	errorCode           *common.ErrorCode
@@ -85,6 +87,7 @@ func NewJobExecutionStateMachine(
 		MetricsRegistry:     metricsRegistry,
 		Request:             request,
 		Reservations:        reservations,
+		StartedAt:           time.Now(),
 	}
 }
 
@@ -524,7 +527,7 @@ func (jsm *JobExecutionStateMachine) CheckSubscriptionQuota() (err error) {
 	jsm.cpuUsage, jsm.diskUsage, err = jsm.JobManager.CheckSubscriptionQuota(
 		jsm.QueryContext(),
 		jsm.User,
-		)
+	)
 	return err
 }
 
@@ -536,12 +539,48 @@ func (jsm *JobExecutionStateMachine) ReserveJobResources() (err error) {
 	return
 }
 
+// RestartJobBackToPending puts back the job in PENDING state from executing
+func (jsm *JobExecutionStateMachine) RestartJobBackToPending(err error) (saveError error) {
+	// release ant resources for the job
+	jsm.forceReleaseJobResources()
+	fields := jsm.LogFields("JobExecutionStateMachine",
+		fmt.Errorf("setting job back to PENDING due to %s after %s secs - %s",
+			err,
+			jsm.JobDefinition.GetDelayBetweenRetries().String(),
+			reflect.TypeOf(jsm.Request)))
+
+	jsm.MetricsRegistry.Incr(
+		"job_restart_to_pending_total",
+		map[string]string{
+			"Org": jsm.Request.GetOrganizationID(),
+			"Job": jsm.Request.GetJobType()})
+
+	// setting job request back to PENDING
+	if saveRequestErr := jsm.JobManager.UpdateJobRequestState(
+		jsm.QueryContext(),
+		jsm.Request,
+		common.EXECUTING,
+		common.PENDING,
+		err.Error(),
+		"",
+		jsm.JobDefinition.GetDelayBetweenRetries(),
+		jsm.Request.IncrRetried(),
+		true); saveRequestErr != nil {
+		saveError = saveRequestErr
+		fields["saveRequestErr"] = saveRequestErr
+	}
+
+	jsm.Request.SetJobState(common.PENDING)
+	logrus.WithFields(fields).Warn(err)
+	return
+}
+
 // RevertRequestToPending puts back the job in PENDING state
 func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveError error) {
 	// release ant resources for the job
 	jsm.forceReleaseJobResources()
 	now := time.Now()
-	fields := jsm.LogFields("JobScheduler", err)
+	fields := jsm.LogFields("JobExecutionStateMachine", err)
 
 	jsm.MetricsRegistry.Incr(
 		"job_reverted_to_pending_total",
@@ -556,7 +595,10 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveErro
 		common.READY,
 		common.PENDING,
 		err.Error(),
-		""); saveRequestErr != nil {
+		"",
+		jsm.JobDefinition.GetDelayBetweenRetries(),
+		0,
+		false); saveRequestErr != nil {
 		saveError = saveRequestErr
 		fields["saveRequestErr"] = saveRequestErr
 	}
@@ -680,7 +722,10 @@ func (jsm *JobExecutionStateMachine) failed(
 			types.JobRequestFailed,
 			jsm.QueryContext()))
 	}
-
+	delayBetweenRetries := time.Second
+	if jsm.JobDefinition != nil {
+		delayBetweenRetries = jsm.JobDefinition.GetDelayBetweenRetries()
+	}
 	// if failed to save job execution or don't have job-execution then just update job request
 	if jsm.JobExecution == nil || saveExecErr != nil {
 		jsm.Request.SetJobState(newState)
@@ -697,7 +742,10 @@ func (jsm *JobExecutionStateMachine) failed(
 			oldState,
 			newState,
 			err.Error(),
-			errorCode)
+			errorCode,
+			delayBetweenRetries,
+			0,
+			false)
 	}
 
 	fields := jsm.LogFields("JobExecutionStateMachine", err)
@@ -755,6 +803,7 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 	res["JobID"] = common.NewVariableValue(jsm.Request.GetID(), false)
 	res["JobType"] = common.NewVariableValue(jsm.JobDefinition.JobType, false)
 	res["JobRetry"] = common.NewVariableValue(jsm.Request.GetRetried(), false)
+	res["JobElapsedSecs"] = common.NewVariableValue(uint64(time.Since(jsm.StartedAt).Seconds()), false)
 	for _, next := range jsm.JobDefinition.Variables {
 		if vv, err := next.GetVariableValue(); err == nil {
 			res[next.Name] = vv

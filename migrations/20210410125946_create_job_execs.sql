@@ -13,10 +13,10 @@
       exit_message TEXT,
       error_code TEXT,
       error_message TEXT,
-      started_at TIMESTAMP DEFAULT NOW(),
-      ended_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      created_at TIMESTAMP DEFAULT NOW(),
+      started_at TIMESTAMP,
+      ended_at TIMESTAMP,
+      updated_at TIMESTAMP,
+      created_at TIMESTAMP,
       CONSTRAINT formicary_job_executions_request_fk FOREIGN KEY (job_request_id) REFERENCES formicary_job_requests(id)
     );
 

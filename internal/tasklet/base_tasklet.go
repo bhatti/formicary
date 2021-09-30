@@ -111,7 +111,8 @@ func (t *BaseTasklet) Stop(
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (t *BaseTasklet) handleRequest(
 	ctx context.Context,
-	req *types.TaskRequest) (err error) {
+	req *types.TaskRequest,
+	replyTopic string) (err error) {
 	started := time.Now()
 	logrus.WithFields(
 		logrus.Fields{
@@ -174,9 +175,9 @@ func (t *BaseTasklet) handleRequest(
 				taskResp.Status = types.FAILED
 				taskResp.ErrorCode = types.ErrorAntExecutionFailed
 				taskResp.ErrorMessage = err.Error()
-				err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+				err = t.sendResponse(ctx, taskResp, replyTopic, started)
 			} else {
-				err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+				err = t.sendResponse(ctx, taskResp, replyTopic, started)
 			}
 		}
 	} else if req.Action == types.TERMINATE {
@@ -193,9 +194,9 @@ func (t *BaseTasklet) handleRequest(
 			taskResp.Status = types.FAILED
 			taskResp.ErrorCode = types.ErrorAntExecutionFailed
 			taskResp.ErrorMessage = err.Error()
-			err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		} else {
-			err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		}
 	} else if req.Action == types.LIST {
 		var taskResp *types.TaskResponse
@@ -211,9 +212,9 @@ func (t *BaseTasklet) handleRequest(
 			taskResp.Status = types.FAILED
 			taskResp.ErrorCode = types.ErrorAntExecutionFailed
 			taskResp.ErrorMessage = err.Error()
-			err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		} else {
-			err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		}
 	} else {
 		logrus.WithFields(
@@ -227,7 +228,7 @@ func (t *BaseTasklet) handleRequest(
 		taskResp.Status = types.FAILED
 		taskResp.ErrorCode = types.ErrorAntExecutionFailed
 		taskResp.ErrorMessage = fmt.Sprintf("received unknown action %s", req.Action)
-		err = t.sendResponse(ctx, taskResp, req.ResponseTopic, started)
+		err = t.sendResponse(ctx, taskResp, replyTopic, started)
 	}
 	return
 }

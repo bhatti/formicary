@@ -623,7 +623,8 @@ timeout: 60s
 tasks:
 - task_type: trigger
   method: MESSAGING
-  messaging_queue: my-messaging-queue
+  messaging_request_queue: formicary-message-ant-request
+  messaging_reply_queue: formicary-message-ant-response
 ```
 
 ### Templates

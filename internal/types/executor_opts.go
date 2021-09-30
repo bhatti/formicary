@@ -70,11 +70,26 @@ func (em EnvironmentMap) AsArray() []string {
 	return env
 }
 
+// AddFromEnvCommand updates env from command
+func (em EnvironmentMap) AddFromEnvCommand(cmd string) bool {
+	if strings.HasPrefix(cmd, "env ") {
+		parts := strings.Split(cmd, "=")
+		if len(parts) == 2 {
+			name := strings.TrimSpace(parts[0][4:])
+			value := strings.TrimSpace(parts[1])
+			em[name] = value
+			return true
+		}
+	}
+	return false
+}
+
 // ExecutorOptions options for executor
 type ExecutorOptions struct {
 	Name                       string                  `json:"name" yaml:"name"`
 	Method                     TaskMethod              `json:"method" yaml:"method"`
 	Environment                EnvironmentMap          `json:"environment,omitempty" yaml:"environment,omitempty"`
+	HelperEnvironment          EnvironmentMap          `json:"helper_environment,omitempty" yaml:"helper_environment,omitempty"`
 	WorkingDirectory           string                  `json:"working_dir,omitempty" yaml:"working_dir,omitempty"`
 	ArtifactsDirectory         string                  `json:"artifacts_dir,omitempty" yaml:"artifacts_dir,omitempty"`
 	Artifacts                  ArtifactsConfig         `json:"artifacts,omitempty" yaml:"artifacts,omitempty"`
@@ -93,11 +108,12 @@ type ExecutorOptions struct {
 	NetworkMode                string                  `json:"network_mode,omitempty" yaml:"network_mode,omitempty"`
 	HostNetwork                bool                    `json:"host_network,omitempty" yaml:"host_network,omitempty"`
 	Headers                    map[string]string       `yaml:"headers,omitempty" json:"headers" gorm:"-"`
-	MessagingQueue             string                  `json:"messaging_queue,omitempty" yaml:"messaging_queue,omitempty"`
+	MessagingRequestQueue      string                  `json:"messaging_request_queue,omitempty" yaml:"messaging_request_queue,omitempty"`
+	MessagingReplyQueue        string                  `json:"messaging_reply_queue,omitempty" yaml:"messaging_reply_queue,omitempty"`
 	ForkJobType                string                  `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty"`
 	ForkJobVersion             string                  `json:"fork_job_version,omitempty" yaml:"fork_job_version,omitempty"`
 	AwaitForkedTasks           []string                `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty"`
-	AppliedCost                float64                 `json:"applied_cost,omitempty" yaml:"applied_cost,omitempty"`
+	CostFactor                 float64                 `json:"cost_factor,omitempty" yaml:"cost_factor,omitempty"`
 	ExecuteCommandWithoutShell bool                    `json:"execute_command_without_shell,omitempty" yaml:"execute_command_without_shell,omitempty"`
 	Debug                      bool                    `json:"debug,omitempty" yaml:"debug,omitempty"`
 }
@@ -108,6 +124,7 @@ func NewExecutorOptions(name string, method TaskMethod) *ExecutorOptions {
 		Name:                 utils.MakeDNS1123Compatible(name),
 		Method:               method,
 		Environment:          NewEnvironmentMap(),
+		HelperEnvironment:    NewEnvironmentMap(),
 		Artifacts:            NewArtifactsConfig(),
 		Cache:                NewCacheConfig(),
 		DependentArtifactIDs: make([]string, 0),
@@ -152,6 +169,9 @@ func (opt *ExecutorOptions) Validate() error {
 	}
 	if opt.Environment == nil {
 		opt.Environment = NewEnvironmentMap()
+	}
+	if opt.HelperEnvironment == nil {
+		opt.HelperEnvironment = NewEnvironmentMap()
 	}
 	if opt.NodeSelector == nil {
 		opt.NodeSelector = make(map[string]string)

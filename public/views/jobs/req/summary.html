@@ -53,13 +53,13 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>User:</b></dt>
-                        <dd class="col-sm-8">{{ .UserID}}</dd>
+                        <dd class="col-sm-8"><a href="/dashboard/users/{{.UserID}}">{{.UserID}}</a></dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Organization:</b></dt>
-                        <dd class="col-sm-8">{{ .OrganizationID }}</dd>
+                        <dd class="col-sm-8"><a href="/dashboard/orgs/{{.OrganizationID}}">{{.OrganizationID}}</a></dd>
                     </dl>
                 </td>
             </tr>
@@ -81,7 +81,8 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Type:</b></dt>
-                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobTypeAndVersion}}</a></dd>
+                        <dd class="col-sm-8"><a
+                                href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobTypeAndVersion}}</a></dd>
                     </dl>
                 </td>
             </tr>
@@ -178,7 +179,8 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Job Definition:</b></dt>
-                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{ .JobDefinitionID }}">{{.JobDefinitionID}}</a></dd>
+                        <dd class="col-sm-8"><a href="/dashboard/jobs/definitions/{{ .JobDefinitionID }}">{{.JobDefinitionID}}</a>
+                        </dd>
                     </dl>
                 </td>
                 <td>

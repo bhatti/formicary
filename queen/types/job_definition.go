@@ -187,23 +187,39 @@ func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
 func (jd *JobDefinition) GetNextTask(
 	task *TaskDefinition,
 	taskStatus common.RequestState,
-	exitCode string) (*TaskDefinition, bool, error) {
+	exitCode string) (nextTaskDef *TaskDefinition, parent bool, err error) {
 	if task.OnExitCode == nil || len(task.OnExitCode) == 0 {
 		return nil, false, nil
 	}
+	// find by exit-code
 	nextTaskName := task.OnExitCode[common.NewRequestState(exitCode)]
 
-	nextTask := jd.GetTask(nextTaskName)
-	if nextTask != nil {
-		return nextTask, true, nil
+	// EXECUTING keep running same task
+	if common.NewRequestState(nextTaskName) == common.EXECUTING {
+		return task, false, nil
+	} else if common.NewRequestState(nextTaskName) == common.COMPLETED {
+		nextTaskName = task.OnExitCode[common.COMPLETED]
+	} else if common.NewRequestState(nextTaskName) == common.FAILED ||
+		common.NewRequestState(nextTaskName) == common.FATAL {
+		nextTaskName = task.OnExitCode[common.FAILED]
 	}
-	nextTask = jd.GetTask(task.OnExitCode[common.NewRequestState(string(taskStatus))])
-	if nextTask != nil {
-		return nextTask, false, nil
+
+	// find task from the job DAG
+	nextTaskDef = jd.GetTask(nextTaskName)
+	if nextTaskDef != nil {
+		return nextTaskDef, true, nil
 	}
+
+	// find by status
+	nextTaskDef = jd.GetTask(task.OnExitCode[common.NewRequestState(string(taskStatus))])
+	if nextTaskDef != nil {
+		return nextTaskDef, false, nil
+	}
+
 	if task.AllowFailure {
 		return jd.GetTask(task.OnExitCode[common.COMPLETED]), false, nil
 	}
+
 	return nil, false, nil
 }
 
@@ -276,10 +292,10 @@ func (jd *JobDefinition) GetDynamicTask(
 				"Version":   jd.SemVersion,
 				"TaskType":  taskType,
 				"Data":      data,
-				"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
+				"Raw":       serData,
 				"Error":     err,
 			}).Error("failed to parse yaml task")
-			return nil, nil, fmt.Errorf("failed to parse task yaml for %s due to %s",
+			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %s",
 				taskType, err.Error())
 		}
 	}
@@ -293,9 +309,9 @@ func (jd *JobDefinition) GetDynamicTask(
 			"Version":   jd.SemVersion,
 			"TaskType":  taskType,
 			"Data":      data,
-			"Raw":       utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType)),
+			"Raw":       serData,
 			"Error":     err,
-		}).Error("failed to unmarshal yaml task")
+		}).Errorf("failed to unmarshal yaml task '%s", taskType)
 		debug.PrintStack()
 		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
 	}
@@ -326,7 +342,8 @@ func (jd *JobDefinition) GetDynamicTask(
 	}
 	task.ForkJobType = opts.ForkJobType
 	task.AwaitForkedTasks = opts.AwaitForkedTasks
-	task.MessagingQueue = opts.MessagingQueue
+	task.MessagingRequestQueue = opts.MessagingRequestQueue
+	task.MessagingReplyQueue = opts.MessagingReplyQueue
 	return task, opts, nil
 }
 
@@ -1104,7 +1121,12 @@ func (jd *JobDefinition) validateFirstTask(
 func (jd *JobDefinition) validateReachableTasks() (map[string]bool, error) {
 	onExitTypes := make(map[string]bool)
 	reservedExitCodes := map[string]bool{
-		string(common.FATAL): true,
+		string(common.FATAL):        true,
+		string(common.RESTART_JOB):  true,
+		string(common.RESTART_TASK): true,
+		string(common.EXECUTING):    true,
+		string(common.FAILED):       true,
+		string(common.COMPLETED):    true,
 	}
 	// validate all tasks are reachable
 	for _, t := range jd.Tasks {
@@ -1112,7 +1134,7 @@ func (jd *JobDefinition) validateReachableTasks() (map[string]bool, error) {
 			if next == "" {
 				return nil, fmt.Errorf("empty task target for %v", t.TaskType)
 			}
-			if reservedExitCodes[next] {
+			if strings.HasPrefix(next, "ERR_") || reservedExitCodes[next] {
 				continue
 			}
 			if jd.lookupTasks.GetObject(next) == nil {

@@ -1,0 +1,37 @@
+job_type: etl-sum-job
+description: Simple ETL Sum example
+tasks:
+# A simple extract task that defines a JSON string
+- task_type: extract
+  container:
+    image: alpine
+  variables:
+    data_string: '{"1001": 301.27, "1002": 433.21, "1003": 502.22}'
+  script:
+    - >
+      echo '{{.data_string | Unescape}}' > order_data_dict.json
+  artifacts:
+    paths:
+      - order_data_dict.json
+  on_completed: transform
+# A simple transform task that calculates sum from a JSON string
+- task_type: transform
+  container:
+    image: python:3.8-buster
+  dependencies:
+    - extract
+  script:
+    - cat order_data_dict.json
+    - python -c "import json;f = open('order_data_dict.json');data = json.load(f);sum = sum(data.values());print(sum);f.close()" > sum.txt
+  artifacts:
+    paths:
+      - sum.txt
+  on_completed: load
+# A simple transform task that print (or save) JSON string
+- task_type: load
+  dependencies:
+    - transform
+  script:
+    - cat sum.txt
+  container:
+    image: alpine

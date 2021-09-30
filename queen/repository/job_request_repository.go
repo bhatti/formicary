@@ -27,7 +27,9 @@ type JobRequestRepository interface {
 		oldState common.RequestState,
 		newState common.RequestState,
 		errorMessage string,
-		errorCode string) error
+		errorCode string,
+		scheduleDelay time.Duration,
+		retried int) error
 
 	// Save saves job-request
 	Save(req *types.JobRequest) (*types.JobRequest, error)

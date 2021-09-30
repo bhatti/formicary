@@ -139,3 +139,21 @@ saves task instance in the database and builds a task request that is sent to re
 waits for the response and then updates the database. The task execution ends with `COMPLETED` or `FAILED` state but 
 it also supports `exit-code` that can be passed by the worker. The orchestration rules can choose the next task to
 run based on ending `state` or `exit-code`.
+
+#### Job State:
+A job can be in following states:
+- PENDING
+- READY
+- COMPLETED
+- FAILED
+- EXECUTING
+- STARTED
+- CANCELLED
+
+#### Task State:
+A task can be in following states:
+- READY
+- STARTED
+- EXECUTING
+- COMPLETED
+- FAILED

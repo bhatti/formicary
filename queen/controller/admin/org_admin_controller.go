@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+	"plexobject.com/formicary/internal/utils"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -26,18 +27,19 @@ type OrganizationAdminController struct {
 func NewOrganizationAdminController(
 	userManager *manager.UserManager,
 	webserver web.Server) *OrganizationAdminController {
-	jraCtr := &OrganizationAdminController{
+	ctr := &OrganizationAdminController{
 		userManager: userManager,
 		webserver:   webserver,
 	}
-	webserver.GET("/dashboard/orgs", jraCtr.queryOrganizations, acl.NewPermission(acl.Organization, acl.Query)).Name = "query_admin_orgs"
-	webserver.GET("/dashboard/orgs/new", jraCtr.newOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "new_admin_orgs"
-	webserver.POST("/dashboard/orgs", jraCtr.createOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "create_admin_orgs"
-	webserver.POST("/dashboard/orgs/:id", jraCtr.updateOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_admin_orgs"
-	webserver.GET("/dashboard/orgs/:id", jraCtr.getOrganization, acl.NewPermission(acl.Organization, acl.View)).Name = "get_admin_orgs"
-	webserver.GET("/dashboard/orgs/:id/edit", jraCtr.editOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "edit_admin_orgs"
-	webserver.POST("/dashboard/orgs/:id/delete", jraCtr.deleteOrganization, acl.NewPermission(acl.Organization, acl.Delete)).Name = "delete_admin_orgs"
-	return jraCtr
+	webserver.GET("/dashboard/orgs", ctr.queryOrganizations, acl.NewPermission(acl.Organization, acl.Query)).Name = "query_admin_orgs"
+	webserver.GET("/dashboard/orgs/new", ctr.newOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "new_admin_orgs"
+	webserver.POST("/dashboard/orgs", ctr.createOrganization, acl.NewPermission(acl.Organization, acl.Create)).Name = "create_admin_orgs"
+	webserver.POST("/dashboard/orgs/:id", ctr.updateOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_admin_orgs"
+	webserver.GET("/dashboard/orgs/:id", ctr.getOrganization, acl.NewPermission(acl.Organization, acl.View)).Name = "get_admin_orgs"
+	webserver.GET("/dashboard/orgs/:id/edit", ctr.editOrganization, acl.NewPermission(acl.Organization, acl.Update)).Name = "edit_admin_orgs"
+	webserver.POST("/dashboard/orgs/:id/delete", ctr.deleteOrganization, acl.NewPermission(acl.Organization, acl.Delete)).Name = "delete_admin_orgs"
+	webserver.GET("/dashboard/orgs/usage_report", ctr.usageReport, acl.NewPermission(acl.Report, acl.View)).Name = "admin_usage_report"
+	return ctr
 }
 
 // ********************************* HTTP Handlers ***********************************
@@ -206,6 +208,21 @@ func (oc *OrganizationAdminController) deleteOrganization(c web.WebContext) erro
 		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/orgs")
+}
+
+// usageReport -
+func (oc *OrganizationAdminController) usageReport(c web.WebContext) error {
+	from := utils.ParseStartDateTime(c.QueryParam("from"))
+	to := utils.ParseEndDateTime(c.QueryParam("to"))
+
+	combinedUsage := oc.userManager.CombinedResourcesByOrgUser(from, to, 10000)
+	res := map[string]interface{}{
+		"Records":  combinedUsage,
+		"FromDate": from.Format("2006-01-02"),
+		"ToDate":   to.Format("2006-01-02"),
+	}
+	web.RenderDBUserFromSession(c, res)
+	return c.Render(http.StatusOK, "orgs/usage_report", res)
 }
 
 func buildOrganization(c web.WebContext) *common.Organization {

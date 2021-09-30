@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/events"
 	"time"
 
@@ -90,9 +89,13 @@ func (t *MessagingTasklet) PreExecute(
 func (t *MessagingTasklet) Execute(
 	ctx context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
-	if taskReq.ExecutorOpts.MessagingQueue == "" {
+	if taskReq.ExecutorOpts.MessagingRequestQueue == "" {
 		return buildTaskResponseWithError(taskReq,
-			fmt.Errorf("messaging_queue is not specified for %s", taskReq.TaskType))
+			fmt.Errorf("messaging_request_queue is not specified for %s", taskReq.TaskType))
+	}
+	if taskReq.ExecutorOpts.MessagingReplyQueue == "" {
+		return buildTaskResponseWithError(taskReq,
+			fmt.Errorf("messaging_reply_queue is not specified for %s", taskReq.TaskType))
 	}
 
 	var b []byte
@@ -100,19 +103,18 @@ func (t *MessagingTasklet) Execute(
 		return nil, fmt.Errorf("failed to marshal %s due to %v", taskReq, err)
 	}
 	var event *queue.MessageEvent
-	responseTopic := t.serverCfg.GetResponseTopic(uuid.NewV4().String())
 	logrus.WithFields(logrus.Fields{
 		"Component":     "MessagingTasklet",
-		"RequestTopic":  taskReq.ExecutorOpts.MessagingQueue,
-		"ResponseTopic": responseTopic,
+		"RequestTopic":  taskReq.ExecutorOpts.MessagingRequestQueue,
+		"ResponseTopic": taskReq.ExecutorOpts.MessagingReplyQueue,
 	}).
 		Infof("sending request")
 	if event, err = t.queueClient.SendReceive(
 		ctx,
-		taskReq.ExecutorOpts.MessagingQueue,
+		taskReq.ExecutorOpts.MessagingRequestQueue,
 		make(map[string]string),
 		b,
-		responseTopic); err != nil {
+		taskReq.ExecutorOpts.MessagingReplyQueue); err != nil {
 		return nil, err
 	}
 	taskResp = common.NewTaskResponse(taskReq)
@@ -121,8 +123,8 @@ func (t *MessagingTasklet) Execute(
 		return buildTaskResponseWithError(taskReq, err)
 	}
 
-	taskResp.AddContext("MessageQueue", taskReq.ExecutorOpts.MessagingQueue)
-	taskResp.AddContext("ResponseQueue", responseTopic)
+	taskResp.AddContext("MessageQueue", taskReq.ExecutorOpts.MessagingRequestQueue)
+	taskResp.AddContext("ResponseQueue", taskReq.ExecutorOpts.MessagingReplyQueue)
 	return
 }
 
