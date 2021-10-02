@@ -23,6 +23,7 @@ func Test_ShouldExpireArtifacts(t *testing.T) {
 
 	qc, err := repository.NewTestQC()
 	require.NoError(t, err)
+	serverCfg.DefaultArtifactExpiration = time.Millisecond
 	for i:=0; i<10; i++ {
 		in := io.NopCloser(strings.NewReader("test"))
 		_, err := mgr.UploadArtifact(
@@ -32,7 +33,7 @@ func Test_ShouldExpireArtifacts(t *testing.T) {
 			make(map[string]string))
 		require.NoError(t, err)
 	}
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
 	// WHEN expiring
 	expired, _, err := mgr.ExpireArtifacts(
 		context.Background(),

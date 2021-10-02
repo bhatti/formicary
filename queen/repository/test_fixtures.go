@@ -151,18 +151,18 @@ func SaveTestJobRequests(qc *common.QueryContext, jobName string) error {
 }
 
 // NewTestJobExecution creates a test job execution
-func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobExecution, error) {
+func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobRequest, *types.JobExecution, error) {
 	job, err := SaveTestJobDefinition(qc, name, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	jobRequestRepo, err := NewTestJobRequestRepository()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req, err := types.NewJobRequestFromDefinition(job)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	_, _ = req.AddParam("jk1", "jv1")
 	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
@@ -170,7 +170,7 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobExecut
 	_, _ = req.AddParam("jk4", 50.10)
 	_, err = jobRequestRepo.Save(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	now := time.Now()
 	jobExec := types.NewJobExecution(req.ToInfo())
@@ -185,7 +185,7 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobExecut
 		_, _ = task.AddContext("tk1", "v1")
 		_, _ = task.AddContext("tk2", []string{"i", "j", "k"})
 	}
-	return jobExec, nil
+	return req, jobExec, nil
 }
 
 func newTestArtifact(user *common.User, expire time.Time) *common.Artifact {

@@ -121,7 +121,7 @@ func (t *ArtifactExpirationTasklet) Execute(
 	taskResp = common.NewTaskResponse(taskReq)
 	taskResp.AddContext("DefaultArtifactExpiration", t.serverCfg.DefaultArtifactExpiration.String())
 	taskResp.AddContext("DefaultArtifactLimit", t.serverCfg.DefaultArtifactLimit)
-	taskResp.AddContext("TotalExpired", expired)
+	taskResp.AddJobContext("TotalExpired", expired)
 	taskResp.AddJobContext("TotalSize", size)
 	taskResp.AddJobContext("Admin", queryContext.IsAdmin())
 	return

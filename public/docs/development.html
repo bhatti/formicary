@@ -122,10 +122,23 @@ CGO_ENABLED=1 go test -p 1  -mod vendor ./... -coverprofile=go-test-coverage.out
 <li><p>Adding vendor dependencies</p>
 <pre><code>go mod vendor
 </code></pre></li>
-<li><p>Executable</p>
-<pre><code>go build -o formicary -mod vendor ./...
-</code></pre></li>
+<li><p>DB Migrations</p>
+</li>
 </ul>
+<pre><code>goose mysql &quot;formicary_user_dev:formicary_pass@/formicary_dev?parseTime=true&quot; up
+</code></pre><ul>
+<li><p>Delete Kafka topics</p>
+<pre><code>SERVER=127.0.0.1:32181
+kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic --delete
+...
+</code></pre></li>
+<li><p>Create Kafka topics <code>`</code> SERVER=127.0.0.1:32181</p>
+</li>
+</ul>
+<p>kafka-topics --zookeeper $SERVER --topic formicary-task-response-topic-ant-registration --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-task-reply --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-queue-messaging-tasklet-topic --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-queue-expire-artifacts-tasklet-topic --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-queue-ant-request --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-message-ant-request --create --partitions 1 --replication-factor 1 kafka-topics --zookeeper $SERVER --topic formicary-message-ant-response --create --partitions 1 --replication-factor 1</p>
+<pre><code>
+- Executable
+</code></pre><p>go mod tidy go build -o formicary -mod vendor ./... <code>`</code></p>
 <h3 id="dump-stack-trace-of-all-goroutines">Dump stack trace of all goroutines</h3>
 <p>Find the golang process, e.g. <code>ps -ef|grep main</code>, then send <code>SIGHUP</code> or 1 such as <code>kill -1 &lt;pid&gt;</code> to dump the stack trace of goroutines.</p>
 <h3 id="graceful-shutdown">Graceful shutdown</h3>

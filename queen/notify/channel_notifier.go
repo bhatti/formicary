@@ -232,7 +232,7 @@ func (n *DefaultNotifier) NotifyJob(
 	for k, v := range jobNotify {
 		sender := n.senders[k]
 		if sender == nil {
-			return fmt.Errorf("no sender for %s", sender)
+			return fmt.Errorf("no sender for %s", k)
 		}
 		if len(v.Recipients) == 0 {
 			continue

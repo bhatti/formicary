@@ -16,15 +16,19 @@ import (
 // JobWaiter waits for the job
 type JobWaiter struct {
 	sync.Mutex
+	ctx          context.Context
 	jobManager   *manager.JobManager
 	requestIDs   []uint64
 	requests     map[uint64]*types.JobRequest
 	queryContext *common.QueryContext
 	done         chan struct{}
+	logTimestamp time.Time
+	logInterval  time.Duration
 }
 
 // NewJobWaiter constructor
 func NewJobWaiter(
+	ctx context.Context,
 	jobManager *manager.JobManager,
 	taskReq *common.TaskRequest) (*JobWaiter, error) {
 	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
@@ -34,11 +38,25 @@ func NewJobWaiter(
 		return nil, err
 	}
 	waiter := &JobWaiter{
+		ctx:          ctx,
 		queryContext: queryContext,
 		jobManager:   jobManager,
 		requestIDs:   requestIDs,
 		requests:     make(map[uint64]*types.JobRequest),
 		done:         make(chan struct{}),
+		logTimestamp: time.Unix(0, 0),
+	}
+	waiter.logInterval = time.Second * 15
+	if val, err := time.ParseDuration(taskReq.Variables["log_interval"].String()); err == nil {
+		waiter.logInterval = val
+	}
+	if len(requestIDs) == 0 {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":  "JobWaiter",
+				"RequestIDs": requestIDs,
+				"Request":    taskReq,
+			}).Warnf("no request ids found")
 	}
 	return waiter, nil
 }
@@ -104,15 +122,20 @@ func (jw *JobWaiter) BuildTaskResponse(
 }
 
 // Poll checks if pending requests are completed
-func (jw *JobWaiter) Poll() (bool, error) {
+func (jw *JobWaiter) Poll() (completed bool, err error) {
+	if jw.ctx.Err() != nil {
+		return false, jw.ctx.Err()
+	}
 	jw.Lock()
 	defer jw.Unlock()
+	statuses := make(map[uint64]common.RequestState)
 	for _, id := range jw.requestIDs {
 		if jw.requests[id] == nil {
 			req, err := jw.jobManager.GetJobRequest(jw.queryContext, id)
 			if err != nil {
 				return false, err
 			}
+			statuses[req.ID] = req.JobState
 			if req.JobState.IsTerminal() {
 				jw.requests[id] = req
 			}
@@ -125,10 +148,24 @@ func (jw *JobWaiter) Poll() (bool, error) {
 				"Component":         "JobWaiter",
 				"RequestIDs":        jw.requestIDs,
 				"CompletedRequests": len(jw.requests),
+				"Statuses":          statuses,
 			}).Debug("polling to check completed tasks")
 	}
 
-	return jw.completed(), nil
+	completed = jw.completed()
+	now := time.Now()
+	if !completed && now.Unix()-jw.logTimestamp.Unix() > int64(jw.logInterval.Seconds()) {
+		jw.logTimestamp = now
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":         "JobWaiter",
+				"RequestIDs":        jw.requestIDs,
+				"CompletedRequests": len(jw.requests),
+				"Statuses":          statuses,
+			}).Infof("waiting for completed tasks")
+
+	}
+	return
 }
 
 // UpdateFromJobLifecycleEvent checks if received job that it's waiting
@@ -157,6 +194,9 @@ func (jw *JobWaiter) matchesJobIDs(jobExecutionLifecycleEvent *events.JobExecuti
 
 func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []uint64, err error) {
 	waitingTaskTypes := taskReq.ExecutorOpts.AwaitForkedTasks
+	if len(waitingTaskTypes) == 0 {
+		return nil, fmt.Errorf("no task types defined for await_forked_tasks")
+	}
 	jobIDs = make([]uint64, len(waitingTaskTypes))
 	for i, taskType := range waitingTaskTypes {
 		reqKey := taskType + forkedJobIDSuffix

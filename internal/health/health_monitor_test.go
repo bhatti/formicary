@@ -20,8 +20,8 @@ func Test_ShouldParsePulsarURL(t *testing.T) {
 }
 
 func Test_ShouldParseS3URL(t *testing.T) {
-	host, port, err := parseURL("8105ca6a73c5.ngrok.io:8080")
+	host, port, err := parseURL("9125ca6a73c5.formicary.io:8080")
 	require.NoError(t, err)
-	require.Equal(t, "8105ca6a73c5.ngrok.io", host)
+	require.Equal(t, "9125ca6a73c5.formicary.io", host)
 	require.Equal(t, 8080, port)
 }

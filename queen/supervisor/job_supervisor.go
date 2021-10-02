@@ -179,10 +179,17 @@ func (js *JobSupervisor) tryExecuteJob(
 	}
 
 	// job failed
-	return js.jobStateMachine.ExecutionFailed(
+	if saveErr := js.jobStateMachine.ExecutionFailed(
 		ctx,
 		errorCode,
-		err.Error())
+		err.Error()); saveErr != nil {
+		logrus.WithFields(js.jobStateMachine.LogFields(
+			"JobSupervisor",
+		)).Warnf("job '%s' could not be saved due to error '%s', job error '%s'",
+			js.jobStateMachine.JobDefinition.JobType, saveErr, err)
+
+	}
+	return err
 }
 
 // UpdateFromJobLifecycleEvent updates if current job is cancelled

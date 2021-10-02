@@ -439,7 +439,8 @@ timeout: 60s
 tasks:
 - task_type: trigger
   method: MESSAGING
-  messaging_queue: my-messaging-queue
+  messaging_request_queue: formicary-message-ant-request
+  messaging_reply_queue: formicary-message-ant-response
 </code></pre>
 <h3 id="templates">Templates</h3>
 <p>The job definition supports GO templates, and you can use variables that are passed by job-request or task definitions, e.g.</p>

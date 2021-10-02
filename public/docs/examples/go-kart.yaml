@@ -1,4 +1,5 @@
 job_type: go-kart
+description: sample job for scanning source for security
 tasks:
 - task_type: scan
   method: KUBERNETES

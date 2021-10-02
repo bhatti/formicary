@@ -3,7 +3,6 @@ package repository
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"time"
@@ -203,7 +202,6 @@ func (jrr *JobRequestRepositoryImpl) Save(
 		}
 
 		if res.Error != nil {
-			debug.PrintStack()
 			return res.Error
 		}
 
@@ -218,6 +216,12 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 	id uint64,
 	jobExecutionID string,
 	lastJobExecutionID string) error {
+	if id == 0 {
+		return common.NewValidationError("id is not specified for request to set ready to execute")
+	}
+	if jobExecutionID == "" {
+		return common.NewValidationError("job-execution-id is not specified for request to set ready to execute")
+	}
 	var totalExecutionCount int64
 	res := jrr.db.Model(&types.JobExecution{}).
 		Where("id = ?", jobExecutionID).Count(&totalExecutionCount)
@@ -226,7 +230,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 	}
 	if totalExecutionCount == 0 {
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to find job-execution for %s", jobExecutionID))
+			fmt.Errorf("failed to find job-execution for job-execution '%s'", jobExecutionID))
 	}
 
 	var job types.JobRequest
@@ -249,7 +253,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 			return common.NewNotFoundError(err)
 		}
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to mark job as ready because old status was %v for request-id %d",
+			fmt.Errorf("failed to mark job as READY because old status was %v for request-id %d",
 				old.JobState, id))
 	}
 	return nil

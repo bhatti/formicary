@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -102,7 +101,7 @@ func (ar *ArtifactRepositoryImpl) ExpiredArtifacts(
 	tx := qc.AddOrgElseUserWhere(ar.db.Model(&common.Artifact{}), true).
 		Limit(limit).
 		Where("active = ?", true).
-		Where("expires_at < ? OR updated_at < ?", time.Now(), time.Now().Add(-expiration))
+		Where("expires_at < ?", time.Now().Add(-expiration))
 	res := tx.Find(&records)
 	if res.Error != nil {
 		err = res.Error
@@ -281,7 +280,6 @@ func (ar *ArtifactRepositoryImpl) Update(
 		art.UpdatedAt = time.Now()
 		res = tx.Save(art)
 		if res.Error != nil {
-			debug.PrintStack()
 			return res.Error
 		}
 		return nil

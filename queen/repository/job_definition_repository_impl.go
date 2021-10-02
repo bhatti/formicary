@@ -34,7 +34,6 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	qc *common.QueryContext,
 	id string) (job *types.JobDefinition, err error) {
 	if id == "" {
-		debug.PrintStack()
 		return nil, common.NewValidationError(
 			fmt.Errorf("job-id is not specified for fetching job-definition"))
 	}
@@ -102,7 +101,6 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		semVersion = jobTypeAndVersion[1]
 	}
 	if jobType == "" {
-		debug.PrintStack()
 		return nil, common.NewValidationError("job-type is not specified")
 	}
 	job = &types.JobDefinition{}

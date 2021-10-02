@@ -21,6 +21,12 @@ common:
   disabled_pulsar:
     url: "pulsar://localhost:6650"
     connection_timeout: 30
+  kafka:
+    brokers:
+      - 192.168.1.104:19092
+      - 192.168.1.104:29092
+      - 192.168.1.104:39092
+    group: formicary-queen-1
   redis:
     host: "192.168.1.102"
     port: 6379

@@ -162,24 +162,26 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		}
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Component":          "JobExecutionStateMachine",
-		"RequestID":          jsm.Request.GetID(),
-		"RequestUser":        jsm.Request.GetUserID(),
-		"RequestOrg":         jsm.Request.GetOrganizationID(),
-		"JobType":            jsm.Request.GetJobType(),
-		"RequestState":       jsm.Request.GetJobState(),
-		"RequestRetry":       jsm.Request.GetRetried(),
-		"CronTriggered":      jsm.Request.GetCronTriggered(),
-		"Priority":           jsm.Request.GetJobPriority(),
-		"Scheduled":          jsm.Request.GetScheduledAt(),
-		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
-		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
-		"JobDefinitionID":    jsm.JobDefinition.ID,
-		"JobDefinitionUser":  jsm.JobDefinition.UserID,
-		"JobDefinitionOrg":   jsm.JobDefinition.OrganizationID,
-		"QC":                 jsm.QueryContext(),
-	}).Infof("validated request")
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":          "JobExecutionStateMachine",
+			"RequestID":          jsm.Request.GetID(),
+			"RequestUser":        jsm.Request.GetUserID(),
+			"RequestOrg":         jsm.Request.GetOrganizationID(),
+			"JobType":            jsm.Request.GetJobType(),
+			"RequestState":       jsm.Request.GetJobState(),
+			"RequestRetry":       jsm.Request.GetRetried(),
+			"CronTriggered":      jsm.Request.GetCronTriggered(),
+			"Priority":           jsm.Request.GetJobPriority(),
+			"Scheduled":          jsm.Request.GetScheduledAt(),
+			"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
+			"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
+			"JobDefinitionID":    jsm.JobDefinition.ID,
+			"JobDefinitionUser":  jsm.JobDefinition.UserID,
+			"JobDefinitionOrg":   jsm.JobDefinition.OrganizationID,
+			"QC":                 jsm.QueryContext(),
+		}).Debugf("validated request")
+	}
 
 	return
 }
@@ -218,6 +220,9 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 	if err = jsm.Validate(); err != nil {
 		return err
 	}
+	if jobExecutionID == "" {
+		return fmt.Errorf("job-execution-id is not specified for prepare launch")
+	}
 
 	// verify allocations
 	if len(jsm.Reservations) != len(jsm.JobDefinition.Tasks) {
@@ -242,7 +247,7 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 
 	// Verify job-execution id
 	if jobExecutionID != jsm.Request.GetJobExecutionID() {
-		return fmt.Errorf("mismatched job-execution-id %s in request %s",
+		return fmt.Errorf("mismatched job-execution-id '%s' but in request '%s'",
 			jobExecutionID, jsm.Request.GetJobExecutionID())
 	}
 
@@ -255,7 +260,7 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 	// Verify job-request and job-execution state
 	if jsm.Request.GetJobState() != common.READY ||
 		jsm.JobExecution.JobState != common.READY {
-		return fmt.Errorf("mismatched request status %s, job-execution state %s",
+		return fmt.Errorf("expected READY state but job request was status %s and job-execution was state %s",
 			jsm.Request.GetJobState(), jsm.JobExecution.JobState)
 	}
 

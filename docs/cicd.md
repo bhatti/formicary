@@ -69,7 +69,7 @@ See [Post-commit hooks](howto.md#PostCommit) for scheduling job using git post-c
 See [Job Filtering](definition_options.md#filter) for filtering scheduled job.
 
 ### CI/CD Pipelines with Formicary
-Following examples show how you can use artifact-store, docker/kubernetes and job management support in formicary to
+Following examples show how you can use artifact-store, docker/kubernetes and directed acyclic graph support in formicary to
 build CI/CD solutions:
 
 - [Node.js CI/CD](node_ci.md)

@@ -80,8 +80,36 @@ go vet ./... 2> go-vet-report.out
 go mod vendor
 ```
 
+- DB Migrations
+
+```
+goose mysql "formicary_user_dev:formicary_pass@/formicary_dev?parseTime=true" up
+```
+
+- Delete Kafka topics
+```
+SERVER=127.0.0.1:32181
+kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic --delete
+...
+```
+
+- Create Kafka topics
+```
+SERVER=127.0.0.1:32181
+
+kafka-topics --zookeeper $SERVER --topic formicary-task-response-topic-ant-registration --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-task-reply --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-messaging-tasklet-topic --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-expire-artifacts-tasklet-topic --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-ant-request --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-message-ant-request --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-message-ant-response --create --partitions 1 --replication-factor 1
+```
+
 - Executable
 ```
+go mod tidy
 go build -o formicary -mod vendor ./...
 ```
 

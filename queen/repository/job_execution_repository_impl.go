@@ -87,9 +87,9 @@ func (jer *JobExecutionRepositoryImpl) calcCost(
 	err := jer.db.Raw(sql, args...).Row().Scan(&sum)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"Component":    "JobExecutionRepositoryImpl",
-			"ID": id,
-			"Error": err,
+			"Component": "JobExecutionRepositoryImpl",
+			"ID":        id,
+			"Error":     err,
 		}).
 			Warnf("failed to calculate cost of job-execution")
 	}
@@ -244,8 +244,11 @@ func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 			return common.NewNotFoundError(res.Error)
 		}
 		if res.RowsAffected != 1 {
+			var req types.JobRequest
+			_ = tx.Model(&types.JobRequest{}).
+				Where("job_execution_id = ?", id).First(&req)
 			return common.NewNotFoundError(
-				fmt.Errorf("failed to update job request state from %s to %s", oldState, newState))
+				fmt.Errorf("failed to update job request state with job_execution_id %s from %s to %s because it has %s state", id, oldState, newState, req.JobState))
 		}
 
 		res = tx.Model(&types.JobExecution{}).Where("id = ?", id).

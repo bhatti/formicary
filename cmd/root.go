@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"github.com/mitchellh/go-homedir"
 	"os"
 	"strings"
+
+	"github.com/mitchellh/go-homedir"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -13,18 +14,21 @@ import (
 var cfgFile string
 var id string
 var port int
+
 // Version of the queen server
 var Version string
+
 // Commit of the last change
 var Commit string
+
 // Date of the build
 var Date string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "formicary",
-	Short: "Starts default server for formicary job management system",
-	Long:  "Starts default server for formicary job management system",
+	Short: "Starts default server for formicary graph processing system",
+	Long:  "Starts default server for formicary graph processing system",
 	Run: func(cmd *cobra.Command, args []string) {
 		RunServer(cmd, args)
 	},

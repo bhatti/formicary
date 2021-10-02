@@ -4,7 +4,7 @@ tasks:
   container:
     image: alpine
   script:
-    - echo allocating
+    - echo allocating resource
   on_completed: check-date
 - task_type: check-date
   container:

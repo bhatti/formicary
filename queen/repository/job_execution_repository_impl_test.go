@@ -48,7 +48,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN creating jobExec-execution
-	jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-config")
+	_, jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-config")
 	require.NoError(t, err)
 
 	// THEN should be able to save valid jobExec
@@ -109,7 +109,7 @@ func Test_ShouldSaveValidJobExecutionWithoutContext(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN creating a job-execution without context
-	jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-context")
+	_, jobExec, err := NewTestJobExecution(qc, "valid-jobExec-without-context")
 	require.NoError(t, err)
 
 	// THEN Saving valid jobExec should succeed
@@ -150,7 +150,7 @@ func Test_ShouldSaveValidJobExecutionWithContext(t *testing.T) {
 
 	// Creating a job-execution
 	// WHEN creating a job-execution with context
-	jobExec, err := NewTestJobExecution(qc, "valid-job-with-context")
+	_, jobExec, err := NewTestJobExecution(qc, "valid-job-with-context")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -178,7 +178,7 @@ func Test_ShouldSaveTaskExecutionConcurrently(t *testing.T) {
 	errors := make([]string, 0)
 	// WHEN creating a job-execution in different go-routines concurrently
 	for i := 0; i < 10; i++ {
-		jobExec, _ := NewTestJobExecution(qc, "valid-job-with-config")
+		_, jobExec, _ := NewTestJobExecution(qc, "valid-job-with-config")
 		lock.Lock()
 		jobExec, err = repo.Save(jobExec)
 		lock.Unlock()
@@ -222,7 +222,7 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN creating a job-execution
-	jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
+	_, jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -298,7 +298,7 @@ func Test_ShouldUpdateStateForTaskExecution(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN Creating a job-execution
-	jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
+	_, jobExec, err := NewTestJobExecution(qc, "valid-job-with-config")
 	require.NoError(t, err)
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", map[string]int{"a": 1, "b": 2})
@@ -334,7 +334,7 @@ func Test_ShouldQueryJobExecutionQueryByJobType(t *testing.T) {
 	jobExecs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		exec, err := NewTestJobExecution(qc, fmt.Sprintf("query-job-%v", i))
+		_, exec, err := NewTestJobExecution(qc, fmt.Sprintf("query-job-%v", i))
 		require.NoError(t, err)
 		savedExec, err := repo.Save(exec)
 		require.NoError(t, err)
@@ -380,10 +380,10 @@ func Test_ShouldJobExecutionAccountingByOrgUser(t *testing.T) {
 	jobs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-account-%v", i))
+		_, jobExec, err := NewTestJobExecution(qc, fmt.Sprintf("jobExec-exec-account-%v", i))
 		require.NoError(t, err)
-		job.StartedAt = time.Now().Add(-10 * time.Second)
-		saved, err := jobExecutionRepository.Save(job)
+		jobExec.StartedAt = time.Now().Add(-10 * time.Second)
+		saved, err := jobExecutionRepository.Save(jobExec)
 		require.NoError(t, err)
 		err = jobRequestRepository.SetReadyToExecute(saved.JobRequestID, saved.ID, "")
 		require.NoError(t, err)
@@ -426,17 +426,17 @@ func Test_ShouldJobExecutionAccounting(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	jobs := make([]*types.JobExecution, 10)
+	jobsExecs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-account-%v", i))
+		_, jobExec, err := NewTestJobExecution(qc, fmt.Sprintf("jobExec-exec-account-%v", i))
 		require.NoError(t, err)
-		job.StartedAt = time.Now().Add(-10 * time.Second)
-		saved, err := jobExecutionRepository.Save(job)
+		jobExec.StartedAt = time.Now().Add(-10 * time.Second)
+		saved, err := jobExecutionRepository.Save(jobExec)
 		require.NoError(t, err)
 		err = jobRequestRepository.SetReadyToExecute(saved.JobRequestID, saved.ID, "")
 		require.NoError(t, err)
-		jobs[i] = saved
+		jobsExecs[i] = saved
 		err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
 			saved.ID,
 			saved.JobState,
@@ -473,14 +473,14 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	jobs := make([]*types.JobExecution, 10)
+	jobExecs := make([]*types.JobExecution, 10)
 	// AND creating a set of job-executions
 	for i := 0; i < 10; i++ {
-		job, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-query-operator-%v", i))
+		_, jobExec, err := NewTestJobExecution(qc, fmt.Sprintf("job-exec-query-operator-%v", i))
 		require.NoError(t, err)
-		saved, err := repo.Save(job)
+		saved, err := repo.Save(jobExec)
 		require.NoError(t, err)
-		jobs[i] = saved
+		jobExecs[i] = saved
 	}
 
 	// WHEN querying using LIKE
@@ -494,7 +494,7 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 
 	// WHEN querying using IN operator
 	params = make(map[string]interface{})
-	params["job_type:in"] = jobs[0].JobType + "," + jobs[1].JobType
+	params["job_type:in"] = jobExecs[0].JobType + "," + jobExecs[1].JobType
 	_, total, err = repo.Query(params, 0, 100, []string{"job_type desc"})
 	// THEN it should return 2 records
 	require.NoError(t, err)
@@ -502,7 +502,7 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 
 	// WHEN querying using exact operator
 	params = make(map[string]interface{})
-	params["job_type:="] = jobs[0].JobType
+	params["job_type:="] = jobExecs[0].JobType
 	_, total, err = repo.Query(params, 0, 100, []string{"job_type desc"})
 	// THEN it should return 1 record
 	require.NoError(t, err)
@@ -510,7 +510,7 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 
 	// WHEN querying using not equal operator
 	params = make(map[string]interface{})
-	params["job_type:!="] = jobs[0].JobType
+	params["job_type:!="] = jobExecs[0].JobType
 	_, total, err = repo.Query(params, 0, 100, []string{"job_type desc"})
 	// THEN it should return 9 records
 	require.NoError(t, err)
@@ -518,7 +518,7 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 
 	// WHEN querying using GreaterThan operator
 	params = make(map[string]interface{})
-	params["job_type:>"] = jobs[0].JobType
+	params["job_type:>"] = jobExecs[0].JobType
 	_, total, err = repo.Query(params, 0, 100, []string{"job_type desc"})
 	// THEN it should return 9 records
 	require.NoError(t, err)
@@ -526,7 +526,7 @@ func Test_ShouldJobExecutionQueryWithDifferentOperators(t *testing.T) {
 
 	// WHEN querying using LessThan operator
 	params = make(map[string]interface{})
-	params["job_type:<"] = jobs[9].JobType
+	params["job_type:<"] = jobExecs[9].JobType
 	_, total, err = repo.Query(params, 0, 100, []string{"job_type desc"})
 	// THEN it should return 9 records
 	require.NoError(t, err)
@@ -542,7 +542,7 @@ func Test_ShouldUpdateValidJobExecution(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	jobExec, err := NewTestJobExecution(qc, "test-jobExec-for-update")
+	_, jobExec, err := NewTestJobExecution(qc, "test-jobExec-for-update")
 	require.NoError(t, err)
 
 	// AND previously savedExec jobExec execution
@@ -584,7 +584,7 @@ func Test_ShouldDeleteTaskValidJobExecution(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	job, err := NewTestJobExecution(qc, "test-job-for-delete-task")
+	_, job, err := NewTestJobExecution(qc, "test-job-for-delete-task")
 	require.NoError(t, err)
 
 	// AND previously saved job-execution
@@ -616,7 +616,7 @@ func Test_ShouldDeleteValidJobExecution(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	job, err := NewTestJobExecution(qc, "test-job-for-delete")
+	_, job, err := NewTestJobExecution(qc, "test-job-for-delete")
 	require.NoError(t, err)
 
 	// AND previously saved job

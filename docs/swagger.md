@@ -1,5 +1,5 @@
 # Formicary API
-The formicary is a distributed job management system based on *Leader-Follower* design for executing a directed acyclic graph of tasks.
+The formicary is a distributed graph processing system based on *Leader-Follower* and *Pipes-Filter* design principles for executing a directed acyclic graph of tasks.
 
 ## Version: 0.0.1
 

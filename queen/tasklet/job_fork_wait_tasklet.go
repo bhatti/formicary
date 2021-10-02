@@ -85,6 +85,7 @@ func (t *JobForkWaitTasklet) Execute(
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	started := time.Now()
 	waiter, err := NewJobWaiter(
+		ctx,
 		t.jobManager,
 		taskReq)
 	if err != nil {
@@ -108,13 +109,15 @@ func (t *JobForkWaitTasklet) Execute(
 			break
 		}
 		_ = waiter.Await(ctx, sleep)
-		if sleep*2 <= 16*time.Second {
+		if sleep*2 <= 10*time.Second {
 			sleep *= 2
 		}
 	}
 
 	taskResp, err = waiter.BuildTaskResponse(taskReq)
 	if err == nil {
+		taskResp.AddContext("RequestIDs", waiter.requestIDs)
+		taskResp.AddContext("TotalRequests", len(waiter.requests))
 		logrus.WithFields(
 			logrus.Fields{
 				"Component":         "JobForkWaitTasklet",

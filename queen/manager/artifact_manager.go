@@ -74,6 +74,14 @@ func (am *ArtifactManager) ExpireArtifacts(
 				}).Infof("expired artifact")
 		}
 	}
+	logrus.WithFields(
+		logrus.Fields{
+			"Component":  "ArtifactManager",
+			"QC":         qc,
+			"Expiration": expiration,
+			"Total":      expired,
+			"Size":       size,
+		}).Infof("total expired artifacts")
 	return
 }
 
@@ -130,7 +138,7 @@ func (am *ArtifactManager) UploadArtifact(
 		Tags:           make(map[string]string),
 		UserID:         qc.GetUserID(),
 		OrganizationID: qc.GetOrganizationID(),
-		ExpiresAt:      time.Now().Add(common.DefaultArtifactsExpirationDuration),
+		ExpiresAt:      time.Now().Add(am.serverCfg.DefaultArtifactExpiration),
 	}
 
 	if err = am.artifactService.SaveFile(

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"os"
+
 	"plexobject.com/formicary/internal/buildversion"
 	"plexobject.com/formicary/queen"
 	"plexobject.com/formicary/queen/config"
@@ -40,8 +41,8 @@ func RunServer(_ *cobra.Command, args []string) {
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
 	Use:   "queen",
-	Short: "Starts default server (queen) for formicary job management system",
-	Long:  "Starts default server (queen) for formicary job management system",
+	Short: "Starts default server (queen) for formicary graph processing system",
+	Long:  "Starts default server (queen) for formicary graph processing system",
 	Run: func(cmd *cobra.Command, args []string) {
 		RunServer(cmd, args)
 	},

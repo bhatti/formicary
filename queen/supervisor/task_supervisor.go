@@ -187,6 +187,7 @@ func (ts *TaskSupervisor) invoke(
 		return nil, fmt.Errorf("failed to marshal %s due to %v", taskReq, err)
 	}
 	var event *queue.MessageEvent
+
 	if event, err = ts.taskStateMachine.QueueClient.SendReceive(
 		ctx,
 		ts.taskStateMachine.Reservation.AntTopic,
