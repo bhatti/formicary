@@ -106,7 +106,7 @@ func Test_ShouldSaveValidJobRequest(t *testing.T) {
 	req.OrganizationID = qc.User.OrganizationID
 	_, _ = req.AddParam("jk1", "jv1")
 	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
-	saved, err := repo.Save(req)
+	saved, err := repo.Save(qc, req)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func Test_ShouldSaveValidJobRequest(t *testing.T) {
 	_, _ = req.AddParam("jk3", 3)
 	_, _ = req.AddParam("jk4", true)
 	req.JobState = common.READY
-	saved, err = repo.Save(req)
+	saved, err = repo.Save(qc, req)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -161,7 +161,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	req.UserID = qc.User.ID
 	req.OrganizationID = qc.User.OrganizationID
 	// Saving request
-	_, err = repo.Save(req)
+	_, err = repo.Save(qc, req)
 	require.NoError(t, err)
 
 	// AND Updating state with non-matching old state should fail
@@ -202,7 +202,7 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 	require.NoError(t, err)
 	req.UserID = qc.User.ID
 	req.OrganizationID = qc.User.OrganizationID
-	_, err = repo.Save(req)
+	_, err = repo.Save(qc, req)
 	require.NoError(t, err)
 
 	// WHEN marking job ready to execute for unknown job-execution-id
@@ -253,7 +253,7 @@ func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 	req.UserID = qc.User.ID
 	req.OrganizationID = qc.User.OrganizationID
-	_, err = repo.Save(req)
+	_, err = repo.Save(qc, req)
 	require.NoError(t, err)
 
 	// WHEN updating priority
@@ -292,7 +292,7 @@ func Test_ShouldQueryJobRequest(t *testing.T) {
 		}
 		req.UserID = qc.User.ID
 		req.OrganizationID = qc.User.OrganizationID
-		saved, err := repo.Save(req)
+		saved, err := repo.Save(qc, req)
 		require.NoError(t, err)
 		requests[saved.ID] = saved
 	}
@@ -340,14 +340,14 @@ func Test_ShouldUpdateAndQueryWithMultipleOperators(t *testing.T) {
 			_, _ = req.AddParam(fmt.Sprintf("k%v", j), j)
 		}
 		// Saving job request
-		_, err = repo.Save(req)
+		_, err = repo.Save(qc, req)
 		require.NoError(t, err)
 		max = rand.Intn(5) + 2
 		for j := 0; j < max; j++ {
 			_, _ = req.AddParam(fmt.Sprintf("k%v", j), j)
 		}
 		// Updating job request
-		saved, err := repo.Save(req)
+		saved, err := repo.Save(qc, req)
 		require.NoError(t, err)
 		requests[i] = saved
 	}
@@ -437,12 +437,12 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 			for k := 0; k < 2; k++ { // 10 * 2 * 6
 				req, err := types.NewJobRequestFromDefinition(job)
 				require.NoError(t, err)
-				_, err = repo.Save(req)
+				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
 				req.JobState = jobState
 				req.JobPriority = j
 				// updating state and priority because by default state is PENDING
-				_, err = repo.Save(req)
+				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
 			}
 		}
@@ -487,12 +487,12 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				_, _ = req.AddParam("p2", "v2")
 				req.UserID = qc.User.ID
 				req.OrganizationID = qc.User.OrganizationID
-				_, err = repo.Save(req)
+				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
 				req.JobState = jobState
 				req.JobPriority = j
 				// Updating state and priority because by default state is PENDING
-				_, err = repo.Save(req)
+				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
 				err = repo.Trigger(qc, req.ID)
 				require.NoError(t, err)
@@ -529,8 +529,11 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	jobRequestRepository, err := NewTestJobRequestRepository()
 	require.NoError(t, err)
 	jobRequestRepository.Clear()
-	qc, err := NewTestQC()
-	require.NoError(t, err)
+	qcs := make([]*common.QueryContext, 5)
+	for i:=0; i<5; i++ {
+		qcs[i], err = NewTestQC()
+		require.NoError(t, err)
+	}
 	start := time.Now()
 
 	// WHEN scheduling jobs with empty database
@@ -539,10 +542,12 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
 
+	jobTypes := make([]string, 5)
 	// GIVEN a test requests in the database
 	for i := 0; i < 5; i++ {
-		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-infos-%v-%v", i, now.Format("15:04:05")), "")
+		job, err := SaveTestJobDefinition(qcs[i], fmt.Sprintf("schedule-job-for-infos-%v-%v", i, now.Format("15:04:05")), "")
 		require.NoError(t, err)
+		jobTypes[i] = job.JobType
 		// half will be saved as PENDING and half as READY
 		for j := 0; j < 20; j++ {
 			req, err := types.NewJobRequestFromDefinition(job)
@@ -551,7 +556,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
 			// first two outer rows should leave 10 * 2 = pending jobs
 			req.ScheduledAt = start.Add(time.Duration(i-1) * time.Second)
-			_, err = jobRequestRepository.Save(req)
+			_, err = jobRequestRepository.Save(qcs[i], req)
 			require.NoError(t, err)
 			if j%2 == 0 {
 				req.JobState = common.PENDING
@@ -560,7 +565,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 			}
 			req.JobPriority = j
 			// updating state and priority
-			_, err = jobRequestRepository.Save(req)
+			_, err = jobRequestRepository.Save(qcs[i], req)
 			require.NoError(t, err)
 		}
 	}
@@ -574,7 +579,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.Equal(t, int64(100), total)
 
 	// WHEN counting request by organization
-	total, err = jobRequestRepository.Count(common.NewQueryContextFromIDs("", "org_0"), params)
+	total, err = jobRequestRepository.Count(common.NewQueryContextFromIDs("", qcs[0].GetOrganizationID()), params)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(20), total)
@@ -599,7 +604,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByType(jobTypes, common.PENDING, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
@@ -609,7 +614,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByType(jobTypes, common.PENDING, 10)
 	// THEN it should return 0 records
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
@@ -632,14 +637,14 @@ func Test_ShouldQueryDeadIDs(t *testing.T) {
 		for _, state := range states {
 			req, err := types.NewJobRequestFromDefinition(job)
 			require.NoError(t, err)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 
 			// updating state
 			req.JobState = common.NewRequestState(state)
 			req.UserID = qc.User.ID
 			req.OrganizationID = qc.User.OrganizationID
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 		}
 	}
@@ -689,12 +694,12 @@ func Test_ShouldQueryAggregateStatesJobRequests(t *testing.T) {
 			req.OrganizationID = fmt.Sprintf("org_%d", i)
 			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
 			req.JobPriority = rand.Intn(100)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 
 			// updating state
 			req.JobState = common.NewRequestState(state)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 		}
 	}
@@ -767,17 +772,15 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		job, err := SaveTestJobDefinition(qc, fmt.Sprintf("job-for-stale-%v-%v", i, now), "")
 		require.NoError(t, err)
-		for j, state := range states {
+		for _, state := range states {
 			req, err := types.NewJobRequestFromDefinition(job)
 			require.NoError(t, err)
-			req.OrganizationID = fmt.Sprintf("org_%d", i)
-			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 
 			// updating state
 			req.JobState = common.NewRequestState(state)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 		}
 	}
@@ -847,12 +850,12 @@ func Test_ShouldFixOrphanJobRequests(t *testing.T) {
 			require.NoError(t, err)
 			req.OrganizationID = fmt.Sprintf("org_%d", i)
 			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 
 			// updating state
 			req.JobState = common.NewRequestState(state)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			require.NoError(t, err)
 		}
 	}

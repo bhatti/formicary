@@ -107,6 +107,14 @@ func (JobResource) TableName() string {
 	return "formicary_job_resources"
 }
 
+// Editable checks if user can edit
+func (jr *JobResource) Editable(userID string, organizationID string) bool {
+	if jr.OrganizationID != "" || organizationID != "" {
+		return jr.OrganizationID == organizationID
+	}
+	return jr.UserID == userID
+}
+
 // MatchTag matches by tag
 func (jr *JobResource) MatchTag(other []string) error {
 	return utils.MatchTagsArray(jr.Tags, other)
@@ -115,7 +123,7 @@ func (jr *JobResource) MatchTag(other []string) error {
 // ShortID short id
 func (jr *JobResource) ShortID() string {
 	if len(jr.ID) > 8 {
-		return "..." + jr.ID[len(jr.ID)-8:]
+		return jr.ID[0:8] + "..."
 	}
 	return jr.ID
 }

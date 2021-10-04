@@ -21,7 +21,9 @@ type JobResourceRepository interface {
 		qc *common.QueryContext,
 		id string) error
 	// Save - Saves job-resource
-	Save(resource *types.JobResource) (*types.JobResource, error)
+	Save(
+		qc *common.QueryContext,
+		resource *types.JobResource) (*types.JobResource, error)
 	// Query - Queries job-resource by parameters
 	Query(
 		qc *common.QueryContext,

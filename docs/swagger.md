@@ -1,5 +1,6 @@
 # Formicary API
-The formicary is a distributed graph processing system based on *Leader-Follower* and *Pipes-Filter* design principles for executing a directed acyclic graph of tasks.
+The formicary is a distributed orchestration engine based on `Leader-Follower` and `Pipes-Filter` design principles for
+executing a directed acyclic graph of tasks and workflows.
 
 ## Version: 0.0.1
 
@@ -1310,6 +1311,27 @@ Updates a config for the organization.
 | ---- | ----------- | ------ |
 | 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [OrganizationConfig](#organizationconfig) |
 
+### /api/orgs/usage_report
+
+#### POST
+##### Description
+
+`This requires admin access`
+Shows usage report by organization and user
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| from | query |  | No | string |
+| to | query | TO ISO date | No | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Usage Report | [ [CombinedResourceUsage](#combinedresourceusage) ] |
+
 ### /api/subscriptions
 
 #### GET
@@ -1746,7 +1768,7 @@ AuditRecord defines audit-record
 #### BasicResource
 
 These mutex/semaphores can represent external resources that job requires and can be used to determine
-concurrency of jobs. For example, a job may need a license key to connect to a third party service and
+concurrency of jobs. For example, a job may need a license key to connect to a third party service, and
 it may only accept upto five connections that can be allocated via resources.
 
 | Name | Type | Description | Required |
@@ -1758,6 +1780,17 @@ it may only accept upto five connections that can be allocated via resources.
 | resource_type | string | ResourceType defines type of resource such as Device, CPU, Memory | No |
 | tags | [ string ] | Tags can be used as tags for resource matching | No |
 | value | long | Value consumed, e.g. it will be 1 for mutex, semaphore but can be higher number for other quota system | No |
+
+#### CombinedResourceUsage
+
+CombinedResourceUsage defines use of a combined resource
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| cpu_resource | [ResourceUsage](#resourceusage) |  | No |
+| disk_resource | [ResourceUsage](#resourceusage) |  | No |
+| organization_id | string |  | No |
+| user_id | string |  | No |
 
 #### ContainerLifecycleEvent
 
@@ -1806,6 +1839,7 @@ EmailVerification represents verified email
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | action | [ErrorCodeAction](#errorcodeaction) |  | No |
+| command_scope | string | CommandScope only applies error code for command | No |
 | created_at | dateTime | CreatedAt job creation time | No |
 | description | string | Description of error | No |
 | display_code | string | DisplayCode defines user code for error | No |
@@ -1815,11 +1849,13 @@ EmailVerification represents verified email
 | hard_failure | boolean | HardFailure determines if this error can be retried or is hard failure | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_type | string | JobType defines type for the job | No |
+| organization_id | string | OrganizationID defines org who owns the error code | No |
 | platform_scope | string | PlatformScope only applies error code for platform | No |
 | regex | string | Regex matches error-code | No |
 | retry | long | Retry defines number of tries if task is failed with this error code | No |
 | task_type_scope | string | TaskTypeScope only applies error code for task_type | No |
 | updated_at | dateTime | UpdatedAt job update time | No |
+| user_id | string | UserID defines user who owns the error code | No |
 
 #### ErrorCodeAction
 
@@ -1991,13 +2027,14 @@ JobNotifyConfig structure for notification config
 | organization_id | string | OrganizationID defines org who submitted the job | No |
 | schedule_attempts | long | ScheduleAttempts defines attempts of schedule | No |
 | scheduled_at | dateTime | ScheduledAt defines schedule time | No |
+| tried | long | Retried job tries | No |
 | user_id | string | UserID defines user who submitted the job | No |
 
 #### JobResource
 
 Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc.
 You can use them as mutex, semaphores or quota system to determine concurrency of jobs.
-For example, a job may need a license key to connect to a third party service and it may only accept upto
+For example, a job may need a license key to connect to a third party service, and it may only accept upto
 five connections that can be allocated via resources.
 
 | Name | Type | Description | Required |
@@ -2010,7 +2047,7 @@ five connections that can be allocated via resources.
 | id | string | ID defines UUID for primary key | No |
 | lease_timeout | [Duration](#duration) |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
-| paused | boolean | Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging. | No |
+| paused | boolean | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | platform | string | Platform can be OS platform or target runtime | No |
 | quota | long | Quota can be used to represent mutex (max 1), semaphores (max limit) or other kind of quota. Note: mutex/semaphores can only take one resource by quota may take any value | No |
 | resource_type | string | ResourceType defines type of resource such as Device, CPU, Memory | No |
@@ -2107,7 +2144,7 @@ It is used multi-tenancy support in the platform.
 | owner_user_id | string | OwnerUserID defines owner user | No |
 | parent_id | string | ParentID defines parent org | No |
 | salt | string | Salt for password | No |
-| sticky_message | string |  | No |
+| sticky_message | string | StickyMessage defines an error message that needs user attention | No |
 | subscription | [Subscription](#subscription) |  | No |
 | updated_at | dateTime | UpdatedAt update time | No |
 
@@ -2151,6 +2188,30 @@ Policy defines enum for policy of subscription
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | ResourceCriteriaConfig |  |  |  |
+
+#### ResourceUsage
+
+ResourceUsage defines use of a resource
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| count | long |  | No |
+| end_date | dateTime |  | No |
+| organization_id | string |  | No |
+| remaining_quota | long |  | No |
+| resource_type | [ResourceUsageType](#resourceusagetype) |  | No |
+| start_date | dateTime |  | No |
+| user_id | string |  | No |
+| value | long |  | No |
+| value_unit | string |  | No |
+
+#### ResourceUsageType
+
+ResourceUsageType type of usage
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| ResourceUsageType | string | ResourceUsageType type of usage |  |
 
 #### ServiceStatus
 
@@ -2209,32 +2270,33 @@ the database.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| after_script | [ string ] |  | No |
+| after_script | [ string ] | AfterScript defines list of commands that are executed after main script for cleanup | No |
 | allow_failure | boolean | AllowFailure means the task is optional and can fail without failing entire job | No |
 | allow_start_if_completed | boolean | AllowStartIfCompleted  means the task is always run on retry even if it was completed successfully | No |
 | always_run | boolean | AlwaysRun means the task is always run on execution even if the job fails. For example, a required task fails (without AllowFailure), the job is aborted and remaining tasks are skipped but a task defined as `AlwaysRun` is run even if the job fails. | No |
-| artifact_ids | [ string ] |  | No |
-| await_forked_tasks | [ string ] |  | No |
-| before_script | [ string ] |  | No |
+| artifact_ids | [ string ] | ArtifactIDs defines id of artifacts that are automatically downloaded for job-execution | No |
+| await_forked_tasks | [ string ] | AwaitForkedTasks defines list of jobs to wait for completion | No |
+| before_script | [ string ] | BeforeScript defines list of commands that are executed before main script | No |
 | created_at | dateTime | CreatedAt job creation time | No |
 | delay_between_retries | [Duration](#duration) |  | No |
-| dependencies | [ string ] |  | No |
+| dependencies | [ string ] | Dependencies defines dependent tasks for downloading artifacts | No |
 | description | string | Description of task | No |
-| except | string |  | No |
-| fork_job_type | string |  | No |
-| headers | object |  | No |
-| host_network | string |  | No |
+| except | string | Except is used to filter task execution based on certain condition | No |
+| fork_job_type | string | ForkJobType defines type of job to work | No |
+| headers | object | Header defines HTTP headers | No |
+| host_network | string | HostNetwork defines kubernetes/docker config for host_network | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_definition_id | string | JobDefinitionID defines foreign key for JobDefinition | No |
-| job_version | string |  | No |
-| messaging_queue | string |  | No |
+| job_version | string | JobVersion defines job version | No |
+| messaging_reply_queue | string |  | No |
+| messaging_request_queue | string |  | No |
 | method | [TaskMethod](#taskmethod) |  | No |
-| on_completed | string |  | No |
-| on_exit_code | object |  | No |
-| on_failed | string |  | No |
+| on_completed | string | OnCompleted defines next task to run based on completion | No |
+| on_exit_code | object | OnExitCode defines next task to run based on exit code | No |
+| on_failed | string | OnFailed defines next task to run based on failure | No |
 | resources | [BasicResource](#basicresource) |  | No |
 | retry | long | Retry defines max number of tries a task can be retried where it re-runs failed tasks | No |
-| script | [ string ] |  | No |
+| script | [ string ] | Script defines list of commands to execute in container | No |
 | tags | [ string ] | Tags are used to use specific followers that support the tags defined by ants. For example, you may start a follower that processes payments and the task will be routed to that follower | No |
 | task_type | string | TaskType defines type of task | No |
 | timeout | [Duration](#duration) |  | No |
@@ -2248,15 +2310,16 @@ the database.
 | allow_failure | boolean | AllowFailure means the task is optional and can fail without failing entire job | No |
 | ant_host | string | AntHost - host where ant ran the task | No |
 | ant_id | string | AntID - id of ant with version | No |
-| applied_cost | double | AppliedCost | No |
 | artifacts | [ [Artifact](#artifact) ] | Artifacts defines list of artifacts that are generated for the task | No |
 | contexts | [ [TaskExecutionContext](#taskexecutioncontext) ] | Contexts defines context variables of task | No |
+| cost_factor | double | CostFactor | No |
 | count_services | long | CountServices | No |
 | ended_at | dateTime | EndedAt job update time | No |
 | error_code | string | ErrorCode captures error code at the end of job execution if it fails | No |
 | error_message | string | ErrorMessage captures error message at the end of job execution if it fails | No |
 | exit_code | string | ExitCode defines exit status from the job execution | No |
 | exit_message | string | ExitMessage defines exit message from the job execution | No |
+| failed_command | string | FailedCommand captures command that failed | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_execution_id | string | JobExecutionID defines foreign key for JobExecution | No |
 | method | [TaskMethod](#taskmethod) |  | No |
@@ -2292,7 +2355,7 @@ based on method, tags and concurrency of the ant follower.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| admin | boolean | Admin is used for admin role | No |
+| Organization | [Organization](#organization) |  | No |
 | auth_id | string | AuthID defines id from external auth provider | No |
 | auth_provider | string | AuthProvider defines provider for external auth provider | No |
 | bundle_id | string | BundleID defines package or bundle | No |
@@ -2303,10 +2366,9 @@ based on method, tags and concurrency of the ant follower.
 | name | string | Name of user | No |
 | notify | object |  | No |
 | organization_id | string | OrganizationID defines foreign key for Organization | No |
-| perms | string | Perms defines permissions | No |
 | picture_url | string | PictureURL defines URL for picture | No |
 | salt | string | Salt for password | No |
-| sticky_message | string |  | No |
+| sticky_message | string | StickyMessage defines an error message that needs user attention | No |
 | subscription | [Subscription](#subscription) |  | No |
 | updated_at | dateTime | UpdatedAt update time | No |
 | url | string | URL defines url | No |
@@ -2334,10 +2396,10 @@ UserJobTypeKey defines key for job-type by user/org
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | GetJobType | string | GetJobType defines the type of job | No |
-| GetJobVersion | string |  | No |
-| GetOrganizationID | string |  | No |
-| GetUserID | string |  | No |
-| GetUserJobTypeKey | string |  | No |
+| GetJobVersion | string | GetJobVersion defines the version of job | No |
+| GetOrganizationID | string | GetOrganizationID defines the organization-id of the job creator | No |
+| GetUserID | string | GetUserID defines the user-id of the job creator | No |
+| GetUserJobTypeKey | string | GetUserJobTypeKey defines a unique key for the user and job | No |
 
 #### UserToken
 

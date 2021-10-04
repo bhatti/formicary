@@ -62,8 +62,7 @@ func (jdr *JobDefinitionRepositoryImpl) Get(
 	}
 
 	if !job.PublicPlugin && !qc.IsReadAdmin() {
-		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
-			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
+		if !job.Editable(qc.GetUserID(), qc.GetOrganizationID()) {
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
@@ -128,8 +127,7 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	}
 
 	if !job.PublicPlugin && !qc.IsReadAdmin() {
-		if (job.OrganizationID != "" && job.OrganizationID != qc.GetOrganizationID()) ||
-			(job.OrganizationID == "" && job.UserID != qc.GetUserID()) {
+		if !job.Editable(qc.GetUserID(), qc.GetOrganizationID()) {
 			debug.PrintStack()
 			log.WithFields(log.Fields{
 				"Component":     "JobDefinitionRepositoryImpl",
@@ -294,12 +292,8 @@ func (jdr *JobDefinitionRepositoryImpl) DeleteConfig(
 func (jdr *JobDefinitionRepositoryImpl) Save(
 	qc *common.QueryContext,
 	job *types.JobDefinition) (*types.JobDefinition, error) {
-	if qc.GetUserID() != job.UserID {
-		return nil, fmt.Errorf("user-id doesn't match '%s:%s'", qc.GetUserID(), job.UserID)
-	}
-	if qc.GetOrganizationID() != job.OrganizationID {
-		return nil, fmt.Errorf("organization-id doesn't match '%s:%s'", qc.GetOrganizationID(), job.OrganizationID)
-	}
+	job.UserID = qc.GetUserID()
+	job.OrganizationID = qc.GetOrganizationID()
 	err := job.ValidateBeforeSave(jdr.encryptionKey(qc))
 	if err != nil {
 		return nil, common.NewValidationError(err)

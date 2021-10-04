@@ -215,7 +215,7 @@ definitions:
   BasicResource:
     description: |-
       These mutex/semaphores can represent external resources that job requires and can be used to determine
-      concurrency of jobs. For example, a job may need a license key to connect to a third party service and
+      concurrency of jobs. For example, a job may need a license key to connect to a third party service, and
       it may only accept upto five connections that can be allocated via resources.
     properties:
       category:
@@ -250,6 +250,21 @@ definitions:
         x-go-name: Value
     title: BasicResource defines common properties of a resource, which can be used
       to implement mutex/semaphores for a job.
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  CombinedResourceUsage:
+    description: CombinedResourceUsage defines use of a combined resource
+    properties:
+      cpu_resource:
+        $ref: '#/definitions/ResourceUsage'
+      disk_resource:
+        $ref: '#/definitions/ResourceUsage'
+      organization_id:
+        type: string
+        x-go-name: OrganizationID
+      user_id:
+        type: string
+        x-go-name: UserID
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   ContainerLifecycleEvent:
@@ -355,6 +370,10 @@ definitions:
     properties:
       action:
         $ref: '#/definitions/ErrorCodeAction'
+      command_scope:
+        description: CommandScope only applies error code for command
+        type: string
+        x-go-name: CommandScope
       created_at:
         description: CreatedAt job creation time
         format: date-time
@@ -396,6 +415,10 @@ definitions:
         description: JobType defines type for the job
         type: string
         x-go-name: JobType
+      organization_id:
+        description: OrganizationID defines org who owns the error code
+        type: string
+        x-go-name: OrganizationID
       platform_scope:
         description: PlatformScope only applies error code for platform
         type: string
@@ -419,6 +442,10 @@ definitions:
         format: date-time
         type: string
         x-go-name: UpdatedAt
+      user_id:
+        description: UserID defines user who owns the error code
+        type: string
+        x-go-name: UserID
     title: ErrorCode defines codes for tracking different types of errors.
     type: object
     x-go-package: plexobject.com/formicary/internal/types
@@ -968,6 +995,11 @@ definitions:
         format: date-time
         type: string
         x-go-name: ScheduledAt
+      tried:
+        description: Retried job tries
+        format: int64
+        type: integer
+        x-go-name: Retried
       user_id:
         description: UserID defines user who submitted the job
         type: string
@@ -979,7 +1011,7 @@ definitions:
     description: |-
       Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc.
       You can use them as mutex, semaphores or quota system to determine concurrency of jobs.
-      For example, a job may need a license key to connect to a third party service and it may only accept upto
+      For example, a job may need a license key to connect to a third party service, and it may only accept upto
       five connections that can be allocated via resources.
     properties:
       category:
@@ -1012,8 +1044,8 @@ definitions:
         type: string
         x-go-name: OrganizationID
       paused:
-        description: Paused is used to stop further processing of job and it can be
-          used during maintenance, upgrade or debugging.
+        description: Paused is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
         type: boolean
         x-go-name: Paused
       platform:
@@ -1282,6 +1314,7 @@ definitions:
         type: string
         x-go-name: Salt
       sticky_message:
+        description: StickyMessage defines an error message that needs user attention
         type: string
         x-go-name: StickyMessage
       subscription:
@@ -1351,6 +1384,46 @@ definitions:
   ResourceCriteriaConfig:
     title: ResourceCriteriaConfig defines properties to extract from a resource into
       job variables.
+  ResourceUsage:
+    description: ResourceUsage defines use of a resource
+    properties:
+      count:
+        format: int64
+        type: integer
+        x-go-name: Count
+      end_date:
+        format: date-time
+        type: string
+        x-go-name: EndDate
+      organization_id:
+        type: string
+        x-go-name: OrganizationID
+      remaining_quota:
+        format: int64
+        type: integer
+        x-go-name: RemainingQuota
+      resource_type:
+        $ref: '#/definitions/ResourceUsageType'
+      start_date:
+        format: date-time
+        type: string
+        x-go-name: StartDate
+      user_id:
+        type: string
+        x-go-name: UserID
+      value:
+        format: int64
+        type: integer
+        x-go-name: Value
+      value_unit:
+        type: string
+        x-go-name: ValueUnit
+    type: object
+    x-go-package: plexobject.com/formicary/queen/types
+  ResourceUsageType:
+    description: ResourceUsageType type of usage
+    type: string
+    x-go-package: plexobject.com/formicary/queen/types
   ServiceStatus:
     properties:
       ConsecutiveFailures:
@@ -1498,6 +1571,8 @@ definitions:
       the database.
     properties:
       after_script:
+        description: AfterScript defines list of commands that are executed after
+          main script for cleanup
         items:
           type: string
         type: array
@@ -1519,16 +1594,21 @@ definitions:
         type: boolean
         x-go-name: AlwaysRun
       artifact_ids:
+        description: ArtifactIDs defines id of artifacts that are automatically downloaded
+          for job-execution
         items:
           type: string
         type: array
         x-go-name: ArtifactIDs
       await_forked_tasks:
+        description: AwaitForkedTasks defines list of jobs to wait for completion
         items:
           type: string
         type: array
         x-go-name: AwaitForkedTasks
       before_script:
+        description: BeforeScript defines list of commands that are executed before
+          main script
         items:
           type: string
         type: array
@@ -1541,6 +1621,7 @@ definitions:
       delay_between_retries:
         $ref: '#/definitions/Duration'
       dependencies:
+        description: Dependencies defines dependent tasks for downloading artifacts
         items:
           type: string
         type: array
@@ -1550,17 +1631,21 @@ definitions:
         type: string
         x-go-name: Description
       except:
+        description: Except is used to filter task execution based on certain condition
         type: string
         x-go-name: Except
       fork_job_type:
+        description: ForkJobType defines type of job to work
         type: string
         x-go-name: ForkJobType
       headers:
         additionalProperties:
           type: string
+        description: Header defines HTTP headers
         type: object
         x-go-name: Headers
       host_network:
+        description: HostNetwork defines kubernetes/docker config for host_network
         type: string
         x-go-name: HostNetwork
       id:
@@ -1574,22 +1659,29 @@ definitions:
         type: string
         x-go-name: JobDefinitionID
       job_version:
+        description: JobVersion defines job version
         type: string
         x-go-name: JobVersion
-      messaging_queue:
+      messaging_reply_queue:
         type: string
-        x-go-name: MessagingQueue
+        x-go-name: MessagingReplyQueue
+      messaging_request_queue:
+        type: string
+        x-go-name: MessagingRequestQueue
       method:
         $ref: '#/definitions/TaskMethod'
       on_completed:
+        description: OnCompleted defines next task to run based on completion
         type: string
         x-go-name: OnCompleted
       on_exit_code:
         additionalProperties:
           type: string
+        description: OnExitCode defines next task to run based on exit code
         type: object
         x-go-name: OnExitCode
       on_failed:
+        description: OnFailed defines next task to run based on failure
         type: string
         x-go-name: OnFailed
       resources:
@@ -1601,6 +1693,7 @@ definitions:
         type: integer
         x-go-name: Retry
       script:
+        description: Script defines list of commands to execute in container
         items:
           type: string
         type: array
@@ -1647,11 +1740,6 @@ definitions:
         description: AntID - id of ant with version
         type: string
         x-go-name: AntID
-      applied_cost:
-        description: AppliedCost
-        format: double
-        type: number
-        x-go-name: AppliedCost
       artifacts:
         description: Artifacts defines list of artifacts that are generated for the
           task
@@ -1665,6 +1753,11 @@ definitions:
           $ref: '#/definitions/TaskExecutionContext'
         type: array
         x-go-name: Contexts
+      cost_factor:
+        description: CostFactor
+        format: double
+        type: number
+        x-go-name: CostFactor
       count_services:
         description: CountServices
         format: int64
@@ -1693,6 +1786,10 @@ definitions:
         description: ExitMessage defines exit message from the job execution
         type: string
         x-go-name: ExitMessage
+      failed_command:
+        description: FailedCommand captures command that failed
+        type: string
+        x-go-name: FailedCommand
       id:
         description: |-
           gorm.Model
@@ -1781,10 +1878,8 @@ definitions:
     x-go-package: plexobject.com/formicary/internal/types
   User:
     properties:
-      admin:
-        description: Admin is used for admin role
-        type: boolean
-        x-go-name: Admin
+      Organization:
+        $ref: '#/definitions/Organization'
       auth_id:
         description: AuthID defines id from external auth provider
         type: string
@@ -1831,10 +1926,6 @@ definitions:
         description: OrganizationID defines foreign key for Organization
         type: string
         x-go-name: OrganizationID
-      perms:
-        description: Perms defines permissions
-        type: string
-        x-go-name: Perms
       picture_url:
         description: PictureURL defines URL for picture
         type: string
@@ -1844,6 +1935,7 @@ definitions:
         type: string
         x-go-name: Salt
       sticky_message:
+        description: StickyMessage defines an error message that needs user attention
         type: string
         x-go-name: StickyMessage
       subscription:
@@ -1912,12 +2004,16 @@ definitions:
         description: GetJobType defines the type of job
         type: string
       GetJobVersion:
+        description: GetJobVersion defines the version of job
         type: string
       GetOrganizationID:
+        description: GetOrganizationID defines the organization-id of the job creator
         type: string
       GetUserID:
+        description: GetUserID defines the user-id of the job creator
         type: string
       GetUserJobTypeKey:
+        description: GetUserJobTypeKey defines a unique key for the user and job
         type: string
     type: object
     x-go-package: plexobject.com/formicary/queen/types
@@ -1968,8 +2064,8 @@ info:
     name: Support
     url: http://formicary.io
   description: |-
-    The formicary is a distributed job management system based on Leader-follower design for executing a directed acyclic graph
-    of tasks.
+    The formicary is a distributed orchestration engine based on `Leader-Follower` and `Pipes-Filter` design principles for
+    executing a directed acyclic graph of tasks and workflows.
   license:
     name: AGPL
     url: https://opensource.org/licenses/AGPL-3.0
@@ -3222,6 +3318,27 @@ paths:
       summary: Updates a config for the organization.
       tags:
       - organization-configs
+  /api/orgs/usage_report:
+    post:
+      description: |-
+        `This requires admin access`
+        Shows usage report by organization and user
+      operationId: usageReport
+      parameters:
+      - in: query
+        name: from
+        type: string
+        x-go-name: From
+      - description: TO ISO date
+        in: query
+        name: to
+        type: string
+        x-go-name: To
+      responses:
+        "200":
+          $ref: '#/responses/usageReportResponse'
+      tags:
+      - organizations
   /api/subscriptions:
     get:
       description: |-
@@ -3978,6 +4095,12 @@ responses:
     description: SystemConfig body for update
     schema:
       $ref: '#/definitions/SystemConfig'
+  usageReportResponse:
+    description: Usage Report
+    schema:
+      items:
+        $ref: '#/definitions/CombinedResourceUsage'
+      type: array
   userInvitationResponse:
     description: User invitation
     schema:

@@ -49,20 +49,22 @@
 <div class="container-fluid">
 <h1 id="formicary">Overview</h1>
 <p>
-<p>The formicary is a distributed &quot;graph processing&quot; system for executing background jobs and workflows that are executed remotely using Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task defines a unit of work. The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using <b>Pipes and Filter</b> pattern, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task. The main use-cases for formicary include:</p>
+<p>The formicary is a distributed orchestration engine for executing background jobs and workflows that are executed remotely using Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task defines a unit of work. The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using <b>Pipes and Filter</b> pattern, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task. The main use-cases for formicary include:</p>
 <ul>
 <li>Processing directed acyclic graphs</li>
 <li>Batch jobs such as ETL or other offline processing</li>
 <li>Scheduled batch processing such as clearing, settlement, etc</li>
 <li>Data Pipelines such as processing large size data in background</li>
-<li>CI/CD Pipeline for building, testing and deploying code</li>
-<li>Automation for building a workflow of tasks that have complex dependencies and can interact with a variety of protocols</li>
+<li>CI/CD Pipelines for building, testing and deploying code</li>
+<li>Automation for repetitive tasks</li>
+<li>Building workflows of tasks that have complex dependencies and can interact with a variety of protocols</li>
 </ul>
 <h2 id="features-">Features:</h2>
 <ul>
 <li>Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.</li>
 <li>GO based templates for job-definitions so that you can define customized variables and actions. </li>
 <li>Persistence of artifacts from tasks that can be used by other tasks or used as output of jobs.</li>
+<li>Extensible Method abstraction for supporting a variety of execution protocols such as Docker, Kubernetes HTTP, Messaging or other customized protocols.</li>
 <li>Caching of dependencies such as npm, maven, gradle, python, etc.</li>
 <li>Encryption for storing secured configuration in the database or while in network communication.</li>
 <li>Cron based scheduled processing where jobs can be executed at specific times or run periodically.</li>
@@ -104,7 +106,10 @@
     <li><a href="node_ci.html">Node.js CI/CD</a></li>
     <li><a href="go_ci.html">GO CI/CD</a></li>
     <li><a href="python_ci.html">Python CI/CD</a></li>
+    <li><a href="android_ci.html">Android CI/CD</a></li>
+    <li><a href="maven_ci.html">Maven CI/CD</a></li>
     </ul>
+
     <li><a href="plugins.html">Public Plugins</a></li>
     <li><a href="advanced_k8.html">Kubernetes Examples</a></li>
     <li><a href="howto.html">How-to Guides</a></li>

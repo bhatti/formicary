@@ -62,10 +62,12 @@ func Test_ShouldSaveJobResourceWithoutJobType(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	// WHEN saving resource without job-type
 	job := types.NewJobResource("", 1)
-	_, err = repo.Save(job)
+	_, err = repo.Save(qc, job)
 
 	// THEN it should fail
 	require.Error(t, err)
@@ -85,7 +87,7 @@ func Test_ShouldSaveValidJobResourceWithoutConfig(t *testing.T) {
 	resource.OrganizationID = qc.User.OrganizationID
 
 	// WHEN saving valid resource
-	saved, err := repo.Save(resource)
+	saved, err := repo.Save(qc, resource)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -115,7 +117,7 @@ func Test_ShouldSaveValidJobResourceWithConfig(t *testing.T) {
 	_, _ = resource.AddConfig("jk2", true)
 
 	// WHEN saving job
-	saved, err := repo.Save(resource)
+	saved, err := repo.Save(qc, resource)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -142,7 +144,7 @@ func Test_ShouldUpdateValidJobResource(t *testing.T) {
 	resource.OrganizationID = qc.User.OrganizationID
 
 	// WHEN saving resource
-	saved, err := repo.Save(resource)
+	saved, err := repo.Save(qc, resource)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -156,7 +158,7 @@ func Test_ShouldUpdateValidJobResource(t *testing.T) {
 	require.NotNil(t, resource.DeleteConfig("db"))
 
 	// WHEN updating resource
-	saved, err = repo.Save(resource)
+	saved, err = repo.Save(qc, resource)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -182,7 +184,7 @@ func Test_ShouldPausingPersistentJobResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND existing resource
-	saved, err := repo.Save(resource)
+	saved, err := repo.Save(qc, resource)
 	require.NoError(t, err)
 
 	// WHEN pausing resource by id
@@ -206,7 +208,7 @@ func Test_ShouldDeletingPersistentJobResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND existing resource
-	saved, err := repo.Save(resource)
+	saved, err := repo.Save(qc, resource)
 	require.NoError(t, err)
 
 	// WHEN deleting resource by id
@@ -235,7 +237,7 @@ func Test_ShouldQueryJobResourceByJobType(t *testing.T) {
 		resource := newTestResource(fmt.Sprintf("query-job-%v", i))
 		resource.UserID = qc.User.ID
 		resource.OrganizationID = qc.User.OrganizationID
-		saved, err := repo.Save(resource)
+		saved, err := repo.Save(qc, resource)
 		if err != nil {
 			t.Fatalf("unexpected error %v while saving a job", err)
 		}
@@ -274,7 +276,7 @@ func Test_ShouldQueryJobResourceWithDifferentOperators(t *testing.T) {
 		resource := newTestResource(fmt.Sprintf("resource-query-operator-%v", i))
 		resource.UserID = qc.User.ID
 		resource.OrganizationID = qc.User.OrganizationID
-		_, err := repo.Save(resource)
+		_, err := repo.Save(qc, resource)
 		if err != nil {
 			t.Fatalf("failed to save resource %v", err)
 		}
@@ -333,11 +335,13 @@ func Test_ShouldAllocateDeallocateResources(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
 
 	repo.clear()
 	resource := newTestResource("allocate-resource")
 	resource.Quota = 10
-	_, err = repo.Save(resource)
+	_, err = repo.Save(qc, resource)
 	if err != nil {
 		t.Fatalf("failed to save resource %v", err)
 	}
@@ -404,7 +408,7 @@ func Test_ShouldMatchResources(t *testing.T) {
 		resources[i].Platform = platforms[i]
 		resources[i].UserID = qc.User.ID
 		resources[i].OrganizationID = qc.User.OrganizationID
-		resources[i], err = repo.Save(resources[i])
+		resources[i], err = repo.Save(qc, resources[i])
 		require.NoError(t, err)
 	}
 

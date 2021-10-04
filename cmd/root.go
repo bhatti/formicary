@@ -27,8 +27,8 @@ var Date string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "formicary",
-	Short: "Starts default server for formicary graph processing system",
-	Long:  "Starts default server for formicary graph processing system",
+	Short: "Starts default server (queen) for processing the formicary jobs",
+	Long:  "Starts default server (queen) for processing the formicary jobs",
 	Run: func(cmd *cobra.Command, args []string) {
 		RunServer(cmd, args)
 	},

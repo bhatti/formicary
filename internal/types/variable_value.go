@@ -1,6 +1,8 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // VariableValue defines structure for value of variable
 type VariableValue struct {
@@ -24,3 +26,15 @@ func NewVariableValue(
 func (v VariableValue) String() string {
 	return fmt.Sprintf("%s", v.Value)
 }
+
+// MaskVariableValues filers sensitive values
+func MaskVariableValues(all map[string]VariableValue) (res map[string]VariableValue) {
+	res = make(map[string]VariableValue)
+	for k, v := range all {
+		if !v.Secret {
+			res[k] = v
+		}
+	}
+	return
+}
+

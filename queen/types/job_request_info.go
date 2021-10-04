@@ -53,6 +53,14 @@ func (jri *JobRequestInfo) Validate() error {
 	return nil
 }
 
+// Editable checks if user can edit
+func (jri *JobRequestInfo) Editable(userID string, organizationID string) bool {
+	if jri.OrganizationID != "" || organizationID != "" {
+		return jri.OrganizationID == organizationID
+	}
+	return jri.UserID == userID
+}
+
 // GetUserJobTypeKey defines key
 func (jri *JobRequestInfo) GetUserJobTypeKey() string {
 	return getUserJobTypeKey(jri.OrganizationID, jri.UserID, jri.JobType, jri.JobVersion)

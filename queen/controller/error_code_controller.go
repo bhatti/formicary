@@ -41,7 +41,8 @@ func NewErrorCodeController(
 // responses:
 //   200: errorCodesQueryResponse
 func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.WebContext) error {
-	recs, err := ecCtrl.errorCodeRepository.GetAll()
+	qc := web.BuildQueryContext(c)
+	recs, err := ecCtrl.errorCodeRepository.GetAll(qc)
 	if err != nil {
 		return err
 	}
@@ -54,13 +55,14 @@ func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.WebContext) error {
 // responses:
 //   200: errorCodeResponse
 func (ecCtrl *ErrorCodeController) postErrorCode(c web.WebContext) error {
+	qc := web.BuildQueryContext(c)
 	now := time.Now()
-	ec := common.NewErrorCode("", "", "")
+	ec := common.NewErrorCode("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(ec)
 	if err != nil {
 		return err
 	}
-	saved, err := ecCtrl.errorCodeRepository.Save(ec)
+	saved, err := ecCtrl.errorCodeRepository.Save(qc, ec)
 	if err != nil {
 		return err
 	}
@@ -79,12 +81,13 @@ func (ecCtrl *ErrorCodeController) postErrorCode(c web.WebContext) error {
 // responses:
 //   200: errorCodeResponse
 func (ecCtrl *ErrorCodeController) putErrorCode(c web.WebContext) error {
-	ec := common.NewErrorCode("", "", "")
+	qc := web.BuildQueryContext(c)
+	ec := common.NewErrorCode("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(ec)
 	if err != nil {
 		return err
 	}
-	saved, err := ecCtrl.errorCodeRepository.Save(ec)
+	saved, err := ecCtrl.errorCodeRepository.Save(qc, ec)
 	if err != nil {
 		return err
 	}
@@ -97,7 +100,8 @@ func (ecCtrl *ErrorCodeController) putErrorCode(c web.WebContext) error {
 // responses:
 //   200: errorCodeResponse
 func (ecCtrl *ErrorCodeController) getErrorCode(c web.WebContext) error {
-	ec, err := ecCtrl.errorCodeRepository.Get(c.Param("id"))
+	qc := web.BuildQueryContext(c)
+	ec, err := ecCtrl.errorCodeRepository.Get(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -110,7 +114,8 @@ func (ecCtrl *ErrorCodeController) getErrorCode(c web.WebContext) error {
 // responses:
 //   200: emptyResponse
 func (ecCtrl *ErrorCodeController) deleteErrorCode(c web.WebContext) error {
-	err := ecCtrl.errorCodeRepository.Delete(c.Param("id"))
+	qc := web.BuildQueryContext(c)
+	err := ecCtrl.errorCodeRepository.Delete(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}

@@ -536,6 +536,17 @@ func (td *TaskDefinition) HasNext() bool {
 	return len(td.OnExitCode) > 0 || td.OnCompleted != "" || td.OnFailed != ""
 }
 
+// MaskTaskVariables filers sensitive values
+func (td *TaskDefinition) MaskTaskVariables() (res []*TaskDefinitionVariable) {
+	res = make([]*TaskDefinitionVariable, 0)
+	for _, v := range td.Variables {
+		if !v.Secret {
+			res = append(res, v)
+		}
+	}
+	return
+}
+
 // OverrideStatusAndErrorCode checks if status or error-code can be overridden
 func (td *TaskDefinition) OverrideStatusAndErrorCode(
 	exitCode string) (status common.RequestState, errorCode string) {

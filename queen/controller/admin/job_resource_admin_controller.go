@@ -82,7 +82,7 @@ func (jraCtr *JobResourceAdminController) createJobResource(c web.WebContext) (e
 	resource := buildResource(c)
 	err = resource.Validate()
 	if err == nil {
-		resource, err = jraCtr.jobResourceRepository.Save(resource)
+		resource, err = jraCtr.jobResourceRepository.Save(qc, resource)
 	}
 	if err != nil {
 		res := map[string]interface{}{
@@ -125,7 +125,7 @@ func (jraCtr *JobResourceAdminController) updateJobResource(c web.WebContext) (e
 	err = resource.Validate()
 
 	if err == nil {
-		resource, err = jraCtr.jobResourceRepository.Save(resource)
+		resource, err = jraCtr.jobResourceRepository.Save(qc, resource)
 	}
 	if err != nil {
 		res := map[string]interface{}{

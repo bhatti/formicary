@@ -52,6 +52,8 @@ func Test_ShouldPermissions(t *testing.T) {
 	require.True(t, perms.Has(Artifact, Read))
 	require.True(t, perms.Has(Artifact, View))
 	require.True(t, perms.Has(Artifact, Upload))
+	require.True(t, perms.Has(ErrorCode, View))
+	require.True(t, perms.Has(ErrorCode, Read))
 	t.Logf("permissions: %s", ser)
 }
 

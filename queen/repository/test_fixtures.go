@@ -118,10 +118,10 @@ func SaveTestJobRequests(qc *common.QueryContext, jobName string) error {
 			if err != nil {
 				return err
 			}
-			req.OrganizationID = fmt.Sprintf("org_%d", i)
-			req.UserID = fmt.Sprintf("user_%d_%d", i, j)
+			req.OrganizationID = qc.GetOrganizationID()
+			req.UserID = qc.GetUserID()
 			req.JobPriority = rand.Intn(100)
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func SaveTestJobRequests(qc *common.QueryContext, jobName string) error {
 			req.OrganizationID = qc.User.OrganizationID
 
 			// updating state and error code
-			_, err = repo.Save(req)
+			_, err = repo.Save(qc, req)
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobReques
 	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
 	_, _ = req.AddParam("jk3", true)
 	_, _ = req.AddParam("jk4", 50.10)
-	_, err = jobRequestRepo.Save(req)
+	_, err = jobRequestRepo.Save(qc, req)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -184,3 +184,15 @@ func (nv NameTypeValue) IsPrimitiveType() bool {
 		nv.Type == "complex128" ||
 		nv.Type == "byte"
 }
+
+// MaskVariables filers sensitive values
+func MaskVariables(all []NameTypeValue) (res []NameTypeValue) {
+	res = make([]NameTypeValue, 0)
+	for _, v := range all {
+		if !v.Secret {
+			res = append(res, v)
+		}
+	}
+	return
+}
+

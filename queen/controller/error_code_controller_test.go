@@ -25,9 +25,13 @@ func Test_InitializeSwaggerStructsForErrorCode(t *testing.T) {
 
 func Test_ShouldQueryErrorCodes(t *testing.T) {
 	// GIVEN error-code controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	errorCodeRepository, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
-	_, err = errorCodeRepository.Save(types.NewErrorCode("job", "regex", "err-code"))
+	_, err = errorCodeRepository.Save(
+		qc,
+		types.NewErrorCode("myjob", "regex", "cmd", "err-code"))
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewErrorCodeController(errorCodeRepository, webServer)
@@ -36,6 +40,7 @@ func Test_ShouldQueryErrorCodes(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	err = ctrl.queryErrorCodes(ctx)
 
 	// THEN it should not fail nad return error codes
@@ -52,7 +57,7 @@ func Test_ShouldCreateAndGetErrorCode(t *testing.T) {
 	ctrl := NewErrorCodeController(errorCodeRepository, webServer)
 
 	// WHEN creating error-code
-	b, err := json.Marshal(types.NewErrorCode("job", "regex", "err-code"))
+	b, err := json.Marshal(types.NewErrorCode("job", "regex", "", "err-code"))
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader})
@@ -80,7 +85,7 @@ func Test_ShouldUpdateAndGetErrorCode(t *testing.T) {
 	ctrl := NewErrorCodeController(errorCodeRepository, webServer)
 
 	// WHEN updating error code
-	b, err := json.Marshal(types.NewErrorCode("job", "regex", "err-code"))
+	b, err := json.Marshal(types.NewErrorCode("job", "regex", "", "err-code"))
 	require.NoError(t, err)
 	reader := io.NopCloser(bytes.NewReader(b))
 	ctx := web.NewStubContext(&http.Request{Body: reader})
@@ -108,7 +113,7 @@ func Test_ShouldAddAndDeleteErrorCode(t *testing.T) {
 	ctrl := NewErrorCodeController(errorCodeRepository, webServer)
 
 	// WHEN adding error code
-	b, err := json.Marshal(types.NewErrorCode("job", "regex", "err-code"))
+	b, err := json.Marshal(types.NewErrorCode("job", "regex", "", "err-code"))
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
 	}

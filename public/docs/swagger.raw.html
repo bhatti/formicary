@@ -1,5 +1,5 @@
 <h1 id="formicary-api">Formicary API</h1>
-<p>The formicary is a distributed graph processing system based on <b>Leader-Follower</b> and <b>Pipes-Filter</b> design principles for executing a directed acyclic graph of tasks.</p>
+<p>The formicary is a distributed orchestration engine based on <code>Leader-Follower</code> and <code>Pipes-Filter</code> design principles for executing a directed acyclic graph of tasks and workflows.</p>
 <h2 id="version-0-0-1">Version: 0.0.1</h2>
 <p><strong>Contact information:</strong> Support <a href="http://formicary.io">http://formicary.io</a> <a href="mailto:support@formicary.io">support@formicary.io</a>  </p>
 <p><strong>License:</strong> <a href="https://opensource.org/licenses/AGPL-3.0">AGPL</a></p>
@@ -2988,6 +2988,55 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-orgs-usage_report">/api/orgs/usage_report</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p><code>This requires admin access</code> Shows usage report by organization and user</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>from</td>
+<td>query</td>
+<td></td>
+<td>No</td>
+<td>string</td>
+</tr>
+<tr>
+<td>to</td>
+<td>query</td>
+<td>TO ISO date</td>
+<td>No</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Usage Report</td>
+<td>[ <a href="#combinedresourceusage">CombinedResourceUsage</a> ]</td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-subscriptions">/api/subscriptions</h3>
 <h4 id="get">GET</h4>
 <h5 id="description">Description</h5>
@@ -4174,7 +4223,7 @@
 </tbody>
 </table>
 <h4 id="basicresource">BasicResource</h4>
-<p>These mutex/semaphores can represent external resources that job requires and can be used to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service and it may only accept upto five connections that can be allocated via resources.</p>
+<p>These mutex/semaphores can represent external resources that job requires and can be used to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service, and it may only accept upto five connections that can be allocated via resources.</p>
 <table class='table table-sm'>
 <thead>
 <tr>
@@ -4225,6 +4274,44 @@
 <td>value</td>
 <td>long</td>
 <td>Value consumed, e.g. it will be 1 for mutex, semaphore but can be higher number for other quota system</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="combinedresourceusage">CombinedResourceUsage</h4>
+<p>CombinedResourceUsage defines use of a combined resource</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cpu_resource</td>
+<td><a href="#resourceusage">ResourceUsage</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>disk_resource</td>
+<td><a href="#resourceusage">ResourceUsage</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 </tbody>
@@ -4413,6 +4500,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>command_scope</td>
+<td>string</td>
+<td>CommandScope only applies error code for command</td>
+<td>No</td>
+</tr>
+<tr>
 <td>created_at</td>
 <td>dateTime</td>
 <td>CreatedAt job creation time</td>
@@ -4467,6 +4560,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who owns the error code</td>
+<td>No</td>
+</tr>
+<tr>
 <td>platform_scope</td>
 <td>string</td>
 <td>PlatformScope only applies error code for platform</td>
@@ -4494,6 +4593,12 @@
 <td>updated_at</td>
 <td>dateTime</td>
 <td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td>UserID defines user who owns the error code</td>
 <td>No</td>
 </tr>
 </tbody>
@@ -5307,6 +5412,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>tried</td>
+<td>long</td>
+<td>Retried job tries</td>
+<td>No</td>
+</tr>
+<tr>
 <td>user_id</td>
 <td>string</td>
 <td>UserID defines user who submitted the job</td>
@@ -5315,7 +5426,7 @@
 </tbody>
 </table>
 <h4 id="jobresource">JobResource</h4>
-<p>Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc. You can use them as mutex, semaphores or quota system to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service and it may only accept upto five connections that can be allocated via resources.</p>
+<p>Job Resources can be used for allocating computing resources such as devices, CPUs, memory, connections, licences, etc. You can use them as mutex, semaphores or quota system to determine concurrency of jobs. For example, a job may need a license key to connect to a third party service, and it may only accept upto five connections that can be allocated via resources.</p>
 <table class='table table-sm'>
 <thead>
 <tr>
@@ -5377,7 +5488,7 @@
 <tr>
 <td>paused</td>
 <td>boolean</td>
-<td>Paused is used to stop further processing of job and it can be used during maintenance, upgrade or debugging.</td>
+<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5794,7 +5905,7 @@
 <tr>
 <td>sticky_message</td>
 <td>string</td>
-<td></td>
+<td>StickyMessage defines an error message that needs user attention</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5943,6 +6054,93 @@
 <td>ResourceCriteriaConfig</td>
 <td></td>
 <td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="resourceusage">ResourceUsage</h4>
+<p>ResourceUsage defines use of a resource</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>count</td>
+<td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>end_date</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>organization_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>remaining_quota</td>
+<td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>resource_type</td>
+<td><a href="#resourceusagetype">ResourceUsageType</a></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>start_date</td>
+<td>dateTime</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>value</td>
+<td>long</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>value_unit</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="resourceusagetype">ResourceUsageType</h4>
+<p>ResourceUsageType type of usage</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ResourceUsageType</td>
+<td>string</td>
+<td>ResourceUsageType type of usage</td>
 </tr>
 </tbody>
 </table>
@@ -6187,7 +6385,7 @@
 <tr>
 <td>after_script</td>
 <td>[ string ]</td>
-<td></td>
+<td>AfterScript defines list of commands that are executed after main script for cleanup</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6211,19 +6409,19 @@
 <tr>
 <td>artifact_ids</td>
 <td>[ string ]</td>
-<td></td>
+<td>ArtifactIDs defines id of artifacts that are automatically downloaded for job-execution</td>
 <td>No</td>
 </tr>
 <tr>
 <td>await_forked_tasks</td>
 <td>[ string ]</td>
-<td></td>
+<td>AwaitForkedTasks defines list of jobs to wait for completion</td>
 <td>No</td>
 </tr>
 <tr>
 <td>before_script</td>
 <td>[ string ]</td>
-<td></td>
+<td>BeforeScript defines list of commands that are executed before main script</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6241,7 +6439,7 @@
 <tr>
 <td>dependencies</td>
 <td>[ string ]</td>
-<td></td>
+<td>Dependencies defines dependent tasks for downloading artifacts</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6253,25 +6451,25 @@
 <tr>
 <td>except</td>
 <td>string</td>
-<td></td>
+<td>Except is used to filter task execution based on certain condition</td>
 <td>No</td>
 </tr>
 <tr>
 <td>fork_job_type</td>
 <td>string</td>
-<td></td>
+<td>ForkJobType defines type of job to work</td>
 <td>No</td>
 </tr>
 <tr>
 <td>headers</td>
 <td>object</td>
-<td></td>
+<td>Header defines HTTP headers</td>
 <td>No</td>
 </tr>
 <tr>
 <td>host_network</td>
 <td>string</td>
-<td></td>
+<td>HostNetwork defines kubernetes/docker config for host_network</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6289,11 +6487,17 @@
 <tr>
 <td>job_version</td>
 <td>string</td>
+<td>JobVersion defines job version</td>
+<td>No</td>
+</tr>
+<tr>
+<td>messaging_reply_queue</td>
+<td>string</td>
 <td></td>
 <td>No</td>
 </tr>
 <tr>
-<td>messaging_queue</td>
+<td>messaging_request_queue</td>
 <td>string</td>
 <td></td>
 <td>No</td>
@@ -6307,19 +6511,19 @@
 <tr>
 <td>on_completed</td>
 <td>string</td>
-<td></td>
+<td>OnCompleted defines next task to run based on completion</td>
 <td>No</td>
 </tr>
 <tr>
 <td>on_exit_code</td>
 <td>object</td>
-<td></td>
+<td>OnExitCode defines next task to run based on exit code</td>
 <td>No</td>
 </tr>
 <tr>
 <td>on_failed</td>
 <td>string</td>
-<td></td>
+<td>OnFailed defines next task to run based on failure</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6337,7 +6541,7 @@
 <tr>
 <td>script</td>
 <td>[ string ]</td>
-<td></td>
+<td>Script defines list of commands to execute in container</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6402,12 +6606,6 @@
 <td>No</td>
 </tr>
 <tr>
-<td>applied_cost</td>
-<td>double</td>
-<td>AppliedCost</td>
-<td>No</td>
-</tr>
-<tr>
 <td>artifacts</td>
 <td>[ <a href="#artifact">Artifact</a> ]</td>
 <td>Artifacts defines list of artifacts that are generated for the task</td>
@@ -6417,6 +6615,12 @@
 <td>contexts</td>
 <td>[ <a href="#taskexecutioncontext">TaskExecutionContext</a> ]</td>
 <td>Contexts defines context variables of task</td>
+<td>No</td>
+</tr>
+<tr>
+<td>cost_factor</td>
+<td>double</td>
+<td>CostFactor</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6453,6 +6657,12 @@
 <td>exit_message</td>
 <td>string</td>
 <td>ExitMessage defines exit message from the job execution</td>
+<td>No</td>
+</tr>
+<tr>
+<td>failed_command</td>
+<td>string</td>
+<td>FailedCommand captures command that failed</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6597,9 +6807,9 @@
 </thead>
 <tbody>
 <tr>
-<td>admin</td>
-<td>boolean</td>
-<td>Admin is used for admin role</td>
+<td>Organization</td>
+<td><a href="#organization">Organization</a></td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -6663,12 +6873,6 @@
 <td>No</td>
 </tr>
 <tr>
-<td>perms</td>
-<td>string</td>
-<td>Perms defines permissions</td>
-<td>No</td>
-</tr>
-<tr>
 <td>picture_url</td>
 <td>string</td>
 <td>PictureURL defines URL for picture</td>
@@ -6683,7 +6887,7 @@
 <tr>
 <td>sticky_message</td>
 <td>string</td>
-<td></td>
+<td>StickyMessage defines an error message that needs user attention</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6795,25 +6999,25 @@
 <tr>
 <td>GetJobVersion</td>
 <td>string</td>
-<td></td>
+<td>GetJobVersion defines the version of job</td>
 <td>No</td>
 </tr>
 <tr>
 <td>GetOrganizationID</td>
 <td>string</td>
-<td></td>
+<td>GetOrganizationID defines the organization-id of the job creator</td>
 <td>No</td>
 </tr>
 <tr>
 <td>GetUserID</td>
 <td>string</td>
-<td></td>
+<td>GetUserID defines the user-id of the job creator</td>
 <td>No</td>
 </tr>
 <tr>
 <td>GetUserJobTypeKey</td>
 <td>string</td>
-<td></td>
+<td>GetUserJobTypeKey defines a unique key for the user and job</td>
 <td>No</td>
 </tr>
 </tbody>

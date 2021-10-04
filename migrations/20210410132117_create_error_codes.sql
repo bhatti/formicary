@@ -9,9 +9,12 @@ CREATE TABLE IF NOT EXISTS formicary_error_codes
     display_message TEXT,
     display_code    TEXT,
     platform_scope  VARCHAR(100),
+    command_scope   VARCHAR(200),
     job_type        VARCHAR(100) NOT NULL,
     task_type_scope VARCHAR(50),
     action          VARCHAR(50),
+    user_id         VARCHAR(36) DEFAULT '',
+    organization_id VARCHAR(36) DEFAULT '',
     hard_failure    BOOLEAN      NOT NULL DEFAULT FALSE,
     retry           INT                   DEFAULT 0,
     created_at      TIMESTAMP    NOT NULL DEFAULT NOW(),
@@ -19,6 +22,8 @@ CREATE TABLE IF NOT EXISTS formicary_error_codes
 );
 
 CREATE UNIQUE INDEX formicary_error_codes_regex_exit_ndx ON formicary_error_codes (job_type, regex, exit_code);
+CREATE INDEX formicary_error_codes_org_ndx ON formicary_error_codes(organization_id);
+CREATE INDEX formicary_error_codes_user_ndx ON formicary_error_codes(user_id);
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000000', '*', 'job timed out', 'ERR_JOB_TIMEOUT');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)

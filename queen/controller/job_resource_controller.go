@@ -91,7 +91,7 @@ func (jobResCtrl *JobResourceController) postJobResource(c web.WebContext) error
 	qc := web.BuildQueryContext(c)
 	resource.UserID = qc.GetUserID()
 	resource.OrganizationID = qc.GetOrganizationID()
-	saved, err := jobResCtrl.jobResourceRepository.Save(resource)
+	saved, err := jobResCtrl.jobResourceRepository.Save(qc, resource)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (jobResCtrl *JobResourceController) putJobResource(c web.WebContext) error 
 	qc := web.BuildQueryContext(c)
 	resource.UserID = qc.GetUserID()
 	resource.OrganizationID = qc.GetOrganizationID()
-	saved, err := jobResCtrl.jobResourceRepository.Save(resource)
+	saved, err := jobResCtrl.jobResourceRepository.Save(qc, resource)
 	if err != nil {
 		return err
 	}

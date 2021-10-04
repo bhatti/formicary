@@ -23,7 +23,7 @@ func Test_ShouldWithGoodJobResource(t *testing.T) {
 	require.Error(t, res.MatchTag([]string{"a", "b"}))
 	require.Equal(t, "", res.ShortID())
 	res.ID = "1234567890"
-	require.Equal(t, "...34567890", res.ShortID())
+	require.Equal(t, "12345678...", res.ShortID())
 }
 
 func Test_ShouldHaveConfigWithGoodJobResource(t *testing.T) {

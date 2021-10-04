@@ -29,6 +29,7 @@ saved with the job results.
                     <input type="submit" class="btn btn-primary" value="View">
                 </form>
                 &nbsp;
+                {{if .CanEdit}}
                 <form action="/dashboard/errors/{{.ID}}/edit" method="GET">
                     <input type="submit" class="btn btn-secondary" value="Edit">
                 </form>
@@ -38,6 +39,7 @@ saved with the job results.
                     <input type="submit" class="btn btn-danger" value="Delete">
                     <input type="hidden" name="id" value="{{.ErrorCode}}">
                 </form>
+                {{end}}
             </td>
         </tr>
         {{end}}

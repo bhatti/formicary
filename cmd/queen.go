@@ -41,8 +41,8 @@ func RunServer(_ *cobra.Command, args []string) {
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
 	Use:   "queen",
-	Short: "Starts default server (queen) for formicary graph processing system",
-	Long:  "Starts default server (queen) for formicary graph processing system",
+	Short: "Starts default server (queen) for processing the formicary jobs",
+	Long:  "Starts default server (queen) for processing the formicary jobs",
 	Run: func(cmd *cobra.Command, args []string) {
 		RunServer(cmd, args)
 	},

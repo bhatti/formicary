@@ -625,7 +625,6 @@ func Test_ShouldGetDynamicTaskForJobDefinition(t *testing.T) {
 		"../../fixtures/encoding-job.yaml",
 		"../../fixtures/kube-build.yaml",
 		"../../fixtures/cron-kube-build.yaml",
-		"../../fixtures/shell_build.yaml",
 		"../../fixtures/test_job.yaml",
 		"../../fixtures/docker_build.yaml"}
 	for _, yamlConfig := range yamlConfigs {

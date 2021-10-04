@@ -323,7 +323,7 @@ func DefaultPermissions() []*Permission {
 		NewPermission(Organization, Read|Update|Delete|Invite),
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
-		NewPermission(ErrorCode, None),
+		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
 		NewPermission(SystemConfig, None),
 		NewPermission(AntExecutor, None),
 		NewPermission(Container, None),

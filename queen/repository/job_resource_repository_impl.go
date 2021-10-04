@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -82,13 +83,16 @@ func (jrr *JobResourceRepositoryImpl) Delete(
 }
 
 // Save persists job-resource
-func (jrr *JobResourceRepositoryImpl) Save(resource *types.JobResource) (*types.JobResource, error) {
+func (jrr *JobResourceRepositoryImpl) Save(
+	qc *common.QueryContext,
+	resource *types.JobResource) (*types.JobResource, error) {
 	err := resource.ValidateBeforeSave()
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
+	resource.OrganizationID = qc.GetOrganizationID()
+	resource.UserID = qc.GetUserID()
 	err = jrr.db.Transaction(func(tx *gorm.DB) error {
-		qc := common.NewQueryContextFromIDs(resource.UserID, resource.OrganizationID)
 		old, err := jrr.getByExternalID(qc, resource.ExternalID)
 		if err == nil {
 			resource.ID = old.ID
@@ -104,6 +108,21 @@ func (jrr *JobResourceRepositoryImpl) Save(resource *types.JobResource) (*types.
 			resource.UpdatedAt = time.Now()
 			newReq = true
 		} else {
+			old, err := jrr.Get(qc, resource.ID)
+			if err != nil {
+				return err
+			}
+			if !old.Editable(qc.GetUserID(), qc.GetOrganizationID()) {
+				debug.PrintStack()
+				log.WithFields(log.Fields{
+					"Component":     "JobResourceRepositoryImpl",
+					"JobResource": resource,
+					"QC":            qc,
+				}).Warnf("invalid owner %s / %s didn't match query context",
+					resource.UserID, resource.OrganizationID)
+				return common.NewPermissionError(
+					fmt.Errorf("cannot access job resource %s", resource.ID))
+			}
 			resource.UpdatedAt = time.Now()
 			jrr.clearOrphanJobConfigs(tx, resource)
 		}

@@ -46,7 +46,7 @@ func NewSystemConfig(scope string, kind string, name string, value string) *Syst
 // ShortID returns short id
 func (c *SystemConfig) ShortID() string {
 	if len(c.ID) > 8 {
-		return "..." + c.ID[len(c.ID)-8:]
+		return c.ID[0:8] + "..."
 	}
 	return c.ID
 }

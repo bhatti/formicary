@@ -142,6 +142,14 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 	}
 	if perm.ReadOnly() {
 		if !user.IsReadAdmin() && !user.HasPermission(perm.Resource, perm.Actions) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "DefaultWebServer",
+				"User":      user,
+				"UserPerms": user.SerializedPerms,
+				"Perm":      perm.LongString(),
+				"Method":    c.Request().Method,
+				"Path":      c.Path(),
+			}).Warn("user is missing required read permissions")
 			return &echo.HTTPError{
 				Code:    http.StatusUnauthorized,
 				Message: fmt.Sprintf("read-permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),
@@ -149,6 +157,14 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 		}
 	} else {
 		if !user.IsAdmin() && !user.HasPermission(perm.Resource, perm.Actions) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "DefaultWebServer",
+				"User":      user,
+				"UserPerms": user.SerializedPerms,
+				"Perm":      perm.LongString(),
+				"Method":    c.Request().Method,
+				"Path":      c.Path(),
+			}).Warn("user is missing required read write permissions")
 			return &echo.HTTPError{
 				Code:    http.StatusUnauthorized,
 				Message: fmt.Sprintf("permission '%s' required for accessing %s %s", perm.LongString(), c.Request().Method, c.Path()),

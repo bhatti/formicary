@@ -1,0 +1,31 @@
+job_type: android-app
+max_concurrency: 1
+tasks:
+- task_type: build
+  working_dir: /sample
+  artifacts:
+    paths:
+      - find1.txt
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/android/sunflower.git .
+  script:
+    - ./gradlew build
+    - find . > find1.txt
+  container:
+    image: gradle:6.8.3-jdk8
+  on_exit_code:
+    COMPLETED: unit-tests
+- task_type: unit-tests
+  working_dir: /sample
+  dependencies:
+    - build
+  artifacts:
+    paths:
+      - find2.txt
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/android/sunflower.git .
+  script:
+    - ./gradlew test
+    - find . > find2.txt
+  container:
+    image: gradle:6.8.3-jdk8

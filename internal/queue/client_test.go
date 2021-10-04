@@ -214,10 +214,10 @@ func newStub() (Client, error) {
 		return nil, err
 	}
 	cfg.Kafka.Group = "test-dev-group"
-	//return NewStubClient(cfg), nil
+	return NewStubClient(cfg), nil
 	//return newKafkaClient(cfg)
 	//return newPulsarClient(&cfg.Pulsar)
-	return newClientRedis(&cfg.Redis)
+	//return newClientRedis(&cfg.Redis)
 }
 
 type testEvent struct {

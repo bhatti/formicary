@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"plexobject.com/formicary/internal/crypto"
 	"plexobject.com/formicary/internal/utils"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -113,6 +114,21 @@ func (req *TaskRequest) GetMaskFields() (res []string) {
 		}
 	}
 	return
+}
+
+// Mask string to hide sensitive data
+func (req *TaskRequest) Mask(s string) string {
+	if s == "" {
+		return s
+	}
+	maskVars := req.GetMaskFields()
+	if len(maskVars) == 0 {
+		return s
+	}
+	for _, next := range maskVars {
+		s = strings.ReplaceAll(s, next, "[MASKED]")
+	}
+	return s
 }
 
 // Validate validates

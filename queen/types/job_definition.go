@@ -171,6 +171,14 @@ func (*JobDefinition) TableName() string {
 	return "formicary_job_definitions"
 }
 
+// Editable checks if user can edit
+func (jd *JobDefinition) Editable(userID string, organizationID string) bool {
+	if jd.OrganizationID != "" || organizationID != "" {
+		return jd.OrganizationID == organizationID
+	}
+	return jd.UserID == userID
+}
+
 // GetDelayBetweenRetries delay between retries
 func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
 	if jd.DelayBetweenRetries <= 0 {
@@ -291,7 +299,8 @@ func (jd *JobDefinition) GetDynamicTask(
 				"JobType":   jd.JobType,
 				"Version":   jd.SemVersion,
 				"TaskType":  taskType,
-				"Data":      data,
+				"DataVars":  common.MaskVariableValues(vars),
+				"DataTask":  task.MaskTaskVariables(),
 				"Raw":       serData,
 				"Error":     err,
 			}).Error("failed to parse yaml task")
@@ -308,7 +317,8 @@ func (jd *JobDefinition) GetDynamicTask(
 			"JobType":   jd.JobType,
 			"Version":   jd.SemVersion,
 			"TaskType":  taskType,
-			"Data":      data,
+			"DataVars":  common.MaskVariableValues(vars),
+			"DataTask":  task.MaskTaskVariables(),
 			"Raw":       serData,
 			"Error":     err,
 		}).Errorf("failed to unmarshal yaml task '%s", taskType)
@@ -392,9 +402,17 @@ func (jd *JobDefinition) JobTypeAndVersion() string {
 // ShortUserID short user id
 func (jd *JobDefinition) ShortUserID() string {
 	if len(jd.UserID) > 8 {
-		return "..." + jd.UserID[len(jd.UserID)-8:]
+		return jd.UserID[0:8] + "..."
 	}
 	return jd.UserID
+}
+
+// ShortJobType short job type
+func (jd *JobDefinition) ShortJobType() string {
+	if len(jd.JobType) > 10 {
+		return jd.JobType[0:10] + "..."
+	}
+	return jd.JobType
 }
 
 // Yaml config

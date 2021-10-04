@@ -342,8 +342,10 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 		tsm.TaskExecution.ErrorMessage = ""
 	} else {
 		if tsm.errorCode, err = tsm.ErrorCodeRepository.Match(
+			tsm.QueryContext(),
 			taskResp.ErrorMessage,
 			tsm.JobDefinition.Platform,
+			taskResp.FailedCommand,
 			tsm.JobDefinition.JobType,
 			tsm.taskType); err == nil {
 			taskResp.ErrorCode = tsm.errorCode.ErrorCode

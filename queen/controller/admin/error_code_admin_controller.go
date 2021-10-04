@@ -33,7 +33,7 @@ func NewErrorCodeAdminController(
 	webserver.POST("/dashboard/errors", jraCtr.createErrorCode, acl.NewPermission(acl.ErrorCode, acl.Create)).Name = "create_admin_error_code"
 	webserver.POST("/dashboard/errors/:id", jraCtr.updateErrorCode, acl.NewPermission(acl.ErrorCode, acl.Update)).Name = "update_admin_error_code"
 	webserver.GET("/dashboard/errors/:id", jraCtr.getErrorCode, acl.NewPermission(acl.ErrorCode, acl.View)).Name = "get_admin_error_code"
-	webserver.GET("/dashboard/errors/:id/edit", jraCtr.editErrorCode, acl.NewPermission(acl.ErrorCode, acl.Upload)).Name = "edit_admin_error_code"
+	webserver.GET("/dashboard/errors/:id/edit", jraCtr.editErrorCode, acl.NewPermission(acl.ErrorCode, acl.Update)).Name = "edit_admin_error_code"
 	webserver.POST("/dashboard/errors/:id/delete", jraCtr.deleteErrorCode, acl.NewPermission(acl.ErrorCode, acl.Delete)).Name = "delete_admin_error_code"
 	return jraCtr
 }
@@ -41,8 +41,9 @@ func NewErrorCodeAdminController(
 // ********************************* HTTP Handlers ***********************************
 // queryErrorCodes - queries error-code
 func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.WebContext) error {
+	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
-	recs, total, err := jraCtr.errorCodeRepository.Query(params, page, pageSize, order)
+	recs, total, err := jraCtr.errorCodeRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
 	}
@@ -54,20 +55,30 @@ func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.WebContext) error 
 		"BaseURL":    baseURL,
 		"Q":          qs,
 	}
+	for _, rec := range recs {
+		rec.CanEdit = (rec.OrganizationID != "" &&
+			qc.GetOrganizationID() != "" &&
+			qc.GetOrganizationID() == rec.OrganizationID) ||
+			qc.GetUserID() == rec.UserID || qc.IsAdmin()
+	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "errors/index", res)
 }
 
 // createErrorCode - saves a new error-code
 func (jraCtr *ErrorCodeAdminController) createErrorCode(c web.WebContext) (err error) {
+	qc := web.BuildQueryContext(c)
 	errorCode := buildError(c)
 	err = errorCode.Validate()
 	if err == nil {
-		errorCode, err = jraCtr.errorCodeRepository.Save(errorCode)
+		errorCode, err = jraCtr.errorCodeRepository.Save(qc, errorCode)
 	}
 	if err != nil {
 		res := map[string]interface{}{
 			"Error": errorCode,
+		}
+		if errorCode != nil && len(errorCode.Errors) == 0 {
+			errorCode.Errors = map[string]string{"Error": err.Error()}
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "errors/new", res)
@@ -77,16 +88,20 @@ func (jraCtr *ErrorCodeAdminController) createErrorCode(c web.WebContext) (err e
 
 // updateErrorCode - updates error-code
 func (jraCtr *ErrorCodeAdminController) updateErrorCode(c web.WebContext) (err error) {
+	qc := web.BuildQueryContext(c)
 	errorCode := buildError(c)
 	errorCode.ID = c.Param("id")
 	err = errorCode.Validate()
 
 	if err == nil {
-		errorCode, err = jraCtr.errorCodeRepository.Save(errorCode)
+		errorCode, err = jraCtr.errorCodeRepository.Save(qc, errorCode)
 	}
 	if err != nil {
 		res := map[string]interface{}{
 			"Error": errorCode,
+		}
+		if errorCode != nil && len(errorCode.Errors) == 0 {
+			errorCode.Errors = map[string]string{"Error": err.Error()}
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "errors/edit", res)
@@ -96,7 +111,7 @@ func (jraCtr *ErrorCodeAdminController) updateErrorCode(c web.WebContext) (err e
 
 // newErrorCode - creates a new system error
 func (jraCtr *ErrorCodeAdminController) newErrorCode(c web.WebContext) error {
-	errorCode := common.NewErrorCode("", "", "")
+	errorCode := common.NewErrorCode("", "", "", "")
 	res := map[string]interface{}{
 		"Error": errorCode,
 	}
@@ -106,8 +121,9 @@ func (jraCtr *ErrorCodeAdminController) newErrorCode(c web.WebContext) error {
 
 // getErrorCode - finds error-code by id
 func (jraCtr *ErrorCodeAdminController) getErrorCode(c web.WebContext) error {
+	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	errorCode, err := jraCtr.errorCodeRepository.Get(id)
+	errorCode, err := jraCtr.errorCodeRepository.Get(qc, id)
 	if err != nil {
 		return err
 	}
@@ -119,10 +135,11 @@ func (jraCtr *ErrorCodeAdminController) getErrorCode(c web.WebContext) error {
 
 // editErrorCode - shows error-code for edit
 func (jraCtr *ErrorCodeAdminController) editErrorCode(c web.WebContext) error {
+	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	errorCode, err := jraCtr.errorCodeRepository.Get(id)
+	errorCode, err := jraCtr.errorCodeRepository.Get(qc, id)
 	if err != nil {
-		errorCode = common.NewErrorCode("", "", "")
+		errorCode = common.NewErrorCode("", "", "", "")
 		errorCode.Errors = map[string]string{"Error": err.Error()}
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
@@ -140,7 +157,8 @@ func (jraCtr *ErrorCodeAdminController) editErrorCode(c web.WebContext) error {
 
 // deleteErrorCode - deletes error-code by id
 func (jraCtr *ErrorCodeAdminController) deleteErrorCode(c web.WebContext) error {
-	err := jraCtr.errorCodeRepository.Delete(c.Param("id"))
+	qc := web.BuildQueryContext(c)
+	err := jraCtr.errorCodeRepository.Delete(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -148,7 +166,12 @@ func (jraCtr *ErrorCodeAdminController) deleteErrorCode(c web.WebContext) error 
 }
 
 func buildError(c web.WebContext) *common.ErrorCode {
-	errorCode := common.NewErrorCode(c.FormValue("jobType"), c.FormValue("regex"), c.FormValue("errorCode"))
+	errorCode := common.NewErrorCode(
+		c.FormValue("jobType"),
+		c.FormValue("regex"),
+		c.FormValue("command"),
+		c.FormValue("errorCode"),
+		)
 	errorCode.Description = c.FormValue("description")
 	errorCode.DisplayMessage = c.FormValue("displayMessage")
 	errorCode.DisplayCode = c.FormValue("displayCode")

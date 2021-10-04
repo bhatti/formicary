@@ -1,0 +1,72 @@
+job_type: shell-build
+max_concurrency: 1
+tasks:
+- task_type: init
+  method: SHELL
+  script:
+    - pwd
+  artifacts:
+    paths:
+      - env.txt
+      - ls.txt
+      - whoami.txt
+  host_network: true
+  container:
+    image: alpine
+  on_completed: checkout
+- task_type: checkout
+  method: SHELL
+  script:
+    - git checkout {{ .repo  }}
+  artifacts:
+    paths:
+      - formicary
+  host_network: true
+  container:
+    image: alpine
+  variables:
+    repo: https://github.com/bhatti/formicary.git
+  on_completed: build
+- task_type: build
+  method: SHELL
+  on_completed: test
+  dependencies:
+    - checkout
+  script:
+    - make build
+  container:
+    image: alpine
+  artifacts:
+    paths:
+      - all.txt
+- task_type: test
+  method: SHELL
+  allow_failure: true
+  on_completed: deploy
+  script:
+    - make
+  host_network: true
+  container:
+    image: alpine
+- task_type: deploy
+  method: SHELL
+  on_completed: notify
+  script:
+    - make deploy
+  container:
+    image: alpine
+- task_type: notify
+  method: SHELL
+  always_run: true
+  on_completed: email
+  script:
+    - echo notify
+  container:
+    image: alpine
+- task_type: email
+  method: SHELL
+  always_run: true
+  script:
+    - echo email
+  container:
+    image: alpine

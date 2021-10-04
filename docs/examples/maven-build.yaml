@@ -1,0 +1,26 @@
+job_type: maven-build
+max_concurrency: 1
+tasks:
+- task_type: build
+  container:
+    image: maven:3.8-jdk-11
+  working_dir: /sample
+  environment:
+    MAVEN_CONFIG: /m2_cache
+  cache:
+    keys:
+      - pom.xml
+    paths:
+      - m2_cache
+  before_script:
+    - mkdir -p /m2_cache
+    - git clone https://github.com/kiat/JavaProjectTemplate.git .
+    - echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd"> <localRepository>/m2_cache</localRepository></settings>' > settings.xml
+  script:
+    - find . |head -100 > find1.txt
+    - mvn clean -gs settings.xml compile test checkstyle:check spotbugs:check
+    - find . |head -100 > find2.txt
+  artifacts:
+    paths:
+      - find1.txt
+      - find2.txt

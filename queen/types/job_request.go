@@ -88,6 +88,7 @@ type IJobRequest interface {
 	GetUserJobTypeKey() string
 	GetParams() []*JobRequestParam
 	SetParams(params []*JobRequestParam)
+	Editable(userID string, organizationID string) bool
 }
 
 // JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
@@ -197,6 +198,14 @@ func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
 	return request, nil
 }
 
+// Editable checks if user can edit
+func (jr *JobRequest) Editable(userID string, organizationID string) bool {
+	if jr.OrganizationID != "" || organizationID != "" {
+		return jr.OrganizationID == organizationID
+	}
+	return jr.UserID == userID
+}
+
 // UpdateUserKeyFromScheduleIfCronJob updates schedule-time and user-key
 func (jr *JobRequest) UpdateUserKeyFromScheduleIfCronJob(job *JobDefinition) {
 	if scheduledAt, userKey := job.GetCronScheduleTimeAndUserKey(); scheduledAt != nil {
@@ -220,7 +229,7 @@ func (jr *JobRequest) ElapsedDuration() string {
 // ShortUserID short user id
 func (jr *JobRequest) ShortUserID() string {
 	if len(jr.UserID) > 8 {
-		return "..." + jr.UserID[len(jr.UserID)-8:]
+		return jr.UserID[0:8] + "..."
 	}
 	return jr.UserID
 }
@@ -233,8 +242,8 @@ func (jr *JobRequest) IsForkedJob() bool {
 
 // ShortJobType short job-type
 func (jr *JobRequest) ShortJobType() string {
-	if len(jr.JobType) > 8 {
-		return jr.JobType[:8] + "..."
+	if len(jr.JobType) > 10 {
+		return jr.JobType[:10] + "..."
 	}
 	return jr.JobType
 }

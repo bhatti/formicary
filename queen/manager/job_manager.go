@@ -568,7 +568,7 @@ func (jm *JobManager) SaveJobRequest(
 		}
 	}
 
-	saved, err = jm.jobRequestRepository.Save(request)
+	saved, err = jm.jobRequestRepository.Save(qc, request)
 	if err == nil {
 		_ = jm.fireJobRequestChange(saved)
 		jm.metricsRegistry.Incr("job_submitted_total", map[string]string{"JobType": jobDefinition.JobType})

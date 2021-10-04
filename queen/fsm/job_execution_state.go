@@ -207,10 +207,10 @@ func (jsm *JobExecutionStateMachine) ShouldFilter() error {
 			"JobDefinitionUser": jsm.JobDefinition.UserID,
 			"JobDefinitionOrg":  jsm.JobDefinition.OrganizationID,
 			"Filter":            jsm.JobDefinition.Filter(),
-			"Data":              data,
+			"Data":              common.MaskVariableValues(data),
 		}).Warnf("filtered job from schedule")
 
-		return fmt.Errorf("job filtered due to %s with params %v", jsm.JobDefinition.Filter(), data)
+		return fmt.Errorf("job filtered due to %s", jsm.JobDefinition.Filter())
 	}
 	return nil
 }

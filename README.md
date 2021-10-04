@@ -1,10 +1,10 @@
 # formicary
 
-The formicary is a distributed "graph processing" system that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.
+The formicary is a distributed orchestration engine that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.
 
 ## Overview
 
-The formicary is a distributed "graph processing" system for executing background jobs and workflows that are executed remotely using
+The formicary is a distributed orchestration engine for executing background jobs and workflows that are executed remotely using
 Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task 
 defines a unit of work. The formicary architecture is based on the *Leader-Follower* (or master/worker) pattern 
 where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers 
@@ -17,14 +17,16 @@ can be used as input of another task. The main use-cases for formicary include:
 - Batch jobs such as ETL or other offline processing
 - Scheduled batch processing such as clearing, settlement, etc
 - Data Pipelines such as processing large size data in background
-- CI/CD Pipeline for building, testing and deploying code
-- Automation for building a workflow of tasks that have complex dependencies and can interact with a variety of protocols
+- CI/CD Pipelines for building, testing and deploying code
+- Automation for repetitive tasks
+- Building workflows of tasks that have complex dependencies and can interact with a variety of protocols
 
 ## Features:
 
 - Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.
 - GO based templates for job-definitions so that you can define customized variables and actions. 
 - Persistence of artifacts from tasks that can be used by other tasks or used as output of jobs.
+- Extensible Method abstraction for supporting a variety of execution protocols such as Docker, Kubernetes HTTP, Messaging or other customized protocols.
 - Caching of dependencies such as npm, maven, gradle, python, etc.
 - Encryption for storing secured configuration in the database or while in network communication.
 - Cron based scheduled processing where jobs can be executed at specific times or run periodically.
@@ -96,6 +98,8 @@ can be used as input of another task. The main use-cases for formicary include:
 - [Building Node.js CI/CD](docs/node_ci.md)
 - [Building GO CI/CD](docs/go_ci.md)
 - [Building Python CI/CD](docs/python_ci.md)
+- [Building Android CI/CD](docs/android_ci.md)
+- [Building Maven CI/CD](docs/maven_ci.md)
 
 
 ### Simple ETL Job

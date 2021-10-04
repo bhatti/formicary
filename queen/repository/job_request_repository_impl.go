@@ -164,11 +164,14 @@ func (jrr *JobRequestRepositoryImpl) UpdateRunningTimestamp(
 
 // Save persists job-request
 func (jrr *JobRequestRepositoryImpl) Save(
+	qc *common.QueryContext,
 	req *types.JobRequest) (*types.JobRequest, error) {
 	err := req.ValidateBeforeSave()
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
+	req.OrganizationID = qc.GetOrganizationID()
+	req.UserID = qc.GetUserID()
 	err = jrr.db.Transaction(func(tx *gorm.DB) error {
 		newReq := false
 		if req.ID == 0 {
@@ -180,6 +183,20 @@ func (jrr *JobRequestRepositoryImpl) Save(
 			}
 			newReq = true
 		} else {
+			old, err := jrr.Get(qc, req.ID)
+			if err != nil {
+				return err
+			}
+			if !old.Editable(qc.GetUserID(), qc.GetOrganizationID()) {
+				logrus.WithFields(logrus.Fields{
+					"Component":  "JobRequestRepositoryImpl",
+					"JobRequest": req,
+					"QC":         qc,
+				}).Warnf("invalid owner %s / %s didn't match query context",
+					req.UserID, req.OrganizationID)
+				return common.NewPermissionError(
+					fmt.Errorf("cannot access job request %d", req.ID))
+			}
 			req.UpdatedAt = time.Now()
 			jrr.clearOrphanJobParams(tx, req)
 		}
@@ -712,14 +729,17 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions where paused is false and active is true)" +
-		" AND job_state = ? AND scheduled_at <= ? ORDER BY job_priority DESC, created_at LIMIT ?"
+		" AND job_state = ? AND scheduled_at <= ? "
 
-	args := []interface{}{state, time.Now(), limit}
+	args := []interface{}{state, time.Now()}
 
 	if len(jobTypes) > 0 {
 		sql += " AND job_type in (?)"
 		args = append(args, jobTypes)
 	}
+	sql += " ORDER BY job_priority DESC, created_at LIMIT ?"
+	args = append(args, limit)
+
 	rows, err := jrr.db.Raw(sql, args...).Rows()
 	if err != nil {
 		return nil, err

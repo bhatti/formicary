@@ -132,7 +132,7 @@ func (a *Artifact) AddMetadata(name string, value string) {
 // ShortUserID short user id
 func (a *Artifact) ShortUserID() string {
 	if len(a.UserID) > 8 {
-		return "..." + a.UserID[len(a.UserID)-8:]
+		return a.UserID[0:8] + "..."
 	}
 	return a.UserID
 }

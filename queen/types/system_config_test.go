@@ -18,7 +18,7 @@ func Test_ShouldVerifySystemConfigString(t *testing.T) {
 func Test_ShouldVerifySystemConfigShortID(t *testing.T) {
 	sysError := NewSystemConfig("scope", "kind", "name", "value")
 	sysError.ID = "1234567890"
-	require.Contains(t, sysError.ShortID(), "789")
+	require.Contains(t, sysError.ShortID(), "123")
 	sysError.ID = "123"
 	require.Equal(t, sysError.ShortID(), "123")
 }

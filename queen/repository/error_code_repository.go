@@ -7,17 +7,37 @@ import (
 // ErrorCodeRepository defines data access methods for error-codes
 type ErrorCodeRepository interface {
 	// GetAll returns all error-codes
-	GetAll() ([]*common.ErrorCode, error)
+	GetAll(
+		qc *common.QueryContext,
+	) ([]*common.ErrorCode, error)
 	// Get finds ErrorCode by id
-	Get(id string) (*common.ErrorCode, error)
+	Get(
+		qc *common.QueryContext,
+		id string,
+	) (*common.ErrorCode, error)
 	// Delete error-code
-	Delete(id string) error
+	Delete(
+		qc *common.QueryContext,
+		id string,
+	) error
 	// Save - persists error-code
-	Save(ec *common.ErrorCode) (*common.ErrorCode, error)
-	Query(params map[string]interface{},
+	Save(
+		qc *common.QueryContext,
+		ec *common.ErrorCode) (*common.ErrorCode, error)
+	Query(
+		qc *common.QueryContext,
+		params map[string]interface{},
 		page int,
 		pageSize int,
 		order []string) (recs []*common.ErrorCode, totalRecords int64, err error)
-	Count(params map[string]interface{}) (totalRecords int64, err error)
-	Match(message string, platformScope string, jobScope string, taskScope string) (*common.ErrorCode, error)
+	Count(
+		qc *common.QueryContext,
+		params map[string]interface{}) (totalRecords int64, err error)
+	Match(
+		qc *common.QueryContext,
+		message string,
+		platform string,
+		command string,
+		jobScope string,
+		taskScope string) (*common.ErrorCode, error)
 }

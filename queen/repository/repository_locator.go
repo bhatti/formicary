@@ -216,54 +216,54 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}
+		qc := common.NewQueryContext(nil, "")
 		if org, err := cachedOrgRepository.Create(
-			common.NewQueryContext(nil, ""),
+			qc,
 			common.NewOrganization("", "formicary.org", "org.formicary")); err == nil {
 			_, _ = cachedUserRepository.Create(common.NewUser(
 				org.ID, "admin", "admin", "support@formicary.io", acl.NewRoles("Admin[]")))
 			_, _ = cachedUserRepository.Create(common.NewUser(
 				org.ID, "bhatti", "bhatti", "bhatti@formicary.io", acl.NewRoles("Admin[]")))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "job timed out", "ERR_JOB_TIMEOUT"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "task timed out", "ERR_TASK_TIMEOUT"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to schedule job", "ERR_JOB_SCHEDULE"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to launch job", "ERR_JOB_LAUNCH"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to execute job", "ERR_JOB_EXECUTE"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to cancel job", "ERR_JOB_CANCELLED"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "ant workers unavailable", "ERR_ANTS_UNAVAILABLE"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to execute task", "ERR_TASK_EXECUTE"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to find next task", "ERR_INVALID_NEXT_TASK"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to find container", "ERR_CONTAINER_NOT_FOUND"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to stop container", "ERR_CONTAINER_STOPPED_FAILED"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to execute task by ant worker",
-				"ERR_ANT_EXECUTION_FAILED"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "failed to marshal object", "ERR_MARSHALING_FAILED"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "restart job", "ERR_RESTART_JOB"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "restart task", "ERR_RESTART_TASK"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "filtered scheduled job", "ERR_FILTERED_JOB"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "validation error", "ERR_VALIDATION"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "ant resources not available", "ERR_ANT_RESOURCES"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "fatal error", "ERR_FATAL"))
-			_, _ = errorCodeRepository.Save(common.NewErrorCode(
-				"*", "resource quota exceeded", "ERR_QUOTA_EXCEEDED"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "job timed out", "", "ERR_JOB_TIMEOUT"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "task timed out", "", "ERR_TASK_TIMEOUT"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to schedule job", "", "ERR_JOB_SCHEDULE"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to launch job", "", "ERR_JOB_LAUNCH"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to execute job", "", "ERR_JOB_EXECUTE"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to cancel job", "", "ERR_JOB_CANCELLED"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "ant workers unavailable", "", "ERR_ANTS_UNAVAILABLE"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to execute task", "", "ERR_TASK_EXECUTE"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to find next task", "", "ERR_INVALID_NEXT_TASK"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to find container", "", "ERR_CONTAINER_NOT_FOUND"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to stop container", "", "ERR_CONTAINER_STOPPED_FAILED"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to execute task by ant worker", "", "ERR_ANT_EXECUTION_FAILED"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "failed to marshal object", "", "ERR_MARSHALING_FAILED"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "restart job", "", "ERR_RESTART_JOB"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "restart task", "", "ERR_RESTART_TASK"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "filtered scheduled job", "", "ERR_FILTERED_JOB"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "validation error", "", "ERR_VALIDATION"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "ant resources not available", "", "ERR_ANT_RESOURCES"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "fatal error", "", "ERR_FATAL"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "resource quota exceeded", "", "ERR_QUOTA_EXCEEDED"))
 		}
 	}
 

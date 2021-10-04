@@ -81,6 +81,12 @@ type ErrorCode struct {
 	TaskTypeScope string `json:"task_type_scope"`
 	// PlatformScope only applies error code for platform
 	PlatformScope string `json:"platform_scope"`
+	// CommandScope only applies error code for command
+	CommandScope string `json:"command_scope"`
+	// UserID defines user who owns the error code
+	UserID string `json:"user_id"`
+	// OrganizationID defines org who owns the error code
+	OrganizationID string `json:"organization_id"`
 	// Action defines actions for errors
 	Action ErrorCodeAction `json:"action"`
 	// HardFailure determines if this error can be retried or is hard failure
@@ -91,8 +97,26 @@ type ErrorCode struct {
 	// CreatedAt job creation time
 	CreatedAt time.Time `json:"created_at"`
 	// UpdatedAt job update time
-	UpdatedAt time.Time         `json:"updated_at"`
-	Errors    map[string]string `yaml:"-" json:"-" gorm:"-"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// Following are transient properties
+	CanEdit bool              `yaml:"-" json:"-" gorm:"-"`
+	Errors  map[string]string `yaml:"-" json:"-" gorm:"-"`
+}
+
+// NewErrorCode creates new instance of error-code
+func NewErrorCode(
+	jobType string,
+	regex string,
+	cmd string,
+	errorCode string) *ErrorCode {
+	return &ErrorCode{
+		JobType:      jobType,
+		Regex:        regex,
+		CommandScope: cmd,
+		ErrorCode:    errorCode,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
 }
 
 // TableName overrides default table name
@@ -100,21 +124,18 @@ func (ErrorCode) TableName() string {
 	return "formicary_error_codes"
 }
 
-// NewErrorCode creates new instance of error-code
-func NewErrorCode(jobType string, regex string, errorCode string) *ErrorCode {
-	return &ErrorCode{
-		JobType:   jobType,
-		Regex:     regex,
-		ErrorCode: errorCode,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+// Editable checks if user can edit
+func (ec *ErrorCode) Editable(userID string, organizationID string) bool {
+	if ec.OrganizationID != "" || organizationID != "" {
+		return ec.OrganizationID == organizationID
 	}
+	return ec.UserID == userID
 }
 
 // ShortID short id
 func (ec *ErrorCode) ShortID() string {
 	if len(ec.ID) > 8 {
-		return "..." + ec.ID[len(ec.ID)-8:]
+		return ec.ID[0:8] + "..."
 	}
 	return ec.ID
 }
@@ -133,10 +154,6 @@ func (ec *ErrorCode) Matches(message string) bool {
 // Validate checks error code for required properties
 func (ec *ErrorCode) Validate() (err error) {
 	ec.Errors = make(map[string]string)
-	if ec.JobType == "" {
-		err = fmt.Errorf("jobType is not specified")
-		ec.Errors["ErrorCode"] = err.Error()
-	}
 	if ec.ErrorCode == "" {
 		err = fmt.Errorf("errorCode is not specified")
 		ec.Errors["ErrorCode"] = err.Error()

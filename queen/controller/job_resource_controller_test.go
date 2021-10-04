@@ -30,10 +30,12 @@ func Test_ShouldQueryJobResources(t *testing.T) {
 	// GIVEN job-resource controller
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 
 	jobResourceRepository, err := repository.NewTestJobResourceRepository()
 	require.NoError(t, err)
-	_, err = jobResourceRepository.Save(types.NewJobResource("res1", 10))
+	_, err = jobResourceRepository.Save(qc, types.NewJobResource("res1", 10))
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobResourceController(auditRecordRepository, jobResourceRepository, webServer)
@@ -42,6 +44,7 @@ func Test_ShouldQueryJobResources(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	err = ctrl.queryJobResources(ctx)
 
 	// THEN it should not fail and return job resources
@@ -52,11 +55,13 @@ func Test_ShouldQueryJobResources(t *testing.T) {
 
 func Test_ShouldGetJobResources(t *testing.T) {
 	// GIVEN job-resource controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobResourceRepository, err := repository.NewTestJobResourceRepository()
 	require.NoError(t, err)
-	jobRes, err := jobResourceRepository.Save(types.NewJobResource("res1", 10))
+	jobRes, err := jobResourceRepository.Save(qc, types.NewJobResource("res1", 10))
 	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobResourceController(auditRecordRepository, jobResourceRepository, webServer)
@@ -65,6 +70,7 @@ func Test_ShouldGetJobResources(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
 	err = ctrl.getJobResource(ctx)
 
@@ -109,11 +115,13 @@ func Test_ShouldSaveJobResource(t *testing.T) {
 
 func Test_ShouldPauseJobResource(t *testing.T) {
 	// GIVEN job-resource controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobResourceRepository, err := repository.NewTestJobResourceRepository()
 	require.NoError(t, err)
-	jobRes, err := jobResourceRepository.Save(types.NewJobResource("res1", 10))
+	jobRes, err := jobResourceRepository.Save(qc, types.NewJobResource("res1", 10))
 	require.NoError(t, err)
 
 	webServer := web.NewStubWebServer()
@@ -122,6 +130,7 @@ func Test_ShouldPauseJobResource(t *testing.T) {
 	// WHEN pausing job-resource
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
 	err = ctrl.pauseJobResource(ctx)
 
@@ -131,11 +140,13 @@ func Test_ShouldPauseJobResource(t *testing.T) {
 
 func Test_ShouldUnpauseJobResource(t *testing.T) {
 	// GIVEN job-resource controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobResourceRepository, err := repository.NewTestJobResourceRepository()
 	require.NoError(t, err)
-	jobRes, err := jobResourceRepository.Save(types.NewJobResource("res1", 10))
+	jobRes, err := jobResourceRepository.Save(qc, types.NewJobResource("res1", 10))
 	require.NoError(t, err)
 
 	webServer := web.NewStubWebServer()
@@ -144,6 +155,7 @@ func Test_ShouldUnpauseJobResource(t *testing.T) {
 	// WHEN unpausing job-resource
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
 	err = ctrl.unpauseJobResource(ctx)
 
@@ -152,11 +164,14 @@ func Test_ShouldUnpauseJobResource(t *testing.T) {
 }
 
 func Test_ShouldDeleteJobResource(t *testing.T) {
+	// GIVEN job resource controller
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 	jobResourceRepository, err := repository.NewTestJobResourceRepository()
 	require.NoError(t, err)
-	jobRes, err := jobResourceRepository.Save(types.NewJobResource("res1", 10))
+	jobRes, err := jobResourceRepository.Save(qc, types.NewJobResource("res1", 10))
 	require.NoError(t, err)
 
 	webServer := web.NewStubWebServer()
@@ -165,6 +180,7 @@ func Test_ShouldDeleteJobResource(t *testing.T) {
 	// WHEN deleting job-resource
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
 	err = ctrl.deleteJobResource(ctx)
 

@@ -32,7 +32,9 @@ type JobRequestRepository interface {
 		retried int) error
 
 	// Save saves job-request
-	Save(req *types.JobRequest) (*types.JobRequest, error)
+	Save(
+		qc *common.QueryContext,
+		req *types.JobRequest) (*types.JobRequest, error)
 	// Query - Queries job-request by parameters
 	Query(
 		qc *common.QueryContext,

@@ -28,69 +28,94 @@ func NewErrorCodeRepositoryCached(
 
 // Get method finds ErrorCode by id
 func (ecc *ErrorCodeRepositoryCached) Get(
+	qc *common.QueryContext,
 	id string) (*common.ErrorCode, error) {
-	item, err := ecc.cache.Fetch("errorCodeGet:"+id,
-		ecc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
-			return ecc.adapter.Get(id)
-		})
-	if err != nil {
-		return nil, err
-	}
-	return item.Value().(*common.ErrorCode), nil
+	return ecc.adapter.Get(qc, id)
 }
 
 // Delete error-code
 func (ecc *ErrorCodeRepositoryCached) Delete(
+	qc *common.QueryContext,
 	id string) error {
-	err := ecc.adapter.Delete(id)
+	err := ecc.adapter.Delete(qc, id)
 	if err == nil {
-		ecc.cache.Delete("errorCodeGet:" + id)
-		ecc.cache.DeletePrefix("errorCodes")
+		ecc.cache.Delete("errorCodeGet:" + qc.String() + id)
+		if (qc.GetUserID() == "" && qc.GetOrganizationID() == "") ||
+			qc.IsReadAdmin() {
+			ecc.cache.DeletePrefix("errorCodes")
+		}
 	}
 	return err
 }
 
 // Save persists error-code
 func (ecc *ErrorCodeRepositoryCached) Save(
+	qc *common.QueryContext,
 	errorCode *common.ErrorCode) (*common.ErrorCode, error) {
-	saved, err := ecc.adapter.Save(errorCode)
+	saved, err := ecc.adapter.Save(qc, errorCode)
 	if err == nil {
-		ecc.cache.Delete("errorCodeGet:" + saved.ID)
-		ecc.cache.DeletePrefix("errorCodes")
+		ecc.cache.Delete("errorCodeGet:" + qc.String() + saved.ID)
+		if (qc.GetUserID() == "" && qc.GetOrganizationID() == "") ||
+			qc.IsReadAdmin() {
+			ecc.cache.DeletePrefix("errorCodes")
+		}
 	}
 	return saved, err
 }
 
 // GetAll returns all error codes
-func (ecc *ErrorCodeRepositoryCached) GetAll() (errorCodes []*common.ErrorCode, err error) {
-	item, err := ecc.cache.Fetch("errorCodes",
-		ecc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
-			all, err := ecc.adapter.GetAll()
-			if err != nil {
-				return nil, err
-			}
-			sortErrorCodes(all)
-			return all, nil
-		})
-	if err != nil {
+func (ecc *ErrorCodeRepositoryCached) GetAll(
+	qc *common.QueryContext,
+) (errorCodes []*common.ErrorCode, err error) {
+	qcErrors, err := ecc.getAll(qc)
+	if err != nil || (qc.GetUserID() == "" && qc.GetOrganizationID() == "") {
 		return nil, err
 	}
-	return item.Value().([]*common.ErrorCode), nil
+	globalErrors, err := ecc.getAll(common.NewQueryContextFromIDs("", ""))
+	if err != nil {
+		return qcErrors, nil
+	}
+	qcErrors = append(qcErrors, globalErrors...)
+	sortErrorCodes(qcErrors)
+	return qcErrors, nil
 }
 
 // Query finds matching configs
 func (ecc *ErrorCodeRepositoryCached) Query(
+	qc *common.QueryContext,
 	params map[string]interface{},
 	page int,
 	pageSize int,
 	order []string) (recs []*common.ErrorCode, totalRecords int64, err error) {
-	return ecc.adapter.Query(params, page, pageSize, order) // no caching
+
+	recs, totalRecords, err = ecc.adapter.Query(
+		qc,
+		params,
+		page,
+		pageSize,
+		order) // no caching
+	if err != nil || (qc.GetUserID() == "" && qc.GetOrganizationID() == "") {
+		return
+	}
+	globalRecs, globalTotalRecords, err := ecc.adapter.Query(
+		common.NewQueryContextFromIDs("", ""),
+		params,
+		page,
+		pageSize,
+		order)
+	if err != nil {
+		return recs, totalRecords, nil
+	}
+	recs = append(recs, globalRecs...)
+	totalRecords += globalTotalRecords
+	return
 }
 
 // Count counts records by query
 func (ecc *ErrorCodeRepositoryCached) Count(
+	qc *common.QueryContext,
 	params map[string]interface{}) (totalRecords int64, err error) {
-	return ecc.adapter.Count(params) // no caching
+	return ecc.adapter.Count(qc, params) // no caching
 }
 
 // Clear - for testing
@@ -101,15 +126,50 @@ func (ecc *ErrorCodeRepositoryCached) clear() {
 
 // Match finds error code matching criteria
 func (ecc *ErrorCodeRepositoryCached) Match(
+	qc *common.QueryContext,
 	message string,
-	platformScope string,
+	platform string,
+	command string,
 	jobScope string,
 	taskScope string) (*common.ErrorCode, error) {
-	all, err := ecc.GetAll()
+	all, err := ecc.getAll(qc)
 	if err != nil {
 		return nil, err
 	}
-	return MatchErrorCode(all, message, platformScope, jobScope, taskScope)
+	ec, err := MatchErrorCode(all, message, platform, command, jobScope, taskScope)
+	if err == nil {
+		return ec, err
+	}
+	if global, err := ecc.getAll(common.NewQueryContextFromIDs("", "")); err == nil {
+		return MatchErrorCode(global, message, platform, command, jobScope, taskScope)
+	}
+	return nil, err
+}
+
+func (ecc *ErrorCodeRepositoryCached) getAll(
+	qc *common.QueryContext,
+) (errorCodes []*common.ErrorCode, err error) {
+	if qc.GetUserID() == "" && qc.GetOrganizationID() == "" {
+		item, err := ecc.cache.Fetch("errorCodes",
+			ecc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+				all, err := ecc.adapter.GetAll(qc)
+				if err != nil {
+					return nil, err
+				}
+				sortErrorCodes(all)
+				return all, nil
+			})
+		if err != nil {
+			return nil, err
+		}
+		return item.Value().([]*common.ErrorCode), nil
+	}
+	all, err := ecc.adapter.GetAll(qc)
+	if err != nil {
+		return nil, err
+	}
+	sortErrorCodes(all)
+	return all, nil
 }
 
 // sort error codes so that most precise or longest matches show up first
@@ -130,8 +190,14 @@ func sortErrorCodes(all []*common.ErrorCode) {
 					return true
 				} else if len(all[i].TaskTypeScope) < len(all[j].TaskTypeScope) {
 					return false
+				} else {
+					if len(all[i].CommandScope) > len(all[j].CommandScope) {
+						return true
+					} else if len(all[i].CommandScope) < len(all[j].CommandScope) {
+						return false
+					}
+					return len(all[i].Regex) > len(all[j].Regex)
 				}
-				return len(all[i].Regex) > len(all[j].Regex)
 			}
 		}
 	})

@@ -76,7 +76,7 @@ func (re *RequestExecutorImpl) Execute(
 	container, err := re.preProcess(ctx, taskReq)
 	if err != nil {
 		taskResp.Status = types.FAILED
-		taskResp.ErrorMessage = err.Error()
+		taskResp.ErrorMessage = taskReq.Mask(err.Error())
 		return
 	}
 	taskResp.Timings.PodStartedAt = time.Now()
@@ -106,7 +106,7 @@ func (re *RequestExecutorImpl) Execute(
 		true); err != nil {
 		// Execute all commands in script
 		taskResp.Status = types.FAILED
-		taskResp.ErrorMessage = err.Error()
+		taskResp.ErrorMessage = taskReq.Mask(err.Error())
 	} else if err := transfer.SetupCacheAndDownloadArtifacts(
 		ctx,
 		re.antCfg,
@@ -128,7 +128,7 @@ func (re *RequestExecutorImpl) Execute(
 		true); err != nil {
 		// Execute all commands in script
 		taskResp.Status = types.FAILED
-		taskResp.ErrorMessage = err.Error()
+		taskResp.ErrorMessage = taskReq.Mask(err.Error())
 	} else {
 		taskResp.Status = types.COMPLETED
 	}
@@ -191,11 +191,15 @@ func (re *RequestExecutorImpl) execute(
 			false)
 		_ = container.WriteTraceInfo(fmt.Sprintf("🏔️ executed command '%s' of task '%s' of job '%s' request-id '%d', exit=%d, error=%s",
 			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err))
-		taskResp.ExitCode = strconv.Itoa(exitCode)
-		taskResp.ExitMessage = exitMessage
+		if taskResp.ExitCode == "" {
+			taskResp.ExitCode = strconv.Itoa(exitCode)
+		}
+		if taskResp.ExitMessage == "" {
+			taskResp.ExitMessage = taskReq.Mask(exitMessage)
+		}
 		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = false
 		if err != nil && taskResp.FailedCommand == "" {
-			taskResp.FailedCommand = cmd
+			taskResp.FailedCommand = taskReq.Mask(cmd)
 		}
 		if len(stderr) > 0 {
 			// it's already logged on console

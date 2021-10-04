@@ -1,7 +1,7 @@
 // Package docs Formicary API.
 //
-// The formicary is a distributed job graph processing system based on `Leader-Follower` and `Pipes-Filter` design principles for
-// executing a directed acyclic graph of tasks.
+// The formicary is a distributed orchestration engine based on `Leader-Follower` and `Pipes-Filter` design principles for
+// executing a directed acyclic graph of tasks and workflows.
 //
 //     Schemes: http, https
 //     Host: localhost:7777

@@ -32,16 +32,16 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 	mx.lock.RLock()
 	defer mx.lock.RUnlock()
 	for _, cbRel := range mx.callbacksCorrelations {
-		go func(cbRel callBackCoRelation) {
-			if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
+		if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
+			go func(cbRel callBackCoRelation) {
 				if err := cbRel.callback(ctx, event); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component": "SendReceiveMultiplexer",
 						"Event":     event,
 					}).Warnf("failed to notify event")
 				}
-			}
-		}(cbRel)
+			}(cbRel)
+		}
 	}
 	return len(mx.callbacksCorrelations)
 }
