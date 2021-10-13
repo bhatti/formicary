@@ -12,9 +12,6 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-// TaskResponseTopicPrefix response topic
-const TaskResponseTopicPrefix = "task-response-topic-"
-
 // ServerConfig -- Defines the Server Config
 type ServerConfig struct {
 	types.CommonConfig            `yaml:"common" mapstructure:"common"`
@@ -256,7 +253,7 @@ func (c *ServerConfig) GetResponseTopicAntRegistration() string {
 
 // GetResponseTopicTaskReply response topic
 func (c *ServerConfig) GetResponseTopicTaskReply() string {
-	return c.BuildResponseTopic("task-reply")
+	return c.BuildResponseTopic("reply")
 }
 
 // BuildResponseTopic response topic
@@ -265,7 +262,7 @@ func (c *ServerConfig) BuildResponseTopic(suffix string) string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		TaskResponseTopicPrefix+suffix)
+		"task-"+suffix)
 }
 
 // GetJobExecutionLaunchTopic launch topic
@@ -274,16 +271,7 @@ func (c *ServerConfig) GetJobExecutionLaunchTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		types.JobExecutionLaunchTopic+c.Jobs.LaunchTopicSuffix)
-}
-
-// GetJobSchedulerLeaderTopic leader election event
-func (c *ServerConfig) GetJobSchedulerLeaderTopic() string {
-	return types.NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
-		types.JobSchedulerLeaderTopic)
+		"job-execution-launch"+c.Jobs.LaunchTopicSuffix)
 }
 
 // Validate validates smtp config

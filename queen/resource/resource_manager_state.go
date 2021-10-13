@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -426,9 +427,10 @@ func (s *State) terminateContainer(
 		if event, err = s.queueClient.SendReceive(
 			ctx,
 			registration.AntTopic,
-			make(map[string]string),
 			b,
-			s.serverCfg.GetResponseTopicAntRegistration()); err == nil {
+			s.serverCfg.GetResponseTopicAntRegistration(),
+			make(map[string]string),
+			); err == nil {
 			defer event.Ack() // auto-ack
 			taskResp := common.NewTaskResponse(taskReq)
 			err = json.Unmarshal(event.Payload, taskResp)
@@ -453,15 +455,18 @@ func (s *State) addContainers(
 		if event, err := s.queueClient.SendReceive(
 			ctx,
 			registration.AntTopic,
-			make(map[string]string),
 			b,
-			s.serverCfg.GetResponseTopicAntRegistration()); err == nil {
+			s.serverCfg.GetResponseTopicAntRegistration(),
+			make(map[string]string),
+			); err == nil {
 			if event == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "ResourceManager",
 					"AntID":     registration.AntID,
 					"Topic":     registration.AntTopic,
-				}).Errorf("received nil event")
+				}).Errorf("received nil event from %s to %s",
+					registration.AntTopic, s.serverCfg.GetResponseTopicAntRegistration())
+				debug.PrintStack()
 				return
 			}
 			defer event.Ack() // auto-ack

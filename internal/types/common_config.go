@@ -16,48 +16,6 @@ import (
 const httpPrefix = "http"
 const httpsPrefix = "https"
 
-// JobSchedulerLeaderTopic topic for leader election of scheduler as there can be only a single scheduler
-const JobSchedulerLeaderTopic = "job-scheduler-leader-topic"
-
-// JobExecutionLaunchTopic topic
-const JobExecutionLaunchTopic = "job-execution-launch-topic"
-
-// JobDefinitionLifecycleTopic topic for lifecycle
-const JobDefinitionLifecycleTopic = "job-definition-lifecycle-topic"
-
-// JobRequestLifecycleTopic topic for lifecycle
-const JobRequestLifecycleTopic = "job-request-lifecycle-topic"
-
-// JobExecutionLifecycleTopic topic for lifecycle
-const JobExecutionLifecycleTopic = "job-execution-lifecycle-topic"
-
-// TaskExecutionLifecycleTopic topic for task execution lifecycle
-const TaskExecutionLifecycleTopic = "task-execution-lifecycle-topic"
-
-// ContainerLifecycleTopic topic for container lifecycle
-const ContainerLifecycleTopic = "container-lifecycle-topic"
-
-// ForkJobTaskletTopic topic for fork-job
-const ForkJobTaskletTopic = "fork-job-tasklet-topic"
-
-// ExpireArtifactsTaskletTopic topic for expiration
-const ExpireArtifactsTaskletTopic = "expire-artifacts-tasklet-topic"
-
-// WaitForkJobTaskletTopic topic for wait-fork-job
-const WaitForkJobTaskletTopic = "wait-fork-job-tasklet-topic"
-
-// MessagingTaskletTopic topic for messaging
-const MessagingTaskletTopic = "messaging-tasklet-topic"
-
-// LogTopic topic for logs
-const LogTopic = "log-topic"
-
-// HealthErrorTopic topic for health errors
-const HealthErrorTopic = "health-error-topic"
-
-// RequestTopicPrefix topic for incoming requests
-const RequestTopicPrefix = "ant-request"
-
 // MessagingProvider defines enum for messaging provider
 type MessagingProvider string
 
@@ -117,7 +75,7 @@ func NonPersistentTopic(provider MessagingProvider, tenant string, namespace str
 	if provider == PulsarMessagingProvider {
 		return fmt.Sprintf("non-persistent://%s/%s/formicary-%s", tenant, namespace, name)
 	}
-	return fmt.Sprintf("formicary-pubsub-%s", name)
+	return fmt.Sprintf("formicary-topic-%s", name)
 }
 
 // GetExternalBaseURL url
@@ -215,13 +173,31 @@ func (c *CommonConfig) GetRegistrationTopic() string {
 		RegistrationTopic)
 }
 
+// GetJobExecutionLaunchTopic launch topic
+func (c *CommonConfig) GetJobExecutionLaunchTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"job-execution-launch")
+}
+
+// GetJobSchedulerLeaderTopic leader election event
+func (c *CommonConfig) GetJobSchedulerLeaderTopic() string {
+	return NonPersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"job-scheduler-leader")
+}
+
 // GetContainerLifecycleTopic - container lifecycle topic
 func (c *CommonConfig) GetContainerLifecycleTopic() string {
 	return NonPersistentTopic(
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		ContainerLifecycleTopic)
+		"container-lifecycle")
 }
 
 // GetJobDefinitionLifecycleTopic topic
@@ -230,7 +206,7 @@ func (c *CommonConfig) GetJobDefinitionLifecycleTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		JobDefinitionLifecycleTopic)
+		"job-definition-lifecycle")
 }
 
 // GetJobRequestLifecycleTopic topic
@@ -239,7 +215,7 @@ func (c *CommonConfig) GetJobRequestLifecycleTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		JobRequestLifecycleTopic)
+		"job-request-lifecycle")
 }
 
 // GetJobExecutionLifecycleTopic topic
@@ -248,7 +224,7 @@ func (c *CommonConfig) GetJobExecutionLifecycleTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		JobExecutionLifecycleTopic)
+		"job-execution-lifecycle")
 }
 
 // GetTaskExecutionLifecycleTopic topic
@@ -257,7 +233,7 @@ func (c *CommonConfig) GetTaskExecutionLifecycleTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		TaskExecutionLifecycleTopic)
+		"task-execution-lifecycle")
 }
 
 // GetExpireArtifactsTaskletTopic topic
@@ -266,7 +242,7 @@ func (c *CommonConfig) GetExpireArtifactsTaskletTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		ExpireArtifactsTaskletTopic)
+		"expire-artifacts-tasklet")
 }
 
 // GetForkJobTaskletTopic topic
@@ -275,7 +251,7 @@ func (c *CommonConfig) GetForkJobTaskletTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		ForkJobTaskletTopic)
+		"fork-job-tasklet")
 }
 
 // GetWaitForkJobTaskletTopic topic
@@ -284,7 +260,7 @@ func (c *CommonConfig) GetWaitForkJobTaskletTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		WaitForkJobTaskletTopic)
+		"wait-fork-job-tasklet")
 }
 
 // GetMessagingQueue topic
@@ -302,7 +278,7 @@ func (c *CommonConfig) GetMessagingTaskletTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		MessagingTaskletTopic)
+		"messaging-tasklet")
 }
 
 // GetLogTopic topic
@@ -311,7 +287,7 @@ func (c *CommonConfig) GetLogTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		LogTopic)
+		"logs")
 }
 
 // GetHealthErrorTopic topic
@@ -320,16 +296,25 @@ func (c *CommonConfig) GetHealthErrorTopic() string {
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		HealthErrorTopic)
+		"health-error")
 }
 
-// GetRequestTopic request topic
+// GetRequestTopic request topic for incoming requests
 func (c *CommonConfig) GetRequestTopic() string {
 	return PersistentTopic(
 		c.MessagingProvider,
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
-		RequestTopicPrefix+c.Pulsar.TopicSuffix)
+		"ant-request")
+}
+
+// GetReplyTopic reply topic for incoming requests
+func (c *CommonConfig) GetReplyTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"ant-reply")
 }
 
 // Validate - validates

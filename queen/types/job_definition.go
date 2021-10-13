@@ -473,7 +473,13 @@ func (jd *JobDefinition) AddTask(task *TaskDefinition) *TaskDefinition {
 	old := jd.lookupTasks.GetObject(task.TaskType)
 	if old == nil {
 		jd.Tasks = append(jd.Tasks, task)
-		task.TaskOrder = jd.lookupTasks.Len()
+		maxOrder := 0
+		for _, nextTask := range jd.Tasks {
+			if nextTask.TaskOrder > maxOrder {
+				maxOrder = nextTask.TaskOrder
+			}
+		}
+		task.TaskOrder = maxOrder + 1
 	} else {
 		task.TaskOrder = old.(*TaskDefinition).TaskOrder
 	}

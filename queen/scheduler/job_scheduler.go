@@ -28,25 +28,26 @@ const maxNoMoreJobs = 10
 
 // JobScheduler for scheduling jobs
 type JobScheduler struct {
-	id                            string
-	serverCfg                     *config.ServerConfig
-	queueClient                   queue.Client
-	jobManager                    *manager.JobManager
-	artifactManager               *manager.ArtifactManager
-	userManager                   *manager.UserManager
-	errorRepository               repository.ErrorCodeRepository
-	resourceManager               resource.Manager
-	metricsRegistry               *metrics.Registry
-	monitor                       *health.Monitor
-	jobSchedulerLeaderTopic       string
-	lastJobSchedulerLeaderEventAt time.Time
-	lock                          sync.RWMutex
-	busy                          bool
-	noJobsTries                   int
-	totalPendingJobs              uint64
-	totalScheduledJobs            uint64
-	done                          chan bool
-	tickers                       []*time.Ticker
+	id                               string
+	serverCfg                        *config.ServerConfig
+	queueClient                      queue.Client
+	jobManager                       *manager.JobManager
+	artifactManager                  *manager.ArtifactManager
+	userManager                      *manager.UserManager
+	errorRepository                  repository.ErrorCodeRepository
+	resourceManager                  resource.Manager
+	metricsRegistry                  *metrics.Registry
+	monitor                          *health.Monitor
+	jobSchedulerLeaderTopic          string
+	lastJobSchedulerLeaderEventAt    time.Time
+	lock                             sync.RWMutex
+	busy                             bool
+	noJobsTries                      int
+	totalPendingJobs                 uint64
+	totalScheduledJobs               uint64
+	done                             chan bool
+	tickers                          []*time.Ticker
+	jobSchedulerLeaderSubscriptionID string
 }
 
 // New creates new scheduler
@@ -83,7 +84,7 @@ func New(
 
 // Start - creates periodic ticker for scheduling pending jobs
 func (js *JobScheduler) Start(ctx context.Context) (err error) {
-	if err = js.subscribeToJobSchedulerLeader(ctx); err != nil {
+	if js.jobSchedulerLeaderSubscriptionID, err = js.subscribeToJobSchedulerLeader(ctx); err != nil {
 		return err
 	}
 	js.tickers = append(js.tickers, js.startTickerToSendJobSchedulerLeaderEvents(ctx))
@@ -270,7 +271,7 @@ func (js *JobScheduler) scheduleJob(
 		request.JobPriority = request.JobPriority - decrPriority
 		_ = js.jobManager.IncrementScheduleAttemptsForJobRequest(
 			request,
-			time.Duration(scheduleSecs) * time.Second,
+			time.Duration(scheduleSecs)*time.Second,
 			decrPriority,
 			err.Error())
 		// will try again

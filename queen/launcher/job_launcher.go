@@ -22,18 +22,20 @@ import (
 
 // JobLauncher for launching jobs
 type JobLauncher struct {
-	id                  string
-	serverCfg           *config.ServerConfig
-	queueClient         queue.Client
-	jobManager          *manager.JobManager
-	artifactManager     *manager.ArtifactManager
-	userManager         *manager.UserManager
-	resourceManager     resource.Manager
-	errorCodeRepository repository.ErrorCodeRepository
-	metricsRegistry     *metrics.Registry
-	eventBus            evbus.Bus
-	supervisors         map[uint64]*supervisor.JobSupervisor
-	lock                sync.RWMutex
+	id                         string
+	serverCfg                  *config.ServerConfig
+	queueClient                queue.Client
+	jobManager                 *manager.JobManager
+	artifactManager            *manager.ArtifactManager
+	userManager                *manager.UserManager
+	resourceManager            resource.Manager
+	errorCodeRepository        repository.ErrorCodeRepository
+	metricsRegistry            *metrics.Registry
+	eventBus                   evbus.Bus
+	supervisors                map[uint64]*supervisor.JobSupervisor
+	jobLaunchSubscriptionID    string
+	jobLifecycleSubscriptionID string
+	lock                       sync.RWMutex
 }
 
 // New creates new scheduler
@@ -63,12 +65,12 @@ func New(
 }
 
 // Start - creates periodic ticker for scheduling pending jobs
-func (jl *JobLauncher) Start(ctx context.Context) error {
-	if err := jl.subscribeToJobLaunch(ctx); err != nil {
+func (jl *JobLauncher) Start(ctx context.Context) (err error) {
+	if jl.jobLaunchSubscriptionID, err = jl.subscribeToJobLaunch(ctx); err != nil {
 		_ = jl.Stop(ctx)
 		return err
 	}
-	if err := jl.subscribeToJobLifecycleEvent(
+	if jl.jobLifecycleSubscriptionID,err = jl.subscribeToJobLifecycleEvent(
 		ctx,
 		jl.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
 		_ = jl.Stop(ctx)
@@ -87,12 +89,11 @@ func (jl *JobLauncher) Stop(ctx context.Context) error {
 	err1 := jl.queueClient.UnSubscribe(
 		ctx,
 		jl.serverCfg.GetJobExecutionLaunchTopic(),
-		jl.id,
-	)
+		jl.jobLaunchSubscriptionID)
 	err2 := jl.queueClient.UnSubscribe(
 		ctx,
 		jl.serverCfg.GetJobExecutionLifecycleTopic(),
-		jl.id)
+		jl.jobLifecycleSubscriptionID)
 	return utils.ErrorsAny(err1, err2)
 }
 
@@ -159,12 +160,10 @@ func (jl *JobLauncher) launchJob(
 }
 
 // Subscribing to job launch topic
-func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (err error) {
+func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error) {
 	return jl.queueClient.Subscribe(
 		ctx,
 		jl.serverCfg.GetJobExecutionLaunchTopic(),
-		jl.id,
-		make(map[string]string),
 		true, // shared
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -199,17 +198,16 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (err error) {
 
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return jl.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		jl.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -233,12 +231,16 @@ func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 			}
 			// job-launcher just subscribes to messaging queue once and then uses messaging bus to propagate events
 			// to all job-supervisors so that each job-supervisor doesn't need to consume queue resources
-			jl.eventBus.Publish(common.JobExecutionLifecycleTopic, ctx, jobExecutionLifecycleEvent)
+			jl.eventBus.Publish(
+				jl.serverCfg.GetJobExecutionLifecycleTopic(),
+				ctx,
+				jobExecutionLifecycleEvent)
 			if jobExecutionLifecycleEvent.JobState.IsTerminal() {
 				jl.removeSupervisor(ctx, jobExecutionLifecycleEvent)
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 

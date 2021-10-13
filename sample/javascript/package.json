@@ -1,0 +1,14 @@
+{
+  "name": "formicary-js-messaging",
+  "version": "1.0.0",
+  "description": "Sample ant worker for javascript messaging",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "PlexObject Solutions, Inc.",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "kafkajs": "^1.15.0"
+  }
+}

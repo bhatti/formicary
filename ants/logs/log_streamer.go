@@ -123,7 +123,16 @@ func (s *LogStreamer) publish(data []byte) {
 			"Error":     serErr,
 		}).Error("failed to marshal log event")
 	} else {
-		if _, pubErr := s.queueClient.Publish(s.ctx, s.logTopic, make(map[string]string), b, false); pubErr != nil {
+		if _, pubErr := s.queueClient.Publish(
+			s.ctx,
+			s.logTopic,
+			b,
+			queue.NewMessageHeaders(
+				queue.DisableBatchingKey, "true",
+				"RequestID", fmt.Sprintf("%d", s.requestID),
+				"UserID", s.userID,
+			),
+		); pubErr != nil {
 			logrus.WithFields(logrus.Fields{
 				"Component": "LogStreamer",
 				"Message":   string(data),

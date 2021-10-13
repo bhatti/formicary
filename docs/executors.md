@@ -303,52 +303,65 @@ You can implement a customized executor by subscribing to the messaging queue, e
 ```go
 // MessagingHandler structure
 type MessagingHandler struct {
-	id           string
-	requestTopic string
-	queueClient  queue.Client
+	id            string
+	requestTopic  string
+	responseTopic string
+	queueClient   queue.Client
 }
 
 // NewMessagingHandler constructor
 func NewMessagingHandler(
 	id string,
 	requestTopic string,
+	responseTopic string,
 	queueClient queue.Client,
 ) *MessagingHandler {
 	return &MessagingHandler{
-		id:           id,
-		requestTopic: requestTopic,
-		queueClient:  queueClient,
+		id:            id,
+		requestTopic:  requestTopic,
+		responseTopic: responseTopic,
+		queueClient:   queueClient,
 	}
 }
 
-// Start starts subscription
-func (rh *MessagingHandler) Start(
+func (h *MessagingHandler) Start(
 	ctx context.Context,
 ) (err error) {
-	return rh.queueClient.Subscribe(
+	return h.queueClient.Subscribe(
 		ctx,
-		rh.requestTopic,
-		rh.id,
+		h.requestTopic,
+		h.id,
 		make(map[string]string),
 		true, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
-			return rh.execute(ctx, event.Payload)
+			err = h.execute(ctx, event.Payload)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component": "MessagingHandler",
+					"Payload":   string(event.Payload),
+					"Target":    h.id,
+					"Error":     err}).Error("failed to execute")
+				return err
+			}
+			return nil
 		},
 	)
 }
 
 // Stop stops subscription
-func (rh *MessagingHandler) Stop(ctx context.Context) (err error) {
-	return rh.queueClient.UnSubscribe(
+func (h *MessagingHandler) Stop(
+	ctx context.Context,
+) (err error) {
+	return h.queueClient.UnSubscribe(
 		ctx,
-		rh.requestTopic,
-		rh.id,
+		h.requestTopic,
+		h.id,
 	)
 }
 
-// execute request
-func (rh *MessagingHandler) execute(
+// execute incoming request
+func (h *MessagingHandler) execute(
 	ctx context.Context,
 	reqPayload []byte) (err error) {
 	var req types.TaskRequest
@@ -357,21 +370,224 @@ func (rh *MessagingHandler) execute(
 		return err
 	}
 	resp := types.NewTaskResponse(&req)
-    // 
-    // your logic here
-    // 
+
+	// Implement business logic below
+	epoch := time.Now().Unix()
+	if epoch%2 == 0 {
+		resp.Status = types.COMPLETED
+	} else {
+		resp.ErrorCode = "ERR_MESSAGING_WORKER"
+		resp.ErrorMessage = "mock error for messaging client"
+		resp.Status = types.FAILED
+	}
+	resp.AddContext("epoch", epoch)
+
+	// Send back reply
 	resPayload, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
-	_, err = rh.queueClient.Send(
+	_, err = h.queueClient.Send(
 		ctx,
-		req.ResponseTopic,
+		h.responseTopic,
 		make(map[string]string),
 		resPayload,
 		false)
-	return
+	return err
 }
+```
+
+Here is an equivalent implementation of messaging ant worker in Javascript:
+```
+const {Kafka} = require('kafkajs')
+const assert = require('assert')
+
+// Messaging helper class for communication with the queen server
+class Messaging {
+    constructor(config) {
+        assert(config.clientId, `clientId is not specified`)
+        assert(config.brokers.length, 'brokers is not specified')
+        config.reconnectTimeout = config.reconnectTimeout || 10000
+        this.config = config
+        this.kafka = new Kafka(config)
+        this.producers = {}
+        console.info({config}, `initializing messaging helper`)
+    }
+
+    // send a message to the topic
+    async send(topic, headers, message) {
+        const producer = await this.getProducer(topic)
+        await producer.send({
+            topic: topic,
+            messages: [
+                {
+                    key: headers['key'],
+                    headers: headers,
+                    value: typeof message == 'object' ? JSON.stringify(message) : message,
+                }
+            ]
+        })
+        console.debug({topic, message}, `sent message to ${topic}`)
+    }
+
+    // subscribe to topic with given callback
+    async subscribe(topic, cb, tries = 0) {
+        //const meta = await this.getTopicMetadata(topic)
+        const consumer = this.kafka.consumer({groupId: this.config.groupId})
+        try {
+            await consumer.connect()
+            const subConfig = {topic: topic, fromBeginning: false}
+            await consumer.subscribe(subConfig)
+            const handle = (message, topic, partition) => {
+                const headers = message.headers || {}
+                if (topic) {
+                    headers.topic = topic
+                }
+                if (partition) {
+                    headers.partition = partition.toString()
+                }
+
+                headers.key = (message.key || '').toString()
+                headers.timestamp = message.timestamp
+                headers.size = (message.size || '0').toString()
+                headers.attributes = (message.attributes || '[]').toString()
+                headers.offset = message.offset
+                cb(headers, JSON.parse(message.value || ''))
+            }
+
+            console.info({topic, groupId: this.config.groupId},
+                `subscribing consumer to ${topic}`)
+            await consumer.run({
+                eachBatchAutoResolve: false,
+                eachBatch: async ({batch, resolveOffset, heartbeat, isRunning, isStale}) => {
+                    for (let message of batch.messages) {
+                        if (!isRunning()) break
+                        if (isStale()) continue
+                        handle(message, topic)
+                        resolveOffset(message.offset) // commit
+                        await heartbeat()
+                    }
+                }
+            })
+
+            return () => {
+                console.info({topic, groupId: this.config.groupId}, `closing consumer`)
+                consumer.disconnect()
+            }
+        } catch (e) {
+            console.warn(
+                {topic, error: e, config: this.config},
+                `could not subscribe, will try again`)
+            tries++
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(this.subscribe(topic, cb, tries))
+                }, Math.min(tries * 1000, this.config.reconnectTimeout + 5000))
+            })
+        }
+    }
+
+    // getTopicMetadata returns partition metadata for the topic
+    async getTopicMetadata(topic, groupId, tries = 0) {
+        const admin = this.kafka.admin()
+        try {
+            await admin.connect()
+            const response = {}
+            if (groupId) {
+                response.offset = await admin.fetchOffsets({groupId, topic})
+            } else {
+                response.offset = await admin.fetchTopicOffsets(topic)
+            }
+            const meta = await admin.fetchTopicMetadata({topics: [topic]})
+            if (meta && meta.topics && meta.topics[0].partitions) {
+                response.partitions = meta.topics[0].partitions
+            }
+            response.topics = await admin.listTopics()
+            response.groups = (await admin.listGroups())['groups']
+            return response
+        } catch (e) {
+            console.warn(
+                {topic, error: e, config: this.config},
+                `could not get metadata, will try again`)
+            tries++
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(this.getTopicMetadata(topic, groupId, tries))
+                }, Math.min(tries * 1000, this.config.reconnectTimeout))
+            })
+        }
+    }
+
+    // getProducer returns producer for the topic
+    async getProducer(topic, tries = 0) {
+        const producer = this.kafka.producer()
+        try {
+            await producer.connect()
+            this.producers[topic] = producer
+            console.info({topic, tries}, `adding producer`)
+            return producer
+        } catch (e) {
+            console.warn(
+                {topic, error: e, config: this.config},
+                `could not get messaging producer, will try again`)
+            tries++
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(this.getProducer(topic, tries))
+                }, Math.min(tries * 1000, this.config.reconnectTimeout))
+            })
+        }
+    }
+
+    // closeProducers closes producers
+    async closeProducers() {
+        Object.entries(this.producers).forEach(([topic, producer]) => {
+            console.info({topic}, `closing producer`)
+            try {
+                producer.disconnect()
+            } catch (e) {
+            }
+        })
+        this.producers = {}
+    }
+
+}
+
+
+const Messaging = require('./messaging')
+const process = require("process")
+const readline = require("readline")
+
+const conf = {
+    clientId: 'messaging-js-client',
+    groupId: 'messaging-js-client',
+    brokers: ['127.0.0.1:19092', '127.0.0.1:29092', '127.0.0.1:39092'],
+    inTopic: 'formicary-message-ant-request',
+    outTopic: 'formicary-message-ant-response',
+    connectionTimeout: 10000,
+    requestTimeout: 10000,
+}
+
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+})
+
+rl.on("close", () => {
+    process.exit(0)
+});
+
+const messaging = new Messaging(conf)
+messaging.subscribe(conf.inTopic, async (headers, msg) => {
+    console.log({headers, msg}, `received from ${conf.inTopic}`)
+    msg.status = 'COMPLETED'
+    msg.taskContext = {'key1': 'value1'}
+    messaging.send(conf.outTopic, headers, msg)
+}).then(() => {
+    rl.question('press enter to exit', () => {
+        rl.close()
+    })
+})
 ```
 
 Here is a sample job definition that uses `MESSAGING` executor:
@@ -383,4 +599,71 @@ tasks:
   method: MESSAGING
   messaging_request_queue: formicary-message-ant-request
   messaging_reply_queue: formicary-message-ant-response
+```
+
+### Task Request
+The task request is sent to the ant work for executing the work and includes following properties:
+```
+    {
+        "user_id": "uuid",
+        "organization_id": "uuid",
+        "job_definition_id": "uuid",
+        "job_request_id": 1,
+        "job_type": "my-test-job",
+        "task_type": "task1",
+        "job_execution_id": "uuid",
+        "task_execution_id": "uuid",
+        "task_id": "uuid",
+        "co_relation_id": "uuid",
+        "tags": [],
+        "platform": "linux",
+        "action": "EXECUTE",
+        "job_retry": 0,
+        "task_retry": 0,
+        "allow_failure": false,
+        "before_script": ["t1_cmd1", "t1_cmd2", "t1_cmd3"],
+        "after_script": ["t1_cmd1", "t1_cmd2", "t1_cmd3"],
+        "script": ["t1_cmd1", "t1_cmd2", "t1_cmd3"],
+        "timeout": 0,
+        "variables": {
+            "jk1": {"name": "", "value": "jv1", "secret": false},
+            "jk2": {"name": "", "value": {"a": 1, "b": 2}, "secret": false},
+        },
+        "executor_opts": {
+            "name": "frm-1-task1-0-0-6966",
+            "method": "KUBERNETES",
+            "container": {"image": "", "imageDefinition": {}},
+            "helper": {"image": "", "imageDefinition": {}},
+            "headers": {"t1_h1": "1", "t1_h2": "true", "t1_h3": "three"}
+        },
+    }
+
+```
+
+### Task Response
+The task response is sent back by the ant work after executing the work and includes following properties:
+```
+    {
+        "job_request_id": 1,
+        "job_type": "my-test-job",
+        "task_type": "task1",
+        "task_id": "uuid",
+        "co_relation_id": "uuid",
+        "status": "COMPLETED",
+        "co_relation_id": "uuid",
+        "ant_id": "",
+        "host": "",
+        "namespace": "",
+        "tags": [],
+        "error_message": "",
+        "error_code": "",
+        "exit_code": "",
+        "exit_message": "",
+        "failed_command": "",
+        "task_context": {},
+        "job_context": {},
+        "warnings": [],
+        "cost_factor": 0,
+    }
+
 ```

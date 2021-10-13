@@ -12,6 +12,7 @@
 | **Artifacts**         | No        | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **NPM/Mvn/.. Caching**| No        | Yes       | Yes       | Yes          | No        | Yes       | No          |
 | **Dynamic Workflow**  | Yes       | No        | No        | Yes          | No        | No        | No          |
+| **Extensible Protocols**  | Yes/Operator | No | No        | Yes/Method   | No        | No        | No          |
 | **Job Priority**      | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Task/Workers Tags** | Yes       | No        | No        | Yes          | No        | Yes       | Yes (Agents)|
 | **Conditional Flow**  | Yes       | No        | No        | Yes          | No        | No        | No          |

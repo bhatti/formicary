@@ -70,10 +70,14 @@ func (ts *TaskSupervisor) execute(
 	// we will save task state in the end
 	defer func() {
 		if !ts.taskStateMachine.TaskExecution.TaskState.IsTerminal() {
-			if err == nil && ctx.Err() != nil {
-				err = fmt.Errorf("%v (timeout=%s)", ctx.Err(), time.Now().Sub(started).String())
-			} else if err == nil {
-				err = fmt.Errorf("unknown error executing task")
+			if err == nil {
+				if ctx.Err() != nil {
+					err = fmt.Errorf("%v (timeout=%s/%s)",
+						ctx.Err(), timeout, time.Now().Sub(started).String())
+				} else {
+					err = fmt.Errorf("unknown error executing task (timeout=%s/%s)",
+						timeout, time.Now().Sub(started).String())
+				}
 			}
 			ts.taskStateMachine.SetFailed(err)
 		}
@@ -191,9 +195,15 @@ func (ts *TaskSupervisor) invoke(
 	if event, err = ts.taskStateMachine.QueueClient.SendReceive(
 		ctx,
 		ts.taskStateMachine.Reservation.AntTopic,
-		make(map[string]string),
 		b,
-		ts.serverCfg.GetResponseTopicTaskReply()); err != nil {
+		ts.serverCfg.GetResponseTopicTaskReply(),
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", taskReq.JobRequestID),
+			"TaskType", taskReq.TaskType,
+			"UserID", taskReq.UserID,
+		),
+	); err != nil {
 		return nil, err
 	}
 	if event == nil {
@@ -202,6 +212,21 @@ func (ts *TaskSupervisor) invoke(
 	taskResp = common.NewTaskResponse(taskReq)
 	if err = json.Unmarshal(event.Payload, taskResp); err != nil {
 		return nil, err
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":         "TaskSupervisor",
+			"Task":              ts.taskStateMachine.TaskDefinition,
+			"OriginalState":     taskResp.Status,
+			"OriginalErrorCode": taskResp.ErrorCode,
+			"ExitCode":          taskResp.ExitCode,
+			"TaskResp":          taskResp,
+			"Event":             event.Properties,
+			"ReqTopic":          ts.taskStateMachine.Reservation.AntTopic,
+			"ResTopic":          ts.serverCfg.GetResponseTopicTaskReply(),
+			"RequestID":         ts.taskStateMachine.Request.GetID(),
+			"Retried":           ts.taskStateMachine.Request.GetRetried(),
+		}).Debugf("received reply")
 	}
 	newState, newErrorCode := ts.taskStateMachine.TaskDefinition.OverrideStatusAndErrorCode(taskResp.ExitCode)
 	if newState != "" {

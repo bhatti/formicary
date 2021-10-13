@@ -126,7 +126,7 @@ func (a *Adapter) SaveFile(
 		opts,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to upload file=%s to bucket=%s id=%s size=%d due to %s",
+		return fmt.Errorf("uploaded failed for file=%s to bucket=%s id=%s size=%d due to %s",
 			filePath, artifact.Bucket, artifact.ID, artifact.ContentLength, err)
 	}
 
@@ -318,7 +318,8 @@ func (a *Adapter) buildPutOptions(artifact *types.Artifact) minio.PutObjectOptio
 	opts.UserMetadata["SHA256"] = artifact.SHA256
 	if artifact.ExpiresAt.Unix() > time.Now().Unix() {
 		// See https://docs.minio.io/docs/minio-bucket-object-lock-guide.html
-		opts.RetainUntilDate = artifact.ExpiresAt
+		// TODO fix it, commenting because it causes: Bucket is missing ObjectLockConfiguration
+		//opts.RetainUntilDate = artifact.ExpiresAt
 	}
 	return opts
 }

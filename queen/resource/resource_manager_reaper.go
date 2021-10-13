@@ -44,7 +44,7 @@ func (rm *ManagerImpl) reapStaleAnts(_ context.Context) int {
 			"RemovedTags":    removedTags,
 			"RemovedMethods": removedMethods,
 			"AntID":          antID,
-		}).Info("removing stale registration of ant")
+		}).Warnf("removing stale registration of ant %s", antID)
 	}
 
 	return len(removeAntIDs)

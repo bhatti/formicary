@@ -72,6 +72,7 @@ type TaskResponse struct {
 	JobType         string                 `json:"job_type"`
 	JobTypeVersion  string                 `json:"job_type_version"`
 	TaskType        string                 `json:"task_type"`
+	CoRelationID    string                 `json:"co_relation_id"`
 	Status          RequestState           `json:"status"`
 	AntID           string                 `json:"ant_id"`
 	Host            string                 `json:"host"`
@@ -98,8 +99,9 @@ func NewTaskResponse(req *TaskRequest) *TaskResponse {
 		JobTypeVersion:  req.JobTypeVersion,
 		TaskExecutionID: req.TaskExecutionID,
 		TaskType:        req.TaskType,
+		CoRelationID:    req.CoRelationID,
 		Tags:            []string{},
-		Status:          COMPLETED,
+		Status:          UNKNOWN,
 		TaskContext:     make(map[string]interface{}),
 		JobContext:      make(map[string]interface{}),
 		Artifacts:       make([]*Artifact, 0),
@@ -109,8 +111,8 @@ func NewTaskResponse(req *TaskRequest) *TaskResponse {
 
 // String defines description of task response
 func (res *TaskResponse) String() string {
-	return fmt.Sprintf("ID=%d TaskType=%s Status=%s Exit=%s TaskContext=%d Artifacts=%d Error=%s %s",
-		res.JobRequestID, res.TaskType, res.Status, res.ExitCode, len(res.TaskContext),
+	return fmt.Sprintf("ID=%d CoRelID=%s TaskType=%s Status=%s Exit=%s TaskContext=%d Artifacts=%d Error=%s %s",
+		res.JobRequestID, res.CoRelationID, res.TaskType, res.Status, res.ExitCode, len(res.TaskContext),
 		len(res.Artifacts), res.ErrorCode, res.ErrorMessage)
 }
 

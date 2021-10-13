@@ -112,9 +112,10 @@ func (t *MessagingTasklet) Execute(
 	if event, err = t.queueClient.SendReceive(
 		ctx,
 		taskReq.ExecutorOpts.MessagingRequestQueue,
-		make(map[string]string),
 		b,
-		taskReq.ExecutorOpts.MessagingReplyQueue); err != nil {
+		taskReq.ExecutorOpts.MessagingReplyQueue,
+		make(map[string]string),
+		); err != nil {
 		return nil, err
 	}
 	taskResp = common.NewTaskResponse(taskReq)
@@ -122,7 +123,7 @@ func (t *MessagingTasklet) Execute(
 	if err != nil {
 		return buildTaskResponseWithError(taskReq, err)
 	}
-
+	taskResp.Status = common.COMPLETED
 	taskResp.AddContext("MessageQueue", taskReq.ExecutorOpts.MessagingRequestQueue)
 	taskResp.AddContext("ResponseQueue", taskReq.ExecutorOpts.MessagingReplyQueue)
 	return

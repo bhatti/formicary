@@ -96,12 +96,6 @@ func (ecr *ErrorCodeRepositoryImpl) Save(
 					fmt.Errorf("cannot access error code %s", errorCode.ID))
 			}
 			errorCode.UpdatedAt = time.Now()
-			logrus.WithFields(logrus.Fields{
-				"Component": "ErrorCodeRepositoryImpl",
-				"ErrorCodd": errorCode,
-				"QC":        qc,
-			}).Warnf(">>>>>>>>>valid owner %s / %s query context",
-				errorCode.UserID, errorCode.OrganizationID)
 			res = tx.Save(errorCode)
 		}
 		if res.Error != nil {

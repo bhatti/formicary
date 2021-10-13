@@ -1143,11 +1143,17 @@ func (jm *JobManager) fireJobDefinitionChange(
 	if payload, err = event.Marshal(); err != nil {
 		return fmt.Errorf("failed to marshal job-definition event due to %v", err)
 	}
-	if _, err = jm.queueClient.Publish(context.Background(),
+	if _, err = jm.queueClient.Publish(
+		context.Background(),
 		jm.serverCfg.GetJobDefinitionLifecycleTopic(),
-		make(map[string]string),
 		payload,
-		true); err != nil {
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"JobDefinitionID", id,
+			"JobType", jobType,
+			"UserID", username,
+		),
+	); err != nil {
 		return fmt.Errorf("failed to send job-definition event due to %v", err)
 	}
 	return nil
@@ -1169,9 +1175,13 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 	}
 	if _, err = jm.queueClient.Publish(context.Background(),
 		jm.serverCfg.GetJobRequestLifecycleTopic(),
-		make(map[string]string),
 		payload,
-		true); err != nil {
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"UserID", req.UserID,
+		),
+	); err != nil {
 		return fmt.Errorf("failed to send job-request event due to %v", err)
 	}
 	return nil
@@ -1198,9 +1208,13 @@ func (jm *JobManager) cancelJob(
 	// TODO add better reliability for this pub/sub
 	if _, err = jm.queueClient.Publish(context.Background(),
 		jm.serverCfg.GetJobExecutionLifecycleTopic(),
-		make(map[string]string),
 		payload,
-		true); err != nil {
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"UserID", req.UserID,
+		),
+	); err != nil {
 		return fmt.Errorf("failed to send job-execution jobExecutionLifecycleEvent due to %v", err)
 	}
 

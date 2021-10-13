@@ -10,12 +10,10 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) error {
+func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) (string, error) {
 	return t.QueueClient.Subscribe(
 		ctx,
 		t.RequestTopic,
-		t.ID,
-		make(map[string]string),
 		true, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -25,6 +23,7 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) error {
 			}
 			go func() {
 				req.StartedAt = time.Now()
+				req.CoRelationID = event.CoRelationID()
 				if err := t.handleRequest(ctx, req, event.ReplyTopic()); err != nil {
 					logrus.WithFields(
 						logrus.Fields{
@@ -40,17 +39,17 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) error {
 				}
 			}()
 			return nil
-		})
+		},
+		make(map[string]string),
+	)
 }
 
 func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return t.QueueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		t.ID,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -68,7 +67,7 @@ func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 			// the base-tasklet will subscribe to messaging queue once for job-execution event and then
 			// propagate via event bus to all request-executors that work on each request so each request doesn't
 			// need to consume any queuing resources.
-			t.EventBus.Publish(types.JobExecutionLifecycleTopic, jobExecutionLifecycleEvent)
+			t.EventBus.Publish(t.Config.GetJobExecutionLifecycleTopic(), jobExecutionLifecycleEvent)
 			if jobExecutionLifecycleEvent.JobState == types.CANCELLED {
 				if err := t.RequestRegistry.CancelJob(jobExecutionLifecycleEvent.JobRequestID); err != nil {
 					logrus.WithFields(logrus.Fields{
@@ -82,16 +81,15 @@ func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return t.QueueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		t.ID,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -105,7 +103,7 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 					Error("failed to unmarshal taskExecutionLifecycleEvent")
 				return err
 			}
-			t.EventBus.Publish(types.TaskExecutionLifecycleTopic, taskExecutionLifecycleEvent)
+			t.EventBus.Publish(t.Config.GetTaskExecutionLifecycleTopic(), taskExecutionLifecycleEvent)
 			if taskExecutionLifecycleEvent.TaskState == types.CANCELLED {
 				if err = t.RequestRegistry.Cancel(taskExecutionLifecycleEvent.Key()); err != nil {
 					logrus.WithFields(logrus.Fields{
@@ -119,6 +117,7 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
@@ -190,9 +189,9 @@ func (t *BaseTasklet) sendRegisterAntRequest(
 	if _, err = t.QueueClient.Publish(
 		ctx,
 		t.RegistrationTopic,
-		make(map[string]string),
 		b,
-		false); err != nil {
+		make(map[string]string),
+		); err != nil {
 		return err
 	}
 	return

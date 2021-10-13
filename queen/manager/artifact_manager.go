@@ -146,7 +146,7 @@ func (am *ArtifactManager) UploadArtifact(
 		artifact.UserID,
 		artifact,
 		tmpFile.Name()); err != nil {
-		return nil, fmt.Errorf("failed to upload file due to %s", err.Error())
+		return nil, fmt.Errorf("failed to upload file due to '%s'", err.Error())
 	}
 
 	if _, err = am.artifactRepository.Save(artifact); err != nil {

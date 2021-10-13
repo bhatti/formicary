@@ -1,0 +1,46 @@
+job_type: shell-job
+tasks:
+- task_type: allocate
+  method: SHELL
+  script:
+    - echo allocating resource
+  on_completed: check-date
+- task_type: check-date
+  method: SHELL
+  script:
+    - exit {{.ExitCode}}
+  on_exit_code:
+    1: monday
+    2: tuesday
+    3: friday 
+  on_completed: deallocate
+- task_type: monday
+  method: SHELL
+  script:
+    - echo monday
+  on_completed: deallocate
+- task_type: tuesday
+  method: SHELL
+  script:
+    - echo tuesday
+  on_completed: shell-tuesday
+- task_type: shell-tuesday
+  method: SHELL
+  script:
+    - echo shell tuesday
+  on_completed: deallocate
+- task_type: friday
+  method: SHELL
+  script:
+    - echo friday
+  on_completed: party
+- task_type: party
+  method: SHELL
+  script:
+    - echo tgif party
+  on_completed: deallocate
+- task_type: deallocate
+  method: SHELL
+  always_run: true
+  script:
+    - echo deallocating

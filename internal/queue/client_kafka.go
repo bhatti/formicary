@@ -10,32 +10,31 @@ import (
 	"io"
 	"net"
 	"plexobject.com/formicary/internal/types"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// MessageKey constant
-const MessageKey = "Key"
-
-// ProducerKey constant
-const ProducerKey = "Producer"
-
 // ClientKafka structure implements interface for queuing messages using Apache Kafka
 type ClientKafka struct {
-	config           *types.CommonConfig
-	lock             sync.Mutex
-	producers        map[string]*kafka.Writer
-	consumersByTopic map[string]*kafkaSubscription
-	closed           bool
+	config                *types.CommonConfig
+	topicLock             sync.Mutex
+	validTopics           map[string]bool
+	consumerProducerLock  sync.Mutex
+	producers             map[string]*kafka.Writer
+	consumersByTopicGroup map[string]*kafkaSubscription
+	consumersByID         map[string]*kafkaSubscription
+	closed                bool
+	readerDialer          *kafka.Dialer
 }
 
 // kafkaSubscription structure
 type kafkaSubscription struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
-	id       string
 	topic    string
 	group    string
 	mx       *SendReceiveMultiplexer
@@ -44,12 +43,22 @@ type kafkaSubscription struct {
 	closed   bool
 }
 
+// connectionCloser for cleanup
+type connectionCloser func()
+
 // newKafkaClient creates structure for implementing queuing operations
 func newKafkaClient(config *types.CommonConfig) (Client, error) {
 	return &ClientKafka{
-		config:           config,
-		producers:        make(map[string]*kafka.Writer),
-		consumersByTopic: make(map[string]*kafkaSubscription),
+		config:                config,
+		validTopics:           make(map[string]bool),
+		producers:             make(map[string]*kafka.Writer),
+		consumersByTopicGroup: make(map[string]*kafkaSubscription),
+		consumersByID:         make(map[string]*kafkaSubscription),
+		readerDialer: &kafka.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+			ClientID:  "reader-" + config.ID,
+		},
 	}, nil
 }
 
@@ -57,14 +66,26 @@ func newKafkaClient(config *types.CommonConfig) (Client, error) {
 func (c *ClientKafka) Subscribe(
 	ctx context.Context,
 	topic string,
-	id string,
-	props map[string]string,
 	shared bool,
-	cb Callback) (err error) {
-	if cb == nil {
-		return fmt.Errorf("callback function is not specified")
+	cb Callback,
+	props MessageHeaders,
+) (id string, err error) {
+	if c.closed {
+		return "", fmt.Errorf("kafka client is closed")
 	}
-	_, err = c.getOrCreateConsumer(ctx, topic, id, "", props, shared, cb)
+	if cb == nil {
+		return "", fmt.Errorf("callback function is not specified")
+	}
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	id, _, _, err = c.getOrCreateConsumer(
+		ctx,
+		topic,
+		shared,
+		cb,
+		props,
+	)
 	return
 }
 
@@ -72,27 +93,41 @@ func (c *ClientKafka) Subscribe(
 func (c *ClientKafka) UnSubscribe(
 	_ context.Context,
 	topic string,
-	id string) (err error) {
+	id string,
+) (err error) {
+	if c.closed {
+		return fmt.Errorf("kafka client is closed")
+	}
 	logrus.WithFields(logrus.Fields{
 		"Component": "ClientKafka",
 		"Topic":     topic,
 		"ID":        id}).
 		Infof("unsubscribed...")
-	return c.closeConsumer(topic, id)
+	return c.closeConsumer(
+		topic,
+		id,
+		false)
 }
 
 // Send - sends one message and closes producer at the end
 func (c *ClientKafka) Send(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
+	props MessageHeaders,
+) (messageID []byte, err error) {
+	if c.closed {
+		return nil, fmt.Errorf("kafka client is closed")
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	err = c.send(
 		ctx,
 		topic,
+		payload,
 		props,
-		payload)
+	)
 	return
 }
 
@@ -100,71 +135,116 @@ func (c *ClientKafka) Send(
 func (c *ClientKafka) SendReceive(
 	ctx context.Context,
 	outTopic string,
-	props map[string]string,
 	payload []byte,
 	inTopic string,
+	props MessageHeaders,
 ) (event *MessageEvent, err error) {
-	props[ReplyTopicKey] = inTopic
-	props[CorrelationIDKey] = uuid.NewV4().String()
-	id := uuid.NewV4().String()
-	var subscription *kafkaSubscription
-	cb := func(ctx context.Context, e *MessageEvent) error {
-		event = e
-		if subscription != nil {
-			_ = subscription.close()
-		}
-		return nil
+	if c.closed {
+		return nil, fmt.Errorf("kafka client is closed")
 	}
-	subscription, err = c.createConsumer(
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	props.SetReplyTopic(inTopic)
+	props.SetCorrelationID(uuid.NewV4().String())
+	//props.SetLastOffset("0")
+	props.SetDisableBatching(true)
+	id, subscription, consumerChannel, err := c.getOrCreateConsumer(
 		ctx,
 		inTopic,
-		id,
-		props[CorrelationIDKey],
-		0,
-		props,
 		false,
-		cb)
+		func(ctx context.Context, e *MessageEvent) error {
+			return nil
+		},
+		props,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// send message
-	if _, err := c.Publish(ctx, outTopic, props, payload, false); err != nil {
+	if _, err := c.Publish(ctx, outTopic, payload, props); err != nil {
 		return nil, err
 	}
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
+	defer func() {
+		_ = c.closeConsumer(subscription.topic, id, false)
+	}()
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"OutTopic":  outTopic,
+			"InTopic":   inTopic,
+			"Req":       props,
+			"ID":        id}).
+			Debugf("waiting to receive reply from send/receive")
 	}
 
-	return
+	// receive message
+	select {
+	case <-ctx.Done():
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientKafka",
+				"OutTopic":  outTopic,
+				"InTopic":   inTopic,
+				"ID":        id}).
+				Debug("received done signal from context")
+		}
+		return nil, ctx.Err()
+	case event = <-consumerChannel:
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientKafka",
+				"OutTopic":  outTopic,
+				"InTopic":   inTopic,
+				"Event":     string(event.Payload),
+				"ID":        id}).
+				Debugf("received reply from send/receive")
+		}
+
+		return event, nil
+	}
 }
 
 // Publish - publishes the message and caches producer if it doesn't exist
 func (c *ClientKafka) Publish(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
+	props MessageHeaders,
+) (messageID []byte, err error) {
+	if c.closed {
+		return nil, fmt.Errorf("kafka client is closed")
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	err = c.send(
 		ctx,
 		topic,
-		props,
 		payload,
+		props,
 	)
 	return
 }
 
 // Close - closes all producers and consumers
 func (c *ClientKafka) Close() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+	if c.closed {
+		return
+	}
 	for _, next := range c.producers {
 		_ = next.Close()
 	}
-	for _, subscription := range c.consumersByTopic {
-		subscription.cancel()
+	for _, subscription := range c.consumersByTopicGroup {
+		for _, id := range subscription.mx.SubscriberIDs() {
+			delete(c.consumersByID, id)
+		}
+		_ = subscription.close()
 	}
 	c.closed = true
 }
@@ -172,26 +252,37 @@ func (c *ClientKafka) Close() {
 //////////////////////////// PRIVATE METHODS /////////////////////////////
 func (c *ClientKafka) closeConsumer(
 	topic string,
-	id string) (err error) {
+	id string,
+	purgeSubscription bool) (err error) {
 	defer recoverNilMessage(topic, id)
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	subscription := c.consumersByTopic[topic]
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+
+	// find by subscriber id
+	subscription := c.consumersByID[id]
 	if subscription == nil {
 		err = fmt.Errorf("could not find consumer for topic %s and id %s", topic, id)
-		return
-	}
-	total := subscription.mx.Remove(id)
-	if total == 0 {
-		subscription.cancel()
-		_ = subscription.reader.Close()
-		delete(c.consumersByTopic, topic)
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientKafka",
-			"Group":     subscription.group,
 			"Topic":     topic,
-			"Brokers":   c.config.Kafka.Brokers,
+			"Error":     err,
 			"ID":        id}).
+			Warnf("could not find subscription for the consumer")
+		return
+	}
+
+	// delete subscriber id and remove it from multiplexer
+	delete(c.consumersByID, id)
+	total := subscription.mx.Remove(id)
+
+	if total == 0 && purgeSubscription {
+		_ = subscription.close()
+		delete(c.consumersByTopicGroup, topicGroupKey(topic, subscription.group))
+		logrus.WithFields(logrus.Fields{
+			"Component":         "ClientKafka",
+			"SubscriptionGroup": subscription.group,
+			"Topic":             topic,
+			"ID":                id}).
 			Infof("closing subscriber")
 	}
 	return
@@ -200,161 +291,424 @@ func (c *ClientKafka) closeConsumer(
 func (c *ClientKafka) getOrCreateConsumer(
 	ctx context.Context,
 	topic string,
-	id string,
-	correlationID string,
-	props map[string]string,
 	shared bool,
-	cb Callback) (subscription *kafkaSubscription, err error) {
+	cb Callback,
+	props MessageHeaders,
+) (id string, subscription *kafkaSubscription, consumerChannel chan *MessageEvent, err error) {
+	id = uuid.NewV4().String()
 	var offset int64
-	if props["LastOffset"] != "" {
+	if props.GetLastOffset() != "" {
 		offset = kafka.LastOffset
-	} else if props["FirstOffset"] != "" {
+	} else if props.GetFirstOffset() != "" {
 		offset = kafka.FirstOffset
 	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	subscription = c.consumersByTopic[topic]
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
 
-	if subscription != nil {
-		subscription.mx.Add(id, correlationID, cb)
-		return subscription, nil
+	// use given group otherwise default group
+	group := props.GetGroup(c.config.Kafka.Group)
+
+	// find existing subscription by topic and group
+	subscription = c.consumersByTopicGroup[topicGroupKey(topic, group)]
+
+	// only create consumer-channel for send/receive because otherwise we just call callback
+	// so that we don't create orphan channels or waste memory
+	// TODO replace all callbacks with channels
+	if props.GetCorrelationID() != "" {
+		consumerChannel = make(chan *MessageEvent, c.config.Kafka.ChannelBuffer)
 	}
+
+	// if subscription exists then add subscriber to multiplexer
+	if subscription != nil {
+		c.consumersByID[id] = subscription
+		subscription.mx.Add(ctx, id, props.GetCorrelationID(), cb, consumerChannel)
+		return
+	}
+
+	// otherwise, create new consumer
 	subscription, err = c.createConsumer(
 		ctx,
 		topic,
+		group,
 		id,
-		correlationID,
+		props.GetCorrelationID(),
 		offset,
-		props,
 		shared,
-		cb)
+		cb,
+		consumerChannel)
 	if err != nil {
-		return nil, err
+		close(consumerChannel)
+		return id, nil, nil, err
 	}
 
-	c.consumersByTopic[topic] = subscription
+	// store reference of subscription to topic/group and subscriber lookup tables
+	c.consumersByTopicGroup[topicGroupKey(topic, group)] = subscription
+	c.consumersByID[id] = subscription
 	return
 }
 
 func (c *ClientKafka) createConsumer(
 	ctx context.Context,
 	topic string,
+	group string,
 	id string,
 	correlationID string,
 	offset int64,
-	props map[string]string,
 	shared bool,
-	cb Callback) (subscription *kafkaSubscription, err error) {
+	cb Callback,
+	consumerChannel chan *MessageEvent) (subscription *kafkaSubscription, err error) {
+	// validate topics in case we use new topic without properly creating them in kafka
+	if err := c.checkTopic(topic); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "ClientKafka",
+			"ConsumerGroup": group,
+			"ID":            id,
+			"Topic":         topic,
+			"Offset":        offset,
+			"Shared":        shared,
+			"Error":         err,
+		}).
+			Errorf("failed to validate topic %s for consumer", topic)
+	}
+
+	// creating new subscription
 	subscription = &kafkaSubscription{
-		id:    id,
 		topic: topic,
-		mx:    NewSendReceiveMultiplexer(id, correlationID, cb),
-		group: c.config.Kafka.Group,
+		mx: NewSendReceiveMultiplexer(
+			ctx,
+			topic,
+			int64(c.config.Kafka.CommitTimeout.Seconds())),
+		group: group,
 	}
-	subscription.ctx, subscription.cancel = context.WithCancel(ctx)
-	if props["Group"] != "" {
-		subscription.group = props["Group"]
-	}
-	subscription.reader = kafka.NewReader(kafka.ReaderConfig{
-		Brokers:         c.config.Kafka.Brokers,
-		GroupID:         subscription.group,
-		Topic:           topic,
-		StartOffset:     offset,
-		MaxBytes:        10e6,             // 10MB
-		MaxWait:         30 * time.Second, // Maximum amount of time to wait for new data to come when fetching batches of messages from kafka.
-		ReadLagInterval: -1,
-		//QueueCapacity:   1,
-		//MinBytes: 1e3, // 1KB
-		//CommitInterval: time.Second,
-	})
+	// adding subscriber
+	_ = subscription.mx.Add(ctx, id, correlationID, cb, consumerChannel)
 
+	// Note: using fresh context instead of ctx parameter because we need to keep subscription alive
+	// even when a single subscriber dies as we have to multiplex a queue to multiple subscribers,
+	// otherwise subscription will be cancelled as soon the first subscriber is done.
+	subscription.ctx, subscription.cancel = context.WithCancel(context.Background())
+
+	// using local function for defining reader because we may need to resubscribe in some cases
+	initReader := func() {
+		if subscription.reader != nil {
+			_ = subscription.reader.Close()
+		}
+		subscription.reader = kafka.NewReader(kafka.ReaderConfig{
+			Brokers:         c.config.Kafka.Brokers,
+			GroupID:         subscription.group,
+			Topic:           topic,
+			StartOffset:     offset,
+			MinBytes:        1,
+			MaxBytes:        1024 * 1024,     // 1MB
+			MaxWait:         5 * time.Second, // Maximum amount of time to wait for new data to come when fetching batches of messages from kafka.
+			QueueCapacity:   1,
+			RetentionTime:   time.Hour * 2, // default 24
+			Dialer:          c.readerDialer,
+			ReadLagInterval: -1,
+			CommitInterval:  time.Second,
+			//Logger:          logrus.New(),
+		})
+	}
+	initReader()
+
+	// receive messages asynchronously
 	go func() {
-		defer func() {
-			err = c.closeConsumer(topic, id)
-			logrus.WithFields(logrus.Fields{
-				"Component":     "ClientKafka",
-				"ConsumerGroup": subscription.group,
-				"ID":            id,
-				"correlationID": correlationID,
-				"Topic":         topic,
-				"Offset":        offset,
-				"Brokers":       c.config.Kafka.Brokers,
-				"Shared":        shared,
-				"Error":         err,
-				"CtxError":      ctx.Err(),
-			}).
-				Infof("exiting subscription loop!")
+		c.receiveMessages(topic, id, subscription, initReader)
+	}()
 
-		}()
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Group":     subscription.group,
+			"Topic":     topic,
+			"ID":        id,
+			"Offset":    offset,
+			"Shared":    shared,
+		}).
+			Debugf("subscribed successfully!")
+	}
+	return
+}
 
-		for {
-			if subscription.ctx.Err() != nil {
-				if logrus.IsLevelEnabled(logrus.DebugLevel) {
-					logrus.WithFields(logrus.Fields{
-						"Component": "ClientKafka",
-						"Topic":     subscription.topic,
-						"ID":            id,
-						"correlationID": correlationID,
-						"Shared":    shared,
-						}).
-						Debugf("received done signal from context")
-				}
-				return
+func (c *ClientKafka) receiveMessages(
+	topic string,
+	id string,
+	subscription *kafkaSubscription,
+	initReader func(),
+) {
+	defer func() {
+		err := c.closeConsumer(topic, id, false)
+		logrus.WithFields(logrus.Fields{
+			"Component":     "ClientKafka",
+			"ConsumerGroup": subscription.group,
+			"ID":            id,
+			"Topic":         topic,
+			"Error":         err,
+			"CtxError":      subscription.ctx.Err(),
+		}).
+			Infof("exiting subscription loop!")
+	}()
+
+	for {
+		if subscription.ctx.Err() != nil {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component": "ClientKafka",
+					"Topic":     subscription.topic,
+					"ID":        id,
+				}).
+					Debugf("received done signal from context")
 			}
-			//msg, err := reader.ReadMessage(subscription.ctx) // auto-commit
-			msg, err := subscription.reader.FetchMessage(subscription.ctx)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					continue
-				}
+			return
+		}
+
+		// reading messages
+		//msg, err := subscription.reader.ReadMessage(subscription.ctx) // auto-commit
+		msg, err := subscription.reader.FetchMessage(subscription.ctx)
+		if err != nil {
+			if !errors.Is(err, io.EOF) && subscription.ctx.Err() == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "ClientKafka",
 					"Group":     subscription.group,
 					"Topic":     topic,
-					"ID":            id,
-					"correlationID": correlationID,
+					"ID":        id,
 					"Message":   msg,
-					"Shared":    shared,
 					"Error":     err,
-				}).Errorf("failed to receive message")
-				return
+					"ErrorType": reflect.TypeOf(err),
+				}).Errorf("failed to fetch message from kafka")
 			}
-			atomic.AddInt64(&subscription.received, 1)
-			ack := func() {
-				_ = subscription.reader.CommitMessages(ctx, msg)
+			if errors.Is(err, io.EOF) {
+				continue
+			} else if strings.Contains(err.Error(), "Rebalance In Progress") {
+				initReader()
+				continue
 			}
-			nack := func() {
-			}
-			event := kafkaMessageToEvent(msg, ack, nack)
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Group":     subscription.group,
-					"ID":            id,
-					"correlationID": correlationID,
-					"Received":  subscription.received,
-					"Partition": msg.Partition,
-					"Offset":    msg.Offset,
-					"Shared":    shared,
-					"Event":     string(event.ID),
-				}).Debugf("received")
-			}
-			_ = subscription.mx.Notify(subscription.ctx, event)
+			return
 		}
-	}()
-	logrus.WithFields(logrus.Fields{
-		"Component": "ClientKafka",
-		"Group":     subscription.group,
-		"Topic":     topic,
-		"ID":            id,
-		"correlationID": correlationID,
-		"Offset":    offset,
-		"Brokers":   c.config.Kafka.Brokers,
-		"Shared":    shared,
-		}).
-		Infof("subscribed successfully!")
+
+		// defining manual ack and notifying messages
+		atomic.AddInt64(&subscription.received, 1)
+		ack := func() {
+			_ = subscription.reader.CommitMessages(subscription.ctx, msg)
+		}
+		nack := func() {
+		}
+		event := kafkaMessageToEvent(msg, ack, nack)
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientKafka",
+				"Group":     subscription.group,
+				"ID":        id,
+				"Received":  subscription.received,
+				"Partition": msg.Partition,
+				"Offset":    msg.Offset,
+				"Event":     string(event.ID),
+			}).Debugf("received")
+		}
+		go func() {
+			_ = subscription.mx.Notify(subscription.ctx, event)
+		}()
+	}
+}
+
+func (c *ClientKafka) send(
+	ctx context.Context,
+	topic string,
+	payload []byte,
+	props MessageHeaders,
+) (err error) {
+	// building headers
+	headers := make([]kafka.Header, len(props))
+	i := 0
+	for k, v := range props {
+		headers[i] = kafka.Header{Key: k, Value: []byte(v)}
+		i++
+	}
+	key := make([]byte, 0)
+	if props.GetMessageKey() != "" {
+		key = []byte(props.GetMessageKey())
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":  "ClientKafka",
+			"Topic":      topic,
+			"Properties": props,
+			"Value":      string(payload),
+		}).Debugf("sending message")
+	}
+
+	// sending messages
+	err = c.getProducer(topic).WriteMessages(
+		ctx,
+		kafka.Message{
+			Key:     key,
+			Value:   payload,
+			Headers: headers,
+			Time:    time.Now(),
+		})
 	return
 }
+
+// createKafkaTopic creates kafka topic
+func (c *ClientKafka) createKafkaTopic(
+	topic string,
+	partitions int,
+	replication int) (err error) {
+	conn, closer, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closer()
+	}()
+	topicConfigs := []kafka.TopicConfig{{Topic: topic, NumPartitions: partitions, ReplicationFactor: replication}}
+	return conn.CreateTopics(topicConfigs...)
+}
+
+// createKafkaTopic creates kafka topic
+func (c *ClientKafka) checkTopic(
+	topic string,
+) error {
+	c.topicLock.Lock()
+	defer c.topicLock.Unlock()
+	if c.validTopics[topic] {
+		return nil
+	}
+	conn, closer, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closer()
+	}()
+	partitions, err := conn.ReadPartitions(topic)
+	if err != nil {
+		return err
+	}
+	c.validTopics[topic] = true
+	logrus.WithFields(logrus.Fields{
+		"Component":  "ClientKafka",
+		"Topic":      topic,
+		"Partitions": partitions,
+	}).
+		Infof("validated topic %s", topic)
+	return nil
+}
+
+// deleteKafkaTopic creates kafka topic
+func (c *ClientKafka) deleteKafkaTopic(
+	topic string,
+) (err error) {
+	conn, closer, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closer()
+	}()
+
+	err = conn.DeleteTopics(topic)
+	if err == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Topic":     topic,
+		}).
+			Infof("deleted topic")
+		return err
+	}
+	return
+}
+
+func (subscription *kafkaSubscription) close() (err error) {
+	if subscription.closed {
+		return
+	}
+	if subscription.reader != nil {
+		err = subscription.reader.Close()
+	}
+	if subscription.cancel != nil && subscription.ctx.Err() == nil {
+		subscription.cancel()
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Topic":     subscription.topic,
+		}).
+			Debugf("closing subscription")
+	}
+	for _, id := range subscription.mx.SubscriberIDs() {
+		subscription.mx.Remove(id)
+	}
+
+	subscription.closed = true
+	return
+}
+
+// connect
+func (c *ClientKafka) connect() (conn *kafka.Conn, closer connectionCloser, err error) {
+	conn, err = kafka.Dial("tcp", c.config.Kafka.Brokers[0])
+	closer = func() {
+	}
+	if err != nil {
+		return
+	}
+	closer = func() {
+		_ = conn.Close()
+	}
+
+	controller, err := conn.Controller()
+	if err != nil {
+		return conn, closer, err
+	}
+	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		return conn, closer, err
+	}
+	closer = func() {
+		_ = controllerConn.Close()
+		_ = conn.Close()
+	}
+	return controllerConn, closer, nil
+}
+
+func (c *ClientKafka) getProducer(
+	topic string,
+) *kafka.Writer {
+	if err := c.checkTopic(topic); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ClientKafka",
+			"Topic":     topic,
+			"Error":     err,
+		}).
+			Errorf("failed to validate topic %s for producer", topic)
+	}
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+	writer := c.producers[topic]
+	if writer == nil {
+		writer = &kafka.Writer{
+			Addr:         kafka.TCP(c.config.Kafka.Brokers...),
+			Topic:        topic,
+			Balancer:     &kafka.LeastBytes{},
+			WriteTimeout: 5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+			BatchTimeout: 10 * time.Millisecond,
+			BatchSize:    10,
+			RequiredAcks: 1,
+			//Compression:  kafka.Snappy,
+			//Logger:       logrus.New(),
+		}
+		c.producers[topic] = writer
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientKafka",
+				"Topic":     topic,
+			}).Debugf("adding producer")
+		}
+	}
+	return writer
+}
+
 func kafkaMessageToEvent(msg kafka.Message, ack AckHandler, nack AckHandler) (event *MessageEvent) {
 	event = &MessageEvent{
 		Topic:       msg.Topic,
@@ -372,127 +726,11 @@ func kafkaMessageToEvent(msg kafka.Message, ack AckHandler, nack AckHandler) (ev
 			event.Properties[h.Key] = string(h.Value)
 		}
 	}
-	event.ProducerName = event.Properties[ProducerKey]
+	event.ProducerName = event.Producer()
 	return event
 }
 
-func (c *ClientKafka) send(
-	ctx context.Context,
-	topic string,
-	props map[string]string,
-	payload []byte) error {
-	headers := make([]kafka.Header, len(props))
-	i := 0
-	for k, v := range props {
-		headers[i] = kafka.Header{Key: k, Value: []byte(v)}
-		i++
-	}
-	key := make([]byte, 0)
-	if props[MessageKey] != "" {
-		key = []byte(props[MessageKey])
-	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     topic,
-			"Value":     string(payload),
-		}).Debugf("sending message")
-	}
-	return c.getProducer(topic).WriteMessages(
-		ctx,
-		kafka.Message{
-			Key:     key,
-			Value:   payload,
-			Headers: headers,
-			Time:    time.Now(),
-		})
+func topicGroupKey(topic string, group string) string {
+	return topic + ":" + group
 }
 
-// createKafkaTopic creates kafka topic
-func (c *ClientKafka) createKafkaTopic(
-	topic string,
-	partitions int,
-	replication int) (err error) {
-
-	conn, err := kafka.Dial("tcp", c.config.Kafka.Brokers[0])
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = conn.Close()
-	}()
-
-	controller, err := conn.Controller()
-	if err != nil {
-		return err
-	}
-	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = controllerConn.Close()
-	}()
-
-	topicConfigs := []kafka.TopicConfig{{Topic: topic, NumPartitions: partitions, ReplicationFactor: replication}}
-
-	err = controllerConn.CreateTopics(topicConfigs...)
-	if err == nil {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     topic,
-		}).
-			Infof("created topic")
-		return err
-	}
-	return
-}
-
-func (subscription *kafkaSubscription) close() (err error) {
-	if subscription.closed {
-		return
-	}
-	if subscription.reader != nil {
-		err = subscription.reader.Close()
-	}
-	if subscription.ctx.Err() != nil {
-		subscription.cancel()
-	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Topic":     subscription.topic,
-			"ID":        subscription.id}).
-			Debugf("closing subscription")
-	}
-
-	subscription.closed = true
-	return
-}
-
-func (c *ClientKafka) getProducer(
-	topic string,
-) *kafka.Writer {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	writer := c.producers[topic]
-	if writer == nil {
-		writer = &kafka.Writer{
-			Addr:         kafka.TCP(c.config.Kafka.Brokers...),
-			Topic:        topic,
-			Balancer:     &kafka.LeastBytes{},
-			Compression:  kafka.Snappy,
-			WriteTimeout: 1 * time.Second,
-			ReadTimeout:  1 * time.Second,
-			BatchTimeout: 10 * time.Millisecond,
-			BatchSize:    10,
-		}
-		c.producers[topic] = writer
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Brokers":   c.config.Kafka.Brokers,
-			"Topic":     topic,
-		}).Infof("adding producer")
-	}
-	return writer
-}

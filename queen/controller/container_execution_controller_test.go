@@ -83,6 +83,11 @@ func sendContainerExecution(serverCfg *config.ServerConfig, queueClient queue.Cl
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
 	}
-	_, _ = queueClient.Send(context.Background(), serverCfg.GetContainerLifecycleTopic(), make(map[string]string), bEvent, true)
+	_, _ = queueClient.Send(
+		context.Background(),
+		serverCfg.GetContainerLifecycleTopic(),
+		bEvent,
+		make(map[string]string),
+	)
 }
 

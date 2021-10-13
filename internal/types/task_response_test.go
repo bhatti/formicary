@@ -45,6 +45,7 @@ func newTestTaskResponse() (*TaskRequest, *TaskResponse) {
 		ExecutorOpts:    &ExecutorOptions{},
 	}
 	res := NewTaskResponse(req)
+	res.Status = COMPLETED
 	return req, res
 }
 

@@ -37,14 +37,15 @@ can be used as input of another task. The main use-cases for formicary include:
 - Filtering of jobs/task execution based on user-defined conditions or parameters.
 - Job priority, where higher priority jobs are executed before the low priority jobs.
 - Job cancellation that can cleanly stop job and task execution.
-- Resource constraints based scheduling where ants register with tags that support special annotations and tasks
+- Applies CPU/Memory/Disk quota to tasks for managing available computing resources.
+- Provides reports and statistics on job outcomes and resource usage such as CPU, memory and storage.
+- Resource constraints based scheduling and routing where ants register with tags that support special annotations and tasks
   are routed based on tags defined in the job definition.
-- Ant executors with support of multiple protocols that ants can use to connect to queen node such as queue, http, etc.
+- Ant executors support multiple protocols that ants can register with queen node such as queue, http, docker, kubernetes, etc.
 - Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.
 - Streaming of real-time Logs to the UI as job/tasks are processed. 
 - Provides email notifications on job completion or failures.
-- Provides reports and statistics on job outcomes and resource usage such as storage and CPU.
-- Authentication and authorization using OAuth and JWT standards.
+- Authentication and authorization using OAuth, JWT and RBAC standards.
 - Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes
   stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work
   is handled by the ant worker, no work is lost.
@@ -137,6 +138,13 @@ can be used as input of another task. The main use-cases for formicary include:
 
 #### Comparison
 [Comparison with other frameworks and solutions](docs/comparison.md)
+- [Migrating from Jenkins](docs/jenkins.md)
+- [Migrating from Gitlab](docs/gitlab.md)
+- [Migrating from CircleCI](docs/circleci.md)
+- [Migrating from Apache Airflow](docs/airflow.md)
+ 
+### Migrating from Airflow
+ [Apache Airflow](airflow.md)
 
 ### Code and Design
 

@@ -161,11 +161,12 @@ func (m *Monitor) fireHealthError(err error) error {
 	if payload, err = event.Marshal(); err != nil {
 		return fmt.Errorf("failed to marshal health error event due to %v", err)
 	}
-	if _, err = m.queueClient.Publish(context.Background(),
+	if _, err = m.queueClient.Publish(
+		context.Background(),
 		m.conf.GetHealthErrorTopic(),
-		make(map[string]string),
 		payload,
-		false); err != nil {
+		queue.NewMessageHeaders(),
+		); err != nil {
 		return fmt.Errorf("failed to send health error event due to %v", err)
 	}
 	return nil

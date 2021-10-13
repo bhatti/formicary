@@ -125,12 +125,10 @@ func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.
 
 // Subscribing to job-scheduler event in failover mode
 // TODO Failover mode is not working and is sending events to multiple subscribers as opposed to exclusive
-func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (err error) {
+func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (string, error) {
 	return js.queueClient.Subscribe(
 		ctx,
 		js.jobSchedulerLeaderTopic,
-		js.id,
-		make(map[string]string),
 		false, // exclusive subscription with failover
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -155,6 +153,7 @@ func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (err 
 
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
@@ -162,8 +161,7 @@ func (js *JobScheduler) unsubscribeToJobSchedulerLeader(ctx context.Context) (er
 	return js.queueClient.UnSubscribe(
 		ctx,
 		js.jobSchedulerLeaderTopic,
-		js.id,
-	)
+		js.jobSchedulerLeaderSubscriptionID)
 }
 
 // Sending an event that only one of leader will receive and that leader will be come official job scheduler
@@ -182,13 +180,14 @@ func (js *JobScheduler) sendJobSchedulerLeaderEvent(ctx context.Context) (err er
 		_, err = js.queueClient.Publish(
 			ctx,
 			js.jobSchedulerLeaderTopic,
-			make(map[string]string),
 			b,
-			false)
+			queue.NewMessageHeaders(queue.DisableBatchingKey, "true"),
+		)
 		if err != nil {
 			logrus.WithFields(
 				logrus.Fields{"jobSchedulerLeaderEvent": event, "error": err}).
-				Error("failed to send job scheduler leader event")
+				Errorf("failed to send job scheduler leader event to %s",
+					js.jobSchedulerLeaderTopic)
 		}
 	}
 	return

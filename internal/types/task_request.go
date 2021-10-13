@@ -41,6 +41,7 @@ type TaskRequest struct {
 	JobExecutionID  string                   `json:"job_execution_id" yaml:"job_execution_id"`
 	TaskExecutionID string                   `json:"task_execution_id" yaml:"task_execution_id"`
 	TaskType        string                   `json:"task_type" yaml:"task_type"`
+	CoRelationID    string                   `json:"co_relation_id"`
 	Platform        string                   `json:"platform" yaml:"platform"`
 	Action          TaskAction               `json:"action" yaml:"action"`
 	JobRetry        int                      `json:"job_retry" yaml:"job_retry"`
@@ -79,8 +80,8 @@ func TaskKey(requestID uint64, taskType string) string {
 
 // String defines description of task request
 func (req *TaskRequest) String() string {
-	return fmt.Sprintf("ID=%d JobType=%s TaskType=%s Action=%s",
-		req.JobRequestID, req.JobType, req.TaskType, req.Action)
+	return fmt.Sprintf("ID=%d CORelID=%s JobType=%s TaskType=%s Action=%s",
+		req.JobRequestID, req.CoRelationID, req.JobType, req.TaskType, req.Action)
 }
 
 // AddVariable adds variable or parameter to request

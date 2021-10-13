@@ -2,19 +2,21 @@ package queue
 
 import (
 	"context"
+	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/types"
 	"sync"
 )
 
 // StubClientImpl structure
 type StubClientImpl struct {
-	SentMessagesByTopic map[string][]MessageEvent      // topic => list of events
-	SubscribersByTopic  map[string]map[string]Callback // topic => [subscriber-id => callback]
-	lock                sync.RWMutex
+	SentMessagesByTopic    map[string][]MessageEvent      // topic => list of events
+	SubscribersByTopic     map[string]map[string]Callback // topic => [subscriber-id => callback]
+	SendReceivePayloadFunc func(props MessageHeaders, data []byte) ([]byte, error)
+	lock                   sync.RWMutex
 }
 
 // NewStubClient stub implementation of queue
-func NewStubClient(_ *types.CommonConfig) Client {
+func NewStubClient(_ *types.CommonConfig) *StubClientImpl {
 	return &StubClientImpl{
 		SentMessagesByTopic: make(map[string][]MessageEvent),
 		SubscribersByTopic:  make(map[string]map[string]Callback),
@@ -25,10 +27,11 @@ func NewStubClient(_ *types.CommonConfig) Client {
 func (c *StubClientImpl) Subscribe(
 	_ context.Context,
 	topic string,
-	id string,
-	_ map[string]string,
 	_ bool,
-	cb Callback) (err error) {
+	cb Callback,
+	_ MessageHeaders,
+) (id string, err error) {
+	id = uuid.NewV4().String()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	cbs := c.SubscribersByTopic[topic]
@@ -41,7 +44,11 @@ func (c *StubClientImpl) Subscribe(
 }
 
 // UnSubscribe a consumer
-func (c *StubClientImpl) UnSubscribe(_ context.Context, topic string, id string) (err error) {
+func (c *StubClientImpl) UnSubscribe(
+	_ context.Context,
+	topic string,
+	id string,
+) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	cbs := c.SubscribersByTopic[topic]
@@ -57,21 +64,27 @@ func (c *StubClientImpl) UnSubscribe(_ context.Context, topic string, id string)
 func (c *StubClientImpl) Send(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
-	return c.Publish(ctx, topic, props, payload, true)
+	props MessageHeaders,
+) (messageID []byte, err error) {
+	return c.Publish(ctx, topic, payload, props)
 }
 
 // SendReceive - sends and receives a message
 func (c *StubClientImpl) SendReceive(
 	ctx context.Context,
 	outTopic string,
-	props map[string]string,
 	payload []byte,
 	inTopic string,
+	props MessageHeaders,
 ) (event *MessageEvent, err error) {
-	_, _ = c.Publish(ctx, outTopic, props, payload, true)
+	_, _ = c.Publish(ctx, outTopic, payload, props)
+	if c.SendReceivePayloadFunc != nil {
+		payload, err = c.SendReceivePayloadFunc(props, payload)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &MessageEvent{
 		Topic:      inTopic,
 		Properties: props,
@@ -87,9 +100,9 @@ func (c *StubClientImpl) SendReceive(
 func (c *StubClientImpl) Publish(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
+	props MessageHeaders,
+) (messageID []byte, err error) {
 	c.lock.Lock()
 	msgs := c.SentMessagesByTopic[topic]
 	if msgs == nil {

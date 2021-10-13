@@ -11,13 +11,11 @@ import (
 
 func (rm *ManagerImpl) subscribeToRegistration(
 	ctx context.Context,
-	registrationTopic string) (err error) {
+	registrationTopic string) (string, error) {
 	return rm.queueClient.Subscribe(
 		ctx,
 		registrationTopic,
-		rm.id,
-		make(map[string]string),
-		false, // shared subscription
+		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
 			registration, err := common.UnmarshalAntRegistration(event.Payload)
@@ -40,17 +38,16 @@ func (rm *ManagerImpl) subscribeToRegistration(
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (rm *ManagerImpl) subscribeToJobLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return rm.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		rm.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -78,22 +75,21 @@ func (rm *ManagerImpl) subscribeToJobLifecycleEvent(
 						"ID":                         jobExecutionLifecycleEvent.ID,
 						"Target":                     rm.id,
 						"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-						"Error":                      err}).Error("failed to release ant for job")
+						"Error": err}).Error("failed to release ant for job")
 					return err
 				}
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return rm.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		rm.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -103,7 +99,7 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 					"Component":                   "ResourceManager",
 					"Target":                      rm.id,
 					"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-					"Error":                       err,
+					"Error": err,
 				}).
 					Error("failed to unmarshal taskExecutionLifecycleEvent")
 				return err
@@ -129,26 +125,25 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 					logrus.WithFields(logrus.Fields{
 						"Component":                   "ResourceManager",
 						"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-						"ID":                          taskExecutionLifecycleEvent.ID,
-						"Target":                      rm.id,
-						"Error":                       err}).Error("failed to release ant for task")
+						"ID":     taskExecutionLifecycleEvent.ID,
+						"Target": rm.id,
+						"Error":  err}).Error("failed to release ant for task")
 					return err
 				}
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (rm *ManagerImpl) subscribeToContainersLifecycleEvents(
 	ctx context.Context,
-	containerTopic string) (err error) {
+	containerTopic string) (string, error) {
 	return rm.queueClient.Subscribe(
 		ctx,
 		containerTopic,
-		rm.id,
-		make(map[string]string),
-		false, // shared subscription
+		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
 			containerEvent, err := events.UnmarshalContainerLifecycleEvent(event.Payload)
@@ -165,5 +160,6 @@ func (rm *ManagerImpl) subscribeToContainersLifecycleEvents(
 			rm.state.updateContainer(containerEvent)
 			return nil
 		},
+		make(map[string]string),
 	)
 }

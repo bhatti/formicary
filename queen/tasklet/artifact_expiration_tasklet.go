@@ -119,6 +119,7 @@ func (t *ArtifactExpirationTasklet) Execute(
 	}).Info("expired artifacts")
 
 	taskResp = common.NewTaskResponse(taskReq)
+	taskResp.Status = common.COMPLETED
 	taskResp.AddContext("DefaultArtifactExpiration", t.serverCfg.DefaultArtifactExpiration.String())
 	taskResp.AddContext("DefaultArtifactLimit", t.serverCfg.DefaultArtifactLimit)
 	taskResp.AddJobContext("TotalExpired", expired)

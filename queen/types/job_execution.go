@@ -3,9 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
-	"plexobject.com/formicary/internal/math"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/math"
 
 	"plexobject.com/formicary/internal/utils"
 
@@ -222,7 +223,13 @@ func (je *JobExecution) AddTask(task *TaskDefinition) *TaskExecution {
 	taskExec := NewTaskExecution(task)
 	if _, old := je.GetTask("", task.TaskType); old == nil {
 		je.Tasks = append(je.Tasks, taskExec)
-		taskExec.TaskOrder = len(je.Tasks)
+		maxOrder := 0
+		for _, task := range je.Tasks {
+			if task.TaskOrder > maxOrder {
+				maxOrder = task.TaskOrder
+			}
+		}
+		taskExec.TaskOrder = maxOrder + 1
 	} else {
 		taskExec.TaskOrder = old.TaskOrder
 	}

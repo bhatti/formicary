@@ -415,7 +415,7 @@ func (re *RequestExecutorImpl) postProcess(
 				container,
 				taskReq,
 				taskResp,
-				fmt.Errorf("failed to upload artifacts due to %v",
+				fmt.Errorf("failed to upload artifacts due to '%v'",
 					err), true)
 		} else if len(uploadedArtifacts) > 0 {
 			for _, artifact := range uploadedArtifacts {
@@ -622,9 +622,13 @@ func sendContainerEvent(
 		if _, err = queueClient.Publish(
 			ctx,
 			antCfg.GetContainerLifecycleTopic(),
-			make(map[string]string),
 			b,
-			false); err != nil {
+			queue.NewMessageHeaders(
+				queue.DisableBatchingKey, "true",
+				"ContainerID", container.GetID(),
+				"UserID", userID,
+			),
+			); err != nil {
 			logrus.WithFields(
 				logrus.Fields{
 					"Component": "RequestExecutorImpl",

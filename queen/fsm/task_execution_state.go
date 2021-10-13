@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"plexobject.com/formicary/internal/queue"
 	"time"
 
 	"plexobject.com/formicary/internal/utils"
@@ -426,9 +427,14 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 	}
 	if _, err = tsm.QueueClient.Publish(ctx,
 		tsm.serverCfg.GetTaskExecutionLifecycleTopic(),
-		make(map[string]string),
 		payload,
-		true); err != nil {
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", tsm.Request.GetID()),
+			"TaskType", tsm.taskType,
+			"UserID", tsm.Request.GetUserID(),
+		),
+	); err != nil {
 		return fmt.Errorf("failed to send task-execution event due to %v", err)
 	}
 	return nil

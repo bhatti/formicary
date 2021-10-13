@@ -70,12 +70,16 @@ func newClientRedis(
 func (c *ClientRedis) Subscribe(
 	ctx context.Context,
 	topic string,
-	id string,
-	_ map[string]string,
 	shared bool,
-	cb Callback) (err error) {
+	cb Callback,
+	_ MessageHeaders,
+) (id string, err error) {
+	id = uuid.NewV4().String()
 	if cb == nil {
-		return fmt.Errorf("callback function is not specified")
+		return id, fmt.Errorf("callback function is not specified")
+	}
+	if ctx.Err() != nil {
+		return id, ctx.Err()
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
@@ -85,16 +89,17 @@ func (c *ClientRedis) Subscribe(
 			Debug("Creating goroutine to receive messages")
 	}
 	if shared {
-		return c.addQueueSubscriber(ctx, topic, id, cb)
+		return id, c.addQueueSubscriber(ctx, topic, id, cb)
 	}
-	return c.addPubSubscriber(ctx, topic, id, cb)
+	return id, c.addPubSubscriber(ctx, topic, id, cb)
 }
 
 // UnSubscribe - unsubscribe
 func (c *ClientRedis) UnSubscribe(
 	_ context.Context,
 	topic string,
-	id string) (err error) {
+	id string,
+) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	sharedConn := c.pubsubConnections[topic]
@@ -114,9 +119,12 @@ func (c *ClientRedis) UnSubscribe(
 func (c *ClientRedis) Send(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
+	props MessageHeaders,
+) (messageID []byte, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	messageID = make([]byte, 0)
 	data, err := toHeadersPayloadData(props, payload)
 	if err != nil {
@@ -137,16 +145,19 @@ func (c *ClientRedis) Send(
 func (c *ClientRedis) SendReceive(
 	ctx context.Context,
 	outTopic string,
-	props map[string]string,
 	payload []byte,
 	inTopic string,
+	props MessageHeaders,
 ) (event *MessageEvent, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	// redis doesn't support consumer groups so only one subscriber can consume it so making reply-topic unique
 	inTopic = inTopic + "-" + uuid.NewV4().String() // make it unique
-	props[CorrelationIDKey] = uuid.NewV4().String()
-	props[ReplyTopicKey] = inTopic
+	props.SetCorrelationID(uuid.NewV4().String())
+	props.SetReplyTopic(inTopic)
 
-	_, err = c.Send(ctx, outTopic, props, payload, true)
+	_, err = c.Send(ctx, outTopic, payload, props)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +169,12 @@ func (c *ClientRedis) SendReceive(
 func (c *ClientRedis) Publish(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	_ bool) (messageID []byte, err error) {
+	props MessageHeaders,
+) (messageID []byte, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	messageID = make([]byte, 0)
 	data, err := toHeadersPayloadData(props, payload)
 	if err != nil {

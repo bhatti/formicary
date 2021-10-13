@@ -84,7 +84,7 @@ func (js *JobSupervisor) tryExecuteJob(
 	defer js.cancel()
 
 	if err = js.eventBus.SubscribeAsync(
-		common.JobExecutionLifecycleTopic,
+		js.serverCfg.GetJobExecutionLifecycleTopic(),
 		js.UpdateFromJobLifecycleEvent,
 		false,
 	); err != nil {
@@ -94,7 +94,8 @@ func (js *JobSupervisor) tryExecuteJob(
 	ticker := js.startTickerToUpdateRequestTimestamp(ctx)
 
 	defer func() {
-		_ = js.eventBus.Unsubscribe(common.JobExecutionLifecycleTopic, js.UpdateFromJobLifecycleEvent)
+		_ = js.eventBus.Unsubscribe(
+			js.serverCfg.GetJobExecutionLifecycleTopic(), js.UpdateFromJobLifecycleEvent)
 		ticker.Stop()
 	}()
 

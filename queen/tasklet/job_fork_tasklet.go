@@ -126,6 +126,7 @@ func (t *JobForkTasklet) Execute(
 	}
 
 	taskResp = common.NewTaskResponse(taskReq)
+	taskResp.Status = common.COMPLETED
 	taskResp.AddContext(taskReq.TaskType+forkedJobIDSuffix, saved.ID)
 	taskResp.AddContext(taskReq.TaskType+forkedJobTypeSuffix, saved.JobType)
 	taskResp.AddContext(taskReq.TaskType+forkedJobVersionSuffix, saved.JobVersion)

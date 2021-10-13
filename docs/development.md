@@ -97,14 +97,27 @@ kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic 
 ```
 SERVER=127.0.0.1:32181
 
-kafka-topics --zookeeper $SERVER --topic formicary-task-response-topic-ant-registration --create --partitions 1 --replication-factor 1
-kafka-topics --zookeeper $SERVER --topic formicary-task-reply --create --partitions 1 --replication-factor 1
-kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic --create --partitions 1 --replication-factor 1
-kafka-topics --zookeeper $SERVER --topic formicary-queue-messaging-tasklet-topic --create --partitions 1 --replication-factor 1
-kafka-topics --zookeeper $SERVER --topic formicary-queue-expire-artifacts-tasklet-topic --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-container-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-job-definition-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-job-request-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-logs --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-health-error --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-ant-registration --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-task-ant-registration --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-task-reply --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-job-execution-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-task-execution-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-wait-fork-job-tasklet --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-queue-ant-request --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-ant-reply --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-job-scheduler-leader --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-job-execution-launch-queen1 --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-queue-job-execution-launch-anon-local --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-server-id1-artifact-expiration-tasklet --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-message-ant-request --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-message-ant-response --create --partitions 1 --replication-factor 1
+
 ```
 
 - Executable

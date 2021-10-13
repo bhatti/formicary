@@ -11,7 +11,6 @@ type PulsarConfig struct {
 	ConnectionTimeout    time.Duration     `yaml:"connection_timeout" mapstructure:"connection_timeout"`
 	ChannelBuffer        int               `yaml:"channel_buffer" mapstructure:"channel_buffer"`
 	OAuth2               map[string]string `yaml:"oauth" mapstructure:"oauth"`
-	TopicSuffix          string            `yaml:"topic_suffix" mapstructure:"topic_suffix"`
 	TopicTenant          string            `yaml:"topic_tenant" mapstructure:"topic_tenant"`
 	TopicNamespace       string            `yaml:"topic_namespace" mapstructure:"topic_namespace"`
 	MaxReconnectToBroker uint              `yaml:"max_reconnect_to_broker" mapstructure:"max_reconnect_to_broker"`

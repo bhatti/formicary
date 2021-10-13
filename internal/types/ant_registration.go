@@ -9,7 +9,7 @@ import (
 )
 
 // RegistrationTopic topic
-const RegistrationTopic = "ant-registration-topic"
+const RegistrationTopic = "ant-registration"
 
 // AntRegistration is used to register remote ants with the resource manager so that tasks can be routed to them based on their capacity.
 type AntRegistration struct {

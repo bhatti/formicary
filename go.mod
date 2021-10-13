@@ -33,7 +33,7 @@ require (
 	github.com/lib/pq v1.10.3 // indirect
 	github.com/markelog/trie v0.0.0-20171230083431-098fa99650c0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
-	github.com/minio/minio-go/v7 v7.0.9
+	github.com/minio/minio-go/v7 v7.0.14
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -44,7 +44,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sanity-io/litter v1.3.0 // indirect
 	github.com/segmentio/kafka-go v0.4.20
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/slack-go/slack v0.9.4
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1

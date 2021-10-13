@@ -93,5 +93,10 @@ func sendAntRegistration(serverCfg *config.ServerConfig, queueClient queue.Clien
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
 	}
-	_, _ = queueClient.Send(context.Background(), serverCfg.GetRegistrationTopic(), make(map[string]string), b, true)
+	_, _ = queueClient.Send(
+		context.Background(),
+		serverCfg.GetRegistrationTopic(),
+		b,
+		make(map[string]string),
+	)
 }

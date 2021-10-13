@@ -17,7 +17,8 @@ common:
   development: true
   public_dir: "./public/"
   proxy_url: ""
-  messaging_provider: REDIS_MESSAGING
+  xmessaging_provider: REDIS_MESSAGING
+  messaging_provider: KAFKA_MESSAGING
   max_job_timeout: 0s
   max_task_timeout: 0s
   http_port: 0
@@ -28,9 +29,9 @@ common:
     connection_timeout: 30
   kafka:
     brokers:
-      - 192.168.1.104:19092
-      - 192.168.1.104:29092
-      - 192.168.1.104:39092
+      - 192.168.1.102:19092
+      - 192.168.1.102:29092
+      - 192.168.1.102:39092
     group: formicary-ant-1
   redis:
     host: "192.168.1.102"

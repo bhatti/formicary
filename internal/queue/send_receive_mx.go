@@ -4,26 +4,35 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"sync"
+	"time"
 )
 
 // SendReceiveMultiplexer manages send/receive queues so that a single queue/topic can be used
 // to receive messages that can be then handed out to proper recipients.
 type SendReceiveMultiplexer struct {
+	topic                 string
+	commitTimeoutSecs     int64
 	callbacksCorrelations map[string]callBackCoRelation
 	lock                  sync.RWMutex
 }
 
 type callBackCoRelation struct {
-	callback      Callback
-	correlationID string
+	ctx             context.Context
+	callback        Callback
+	correlationID   string
+	consumerChannel chan *MessageEvent
 }
 
 // NewSendReceiveMultiplexer constructor
-func NewSendReceiveMultiplexer(id string, correlationID string, cb Callback) *SendReceiveMultiplexer {
+func NewSendReceiveMultiplexer(
+	ctx context.Context,
+	topic string,
+	commitTimeoutSecs int64,
+) *SendReceiveMultiplexer {
 	return &SendReceiveMultiplexer{
-		callbacksCorrelations: map[string]callBackCoRelation{
-			id: {correlationID: correlationID, callback: cb},
-		},
+		topic:                 topic,
+		commitTimeoutSecs:     commitTimeoutSecs,
+		callbacksCorrelations: make(map[string]callBackCoRelation),
 	}
 }
 
@@ -31,36 +40,104 @@ func NewSendReceiveMultiplexer(id string, correlationID string, cb Callback) *Se
 func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEvent) int {
 	mx.lock.RLock()
 	defer mx.lock.RUnlock()
+	sent := 0
+	started := time.Now()
 	for _, cbRel := range mx.callbacksCorrelations {
 		if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
-			go func(cbRel callBackCoRelation) {
-				if err := cbRel.callback(ctx, event); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"Component": "SendReceiveMultiplexer",
-						"Event":     event,
-					}).Warnf("failed to notify event")
-				}
-			}(cbRel)
+			sent++
+			if err := cbRel.callback(ctx, event); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component": "SendReceiveMultiplexer",
+					"Event":     event,
+					"Topic":     mx.topic,
+				}).Warnf("failed to notify event")
+			}
+			if cbRel.consumerChannel != nil {
+				cbRel.consumerChannel <- event
+			}
+		} else {
+			age := started.Unix() - event.PublishTime.Unix()
+			if age > mx.commitTimeoutSecs {
+				event.Ack() // commit old messages
+			}
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component":      "SendReceiveMultiplexer",
+					"Event":          event,
+					"AgeSecs":        age,
+					"CBCoRelationID": cbRel.correlationID,
+					"CoRelationID":   event.CoRelationID(),
+					"Topic":          mx.topic,
+				}).Debugf("skip notify event")
+			}
 		}
 	}
-	return len(mx.callbacksCorrelations)
+	return sent
 }
 
 // Add adds callback with id
-func (mx *SendReceiveMultiplexer) Add(id string, correlationID string, cb Callback) int {
+func (mx *SendReceiveMultiplexer) Add(
+	ctx context.Context,
+	id string,
+	correlationID string,
+	cb Callback,
+	consumerChannel chan *MessageEvent) int {
 	mx.lock.Lock()
 	defer mx.lock.Unlock()
 	mx.callbacksCorrelations[id] = callBackCoRelation{
-		correlationID: correlationID,
-		callback:      cb,
+		ctx:             ctx,
+		correlationID:   correlationID,
+		callback:        cb,
+		consumerChannel: consumerChannel,
+	}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				mx.Remove(id)
+				return
+			}
+		}
+	}()
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SendReceiveMultiplexer",
+			"ID":           id,
+			"CoRelationID": correlationID,
+			"Len":          len(mx.callbacksCorrelations),
+			"Topic":        mx.topic,
+		}).Debugf("added multiplex subscriber")
 	}
 	return len(mx.callbacksCorrelations)
+}
+// SubscriberIDs returns subscriberIDs
+func (mx *SendReceiveMultiplexer) SubscriberIDs() (res []string) {
+	mx.lock.RLock()
+	defer mx.lock.RUnlock()
+	for id := range mx.callbacksCorrelations {
+		res = append(res, id)
+	}
+	return
 }
 
 // Remove removes callback
 func (mx *SendReceiveMultiplexer) Remove(id string) int {
 	mx.lock.Lock()
 	defer mx.lock.Unlock()
+	old := mx.callbacksCorrelations[id]
+	if old.consumerChannel != nil {
+		close(old.consumerChannel)
+		old.consumerChannel = nil
+	}
 	delete(mx.callbacksCorrelations, id)
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "SendReceiveMultiplexer",
+			"ID":           id,
+			"CoRelationID": old.correlationID,
+			"Len":          len(mx.callbacksCorrelations),
+			"Topic":        mx.topic,
+		}).Debugf("removed multiplex subscriber")
+	}
 	return len(mx.callbacksCorrelations)
 }

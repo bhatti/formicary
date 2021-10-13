@@ -50,6 +50,11 @@ type ManagerImpl struct {
 	registrationTopic string
 	state             *State
 	ticker            *time.Ticker
+
+	registrationSubscriptionID           string
+	jobExecutionLifecycleSubscriptionID  string
+	taskExecutionLifecycleSubscriptionID string
+	containerLifecycleSubscriptionID     string
 }
 
 // New - creates new ManagerImpl for resources
@@ -69,18 +74,18 @@ func New(
 // Start subscription for monitoring antRegistrations
 // TODO Start() -- subscribe to lifecycle events to release resources
 func (rm *ManagerImpl) Start(ctx context.Context) (err error) {
-	if err = rm.subscribeToRegistration(ctx, rm.serverCfg.GetRegistrationTopic()); err != nil {
+	if rm.registrationSubscriptionID, err = rm.subscribeToRegistration(ctx, rm.serverCfg.GetRegistrationTopic()); err != nil {
 		return err
 	}
-	if err = rm.subscribeToJobLifecycleEvent(ctx, rm.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
+	if rm.jobExecutionLifecycleSubscriptionID, err = rm.subscribeToJobLifecycleEvent(ctx, rm.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
-	if err = rm.subscribeToTaskLifecycleEvent(ctx, rm.serverCfg.GetTaskExecutionLifecycleTopic()); err != nil {
+	if rm.taskExecutionLifecycleSubscriptionID, err = rm.subscribeToTaskLifecycleEvent(ctx, rm.serverCfg.GetTaskExecutionLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
-	if err = rm.subscribeToContainersLifecycleEvents(ctx, rm.serverCfg.GetContainerLifecycleTopic()); err != nil {
+	if rm.containerLifecycleSubscriptionID, err = rm.subscribeToContainersLifecycleEvents(ctx, rm.serverCfg.GetContainerLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
@@ -97,23 +102,19 @@ func (rm *ManagerImpl) Stop(ctx context.Context) (err error) {
 	err1 := rm.queueClient.UnSubscribe(
 		ctx,
 		rm.serverCfg.GetRegistrationTopic(),
-		rm.id,
-	)
+		rm.registrationSubscriptionID)
 	err2 := rm.queueClient.UnSubscribe(
 		ctx,
 		rm.serverCfg.GetJobExecutionLifecycleTopic(),
-		rm.id,
-	)
+		rm.jobExecutionLifecycleSubscriptionID)
 	err3 := rm.queueClient.UnSubscribe(
 		ctx,
 		rm.serverCfg.GetTaskExecutionLifecycleTopic(),
-		rm.id,
-	)
+		rm.taskExecutionLifecycleSubscriptionID)
 	err4 := rm.queueClient.UnSubscribe(
 		ctx,
 		rm.serverCfg.GetContainerLifecycleTopic(),
-		rm.id,
-	)
+		rm.containerLifecycleSubscriptionID)
 	return utils.ErrorsAny(err1, err2, err3, err4)
 }
 

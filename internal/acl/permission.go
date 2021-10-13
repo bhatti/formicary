@@ -151,6 +151,9 @@ func (p *Permission) NotEmpty() bool {
 
 // LongAction to string
 func (p *Permission) LongAction() string {
+	if p.WildAll() {
+		return "*"
+	}
 	sb := strings.Builder{}
 	if p.Actions&Execute == Execute {
 		sb.WriteString("Execute ")
@@ -170,6 +173,9 @@ func (p *Permission) LongAction() string {
 	if p.Actions&Write == Write {
 		sb.WriteString("Write ")
 	}
+	if p.Actions&Verify == Verify {
+		sb.WriteString("Verify ")
+	}
 	if p.Actions&Update == Update {
 		sb.WriteString("Update ")
 	}
@@ -184,6 +190,9 @@ func (p *Permission) LongAction() string {
 	}
 	if p.Actions&Restart == Restart {
 		sb.WriteString("Restart ")
+	}
+	if p.Actions&Trigger == Trigger {
+		sb.WriteString("Trigger ")
 	}
 	if p.Actions&Invite == Invite {
 		sb.WriteString("Invite ")
@@ -211,9 +220,6 @@ func (p *Permission) LongAction() string {
 	}
 	if p.Actions&Subscribe == Subscribe {
 		sb.WriteString("Subscribe ")
-	}
-	if p.WildAll() {
-		sb.WriteString("*")
 	}
 	return strings.TrimSpace(sb.String())
 }

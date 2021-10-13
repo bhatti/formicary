@@ -75,13 +75,14 @@
 <li>Filtering of jobs/task execution based on user-defined conditions or parameters.</li>
 <li>Job priority, where higher priority jobs are executed before the low priority jobs.</li>
 <li>Job cancellation that can cleanly stop job and task execution.</li>
+<li>Applies CPU/Memory/Disk quota to tasks for managing available computing resources.</li>
+<li>Provides reports and statistics on job outcomes and resource usage such as CPU, memory and storage.</li>
 <li>Resource constraints based scheduling where ants register with tags that support special annotations and tasks are routed based on tags defined in the job definition.</li>
-<li>Ant executors with support of multiple protocols that ants can use to connect to queen node such as queue, http, etc.</li>
+<li>Ant executors support multiple protocols that ants can register with queen node such as queue, http, docker, kubernetes, etc.</li>
 <li>Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.</li>
 <li>Streaming of real-time Logs to the UI as job/tasks are processed. </li>
 <li>Provides email notifications on job completion or failures.</li>
-<li>Provides reports and statistics on job outcomes and resource usage such as storage and CPU.</li>
-<li>Authentication and authorization using OAuth and JWT standards.</li>
+<li>Authentication and authorization using OAuth, JWT and RBAC standards.</li>
 <li>Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work is handled by the ant worker, no work is lost.</li>
 <li>Metrics/auditing/usage of jobs and user actions.</li>
 </ul>
@@ -137,9 +138,13 @@
 <li><a href="apidocs.html">API Docs</a></li>
 </ul>
 
-<h4 id="comparison">Comparison</h4>
+<h4 id="comparison">Comparison and Migration</h4>
 <ul>
 <li><a href="comparison.html">Comparison with other frameworks and solutions</a></li>
+<li><a href="jenkins.html">Migrating from Jenkins</a></li>
+<li><a href="gitlab.html">Migrating from Gitlab</a></li>
+<li><a href="circleci.html">Migrating from CircleCI</a></li>
+<li><a href="airflow.html">Migrating from Apache Airflow</a></li>
 </ul>
 
 <h2>Code and Design</h2>

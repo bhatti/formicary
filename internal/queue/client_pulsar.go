@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-// ReplyTopicKey reply topic key
-const ReplyTopicKey = "ReplyTopic"
-
 // See https://pulsar.apache.org/docs/en/reference-configuration/
 
 // ClientPulsar structure implements interface for queuing messages using Apache Pulsar
@@ -59,12 +56,16 @@ func newPulsarClient(config *types.PulsarConfig) (Client, error) {
 func (c *ClientPulsar) Subscribe(
 	ctx context.Context,
 	topic string,
-	id string,
-	_ map[string]string,
 	shared bool,
-	cb Callback) (err error) {
+	cb Callback,
+	_ MessageHeaders,
+	) (id string, err error) {
+	id = uuid.NewV4().String()
 	if cb == nil {
-		return fmt.Errorf("callback function is not specified")
+		return id, fmt.Errorf("callback function is not specified")
+	}
+	if ctx.Err() != nil {
+		return id, ctx.Err()
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
@@ -96,14 +97,15 @@ func (c *ClientPulsar) Subscribe(
 			}
 		}
 	}()
-	return nil
+	return
 }
 
 // UnSubscribe - unsubscribe
 func (c *ClientPulsar) UnSubscribe(
 	_ context.Context,
 	topic string,
-	id string) (err error) {
+	id string,
+) (err error) {
 	return c.closeConsumer(topic, id)
 }
 
@@ -111,34 +113,43 @@ func (c *ClientPulsar) UnSubscribe(
 func (c *ClientPulsar) Send(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	reusableTopic bool) (messageID []byte, err error) {
-	if reusableTopic {
+	props MessageHeaders,
+	) (messageID []byte, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
+	if props.IsReusableTopic() {
 		return c.sendPulsarMessageWithReusableProducer(
 			ctx,
 			topic,
-			props,
 			payload,
-			true)
+			props,
+			)
 	}
 	return c.sendPulsarMessageWithoutReusableProducer(
 		ctx,
 		topic,
+		payload,
 		props,
-		payload)
+		)
 }
 
 // SendReceive - Send and receive message
 func (c *ClientPulsar) SendReceive(
 	ctx context.Context,
 	outTopic string,
-	props map[string]string,
 	payload []byte,
 	inTopic string,
+	props MessageHeaders,
 ) (event *MessageEvent, err error) {
-	props[ReplyTopicKey] = inTopic
-	props[CorrelationIDKey] = uuid.NewV4().String()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	props.SetReplyTopic(inTopic)
+	props.SetCorrelationID(uuid.NewV4().String())
+	props.SetReusableTopic(true)
 
 	// subscribe first
 	var consumer pulsar.Consumer
@@ -156,7 +167,7 @@ func (c *ClientPulsar) SendReceive(
 	}
 
 	// sendPulsarMessage message
-	if _, err := c.Publish(ctx, outTopic, props, payload, false); err != nil {
+	if _, err := c.Publish(ctx, outTopic, payload, props); err != nil {
 		return nil, err
 	}
 
@@ -187,19 +198,22 @@ func (c *ClientPulsar) SendReceive(
 	return
 }
 
-// Publish - publishes the message and caches producer if doesn't exist
+// Publish - publishes the message and caches producer if it doesn't exist
 func (c *ClientPulsar) Publish(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	disableBatching bool) (messageID []byte, err error) {
+	props MessageHeaders,
+	) (messageID []byte, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return c.sendPulsarMessageWithReusableProducer(
 		ctx,
 		topic,
-		props,
 		payload,
-		disableBatching)
+		props,
+		)
 }
 
 // Close - closes all producers and consumers
@@ -415,11 +429,11 @@ func sendPulsarMessage(
 func (c *ClientPulsar) sendPulsarMessageWithReusableProducer(
 	ctx context.Context,
 	topic string,
-	props map[string]string,
 	payload []byte,
-	disableBatching bool) (b []byte, err error) {
+	props MessageHeaders,
+	) (b []byte, err error) {
 	var producer pulsar.Producer
-	producer, err = c.getProducer(topic, disableBatching)
+	producer, err = c.getProducer(topic, props.IsDisableBatching())
 	if err != nil {
 		return
 	}
@@ -429,8 +443,9 @@ func (c *ClientPulsar) sendPulsarMessageWithReusableProducer(
 func (c *ClientPulsar) sendPulsarMessageWithoutReusableProducer(
 	ctx context.Context,
 	topic string,
+	payload []byte,
 	props map[string]string,
-	payload []byte) (b []byte, err error) {
+	) (b []byte, err error) {
 	var producer pulsar.Producer
 	producer, err = c.createProducer(topic, true)
 	if err != nil {

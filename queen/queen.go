@@ -289,7 +289,16 @@ func buildHealthMonitor(
 			return nil, err
 		}
 		healthMonitor.Register(ctx, pulsarMonitor)
-	} else {
+	} else if serverCfg.MessagingProvider == common.KafkaMessagingProvider {
+		for i, broker := range serverCfg.Kafka.Brokers {
+			var kafkaMonitor health.Monitorable
+			if kafkaMonitor, err = health.NewHostPortMonitor(fmt.Sprintf("kafka-%d", i), broker); err != nil {
+				return nil, err
+			}
+			healthMonitor.Register(ctx, kafkaMonitor)
+		}
+	}
+	if serverCfg.Redis.Host != "" {
 		var redisMonitor health.Monitorable
 		if redisMonitor, err = health.NewHostPortMonitor("redis",
 			fmt.Sprintf("%s:%d", serverCfg.Redis.Host, serverCfg.Redis.Port)); err != nil {

@@ -13,7 +13,8 @@ common:
   user_agent: ""
   proxy_url: ""
   public_dir: "./public/"
-  messaging_provider: REDIS_MESSAGING
+  xmessaging_provider: REDIS_MESSAGING
+  messaging_provider: KAFKA_MESSAGING
   http_port: 0
   external_base_url: http://localhost:7777
   xmonitoring_urls:
@@ -23,9 +24,9 @@ common:
     connection_timeout: 30
   kafka:
     brokers:
-      - 192.168.1.104:19092
-      - 192.168.1.104:29092
-      - 192.168.1.104:39092
+      - 192.168.1.102:19092
+      - 192.168.1.102:29092
+      - 192.168.1.102:39092
     group: formicary-queen-1
   redis:
     host: "192.168.1.102"

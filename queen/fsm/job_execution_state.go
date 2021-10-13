@@ -859,9 +859,13 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 	}
 	if _, err = jsm.QueueClient.Publish(ctx,
 		jsm.serverCfg.GetJobExecutionLifecycleTopic(),
-		make(map[string]string),
 		payload,
-		true); err != nil {
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", jsm.Request.GetID()),
+			"UserID", jsm.Request.GetUserID(),
+		),
+	); err != nil {
 		return fmt.Errorf("failed to send job-execution event due to %v", err)
 	}
 	return nil
@@ -891,9 +895,8 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 	if _, err = jsm.QueueClient.Send(
 		ctx,
 		jsm.serverCfg.GetJobExecutionLaunchTopic(),
-		make(map[string]string),
 		initiateEvent,
-		true,
+		make(map[string]string),
 	); err != nil {
 		return fmt.Errorf("failed to send launch event due to %s", err.Error())
 	}

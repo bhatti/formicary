@@ -13,40 +13,40 @@ import (
 )
 
 func Test_ShouldTerminateMessagingTasklet(t *testing.T) {
-	// GIVEN tasklet
-	tasklet := newTestMessagingTasklet(t)
+	// GIVEN messagingTasklet
+	messagingTasklet := newTestMessagingTasklet(t)
 
 	// WHEN terminating container
-	_, err := tasklet.TerminateContainer(context.Background(), nil)
+	_, err := messagingTasklet.TerminateContainer(context.Background(), nil)
 
 	// THEN it should not fail
 	require.Error(t, err)
 }
 
 func Test_ShouldPreExecuteMessagingTasklet(t *testing.T) {
-	// GIVEN tasklet
-	tasklet := newTestMessagingTasklet(t)
+	// GIVEN messagingTasklet
+	messagingTasklet := newTestMessagingTasklet(t)
 
 	// WHEN pre-executing
 	// THEN it should return true
-	require.True(t, tasklet.PreExecute(context.Background(), nil))
+	require.True(t, messagingTasklet.PreExecute(context.Background(), nil))
 }
 
 func Test_ShouldListMessagingTasklet(t *testing.T) {
-	// GIVEN tasklet
-	tasklet := newTestMessagingTasklet(t)
+	// GIVEN messagingTasklet
+	messagingTasklet := newTestMessagingTasklet(t)
 	req := &common.TaskRequest{
 		ExecutorOpts: common.NewExecutorOptions("name", common.Kubernetes),
 	}
 	// WHEN listing containers
-	_, err := tasklet.ListContainers(context.Background(), req)
+	_, err := messagingTasklet.ListContainers(context.Background(), req)
 	// THEN it should not fail
 	require.NoError(t, err)
 }
 
 func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
-	// GIVEN tasklet
-	tasklet := newTestMessagingTasklet(t)
+	// GIVEN messagingTasklet
+	messagingTasklet := newTestMessagingTasklet(t)
 	req := &common.TaskRequest{
 		JobType:         "job",
 		TaskType:        "task",
@@ -59,21 +59,21 @@ func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
 	}
 
 	// WHEN executing without request queue
-	res, err := tasklet.Execute(context.Background(), req)
+	res, err := messagingTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should fail
 	require.Equal(t, common.FAILED, res.Status)
 
 	// WHEN executing without response queue
 	req.ExecutorOpts.MessagingRequestQueue = "input"
-	res, err = tasklet.Execute(context.Background(), req)
+	res, err = messagingTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should fail
 	require.Equal(t, common.FAILED, res.Status)
 
 	// WHEN executing without response queue
 	req.ExecutorOpts.MessagingReplyQueue = "reply"
-	res, err = tasklet.Execute(context.Background(), req)
+	res, err = messagingTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should not fail
 	require.Equal(t, common.COMPLETED, res.Status)
@@ -88,12 +88,12 @@ func newTestMessagingTasklet(t *testing.T) *MessagingTasklet {
 		metrics.New(),
 	)
 
-	tasklet := NewMessagingTasklet(
+	messagingTasklet := NewMessagingTasklet(
 		cfg,
 		requestRegistry,
 		jobManager,
 		queueClient,
 		"requestTopic",
 	)
-	return tasklet
+	return messagingTasklet
 }

@@ -12,7 +12,7 @@ import (
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 
-// Start background routine to cleanup any stale leases
+// Start background routine to clean up any stale leases
 func (gw *Gateway) startReaperTicker(ctx context.Context) {
 	gw.ticker = time.NewTicker(gw.serverCfg.Jobs.OrphanRequestsTimeout / 2)
 	go func() {
@@ -46,12 +46,10 @@ func (gw *Gateway) reapStaleLeases(_ context.Context) (count int) {
 
 func (gw *Gateway) subscribeToJobDefinitionLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -74,17 +72,16 @@ func (gw *Gateway) subscribeToJobDefinitionLifecycleEvent(
 			)
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (gw *Gateway) subscribeToJobRequestLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -106,17 +103,16 @@ func (gw *Gateway) subscribeToJobRequestLifecycleEvent(
 				event.Payload)
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (gw *Gateway) subscribeToJobExecutionLifecycleEvent(
 	ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -138,16 +134,15 @@ func (gw *Gateway) subscribeToJobExecutionLifecycleEvent(
 				event.Payload)
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (gw *Gateway) subscribeToTaskExecutionLifecycleEvent(ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -169,16 +164,15 @@ func (gw *Gateway) subscribeToTaskExecutionLifecycleEvent(ctx context.Context,
 				event.Payload)
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -209,16 +203,15 @@ func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 
 func (gw *Gateway) subscribeToHealthErrorEvent(ctx context.Context,
-	subscriptionTopic string) (err error) {
+	subscriptionTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		subscriptionTopic,
-		gw.id,
-		make(map[string]string),
 		false, // exclusive subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -240,16 +233,15 @@ func (gw *Gateway) subscribeToHealthErrorEvent(ctx context.Context,
 				event.Payload)
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 func (gw *Gateway) subscribeToContainersLifecycleEvents(
 	ctx context.Context,
-	containerTopic string) (err error) {
+	containerTopic string) (string, error) {
 	return gw.queueClient.Subscribe(
 		ctx,
 		containerTopic,
-		gw.id,
-		make(map[string]string),
 		false, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -271,5 +263,6 @@ func (gw *Gateway) subscribeToContainersLifecycleEvents(
 				event.Payload)
 			return nil
 		},
+		make(map[string]string),
 	)
 }

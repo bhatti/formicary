@@ -34,13 +34,15 @@ const (
 
 // AntContainersRegistry keeps track of running containers
 type AntContainersRegistry struct {
-	id               string
-	antCfg           *config.AntConfig
-	queueClient      queue.Client
-	metricsRegistry  *metrics.Registry
-	registrations    map[string]*types.AntRegistration          // ant-id => registration
-	containersEvents map[string]*events.ContainerLifecycleEvent // method+container-name: container event
-	lock             sync.RWMutex
+	id                              string
+	antCfg                          *config.AntConfig
+	queueClient                     queue.Client
+	metricsRegistry                 *metrics.Registry
+	registrations                   map[string]*types.AntRegistration          // ant-id => registration
+	containersEvents                map[string]*events.ContainerLifecycleEvent // method+container-name: container event
+	lock                            sync.RWMutex
+	registrationSubscriberID        string
+	containersLifecycleSubscriberID string
 }
 
 // NewAntContainersRegistry constructor
@@ -61,10 +63,10 @@ func NewAntContainersRegistry(
 
 // Start subscription for monitoring registrations
 func (r *AntContainersRegistry) Start(ctx context.Context) (err error) {
-	if err = r.subscribeToRegistration(ctx, r.antCfg.GetRegistrationTopic()); err != nil {
+	if r.registrationSubscriberID, err = r.subscribeToRegistration(ctx, r.antCfg.GetRegistrationTopic()); err != nil {
 		return err
 	}
-	if err = r.subscribeToContainersLifecycleEvents(ctx, r.antCfg.GetContainerLifecycleTopic()); err != nil {
+	if r.containersLifecycleSubscriberID, err = r.subscribeToContainersLifecycleEvents(ctx, r.antCfg.GetContainerLifecycleTopic()); err != nil {
 		_ = r.Stop(ctx)
 		return err
 	}
@@ -77,13 +79,11 @@ func (r *AntContainersRegistry) Stop(ctx context.Context) (err error) {
 	err1 := r.queueClient.UnSubscribe(
 		ctx,
 		r.antCfg.GetRegistrationTopic(),
-		r.id,
-	)
+		r.registrationSubscriberID)
 	err2 := r.queueClient.UnSubscribe(
 		ctx,
 		r.antCfg.GetContainerLifecycleTopic(),
-		r.id,
-	)
+		r.containersLifecycleSubscriberID)
 	return cutils.ErrorsAny(err1, err2)
 }
 
@@ -200,12 +200,10 @@ func (r *AntContainersRegistry) registerAnt(
 
 func (r *AntContainersRegistry) subscribeToContainersLifecycleEvents(
 	ctx context.Context,
-	containerTopic string) (err error) {
+	containerTopic string) (string, error) {
 	return r.queueClient.Subscribe(
 		ctx,
 		containerTopic,
-		r.id,
-		make(map[string]string),
 		false, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -227,16 +225,15 @@ func (r *AntContainersRegistry) subscribeToContainersLifecycleEvents(
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 func (r *AntContainersRegistry) subscribeToRegistration(
 	ctx context.Context,
-	registrationTopic string) (err error) {
+	registrationTopic string) (string, error) {
 	return r.queueClient.Subscribe(
 		ctx,
 		registrationTopic,
-		r.id,
-		make(map[string]string),
 		false, // shared subscription
 		func(ctx context.Context, event *queue.MessageEvent) error {
 			defer event.Ack()
@@ -260,6 +257,7 @@ func (r *AntContainersRegistry) subscribeToRegistration(
 			}
 			return nil
 		},
+		make(map[string]string),
 	)
 }
 

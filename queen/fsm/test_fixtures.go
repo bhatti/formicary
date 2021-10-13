@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/acl"
@@ -55,6 +56,18 @@ func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 	errorCodeRepository, err := repository.NewTestErrorCodeRepository()
 	if err != nil {
 		return nil, err
+	}
+	queueClient.SendReceivePayloadFunc = func(
+		_ queue.MessageHeaders,
+		payload []byte) ([]byte, error) {
+		var req common.TaskRequest
+		err = json.Unmarshal(payload, &req)
+		if err != nil {
+			return nil, err
+		}
+		res := common.NewTaskResponse(&req)
+		res.Status = common.COMPLETED
+		return json.Marshal(res)
 	}
 
 	resourceManager.Registry["ant-1"] = &common.AntRegistration{

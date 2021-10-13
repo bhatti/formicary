@@ -621,9 +621,9 @@ func registerAnt(
 		_, err = queueClient.Publish(
 			context.Background(),
 			registrationTopic,
-			make(map[string]string),
 			b,
-			false)
+			make(map[string]string),
+			)
 	}
 	return
 }

@@ -91,12 +91,15 @@ func (t *JobForkWaitTasklet) Execute(
 	if err != nil {
 		return buildTaskResponseWithError(taskReq, err)
 	}
-	if err = t.EventBus.Subscribe(common.JobExecutionLifecycleTopic, waiter.UpdateFromJobLifecycleEvent); err != nil {
+	if err = t.EventBus.Subscribe(
+		t.Config.GetJobExecutionLifecycleTopic(),
+		waiter.UpdateFromJobLifecycleEvent); err != nil {
 		return buildTaskResponseWithError(taskReq, fmt.Errorf("failed to subscribe to event bus %v", err))
 	}
 
 	defer func() {
-		_ = t.EventBus.Unsubscribe(common.JobExecutionLifecycleTopic, waiter.UpdateFromJobLifecycleEvent)
+		_ = t.EventBus.Unsubscribe(
+			t.Config.GetJobExecutionLifecycleTopic(), waiter.UpdateFromJobLifecycleEvent)
 	}()
 
 	sleep := 1 * time.Second

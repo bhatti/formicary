@@ -542,18 +542,20 @@ func (u *Utils) BuildPod(
 		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %s", opts.Name, err.Error())
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Component":     "KubernetesAdapter",
-		"POD":           podConfig.Name,
-		"Services":      serviceNames,
-		"ServicesCount": len(podServices),
-		"Options":       opts.String(),
-		"Labels":        labels,
-		"Privileged":    privileged,
-		"CWD":           opts.WorkingDirectory,
-		"Annotations":   annotations,
-		"Namespace":     u.config.Kubernetes.Namespace,
-	}).Info("creating pod...")
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "KubernetesAdapter",
+			"POD":           podConfig.Name,
+			"Services":      serviceNames,
+			"ServicesCount": len(podServices),
+			"Options":       opts.String(),
+			"Labels":        labels,
+			"Privileged":    privileged,
+			"CWD":           opts.WorkingDirectory,
+			"Annotations":   annotations,
+			"Namespace":     u.config.Kubernetes.Namespace,
+		}).Debugf("creating pod...")
+	}
 
 	pod, err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).Create(ctx, podConfig, metav1.CreateOptions{})
 	if err != nil {

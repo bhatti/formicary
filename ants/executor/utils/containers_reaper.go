@@ -147,9 +147,13 @@ func (r *ContainersReaper) sendContainerEvent(
 		if _, err = r.queueClient.Publish(
 			ctx,
 			r.antCfg.GetContainerLifecycleTopic(),
-			make(map[string]string),
 			b,
-			false); err != nil {
+			queue.NewMessageHeaders(
+				queue.DisableBatchingKey, "true",
+				"ContainerID", container.GetID(),
+				"UserID", userID,
+			),
+		); err != nil {
 			log.WithFields(
 				log.Fields{
 					"Component": "ContainersReaper",
