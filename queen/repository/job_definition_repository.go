@@ -20,8 +20,8 @@ type JobDefinitionRepository interface {
 		qc *common.QueryContext,
 		jobType string,
 		semVersion string) (*types.JobDefinition, error)
-	// SetPaused pauses/unpauses job-definition
-	SetPaused(id string, paused bool) error
+	// SetDisabled disables/enables job-definition
+	SetDisabled(id string, disabled bool) error
 	// Delete job-definition
 	Delete(
 		qc *common.QueryContext,

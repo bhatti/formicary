@@ -46,20 +46,20 @@ func (jrr *JobResourceRepositoryImpl) clear() {
 	clearDB(jrr.db)
 }
 
-// SetPaused - sets paused status job-definition
-func (jrr *JobResourceRepositoryImpl) SetPaused(
+// SetDisabled - sets disabled status job-definition
+func (jrr *JobResourceRepositoryImpl) SetDisabled(
 	qc *common.QueryContext,
 	id string,
-	paused bool) error {
+	disabled bool) error {
 	res := qc.AddOrgElseUserWhere(jrr.db.Model(&types.JobResource{}), false).
 		Where("id = ?", id).
-		Updates(map[string]interface{}{"paused": paused, "updated_at": time.Now()})
+		Updates(map[string]interface{}{"disabled": disabled, "updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
 	if res.RowsAffected != 1 {
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to set paused resource (%v) with id %v, rows %v", paused, id, res.RowsAffected))
+			fmt.Errorf("failed to set disabled resource (%v) with id %v, rows %v", disabled, id, res.RowsAffected))
 	}
 	return nil
 }
@@ -115,9 +115,9 @@ func (jrr *JobResourceRepositoryImpl) Save(
 			if !old.Editable(qc.GetUserID(), qc.GetOrganizationID()) {
 				debug.PrintStack()
 				log.WithFields(log.Fields{
-					"Component":     "JobResourceRepositoryImpl",
+					"Component":   "JobResourceRepositoryImpl",
 					"JobResource": resource,
-					"QC":            qc,
+					"QC":          qc,
 				}).Warnf("invalid owner %s / %s didn't match query context",
 					resource.UserID, resource.OrganizationID)
 				return common.NewPermissionError(
@@ -182,7 +182,7 @@ func (jrr *JobResourceRepositoryImpl) MatchByTags(
 		Preload("Uses", "active = ?", true).
 		Limit(1000).
 		Where("active = ?", true).
-		Where("paused = ?", false).
+		Where("disabled = ?", false).
 		Where("platform = ?", platform).
 		Where("resource_type = ?", resourceType)
 	res := tx.Find(&resources)

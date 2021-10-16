@@ -2,13 +2,14 @@ package types
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"plexobject.com/formicary/internal/crypto"
 	"testing"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/stretchr/testify/require"
+	yaml "gopkg.in/yaml.v3"
+	"plexobject.com/formicary/internal/crypto"
+
 	common "plexobject.com/formicary/internal/types"
 )
 
@@ -545,7 +546,7 @@ func Test_ShouldETLSerializeFromYAML(t *testing.T) {
 	task, _, err := job.GetDynamicTask(
 		"extract",
 		map[string]common.VariableValue{
-			"data_string":common.NewVariableValue("{\"1001\": 301.27, \"1002\": 433.21, \"1003\": 502.22}", false),
+			"data_string": common.NewVariableValue("{\"1001\": 301.27, \"1002\": 433.21, \"1003\": 502.22}", false),
 		},
 	)
 	require.NoError(t, err)
@@ -697,6 +698,20 @@ func Test_ShouldYamlDeserializeForJobDefinition(t *testing.T) {
 	}
 }
 
+// Test build job config with for loop
+func Test_ShouldParseLoopJobDefinition(t *testing.T) {
+	// GIVEN a job loaded from YAML file
+	b, err := ioutil.ReadFile("../../docs/examples/loop-job.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	params := map[string]common.VariableValue{
+	}
+	task, _, err := job.GetDynamicTask("t3", params)
+	require.Equal(t, 17, len(task.Script))
+}
+
 // Test build job config with filter and cron
 func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	// GIVEN a job loaded from YAML file
@@ -718,7 +733,7 @@ func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	date, userKey := job.GetCronScheduleTimeAndUserKey()
 	require.NotNil(t, date)
 	require.NotEqual(t, "", userKey)
-	job.Paused = true
+	job.Disabled = true
 	date, userKey = job.GetCronScheduleTimeAndUserKey()
 	require.Nil(t, date)
 	require.Equal(t, "", userKey)

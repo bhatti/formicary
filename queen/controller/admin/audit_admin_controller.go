@@ -31,7 +31,7 @@ func NewAuditAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryAudits - queries audit
-func (c *AuditAdminController) queryAudits(ctx web.WebContext) error {
+func (c *AuditAdminController) queryAudits(ctx web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(ctx)
 	var kind string
 	if params["kind"] != nil {

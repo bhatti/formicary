@@ -38,8 +38,8 @@ func NewJobResourceAdminController(
 	webserver.GET("/dashboard/jobs/resources/new", jraCtr.newJobResource, acl.NewPermission(acl.JobResource, acl.Create)).Name = "new_admin_job_resources"
 	webserver.POST("/dashboard/jobs/resources", jraCtr.createJobResource, acl.NewPermission(acl.JobResource, acl.Create)).Name = "create_admin_job_resources"
 	webserver.POST("/dashboard/jobs/resources/:id", jraCtr.updateJobResource, acl.NewPermission(acl.JobResource, acl.Update)).Name = "update_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id/pause", jraCtr.pauseJobResource, acl.NewPermission(acl.JobResource, acl.Pause)).Name = "pause_admin_job_resources"
-	webserver.POST("/dashboard/jobs/resources/:id/unpause", jraCtr.unpauseJobResource, acl.NewPermission(acl.JobResource, acl.Unpause)).Name = "unpause_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id/disable", jraCtr.disableJobResource, acl.NewPermission(acl.JobResource, acl.Disable)).Name = "disable_admin_job_resources"
+	webserver.POST("/dashboard/jobs/resources/:id/enable", jraCtr.enableJobResource, acl.NewPermission(acl.JobResource, acl.Enable)).Name = "enable_admin_job_resources"
 	webserver.GET("/dashboard/jobs/resources/:id", jraCtr.getJobResource, acl.NewPermission(acl.JobResource, acl.View)).Name = "get_admin_job_resources"
 	webserver.GET("/dashboard/jobs/resources/:id/edit", jraCtr.editJobResource, acl.NewPermission(acl.JobResource, acl.Update)).Name = "edit_admin_job_resources"
 	webserver.POST("/dashboard/jobs/resources/:id/delete", jraCtr.deleteJobResource, acl.NewPermission(acl.JobResource, acl.Delete)).Name = "delete_admin_job_resources"
@@ -52,7 +52,7 @@ func NewJobResourceAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryJobResources - queries job-resource
-func (jraCtr *JobResourceAdminController) queryJobResources(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) queryJobResources(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := jraCtr.jobResourceRepository.Query(
@@ -77,7 +77,7 @@ func (jraCtr *JobResourceAdminController) queryJobResources(c web.WebContext) er
 }
 
 // createJobResource - saves a new job-resource
-func (jraCtr *JobResourceAdminController) createJobResource(c web.WebContext) (err error) {
+func (jraCtr *JobResourceAdminController) createJobResource(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	resource := buildResource(c)
 	err = resource.Validate()
@@ -95,22 +95,22 @@ func (jraCtr *JobResourceAdminController) createJobResource(c web.WebContext) (e
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/resources/%s", resource.ID))
 }
 
-// pauseJobResources - update job-resource
-func (jraCtr *JobResourceAdminController) pauseJobResource(c web.WebContext) error {
+// disableJobResources - update job-resource
+func (jraCtr *JobResourceAdminController) disableJobResource(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	err := jraCtr.jobResourceRepository.SetPaused(qc, id, true)
+	err := jraCtr.jobResourceRepository.SetDisabled(qc, id, true)
 	if err != nil {
 		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/resources")
 }
 
-// unpauseJobResources - update job-resource
-func (jraCtr *JobResourceAdminController) unpauseJobResource(c web.WebContext) error {
+// enableJobResources - update job-resource
+func (jraCtr *JobResourceAdminController) enableJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	err := jraCtr.jobResourceRepository.SetPaused(qc, id, false)
+	err := jraCtr.jobResourceRepository.SetDisabled(qc, id, false)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (jraCtr *JobResourceAdminController) unpauseJobResource(c web.WebContext) e
 }
 
 // updateJobResource - updates job-resource
-func (jraCtr *JobResourceAdminController) updateJobResource(c web.WebContext) (err error) {
+func (jraCtr *JobResourceAdminController) updateJobResource(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	resource := buildResource(c)
 	resource.ID = c.Param("id")
@@ -139,7 +139,7 @@ func (jraCtr *JobResourceAdminController) updateJobResource(c web.WebContext) (e
 }
 
 // newJobResource - creates a new job resource
-func (jraCtr *JobResourceAdminController) newJobResource(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) newJobResource(c web.APIContext) error {
 	resource := types.NewJobResource("", 1)
 	res := map[string]interface{}{
 		"Resource": resource,
@@ -149,7 +149,7 @@ func (jraCtr *JobResourceAdminController) newJobResource(c web.WebContext) error
 }
 
 // getJobResource - finds job-resource by id
-func (jraCtr *JobResourceAdminController) getJobResource(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) getJobResource(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	resource, err := jraCtr.jobResourceRepository.Get(qc, id)
@@ -164,7 +164,7 @@ func (jraCtr *JobResourceAdminController) getJobResource(c web.WebContext) error
 }
 
 // editJobResource - shows job-resource for edit
-func (jraCtr *JobResourceAdminController) editJobResource(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) editJobResource(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	resource, err := jraCtr.jobResourceRepository.Get(qc, id)
@@ -187,7 +187,7 @@ func (jraCtr *JobResourceAdminController) editJobResource(c web.WebContext) erro
 }
 
 // deleteJobResource - deletes job-resource by id
-func (jraCtr *JobResourceAdminController) deleteJobResource(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) deleteJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.jobResourceRepository.Delete(qc, c.Param("id"))
 	if err != nil {
@@ -197,7 +197,7 @@ func (jraCtr *JobResourceAdminController) deleteJobResource(c web.WebContext) er
 }
 
 // newJobResourceConfig - creates a new config for resource
-func (jraCtr *JobResourceAdminController) newJobResourceConfig(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) newJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	resource, err := jraCtr.jobResourceRepository.Get(qc, id)
@@ -214,7 +214,7 @@ func (jraCtr *JobResourceAdminController) newJobResourceConfig(c web.WebContext)
 }
 
 // editJobResourceConfig - edits config for resource
-func (jraCtr *JobResourceAdminController) editJobResourceConfig(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) editJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	cfgID := c.Param("config")
 	qc := web.BuildQueryContext(c)
@@ -235,7 +235,7 @@ func (jraCtr *JobResourceAdminController) editJobResourceConfig(c web.WebContext
 }
 
 // deleteJobResourceConfig - delete config for resource
-func (jraCtr *JobResourceAdminController) deleteJobResourceConfig(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) deleteJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	cfgID := c.Param("config")
 	qc := web.BuildQueryContext(c)
@@ -256,7 +256,7 @@ func (jraCtr *JobResourceAdminController) deleteJobResourceConfig(c web.WebConte
 }
 
 // saveJobResourceConfig - delete config for resource
-func (jraCtr *JobResourceAdminController) saveJobResourceConfig(c web.WebContext) error {
+func (jraCtr *JobResourceAdminController) saveJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	resource, err := jraCtr.jobResourceRepository.Get(qc, id)
@@ -283,7 +283,7 @@ func (jraCtr *JobResourceAdminController) saveJobResourceConfig(c web.WebContext
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/resources/%s", id))
 }
 
-func buildResource(c web.WebContext) *types.JobResource {
+func buildResource(c web.APIContext) *types.JobResource {
 	quota, _ := strconv.Atoi(c.FormValue("quota"))
 	resource := types.NewJobResource(c.FormValue("resourceType"), quota)
 	resource.Platform = c.FormValue("platform")

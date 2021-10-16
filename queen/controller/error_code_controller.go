@@ -40,7 +40,7 @@ func NewErrorCodeController(
 // `This requires admin access`
 // responses:
 //   200: errorCodesQueryResponse
-func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.WebContext) error {
+func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	recs, err := ecCtrl.errorCodeRepository.GetAll(qc)
 	if err != nil {
@@ -54,7 +54,7 @@ func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: errorCodeResponse
-func (ecCtrl *ErrorCodeController) postErrorCode(c web.WebContext) error {
+func (ecCtrl *ErrorCodeController) postErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
 	ec := common.NewErrorCode("", "", "", "")
@@ -80,7 +80,7 @@ func (ecCtrl *ErrorCodeController) postErrorCode(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: errorCodeResponse
-func (ecCtrl *ErrorCodeController) putErrorCode(c web.WebContext) error {
+func (ecCtrl *ErrorCodeController) putErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	ec := common.NewErrorCode("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(ec)
@@ -99,7 +99,7 @@ func (ecCtrl *ErrorCodeController) putErrorCode(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: errorCodeResponse
-func (ecCtrl *ErrorCodeController) getErrorCode(c web.WebContext) error {
+func (ecCtrl *ErrorCodeController) getErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	ec, err := ecCtrl.errorCodeRepository.Get(qc, c.Param("id"))
 	if err != nil {
@@ -113,7 +113,7 @@ func (ecCtrl *ErrorCodeController) getErrorCode(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: emptyResponse
-func (ecCtrl *ErrorCodeController) deleteErrorCode(c web.WebContext) error {
+func (ecCtrl *ErrorCodeController) deleteErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := ecCtrl.errorCodeRepository.Delete(qc, c.Param("id"))
 	if err != nil {

@@ -176,8 +176,8 @@ func NewRequest() *JobRequest {
 
 // NewJobRequestFromDefinition creates new request from job Definition
 func NewJobRequestFromDefinition(job *JobDefinition) (*JobRequest, error) {
-	if job.Paused {
-		return nil, fmt.Errorf("job %s is paused", job.JobType)
+	if job.Disabled {
+		return nil, fmt.Errorf("job %s is disabled", job.JobType)
 	}
 	request := &JobRequest{
 		JobType:         job.JobType,

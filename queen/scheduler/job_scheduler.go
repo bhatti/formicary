@@ -3,11 +3,12 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/internal/metrics"
-	"plexobject.com/formicary/queen/repository"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/math"
 	"plexobject.com/formicary/internal/queue"
@@ -75,10 +76,10 @@ func New(
 		metricsRegistry:               metricsRegistry,
 		jobSchedulerLeaderTopic:       serverCfg.GetJobSchedulerLeaderTopic(),
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
-		busy:                          false,
-		noJobsTries:                   0,
-		done:                          make(chan bool, 1),
-		tickers:                       make([]*time.Ticker, 0),
+		busy:        false,
+		noJobsTries: 0,
+		done:        make(chan bool, 1),
+		tickers:     make([]*time.Ticker, 0),
 	}
 }
 
@@ -336,7 +337,7 @@ func (js *JobScheduler) scheduleJob(
 		"CronTrigger":      jobStateMachine.JobDefinition.CronTrigger,
 		"JobExecutionID":   jobStateMachine.JobExecution.ID,
 		"JobType":          request.JobType,
-		"Paused":           jobStateMachine.JobDefinition.Paused,
+		"Disabled":         jobStateMachine.JobDefinition.Disabled,
 		"RequestRetry":     request.GetRetried(),
 		"Priority":         request.GetJobPriority(),
 		"ScheduleAttempts": request.ScheduleAttempts,

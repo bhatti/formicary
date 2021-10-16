@@ -40,7 +40,7 @@ func NewErrorCodeAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryErrorCodes - queries error-code
-func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.WebContext) error {
+func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	recs, total, err := jraCtr.errorCodeRepository.Query(qc, params, page, pageSize, order)
@@ -66,7 +66,7 @@ func (jraCtr *ErrorCodeAdminController) queryErrorCodes(c web.WebContext) error 
 }
 
 // createErrorCode - saves a new error-code
-func (jraCtr *ErrorCodeAdminController) createErrorCode(c web.WebContext) (err error) {
+func (jraCtr *ErrorCodeAdminController) createErrorCode(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	errorCode := buildError(c)
 	err = errorCode.Validate()
@@ -87,7 +87,7 @@ func (jraCtr *ErrorCodeAdminController) createErrorCode(c web.WebContext) (err e
 }
 
 // updateErrorCode - updates error-code
-func (jraCtr *ErrorCodeAdminController) updateErrorCode(c web.WebContext) (err error) {
+func (jraCtr *ErrorCodeAdminController) updateErrorCode(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	errorCode := buildError(c)
 	errorCode.ID = c.Param("id")
@@ -110,7 +110,7 @@ func (jraCtr *ErrorCodeAdminController) updateErrorCode(c web.WebContext) (err e
 }
 
 // newErrorCode - creates a new system error
-func (jraCtr *ErrorCodeAdminController) newErrorCode(c web.WebContext) error {
+func (jraCtr *ErrorCodeAdminController) newErrorCode(c web.APIContext) error {
 	errorCode := common.NewErrorCode("", "", "", "")
 	res := map[string]interface{}{
 		"Error": errorCode,
@@ -120,7 +120,7 @@ func (jraCtr *ErrorCodeAdminController) newErrorCode(c web.WebContext) error {
 }
 
 // getErrorCode - finds error-code by id
-func (jraCtr *ErrorCodeAdminController) getErrorCode(c web.WebContext) error {
+func (jraCtr *ErrorCodeAdminController) getErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	errorCode, err := jraCtr.errorCodeRepository.Get(qc, id)
@@ -134,7 +134,7 @@ func (jraCtr *ErrorCodeAdminController) getErrorCode(c web.WebContext) error {
 }
 
 // editErrorCode - shows error-code for edit
-func (jraCtr *ErrorCodeAdminController) editErrorCode(c web.WebContext) error {
+func (jraCtr *ErrorCodeAdminController) editErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	errorCode, err := jraCtr.errorCodeRepository.Get(qc, id)
@@ -156,7 +156,7 @@ func (jraCtr *ErrorCodeAdminController) editErrorCode(c web.WebContext) error {
 }
 
 // deleteErrorCode - deletes error-code by id
-func (jraCtr *ErrorCodeAdminController) deleteErrorCode(c web.WebContext) error {
+func (jraCtr *ErrorCodeAdminController) deleteErrorCode(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.errorCodeRepository.Delete(qc, c.Param("id"))
 	if err != nil {
@@ -165,7 +165,7 @@ func (jraCtr *ErrorCodeAdminController) deleteErrorCode(c web.WebContext) error 
 	return c.Redirect(http.StatusFound, "/dashboard/errors")
 }
 
-func buildError(c web.WebContext) *common.ErrorCode {
+func buildError(c web.APIContext) *common.ErrorCode {
 	errorCode := common.NewErrorCode(
 		c.FormValue("jobType"),
 		c.FormValue("regex"),

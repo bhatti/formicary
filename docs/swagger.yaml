@@ -533,6 +533,11 @@ definitions:
         description: Description of job
         type: string
         x-go-name: Description
+      disabled:
+        description: disabled is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
+        type: boolean
+        x-go-name: Disabled
       hard_reset_after_retries:
         description: HardResetAfterRetries defines retry config when job is rerun
           and as opposed to re-running only failed tasks, all tasks are executed.
@@ -570,11 +575,6 @@ definitions:
         description: OrganizationID defines org who submitted the job
         type: string
         x-go-name: OrganizationID
-      paused:
-        description: Paused is used to stop further processing of job, and it can
-          be used during maintenance, upgrade or debugging.
-        type: boolean
-        x-go-name: Paused
       platform:
         description: Platform can be OS platform or target runtime and a job can be
           targeted for specific platform that can be used for filtering
@@ -1027,6 +1027,11 @@ definitions:
         description: Description of resource
         type: string
         x-go-name: Description
+      disabled:
+        description: Disabled is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
+        type: boolean
+        x-go-name: Disabled
       external_id:
         description: ExternalID defines external-id of the resource if exists
         type: string
@@ -1043,11 +1048,6 @@ definitions:
         description: OrganizationID defines org who submitted the job
         type: string
         x-go-name: OrganizationID
-      paused:
-        description: Paused is used to stop further processing of job, and it can
-          be used during maintenance, upgrade or debugging.
-        type: boolean
-        x-go-name: Paused
       platform:
         description: Platform can be OS platform or target runtime
         type: string
@@ -1183,12 +1183,12 @@ definitions:
         format: date-time
         type: string
         x-go-name: FirstJobAt
+      job_disabled:
+        description: JobDisabled disabled flag
+        type: boolean
+        x-go-name: JobDisabled
       job_key:
         $ref: '#/definitions/UserJobTypeKey'
-      job_paused:
-        description: JobPaused paused flag
-        type: boolean
-        x-go-name: JobPaused
       last_job_at:
         description: LastJobAt update time of last job
         format: date-time
@@ -2543,12 +2543,6 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
-      - description: Paused is used to stop further processing of job, and it can
-          be used during maintenance, upgrade or debugging.
-        in: query
-        name: paused
-        type: boolean
-        x-go-name: Paused
       - description: PublicPlugin means job is public plugin
         in: query
         name: public_plugin
@@ -2630,6 +2624,22 @@ paths:
         jobs that can be executed at the same time.
       tags:
       - job-definitions
+  /api/jobs/definitions/{id}/disable:
+    post:
+      operationId: disableJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: disables job-definition so that no new requests are executed while
+        in-progress jobs are allowed to complete.
+      tags:
+      - job-definitions
   /api/jobs/definitions/{id}/dot:
     get:
       operationId: dotJobDefinition
@@ -2655,9 +2665,9 @@ paths:
       summary: Returns Real-time statistics of jobs running.
       tags:
       - job-definitions
-  /api/jobs/definitions/{id}/pause:
+  /api/jobs/definitions/{id}/enable:
     post:
-      operationId: pauseJobDefinition
+      operationId: enableJobDefinition
       parameters:
       - in: path
         name: id
@@ -2667,23 +2677,7 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emptyResponse'
-      summary: Pauses job-definition so that no new requests are executed while in-progress
-        jobs are allowed to complete.
-      tags:
-      - job-definitions
-  /api/jobs/definitions/{id}/unpause:
-    post:
-      operationId: unpauseJobDefinition
-      parameters:
-      - in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      responses:
-        "200":
-          $ref: '#/responses/emptyResponse'
-      summary: Unpauses job-definition so that new requests can start processing.
+      summary: Enables job-definition so that new requests can start processing.
       tags:
       - job-definitions
   /api/jobs/definitions/{jobId}/configs:
@@ -2810,12 +2804,6 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
-      - description: Paused is used to stop further processing of job, and it can
-          be used during maintenance, upgrade or debugging.
-        in: query
-        name: paused
-        type: boolean
-        x-go-name: Paused
       - description: PublicPlugin means job is public plugin
         in: query
         name: public_plugin
@@ -3123,7 +3111,7 @@ paths:
           $ref: '#/responses/emptyResponse'
       tags:
       - job-resources
-  /api/jobs/resources/{id}/pause:
+  /api/jobs/resources/{id}/disable:
     post:
       description: Deletes the job-resource by id
       operationId: deleteJobResource
@@ -3375,7 +3363,7 @@ paths:
         "200":
           $ref: '#/responses/subscriptionQueryResponse'
       tags:
-      - system-subscriptions
+      - subscriptions
     post:
       description: '`This requires admin access`'
       operationId: postSubscription
@@ -3389,7 +3377,7 @@ paths:
           $ref: '#/responses/subscriptionResponse'
       summary: Creates new system subscription based on request body.
       tags:
-      - system-subscriptions
+      - subscriptions
   /api/subscriptions/{id}:
     delete:
       description: '`This requires admin access`'
@@ -3405,7 +3393,7 @@ paths:
           $ref: '#/responses/emptyResponse'
       summary: Deletes an existing system subscription based on id.
       tags:
-      - system-subscriptions
+      - subscriptions
     get:
       description: '`This requires admin access`'
       operationId: getSubscription
@@ -3420,7 +3408,7 @@ paths:
           $ref: '#/responses/emptyResponse'
       summary: Deletes an existing system subscription based on id.
       tags:
-      - system-subscriptions
+      - subscriptions
     put:
       description: '`This requires admin access`'
       operationId: putSubscription
@@ -3439,7 +3427,7 @@ paths:
           $ref: '#/responses/subscriptionResponse'
       summary: Updates an existing system subscription based on request body.
       tags:
-      - system-subscriptions
+      - subscriptions
   /api/users:
     get:
       operationId: queryUsers
@@ -3509,7 +3497,7 @@ paths:
           $ref: '#/responses/emailVerificationResponse'
       summary: Creates new emailVerification.
       tags:
-      - emailVerifications
+      - email-verifications
   /api/users/:id/verify_email/:code:
     put:
       description: '`This requires admin access`'
@@ -3530,7 +3518,7 @@ paths:
           $ref: '#/responses/emailVerificationResponse'
       summary: Creates new emailVerification.
       tags:
-      - emailVerifications
+      - email-verifications
   /api/users/{id}:
     delete:
       operationId: deleteUser
@@ -3691,9 +3679,9 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emailVerificationQueryResponse'
-      summary: Queries emailVerifications within the organization that is allowed.
+      summary: Queries email-verifications within the organization that is allowed.
       tags:
-      - emailVerifications
+      - email-verifications
 produces:
 - application/json
 responses:
@@ -3797,7 +3785,7 @@ responses:
           type: integer
       type: object
   emailVerificationQueryResponse:
-    description: Paginated results of emailVerifications matching query
+    description: Paginated results of email-verifications matching query
     schema:
       properties:
         Page:
@@ -4046,7 +4034,7 @@ responses:
   stringResponse:
     description: String response body
   subscriptionQueryResponse:
-    description: Query results of system-subscriptions
+    description: Query results of subscriptions
     schema:
       properties:
         Page:

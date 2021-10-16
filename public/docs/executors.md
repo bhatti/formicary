@@ -398,7 +398,7 @@ func (h *MessagingHandler) execute(
 ```
 
 Here is an equivalent implementation of messaging ant worker in Javascript:
-```
+```javascript
 const {Kafka} = require('kafkajs')
 const assert = require('assert')
 

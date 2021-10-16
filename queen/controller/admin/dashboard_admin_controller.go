@@ -36,7 +36,7 @@ func NewDashboardAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // dashboard -
-func (ctr *DashboardAdminController) dashboard(c web.WebContext) error {
+func (ctr *DashboardAdminController) dashboard(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	start := utils.ParseStartDateTime(c.QueryParam("start"))
 	end := utils.ParseEndDateTime(c.QueryParam("end"))

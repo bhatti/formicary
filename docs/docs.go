@@ -4,11 +4,11 @@
 // executing a directed acyclic graph of tasks and workflows.
 //
 //     Schemes: http, https
-//     Host: localhost:7777
+//     Host: https://formicary.io
 //     BasePath: /api
 //     Version: 0.0.1
 //     License: AGPL https://opensource.org/licenses/AGPL-3.0
-//     Contact: Support<support@formicary.io> http://formicary.io
+//     Contact: Support<support@formicary.io> https://formicary.io
 //
 //     Consumes:
 //     - application/json

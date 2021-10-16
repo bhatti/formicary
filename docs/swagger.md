@@ -484,7 +484,6 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
-| paused | query | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
 | tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
@@ -567,6 +566,25 @@ Updates the concurrency for job-definition by id to limit the maximum jobs that 
 | ---- | ----------- |
 | 200 | Empty response body |
 
+### /api/jobs/definitions/{id}/disable
+
+#### POST
+##### Summary
+
+disables job-definition so that no new requests are executed while in-progress jobs are allowed to complete.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
 ### /api/jobs/definitions/{id}/dot
 
 #### GET
@@ -599,31 +617,12 @@ Returns Real-time statistics of jobs running.
 | ---- | ----------- | ------ |
 | 200 |  | [ [JobStats](#jobstats) ] |
 
-### /api/jobs/definitions/{id}/pause
+### /api/jobs/definitions/{id}/enable
 
 #### POST
 ##### Summary
 
-Pauses job-definition so that no new requests are executed while in-progress jobs are allowed to complete.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| id | path |  | Yes | string |
-
-##### Responses
-
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
-
-### /api/jobs/definitions/{id}/unpause
-
-#### POST
-##### Summary
-
-Unpauses job-definition so that new requests can start processing.
+Enables job-definition so that new requests can start processing.
 
 ##### Parameters
 
@@ -758,7 +757,6 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
-| paused | query | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
 | tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
@@ -1077,7 +1075,7 @@ Deletes the job-resource config by id of job-resource and config-id
 | ---- | ----------- |
 | 200 | Empty response body |
 
-### /api/jobs/resources/{id}/pause
+### /api/jobs/resources/{id}/disable
 
 #### POST
 ##### Description
@@ -1354,7 +1352,7 @@ Queries system subscriptions
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Query results of system-subscriptions | object |
+| 200 | Query results of subscriptions | object |
 
 #### POST
 ##### Summary
@@ -1673,7 +1671,7 @@ Deletes user-token by its id so that it cannot be used for the API access.
 #### GET
 ##### Summary
 
-Queries emailVerifications within the organization that is allowed.
+Queries email-verifications within the organization that is allowed.
 
 ##### Parameters
 
@@ -1689,7 +1687,7 @@ Queries emailVerifications within the organization that is allowed.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of emailVerifications matching query | object |
+| 200 | Paginated results of email-verifications matching query | object |
 
 ### Models
 
@@ -1897,6 +1895,7 @@ submitted.
 | cron_trigger | string | CronTrigger can be used to run the job periodically | No |
 | delay_between_retries | [Duration](#duration) |  | No |
 | description | string | Description of job | No |
+| disabled | boolean | disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | hard_reset_after_retries | long | HardResetAfterRetries defines retry config when job is rerun and as opposed to re-running only failed tasks, all tasks are executed. | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
 | job_type | string | JobType defines a unique type of job | No |
@@ -1905,7 +1904,6 @@ submitted.
 | methods | string | Methods is aggregation of task methods | No |
 | notify | object |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
-| paused | boolean | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | platform | string | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No |
 | public_plugin | boolean | PublicPlugin means job is public plugin | No |
 | required_params | [ string ] | RequiredParams from job request (and plugin) | No |
@@ -2042,12 +2040,12 @@ five connections that can be allocated via resources.
 | category | string | Category can be used to represent grouping of resources | No |
 | created_at | dateTime | CreatedAt job creation time | No |
 | description | string | Description of resource | No |
+| disabled | boolean | Disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | external_id | string | ExternalID defines external-id of the resource if exists | No |
 | extract_config | [ResourceCriteriaConfig](#resourcecriteriaconfig) |  | No |
 | id | string | ID defines UUID for primary key | No |
 | lease_timeout | [Duration](#duration) |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
-| paused | boolean | Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No |
 | platform | string | Platform can be OS platform or target runtime | No |
 | quota | long | Quota can be used to represent mutex (max 1), semaphores (max limit) or other kind of quota. Note: mutex/semaphores can only take one resource by quota may take any value | No |
 | resource_type | string | ResourceType defines type of resource such as Device, CPU, Memory | No |
@@ -2086,8 +2084,8 @@ JobResourceConfig defines configuration for job resource
 | failed_jobs_max_latency | long | FailedJobsMax max | No |
 | failed_jobs_min_latency | long | SailedJobsMin min | No |
 | first_job_at | dateTime | FirstJobAt time of job start | No |
+| job_disabled | boolean | JobDisabled disabled flag | No |
 | job_key | [UserJobTypeKey](#userjobtypekey) |  | No |
-| job_paused | boolean | JobPaused paused flag | No |
 | last_job_at | dateTime | LastJobAt update time of last job | No |
 | succeeded_jobs | long | SucceededJobs count | No |
 | succeeded_jobs_average_latency | double | SucceededJobsAverage average | No |

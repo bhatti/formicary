@@ -1,11 +1,12 @@
 package stats
 
 import (
-	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/types"
 	"sort"
 	"sync"
 	"time"
+
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/types"
 )
 
 // RequestIDAndStatus stores job request-id with state
@@ -17,7 +18,6 @@ type RequestIDAndStatus struct {
 // JobStatsRegistry keeps latency stats of job
 type JobStatsRegistry struct {
 	// TODO move stats to redis
-	// TODO add request-ids for each user/org
 	statsByJobType    map[string]*JobStats
 	countByUser       map[string]map[uint64]bool
 	countByOrg        map[string]map[uint64]bool
@@ -138,12 +138,12 @@ func (r *JobStatsRegistry) SetAntsAvailable(key types.UserJobTypeKey, available 
 	stats.AntUnavailableError = unavailableError
 }
 
-// SetPaused marks job as paused
-func (r *JobStatsRegistry) SetPaused(key types.UserJobTypeKey, paused bool) {
+// SetDisabled marks job as disabled
+func (r *JobStatsRegistry) SetDisabled(key types.UserJobTypeKey, disabled bool) {
 	r.lock.Lock()
 	r.lock.Unlock()
 	stats := r.createOrFindStat(key)
-	stats.JobPaused = paused
+	stats.JobDisabled = disabled
 }
 
 // BuildWaitEstimate return estimated time for job
@@ -210,17 +210,17 @@ func (r *JobStatsRegistry) GetStats(qc *common.QueryContext, offset int, max int
 				LastJobAt:            stat.LastJobAt,
 				SucceededJobs:        stat.SucceededJobs,
 				SucceededJobsAverage: stat.SucceededJobsAverage,
-				SucceededJobsMin:     stat.SucceededJobsMin,
-				SucceededJobsMax:     stat.SucceededJobsMax,
-				FailedJobs:           stat.FailedJobs,
-				FailedJobsAverage:    stat.FailedJobsAverage,
-				FailedJobsMin:        stat.FailedJobsMin,
-				FailedJobsMax:        stat.FailedJobsMax,
-				ExecutingJobs:        stat.ExecutingJobs,
-				AntsAvailable:        stat.AntsAvailable,
-				AntsCapacity:         stat.AntsCapacity,
-				AntUnavailableError:  stat.AntUnavailableError,
-				JobPaused:            stat.JobPaused,
+				SucceededJobsMin:    stat.SucceededJobsMin,
+				SucceededJobsMax:    stat.SucceededJobsMax,
+				FailedJobs:          stat.FailedJobs,
+				FailedJobsAverage:   stat.FailedJobsAverage,
+				FailedJobsMin:       stat.FailedJobsMin,
+				FailedJobsMax:       stat.FailedJobsMax,
+				ExecutingJobs:       stat.ExecutingJobs,
+				AntsAvailable:       stat.AntsAvailable,
+				AntsCapacity:        stat.AntsCapacity,
+				AntUnavailableError: stat.AntUnavailableError,
+				JobDisabled:         stat.JobDisabled,
 			})
 		}
 	}

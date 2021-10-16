@@ -8,9 +8,9 @@ import (
 // Provider defines interface for authentication
 type Provider interface {
 	AuthHandler(state string) string
-	AuthUser(expectedState string, c web.WebContext) (*common.User, error)
+	AuthUser(expectedState string, c web.APIContext) (*common.User, error)
 	AuthLoginURL() string
 	AuthLoginCallbackURL() string
 	AuthWebhookCallbackURL() string
-	AuthWebhookCallbackHandle(c web.WebContext) error
+	AuthWebhookCallbackHandle(c web.APIContext) error
 }

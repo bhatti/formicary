@@ -18,3 +18,100 @@ Apache Airflow is a popular solution for building, scheduling and monitoring wor
 | variables | [variables](definition_options.md#variables) | Airflow uses [variables](https://airflow.apache.org/docs/apache-airflow/stable/howto/variable.html) to pass variables to the tasks and a formicary provides similar support for `variables` at job and task level, which can be accessed by the executing task.
 | control-flow | [on_exit](definition_options.md#on_exit) | Airflow uses [control-flow](https://airflow.apache.org/docs/apache-airflow/stable/concepts/overview.html#control-flow) to define dependency and control-flow between tasks whereas Formicary uses `on_exit`, `on_completed`, `on_failed` to define task dependencies in the workflow.
 
+## Sample Airflow DAGs
+Here is a sample dag of Airflow :
+```
+from datetime import datetime, timedelta
+from textwrap import dedent
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'email': ['airflow@example.com'],
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+with DAG(
+    'tutorial',
+    default_args=default_args,
+    description='A simple tutorial DAG',
+    schedule_interval=timedelta(days=1),
+    start_date=datetime(2021, 1, 1),
+    catchup=False,
+    tags=['example'],
+) as dag:
+    t1 = BashOperator(
+        task_id='print_date',
+        bash_command='date',
+    )
+
+    t2 = BashOperator(
+        task_id='sleep',
+        depends_on_past=False,
+        bash_command='sleep 5',
+        retries=3,
+    )
+    templated_command = dedent(
+        """
+    {% for i in range(5) %}
+        echo "{{ ds }}"
+        echo "{{ macros.ds_add(ds, 7)}}"
+        echo "{{ params.my_param }}"
+    {% endfor %}
+    """
+    )
+
+    t3 = BashOperator(
+        task_id='templated',
+        depends_on_past=False,
+        bash_command=templated_command,
+        params={'my_param': 'Parameter I passed in'},
+    )
+    t1 >> [t2, t3]
+```
+
+Following is equivalent workflow in formicary:
+```
+job_type: loop-job
+tasks:
+- task_type: t1
+  container:
+    image: alpine
+  script:
+    - date
+  on_completed: t2
+- task_type: t2
+  container:
+    image: alpine
+  script:
+    - sleep 5
+  on_completed: t3
+- task_type: t3
+  container:
+    image: alpine
+  task_variables:
+    my_param: Parameter I passed in
+  script:
+{{- range $val := Iterate 5 }}
+    - echo {{$val}}
+    - echo {{ Add $val 7}}
+    - echo $my_param
+{{ end  }}
+```
+
+## Limitations in Airflow
+Following are major limitations of github actions:
+ - Airflow supports limited support for caching of artifacts.
+ - Airflow doesn't provide any metrics or queue size whereas formicary provides detailed reporting, metrics and insights into queue size.
+ - Airflow provides limited support for partial restart and retries unlike formicary that provides a number of configuration parameters to recover from the failure.
+ - Airflow provides limited support for optional and always-run tasks.
+ - Airflow provides limited support for specifying cpu, memory and storage limits whereas formicary allows these limits when using Kubernetes executors. 
+ - Airflow does not support priority of the jobs whereas formicary allows specifying priority of jobs for determining execution order of pending jobs.
+ - Formicary provides more support for scheduling periodic or cron jobs.
+ - Formicary provides rich support for metrics and reporting on usage on resources and statistics on job failure/success.
+ - Formicary provides plugin APIs to share common workflows and jobs among users.

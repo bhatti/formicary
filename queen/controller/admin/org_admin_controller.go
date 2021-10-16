@@ -44,7 +44,7 @@ func NewOrganizationAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryOrganizations - queries org
-func (oc *OrganizationAdminController) queryOrganizations(c web.WebContext) error {
+func (oc *OrganizationAdminController) queryOrganizations(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	recs, total, err := oc.userManager.QueryOrgs(qc, params, page, pageSize, order)
@@ -64,7 +64,7 @@ func (oc *OrganizationAdminController) queryOrganizations(c web.WebContext) erro
 }
 
 // createOrganization - saves a new org
-func (oc *OrganizationAdminController) createOrganization(c web.WebContext) (err error) {
+func (oc *OrganizationAdminController) createOrganization(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	org := buildOrganization(c)
 	err = org.Validate()
@@ -81,7 +81,7 @@ func (oc *OrganizationAdminController) createOrganization(c web.WebContext) (err
 }
 
 // updateOrganization - updates org
-func (oc *OrganizationAdminController) updateOrganization(c web.WebContext) (err error) {
+func (oc *OrganizationAdminController) updateOrganization(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	org := buildOrganization(c)
 	org.ID = c.Param("id")
@@ -101,7 +101,7 @@ func (oc *OrganizationAdminController) updateOrganization(c web.WebContext) (err
 }
 
 // newOrganization - creates a new org
-func (oc *OrganizationAdminController) newOrganization(c web.WebContext) error {
+func (oc *OrganizationAdminController) newOrganization(c web.APIContext) error {
 	org := common.NewOrganization("", "", "")
 	res := map[string]interface{}{
 		"Org": org,
@@ -111,7 +111,7 @@ func (oc *OrganizationAdminController) newOrganization(c web.WebContext) error {
 }
 
 // getOrganization - finds org by id
-func (oc *OrganizationAdminController) getOrganization(c web.WebContext) error {
+func (oc *OrganizationAdminController) getOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	org, err := oc.userManager.GetOrganization(qc, id)
@@ -178,7 +178,7 @@ func (oc *OrganizationAdminController) getOrganization(c web.WebContext) error {
 }
 
 // editOrganization - shows org for edit
-func (oc *OrganizationAdminController) editOrganization(c web.WebContext) error {
+func (oc *OrganizationAdminController) editOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	org, err := oc.userManager.GetOrganization(qc, id)
@@ -201,7 +201,7 @@ func (oc *OrganizationAdminController) editOrganization(c web.WebContext) error 
 }
 
 // deleteOrganization - deletes org by id
-func (oc *OrganizationAdminController) deleteOrganization(c web.WebContext) error {
+func (oc *OrganizationAdminController) deleteOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := oc.userManager.DeleteOrganization(qc, c.Param("id"))
 	if err != nil {
@@ -211,7 +211,7 @@ func (oc *OrganizationAdminController) deleteOrganization(c web.WebContext) erro
 }
 
 // usageReport -
-func (oc *OrganizationAdminController) usageReport(c web.WebContext) error {
+func (oc *OrganizationAdminController) usageReport(c web.APIContext) error {
 	from := utils.ParseStartDateTime(c.QueryParam("from"))
 	to := utils.ParseEndDateTime(c.QueryParam("to"))
 
@@ -225,7 +225,7 @@ func (oc *OrganizationAdminController) usageReport(c web.WebContext) error {
 	return c.Render(http.StatusOK, "orgs/usage_report", res)
 }
 
-func buildOrganization(c web.WebContext) *common.Organization {
+func buildOrganization(c web.APIContext) *common.Organization {
 	qc := web.BuildQueryContext(c)
 	org := common.NewOrganization(
 		qc.GetUserID(),

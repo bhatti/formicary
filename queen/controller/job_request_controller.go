@@ -49,7 +49,7 @@ func NewJobRequestController(
 // Queries job requests by criteria such as type, platform, etc.
 // responses:
 //   200: jobRequestQueryResponse
-func (jobReqCtrl *JobRequestController) queryJobRequests(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) queryJobRequests(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := jobReqCtrl.jobManager.QueryJobRequests(
@@ -68,7 +68,7 @@ func (jobReqCtrl *JobRequestController) queryJobRequests(c web.WebContext) error
 // Finds the job-request by id.
 // responses:
 //   200: jobRequest
-func (jobReqCtrl *JobRequestController) getJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) getJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	request, err := jobReqCtrl.jobManager.GetJobRequest(qc, id)
@@ -82,7 +82,7 @@ func (jobReqCtrl *JobRequestController) getJobRequest(c web.WebContext) error {
 // Submits a job-request for processing, which is saved in the database and is then scheduled for execution.
 // responses:
 //   200: jobRequest
-func (jobReqCtrl *JobRequestController) submitJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	request, err := types.NewJobRequestFromDefinition(types.NewJobDefinition(""))
 	if err != nil {
@@ -118,7 +118,7 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.WebContext) error
 // Cancels a job-request that is pending for execution or already executing.
 // responses:
 //   200: emptyResponse
-func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.CancelJobRequest(qc, id); err != nil {
@@ -131,7 +131,7 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.WebContext) error
 // Triggers a scheduled job
 // responses:
 //   200: emptyResponse
-func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id)
@@ -146,7 +146,7 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.WebContext) erro
 // failed tasks are executed or hard-restart where all tasks are executed.
 // responses:
 //   200: emptyResponse
-func (jobReqCtrl *JobRequestController) restartJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id)
@@ -160,7 +160,7 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.WebContext) erro
 // Returns Graphviz DOT request for the graph of tasks defined in the job request.
 // responses:
 //   200: stringResponse
-func (jobReqCtrl *JobRequestController) dotJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	d, err := jobReqCtrl.jobManager.GetDotConfigForJobRequest(qc, id)
@@ -174,7 +174,7 @@ func (jobReqCtrl *JobRequestController) dotJobRequest(c web.WebContext) error {
 // Returns Graphviz DOT image for the graph of tasks defined in the job.
 // responses:
 //   200: byteResponse
-func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	d, err := jobReqCtrl.jobManager.GetDotImageForJobRequest(qc, id)
@@ -188,7 +188,7 @@ func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.WebContext) err
 // Returns wait time for the job-request.
 // responses:
 //   200: jobRequestWaitTimes
-func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	estimate, err := jobReqCtrl.jobManager.GetWaitEstimate(qc, id)
@@ -203,7 +203,7 @@ func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.WebContext) 
 // `This requires admin access`
 // responses:
 //   200: jobRequestStats
-func (jobReqCtrl *JobRequestController) statsJobRequests(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) statsJobRequests(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	start := utils.ParseStartDateTime(c.QueryParam("from"))
 	end := utils.ParseEndDateTime(c.QueryParam("to"))
@@ -218,7 +218,7 @@ func (jobReqCtrl *JobRequestController) statsJobRequests(c web.WebContext) error
 // Returns job-request ids for recently completed jobs.
 // responses:
 //   200: jobRequestIDs
-func (jobReqCtrl *JobRequestController) getDeadIDs(c web.WebContext) error {
+func (jobReqCtrl *JobRequestController) getDeadIDs(c web.APIContext) error {
 	limit, _ := strconv.Atoi(c.Param("limit"))
 	if limit == 0 {
 		limit = 200

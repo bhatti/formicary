@@ -59,7 +59,7 @@ func NewGithubAuth(
 }
 
 // AuthWebhookCallbackHandle callback handle
-func (g *GithubAuth) AuthWebhookCallbackHandle(c web.WebContext) (err error) {
+func (g *GithubAuth) AuthWebhookCallbackHandle(c web.APIContext) (err error) {
 	defer func() {
 		_ = c.Request().Body.Close()
 	}()
@@ -125,7 +125,7 @@ func (g *GithubAuth) String() string {
 }
 
 // AuthUser - returns user info from GitHub response
-func (g *GithubAuth) AuthUser(expectedState string, c web.WebContext) (*common.User, error) {
+func (g *GithubAuth) AuthUser(expectedState string, c web.APIContext) (*common.User, error) {
 	return getUserInfoFromGithub(
 		context.Background(),
 		expectedState,
@@ -194,7 +194,7 @@ func getUserInfoFromGithub(
 }
 
 func buildWebhookEvent(
-	c web.WebContext,
+	c web.APIContext,
 ) (event github.WebhookEvent, err error) {
 	body, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {

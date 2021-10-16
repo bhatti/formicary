@@ -28,18 +28,18 @@ func Test_ShouldGetJobResourceWithNonExistingId(t *testing.T) {
 }
 
 // Pausing non-existing job-resource should fail
-func Test_ShouldPauseByTypeJobResourceWithNonExistingType(t *testing.T) {
+func Test_ShoulddisableByTypeJobResourceWithNonExistingType(t *testing.T) {
 	// GIVEN a job-resource repository
 	repo, err := NewTestJobResourceRepository()
 	require.NoError(t, err)
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 	// WHEN pausing non-existing job-resource
-	err = repo.SetPaused(qc, "non-existing-job", true)
+	err = repo.SetDisabled(qc, "non-existing-job", true)
 
 	// THEN it should fail
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to set paused")
+	require.Contains(t, err.Error(), "failed to set disabled")
 }
 
 // Deleting non-existing job-resource should fail
@@ -177,7 +177,7 @@ func Test_ShouldPausingPersistentJobResource(t *testing.T) {
 	qc, err := NewTestQC()
 	require.NoError(t, err)
 
-	resource := newTestResource("test-resource-for-pause")
+	resource := newTestResource("test-resource-for-disable")
 	resource.UserID = qc.User.ID
 	resource.OrganizationID = qc.User.OrganizationID
 	err = resource.ValidateBeforeSave()
@@ -188,7 +188,7 @@ func Test_ShouldPausingPersistentJobResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN pausing resource by id
-	err = repo.SetPaused(qc, saved.ID, true)
+	err = repo.SetDisabled(qc, saved.ID, true)
 	// THEN it should not fail
 	require.NoError(t, err)
 }

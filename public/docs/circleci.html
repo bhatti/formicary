@@ -88,8 +88,134 @@
 <td style="text-align:left"><a href="definition_options.html#Job">Job</a></td>
 <td style="text-align:left">CircleCI uses <a href="https://circleci.com/docs/2.0/workflows/">workflow</a> to define a step in pipeline and formicary uses job and workflow to define a directed-acyclic-graph of tasks to execute.</td>
 </tr>
+<tr>
+<td style="text-align:left">caching</td>
+<td style="text-align:left"><a href="definition_options.html#cache">caching</a></td>
+<td style="text-align:left">CircleCI uses <a href="https://circleci.com/docs/2.0/caching/">caching</a> syntax to cache dependencies whereas formicary uses cache option for similar feature.</td>
+</tr>
+<tr>
+<td style="text-align:left">artifacts</td>
+<td style="text-align:left"><a href="definition_options.html#artifacts">artifacts</a></td>
+<td style="text-align:left">CircleCI uses <a href="https://circleci.com/docs/2.0/artifacts/#uploading-artifacts">artifacts</a> syntax to share data between jobs whereas formicary uses <code>artifacts</code> for similar feature.</td>
+</tr>
+<tr>
+<td style="text-align:left">containers</td>
+<td style="text-align:left"><a href="definition_options.html#services">services</a></td>
+<td style="text-align:left">CircleCI uses <a href="https://circleci.com/docs/2.0/containers/">containers</a> syntax to start database or other services along with the job and you can launch similar services in formicary using <code>services</code> configuration option.</td>
+</tr>
 </tbody>
 </table>
+<h2 id="sample-circleci-workflow">Sample CircleCI workflow</h2>
+<p>Here is a sample workflow for circle-ci job:</p>
+<pre><code>---
+version: 2.1
+
+commands:
+  shared_steps:
+    steps:
+      - checkout
+
+      # Restore Cached Dependencies
+      - restore_cache:
+          name: Restore bundle cache
+          key: administrate-{{ checksum &quot;Gemfile.lock&quot; }}
+
+      # Bundle install dependencies
+      - run: bundle install --path vendor/bundle
+
+      # Cache Dependencies
+      - save_cache:
+          name: Store bundle cache
+          key: administrate-{{ checksum &quot;Gemfile.lock&quot; }}
+          paths:
+            - vendor/bundle
+
+      # Wait for DB
+      - run: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      # Setup the environment
+      - run: cp .sample.env .env
+
+      # Setup the database
+      - run: bundle exec rake db:setup
+
+      # Run the tests
+      - run: bundle exec rake
+
+default_job: &amp;default_job
+  working_directory: ~/administrate
+  steps:
+    - shared_steps
+    # Run the tests against multiple versions of Rails
+    - run: bundle exec appraisal install
+    - run: bundle exec appraisal rake
+
+jobs:
+  ruby-25:
+    &lt;&lt;: *default_job
+    docker:
+      - image: circleci/ruby:2.5.0-node-browsers
+        environment:
+          PGHOST: localhost
+          PGUSER: administrate
+          RAILS_ENV: test
+      - image: postgres:10.1-alpine
+        environment:
+          POSTGRES_USER: administrate
+          POSTGRES_DB: ruby25
+          POSTGRES_PASSWORD: &quot;&quot;
+
+workflows:
+  version: 2
+  multiple-rubies:
+    jobs:
+      - ruby-25
+</code></pre><p>Following is equivalent workflow in formicary:</p>
+<pre><code>job_type: ruby-build-ci
+tasks:
+- task_type: clone
+  working_dir: /sample
+  container:
+    image: circleci/ruby:2.5.0-node-browsers
+  cache:
+    key: Gemfile.lock
+    paths:
+      - vendor/bundle
+  privileged: true
+  environment:
+    PGHOST: localhost
+    PGUSER: administrate
+    RAILS_ENV: test
+  before_script:
+    - git clone https://github.com/Shopify/example-ruby-app.git .
+    - bundle install --path vendor/bundle
+    - dockerize -wait tcp://localhost:5432 -timeout 1m
+  script:
+    - cp sample.env .env
+    - bundle exec appraisal install
+    - bundle exec appraisal rake
+    # Setup the database
+    - bundle exec rake db:setup
+    # Run the tests
+    - bundle exec rake
+  services:
+    - name: postgres
+      alias: postgres
+      image: postgres:10.1-alpine
+</code></pre><h2 id="limitations-in-circleci">Limitations in CircleCI</h2>
+<p>Following are major limitations of circle-ci:</p>
+<ul>
+<li>CircleCI doesn&#39;t provide any metrics or queue size whereas formicary provides detailed reporting, metrics and insights into queue size.</li>
+<li>CircleCI provides limited support for partial restart and retries unlike formicary that provides a number of configuration parameters to recover from the failure.</li>
+<li>Formicary provides better support for optional and always-run tasks.</li>
+<li>CircleCI does not allow specifying cpu, memory and storage limits whereas formicary allows these limits when using Kubernetes executors. </li>
+<li>CircleCI does not support priority of the jobs whereas formicary allows specifying priority of jobs for determining execution order of pending jobs.</li>
+<li>Formicary provides more support for scheduling periodic or cron jobs.</li>
+<li>Formicary includes several executors such as HTTP, Messaging, Shell, Docker and Kubernetes but Github does not support extending executor protocol.</li>
+<li>Formicary provides better support for retries, timeout, optional and always-run tasks.</li>
+<li>Formicary provides rich support for metrics and reporting on usage on resources and statistics on job failure/success.</li>
+<li>Formicary provides plugin APIs to share common workflows and jobs among users.</li>
+</ul>
 </div>  
 </body>
 </html>

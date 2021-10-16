@@ -50,7 +50,7 @@ func NewJobRequestAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // getWaitTimeJobRequest - wait time info of job-request
-func (jraCtr *JobRequestAdminController) getWaitTimeJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) getWaitTimeJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	estimate, err := jraCtr.jobManager.GetWaitEstimate(qc, id)
@@ -63,7 +63,7 @@ func (jraCtr *JobRequestAdminController) getWaitTimeJobRequest(c web.WebContext)
 }
 
 // statsJobRequests - stats of job-request -- admin only
-func (jraCtr *JobRequestAdminController) statsJobRequests(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) statsJobRequests(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	start := utils.ParseStartDateTime(c.QueryParam("from"))
 	end := utils.ParseEndDateTime(c.QueryParam("to"))
@@ -81,7 +81,7 @@ func (jraCtr *JobRequestAdminController) statsJobRequests(c web.WebContext) erro
 }
 
 // queryJobRequests - queries job-request
-func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) queryJobRequests(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := jraCtr.jobManager.QueryJobRequests(qc, params, page, pageSize, order)
@@ -123,7 +123,7 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.WebContext) erro
 }
 
 // cancelJobRequests - cancel job-request
-func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	if err := jraCtr.jobManager.CancelJobRequest(qc, id); err != nil {
@@ -133,7 +133,7 @@ func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.WebContext) erro
 }
 
 // triggerJobRequest - triggers a scheduled job-request
-func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.jobManager.TriggerJobRequest(qc, id)
@@ -144,7 +144,7 @@ func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.WebContext) err
 }
 
 // restartJobRequests - restart job-request
-func (jraCtr *JobRequestAdminController) restartJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) restartJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.jobManager.RestartJobRequest(qc, id)
@@ -155,7 +155,7 @@ func (jraCtr *JobRequestAdminController) restartJobRequest(c web.WebContext) err
 }
 
 // newJobRequest - creates a new job request
-func (jraCtr *JobRequestAdminController) newJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) newJobRequest(c web.APIContext) error {
 	request := types.JobRequest{ParamsJSON: "{}"}
 	res := map[string]interface{}{
 		"Request":  request,
@@ -165,7 +165,7 @@ func (jraCtr *JobRequestAdminController) newJobRequest(c web.WebContext) error {
 	return c.Render(http.StatusOK, "jobs/req/new", res)
 }
 
-func (jraCtr *JobRequestAdminController) getJobTypes(c web.WebContext) []string {
+func (jraCtr *JobRequestAdminController) getJobTypes(c web.APIContext) []string {
 	jobTypes := make([]string, 0)
 	qc := web.BuildQueryContext(c)
 	if c.FormValue("jobType") != "" {
@@ -181,7 +181,7 @@ func (jraCtr *JobRequestAdminController) getJobTypes(c web.WebContext) []string 
 }
 
 // createJobRequest - saves a new job-request
-func (jraCtr *JobRequestAdminController) createJobRequest(c web.WebContext) (err error) {
+func (jraCtr *JobRequestAdminController) createJobRequest(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	request := buildRequest(c)
 	request.Errors = make(map[string]string)
@@ -211,7 +211,7 @@ func (jraCtr *JobRequestAdminController) createJobRequest(c web.WebContext) (err
 }
 
 // getJobRequest - finds job-request by id
-func (jraCtr *JobRequestAdminController) getJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) getJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	request, err := jraCtr.jobManager.GetJobRequest(qc, id)
@@ -225,7 +225,7 @@ func (jraCtr *JobRequestAdminController) getJobRequest(c web.WebContext) error {
 	return c.Render(http.StatusOK, "jobs/req/view", res)
 }
 
-func (jraCtr *JobRequestAdminController) dotJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) dotJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	d, err := jraCtr.jobManager.GetDotConfigForJobRequest(qc, id)
@@ -235,7 +235,7 @@ func (jraCtr *JobRequestAdminController) dotJobRequest(c web.WebContext) error {
 	return c.String(http.StatusOK, d)
 }
 
-func (jraCtr *JobRequestAdminController) dotImageJobRequest(c web.WebContext) error {
+func (jraCtr *JobRequestAdminController) dotImageJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	d, err := jraCtr.jobManager.GetDotImageForJobRequest(qc, id)
@@ -245,7 +245,7 @@ func (jraCtr *JobRequestAdminController) dotImageJobRequest(c web.WebContext) er
 	return c.Blob(http.StatusOK, "image/png", d)
 }
 
-func buildRequest(c web.WebContext) *types.JobRequest {
+func buildRequest(c web.APIContext) *types.JobRequest {
 	request := types.NewRequest()
 	request.Platform = c.FormValue("platform")
 	request.JobType = c.FormValue("jobType")
@@ -275,7 +275,7 @@ func buildRequest(c web.WebContext) *types.JobRequest {
 	return request
 }
 
-func buildRequestParams(c web.WebContext, request *types.JobRequest) error {
+func buildRequestParams(c web.APIContext, request *types.JobRequest) error {
 	if err := request.SetParamsJSON(c.FormValue("params")); err != nil {
 		return err
 	}

@@ -6,7 +6,7 @@
       sem_version VARCHAR(50),
       description TEXT,
       active BOOLEAN NOT NULL DEFAULT TRUE,
-      paused BOOLEAN NOT NULL DEFAULT FALSE,
+      disabled BOOLEAN NOT NULL DEFAULT FALSE,
       platform VARCHAR(100),
       cron_trigger VARCHAR(50),
       timeout BIGINT NOT NULL DEFAULT 0,
@@ -20,7 +20,7 @@
       notify_serialized LONGTEXT,
       tags TEXT,
       methods TEXT,
-      raw_yaml LONGTEXT NOT NULL,
+      raw_yaml LONGTEXT CHARACTER SET utf8 COLLATE utf8_unicode_ci,
       user_id VARCHAR(36),
       organization_id VARCHAR(36),
       created_at TIMESTAMP DEFAULT NOW(),
@@ -31,7 +31,7 @@
     CREATE INDEX formicary_job_definition_org_ndx ON formicary_job_definitions(organization_id);
     CREATE INDEX formicary_job_definition_user_id_ndx ON formicary_job_definitions(user_id);
     CREATE INDEX formicary_job_definitions_platform_ndx ON formicary_job_definitions(platform);
-    CREATE INDEX formicary_job_definitions_paused_ndx ON formicary_job_definitions(paused);
+    CREATE INDEX formicary_job_definitions_disabled_ndx ON formicary_job_definitions(disabled);
     CREATE INDEX formicary_job_definitions_sem_version_ndx ON formicary_job_definitions(job_type, sem_version);
     CREATE INDEX formicary_job_definitions_active_ndx ON formicary_job_definitions(active);
 

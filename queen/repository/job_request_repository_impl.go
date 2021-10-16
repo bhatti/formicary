@@ -2,10 +2,11 @@ package repository
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	common "plexobject.com/formicary/internal/types"
 
@@ -728,7 +729,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
-		" (SELECT job_type FROM formicary_job_definitions where paused is false and active is true)" +
+		" (SELECT job_type FROM formicary_job_definitions where disabled is false and active is true)" +
 		" AND job_state = ? AND scheduled_at <= ? "
 
 	args := []interface{}{state, time.Now()}

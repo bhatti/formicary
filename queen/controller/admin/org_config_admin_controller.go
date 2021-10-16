@@ -42,7 +42,7 @@ func NewOrganizationConfigAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryOrganizationConfigs - queries org-config
-func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	configs, total, err := jraCtr.orgConfigRepository.Query(qc, params, page, pageSize, order)
@@ -62,7 +62,7 @@ func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.
 }
 
 // createOrganizationConfig - saves a new org-config
-func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.WebContext) (err error) {
+func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	//orgID := c.Param("org")
 	config, err := common.NewOrganizationConfig(
@@ -88,7 +88,7 @@ func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.
 }
 
 // updateOrganizationConfig - updates org-config
-func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	//orgID := c.Param("org")
 	config, err := common.NewOrganizationConfig(
@@ -116,7 +116,7 @@ func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.
 }
 
 // newOrganizationConfig - creates a new org config
-func (jraCtr *OrganizationConfigAdminController) newOrganizationConfig(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) newOrganizationConfig(c web.APIContext) error {
 	config, err := common.NewOrganizationConfig("", "", "", false)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (jraCtr *OrganizationConfigAdminController) newOrganizationConfig(c web.Web
 }
 
 // getOrganizationConfig - finds org-config by id
-func (jraCtr *OrganizationConfigAdminController) getOrganizationConfig(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) getOrganizationConfig(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	config, err := jraCtr.orgConfigRepository.Get(qc, id)
@@ -144,7 +144,7 @@ func (jraCtr *OrganizationConfigAdminController) getOrganizationConfig(c web.Web
 }
 
 // editOrganizationConfig - shows org-config for edit
-func (jraCtr *OrganizationConfigAdminController) editOrganizationConfig(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) editOrganizationConfig(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	config, err := jraCtr.orgConfigRepository.Get(qc, id)
@@ -167,7 +167,7 @@ func (jraCtr *OrganizationConfigAdminController) editOrganizationConfig(c web.We
 }
 
 // deleteOrganizationConfig - deletes org-config by id
-func (jraCtr *OrganizationConfigAdminController) deleteOrganizationConfig(c web.WebContext) error {
+func (jraCtr *OrganizationConfigAdminController) deleteOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.orgConfigRepository.Delete(qc, c.Param("id"))
 	if err != nil {

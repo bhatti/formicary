@@ -85,12 +85,12 @@ func NewAuthController(
 // ********************************* HTTP Handlers ***********************************
 
 // root - authentication
-func (ac *AuthController) root(c web.WebContext) error {
+func (ac *AuthController) root(c web.APIContext) error {
 	return c.JSON(http.StatusOK, ac.commonCfg.Version)
 }
 
 // providerAuthCallback - authentication
-func (ac *AuthController) providerAuthCallback(c web.WebContext) error {
+func (ac *AuthController) providerAuthCallback(c web.APIContext) error {
 	stateCookie, err := c.Cookie(ac.commonCfg.Auth.LoginStateCookieName())
 	if err != nil || stateCookie.Value == "" {
 		logrus.WithFields(logrus.Fields{
@@ -158,7 +158,7 @@ func (ac *AuthController) providerAuthCallback(c web.WebContext) error {
 }
 
 // providerAuth - authentication
-func (ac *AuthController) providerAuth(c web.WebContext) error {
+func (ac *AuthController) providerAuth(c web.APIContext) error {
 	stateCookie, err := c.Cookie(ac.commonCfg.Auth.LoginStateCookieName())
 	if err != nil || stateCookie.Value == "" {
 		logrus.WithFields(logrus.Fields{
@@ -186,7 +186,7 @@ func (ac *AuthController) providerAuth(c web.WebContext) error {
 }
 
 // login - authentication
-func (ac *AuthController) login(c web.WebContext) error {
+func (ac *AuthController) login(c web.APIContext) error {
 	c.SetCookie(ac.commonCfg.Auth.LoginStateCookie())
 	res := map[string]interface{}{
 		"HasGoogleOAuth": ac.commonCfg.Auth.HasGoogleOAuth(),
@@ -196,7 +196,7 @@ func (ac *AuthController) login(c web.WebContext) error {
 }
 
 // logout - logout
-func (ac *AuthController) logout(c web.WebContext) error {
+func (ac *AuthController) logout(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	user := web.GetDBLoggedUserFromSession(c)
 	c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.CookieName))
@@ -307,7 +307,7 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 	})
 }
 
-func (ac *AuthController) addSessionUser(c web.WebContext) (
+func (ac *AuthController) addSessionUser(c web.APIContext) (
 	user *common.User,
 	dbUser *common.User,
 	claims *web.JwtClaims, err error) {

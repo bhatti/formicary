@@ -150,7 +150,7 @@ func (gw *Gateway) Stop(ctx context.Context) error {
 }
 
 // Register websocket subscription
-func (gw *Gateway) Register(c web.WebContext) (err error) {
+func (gw *Gateway) Register(c web.APIContext) (err error) {
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func (gw *Gateway) Register(c web.WebContext) (err error) {
 	return
 }
 
-func (gw *Gateway) handleRegistration(c web.WebContext, ws *websocket.Conn) {
+func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 	defer func() {
 		for _, lease := range gw.registry.getLeasesByAddress(ws.RemoteAddr().String()) {
 			_ = gw.registry.Remove(lease)

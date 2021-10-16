@@ -106,8 +106,8 @@ type JobDefinition struct {
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
-	// Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
-	Paused bool `yaml:"-" json:"paused"`
+	// disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
+	Disabled bool `yaml:"-" json:"disabled"`
 	// PublicPlugin means job is public plugin
 	PublicPlugin bool `yaml:"public_plugin,omitempty" json:"public_plugin"`
 	// RequiredParams from job request (and plugin)
@@ -926,12 +926,15 @@ func (jd *JobDefinition) CronAndScheduleTime() string {
 		return ""
 	}
 	nextTime, _ := jd.GetCronScheduleTimeAndUserKey()
+	if nextTime == nil {
+		return ""
+	}
 	return fmt.Sprintf("%s (Next: %s)", jd.CronTrigger, nextTime.Format(time.RFC3339))
 }
 
 // GetCronScheduleTimeAndUserKey returns next schedule time when using cron expression
 func (jd *JobDefinition) GetCronScheduleTimeAndUserKey() (*time.Time, string) {
-	if jd.Paused {
+	if jd.Disabled {
 		return nil, ""
 	}
 	var orgIDOrUser string
@@ -994,6 +997,11 @@ func (jd *JobDefinition) ValidateBeforeSave(key []byte) error {
 	}
 
 	return nil
+}
+
+// Enabled returns if job is enabled
+func (jd *JobDefinition) Enabled() bool {
+	return !jd.Disabled
 }
 
 func (jd *JobDefinition) addVariablesFromNameValueVariables() error {

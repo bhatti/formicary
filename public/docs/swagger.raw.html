@@ -1093,13 +1093,6 @@
 <td>string</td>
 </tr>
 <tr>
-<td>paused</td>
-<td>query</td>
-<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
-<td>No</td>
-<td>boolean</td>
-</tr>
-<tr>
 <td>public_plugin</td>
 <td>query</td>
 <td>PublicPlugin means job is public plugin</td>
@@ -1301,6 +1294,46 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-jobs-definitions-id-disable">/api/jobs/definitions/{id}/disable</h3>
+<h4 id="post">POST</h4>
+<h5 id="summary">Summary</h5>
+<p>disables job-definition so that no new requests are executed while in-progress jobs are allowed to complete.</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Empty response body</td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-jobs-definitions-id-dot">/api/jobs/definitions/{id}/dot</h3>
 <h4 id="get">GET</h4>
 <h5 id="summary">Summary</h5>
@@ -1362,50 +1395,10 @@
 </tr>
 </tbody>
 </table>
-<h3 id="-api-jobs-definitions-id-pause">/api/jobs/definitions/{id}/pause</h3>
+<h3 id="-api-jobs-definitions-id-enable">/api/jobs/definitions/{id}/enable</h3>
 <h4 id="post">POST</h4>
 <h5 id="summary">Summary</h5>
-<p>Pauses job-definition so that no new requests are executed while in-progress jobs are allowed to complete.</p>
-<h5 id="parameters">Parameters</h5>
-<table class='table table-sm'>
-<thead>
-<tr>
-<th>Name</th>
-<th>Located in</th>
-<th>Description</th>
-<th>Required</th>
-<th>Schema</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>id</td>
-<td>path</td>
-<td></td>
-<td>Yes</td>
-<td>string</td>
-</tr>
-</tbody>
-</table>
-<h5 id="responses">Responses</h5>
-<table class='table table-sm'>
-<thead>
-<tr>
-<th>Code</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>200</td>
-<td>Empty response body</td>
-</tr>
-</tbody>
-</table>
-<h3 id="-api-jobs-definitions-id-unpause">/api/jobs/definitions/{id}/unpause</h3>
-<h4 id="post">POST</h4>
-<h5 id="summary">Summary</h5>
-<p>Unpauses job-definition so that new requests can start processing.</p>
+<p>Enables job-definition so that new requests can start processing.</p>
 <h5 id="parameters">Parameters</h5>
 <table class='table table-sm'>
 <thead>
@@ -1739,13 +1732,6 @@
 <td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
 <td>No</td>
 <td>string</td>
-</tr>
-<tr>
-<td>paused</td>
-<td>query</td>
-<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
-<td>No</td>
-<td>boolean</td>
 </tr>
 <tr>
 <td>public_plugin</td>
@@ -2476,7 +2462,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="-api-jobs-resources-id-pause">/api/jobs/resources/{id}/pause</h3>
+<h3 id="-api-jobs-resources-id-disable">/api/jobs/resources/{id}/disable</h3>
 <h4 id="post">POST</h4>
 <h5 id="description">Description</h5>
 <p>Deletes the job-resource by id</p>
@@ -3102,7 +3088,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td>Query results of system-subscriptions</td>
+<td>Query results of subscriptions</td>
 <td>object</td>
 </tr>
 </tbody>
@@ -3830,7 +3816,7 @@
 <h3 id="-api-users-email_verifications">/api/users/email_verifications</h3>
 <h4 id="get">GET</h4>
 <h5 id="summary">Summary</h5>
-<p>Queries emailVerifications within the organization that is allowed.</p>
+<p>Queries email-verifications within the organization that is allowed.</p>
 <h5 id="parameters">Parameters</h5>
 <table class='table table-sm'>
 <thead>
@@ -3892,7 +3878,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td>Paginated results of emailVerifications matching query</td>
+<td>Paginated results of email-verifications matching query</td>
 <td>object</td>
 </tr>
 </tbody>
@@ -4756,6 +4742,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>disabled</td>
+<td>boolean</td>
+<td>disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+</tr>
+<tr>
 <td>hard_reset_after_retries</td>
 <td>long</td>
 <td>HardResetAfterRetries defines retry config when job is rerun and as opposed to re-running only failed tasks, all tasks are executed.</td>
@@ -4801,12 +4793,6 @@
 <td>organization_id</td>
 <td>string</td>
 <td>OrganizationID defines org who submitted the job</td>
-<td>No</td>
-</tr>
-<tr>
-<td>paused</td>
-<td>boolean</td>
-<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5456,6 +5442,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>disabled</td>
+<td>boolean</td>
+<td>Disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+</tr>
+<tr>
 <td>external_id</td>
 <td>string</td>
 <td>ExternalID defines external-id of the resource if exists</td>
@@ -5483,12 +5475,6 @@
 <td>organization_id</td>
 <td>string</td>
 <td>OrganizationID defines org who submitted the job</td>
-<td>No</td>
-</tr>
-<tr>
-<td>paused</td>
-<td>boolean</td>
-<td>Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5675,15 +5661,15 @@
 <td>No</td>
 </tr>
 <tr>
-<td>job_key</td>
-<td><a href="#userjobtypekey">UserJobTypeKey</a></td>
-<td></td>
+<td>job_disabled</td>
+<td>boolean</td>
+<td>JobDisabled disabled flag</td>
 <td>No</td>
 </tr>
 <tr>
-<td>job_paused</td>
-<td>boolean</td>
-<td>JobPaused paused flag</td>
+<td>job_key</td>
+<td><a href="#userjobtypekey">UserJobTypeKey</a></td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>

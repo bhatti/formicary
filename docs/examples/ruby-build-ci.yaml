@@ -1,0 +1,31 @@
+job_type: ruby-build-ci
+tasks:
+- task_type: clone
+  working_dir: /sample
+  container:
+    image: circleci/ruby:2.5.0-node-browsers
+  cache:
+    key: Gemfile.lock
+    paths:
+      - vendor/bundle
+  privileged: true
+  environment:
+    PGHOST: localhost
+    PGUSER: administrate
+    RAILS_ENV: test
+  before_script:
+    - git clone https://github.com/Shopify/example-ruby-app.git .
+    - bundle install --path vendor/bundle
+    - dockerize -wait tcp://localhost:5432 -timeout 1m
+  script:
+    - cp sample.env .env
+    - bundle exec appraisal install
+    - bundle exec appraisal rake
+    # Setup the database
+    - bundle exec rake db:setup
+    # Run the tests
+    - bundle exec rake
+  services:
+    - name: postgres
+      alias: postgres
+      image: postgres:10.1-alpine

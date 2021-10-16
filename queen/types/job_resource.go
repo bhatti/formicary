@@ -3,9 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
-	"plexobject.com/formicary/internal/types"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/internal/types"
 
 	"plexobject.com/formicary/internal/utils"
 )
@@ -62,8 +63,8 @@ type JobResource struct {
 	Quota int `yaml:"quota" json:"quota"`
 	// LeaseTimeout specifies max time to wait for release of resource otherwise it's automatically released.
 	LeaseTimeout time.Duration `yaml:"lease_timeout,omitempty" json:"lease_timeout"`
-	// Paused is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
-	Paused bool `yaml:"-" json:"paused"`
+	// Disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
+	Disabled bool `yaml:"-" json:"disabled"`
 	// Configs defines config properties of job
 	Configs []*JobResourceConfig `yaml:"-" json:"-" gorm:"ForeignKey:JobResourceID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// Uses defines use of resources
@@ -118,6 +119,11 @@ func (jr *JobResource) Editable(userID string, organizationID string) bool {
 // MatchTag matches by tag
 func (jr *JobResource) MatchTag(other []string) error {
 	return utils.MatchTagsArray(jr.Tags, other)
+}
+
+// Enabled returns if resource is enabled
+func (jr *JobResource) Enabled() bool {
+	return !jr.Disabled
 }
 
 // ShortID short id

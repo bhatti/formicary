@@ -1,14 +1,23 @@
 ## Job and Task Definition Options
 
+## Directed Acyclic Graph (DAG)
+
+The formicary uses directed acyclic graph for specifying dependencies between tasks where each task defines a unit of work. 
+
 ## Workflow
 
-A job can be considered as a workflow of tasks where sequence of task execution is determined by the exit-status of
-previous task.
+A workflow/orchestration in formicary can be defined using directed acyclic graph where the execution flow from one to another task in the workflow/DAG is determined by the exit-code 
+or status of parent node/task.
+
+## Data Pipeline
+
+A formicary job can spawn multiple jobs and provides building blocks such as tasks, jobs, dags and object-store for storing intermediate results, which can be used to implement data pipelines for processing complex workflows.
 
 ## Job
 
-A job defines directed-acyclic-graph of tasks to execute where each task specifies how task will be executed A job
-defines following properties:
+A job specifies workload in terms of directed-acyclic-graph of tasks, where each task specifies environment, commands/APIs and configuration parameters for the execution of the task.
+
+A job defines following properties:
 
 #### cron_trigger
 
@@ -509,6 +518,23 @@ tasks:
 
 The `check-date` task will execute different tasks based on the exit code defined under `on_exit_code`. Note: the `deallocate` task is always run because it defines `always_run` property as true.
 
+
+#### services
+The `services` configuration allows starting sidecar container(s) with the given image, e.g.
+```
+- task_type: k8
+  script:
+    - sleep 30
+  method: KUBERNETES
+  services:
+    - name: redis
+      image: redis:6.2.2-alpine
+      ports:
+        - number: 6379
+  container:
+    image: ubuntu:16.04
+```
+Above config specifies starting redis as a sidecar container along with the task container.
 
 #### resources
 

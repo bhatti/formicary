@@ -6,10 +6,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	common "plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
+
+	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
@@ -140,7 +141,7 @@ func Test_ShouldUploadAndGetJobDefinition(t *testing.T) {
 	}
 }
 
-func Test_ShouldUploadAndPauseJobDefinition(t *testing.T) {
+func Test_ShouldUploadAnddisableJobDefinition(t *testing.T) {
 	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
@@ -164,14 +165,14 @@ func Test_ShouldUploadAndPauseJobDefinition(t *testing.T) {
 	}
 
 	ctx.Params["id"] = savedJob.ID
-	err = ctrl.pauseJobDefinition(ctx)
+	err = ctrl.disableJobDefinition(ctx)
 	queryOut := emptyResponseBody{}
 	if err != nil {
 		t.Fatalf("unexpected error %s %v", err, queryOut)
 	}
 }
 
-func Test_ShouldUploadAndUnpauseJobDefinition(t *testing.T) {
+func Test_ShouldUploadAndEnableJobDefinition(t *testing.T) {
 	mgr := manager.AssertTestJobManager(nil, t)
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 	webServer := web.NewStubWebServer()
@@ -196,7 +197,7 @@ func Test_ShouldUploadAndUnpauseJobDefinition(t *testing.T) {
 	}
 
 	ctx.Params["id"] = savedJob.ID
-	err = ctrl.unpauseJobDefinition(ctx)
+	err = ctrl.enableJobDefinition(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
 	}

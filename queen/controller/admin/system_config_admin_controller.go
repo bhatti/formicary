@@ -39,7 +39,7 @@ func NewSystemConfigAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // querySystemConfigs - queries system-config
-func (jraCtr *SystemConfigAdminController) querySystemConfigs(c web.WebContext) error {
+func (jraCtr *SystemConfigAdminController) querySystemConfigs(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	configs, total, err := jraCtr.systemConfigRepository.Query(params, page, pageSize, order)
 	if err != nil {
@@ -58,7 +58,7 @@ func (jraCtr *SystemConfigAdminController) querySystemConfigs(c web.WebContext) 
 }
 
 // createSystemConfig - saves a new system-config
-func (jraCtr *SystemConfigAdminController) createSystemConfig(c web.WebContext) (err error) {
+func (jraCtr *SystemConfigAdminController) createSystemConfig(c web.APIContext) (err error) {
 	config := buildConfig(c)
 	err = config.Validate()
 	if err == nil {
@@ -75,7 +75,7 @@ func (jraCtr *SystemConfigAdminController) createSystemConfig(c web.WebContext) 
 }
 
 // updateSystemConfig - updates system-config
-func (jraCtr *SystemConfigAdminController) updateSystemConfig(c web.WebContext) (err error) {
+func (jraCtr *SystemConfigAdminController) updateSystemConfig(c web.APIContext) (err error) {
 	config := buildConfig(c)
 	config.ID = c.Param("id")
 	err = config.Validate()
@@ -94,7 +94,7 @@ func (jraCtr *SystemConfigAdminController) updateSystemConfig(c web.WebContext) 
 }
 
 // newSystemConfig - creates a new system config
-func (jraCtr *SystemConfigAdminController) newSystemConfig(c web.WebContext) error {
+func (jraCtr *SystemConfigAdminController) newSystemConfig(c web.APIContext) error {
 	config := types.NewSystemConfig("", "", "", "")
 	res := map[string]interface{}{
 		"Config": config,
@@ -104,7 +104,7 @@ func (jraCtr *SystemConfigAdminController) newSystemConfig(c web.WebContext) err
 }
 
 // getSystemConfig - finds system-config by id
-func (jraCtr *SystemConfigAdminController) getSystemConfig(c web.WebContext) error {
+func (jraCtr *SystemConfigAdminController) getSystemConfig(c web.APIContext) error {
 	id := c.Param("id")
 	config, err := jraCtr.systemConfigRepository.Get(id)
 	if err != nil {
@@ -118,7 +118,7 @@ func (jraCtr *SystemConfigAdminController) getSystemConfig(c web.WebContext) err
 }
 
 // editSystemConfig - shows system-config for edit
-func (jraCtr *SystemConfigAdminController) editSystemConfig(c web.WebContext) error {
+func (jraCtr *SystemConfigAdminController) editSystemConfig(c web.APIContext) error {
 	id := c.Param("id")
 	config, err := jraCtr.systemConfigRepository.Get(id)
 	if err != nil {
@@ -140,7 +140,7 @@ func (jraCtr *SystemConfigAdminController) editSystemConfig(c web.WebContext) er
 }
 
 // deleteSystemConfig - deletes system-config by id
-func (jraCtr *SystemConfigAdminController) deleteSystemConfig(c web.WebContext) error {
+func (jraCtr *SystemConfigAdminController) deleteSystemConfig(c web.APIContext) error {
 	err := jraCtr.systemConfigRepository.Delete(c.Param("id"))
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func (jraCtr *SystemConfigAdminController) deleteSystemConfig(c web.WebContext) 
 	return c.Redirect(http.StatusFound, "/dashboard/configs")
 }
 
-func buildConfig(c web.WebContext) *types.SystemConfig {
+func buildConfig(c web.APIContext) *types.SystemConfig {
 	config := types.NewSystemConfig(
 		c.FormValue("scope"),
 		c.FormValue("kind"),

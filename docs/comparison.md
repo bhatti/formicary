@@ -21,7 +21,7 @@
 | **Streaming Logs**    | No        | Yes       | Yes       | Yes          | No        | Yes       | Yes         |
 | **Task Variables**    | Yes       | No        | Yes       | Yes          | NO        | Yes       | No          |
 | **Job Config/Secrets**| Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
-| **Org Config/Secrets**| No        | No        | Yes       | Yes          | No        | No        | No          |
+| **Org Config/Secrets**| No        | No        | Yes       | Yes          | Yes       | No        | No          |
 | **Encrypted Config**  | Yes/Fernet| No        | Yes       | Yes          | No        | No        | Yes         |
 | **Template Support**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Shell Execution**   | Yes       | Yes       | No        | Yes          | No        | No        | Yes         |
@@ -57,6 +57,9 @@
 
 ### Migrating from Gitlab
  [Gitlab](gitlab.md)
+ 
+### Migrating from Github Actions
+ [Github](github.md)
  
 ### Migrating from CircleCI
  [CircleCI](circleci.md)

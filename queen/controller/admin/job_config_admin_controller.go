@@ -42,7 +42,7 @@ func NewJobConfigAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryJobConfigs - queries job-config
-func (jraCtr *JobConfigAdminController) queryJobConfigs(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) queryJobConfigs(c web.APIContext) error {
 	jobID := c.Param("job")
 	qc := web.BuildQueryContext(c)
 	job, err := jraCtr.jobDefinitionRepository.Get(qc, jobID)
@@ -57,7 +57,7 @@ func (jraCtr *JobConfigAdminController) queryJobConfigs(c web.WebContext) error 
 }
 
 // createJobConfig - saves a new job-config
-func (jraCtr *JobConfigAdminController) createJobConfig(c web.WebContext) (err error) {
+func (jraCtr *JobConfigAdminController) createJobConfig(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job")
 	name := c.FormValue("name")
@@ -78,7 +78,7 @@ func (jraCtr *JobConfigAdminController) createJobConfig(c web.WebContext) (err e
 }
 
 // updateJobConfig - updates job-config
-func (jraCtr *JobConfigAdminController) updateJobConfig(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) updateJobConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job")
 	name := c.FormValue("name")
@@ -99,7 +99,7 @@ func (jraCtr *JobConfigAdminController) updateJobConfig(c web.WebContext) error 
 }
 
 // newJobConfig - creates a new job config
-func (jraCtr *JobConfigAdminController) newJobConfig(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) newJobConfig(c web.APIContext) error {
 	jobID := c.Param("job")
 	config := &types.JobDefinitionConfig{JobDefinitionID: jobID}
 	if jobID == "" {
@@ -113,7 +113,7 @@ func (jraCtr *JobConfigAdminController) newJobConfig(c web.WebContext) error {
 }
 
 // getJobConfig - finds job-config by id
-func (jraCtr *JobConfigAdminController) getJobConfig(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) getJobConfig(c web.APIContext) error {
 	jobID := c.Param("job")
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -133,7 +133,7 @@ func (jraCtr *JobConfigAdminController) getJobConfig(c web.WebContext) error {
 }
 
 // editJobConfig - shows job-config for edit
-func (jraCtr *JobConfigAdminController) editJobConfig(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) editJobConfig(c web.APIContext) error {
 	jobID := c.Param("job")
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -154,7 +154,7 @@ func (jraCtr *JobConfigAdminController) editJobConfig(c web.WebContext) error {
 }
 
 // deleteJobConfig - deletes job-config by id
-func (jraCtr *JobConfigAdminController) deleteJobConfig(c web.WebContext) error {
+func (jraCtr *JobConfigAdminController) deleteJobConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job")
 	id := c.Param("id")

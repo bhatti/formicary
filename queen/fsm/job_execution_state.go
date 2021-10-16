@@ -805,6 +805,12 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 // buildDynamicParams builds job params
 func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]common.VariableValue) map[string]common.VariableValue {
 	res := jsm.buildDynamicConfigs()
+	if jsm.User != nil {
+		res["UserID"] = common.NewVariableValue(jsm.User.ID, false)
+		if jsm.User.HasOrganization() {
+			res["OrganizationID"] = common.NewVariableValue(jsm.User.OrganizationID, false)
+		}
+	}
 	res["JobID"] = common.NewVariableValue(jsm.Request.GetID(), false)
 	res["JobType"] = common.NewVariableValue(jsm.JobDefinition.JobType, false)
 	res["JobRetry"] = common.NewVariableValue(jsm.Request.GetRetried(), false)

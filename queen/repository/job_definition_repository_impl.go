@@ -145,18 +145,18 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	return job, nil
 }
 
-// SetPaused - sets paused status job-definition -- only admin can do it so no need for query context
-func (jdr *JobDefinitionRepositoryImpl) SetPaused(id string, paused bool) error {
+// SetDisabled - sets disabled status job-definition -- only admin can do it so no need for query context
+func (jdr *JobDefinitionRepositoryImpl) SetDisabled(id string, disabled bool) error {
 	var job types.JobDefinition
 	res := jdr.db.Model(&job).
 		Where("id = ?", id).
-		Updates(map[string]interface{}{"paused": paused, "updated_at": time.Now()})
+		Updates(map[string]interface{}{"disabled": disabled, "updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
 	if res.RowsAffected != 1 {
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to set paused job with id %v, rows %v", id, res.RowsAffected))
+			fmt.Errorf("failed to set disabled job with id %v, rows %v", id, res.RowsAffected))
 	}
 	return nil
 }
@@ -322,7 +322,7 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 		if err == nil && old.ID != "" {
 			if job.RawYaml == old.RawYaml &&
 				job.MaxConcurrency == old.MaxConcurrency &&
-				job.Paused == old.Paused &&
+				job.Disabled == old.Disabled &&
 				job.ConfigsString() == old.ConfigsString() &&
 				job.VariablesString() == old.VariablesString() &&
 				old.Active {
@@ -330,7 +330,7 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 					"Component":   "JobDefinitionRepositoryImpl",
 					"Job":         job.String(),
 					"Concurrency": old.MaxConcurrency,
-					"Paused":      old.Paused,
+					"disabled":    old.Disabled,
 					"Version":     old.Version,
 				}).Info("skip saving job-definition because nothing changed")
 				return nil // nothing to do
@@ -346,7 +346,7 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 			job.CreatedAt = time.Now()
 			job.UpdatedAt = time.Now()
 			job.MaxConcurrency = old.MaxConcurrency // Set it explicitly
-			job.Paused = old.Paused                 // Set it explicitly
+			job.Disabled = old.Disabled             // Set it explicitly
 			job.Configs = old.Configs
 			if log.IsLevelEnabled(log.DebugLevel) {
 				log.WithFields(log.Fields{
@@ -357,7 +357,7 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 			}
 		} else {
 			job.Version = 0
-			job.Paused = false
+			job.Disabled = false
 			job.UpdatedAt = time.Now()
 
 			if log.IsLevelEnabled(log.DebugLevel) {

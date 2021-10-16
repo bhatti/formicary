@@ -38,7 +38,7 @@ func NewContainerExecutionController(
 // `This requires admin access`
 // responses:
 //   200: containerExecutionsQueryResponse
-func (cec *ContainerExecutionController) queryContainerExecutions(c web.WebContext) error {
+func (cec *ContainerExecutionController) queryContainerExecutions(c web.APIContext) error {
 	_, order, page, pageSize, _, _ := ParseParams(c)
 	sortField := ""
 	if len(order) > 0 {
@@ -53,7 +53,7 @@ func (cec *ContainerExecutionController) queryContainerExecutions(c web.WebConte
 // `This requires admin access`
 // responses:
 //   200: emptyResponse
-func (cec *ContainerExecutionController) deleteContainerExecution(c web.WebContext) error {
+func (cec *ContainerExecutionController) deleteContainerExecution(c web.APIContext) error {
 	id := c.Param("id")
 	if id == "" {
 		return types.NewValidationError(fmt.Errorf("failed to find container id"))

@@ -47,7 +47,7 @@ func NewJobConfigController(
 // Queries job configs by criteria such as name, type, etc.
 // responses:
 //   200: jobConfigQueryResponse
-func (cc *JobConfigController) queryJobConfigs(c web.WebContext) error {
+func (cc *JobConfigController) queryJobConfigs(c web.APIContext) error {
 	jobID := c.Param("job")
 	qc := web.BuildQueryContext(c)
 	job, err := cc.jobDefinitionRepository.Get(qc, jobID)
@@ -61,7 +61,7 @@ func (cc *JobConfigController) queryJobConfigs(c web.WebContext) error {
 // Adds a config for the job.
 // responses:
 //   200: jobConfig
-func (cc *JobConfigController) postJobConfig(c web.WebContext) error {
+func (cc *JobConfigController) postJobConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID, err := cc.getJobID(c, qc)
 	if err != nil {
@@ -100,7 +100,7 @@ func (cc *JobConfigController) postJobConfig(c web.WebContext) error {
 // Updates a config for the job.
 // responses:
 //   200: jobConfig
-func (cc *JobConfigController) putJobConfig(c web.WebContext) error {
+func (cc *JobConfigController) putJobConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID, err := cc.getJobID(c, qc)
 	if err != nil {
@@ -126,7 +126,7 @@ func (cc *JobConfigController) putJobConfig(c web.WebContext) error {
 // Finds a config for the job by id.
 // responses:
 //   200: jobConfig
-func (cc *JobConfigController) getJobConfig(c web.WebContext) error {
+func (cc *JobConfigController) getJobConfig(c web.APIContext) error {
 	jobID := c.Param("job")
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -146,7 +146,7 @@ func (cc *JobConfigController) getJobConfig(c web.WebContext) error {
 // responses:
 //   200: emptyResponse
 // deleteJobConfig - deletes job-config by id
-func (cc *JobConfigController) deleteJobConfig(c web.WebContext) error {
+func (cc *JobConfigController) deleteJobConfig(c web.APIContext) error {
 	jobID := c.Param("job")
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
@@ -217,7 +217,7 @@ type jobConfigBody struct {
 }
 
 func (cc *JobConfigController) getJobID(
-	c web.WebContext,
+	c web.APIContext,
 	qc *common.QueryContext) (string, error) {
 	jobID := c.Param("job")
 	job, err := cc.jobDefinitionRepository.Get(qc, jobID)

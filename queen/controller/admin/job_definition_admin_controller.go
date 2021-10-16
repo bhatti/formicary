@@ -45,11 +45,11 @@ func NewJobDefinitionAdminController(
 	webserver.GET("/dashboard/jobs/plugins", jdaCtr.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_plugins"
 	webserver.POST("/dashboard/jobs/definitions/upload", jdaCtr.uploadJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/definitions/:id", jdaCtr.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/pause", jdaCtr.pauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/unpause", jdaCtr.unpauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
 	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/pause", jdaCtr.pauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Pause)).Name = "pause_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/unpause", jdaCtr.unpauseJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Unpause)).Name = "unpause_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot", jdaCtr.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot.png", jdaCtr.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/stats", jdaCtr.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_admin_job_definition"
@@ -58,7 +58,7 @@ func NewJobDefinitionAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryJobDefinitions - queries job-definition
-func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	if params["public_plugin"] == nil {
 		params["public_plugin"] = false
@@ -79,7 +79,7 @@ func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.WebContext
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/index", res)
 }
-func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	params["public_plugin"] = true
@@ -111,7 +111,7 @@ func (jdaCtr *JobDefinitionAdminController) queryPlugins(c web.WebContext) error
 }
 
 // statsJobDefinition - stats of job-definition
-func (jdaCtr *JobDefinitionAdminController) statsJobDefinition(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) statsJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobStats := jdaCtr.jobStatsRegistry.GetStats(qc, 0, 500)
 	from := jdaCtr.startedAt
@@ -136,7 +136,7 @@ func (jdaCtr *JobDefinitionAdminController) statsJobDefinition(c web.WebContext)
 }
 
 // uploadJobDefinitions - adds job-definition
-func (jdaCtr *JobDefinitionAdminController) uploadJobDefinition(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) uploadJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -183,7 +183,7 @@ func (jdaCtr *JobDefinitionAdminController) uploadFile(
 }
 
 // getJobDefinition - finds job-definition by id
-func (jdaCtr *JobDefinitionAdminController) getJobDefinition(c web.WebContext) (err error) {
+func (jdaCtr *JobDefinitionAdminController) getJobDefinition(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	version := c.QueryParam("version")
@@ -217,20 +217,20 @@ func (jdaCtr *JobDefinitionAdminController) getJobDefinition(c web.WebContext) (
 	return c.Render(http.StatusOK, "jobs/def/view", res)
 }
 
-// pauseJobDefinition - pause job-definition by id
-func (jdaCtr *JobDefinitionAdminController) pauseJobDefinition(c web.WebContext) error {
+// disableJobDefinition - disable job-definition by id
+func (jdaCtr *JobDefinitionAdminController) disableJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
-	err := jdaCtr.jobManager.PauseJobDefinition(qc, c.Param("id"))
+	err := jdaCtr.jobManager.DisableJobDefinition(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions")
 }
 
-// unpauseJobDefinition - pause job-definition by id
-func (jdaCtr *JobDefinitionAdminController) unpauseJobDefinition(c web.WebContext) error {
+// enableJobDefinition - disable job-definition by id
+func (jdaCtr *JobDefinitionAdminController) enableJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
-	err := jdaCtr.jobManager.UnpauseJobDefinition(qc, c.Param("id"))
+	err := jdaCtr.jobManager.EnableJobDefinition(qc, c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (jdaCtr *JobDefinitionAdminController) unpauseJobDefinition(c web.WebContex
 }
 
 // deleteJobDefinition - deletes job-definition by id
-func (jdaCtr *JobDefinitionAdminController) deleteJobDefinition(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) deleteJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jdaCtr.jobManager.DeleteJobDefinition(qc, c.Param("id"))
 	if err != nil {
@@ -247,7 +247,7 @@ func (jdaCtr *JobDefinitionAdminController) deleteJobDefinition(c web.WebContext
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions")
 }
 
-func (jdaCtr *JobDefinitionAdminController) dotJobDefinition(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) dotJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	d, err := jdaCtr.jobManager.GetDotConfigForJobDefinition(qc, c.Param("id"))
 	if err != nil {
@@ -257,7 +257,7 @@ func (jdaCtr *JobDefinitionAdminController) dotJobDefinition(c web.WebContext) e
 	return c.String(http.StatusOK, d)
 }
 
-func (jdaCtr *JobDefinitionAdminController) dotImageJobDefinition(c web.WebContext) error {
+func (jdaCtr *JobDefinitionAdminController) dotImageJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	d, err := jdaCtr.jobManager.GetDotImageForJobDefinition(qc, c.Param("id"))
 	if err != nil {

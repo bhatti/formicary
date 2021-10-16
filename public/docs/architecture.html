@@ -49,6 +49,21 @@
 <div class="container-fluid">
 <h2 id="high-level-architecture">High level Architecture</h2>
 <p>The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task defines a unit of work, which is distributed among ant-workers based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen-leader encompasses resource-manager, job-scheduler, job-launcher and job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off the job to job-launcher. The job-supervisor orchestrates the job execution and delegates task to the task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the task-supervisor persists the results and job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. </p>
+<h2 id="key-models-and-concepts">Key Models and Concepts</h2>
+<h3 id="directed-acyclic-graph-dag-">Directed Acyclic Graph (DAG)</h3>
+<p>The formicary uses directed acyclic graph for specifying dependencies between tasks where each task defines a unit of work. </p>
+<h3 id="workflow">Workflow</h3>
+<p>A workflow/orchestration in formicary can be defined using directed acyclic graph where the execution flow from one to another task in the workflow/DAG is determined by the exit-code or status of parent node/task.</p>
+<h3 id="data-pipeline">Data Pipeline</h3>
+<p>A formicary job can spawn multiple jobs and provides building blocks such as tasks, jobs, dags and object-store for storing intermediate results, which can be used to implement data pipelines for processing complex workflows.</p>
+<h3 id="job">Job</h3>
+<p>A job specifies workload in terms of directed-acyclic-graph of tasks, where each task specifies environment, commands/APIs and configuration parameters for the execution of the task.</p>
+<h3 id="task">Task</h3>
+<p>A task represents a unit of work that is executed by an ant worker. </p>
+<h3 id="artifact">Artifact</h3>
+<p>An artifact defines one or files produced by the task, which can be used as an output of the job or as an input to dependent tasks.</p>
+<h3 id="event-message">Event/Message</h3>
+<p>Formicary uses event and messages to communicate between components and to send notifications on the lifecycle of a job/task, resource use, and other actions.</p>
 <h3 id="physical-architecture">Physical Architecture</h3>
 <p>Following is a high level physical architecture of the Formicary: <img class='img-fluid' src="physical-arch.png" alt="Physical architecture"></p>
 <p>The major layers of physical architecture includes:</p>

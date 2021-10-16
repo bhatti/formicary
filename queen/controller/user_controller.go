@@ -45,7 +45,7 @@ func NewUserController(
 // Queries users within the organization that is allowed.
 // responses:
 //   200: userQueryResponse
-func (uc *UserController) queryUsers(c web.WebContext) error {
+func (uc *UserController) queryUsers(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := uc.userManager.QueryUsers(
@@ -65,7 +65,7 @@ func (uc *UserController) queryUsers(c web.WebContext) error {
 // responses:
 //   200: userResponse
 // TODO add email verification if email is different than user email
-func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
+func (uc *UserController) updateUserNotification(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.UpdateUserNotification(
 		qc,
@@ -86,7 +86,7 @@ func (uc *UserController) updateUserNotification(c web.WebContext) (err error) {
 // `This requires admin access`
 // responses:
 //   200: userResponse
-func (uc *UserController) postUser(c web.WebContext) error {
+func (uc *UserController) postUser(c web.APIContext) error {
 	// TODO remove this as users will be added after oauth signup
 	now := time.Now()
 	user := common.NewUser("", "", "", "", acl.NewRoles(""))
@@ -113,7 +113,7 @@ func (uc *UserController) postUser(c web.WebContext) error {
 // Updates user profile.
 // responses:
 //   200: userResponse
-func (uc *UserController) putUser(c web.WebContext) error {
+func (uc *UserController) putUser(c web.APIContext) error {
 	user := common.NewUser("", "", "", "", acl.NewRoles(""))
 	err := json.NewDecoder(c.Request().Body).Decode(user)
 	if err != nil {
@@ -133,7 +133,7 @@ func (uc *UserController) putUser(c web.WebContext) error {
 // Finds user profile by its id.
 // responses:
 //   200: userResponse
-func (uc *UserController) getUser(c web.WebContext) error {
+func (uc *UserController) getUser(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.GetUser(qc, c.Param("id"))
 	if err != nil {
@@ -146,7 +146,7 @@ func (uc *UserController) getUser(c web.WebContext) error {
 // Deletes the user profile by its id.
 // responses:
 //   200: emptyResponse
-func (uc *UserController) deleteUser(c web.WebContext) error {
+func (uc *UserController) deleteUser(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := uc.userManager.DeleteUser(qc, c.Param("id"))
 	if err != nil {
@@ -159,7 +159,7 @@ func (uc *UserController) deleteUser(c web.WebContext) error {
 // Queries user-tokens for the API access.
 // responses:
 //   200: userTokenQueryResponse
-func (uc *UserController) queryUserTokens(c web.WebContext) error {
+func (uc *UserController) queryUserTokens(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	tokens, err := uc.userManager.GetUserTokens(qc, c.Param("user"))
 	if err != nil {
@@ -173,7 +173,7 @@ func (uc *UserController) queryUserTokens(c web.WebContext) error {
 // Deletes user-token by its id so that it cannot be used for the API access.
 // responses:
 //   200: emptyResponse
-func (uc *UserController) deleteUserToken(c web.WebContext) error {
+func (uc *UserController) deleteUserToken(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := uc.userManager.RevokeUserToken(qc, qc.GetUserID(), c.Param("id"))
 	if err != nil {
@@ -186,7 +186,7 @@ func (uc *UserController) deleteUserToken(c web.WebContext) error {
 // Creates new user-token for the API access.
 // responses:
 //   200: userTokenResponse
-func (uc *UserController) createUserToken(c web.WebContext) (err error) {
+func (uc *UserController) createUserToken(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	name := c.FormValue("token")
 	if name == "" {

@@ -22,7 +22,7 @@ type SubscriptionController struct {
 	webserver              web.Server
 }
 
-// NewSubscriptionController instantiates controller for updating system-subscriptions
+// NewSubscriptionController instantiates controller for updating subscriptions
 func NewSubscriptionController(
 	subscriptionRepository repository.SubscriptionRepository,
 	userRepository repository.UserRepository,
@@ -46,12 +46,12 @@ func NewSubscriptionController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/subscriptions system-subscriptions querySubscriptions
+// swagger:route GET /api/subscriptions subscriptions querySubscriptions
 // Queries system subscriptions
 // `This requires admin access`
 // responses:
 //   200: subscriptionQueryResponse
-func (cc *SubscriptionController) querySubscriptions(c web.WebContext) error {
+func (cc *SubscriptionController) querySubscriptions(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := cc.subscriptionRepository.Query(qc, params, page, pageSize, order)
@@ -61,12 +61,12 @@ func (cc *SubscriptionController) querySubscriptions(c web.WebContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/subscriptions system-subscriptions postSubscription
+// swagger:route POST /api/subscriptions subscriptions postSubscription
 // Creates new system subscription based on request body.
 // `This requires admin access`
 // responses:
 //   200: subscriptionResponse
-func (cc *SubscriptionController) postSubscription(c web.WebContext) (err error) {
+func (cc *SubscriptionController) postSubscription(c web.APIContext) (err error) {
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	subscription, err := cc.buildSubscription(c)
 	if err != nil {
@@ -100,12 +100,12 @@ func (cc *SubscriptionController) postSubscription(c web.WebContext) (err error)
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/subscriptions/{id} system-subscriptions putSubscription
+// swagger:route PUT /api/subscriptions/{id} subscriptions putSubscription
 // Updates an existing system subscription based on request body.
 // `This requires admin access`
 // responses:
 //   200: subscriptionResponse
-func (cc *SubscriptionController) putSubscription(c web.WebContext) error {
+func (cc *SubscriptionController) putSubscription(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	subscription, err := cc.buildSubscription(c)
 	if err != nil {
@@ -130,12 +130,12 @@ func (cc *SubscriptionController) putSubscription(c web.WebContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/subscriptions/{id} system-subscriptions getSubscription
+// swagger:route GET /api/subscriptions/{id} subscriptions getSubscription
 // Finds an existing system subscription based on id.
 // `This requires admin access`
 // responses:
 //   200: subscriptionResponse
-func (cc *SubscriptionController) getSubscription(c web.WebContext) error {
+func (cc *SubscriptionController) getSubscription(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	subscription, err := cc.subscriptionRepository.Get(qc, c.Param("id"))
 	if err != nil {
@@ -144,12 +144,12 @@ func (cc *SubscriptionController) getSubscription(c web.WebContext) error {
 	return c.JSON(http.StatusOK, subscription)
 }
 
-// swagger:route DELETE /api/subscriptions/{id} system-subscriptions getSubscription
+// swagger:route DELETE /api/subscriptions/{id} subscriptions getSubscription
 // Deletes an existing system subscription based on id.
 // `This requires admin access`
 // responses:
 //   200: emptyResponse
-func (cc *SubscriptionController) deleteSubscription(c web.WebContext) error {
+func (cc *SubscriptionController) deleteSubscription(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := cc.subscriptionRepository.Delete(qc, c.Param("id"))
 	if err != nil {
@@ -161,7 +161,7 @@ func (cc *SubscriptionController) deleteSubscription(c web.WebContext) error {
 // ********************************* Swagger types ***********************************
 
 // swagger:parameters querySubscriptions
-// The params for querying system-subscriptions
+// The params for querying subscriptions
 type subscriptionsQueryParams struct {
 	// in:query
 	Page     int `json:"page"`
@@ -174,7 +174,7 @@ type subscriptionsQueryParams struct {
 	Name string `json:"name"`
 }
 
-// Query results of system-subscriptions
+// Query results of subscriptions
 // swagger:response subscriptionQueryResponse
 type subscriptionsQueryResponseBody struct {
 	// in:body
@@ -217,7 +217,7 @@ type subscriptionIDParams struct {
 	ID string `json:"id"`
 }
 
-func (cc *SubscriptionController) buildSubscription(c web.WebContext) (*common.Subscription, error) {
+func (cc *SubscriptionController) buildSubscription(c web.APIContext) (*common.Subscription, error) {
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	subscription := &common.Subscription{
 		CreatedAt: time.Now(),

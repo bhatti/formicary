@@ -38,11 +38,13 @@ func NewSendReceiveMultiplexer(
 
 // Notify invokes callback methods
 func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEvent) int {
-	mx.lock.RLock()
-	defer mx.lock.RUnlock()
+	// creating a local copy of subscribers so that we don't share instance variables during notification
+	subscribers := mx.cloneSubscribers()
+
+	// notifying subscribers
 	sent := 0
 	started := time.Now()
-	for _, cbRel := range mx.callbacksCorrelations {
+	for _, cbRel := range subscribers {
 		if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
 			sent++
 			if err := cbRel.callback(ctx, event); err != nil {
@@ -53,12 +55,13 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 				}).Warnf("failed to notify event")
 			}
 			if cbRel.consumerChannel != nil {
+				// this is mainly used by send/receive and could be blocked if buffer is full in other use cases
 				cbRel.consumerChannel <- event
 			}
 		} else {
 			age := started.Unix() - event.PublishTime.Unix()
 			if age > mx.commitTimeoutSecs {
-				event.Ack() // commit old messages
+				event.Ack() // commit old messages to eliminate redelivery
 			}
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
@@ -110,12 +113,23 @@ func (mx *SendReceiveMultiplexer) Add(
 	}
 	return len(mx.callbacksCorrelations)
 }
+
 // SubscriberIDs returns subscriberIDs
 func (mx *SendReceiveMultiplexer) SubscriberIDs() (res []string) {
 	mx.lock.RLock()
 	defer mx.lock.RUnlock()
 	for id := range mx.callbacksCorrelations {
 		res = append(res, id)
+	}
+	return
+}
+
+func (mx *SendReceiveMultiplexer) cloneSubscribers() (res map[string]callBackCoRelation) {
+	mx.lock.RLock()
+	defer mx.lock.RUnlock()
+	res = make(map[string]callBackCoRelation)
+	for k, v := range mx.callbacksCorrelations {
+		res[k] = v
 	}
 	return
 }

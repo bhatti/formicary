@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
+<h1 id="migrating-from-github-actions">Migrating from Github Actions</h1>
+<p>Github actions is a popular solution for building CI/CD pipelines and following mapping shows mapping between Github and Formicary:</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th style="text-align:left">Github</th>
+<th style="text-align:left">Formicary</th>
+<th style="text-align:left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">runner</td>
+<td style="text-align:left"><a href="executors.html">executor</a></td>
+<td style="text-align:left"><a href="https://docs.github.com/en/actions/hosting-your-own-runners/adding-self-hosted-runners">Github</a> supports runner for execution and Formicary uses executor ants to accept remote work and execute them based on method.</td>
+</tr>
+<tr>
+<td style="text-align:left">workflow</td>
+<td style="text-align:left"><a href="definition_options#workflow">workflow</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions">workflows</a> to define automated process for executing jobs whereas formicary uses workflow/dag to define a single job with dependencies between tasks.</td>
+</tr>
+<tr>
+<td style="text-align:left">actions</td>
+<td style="text-align:left"><a href="definition_options#tasks">task</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/understanding-github-actions">actions</a> to execute tasks based on event. </td>
+</tr>
+<tr>
+<td style="text-align:left">job</td>
+<td style="text-align:left"><a href="definition_options#job">job</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#jobs">job</a> to define one or more steps whereas the formicary jobs serve similar purpose.</td>
+</tr>
+<tr>
+<td style="text-align:left">step</td>
+<td style="text-align:left"><a href="definition_options#tasks">task</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#jobsjob_idsteps">step</a> within a job to run commands, whereas the formicary tasks serve similar purpose.</td>
+</tr>
+<tr>
+<td style="text-align:left">environment</td>
+<td style="text-align:left"><a href="definition_options.html#environment">environment</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/environment-variables/">env</a> syntax to pass environment variables and a formicary job can define environment or configuration options to set properties/variables before executing a task.</td>
+</tr>
+<tr>
+<td style="text-align:left">variables</td>
+<td style="text-align:left"><a href="definition_options.html#variables">variables</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/essential-features-of-github-actions#using-variables-in-your-workflows">variables</a> to pass variables whereas a formicary job can define variables, request parameters or configuration for passing parameters to a task.</td>
+</tr>
+<tr>
+<td style="text-align:left">sharing data</td>
+<td style="text-align:left"><a href="definition_options.html#artifacts">artifacts</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/essential-features-of-github-actions#sharing-data-between-jobs">uses/with</a> syntax to share data between jobs whereas formicary uses <code>artifacts</code> for similar feature.</td>
+</tr>
+<tr>
+<td style="text-align:left">caching</td>
+<td style="text-align:left"><a href="definition_options.html#cache">caching</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/managing-complex-workflows#caching-dependencies">caching</a> syntax to cache dependencies whereas formicary uses cache option for similar feature.</td>
+</tr>
+<tr>
+<td style="text-align:left">services</td>
+<td style="text-align:left"><a href="definition_options.html#services">services</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/managing-complex-workflows#using-databases-and-service-containers">services</a> syntax to start database or other services along with the job and you can launch similar services in formicary using <code>services</code> configuration option.</td>
+</tr>
+<tr>
+<td style="text-align:left">labels/routing</td>
+<td style="text-align:left"><a href="definition_options.html#tags">tags</a></td>
+<td style="text-align:left">Github uses <a href="https://docs.github.com/en/actions/learn-github-actions/managing-complex-workflows#using-labels-to-route-workflows">labels</a> for routing jobs to specific runners, whereas formicary uses <code>tags</code> syntax to route tasks to specific ant workers.</td>
+</tr>
+<tr>
+<td style="text-align:left">expression</td>
+<td style="text-align:left"><a href="definition_options#filter">filter</a>, <a href="definition_options.html#except">except</a>, <a href="definition_options.html#allow_failure">allow_failure</a>, <a href="definition_options.html#always_run">always_run</a> and <a href="definition_options.html#templates">templates</a></td>
+<td style="text-align:left">Github allows filtering jobs via <a href="https://docs.github.com/en/actions/learn-github-actions/expressions">expressions</a> and formicary uses <code>filter</code>, <code>except</code>, <code>allow_failure</code>, <code>always_run</code> and GO templates to execute any conditional or post-processing tasks.</td>
+</tr>
+<tr>
+<td style="text-align:left">scheduling</td>
+<td style="text-align:left"><a href="definition_options.html#cron_trigger">cron_trigger</a></td>
+<td style="text-align:left">Gitlab uses <a href="https://docs.gitlab.com/ee/ci/pipelines/schedules.html">schedule</a> to execute a schedule job and formicary uses cron_trigger for similar feature.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sample-github-action">Sample Github action</h2>
+<p>Here is a sample action that is stored under .github/workflows/github-actions-demo.yml:</p>
+<pre><code>name: GitHub Actions Demo
+on: [push]
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    env:
+      MY_VAR: Hi there!
+    steps:
+      - run: echo &quot;The job was automatically triggered by a ${{ github.event_name }} event.&quot;
+      - run: echo &quot;This job is now running on a ${{ runner.os }} server hosted by GitHub!&quot;
+      - run: echo &quot;The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}.&quot;
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - run: echo &quot;The ${{ github.repository }} repository has been cloned to the runner.&quot;
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+        run: |
+          echo $MY_VAR variable.
+</code></pre><p>Following is equivalent workflow in formicary:</p>
+<pre><code>job_type: sample-actions
+tasks:
+- task_type: clone
+  working_dir: /sample
+  container:
+    image: golang:1.16-buster
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/git-actions.git .
+  environment:
+    MY_VAR: Hi there!
+  script:
+    - echo &quot;The job was automatically triggered by {{ .UserID }} uesr.&quot;
+    - echo &quot;This job is now running on:&quot;
+    - uname -a
+    - echo &quot;The name of your branch is:&quot;
+    - git rev-parse --symbolic-full-name --abbrev-ref HEAD
+    - git describe --always --long --dirty
+    - git rev-parse --verify HEAD
+    - git log -1 --pretty=format:&#39;%an&#39;
+    - git log -1 --pretty=format:&#39;%ae&#39;
+    - git log -1 --pretty=%B
+    - &quot;echo List files in the repository&quot;
+    - ls -l 
+    - echo $MY_VAR variable.
+</code></pre><h2 id="limitations-in-github">Limitations in Github</h2>
+<p>Following are major limitations of github actions:</p>
+<ul>
+<li>caching of artifacts using actions/cache@v2 is not available on GitHub Enterprise Server (GHES). </li>
+<li>Github actions also don&#39;t support default environment for manually triggered jobs whereas formicary allows passing variables for providing environment and other parameters.</li>
+<li>You can&#39;t invoke other actions from the actions unlike fork/await support in formicary.</li>
+<li>Github doesn&#39;t provide any metrics or queue size whereas formicary provides detailed reporting, metrics and insights into queue size.</li>
+<li>Github provides limited support for partial restart and retries unlike formicary that provides a number of configuration parameters to recover from the failure.</li>
+<li>Formicary provides better support for optional and always-run tasks.</li>
+<li>Though, Github actions are tied to actions on the Github repos, formicary provides more flexible options to share workflows and trigger jobs using APIs, post-commit, webhooks, etc.</li>
+<li>Github actions do not allow specifying cpu, memory and storage limits whereas formicary allows these limits when using Kubernetes executors. </li>
+<li>Github actions do not support priority of the jobs whereas formicary allows specifying priority of jobs for determining execution order of pending jobs.</li>
+<li>Formicary provides more support for scheduling periodic or cron jobs.</li>
+<li>Formicary includes several executors such as HTTP, Messaging, Shell, Docker and Kubernetes but Github does not support extending executor protocol.</li>
+<li>Formicary provides rich support for metrics and reporting on usage on resources and statistics on job failure/success.</li>
+<li>Formicary provides plugin APIs to share common workflows and jobs among users.</li>
+</ul>
+</div>  
+</body>
+</html>

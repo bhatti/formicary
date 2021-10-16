@@ -46,7 +46,7 @@ func NewOrganizationConfigController(
 // Queries organization configs by criteria such as name, type, etc.
 // responses:
 //   200: orgConfigQueryResponse
-func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.WebContext) error {
+func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := cc.orgConfigRepository.Query(qc, params, page, pageSize, order)
@@ -60,7 +60,7 @@ func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.WebContex
 // Adds a config for the organization.
 // responses:
 //   200: orgConfig
-func (cc *OrganizationConfigController) postOrganizationConfig(c web.WebContext) error {
+func (cc *OrganizationConfigController) postOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
 	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
@@ -95,7 +95,7 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.WebContext)
 // Updates a config for the organization.
 // responses:
 //   200: orgConfig
-func (cc *OrganizationConfigController) putOrganizationConfig(c web.WebContext) error {
+func (cc *OrganizationConfigController) putOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
 	if err != nil {
@@ -118,7 +118,7 @@ func (cc *OrganizationConfigController) putOrganizationConfig(c web.WebContext) 
 // Finds a config for the organization by id.
 // responses:
 //   200: orgConfig
-func (cc *OrganizationConfigController) getOrganizationConfig(c web.WebContext) error {
+func (cc *OrganizationConfigController) getOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	cfg, err := cc.orgConfigRepository.Get(qc, c.Param("id"))
 	if err != nil {
@@ -132,7 +132,7 @@ func (cc *OrganizationConfigController) getOrganizationConfig(c web.WebContext) 
 // responses:
 //   200: emptyResponse
 // deleteOrganizationConfig - deletes org-config by id
-func (cc *OrganizationConfigController) deleteOrganizationConfig(c web.WebContext) error {
+func (cc *OrganizationConfigController) deleteOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := cc.orgConfigRepository.Delete(qc, c.Param("id"))
 	if err != nil {

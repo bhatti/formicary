@@ -33,7 +33,7 @@ values are passed from job parameters, configuration or job-context/results of p
             {{if false}}
             <th class="col-sm-2">Tasks</th>
             {{end}}
-            <th class="col-sm-1">Paused</th>
+            <th class="col-sm-1">Enabled</th>
             <th class="col-sm-5">Actions</th>
         </tr>
         </thead>
@@ -50,14 +50,14 @@ values are passed from job parameters, configuration or job-context/results of p
             {{if false}}
             <td class="col-sm-2">{{.TaskNames}}</td>
             {{end}}
-            <td class="col-sm-1">{{.Paused}}</td>
+            <td class="col-sm-1">{{.Enabled}}</td>
             <td class="group row">
                 <form action="/dashboard/jobs/definitions/{{.ID}}" method="GET">
                     <input type="submit" class="btn btn-primary" value="View">
                 </form>
                 &nbsp;
                 <form action="/dashboard/jobs/requests/new" method="GET">
-                    <input type="submit" class="btn btn-secondary " value="Submit">
+                    <input type="submit" class="btn btn-secondary " value="Trigger">
                     <input type="hidden" name="jobType" value="{{.JobType}}">
                 </form>
                 &nbsp;
@@ -67,13 +67,13 @@ values are passed from job parameters, configuration or job-context/results of p
                     <input type="hidden" name="id" value="{{.JobType}}">
                 </form>
                 &nbsp;
-                {{if .Paused }}
-                <form action="/dashboard/jobs/definitions/{{.ID}}/unpause" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-warning" value="Unpause">
+                {{if .Disabled }}
+                <form action="/dashboard/jobs/definitions/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-warning" value="Enable">
                 </form>
                 {{else}}
-                <form action="/dashboard/jobs/definitions/{{.ID}}/pause" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-warning" value="Pause">
+                <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-warning" value="Disable">
                 </form>
                 {{end}}
             </td>

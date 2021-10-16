@@ -1,6 +1,34 @@
 <section class="group">
     <header class="group-header">
-        <h3 class="group-title">Job Definition: {{ .JobType }}</h3>
+        <table class="table table-sm">
+            <tr>
+                <td>
+                    <h3 class="group-title">Job Definition: {{ .JobType }}</h3>
+                </td>
+                <td class="text-right row">
+                    <form action="/dashboard/jobs/requests/new" method="GET">
+                        <input type="submit" class="btn btn-secondary " value="Trigger">
+                        <input type="hidden" name="jobType" value="{{.JobType}}">
+                    </form>
+                    &nbsp;
+                    <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                          onsubmit="return confirm('Please confirm deleting this job definition (' + this['id'].value + ')?');">
+                        <input type="submit" class="btn btn-danger" value="Delete">
+                        <input type="hidden" name="id" value="{{.JobType}}">
+                    </form>
+                    &nbsp;
+                    {{if .Disabled }}
+                    <form action="/dashboard/jobs/definitions/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
+                        <input type="submit" class="btn btn-warning" value="Enable">
+                    </form>
+                    {{else}}
+                    <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
+                        <input type="submit" class="btn btn-warning" value="Disable">
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+        </table>
     </header>
     <div class="table-responsive">
         <table class="table table-sm">

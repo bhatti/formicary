@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Formicary Distributed Job Management Dashboard</title>
+
+    <link rel="canonical" href="/dashboard">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="/css/custom.css" rel="stylesheet">
+    <link href="/css/style.default.css" rel="stylesheet" id="theme-stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+            rel="stylesheet"
+    />
+    <!-- MDB
+    <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.css"
+            rel="stylesheet"
+    />
+    -->
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="https://code.jquery.com/jquery-3.5.1.slim.js"><\/script>')</script>
+    <script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+    <script>
+      feather.replace()
+    </script>
+</head>
+
+<body>
+
+<div class="container-fluid">
+<h2 id="ruby-ci-cd-examples">Ruby CI/CD Examples</h2>
+<h3 id="ci-job-configuration">CI Job Configuration</h3>
+<p>Following is an example of job configuration for a simple Ruby project:</p>
+<pre><code class="lang-yaml">job_type: ruby-build-ci
+tasks:
+- task_type: clone
+  working_dir: /sample
+  container:
+    image: circleci/ruby:2.5.0-node-browsers
+  cache:
+    key: Gemfile.lock
+    paths:
+      - vendor/bundle
+  privileged: true
+  environment:
+    PGHOST: localhost
+    PGUSER: administrate
+    RAILS_ENV: test
+  before_script:
+    - git clone https://github.com/Shopify/example-ruby-app.git .
+    - bundle install --path vendor/bundle
+    - dockerize -wait tcp://localhost:5432 -timeout 1m
+  script:
+    - cp sample.env .env
+    - bundle exec appraisal install
+    - bundle exec appraisal rake
+    # Setup the database
+    - bundle exec rake db:setup
+    # Run the tests
+    - bundle exec rake
+  services:
+    - name: postgres
+      alias: postgres
+      image: postgres:10.1-alpine
+</code></pre>
+<h4 id="job-type">Job Type</h4>
+<p>The <code>job_type</code> defines type of the job, e.g.</p>
+<pre><code class="lang-yaml">job_type: ruby-build-ci
+</code></pre>
+<h4 id="tasks">Tasks</h4>
+<p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>
+<h5 id="task-type">Task Type</h5>
+<p>The <code>task_type</code> defines name of the task, e.g.</p>
+<pre><code class="lang-yaml">- task_type: clone
+</code></pre>
+<h5 id="task-method">Task method</h5>
+<p>The <code>method</code> defines executor type such as KUBENETES, DOCKER, SHELL, etc:</p>
+<pre><code class="lang-yaml">  method: KUBERNETES
+</code></pre>
+<h5 id="docker-image">Docker Image</h5>
+<p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>golang:1.16-buster</code> for node application, e.g.</p>
+<pre><code class="lang-yaml">  container:
+    image: circleci/ruby:2.5.0-node-browsers
+</code></pre>
+<h5 id="working-directory">Working Directory</h5>
+<p>The <code>working_dir</code> tag specifies the working directory within the container, e.g.,</p>
+<pre><code class="lang-yaml">  working_dir: /sample
+</code></pre>
+<h5 id="before-script-commands">Before Script Commands</h5>
+<p>The <code>before_script</code> defines an array of shell commands that are executed before the main script, e.g. <code>build</code> task checks out code in the <code>before_script</code>.</p>
+<pre><code class="lang-yaml">  before_script:
+    - git clone https://github.com/Shopify/example-ruby-app.git .
+    - bundle install --path vendor/bundle
+    - dockerize -wait tcp://localhost:5432 -timeout 1m
+</code></pre>
+<h5 id="script-commands">Script Commands</h5>
+<p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>
+<pre><code class="lang-yaml">  script:
+    - cp sample.env .env
+    - bundle exec appraisal install
+    - bundle exec appraisal rake
+</code></pre>
+<h5 id="vendor-caching">Vendor Caching</h5>
+<p>Formicary also provides caching for directories that store 3rd party dependencies, e.g. following example shows how all ruby libraries can be cached:</p>
+<pre><code class="lang-yaml">  cache:
+    key: Gemfile.lock
+    paths:
+      - vendor/bundle
+</code></pre>
+<h5 id="environment-variables">Environment Variables</h5>
+<p>The <code>environment</code> section defines environment variables to disable interactive git session so that git checkout won&#39;t ask for the user prompt.</p>
+<pre><code class="lang-yaml">   environment:
+    PGHOST: localhost
+    PGUSER: administrate
+    RAILS_ENV: test
+</code></pre>
+<h3 id="uploading-job-definition">Uploading Job Definition</h3>
+<p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
+<pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/yaml&quot; \
+    --data-binary @go-build-ci.yaml $SERVER/api/jobs/definitions
+</code></pre>
+<p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
+<h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
+<p>You can then submit the job as follows:</p>
+<pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
+    -H &quot;Content-Type: application/json&quot; \
+    --data &#39;{&quot;job_type&quot;: &quot;ruby-build-ci&quot;, &quot;params&quot;: {&quot;GitCommitID&quot;: &quot;$COMMIT&quot;, &quot;GitBranch&quot;: &quot;$BRANCH&quot;, &quot;GitCommitMessage&quot;: &quot;$COMMIT_MESSAGE&quot;}}&#39; $SERVER/api/jobs/requests
+</code></pre>
+<p>The above example kicks off <code>ruby-build-ci</code> job that you can see on the dashboard UI.</p>
+</div>  
+</body>
+</html>

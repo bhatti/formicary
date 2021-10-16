@@ -28,7 +28,7 @@ func NewHealthAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // getHealth - queries artifact
-func (h *HealthAdminController) getHealth(c web.WebContext) error {
+func (h *HealthAdminController) getHealth(c web.APIContext) error {
 	overall, statuses := h.heathMonitor.GetAllStatuses()
 	res := map[string]interface{}{"OverallStatus": overall, "Statuses": statuses}
 	web.RenderDBUserFromSession(c, res)

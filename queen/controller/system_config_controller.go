@@ -41,7 +41,7 @@ func NewSystemConfigController(
 // `This requires admin access`
 // responses:
 //   200: sysConfigQueryResponse
-func (cc *SystemConfigController) querySystemConfigs(c web.WebContext) error {
+func (cc *SystemConfigController) querySystemConfigs(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := cc.systemConfigRepository.Query(params, page, pageSize, order)
 	if err != nil {
@@ -55,7 +55,7 @@ func (cc *SystemConfigController) querySystemConfigs(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: sysConfigResponse
-func (cc *SystemConfigController) postSystemConfig(c web.WebContext) error {
+func (cc *SystemConfigController) postSystemConfig(c web.APIContext) error {
 	now := time.Now()
 	cfg := types.NewSystemConfig("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(cfg)
@@ -80,7 +80,7 @@ func (cc *SystemConfigController) postSystemConfig(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: sysConfigResponse
-func (cc *SystemConfigController) putSystemConfig(c web.WebContext) error {
+func (cc *SystemConfigController) putSystemConfig(c web.APIContext) error {
 	cfg := types.NewSystemConfig("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(cfg)
 	if err != nil {
@@ -98,7 +98,7 @@ func (cc *SystemConfigController) putSystemConfig(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: sysConfigResponse
-func (cc *SystemConfigController) getSystemConfig(c web.WebContext) error {
+func (cc *SystemConfigController) getSystemConfig(c web.APIContext) error {
 	cfg, err := cc.systemConfigRepository.Get(c.Param("id"))
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (cc *SystemConfigController) getSystemConfig(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: emptyResponse
-func (cc *SystemConfigController) deleteSystemConfig(c web.WebContext) error {
+func (cc *SystemConfigController) deleteSystemConfig(c web.APIContext) error {
 	err := cc.systemConfigRepository.Delete(c.Param("id"))
 	if err != nil {
 		return err

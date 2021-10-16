@@ -55,7 +55,7 @@ func NewUserAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryUsers - queries user
-func (uc *UserAdminController) queryUsers(c web.WebContext) error {
+func (uc *UserAdminController) queryUsers(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := uc.userManager.QueryUsers(
@@ -80,7 +80,7 @@ func (uc *UserAdminController) queryUsers(c web.WebContext) error {
 }
 
 // newUser - creates a new user
-func (uc *UserAdminController) newUser(c web.WebContext) error {
+func (uc *UserAdminController) newUser(c web.APIContext) error {
 	user := web.GetDBLoggedUserFromSession(c)
 	if user == nil {
 		return fmt.Errorf("failed to find user in session to create user")
@@ -102,7 +102,7 @@ func (uc *UserAdminController) newUser(c web.WebContext) error {
 }
 
 // createUser - saves a new user
-func (uc *UserAdminController) createUser(c web.WebContext) (err error) {
+func (uc *UserAdminController) createUser(c web.APIContext) (err error) {
 	invID := c.FormValue("inv_id")
 	user, err := uc.createUserFromForm(c)
 	if err != nil {
@@ -136,7 +136,7 @@ func (uc *UserAdminController) createUser(c web.WebContext) (err error) {
 }
 
 // getUser - finds user by id
-func (uc *UserAdminController) getUser(c web.WebContext) error {
+func (uc *UserAdminController) getUser(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.GetUser(qc, id)
@@ -226,7 +226,7 @@ func (uc *UserAdminController) getUser(c web.WebContext) error {
 }
 
 // editUser - shows user for edit
-func (uc *UserAdminController) editUser(c web.WebContext) error {
+func (uc *UserAdminController) editUser(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.GetUser(qc, id)
@@ -242,7 +242,7 @@ func (uc *UserAdminController) editUser(c web.WebContext) error {
 }
 
 // TODO add email verification if email is different than user email
-func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err error) {
+func (uc *UserAdminController) updateUserNotification(c web.APIContext) (err error) {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	user, err := uc.userManager.UpdateUserNotification(
@@ -272,7 +272,7 @@ func (uc *UserAdminController) updateUserNotification(c web.WebContext) (err err
 }
 
 // updateUser - updates user
-func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
+func (uc *UserAdminController) updateUser(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user := common.NewUser(
 		qc.GetOrganizationID(),
@@ -308,7 +308,7 @@ func (uc *UserAdminController) updateUser(c web.WebContext) (err error) {
 }
 
 // deleteUser - deletes user by id
-func (uc *UserAdminController) deleteUser(c web.WebContext) error {
+func (uc *UserAdminController) deleteUser(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := uc.userManager.DeleteUser(qc, c.Param("id"))
 	if err != nil {
@@ -318,7 +318,7 @@ func (uc *UserAdminController) deleteUser(c web.WebContext) error {
 }
 
 // newUserToken new token
-func (uc *UserAdminController) newUserToken(c web.WebContext) error {
+func (uc *UserAdminController) newUserToken(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	tok := types.NewUserToken(
 		qc.User,
@@ -331,7 +331,7 @@ func (uc *UserAdminController) newUserToken(c web.WebContext) error {
 }
 
 // deleteUserToken - deletes user token by id
-func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
+func (uc *UserAdminController) deleteUserToken(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := uc.userManager.RevokeUserToken(
 		qc,
@@ -344,7 +344,7 @@ func (uc *UserAdminController) deleteUserToken(c web.WebContext) error {
 }
 
 // createUserToken - saves a new token
-func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
+func (uc *UserAdminController) createUserToken(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	tok, err := uc.userManager.CreateUserToken(
 		qc,
@@ -362,7 +362,7 @@ func (uc *UserAdminController) createUserToken(c web.WebContext) (err error) {
 	return c.Render(http.StatusOK, "users/view_token", res)
 }
 
-func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *common.User, err error) {
+func (uc *UserAdminController) createUserFromForm(c web.APIContext) (saved *common.User, err error) {
 	dbUser := web.GetDBUserFromSession(c)
 	if dbUser != nil {
 		return nil, fmt.Errorf("already exists user with username %s", dbUser.Username)
@@ -458,7 +458,7 @@ func (uc *UserAdminController) createUserFromForm(c web.WebContext) (saved *comm
 	return saved, nil
 }
 
-func initUserFromForm(c web.WebContext, user *common.User) {
+func initUserFromForm(c web.APIContext, user *common.User) {
 	user.Name = c.FormValue("name")
 	user.Email = c.FormValue("email")
 	user.BundleID = c.FormValue("bundle")
@@ -477,7 +477,7 @@ func (uc *UserAdminController) saveNewUser(user *common.User) (saved *common.Use
 }
 
 func (uc *UserAdminController) saveNewOrg(
-	_ web.WebContext,
+	_ web.APIContext,
 	org *common.Organization) (saved *common.Organization, err error) {
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	saved, err = uc.userManager.CreateOrg(qc, org)

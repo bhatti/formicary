@@ -16,7 +16,7 @@ type EmailVerificationController struct {
 	webserver   web.Server
 }
 
-// NewEmailVerificationController instantiates controller for updating emailVerifications
+// NewEmailVerificationController instantiates controller for updating email-verifications
 func NewEmailVerificationController(
 	userManager *manager.UserManager,
 	webserver web.Server) *EmailVerificationController {
@@ -32,11 +32,11 @@ func NewEmailVerificationController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/users/email_verifications emailVerifications queryEmailVerifications
-// Queries emailVerifications within the organization that is allowed.
+// swagger:route GET /api/users/email_verifications email-verifications queryEmailVerifications
+// Queries email-verifications within the organization that is allowed.
 // responses:
 //   200: emailVerificationQueryResponse
-func (uc *EmailVerificationController) queryEmailVerifications(c web.WebContext) error {
+func (uc *EmailVerificationController) queryEmailVerifications(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	recs, total, err := uc.userManager.QueryEmailVerifications(
@@ -51,12 +51,12 @@ func (uc *EmailVerificationController) queryEmailVerifications(c web.WebContext)
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/users/:id/verify_email emailVerifications verifyEmailVerification
+// swagger:route POST /api/users/:id/verify_email email-verifications verifyEmailVerification
 // Creates new emailVerification.
 // `This requires admin access`
 // responses:
 //   200: emailVerificationResponse
-func (uc *EmailVerificationController) createEmailVerification(c web.WebContext) error {
+func (uc *EmailVerificationController) createEmailVerification(c web.APIContext) error {
 	emailVerification := &types.EmailVerification{}
 	err := json.NewDecoder(c.Request().Body).Decode(emailVerification)
 	if err != nil {
@@ -71,13 +71,13 @@ func (uc *EmailVerificationController) createEmailVerification(c web.WebContext)
 	return c.JSON(http.StatusCreated, saved)
 }
 
-// swagger:route PUT /api/users/:id/verify_email/:code emailVerifications verifyEmailVerification
+// swagger:route PUT /api/users/:id/verify_email/:code email-verifications verifyEmailVerification
 // Creates new emailVerification.
 // `This requires admin access`
 // responses:
 //   200: emailVerificationResponse
-func (uc *EmailVerificationController) verifyEmailVerification(c web.WebContext) error {
-	// TODO remove this as emailVerifications will be added after oauth signup
+func (uc *EmailVerificationController) verifyEmailVerification(c web.APIContext) error {
+	// TODO remove this as email-verifications will be added after oauth signup
 	qc := web.BuildQueryContext(c)
 	rec, err := uc.userManager.VerifyEmail(qc, qc.GetUserID(), c.Param("code"))
 	if err != nil {
@@ -89,7 +89,7 @@ func (uc *EmailVerificationController) verifyEmailVerification(c web.WebContext)
 // ********************************* Swagger types ***********************************
 
 // swagger:parameters queryEmailVerifications
-// The params for querying emailVerifications.
+// The params for querying email-verifications.
 type emailVerificationQueryParams struct {
 	// in:query
 	Page     int `json:"page"`
@@ -102,7 +102,7 @@ type emailVerificationQueryParams struct {
 	Email string `json:"email"`
 }
 
-// Paginated results of emailVerifications matching query
+// Paginated results of email-verifications matching query
 // swagger:response emailVerificationQueryResponse
 type emailVerificationQueryResponseBody struct {
 	// in:body

@@ -76,7 +76,7 @@ func Pagination(page int, pageSize int, total int64, baseURL string) (res map[st
 }
 
 // ParseParams parses params
-func ParseParams(c web.WebContext) (
+func ParseParams(c web.APIContext) (
 	params map[string]interface{},
 	order []string,
 	page int,

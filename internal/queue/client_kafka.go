@@ -401,7 +401,7 @@ func (c *ClientKafka) createConsumer(
 			MinBytes:        1,
 			MaxBytes:        1024 * 1024,     // 1MB
 			MaxWait:         5 * time.Second, // Maximum amount of time to wait for new data to come when fetching batches of messages from kafka.
-			QueueCapacity:   1,
+			QueueCapacity:   100,
 			RetentionTime:   time.Hour * 2, // default 24
 			Dialer:          c.readerDialer,
 			ReadLagInterval: -1,

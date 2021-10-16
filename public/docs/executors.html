@@ -433,7 +433,7 @@ func (h *MessagingHandler) execute(
 }
 </code></pre>
 <p>Here is an equivalent implementation of messaging ant worker in Javascript:</p>
-<pre><code>const {Kafka} = require(&#39;kafkajs&#39;)
+<pre><code class="lang-javascript">const {Kafka} = require(&#39;kafkajs&#39;)
 const assert = require(&#39;assert&#39;)
 
 // Messaging helper class for communication with the queen server
@@ -622,7 +622,8 @@ messaging.subscribe(conf.inTopic, async (headers, msg) =&gt; {
         rl.close()
     })
 })
-</code></pre><p>Here is a sample job definition that uses <code>MESSAGING</code> executor:</p>
+</code></pre>
+<p>Here is a sample job definition that uses <code>MESSAGING</code> executor:</p>
 <pre><code class="lang-yaml">job_type: messaging-job
 timeout: 60s
 tasks:

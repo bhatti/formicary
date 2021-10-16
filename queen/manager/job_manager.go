@@ -3,9 +3,10 @@ package manager
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/queen/notify"
 	"strings"
 	"time"
+
+	"plexobject.com/formicary/queen/notify"
 
 	yaml "gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/metrics"
@@ -314,8 +315,8 @@ func (jm *JobManager) GetWaitEstimate(
 	q.JobRequest = request.ToInfo()
 	if !q.JobStats.AntsAvailable {
 		q.ErrorMessage = q.JobStats.AntUnavailableError
-	} else if q.JobStats.JobPaused {
-		q.ErrorMessage = fmt.Sprintf("job %s is paused", request.JobType)
+	} else if q.JobStats.JobDisabled {
+		q.ErrorMessage = fmt.Sprintf("job %s is disabled", request.JobType)
 	}
 
 	// if job is not pending then return
@@ -353,41 +354,41 @@ func (jm *JobManager) GetWaitEstimate(
 	return
 }
 
-// PauseJobDefinition - update job-definition -- only admin can do it so no need for query context
-func (jm *JobManager) PauseJobDefinition(
+// DisableJobDefinition - update job-definition -- only admin can do it so no need for query context
+func (jm *JobManager) DisableJobDefinition(
 	qc *common.QueryContext,
 	id string) (err error) {
-	if err = jm.jobDefinitionRepository.SetPaused(id, true); err == nil {
+	if err = jm.jobDefinitionRepository.SetDisabled(id, true); err == nil {
 		if jobDefinition, dbErr := jm.GetJobDefinition(
 			qc,
 			id); dbErr == nil {
-			jm.jobStatsRegistry.SetPaused(jobDefinition, true)
-			jm.metricsRegistry.Incr("job_definitions_paused_total", map[string]string{"JobType": jobDefinition.JobType})
+			jm.jobStatsRegistry.SetDisabled(jobDefinition, true)
+			jm.metricsRegistry.Incr("job_definitions_disabled_total", map[string]string{"JobType": jobDefinition.JobType})
 			_ = jm.fireJobDefinitionChange(
 				jobDefinition.UserID,
 				id,
 				jobDefinition.JobType,
-				events.PAUSED)
+				events.DISABLED)
 		}
 	}
 	return
 }
 
-// UnpauseJobDefinition - update job-definition -- only admin can do it so no need for query context
-func (jm *JobManager) UnpauseJobDefinition(
+// EnableJobDefinition - update job-definition -- only admin can do it so no need for query context
+func (jm *JobManager) EnableJobDefinition(
 	qc *common.QueryContext,
 	id string) (err error) {
-	if err = jm.jobDefinitionRepository.SetPaused(id, false); err == nil {
+	if err = jm.jobDefinitionRepository.SetDisabled(id, false); err == nil {
 		if jobDefinition, dbErr := jm.GetJobDefinition(
 			qc,
 			id); dbErr == nil {
-			jm.jobStatsRegistry.SetPaused(jobDefinition, false)
-			jm.metricsRegistry.Incr("job_definitions_unpaused_total", map[string]string{"JobType": jobDefinition.JobType})
+			jm.jobStatsRegistry.SetDisabled(jobDefinition, false)
+			jm.metricsRegistry.Incr("job_definitions_enabled_total", map[string]string{"JobType": jobDefinition.JobType})
 			_ = jm.fireJobDefinitionChange(
 				jobDefinition.UserID,
 				id,
 				jobDefinition.JobType,
-				events.UNPAUSED)
+				events.ENABLED)
 		}
 	}
 	return
@@ -509,7 +510,7 @@ func (jm *JobManager) SaveJobRequest(
 		_, _, err = jm.CheckSubscriptionQuota(qc, user)
 		if err != nil {
 			if jobDefinition.CronTrigger != "" {
-				_ = jm.PauseJobDefinition(qc, jobDefinition.ID)
+				_ = jm.DisableJobDefinition(qc, jobDefinition.ID)
 				logrus.WithFields(logrus.Fields{
 					"Component":       "JobManager",
 					"RequestID":       request.ID,
@@ -1255,7 +1256,7 @@ func (jm *JobManager) overrideCancelRequest(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error":                      err,
+				"Error": err,
 			}).Errorf("failed to cancel request after override")
 		}
 	} else if err != nil {
@@ -1266,7 +1267,7 @@ func (jm *JobManager) overrideCancelRequest(
 			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 			"EventState":                 jobExecutionLifecycleEvent.JobState,
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-			"Error":                      err,
+			"Error": err,
 		}).Errorf("failed to find request after cancel verification")
 	}
 }

@@ -11,8 +11,8 @@ import (
 	common "plexobject.com/formicary/internal/types"
 )
 
-// WebContext interface
-type WebContext interface { //nolint
+// APIContext interface
+type APIContext interface { //nolint
 	// Path Request path
 	Path() string
 
@@ -94,7 +94,7 @@ const DBUserOrg = "DBUserOrg"
 const AuthDisabled = "AuthDisabled"
 
 // RenderDBUserFromSession initializes user/admin parameters
-func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
+func RenderDBUserFromSession(c APIContext, res map[string]interface{}) {
 	user := GetDBLoggedUserFromSession(c)
 	if c.Get(AppVersion) != nil {
 		res[AppVersion] = c.Get(AppVersion)
@@ -102,6 +102,7 @@ func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
 	if res["Q"] == nil {
 		res["Q"] = ""
 	}
+	res["APIDocsURL"] = "https://petstore.swagger.io/?url=https://" + c.Request().Host + "/docs/swagger.yaml"
 	if user != nil {
 		res[DBUser] = user
 		res[DBUserOrg] = user.OrganizationID
@@ -115,7 +116,7 @@ func RenderDBUserFromSession(c WebContext, res map[string]interface{}) {
 }
 
 // GetDBUserFromSession returns database-user from web context
-func GetDBUserFromSession(c WebContext) *common.User {
+func GetDBUserFromSession(c APIContext) *common.User {
 	user := c.Get(DBUser)
 	if user != nil {
 		return user.(*common.User)
@@ -124,7 +125,7 @@ func GetDBUserFromSession(c WebContext) *common.User {
 }
 
 // GetDBLoggedUserFromSession returns logged-in user from web context
-func GetDBLoggedUserFromSession(c WebContext) *common.User {
+func GetDBLoggedUserFromSession(c APIContext) *common.User {
 	user := GetDBUserFromSession(c)
 	if user != nil {
 		return user
@@ -136,7 +137,7 @@ func GetDBLoggedUserFromSession(c WebContext) *common.User {
 }
 
 // BuildQueryContext returns query-context for scoping queries by user/org
-func BuildQueryContext(c WebContext) *common.QueryContext {
+func BuildQueryContext(c APIContext) *common.QueryContext {
 	return common.NewQueryContext(
 		GetDBLoggedUserFromSession(c),
 		c.Request().RemoteAddr)

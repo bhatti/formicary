@@ -16,11 +16,11 @@ import (
 )
 
 // HandlerFunc defines a function to serve HTTP requests.
-type HandlerFunc func(WebContext) error
+type HandlerFunc func(APIContext) error
 
 // WrapHandler wraps `http.Handler` into `echo.HandlerFunc`.
 func WrapHandler(h http.Handler) HandlerFunc {
-	return func(c WebContext) error {
+	return func(c APIContext) error {
 		h.ServeHTTP(c.Response(), c.Request())
 		return nil
 	}

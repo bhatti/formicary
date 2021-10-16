@@ -34,7 +34,7 @@ func NewExecutionContainerAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryExecutionContainers - queries error-code
-func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.WebContext) error {
+func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.APIContext) error {
 	_, order, page, pageSize, q, qs := controller.ParseParams(c)
 	sortField := ""
 	if len(order) > 0 {
@@ -53,7 +53,7 @@ func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.Web
 }
 
 // deleteExecutionContainer - deletes error-code by id
-func (eca *ExecutionContainerAdminController) deleteExecutionContainer(c web.WebContext) error {
+func (eca *ExecutionContainerAdminController) deleteExecutionContainer(c web.APIContext) error {
 	id := c.FormValue("id")
 	if id == "" {
 		return fmt.Errorf("failed to find container id")

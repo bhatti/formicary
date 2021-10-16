@@ -95,6 +95,70 @@
 </tr>
 </tbody>
 </table>
+<h2 id="sample-jenkins-pipeline">Sample Jenkins pipeline</h2>
+<p>Here is a sample pipeline of Jenkins job:</p>
+<pre><code>pipeline {
+    agent any
+    tools {
+        maven &#39;MAVEN_PATH&#39;
+        jdk &#39;jdk8&#39;
+    }
+    stages {
+        stage(&quot;Tools initialization&quot;) {
+            steps {
+                sh &quot;mvn --version&quot;
+                sh &quot;java -version&quot;
+            }
+        }
+        stage(&quot;Checkout Code&quot;) {
+            steps {
+                git branch: &#39;master&#39;,
+                url: &quot;https://github.com/iamvickyav/spring-boot-data-H2-embedded.git&quot;
+            }
+        }
+        stage(&quot;Building Application&quot;) {
+            steps {
+               sh &quot;mvn clean package&quot;
+            }
+        }
+ }
+</code></pre><p>Following is equivalent workflow in formicary:</p>
+<pre><code>job_type: maven-ci-job
+tasks:
+- task_type: info
+  container:
+    image: maven:3.8-jdk-11
+  script:
+    - mvn --version
+    - java --version
+  on_completed: build
+- task_type: build
+  working_dir: /sample
+  container:
+    image: maven:3.8-jdk-11
+  before_script:
+    - git clone https://github.com/iamvickyav/spring-boot-data-H2-embedded.git .
+  environment:
+    MAVEN_OPTS: &quot;-Dmaven.repo.local=.m2/repository&quot;
+  cache:
+    keys:
+      - pom.xml
+    paths:
+      - .m2/repository/
+      - target/
+  script:
+    - mvn clean package
+</code></pre><h2 id="limitations-in-jenkins">Limitations in Jenkins</h2>
+<p>Following are major limitations of github actions:</p>
+<ul>
+<li>Jenkins provides limited support for partial restart and retries unlike formicary that provides a number of configuration parameters to recover from the failure.</li>
+<li>Jenkins does not provide support for optional or always-run tasks.</li>
+<li>Jenkins actions do not allow specifying cpu, memory and storage limits whereas formicary allows these limits when using Kubernetes executors. </li>
+<li>Jenkins actions do not support priority of the jobs whereas formicary allows specifying priority of jobs for determining execution order of pending jobs.</li>
+<li>Formicary includes several executors such as HTTP, Messaging, Shell, Docker and Kubernetes but Github does not support extending executor protocol.</li>
+<li>Formicary provides rich support for metrics and reporting on usage on resources and statistics on job failure/success.</li>
+<li>Formicary provides plugin APIs to share common workflows and jobs among users.</li>
+</ul>
 </div>  
 </body>
 </html>

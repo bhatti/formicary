@@ -39,7 +39,7 @@ func NewArtifactController(
 // Queries artifacts by name, task-type, etc.
 // responses:
 //   200: artifactsQueryResponse
-func (ac *ArtifactController) queryArtifacts(c web.WebContext) error {
+func (ac *ArtifactController) queryArtifacts(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
 	records, total, err := ac.artifactManager.QueryArtifacts(context.Background(), qc, params, page, pageSize, order)
@@ -53,7 +53,7 @@ func (ac *ArtifactController) queryArtifacts(c web.WebContext) error {
 // Uploads artifact data from the request body and returns metadata for the uploaded data.
 // responses:
 //   200: artifactResponse
-func (ac *ArtifactController) uploadArtifact(c web.WebContext) error {
+func (ac *ArtifactController) uploadArtifact(c web.APIContext) error {
 	params := make(map[string]string)
 	for k, v := range c.Request().Header {
 		params[k] = v[0]
@@ -73,7 +73,7 @@ func (ac *ArtifactController) uploadArtifact(c web.WebContext) error {
 // Retrieves artifact by its id
 // responses:
 //   200: artifactResponse
-func (ac *ArtifactController) getArtifact(c web.WebContext) error {
+func (ac *ArtifactController) getArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	art, err := ac.artifactManager.GetArtifact(context.Background(), qc, id)
@@ -87,7 +87,7 @@ func (ac *ArtifactController) getArtifact(c web.WebContext) error {
 // Download artifact by its id
 // responses:
 //   200: byteResponse
-func (ac *ArtifactController) downloadArtifact(c web.WebContext) error {
+func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
@@ -102,7 +102,7 @@ func (ac *ArtifactController) downloadArtifact(c web.WebContext) error {
 // Deletes artifact by its id
 // responses:
 //   200: emptyResponse
-func (ac *ArtifactController) deleteArtifact(c web.WebContext) error {
+func (ac *ArtifactController) deleteArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := ac.artifactManager.DeleteArtifact(context.Background(), qc, c.Param("id"))
 	if err != nil {

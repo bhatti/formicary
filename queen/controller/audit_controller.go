@@ -33,7 +33,7 @@ func NewAuditController(
 // Queries audits within the organization that is allowed.
 // responses:
 //   200: auditQueryResponse
-func (uc *AuditController) queryAudits(c web.WebContext) error {
+func (uc *AuditController) queryAudits(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := uc.auditRecordRepository.Query(
 		params,

@@ -95,10 +95,10 @@ const (
 	Logout = 4096
 	// Signup action
 	Signup = 8192
-	// Pause action
-	Pause = 16384
-	// Unpause action
-	Unpause = 32768
+	// Disable action
+	Disable = 16384
+	// Enable action
+	Enable = 32768
 	// Metrics action
 	Metrics = 65536
 	// Subscribe action
@@ -209,11 +209,11 @@ func (p *Permission) LongAction() string {
 	if p.Actions&Signup == Signup {
 		sb.WriteString("Signup ")
 	}
-	if p.Actions&Pause == Pause {
-		sb.WriteString("Pause ")
+	if p.Actions&Disable == Disable {
+		sb.WriteString("Disable ")
 	}
-	if p.Actions&Unpause == Unpause {
-		sb.WriteString("Unpause ")
+	if p.Actions&Enable == Enable {
+		sb.WriteString("Enable ")
 	}
 	if p.Actions&Metrics == Metrics {
 		sb.WriteString("Metrics ")
@@ -323,8 +323,8 @@ func DefaultPermissions() []*Permission {
 		NewPermission(Websocket, Subscribe),
 		NewPermission(Dashboard, View),
 		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart),
-		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
-		NewPermission(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
+		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Disable|Enable|Metrics),
+		NewPermission(JobResource, Create|Read|Update|Delete|Query|Disable|Enable),
 		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		NewPermission(Organization, Read|Update|Delete|Invite),
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
@@ -354,8 +354,8 @@ func AdminPermissions() []*Permission {
 		NewPermission(Websocket, Subscribe),
 		NewPermission(Dashboard, View),
 		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
-		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Pause|Unpause|Metrics),
-		NewPermission(JobResource, Create|Read|Update|Delete|Query|Pause|Unpause),
+		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Disable|Enable|Metrics),
+		NewPermission(JobResource, Create|Read|Update|Delete|Query|Disable|Enable),
 		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		NewPermission(Organization, Read|Update|Delete|Invite),
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),

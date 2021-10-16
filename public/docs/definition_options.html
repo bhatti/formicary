@@ -48,10 +48,15 @@
 
 <div class="container-fluid">
 <h2 id="job-and-task-definition-options">Job and Task Definition Options</h2>
+<h2 id="directed-acyclic-graph-dag-">Directed Acyclic Graph (DAG)</h2>
+<p>The formicary uses directed acyclic graph for specifying dependencies between tasks where each task defines a unit of work. </p>
 <h2 id="workflow">Workflow</h2>
-<p>A job can be considered as a workflow of tasks where sequence of task execution is determined by the exit-status of previous task.</p>
+<p>A workflow/orchestration in formicary can be defined using directed acyclic graph where the execution flow from one to another task in the workflow/DAG is determined by the exit-code or status of parent node/task.</p>
+<h2 id="data-pipeline">Data Pipeline</h2>
+<p>A formicary job can spawn multiple jobs and provides building blocks such as tasks, jobs, dags and object-store for storing intermediate results, which can be used to implement data pipelines for processing complex workflows.</p>
 <h2 id="job">Job</h2>
-<p>A job defines directed-acyclic-graph of tasks to execute where each task specifies how task will be executed A job defines following properties:</p>
+<p>A job specifies workload in terms of directed-acyclic-graph of tasks, where each task specifies environment, commands/APIs and configuration parameters for the execution of the task.</p>
+<p>A job defines following properties:</p>
 <h4 id="cron_trigger">cron_trigger</h4>
 <p>The cron_trigger defines a cron syntax for executing the job periodically, e.g., following job is scheduled every minute:</p>
 <pre><code class="lang-yaml"> job_type: cron-kube-build
@@ -369,6 +374,20 @@ tasks:
 </code></pre>
 <p><img class='img-fluid' src="examples/taco-job.png" alt="taco-job"> </p>
 <p>The <code>check-date</code> task will execute different tasks based on the exit code defined under <code>on_exit_code</code>. Note: the <code>deallocate</code> task is always run because it defines <code>always_run</code> property as true.</p>
+<h4 id="services">services</h4>
+<p>The <code>services</code> configuration allows starting sidecar container(s) with the given image, e.g.</p>
+<pre><code>- task_type: k8
+  script:
+    - sleep 30
+  method: KUBERNETES
+  services:
+    - name: redis
+      image: redis:6.2.2-alpine
+      ports:
+        - number: 6379
+  container:
+    image: ubuntu:16.04
+</code></pre><p>Above config specifies starting redis as a sidecar container along with the task container.</p>
 <h4 id="resources">resources</h4>
 <p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>
 <h4 id="retry">retry</h4>

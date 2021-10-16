@@ -34,7 +34,7 @@ func NewAntRegistrationController(
 // `This requires admin access`
 // responses:
 //   200: antRegistrationsQueryResponse
-func (wrc *AntRegistrationController) queryAntRegistrations(c web.WebContext) error {
+func (wrc *AntRegistrationController) queryAntRegistrations(c web.APIContext) error {
 	recs := wrc.resourceManager.Registrations()
 	return c.JSON(http.StatusOK, recs)
 }
@@ -44,7 +44,7 @@ func (wrc *AntRegistrationController) queryAntRegistrations(c web.WebContext) er
 // `This requires admin access`
 // responses:
 //   200: antRegistrationResponse
-func (wrc *AntRegistrationController) getAntRegistration(c web.WebContext) error {
+func (wrc *AntRegistrationController) getAntRegistration(c web.APIContext) error {
 	rec := wrc.resourceManager.Registration(c.Param("id"))
 	if rec == nil {
 		return c.String(http.StatusNotFound, "could not find ant registration")

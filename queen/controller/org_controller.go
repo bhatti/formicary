@@ -45,7 +45,7 @@ func NewOrganizationController(
 // `This requires admin access`
 // responses:
 //   200: orgQueryResponse
-func (oc *OrganizationController) queryOrganizations(c web.WebContext) error {
+func (oc *OrganizationController) queryOrganizations(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := oc.userManager.QueryOrgs(qc, params, page, pageSize, order)
@@ -60,7 +60,7 @@ func (oc *OrganizationController) queryOrganizations(c web.WebContext) error {
 // `This requires admin access`
 // responses:
 //   200: orgResponse
-func (oc *OrganizationController) postOrganization(c web.WebContext) error {
+func (oc *OrganizationController) postOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
 	org := common.NewOrganization("", "", "")
@@ -85,7 +85,7 @@ func (oc *OrganizationController) postOrganization(c web.WebContext) error {
 // Updates the organization profile.
 // responses:
 //   200: orgResponse
-func (oc *OrganizationController) putOrganization(c web.WebContext) error {
+func (oc *OrganizationController) putOrganization(c web.APIContext) error {
 	org := common.NewOrganization("", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(org)
 	if err != nil {
@@ -104,7 +104,7 @@ func (oc *OrganizationController) putOrganization(c web.WebContext) error {
 // Finds the organization by its id.
 // responses:
 //   200: orgResponse
-func (oc *OrganizationController) getOrganization(c web.WebContext) error {
+func (oc *OrganizationController) getOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	org, err := oc.userManager.GetOrganization(qc, c.Param("id"))
 	if err != nil {
@@ -117,7 +117,7 @@ func (oc *OrganizationController) getOrganization(c web.WebContext) error {
 // Deletes the organization by its id.
 // responses:
 //   200: emptyResponse
-func (oc *OrganizationController) deleteOrganization(c web.WebContext) error {
+func (oc *OrganizationController) deleteOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := oc.userManager.DeleteOrganization(qc, c.Param("id"))
 	if err != nil {
@@ -130,7 +130,7 @@ func (oc *OrganizationController) deleteOrganization(c web.WebContext) error {
 // Invite user to the organization
 // responses:
 //   200: userInvitationResponse
-func (oc *OrganizationController) inviteUser(c web.WebContext) (err error) {
+func (oc *OrganizationController) inviteUser(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user := web.GetDBLoggedUserFromSession(c)
 	if user == nil {
@@ -152,7 +152,7 @@ func (oc *OrganizationController) inviteUser(c web.WebContext) (err error) {
 // Shows usage report by organization and user
 // responses:
 //   200: usageReportResponse
-func (oc *OrganizationController) usageReport(c web.WebContext) error {
+func (oc *OrganizationController) usageReport(c web.APIContext) error {
 	from := utils.ParseStartDateTime(c.QueryParam("from"))
 	to := utils.ParseEndDateTime(c.QueryParam("to"))
 	combinedUsage := oc.userManager.CombinedResourcesByOrgUser(from, to, 10000)

@@ -30,7 +30,7 @@ func NewAntAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryAnts - queries ants registered with the server
-func (wac *AntAdminController) queryAnts(c web.WebContext) error {
+func (wac *AntAdminController) queryAnts(c web.APIContext) error {
 	ants := wac.resourceManager.Registrations()
 	res := map[string]interface{}{"Ants": ants}
 	web.RenderDBUserFromSession(c, res)
@@ -38,7 +38,7 @@ func (wac *AntAdminController) queryAnts(c web.WebContext) error {
 }
 
 // getAnt - finds ant by id
-func (wac *AntAdminController) getAnt(c web.WebContext) error {
+func (wac *AntAdminController) getAnt(c web.APIContext) error {
 	id := c.Param("id")
 	ant := wac.resourceManager.Registration(id)
 	res := map[string]interface{}{}

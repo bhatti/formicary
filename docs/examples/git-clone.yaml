@@ -1,0 +1,22 @@
+job_type: git-clone
+tasks:
+- task_type: clone
+  working_dir: /sample
+  container:
+    image: golang:1.16-buster
+  privileged: true
+  before_script:
+    - git clone https://{{.GithubToken}}@github.com/bhatti/git-actions.git .
+  script:
+    - echo "The job was automatically triggered by {{ .UserID }} uesr."
+    - echo "This job is now running on:"
+    - uname -a
+    - echo "The name of your branch is:"
+    - git rev-parse --symbolic-full-name --abbrev-ref HEAD
+    - git describe --always --long --dirty
+    - git rev-parse --verify HEAD
+    - git log -1 --pretty=format:'%an'
+    - git log -1 --pretty=format:'%ae'
+    - git log -1 --pretty=%B
+    - "echo List files in the repository"
+    - ls -l 

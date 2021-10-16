@@ -53,13 +53,13 @@ they allocates the resource if a resource is available otherwise wait for the re
                     <input type="hidden" name="id" value="{{.ResourceType}}">
                 </form>
                 &nbsp;
-                {{if .Paused }}
-                <form action="/dashboard/jobs/resources/{{.ID}}/unpause" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-secondary" value="Unpause">
+                {{if .Disabled }}
+                <form action="/dashboard/jobs/resources/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-secondary" value="Enable">
                 </form>
                 {{else}}
-                <form action="/dashboard/jobs/resources/{{.ID}}/pause" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-warning" value="Pause">
+                <form action="/dashboard/jobs/resources/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
+                    <input type="submit" class="btn btn-warning" value="Disable">
                 </form>
                 {{end}}
             </td>

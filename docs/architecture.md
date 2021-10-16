@@ -9,6 +9,31 @@ job execution and delegates task to the task-supervisor, which sends the request
 After task completion, the task-supervisor persists the results and job-supervisor finds the next task to execute based on 
 exit-values of previous task and persists its state. 
 
+## Key Models and Concepts
+
+### Directed Acyclic Graph (DAG)
+
+The formicary uses directed acyclic graph for specifying dependencies between tasks where each task defines a unit of work. 
+
+### Workflow
+A workflow/orchestration in formicary can be defined using directed acyclic graph where the execution flow from one to another task in the workflow/DAG is determined by the exit-code 
+or status of parent node/task.
+
+### Data Pipeline
+A formicary job can spawn multiple jobs and provides building blocks such as tasks, jobs, dags and object-store for storing intermediate results, which can be used to implement data pipelines for processing complex workflows.
+
+### Job
+A job specifies workload in terms of directed-acyclic-graph of tasks, where each task specifies environment, commands/APIs and configuration parameters for the execution of the task.
+
+### Task 
+A task represents a unit of work that is executed by an ant worker. 
+
+### Artifact
+An artifact defines one or files produced by the task, which can be used as an output of the job or as an input to dependent tasks.
+
+### Event/Message
+Formicary uses event and messages to communicate between components and to send notifications on the lifecycle of a job/task, resource use, and other actions.
+
 ### Physical Architecture
 Following is a high level physical architecture of the Formicary:
 ![Physical architecture](physical-arch.png)

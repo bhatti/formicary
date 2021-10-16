@@ -2,10 +2,11 @@ package stats
 
 import (
 	"fmt"
-	"plexobject.com/formicary/internal/math"
-	"plexobject.com/formicary/queen/types"
 	"sync/atomic"
 	"time"
+
+	"plexobject.com/formicary/internal/math"
+	"plexobject.com/formicary/queen/types"
 )
 
 // JobStats captures usage statistics for each job-type.
@@ -49,8 +50,8 @@ type JobStats struct {
 	// AntUnavailableError error
 	AntUnavailableError string `json:"ant_unavailable_error"`
 
-	// JobPaused paused flag
-	JobPaused bool `json:"job_paused"`
+	// JobDisabled disabled flag
+	JobDisabled bool `json:"job_disabled"`
 
 	// succeededJobsMinMax average latency
 	succeededJobsMinMax *math.RollingMinMax

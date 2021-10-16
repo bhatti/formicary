@@ -125,6 +125,99 @@
 </tr>
 </tbody>
 </table>
+<h2 id="sample-airflow-dags">Sample Airflow DAGs</h2>
+<p>Here is a sample dag of Airflow :</p>
+<pre><code>from datetime import datetime, timedelta
+from textwrap import dedent
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+default_args = {
+    &#39;owner&#39;: &#39;airflow&#39;,
+    &#39;depends_on_past&#39;: False,
+    &#39;email&#39;: [&#39;airflow@example.com&#39;],
+    &#39;email_on_failure&#39;: False,
+    &#39;email_on_retry&#39;: False,
+    &#39;retries&#39;: 1,
+    &#39;retry_delay&#39;: timedelta(minutes=5),
+}
+
+with DAG(
+    &#39;tutorial&#39;,
+    default_args=default_args,
+    description=&#39;A simple tutorial DAG&#39;,
+    schedule_interval=timedelta(days=1),
+    start_date=datetime(2021, 1, 1),
+    catchup=False,
+    tags=[&#39;example&#39;],
+) as dag:
+    t1 = BashOperator(
+        task_id=&#39;print_date&#39;,
+        bash_command=&#39;date&#39;,
+    )
+
+    t2 = BashOperator(
+        task_id=&#39;sleep&#39;,
+        depends_on_past=False,
+        bash_command=&#39;sleep 5&#39;,
+        retries=3,
+    )
+    templated_command = dedent(
+        &quot;&quot;&quot;
+    {% for i in range(5) %}
+        echo &quot;{{ ds }}&quot;
+        echo &quot;{{ macros.ds_add(ds, 7)}}&quot;
+        echo &quot;{{ params.my_param }}&quot;
+    {% endfor %}
+    &quot;&quot;&quot;
+    )
+
+    t3 = BashOperator(
+        task_id=&#39;templated&#39;,
+        depends_on_past=False,
+        bash_command=templated_command,
+        params={&#39;my_param&#39;: &#39;Parameter I passed in&#39;},
+    )
+    t1 &gt;&gt; [t2, t3]
+</code></pre><p>Following is equivalent workflow in formicary:</p>
+<pre><code>job_type: loop-job
+tasks:
+- task_type: t1
+  container:
+    image: alpine
+  script:
+    - date
+  on_completed: t2
+- task_type: t2
+  container:
+    image: alpine
+  script:
+    - sleep 5
+  on_completed: t3
+- task_type: t3
+  container:
+    image: alpine
+  task_variables:
+    my_param: Parameter I passed in
+  script:
+{{- range $val := Iterate 5 }}
+    - echo {{$val}}
+    - echo {{ Add $val 7}}
+    - echo $my_param
+{{ end  }}
+</code></pre><h2 id="limitations-in-airflow">Limitations in Airflow</h2>
+<p>Following are major limitations of github actions:</p>
+<ul>
+<li>Airflow supports limited support for caching of artifacts.</li>
+<li>Airflow doesn&#39;t provide any metrics or queue size whereas formicary provides detailed reporting, metrics and insights into queue size.</li>
+<li>Airflow provides limited support for partial restart and retries unlike formicary that provides a number of configuration parameters to recover from the failure.</li>
+<li>Airflow provides limited support for optional and always-run tasks.</li>
+<li>Airflow provides limited support for specifying cpu, memory and storage limits whereas formicary allows these limits when using Kubernetes executors. </li>
+<li>Airflow does not support priority of the jobs whereas formicary allows specifying priority of jobs for determining execution order of pending jobs.</li>
+<li>Formicary provides more support for scheduling periodic or cron jobs.</li>
+<li>Formicary provides rich support for metrics and reporting on usage on resources and statistics on job failure/success.</li>
+<li>Formicary provides plugin APIs to share common workflows and jobs among users.</li>
+</ul>
 </div>  
 </body>
 </html>

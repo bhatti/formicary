@@ -17,10 +17,10 @@ const (
 	UPDATED JobDefinitionStateChange = "UPDATED"
 	// DELETED request
 	DELETED JobDefinitionStateChange = "DELETED"
-	// PAUSED request
-	PAUSED JobDefinitionStateChange = "PAUSED"
-	// UNPAUSED request
-	UNPAUSED JobDefinitionStateChange = "UNPAUSED"
+	// DISABLED request
+	DISABLED JobDefinitionStateChange = "disabled"
+	// ENABLED request
+	ENABLED JobDefinitionStateChange = "ENABLED"
 )
 
 // JobDefinitionLifecycleEvent is used to update lifecycle events of job execution

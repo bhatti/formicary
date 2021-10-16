@@ -76,10 +76,10 @@ func (jdr *JobDefinitionRepositoryCached) GetJobTypesAndCronTrigger(
 	return item.Value().([]types.JobTypeCronTrigger), nil
 }
 
-// SetPaused - sets paused status job-definition
-func (jdr *JobDefinitionRepositoryCached) SetPaused(
-	id string, paused bool) error {
-	err := jdr.adapter.SetPaused(id, paused)
+// SetDisabled - sets disabled status job-definition
+func (jdr *JobDefinitionRepositoryCached) SetDisabled(
+	id string, disabled bool) error {
+	err := jdr.adapter.SetDisabled(id, disabled)
 	if err == nil {
 		jdr.cache.DeletePrefix("jobDefinitionGet:" + id)
 		jdr.cache.DeletePrefix("jobDefinitionByType:" + jdr.getIDToTypeMapping(id))

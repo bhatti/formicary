@@ -4,7 +4,7 @@
       external_id VARCHAR(100) NOT NULL,
       valid_status BOOLEAN NOT NULL DEFAULT TRUE,
       active BOOLEAN NOT NULL DEFAULT TRUE,
-      paused BOOLEAN NOT NULL DEFAULT FALSE,
+      disabled BOOLEAN NOT NULL DEFAULT FALSE,
       quota INTEGER NOT NULL DEFAULT 0,
       lease_timeout BIGINT NOT NULL,
       resource_type VARCHAR(100) NOT NULL,
@@ -23,7 +23,7 @@
     CREATE INDEX formicary_job_resources_org_ndx ON formicary_job_resources(organization_id);
     CREATE INDEX formicary_job_resources_user_id_ndx ON formicary_job_resources(user_id);
     CREATE INDEX formicary_job_resources_platform_ndx ON formicary_job_resources(platform);
-    CREATE INDEX formicary_job_resources_paused_ndx ON formicary_job_resources(paused);
+    CREATE INDEX formicary_job_resources_disabled_ndx ON formicary_job_resources(disabled);
     CREATE INDEX formicary_job_resources_active_ndx ON formicary_job_resources(active);
 
     CREATE TABLE IF NOT EXISTS formicary_job_resource_config (

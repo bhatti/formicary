@@ -23,7 +23,7 @@ type GoogleAuth struct {
 }
 
 // AuthWebhookCallbackHandle returns webhook callback
-func (g *GoogleAuth) AuthWebhookCallbackHandle(web.WebContext) error {
+func (g *GoogleAuth) AuthWebhookCallbackHandle(web.APIContext) error {
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (g *GoogleAuth) String() string {
 }
 
 // AuthUser builds user from oauth response
-func (g *GoogleAuth) AuthUser(expectedState string, c web.WebContext) (*common.User, error) {
+func (g *GoogleAuth) AuthUser(expectedState string, c web.APIContext) (*common.User, error) {
 	return getUserInfoFromGoogle(
 		context.Background(),
 		expectedState,

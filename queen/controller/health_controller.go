@@ -29,7 +29,7 @@ func NewHealthController(
 	webserver.GET("/api/health", h.getHealth, acl.NewPermission(acl.Health, acl.Query)).Name = "get_health"
 	webserver.GET("/api/metrics", web.WrapHandler(promhttp.Handler()), acl.NewPermission(acl.Health, acl.Metrics))
 	// Check runtime.SetBlockProfileRate, runtime.SetMutexProfileFraction, go tool pprof.
-	webserver.GET("/api/pprof", func(c web.WebContext) error {
+	webserver.GET("/api/pprof", func(c web.APIContext) error {
 		pprof.Profile(c.Response(), c.Request())
 		return nil
 	}, acl.NewPermission(acl.Profile, acl.View))
@@ -55,7 +55,7 @@ func NewHealthController(
 // `This requires admin access`
 // responses:
 //   200: healthQueryResponse
-func (h *HealthController) getHealth(c web.WebContext) error {
+func (h *HealthController) getHealth(c web.APIContext) error {
 	overall, statuses := h.heathMonitor.GetAllStatuses()
 	resp := HealthQueryResponse{
 		OverallStatus:            overall,

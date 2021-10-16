@@ -1,0 +1,28 @@
+job_type: loop-job
+dynamic_template_tasks: true
+tasks:
+- task_type: t1
+  container:
+    image: alpine
+  script:
+    - date
+  on_completed: t2
+- task_type: t2
+  container:
+    image: alpine
+  script:
+    - sleep 5
+  on_completed: t3
+- task_type: t3
+  container:
+    image: alpine
+  task_variables:
+    my_param: Parameter I passed in
+  script:
+    - echo before loop
+{{- range $val := Iterate 5 }}
+    - echo {{$val}}
+    - echo {{ Add $val 7}}
+    - echo $my_param
+{{ end  }}
+    - echo after loop

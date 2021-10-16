@@ -34,7 +34,7 @@ func NewDefaultController(
 
 // ********************************* HTTP Handlers ***********************************
 // health - information about ant
-func (ctrl *DefaultController) health(c web.WebContext) error {
+func (ctrl *DefaultController) health(c web.APIContext) error {
 	res := map[string]interface{}{"HEALTH": "GOOD"}
 	return c.JSON(http.StatusOK, res)
 }

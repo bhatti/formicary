@@ -99,6 +99,7 @@ can be used as input of another task. The main use-cases for formicary include:
 - [Building Node.js CI/CD](docs/node_ci.md)
 - [Building GO CI/CD](docs/go_ci.md)
 - [Building Python CI/CD](docs/python_ci.md)
+- [Building Ruby CI/CD](docs/ruby_ci.md)
 - [Building Android CI/CD](docs/android_ci.md)
 - [Building Maven CI/CD](docs/maven_ci.md)
 
@@ -140,6 +141,7 @@ can be used as input of another task. The main use-cases for formicary include:
 [Comparison with other frameworks and solutions](docs/comparison.md)
 - [Migrating from Jenkins](docs/jenkins.md)
 - [Migrating from Gitlab](docs/gitlab.md)
+- [Migrating from Github Actions](docs/github.md)
 - [Migrating from CircleCI](docs/circleci.md)
 - [Migrating from Apache Airflow](docs/airflow.md)
  

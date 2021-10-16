@@ -37,7 +37,7 @@ func NewInvitationAdminController(
 // ********************************* HTTP Handlers ***********************************
 
 // newInvite - invites to org
-func (oc *InvitationAdminController) newInvite(c web.WebContext) (err error) {
+func (oc *InvitationAdminController) newInvite(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	if !qc.HasOrganization() {
 		logrus.WithFields(logrus.Fields{
@@ -60,7 +60,7 @@ func (oc *InvitationAdminController) newInvite(c web.WebContext) (err error) {
 }
 
 // invite - adds invitation
-func (oc *InvitationAdminController) invite(c web.WebContext) (err error) {
+func (oc *InvitationAdminController) invite(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	if !qc.User.HasOrganization() {
 		return fmt.Errorf("organization is not available for invitation")
@@ -82,7 +82,7 @@ func (oc *InvitationAdminController) invite(c web.WebContext) (err error) {
 }
 
 // invited - show invitation
-func (oc *InvitationAdminController) invited(c web.WebContext) error {
+func (oc *InvitationAdminController) invited(c web.APIContext) error {
 	user := web.GetDBLoggedUserFromSession(c)
 	if user == nil {
 		return fmt.Errorf("failed to find user in session for invited")
@@ -101,7 +101,7 @@ func (oc *InvitationAdminController) invited(c web.WebContext) error {
 }
 
 // invitations - queries org invitations
-func (oc *InvitationAdminController) invitations(c web.WebContext) error {
+func (oc *InvitationAdminController) invitations(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	recs, total, err := oc.userManager.QueryInvitations(qc, params, page, pageSize, order)

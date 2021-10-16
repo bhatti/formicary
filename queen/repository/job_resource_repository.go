@@ -11,11 +11,11 @@ type JobResourceRepository interface {
 	Get(
 		qc *common.QueryContext,
 		id string) (*types.JobResource, error)
-	// SetPaused pauses/unpauses job-definition
-	SetPaused(
+	// SetDisabled disables/enables job-definition
+	SetDisabled(
 		qc *common.QueryContext,
 		id string,
-		paused bool) error
+		disabled bool) error
 	// Delete job-resource
 	Delete(
 		qc *common.QueryContext,

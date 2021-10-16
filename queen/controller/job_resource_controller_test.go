@@ -3,13 +3,14 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
-	"plexobject.com/formicary/queen/repository"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/types"
@@ -23,7 +24,7 @@ func Test_InitializeSwaggerStructsForJobResource(t *testing.T) {
 	_ = jobResourceUpdateParams{}
 	_ = jobResourceBody{}
 	_ = jobResourceConfigDeleteParams{}
-	_ = jobResourceConfigBody {}
+	_ = jobResourceConfigBody{}
 }
 
 func Test_ShouldQueryJobResources(t *testing.T) {
@@ -113,7 +114,7 @@ func Test_ShouldSaveJobResource(t *testing.T) {
 	require.NotNil(t, savedJob)
 }
 
-func Test_ShouldPauseJobResource(t *testing.T) {
+func Test_ShouldDisableJobResource(t *testing.T) {
 	// GIVEN job-resource controller
 	qc, err := repository.NewTestQC()
 	require.NoError(t, err)
@@ -132,13 +133,13 @@ func Test_ShouldPauseJobResource(t *testing.T) {
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
 	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
-	err = ctrl.pauseJobResource(ctx)
+	err = ctrl.disableJobResource(ctx)
 
 	// THEN it should not fail
 	require.NoError(t, err)
 }
 
-func Test_ShouldUnpauseJobResource(t *testing.T) {
+func Test_ShouldEnableJobResource(t *testing.T) {
 	// GIVEN job-resource controller
 	qc, err := repository.NewTestQC()
 	require.NoError(t, err)
@@ -152,12 +153,12 @@ func Test_ShouldUnpauseJobResource(t *testing.T) {
 	webServer := web.NewStubWebServer()
 	ctrl := NewJobResourceController(auditRecordRepository, jobResourceRepository, webServer)
 
-	// WHEN unpausing job-resource
+	// WHEN enabling job-resource
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
 	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = jobRes.ID
-	err = ctrl.unpauseJobResource(ctx)
+	err = ctrl.enableJobResource(ctx)
 
 	// THEN it should not fail
 	require.NoError(t, err)
@@ -187,4 +188,3 @@ func Test_ShouldDeleteJobResource(t *testing.T) {
 	// THEN it should not fail
 	require.NoError(t, err)
 }
-

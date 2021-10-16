@@ -101,17 +101,17 @@ func Test_ShouldDeleteByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 }
 
 // Pausing non-existing job-definition should fail
-func Test_ShouldPauseByTypeJobDefinitionWithNonExistingType(t *testing.T) {
+func Test_ShoulddisableByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
 
 	// WHEN pausing non-existing job-definition
-	err = repo.SetPaused("non-existing-job", true)
+	err = repo.SetDisabled("non-existing-job", true)
 
 	// THEN it should fail
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to set pause")
+	require.Contains(t, err.Error(), "failed to set disable")
 }
 
 // Saving job-definition without job-type should fail
@@ -350,7 +350,7 @@ func Test_ShouldPausingPersistentJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND an existing job
-	job := types.NewJobDefinition("test.test-job-for-pause")
+	job := types.NewJobDefinition("test.test-job-for-disable")
 	job.UserID = qc.User.ID
 	job.OrganizationID = qc.User.OrganizationID
 	task1 := types.NewTaskDefinition("task1", common.Shell)
@@ -360,7 +360,7 @@ func Test_ShouldPausingPersistentJobDefinition(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN pausing job by id
-	err = repo.SetPaused(saved.ID, true)
+	err = repo.SetDisabled(saved.ID, true)
 	// THEN it should not fail
 	require.NoError(t, err)
 }

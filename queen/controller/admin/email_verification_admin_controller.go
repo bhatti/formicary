@@ -37,7 +37,7 @@ func NewEmailVerificationAdminController(
 
 // ********************************* HTTP Handlers ***********************************
 // queryEmailVerifications - queries error-code
-func (ctr *EmailVerificationAdminController) queryEmailVerifications(c web.WebContext) error {
+func (ctr *EmailVerificationAdminController) queryEmailVerifications(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
 	recs, total, err := ctr.userManager.QueryEmailVerifications(qc, params, page, pageSize, order)
@@ -56,7 +56,7 @@ func (ctr *EmailVerificationAdminController) queryEmailVerifications(c web.WebCo
 	return c.Render(http.StatusOK, "email_verification/index", res)
 }
 
-func (ctr *EmailVerificationAdminController) createEmailVerification(c web.WebContext) (err error) {
+func (ctr *EmailVerificationAdminController) createEmailVerification(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	res := map[string]interface{}{}
 	user := web.GetDBUserFromSession(c)
@@ -85,7 +85,7 @@ func (ctr *EmailVerificationAdminController) createEmailVerification(c web.WebCo
 	return c.Redirect(http.StatusFound, "/dashboard/users/verify_email/"+id)
 }
 
-func (ctr *EmailVerificationAdminController) showEmailVerification(c web.WebContext) (err error) {
+func (ctr *EmailVerificationAdminController) showEmailVerification(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	res := map[string]interface{}{"EmailCode": ""}
 	user := web.GetDBUserFromSession(c)
@@ -108,7 +108,7 @@ func (ctr *EmailVerificationAdminController) showEmailVerification(c web.WebCont
 	return c.Render(http.StatusOK, "email_verification/verify_email", res)
 }
 
-func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.WebContext) (err error) {
+func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.APIContext) (err error) {
 	res := map[string]interface{}{"EmailCode": ""}
 	qc := web.BuildQueryContext(c)
 	user := web.GetDBUserFromSession(c)

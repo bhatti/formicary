@@ -25,13 +25,13 @@ func NewIndexController(
 }
 
 // ********************************* HTTP Handlers ***********************************
-func (ctr *IndexController) terms(c web.WebContext) error {
+func (ctr *IndexController) terms(c web.APIContext) error {
 	res := make(map[string]interface{})
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "terms_service", res)
 }
 
-func (ctr *IndexController) privacy(c web.WebContext) error {
+func (ctr *IndexController) privacy(c web.APIContext) error {
 	res := make(map[string]interface{})
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "privacy_policies", res)
