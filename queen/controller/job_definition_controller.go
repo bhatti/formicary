@@ -40,15 +40,15 @@ func NewJobDefinitionController(
 	webserver.GET("/api/jobs/definitions", jobDefCtrl.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_definitions"
 	webserver.GET("/api/jobs/plugins", jobDefCtrl.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_plugins"
 	webserver.GET("/api/jobs/definitions/:id", jobDefCtrl.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_job_definition"
-	webserver.POST("/api/jobs/definitions", jobDefCtrl.postJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "create_job_definition"
-	webserver.DELETE("/api/jobs/definitions/:id", jobDefCtrl.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_job_definition"
-	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
-	webserver.POST("/api/jobs/definitions/:id/disable", jobDefCtrl.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_job_definitions"
-	webserver.POST("/api/jobs/definitions/:id/enable", jobDefCtrl.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_job_definitions"
 	webserver.GET("/api/jobs/definitions/:id/dot", jobDefCtrl.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/api/jobs/definitions/:id/dot.png", jobDefCtrl.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
-	webserver.PUT("/api/jobs/definitions/:id/concurrency", jobDefCtrl.updateConcurrencyJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "update_concurrency_job_definition"
+	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
 	webserver.GET("/api/jobs/definitions/stats", jobDefCtrl.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_job_definition"
+	webserver.POST("/api/jobs/definitions", jobDefCtrl.postJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "create_job_definition"
+	webserver.POST("/api/jobs/definitions/:id/disable", jobDefCtrl.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_job_definitions"
+	webserver.POST("/api/jobs/definitions/:id/enable", jobDefCtrl.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_job_definitions"
+	webserver.PUT("/api/jobs/definitions/:id/concurrency", jobDefCtrl.updateConcurrencyJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "update_concurrency_job_definition"
+	webserver.DELETE("/api/jobs/definitions/:id", jobDefCtrl.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_job_definition"
 	return jobDefCtrl
 }
 

@@ -97,6 +97,8 @@ kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic 
 ```
 SERVER=127.0.0.1:32181
 
+kafka-topics --zookeeper $SERVER --topic formicary-topic-job-webhook-lifecycle --create --partitions 1 --replication-factor 1
+kafka-topics --zookeeper $SERVER --topic formicary-topic-task-webhook-lifecycle --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-topic-container-lifecycle --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-topic-job-definition-lifecycle --create --partitions 1 --replication-factor 1
 kafka-topics --zookeeper $SERVER --topic formicary-topic-job-request-lifecycle --create --partitions 1 --replication-factor 1

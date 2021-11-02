@@ -15,6 +15,7 @@ import (
 	"plexobject.com/formicary/queen/resource"
 	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/stats"
+	"plexobject.com/formicary/queen/webhook"
 	"strconv"
 )
 
@@ -32,17 +33,22 @@ func StartWebServer(
 	heathMonitor *health.Monitor,
 	queueClient queue.Client,
 	webServer web.Server,
+	http web.HTTPClient,
 ) error {
 	authProviders := make([]auth.Provider, 0)
 	if googleAuthProvider, err := security.NewGoogleAuth(&serverCfg.CommonConfig); err == nil {
 		authProviders = append(authProviders, googleAuthProvider)
 	}
 
-	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager.BuildPostWebhookHandler()); err == nil {
+	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager.BuildGithubPostWebhookHandler()); err == nil {
 		authProviders = append(authProviders, githubAuthProvider)
 	}
 
 	if err := startWebsocket(serverCfg, queueClient, repoFactory.LogEventRepository, webServer); err != nil {
+		return err
+	}
+
+	if err := startWebhookProcessor(serverCfg, queueClient, http); err != nil {
 		return err
 	}
 
@@ -75,6 +81,14 @@ func StartWebServer(
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func startWebhookProcessor(
+	serverCfg *config.ServerConfig,
+	queueClient queue.Client,
+	http web.HTTPClient,
+) error {
+	return webhook.New(serverCfg, queueClient, http).Start(context.Background())
+}
+
 func startWebsocket(
 	serverCfg *config.ServerConfig,
 	queueClient queue.Client,

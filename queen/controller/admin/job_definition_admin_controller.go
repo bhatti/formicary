@@ -3,8 +3,10 @@ package admin
 import (
 	"bytes"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/acl"
@@ -43,16 +45,17 @@ func NewJobDefinitionAdminController(
 
 	webserver.GET("/dashboard/jobs/definitions", jdaCtr.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/plugins", jdaCtr.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_plugins"
-	webserver.POST("/dashboard/jobs/definitions/upload", jdaCtr.uploadJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/definitions/:id", jdaCtr.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
-	webserver.POST("/dashboard/jobs/definitions/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot", jdaCtr.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot.png", jdaCtr.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/stats", jdaCtr.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_admin_job_definition"
+	webserver.GET("/dashboard/jobs/definitions/new", jdaCtr.newJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "new_admin_job_definitions"
+	webserver.GET("/dashboard/jobs/definitions/:id/edit", jdaCtr.editJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "new_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions", jdaCtr.saveJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/upload", jdaCtr.uploadJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "upload_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
 	return jdaCtr
 }
 
@@ -151,6 +154,104 @@ func (jdaCtr *JobDefinitionAdminController) uploadJobDefinition(c web.APIContext
 		}
 	}
 
+	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions")
+}
+
+func (jdaCtr *JobDefinitionAdminController) newJobDefinitions(c web.APIContext) error {
+	job := &types.JobDefinition{}
+	qc := web.BuildQueryContext(c)
+	if c.QueryParam("plugin") != "" || c.FormValue("plugin") != "" {
+		job.PublicPlugin = true
+		job.RawYaml = `job_type: ` + qc.GetBundle() + `.sample-plugin
+description: Simple Plugin example
+public_plugin: true
+sem_version: 1.0-dev
+tasks:
+- task_type: hello
+  container:
+    image: alpine
+  script:
+    - echo hello there
+  on_completed: bye
+- task_type: bye
+  container:
+    image: alpine
+  script:
+    - echo good bye
+`
+	} else {
+		job.RawYaml = `job_type: sample-job
+description: Simple job example
+tasks:
+- task_type: hello
+  container:
+    image: alpine
+  script:
+    - echo hello there
+  on_completed: bye
+- task_type: bye
+  container:
+    image: alpine
+  script:
+    - echo good bye
+`
+	}
+	res := map[string]interface{}{
+		"Job": job,
+	}
+	web.RenderDBUserFromSession(c, res)
+	return c.Render(http.StatusOK, "jobs/def/new", res)
+}
+
+func (jdaCtr *JobDefinitionAdminController) editJobDefinitions(c web.APIContext) error {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	job, err := jdaCtr.jobManager.GetJobDefinition(qc, id)
+	if err != nil {
+		return nil
+	}
+	res := map[string]interface{}{
+		"Job": job,
+	}
+	web.RenderDBUserFromSession(c, res)
+	return c.Render(http.StatusOK, "jobs/def/new", res)
+}
+
+// saveJobDefinitions - save job-definition
+func (jdaCtr *JobDefinitionAdminController) saveJobDefinition(c web.APIContext) (err error) {
+	rawYaml := strings.TrimSpace(c.FormValue("raw_yaml"))
+	job, err := types.NewJobDefinitionFromYaml([]byte(rawYaml))
+	if err != nil {
+		job := &types.JobDefinition{}
+		job.RawYaml = rawYaml
+		job.Errors = map[string]string{"Error": err.Error()}
+		res := map[string]interface{}{
+			"Job": job,
+		}
+		web.RenderDBUserFromSession(c, res)
+		return c.Render(http.StatusOK, "jobs/def/new", res)
+	}
+	qc := web.BuildQueryContext(c)
+	job.OrganizationID = qc.GetOrganizationID()
+	job.UserID = qc.GetUserID()
+	saved, err := jdaCtr.jobManager.SaveJobDefinition(qc, job)
+	if err != nil {
+		job.Errors = map[string]string{"Error": err.Error()}
+		res := map[string]interface{}{
+			"Job": job,
+		}
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobDefinitionAdminController",
+			"Error":     err,
+			"Raw":       rawYaml,
+		}).Warnf("failed to save job definition")
+		web.RenderDBUserFromSession(c, res)
+		return c.Render(http.StatusOK, "jobs/def/new", res)
+	}
+	_, _ = jdaCtr.jobManager.SaveAudit(types.NewAuditRecordFromJobDefinition(saved, types.JobDefinitionUpdated, qc))
+	if job.PublicPlugin {
+		return c.Redirect(http.StatusFound, "/dashboard/jobs/plugins")
+	}
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions")
 }
 

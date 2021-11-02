@@ -3,8 +3,22 @@
 The error codes are returned when a job fails so that you can see root cause of the failure easily. The error codes
 are matched by regular expression against error message or exit codes from task output and matching error code is
 saved with the job results.
-<div align="right">
-    <a href="/dashboard/errors/new">New Error Code</a>
+<div class="float-right text-right row">
+    <form action="/dashboard/errors/new" method="GET">
+        <input type="submit" class="btn btn-primary" value="New Error Code">
+    </form>
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <form action="/dashboard/errors" method="GET">
+        <div class="form-group">
+            <div class="form-group row">
+                <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search errors">
+                &nbsp;
+                <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
+            </div>
+        </div>
+    </form>
 </div>
 <div class="table-responsive">
     <table class="table table-striped table-sm">

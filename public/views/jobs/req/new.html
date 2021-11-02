@@ -1,7 +1,7 @@
 {{ template "layouts/header" . }}
 <section class="group">
     <header class="group-header">
-        <h4 class="group-title">New Job Request</h4>
+        <h4 class="group-title">Trigger Job Request</h4>
     </header>
     <form action="/dashboard/jobs/requests" method="POST">
     {{ template "jobs/req/form" Dict "Request" .Request "JobTypes" .JobTypes }}

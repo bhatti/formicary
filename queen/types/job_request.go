@@ -242,8 +242,8 @@ func (jr *JobRequest) IsForkedJob() bool {
 
 // ShortJobType short job-type
 func (jr *JobRequest) ShortJobType() string {
-	if len(jr.JobType) > 10 {
-		return jr.JobType[:10] + "..."
+	if len(jr.JobType) > 12 {
+		return jr.JobType[:12] + "..."
 	}
 	return jr.JobType
 }

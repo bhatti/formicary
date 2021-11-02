@@ -3,18 +3,23 @@
 The virtual job resources are used to represent as locks or quota for external resources such as licences, devices,
 connections to external services, etc. You can then specify these resources in a job or task definition so that
 they allocates the resource if a resource is available otherwise wait for the resource.
-<form action="/dashboard/jobs/resources" method="GET">
-    <div class="form-group">
-        <div class="form-group row">
-            <input type="text" class="col-sm-3 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search job resources">
-            &nbsp;
-            <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
-        </div>
-    </div>
-</form>
 
-<div align="right">
-    <a href="/dashboard/jobs/resources/new">New Job Resource</a>
+<div class="float-right text-right row">
+    <form action="/dashboard/jobs/resources/new" method="GET">
+        <input type="submit" class="btn btn-primary" value="New Job Resource">
+    </form>
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <form action="/dashboard/jobs/resources" method="GET">
+        <div class="form-group">
+            <div class="form-group row">
+                <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search resources">
+                &nbsp;
+                <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
+            </div>
+        </div>
+    </form>
 </div>
 <div class="table-responsive">
     <table class="table table-striped table-sm">

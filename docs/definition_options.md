@@ -594,6 +594,34 @@ job_variables:
 
 The Target variable can also be used for initializing variables in templates.
 
+### Webhooks
+You can configure job to call an external webhook API upon completion of a job or task, e.g.
+```yaml
+job_type: hook-job
+webhook:
+  url: {{.WebhookURL}}
+  method: POST 
+  headers:
+    Authorization: Bearer {{.WebhookAuth}}
+  query:
+    job_key: job_value
+tasks:
+- task_type: init
+  container:
+    image: alpine
+  script:
+    - ls -l
+  webhook:
+    url: {{.WebhookURL}}
+    method: POST 
+    headers:
+      Authorization: Bearer {{.WebhookAuth}}
+    query:
+      task_key: task_value
+```
+
+Note: You can specify webhook at both job and task levels.
+
 ### Email Notifications
 You can configure job to receive email notifications when a job completes successfully or with failure, e.g.,
 ```yaml
@@ -714,5 +742,536 @@ which can be used for as template parameters or pass to the executors, e.g.
      { { else } }
      - echo Age {{.Age}}
      { { end } }
+```
+
+### YAML Schema
+Following is yaml schema for job configuration options:
+```json
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/JobDefinition",
+    "definitions": {
+        "JobDefinition": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "cron_trigger": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "qt-uri-protocols": [
+                        "https",
+                        "http"
+                    ]
+                },
+                "timeout": {
+                    "type": "string"
+                },
+                "max_concurrency": {
+                    "type": "integer"
+                },
+                "job_variables": {
+                    "$ref": "#/definitions/JobVariables"
+                },
+                "filter": {
+                    "type": "boolean"
+                },
+                "retry": {
+                    "type": "integer"
+                },
+                "public_plugin": {
+                    "type": "boolean"
+                },
+                "sem_version": {
+                    "type": "string"
+                },
+                "notify": {
+                    "$ref": "#/definitions/Notify"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Task"
+                    }
+                },
+                "resources": {
+                    "$ref": "#/definitions/Resources"
+                }
+            },
+            "required": [
+                "job_type",
+                "tasks",
+            ],
+            "title": "JobDefinition"
+        },
+        "JobVariables": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+            },
+            "required": [
+            ],
+            "title": "JobVariables"
+        },
+        "Notify": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "email": {
+                    "$ref": "#/definitions/Email"
+                },
+                "except": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "email",
+                "except"
+            ],
+            "title": "Notify"
+        },
+        "Email": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "recipients": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "when": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "recipients",
+                "when"
+            ],
+            "title": "Email"
+        },
+        "Resources": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "resource_type": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "value": {
+                    "type": "integer"
+                },
+                "extract_config": {
+                    "$ref": "#/definitions/ExtractConfig"
+                }
+            },
+            "required": [
+                "platform",
+                "resource_type",
+                "value"
+            ],
+            "title": "Resources"
+        },
+        "ExtractConfig": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "context_prefix": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "context_prefix",
+                "properties"
+            ],
+            "title": "ExtractConfig"
+        },
+        "Task": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "task_type": {
+                    "type": "string"
+                },
+                "xmethod": {
+                    "type": "string"
+                },
+                "container": {
+                    "$ref": "#/definitions/Container"
+                },
+                "script": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "qt-uri-protocols": [
+                            "http",
+                            "https"
+                        ]
+                    }
+                },
+                "after_script": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "artifacts": {
+                    "$ref": "#/definitions/Artifacts"
+                },
+                "on_completed": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "fork_job_type": {
+                    "type": "string"
+                },
+                "variables": {
+                    "$ref": "#/definitions/Variables"
+                },
+                "headers": {
+                    "$ref": "#/definitions/Headers"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "working_dir": {
+                    "type": "string"
+                },
+                "host_network": {
+                    "type": "boolean"
+                },
+                "privileged": {
+                    "type": "boolean"
+                },
+                "environment": {
+                    "$ref": "#/definitions/Environment"
+                },
+                "cache": {
+                    "$ref": "#/definitions/Cache"
+                },
+                "pod_labels": {
+                    "$ref": "#/definitions/PodLabels"
+                },
+                "before_script": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Service"
+                    }
+                },
+                "allow_failure": {
+                    "type": "boolean"
+                },
+                "messaging_request_queue": {
+                    "type": "string"
+                },
+                "messaging_reply_queue": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "string"
+                },
+                "delay_between_retries": {
+                    "type": "string"
+                },
+                "on_exit_code": {
+                    "$ref": "#/definitions/OnExitCode"
+                },
+                "await_forked_tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "always_run": {
+                    "type": "boolean"
+                },
+                "retry": {
+                    "type": "integer"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "resources": {
+                    "$ref": "#/definitions/Resources"
+                }
+            },
+            "required": [
+                "task_type"
+            ],
+            "title": "Task"
+        },
+        "Artifacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "paths"
+            ],
+            "title": "Artifacts"
+        },
+        "Cache": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "key_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "key_paths",
+                "paths"
+            ],
+            "title": "Cache"
+        },
+        "Container": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "cpu_limit": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "cpu_request": {
+                    "type": "string"
+                },
+                "memory_limit": {
+                    "type": "string"
+                },
+                "memory_request": {
+                    "type": "string"
+                },
+                "ephemeral_storage_limit": {
+                    "type": "string"
+                },
+                "ephemeral_storage_request": {
+                    "type": "string"
+                },
+                "volumes": {
+                    "$ref": "#/definitions/ContainerVolumes"
+                }
+            },
+            "required": [
+                "image"
+            ],
+            "title": "Container"
+        },
+        "ContainerVolumes": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "empty_dir": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/EmptyDir"
+                    }
+                },
+                "host_path": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/HostPath"
+                    }
+                }
+            },
+            "required": [
+            ],
+            "title": "ContainerVolumes"
+        },
+        "EmptyDir": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "mount_path": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "mount_path",
+                "name"
+            ],
+            "title": "EmptyDir"
+        },
+        "HostPath": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "mount_path": {
+                    "type": "string"
+                },
+                "host_path": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "host_path",
+                "mount_path",
+                "name"
+            ],
+            "title": "HostPath"
+        },
+        "Environment": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+            },
+            "required": [
+            ],
+            "title": "Environment"
+        },
+        "Headers": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+            },
+            "required": [
+            ],
+            "title": "Headers"
+        },
+        "OnExitCode": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "COMPLETED": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "COMPLETED"
+            ],
+            "title": "OnExitCode"
+        },
+        "PodLabels": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+            },
+            "required": [
+            ],
+            "title": "PodLabels"
+        },
+        "Service": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "alias": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "entrypoint": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "volumes": {
+                    "$ref": "#/definitions/ServiceVolumes"
+                }
+            },
+            "required": [
+                "command",
+                "entrypoint",
+                "image",
+                "name",
+            ],
+            "title": "Service"
+        },
+        "ServiceVolumes": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "empty_dir": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/EmptyDir"
+                    }
+                }
+            },
+            "required": [
+                "empty_dir"
+            ],
+            "title": "ServiceVolumes"
+        },
+        "Variables": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+            },
+            "required": [],
+            "title": "Variables"
+        }
+    }
+}
+
 ```
 

@@ -1,8 +1,11 @@
 {{ template "layouts/header" . }}
 <h3>{{.Title}}</h3>
-<div align="right">
-    <a href="/dashboard/jobs/requests/new">New Request</a>
+<div class="float-right text-right row">
+    <form action="/dashboard/jobs/requests/new" method="GET">
+        <input type="submit" class="btn btn-success" value="Trigger New Job">
+    </form>
 </div>
+
 <div class="form-group">
     <p class="error_id" align="center"></p>
 </div>
@@ -64,7 +67,7 @@
                 {{if .CanTriggerCron }}
                 &nbsp;
                 <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-secondary" value="Trigger">
+                    <input type="submit" class="btn btn-success" value="Trigger">
                     <input type="hidden" name="id" value="{{.ID}}"></form>
                 {{end}}
                 {{if .CanCancel }}

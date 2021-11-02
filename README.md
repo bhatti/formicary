@@ -6,17 +6,17 @@ The formicary is a distributed orchestration engine that allows to execute batch
 
 The formicary is a distributed orchestration engine for executing background jobs and workflows that are executed remotely using
 Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task 
-defines a unit of work. The formicary architecture is based on the *Leader-Follower* (or master/worker) pattern 
-where queen-leader schedules and orchestrates execution of the graph of tasks. The task work is distributed among ant-workers 
+defines a unit of work. The formicary architecture is based on the *Leader-Follower* (or master/worker), *Pipes-Filter*, *Fork-Join* and *SEDA* deisgn  patterns. 
+The queen-leader schedules and orchestrates the graph of tasks and ant-workers execute the work. The task work is distributed among ant-workers 
 based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc.
 The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, 
 which can be used by other tasks as input for their work. This allows building stages of tasks using
-*Pipes and Filter* pattern, where artifacts and variables can be passed from one task to another so that output of a task 
-can be used as input of another task. The main use-cases for formicary include:
-- Processing directed acyclic graphs
-- Batch jobs such as ETL or other offline processing
+*Pipes and Filter* and *SEDA* patterns, where artifacts and variables can be passed from one task to another so that output of a task 
+can be used as input of another task. The *Fork/Join* pattern allows executing work in parallel and then joining the results at the end. The main use-cases for formicary include:
+- Processing directed acyclic graphs of tasks
+- Batch jobs such as ETL, data imports and other offline processing
 - Scheduled batch processing such as clearing, settlement, etc
-- Data Pipelines such as processing large size data in background
+- Data Pipelines such as processing a large size data in background
 - CI/CD Pipelines for building, testing and deploying code
 - Automation for repetitive tasks
 - Building workflows of tasks that have complex dependencies and can interact with a variety of protocols

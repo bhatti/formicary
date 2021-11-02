@@ -54,6 +54,8 @@ const (
 	UserInvitation Resource = "UserInvitation"
 	// Report resource
 	Report Resource = "Report"
+	// Logs resource
+	Logs Resource = "Logs"
 )
 
 const (
@@ -341,6 +343,7 @@ func DefaultPermissions() []*Permission {
 		NewPermission(EmailVerification, Create|View|Read|Verify|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
 		NewPermission(Report, None),
+		NewPermission(Logs, Create|View|Update|Read),
 	}
 }
 
@@ -372,5 +375,6 @@ func AdminPermissions() []*Permission {
 		NewPermission(EmailVerification, Create|Read|Update|Delete|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
 		NewPermission(Report, View|Read|Query),
+		NewPermission(Logs, Create|View|Update|Read),
 	}
 }

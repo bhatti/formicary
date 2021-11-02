@@ -859,6 +859,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		jsm.Request.GetJobPriority(),
 		jsm.JobExecution.ContextMap(),
 	)
+	jsm.publishJobWebhook(ctx, event)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
 		return fmt.Errorf("failed to marshal job-execution event due to %v", err)
@@ -875,6 +876,56 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		return fmt.Errorf("failed to send job-execution event due to %v", err)
 	}
 	return nil
+}
+
+func (jsm *JobExecutionStateMachine) publishJobWebhook(ctx context.Context, event *events.JobExecutionLifecycleEvent) {
+	if hook, err := jsm.JobDefinition.Webhook(jsm.buildDynamicParams(nil)); err == nil && hook != nil {
+		hookEvent := events.NewWebhookJobEvent(event, hook)
+		if hookPayload, err := hookEvent.Marshal(); err == nil {
+			if _, err = jsm.QueueClient.Publish(ctx,
+				jsm.serverCfg.GetJobWebhookTopic(),
+				hookPayload,
+				queue.NewMessageHeaders(
+					queue.DisableBatchingKey, "true",
+					"RequestID", fmt.Sprintf("%d", jsm.Request.GetID()),
+					"UserID", jsm.Request.GetUserID(),
+				),
+			); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":       "JobExecutionStateMachine",
+					"RequestID":       jsm.Request.GetID(),
+					"UserID":          jsm.Request.GetUserID(),
+					"Organization":    jsm.Request.GetOrganizationID(),
+					"JobDefinitionID": jsm.JobDefinition.ID,
+					"JobType":         jsm.JobDefinition.JobType,
+					"Webhook":         hook,
+					"Error":           err,
+				}).Warnf("failed to publish job webhook event ...")
+			}
+		} else if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":       "JobExecutionStateMachine",
+				"RequestID":       jsm.Request.GetID(),
+				"UserID":          jsm.Request.GetUserID(),
+				"Organization":    jsm.Request.GetOrganizationID(),
+				"JobDefinitionID": jsm.JobDefinition.ID,
+				"JobType":         jsm.JobDefinition.JobType,
+				"Webhook":         hook,
+				"Error":           err,
+			}).Warnf("failed to marshal job webhook event ...")
+		}
+	} else if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":       "JobExecutionStateMachine",
+			"RequestID":       jsm.Request.GetID(),
+			"UserID":          jsm.Request.GetUserID(),
+			"Organization":    jsm.Request.GetOrganizationID(),
+			"JobDefinitionID": jsm.JobDefinition.ID,
+			"JobType":         jsm.JobDefinition.JobType,
+			"Webhook":         hook,
+			"Error":           err,
+		}).Warnf("failed to fetch job webhook ...")
+	}
 }
 
 // Fire event to start the job by job-launcher that listens to incoming request in queue and executes it

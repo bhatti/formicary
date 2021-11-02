@@ -126,7 +126,7 @@
 </tbody>
 </table>
 <h2 id="sample-airflow-dags">Sample Airflow DAGs</h2>
-<p>Here is a sample dag of Airflow :</p>
+<p>Here is a sample DAG of Airflow :</p>
 <pre><code>from datetime import datetime, timedelta
 from textwrap import dedent
 from airflow import DAG
@@ -179,7 +179,7 @@ with DAG(
         params={&#39;my_param&#39;: &#39;Parameter I passed in&#39;},
     )
     t1 &gt;&gt; [t2, t3]
-</code></pre><p>Following is equivalent workflow in formicary:</p>
+</code></pre><p>Following is equivalent DAG in formicary:</p>
 <pre><code>job_type: loop-job
 tasks:
 - task_type: t1

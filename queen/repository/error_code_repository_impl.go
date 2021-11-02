@@ -145,7 +145,7 @@ func (ecr *ErrorCodeRepositoryImpl) Query(
 	} else {
 		tx = tx.Where("user_id = ?", qc.GetUserID())
 	}
-	tx = addQueryParamsWhere(params, tx)
+	tx = ecr.addQuery(params, tx)
 	if len(order) == 0 {
 		order = []string{"error_code"}
 	}
@@ -159,6 +159,16 @@ func (ecr *ErrorCodeRepositoryImpl) Query(
 	}
 	totalRecords, _ = ecr.Count(qc, params)
 	return
+}
+
+func (ecr *ErrorCodeRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
+	q := params["q"]
+	if q != nil {
+		qs := fmt.Sprintf("%%%s%%", q)
+		tx = tx.Where("regex LIKE ? OR error_code LIKE ? OR description LIKE ? OR display_message LIKE ? OR display_code LIKE ? OR job_type LIKE ? OR task_type_scope LIKE ? OR platform_scope LIKE ? OR command_scope LIKE ? OR action LIKE ?",
+			qs, qs, qs, qs, qs, qs, qs, qs, qs, qs)
+	}
+	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }
 
 // Count counts records by query

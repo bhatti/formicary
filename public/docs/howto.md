@@ -119,7 +119,10 @@ Or you can store ssh keys in job-definition / organization configs for accessing
 git clone https://<username>:<password>@github.com/<yourid>/<your-project>.git
 ```
 
-### Webhooks
+### General Webhooks
+See [Webhooks](definition_options.md#Webhooks) for defining general purpose webhooks.
+
+### Github Webhooks
 
 You can submit jobs by creating GitHub Webhook, e.g.,
 ![Github Webhook](github_webhook.png)
@@ -226,6 +229,8 @@ Note: Slack messages require access token and see slack documentation for genera
 
 And then add token in your organization configurations, e.g.
 ![Organization Config](org_config.png)
+
+See [Notification Config](definition_options.md) for more information on email/slack notification configuration.
 
 ### Additional References
 

@@ -133,6 +133,11 @@ can be used by other tasks as input in the data pipeline processing, e.g.
 
 ![Processing Pipeline](pipeline-arch.png)
 
+#### Fork/Join
+The formicary allows a job to spawn other jobs that can run in parallel and then join them for the results, e.g.
+
+![DataFlow](examples/parallel-video-pipeline.png)
+
 Following are fundamental concepts in formicary:
 #### Job Definition
 A job represents a directed acyclic graph (DAG) of tasks that are executed where each subsequent task is 

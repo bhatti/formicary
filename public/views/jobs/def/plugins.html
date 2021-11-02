@@ -6,22 +6,33 @@ public plugin allows you to define a job that can be shared by any other user. A
 organization by defining a job definition where the job-type begins with the organization bundle and it defines a semantic version
 such as 1.0 or 1.2.1.
 
-<form action="/dashboard/jobs/plugins" method="GET">
-    <div class="form-group">
-        <div class="form-group row">
-            <input type="text" class="col-sm-3 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search public plugins">
-            &nbsp;
-            <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
-        </div>
+<div class="float-right row">
+    <form action="/dashboard/jobs/definitions/new" method="GET">
+        <input type="submit" class="btn btn-primary" value="New Plugin">
+        <input type="hidden" name="plugin" value="true">
+    </form>
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <div class="bg-light">
+        <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data">
+            Load Files: <input type="file" name="files" multiple>
+            <input type="submit" class="btn btn-secondary" value="Upload Plugin">
+        </form>
     </div>
-</form>
-
-<div align="right">
-    <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data">
-        Load Files: <input type="file" name="files" multiple>
-        <input type="submit" value="Upload Plugin">
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <form action="/dashboard/jobs/plugins" method="GET">
+        <div class="form-group row">
+            <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}"
+                   placeholder="Search plugins">
+            &nbsp;
+            <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
+        </div>
     </form>
 </div>
+
 <div class="table-responsive">
     <table class="table table-striped table-sm">
         <thead>

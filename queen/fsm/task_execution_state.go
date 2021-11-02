@@ -421,6 +421,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		tsm.TaskExecution.AntID,
 		tsm.TaskExecution.ContextMap(),
 	)
+	tsm.publishTaskWebhook(ctx, event)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
 		return fmt.Errorf("failed to marshal task-execution event due to %v", err)
@@ -438,6 +439,45 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		return fmt.Errorf("failed to send task-execution event due to %v", err)
 	}
 	return nil
+}
+
+func (tsm *TaskExecutionStateMachine) publishTaskWebhook(ctx context.Context, event *events.TaskExecutionLifecycleEvent) {
+	if tsm.TaskDefinition.Webhook != nil {
+		hookEvent := events.NewWebhookTaskEvent(event, tsm.TaskDefinition.Webhook)
+		if hookPayload, err := hookEvent.Marshal(); err == nil {
+			if _, err = tsm.QueueClient.Publish(ctx,
+				tsm.serverCfg.GetTaskWebhookTopic(),
+				hookPayload,
+				queue.NewMessageHeaders(
+					queue.DisableBatchingKey, "true",
+					"RequestID", fmt.Sprintf("%d", tsm.Request.GetID()),
+					"UserID", tsm.Request.GetUserID(),
+				),
+			); err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":       "TaskExecutionStateMachine",
+					"RequestID":       tsm.Request.GetID(),
+					"UserID":          tsm.Request.GetUserID(),
+					"Organization":    tsm.Request.GetOrganizationID(),
+					"JobDefinitionID": tsm.JobDefinition.ID,
+					"JobType":         tsm.JobDefinition.JobType,
+					"Webhook":         tsm.TaskDefinition.Webhook,
+					"Error":           err,
+				}).Warnf("failed to publish task webhook event ...")
+			}
+		} else if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":       "TaskExecutionStateMachine",
+				"RequestID":       tsm.Request.GetID(),
+				"UserID":          tsm.Request.GetUserID(),
+				"Organization":    tsm.Request.GetOrganizationID(),
+				"JobDefinitionID": tsm.JobDefinition.ID,
+				"JobType":         tsm.JobDefinition.JobType,
+				"Webhook":         tsm.TaskDefinition.Webhook,
+				"Error":           err,
+			}).Warnf("failed to marshal task webhook event ...")
+		}
+	}
 }
 
 func (tsm *TaskExecutionStateMachine) updateArtifactsFromResponse(taskResp *common.TaskResponse) {

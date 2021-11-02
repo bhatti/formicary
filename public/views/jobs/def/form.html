@@ -1,0 +1,13 @@
+<div class="form-group">
+    {{ with .Errors.Error }}
+    <p class="error" align="center">{{ . }}</p>
+    {{ end }}
+</div>
+
+<div class="form-group">
+  <label for="raw_yaml">Job Definition (in YAML):</label>
+  <textarea class="form-control" id="raw_yaml" name="raw_yaml" rows="10">{{.RawYaml}}</textarea>
+</div>
+<footer>
+    <i>Refer to <a href="/docs/definition_options.html">Job Definition Docs</a> for job and tasks configuration options.</i>
+</footer>

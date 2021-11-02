@@ -22,14 +22,14 @@ import (
 // GithubAuth struct for oauth by GitHub
 type GithubAuth struct {
 	commonConfig *common.CommonConfig
-	oauthConfig  *oauth2.Config
-	callback     web.PostWebhookHandler
+	oauthConfig *oauth2.Config
+	callback    GithubPostWebhookHandler
 }
 
 // NewGithubAuth constructor
 func NewGithubAuth(
 	commonConfig *common.CommonConfig,
-	callback web.PostWebhookHandler) (auth.Provider, error) {
+	callback GithubPostWebhookHandler) (auth.Provider, error) {
 	callbackURL := fmt.Sprintf("%s/auth/github/callback",
 		commonConfig.GetExternalBaseURL())
 

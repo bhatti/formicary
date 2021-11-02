@@ -1,9 +1,9 @@
-package web
+package security
 
 import common "plexobject.com/formicary/internal/types"
 
-// PostWebhookHandler is invoked after webhook is called
-type PostWebhookHandler func(
+// GithubPostWebhookHandler is invoked after webhook is called
+type GithubPostWebhookHandler func(
 	qc *common.QueryContext,
 	jobType string,
 	jobVersion string,

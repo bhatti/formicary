@@ -17,7 +17,8 @@ func Test_ShouldRealGet(t *testing.T) {
 	_, _, err := w.Get(
 		context.Background(),
 		"https://jsonplaceholder.typicode.com/todos/1",
-		map[string]string{"key": "value"})
+		map[string]string{"key": "value"},
+		make(map[string]string))
 	if err != nil {
 		t.Logf("Unexpected response Get error " + err.Error())
 	}
@@ -53,6 +54,7 @@ func Test_ShouldRealPostError(t *testing.T) {
 		context.Background(),
 		"https://jsonplaceholder.typicode.com/todos_____",
 		map[string]string{"key": "value"},
+		map[string]string{},
 		nil)
 	if err == nil {
 		t.Logf("Expected response PostJSON error ")
@@ -65,6 +67,7 @@ func Test_ShouldRealPostJSON(t *testing.T) {
 		context.Background(),
 		"https://jsonplaceholder.typicode.com/todos",
 		map[string]string{"key": "value"},
+		map[string]string{},
 		nil)
 }
 
@@ -83,6 +86,7 @@ func Test_ShouldRealPostBody(t *testing.T) {
 		context.Background(),
 		"https://jsonplaceholder.typicode.com/todos",
 		map[string]string{"key": "value"},
+		map[string]string{},
 		[]byte("hello"))
 	if err != nil {
 		t.Logf("Unexpected response PostJSON error " + err.Error())

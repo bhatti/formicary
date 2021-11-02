@@ -21,11 +21,11 @@ import (
 // CommandRunner command runner for http
 type CommandRunner struct {
 	executor.BaseCommandRunner
-	client         web.HTTPClient
-	variables      map[string]types.VariableValue
-	cancel         context.CancelFunc
-	future         async.Awaiter
-	running        bool
+	client    web.HTTPClient
+	variables map[string]types.VariableValue
+	cancel    context.CancelFunc
+	future    async.Awaiter
+	running   bool
 }
 
 // NewCommandRunner constructor
@@ -130,7 +130,8 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 		out, scr.ExitCode, err = scr.client.Get(
 			ctx,
 			scr.Command,
-			scr.Headers)
+			scr.Headers,
+			scr.QueryParams)
 	case types.HTTPPostForm:
 		out, scr.ExitCode, err = scr.client.PostForm(
 			ctx,
@@ -149,6 +150,7 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 			ctx,
 			scr.Command,
 			scr.Headers,
+			scr.QueryParams,
 			j)
 	case types.HTTPPutJSON:
 		j, err = variablesAsJSON(scr.variables)
@@ -162,6 +164,7 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 			ctx,
 			scr.Command,
 			scr.Headers,
+			scr.QueryParams,
 			j)
 	case types.HTTPDelete:
 		j, err = variablesAsJSON(scr.variables)

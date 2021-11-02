@@ -421,6 +421,31 @@ tasks:
   Target: mytarget
 </code></pre>
 <p>The Target variable can also be used for initializing variables in templates.</p>
+<h3 id="webhooks">Webhooks</h3>
+<p>You can configure job to call an external webhook API upon completion of a job or task, e.g.</p>
+<pre><code class="lang-yaml">job_type: hook-job
+webhook:
+  url: {{.WebhookURL}}
+  method: POST 
+  headers:
+    Authorization: Bearer {{.WebhookAuth}}
+  query:
+    job_key: job_value
+tasks:
+- task_type: init
+  container:
+    image: alpine
+  script:
+    - ls -l
+  webhook:
+    url: {{.WebhookURL}}
+    method: POST 
+    headers:
+      Authorization: Bearer {{.WebhookAuth}}
+    query:
+      task_key: task_value
+</code></pre>
+<p>Note: You can specify webhook at both job and task levels.</p>
 <h3 id="email-notifications">Email Notifications</h3>
 <p>You can configure job to receive email notifications when a job completes successfully or with failure, e.g.,</p>
 <pre><code class="lang-yaml"> notify:
@@ -503,6 +528,535 @@ tasks:
      { { else } }
      - echo Age {{.Age}}
      { { end } }
+</code></pre>
+<h3 id="yaml-schema">YAML Schema</h3>
+<p>Following is yaml schema for job configuration options:</p>
+<pre><code class="lang-json">{
+    &quot;$schema&quot;: &quot;http://json-schema.org/draft-06/schema#&quot;,
+    &quot;$ref&quot;: &quot;#/definitions/JobDefinition&quot;,
+    &quot;definitions&quot;: {
+        &quot;JobDefinition&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;description&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;job_type&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;cron_trigger&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;url&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;format&quot;: &quot;uri&quot;,
+                    &quot;qt-uri-protocols&quot;: [
+                        &quot;https&quot;,
+                        &quot;http&quot;
+                    ]
+                },
+                &quot;timeout&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;max_concurrency&quot;: {
+                    &quot;type&quot;: &quot;integer&quot;
+                },
+                &quot;job_variables&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/JobVariables&quot;
+                },
+                &quot;filter&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;retry&quot;: {
+                    &quot;type&quot;: &quot;integer&quot;
+                },
+                &quot;public_plugin&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;sem_version&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;notify&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Notify&quot;
+                },
+                &quot;tasks&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;$ref&quot;: &quot;#/definitions/Task&quot;
+                    }
+                },
+                &quot;resources&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Resources&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;job_type&quot;,
+                &quot;tasks&quot;,
+            ],
+            &quot;title&quot;: &quot;JobDefinition&quot;
+        },
+        &quot;JobVariables&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: true,
+            &quot;properties&quot;: {
+            },
+            &quot;required&quot;: [
+            ],
+            &quot;title&quot;: &quot;JobVariables&quot;
+        },
+        &quot;Notify&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;email&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Email&quot;
+                },
+                &quot;except&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;email&quot;,
+                &quot;except&quot;
+            ],
+            &quot;title&quot;: &quot;Notify&quot;
+        },
+        &quot;Email&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;recipients&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;when&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;recipients&quot;,
+                &quot;when&quot;
+            ],
+            &quot;title&quot;: &quot;Email&quot;
+        },
+        &quot;Resources&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;resource_type&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;platform&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;tags&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;value&quot;: {
+                    &quot;type&quot;: &quot;integer&quot;
+                },
+                &quot;extract_config&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/ExtractConfig&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;platform&quot;,
+                &quot;resource_type&quot;,
+                &quot;value&quot;
+            ],
+            &quot;title&quot;: &quot;Resources&quot;
+        },
+        &quot;ExtractConfig&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;properties&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;context_prefix&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;context_prefix&quot;,
+                &quot;properties&quot;
+            ],
+            &quot;title&quot;: &quot;ExtractConfig&quot;
+        },
+        &quot;Task&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;task_type&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;xmethod&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;container&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Container&quot;
+                },
+                &quot;script&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;,
+                        &quot;qt-uri-protocols&quot;: [
+                            &quot;http&quot;,
+                            &quot;https&quot;
+                        ]
+                    }
+                },
+                &quot;after_script&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;artifacts&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Artifacts&quot;
+                },
+                &quot;on_completed&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;method&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;fork_job_type&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;variables&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Variables&quot;
+                },
+                &quot;headers&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Headers&quot;
+                },
+                &quot;tags&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;working_dir&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;host_network&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;privileged&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;environment&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Environment&quot;
+                },
+                &quot;cache&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Cache&quot;
+                },
+                &quot;pod_labels&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/PodLabels&quot;
+                },
+                &quot;before_script&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;services&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;$ref&quot;: &quot;#/definitions/Service&quot;
+                    }
+                },
+                &quot;allow_failure&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;messaging_request_queue&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;messaging_reply_queue&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;timeout&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;delay_between_retries&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;on_exit_code&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/OnExitCode&quot;
+                },
+                &quot;await_forked_tasks&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;always_run&quot;: {
+                    &quot;type&quot;: &quot;boolean&quot;
+                },
+                &quot;retry&quot;: {
+                    &quot;type&quot;: &quot;integer&quot;
+                },
+                &quot;dependencies&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;resources&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/Resources&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;task_type&quot;
+            ],
+            &quot;title&quot;: &quot;Task&quot;
+        },
+        &quot;Artifacts&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;paths&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                }
+            },
+            &quot;required&quot;: [
+                &quot;paths&quot;
+            ],
+            &quot;title&quot;: &quot;Artifacts&quot;
+        },
+        &quot;Cache&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;key_paths&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;paths&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                }
+            },
+            &quot;required&quot;: [
+                &quot;key_paths&quot;,
+                &quot;paths&quot;
+            ],
+            &quot;title&quot;: &quot;Cache&quot;
+        },
+        &quot;Container&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;image&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;cpu_limit&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;format&quot;: &quot;integer&quot;
+                },
+                &quot;cpu_request&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;memory_limit&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;memory_request&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;ephemeral_storage_limit&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;ephemeral_storage_request&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;volumes&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/ContainerVolumes&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;image&quot;
+            ],
+            &quot;title&quot;: &quot;Container&quot;
+        },
+        &quot;ContainerVolumes&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;empty_dir&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;$ref&quot;: &quot;#/definitions/EmptyDir&quot;
+                    }
+                },
+                &quot;host_path&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;$ref&quot;: &quot;#/definitions/HostPath&quot;
+                    }
+                }
+            },
+            &quot;required&quot;: [
+            ],
+            &quot;title&quot;: &quot;ContainerVolumes&quot;
+        },
+        &quot;EmptyDir&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;name&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;mount_path&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;mount_path&quot;,
+                &quot;name&quot;
+            ],
+            &quot;title&quot;: &quot;EmptyDir&quot;
+        },
+        &quot;HostPath&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;name&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;mount_path&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;host_path&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;host_path&quot;,
+                &quot;mount_path&quot;,
+                &quot;name&quot;
+            ],
+            &quot;title&quot;: &quot;HostPath&quot;
+        },
+        &quot;Environment&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: true,
+            &quot;properties&quot;: {
+            },
+            &quot;required&quot;: [
+            ],
+            &quot;title&quot;: &quot;Environment&quot;
+        },
+        &quot;Headers&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: true,
+            &quot;properties&quot;: {
+            },
+            &quot;required&quot;: [
+            ],
+            &quot;title&quot;: &quot;Headers&quot;
+        },
+        &quot;OnExitCode&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;COMPLETED&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;COMPLETED&quot;
+            ],
+            &quot;title&quot;: &quot;OnExitCode&quot;
+        },
+        &quot;PodLabels&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: true,
+            &quot;properties&quot;: {
+            },
+            &quot;required&quot;: [
+            ],
+            &quot;title&quot;: &quot;PodLabels&quot;
+        },
+        &quot;Service&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;name&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;alias&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;image&quot;: {
+                    &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;entrypoint&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;command&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;type&quot;: &quot;string&quot;
+                    }
+                },
+                &quot;volumes&quot;: {
+                    &quot;$ref&quot;: &quot;#/definitions/ServiceVolumes&quot;
+                }
+            },
+            &quot;required&quot;: [
+                &quot;command&quot;,
+                &quot;entrypoint&quot;,
+                &quot;image&quot;,
+                &quot;name&quot;,
+            ],
+            &quot;title&quot;: &quot;Service&quot;
+        },
+        &quot;ServiceVolumes&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: false,
+            &quot;properties&quot;: {
+                &quot;empty_dir&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                        &quot;$ref&quot;: &quot;#/definitions/EmptyDir&quot;
+                    }
+                }
+            },
+            &quot;required&quot;: [
+                &quot;empty_dir&quot;
+            ],
+            &quot;title&quot;: &quot;ServiceVolumes&quot;
+        },
+        &quot;Variables&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;additionalProperties&quot;: true,
+            &quot;properties&quot;: {
+            },
+            &quot;required&quot;: [],
+            &quot;title&quot;: &quot;Variables&quot;
+        }
+    }
+}
+
 </code></pre>
 </div>  
 </body>

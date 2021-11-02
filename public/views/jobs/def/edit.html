@@ -1,0 +1,23 @@
+{{ template "layouts/header" . }}
+<section class="group">
+    <header class="group-header">
+        <h4 class="group-title">Edit Job Definition</h4>
+    </header>
+    <form action="/dashboard/jobs/definitions" method="POST">
+    {{ template "jobs/def/form" .Job }}
+        <div class="form-group row">
+            <div class="col-sm-10 offset-sm-2">
+                {{if .Job.PublicPlugin}}
+                <button type="submit" class="btn btn-primary">Save Job Plugin</button>
+                {{else}}
+                <button type="submit" class="btn btn-primary">Save Job Definition</button>
+                {{end}}
+            </div>
+        </div>
+    </form>
+
+    <footer class="group-footer">
+    </footer>
+
+</section>
+{{ template "layouts/footer" }}

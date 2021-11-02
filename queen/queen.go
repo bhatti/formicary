@@ -266,7 +266,8 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		jobStatsRegistry,
 		healthMonitor,
 		queueClient,
-		webServer); err != nil {
+		webServer,
+		web.New(&serverCfg.CommonConfig)); err != nil {
 		return err
 	}
 	return nil

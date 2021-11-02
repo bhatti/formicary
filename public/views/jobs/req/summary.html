@@ -13,7 +13,7 @@
                     {{if .CanTriggerCron }}
                     &nbsp;
                     <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
-                        <input type="submit" class="btn btn-secondary" value="Trigger">
+                        <input type="submit" class="btn btn-success" value="Trigger">
                         <input type="hidden" name="id" value="{{.ID}}"></form>
                     {{end}}
                     {{if .Pending}}

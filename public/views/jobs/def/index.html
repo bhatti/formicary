@@ -3,22 +3,33 @@
 A job definition defines a graph of tasks that are executed by remote ant executor using docker, kubernetes, shell commands
 or APIs. The formicary supports GO templates for job definitions so you can use variables, if/else/ranges and the
 values are passed from job parameters, configuration or job-context/results of previous tasks.
-<form action="/dashboard/jobs/definitions" method="GET">
-    <div class="form-group">
-        <div class="form-group row">
-            <input type="text" class="col-sm-3 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search job definitions">
-            &nbsp;
-            <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
-        </div>
-    </div>
-</form>
 
-<div align="right">
-    <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data">
-        Load Files: <input type="file" name="files" multiple>
-        <input type="submit" value="Upload Job Definition">
+<div class="float-right row">
+    <form action="/dashboard/jobs/definitions/new" method="GET">
+        <input type="submit" class="btn btn-primary" value="New Job Definition">
+    </form>
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <div class="bg-light">
+        <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data">
+            Load Files: <input type="file" name="files" multiple>
+            <input type="submit" class="btn btn-secondary" value="Upload Job Definition">
+        </form>
+    </div>
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <form action="/dashboard/jobs/definitions" method="GET">
+        <div class="form-group row">
+            <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}"
+                   placeholder="Search jobs">
+            &nbsp;
+            <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
+        </div>
     </form>
 </div>
+
 <div class="table-responsive">
     <table class="table table-striped table-sm">
         <thead>
@@ -56,9 +67,8 @@ values are passed from job parameters, configuration or job-context/results of p
                     <input type="submit" class="btn btn-primary" value="View">
                 </form>
                 &nbsp;
-                <form action="/dashboard/jobs/requests/new" method="GET">
-                    <input type="submit" class="btn btn-secondary " value="Trigger">
-                    <input type="hidden" name="jobType" value="{{.JobType}}">
+                <form action="/dashboard/jobs/definitions/{{.ID}}/edit" method="GET">
+                    <input type="submit" class="btn btn-secondary" value="Edit">
                 </form>
                 &nbsp;
                 <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
@@ -72,6 +82,11 @@ values are passed from job parameters, configuration or job-context/results of p
                     <input type="submit" class="btn btn-warning" value="Enable">
                 </form>
                 {{else}}
+                <form action="/dashboard/jobs/requests/new" method="GET">
+                    <input type="submit" class="btn btn-success" value="Trigger">
+                    <input type="hidden" name="jobType" value="{{.JobType}}">
+                </form>
+                &nbsp;
                 <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
                     <input type="submit" class="btn btn-warning" value="Disable">
                 </form>

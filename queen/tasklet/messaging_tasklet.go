@@ -115,9 +115,20 @@ func (t *MessagingTasklet) Execute(
 		b,
 		taskReq.ExecutorOpts.MessagingReplyQueue,
 		make(map[string]string),
-		); err != nil {
+	); err != nil {
 		return nil, err
 	}
+	if event == nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "MessagingTasklet",
+			"RequestTopic":  taskReq.ExecutorOpts.MessagingRequestQueue,
+			"ResponseTopic": taskReq.ExecutorOpts.MessagingReplyQueue,
+			"Request": taskReq,
+		}).
+			Errorf("failed to receive reply")
+		return nil, fmt.Errorf("failed to receive reply from " + taskReq.ExecutorOpts.MessagingReplyQueue)
+	}
+
 	taskResp = common.NewTaskResponse(taskReq)
 	err = json.Unmarshal(event.Payload, taskResp)
 	if err != nil {

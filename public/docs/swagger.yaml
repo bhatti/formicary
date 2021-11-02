@@ -1722,6 +1722,8 @@ definitions:
           Validate is called
         type: object
         x-go-name: NameValueVariables
+      webhook:
+        $ref: '#/definitions/Webhook'
     title: TaskDefinition defines a unit of work that is processed by the ant followers.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
@@ -2057,15 +2059,37 @@ definitions:
     title: UserToken defines JWT tokens to access the API.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
-host: localhost:7777
+  Webhook:
+    description: Webhook structure defines config options for callback webhook
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: Headers
+      method:
+        type: string
+        x-go-name: Method
+      query:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: Query
+      url:
+        type: string
+        x-go-name: URL
+    type: object
+    x-go-package: plexobject.com/formicary/internal/types
+host: https://formicary.io
 info:
   contact:
     email: support@formicary.io
     name: Support
-    url: http://formicary.io
+    url: https://formicary.io
   description: |-
-    The formicary is a distributed orchestration engine based on `Leader-Follower` and `Pipes-Filter` design principles for
-    executing a directed acyclic graph of tasks and workflows.
+    The formicary is a distributed orchestration engine based on `Leader-Follower`, `Pipes-Filter`, `Fork-Join` and `SEDA` design principles for
+    executing a directed acyclic graph of tasks, which is also referred as a job workflow. A task represents a unit of work and a job definition is used to specify the task
+    dependencies in the graph/workflow including configuration parameters and conditional logic.
   license:
     name: AGPL
     url: https://opensource.org/licenses/AGPL-3.0
@@ -3126,6 +3150,23 @@ paths:
           $ref: '#/responses/emptyResponse'
       tags:
       - job-resources
+  /api/logs:
+    post:
+      description: Post log event
+      operationId: logEvent
+      parameters:
+      - in: body
+        name: Body
+        schema:
+          items:
+            format: uint8
+            type: integer
+          type: array
+      responses:
+        "200":
+          $ref: '#/responses/logResponse'
+      tags:
+      - logs
   /api/metrics:
     get:
       description: '`This requires admin access`'
@@ -3973,6 +4014,8 @@ responses:
           format: int64
           type: integer
       type: object
+  logResponse:
+    description: logResponse defines response of log event
   metricsQueryResponse:
     description: Results of prometheus-metrics
     schema:

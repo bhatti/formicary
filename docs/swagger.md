@@ -1,12 +1,13 @@
 # Formicary API
-The formicary is a distributed orchestration engine based on `Leader-Follower` and `Pipes-Filter` design principles for
-executing a directed acyclic graph of tasks and workflows.
+The formicary is a distributed orchestration engine based on `Leader-Follower`, `Pipes-Filter`, `Fork-Join` and `SEDA` design principles for
+executing a directed acyclic graph of tasks, which is also referred as a job workflow. A task represents a unit of work and a job definition is used to specify the task
+dependencies in the graph/workflow including configuration parameters and conditional logic.
 
 ## Version: 0.0.1
 
 **Contact information:**  
 Support  
-<http://formicary.io>  
+<https://formicary.io>  
 support@formicary.io  
 
 **License:** [AGPL](https://opensource.org/licenses/AGPL-3.0)
@@ -1093,6 +1094,25 @@ Deletes the job-resource by id
 | Code | Description |
 | ---- | ----------- |
 | 200 | Empty response body |
+
+### /api/logs
+
+#### POST
+##### Description
+
+Post log event
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| Body | body |  | No | [ integer (uint8) ] |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | logResponse defines response of log event |
 
 ### /api/metrics
 
@@ -2300,6 +2320,7 @@ the database.
 | timeout | [Duration](#duration) |  | No |
 | updated_at | dateTime | UpdatedAt job update time | No |
 | variables | object | Transient properties -- these are populated when AfterLoad or Validate is called | No |
+| webhook | [Webhook](#webhook) |  | No |
 
 #### TaskExecution
 
@@ -2413,3 +2434,14 @@ Also, this can be used to revoke API tokens.
 | sha256 | string | SHA256 defines sha of token | No |
 | token_name | string | TokenName defines name of token | No |
 | user_id | string | UserID `defines foreign key | No |
+
+#### Webhook
+
+Webhook structure defines config options for callback webhook
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| headers | object |  | No |
+| method | string |  | No |
+| query | object |  | No |
+| url | string |  | No |

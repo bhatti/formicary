@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/queen/security"
 	"strings"
 	"time"
 
@@ -11,8 +12,6 @@ import (
 	yaml "gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/utils"
-	"plexobject.com/formicary/internal/web"
-
 	"plexobject.com/formicary/queen/stats"
 
 	"github.com/sirupsen/logrus"
@@ -913,8 +912,8 @@ func (jm *JobManager) GetDotImageForJobRequest(
 	return generator.GenerateDotImage()
 }
 
-// BuildPostWebhookHandler returns PostWebhookHandler callback
-func (jm *JobManager) BuildPostWebhookHandler() web.PostWebhookHandler {
+// BuildGithubPostWebhookHandler returns GithubPostWebhookHandler callback
+func (jm *JobManager) BuildGithubPostWebhookHandler() security.GithubPostWebhookHandler {
 	return func(
 		qc *common.QueryContext,
 		jobType string,

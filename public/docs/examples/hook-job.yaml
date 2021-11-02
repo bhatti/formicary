@@ -1,0 +1,28 @@
+job_type: hook-job
+webhookx:
+  url: {{.WebhookURL}}
+  method: POST 
+  headers:
+    Authorization: Bearer {{.WebhookAuth}}
+  query:
+    job_key: job_value
+tasks:
+- task_type: init
+  container:
+    image: alpine
+  script:
+    - ls -l / > ls.txt
+    - env > env.txt
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - env.txt
+      - ls.txt
+  webhook:
+    url: {{.WebhookURL}}
+    method: POST 
+    headers:
+      Authorization: Bearer {{.WebhookAuth}}
+    query:
+      task_key: task_value

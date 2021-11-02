@@ -72,6 +72,7 @@ func (w *StubHTTPClient) PostJSON(
 	_ context.Context,
 	url string,
 	_ map[string]string,
+	_ map[string]string,
 	_ []byte) ([]byte, int, error) {
 	return w.handle("POST", url, w.PostMapping)
 }
@@ -80,6 +81,7 @@ func (w *StubHTTPClient) PostJSON(
 func (w *StubHTTPClient) PutJSON(
 	_ context.Context,
 	url string,
+	_ map[string]string,
 	_ map[string]string,
 	_ []byte) ([]byte, int, error) {
 	return w.handle("PUT", url, w.PutMapping)
@@ -98,7 +100,9 @@ func (w *StubHTTPClient) PostForm(
 func (w *StubHTTPClient) Get(
 	_ context.Context,
 	url string,
-	_ map[string]string) ([]byte, int, error) {
+	_ map[string]string,
+	_ map[string]string,
+) ([]byte, int, error) {
 	return w.handle("GET", url, w.GetMapping)
 }
 

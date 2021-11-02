@@ -22,7 +22,9 @@ type HTTPClient interface {
 	Get(
 		ctx context.Context,
 		url string,
-		headers map[string]string) ([]byte, int, error)
+		headers map[string]string,
+		params map[string]string,
+	) ([]byte, int, error)
 	PostForm(
 		ctx context.Context,
 		url string,
@@ -30,11 +32,11 @@ type HTTPClient interface {
 	PostJSON(
 		ctx context.Context,
 		url string,
-		headers map[string]string, body []byte) ([]byte, int, error)
+		headers map[string]string, params map[string]string, body []byte) ([]byte, int, error)
 	PutJSON(
 		ctx context.Context,
 		url string,
-		headers map[string]string, body []byte) ([]byte, int, error)
+		headers map[string]string, params map[string]string, body []byte) ([]byte, int, error)
 	Delete(
 		ctx context.Context,
 		url string,
@@ -56,7 +58,8 @@ func (w *DefaultHTTPClient) PostForm(
 	ctx context.Context,
 	u string,
 	headers map[string]string,
-	params map[string]string) ([]byte, int, error) {
+	params map[string]string,
+) ([]byte, int, error) {
 	log.WithFields(log.Fields{
 		"Component": "DefaultHTTPClient",
 		"URL":       u,
@@ -69,7 +72,7 @@ func (w *DefaultHTTPClient) PostForm(
 	started := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(data.Encode()))
-	respBody, statusCode, err := w.execute(req, headers)
+	respBody, statusCode, err := w.execute(req, headers, nil)
 
 	elapsed := time.Since(started).String()
 	log.WithFields(log.Fields{
@@ -87,6 +90,7 @@ func (w *DefaultHTTPClient) PostJSON(
 	ctx context.Context,
 	u string,
 	headers map[string]string,
+	params map[string]string,
 	data []byte) ([]byte, int, error) {
 	log.WithFields(log.Fields{
 		"Component": "DefaultHTTPClient",
@@ -99,7 +103,7 @@ func (w *DefaultHTTPClient) PostJSON(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(data))
-	respBody, statusCode, err := w.execute(req, headers)
+	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
 	log.WithFields(log.Fields{
@@ -117,6 +121,7 @@ func (w *DefaultHTTPClient) PutJSON(
 	ctx context.Context,
 	u string,
 	headers map[string]string,
+	params map[string]string,
 	data []byte) ([]byte, int, error) {
 	log.WithFields(log.Fields{
 		"Component": "DefaultHTTPClient",
@@ -129,7 +134,7 @@ func (w *DefaultHTTPClient) PutJSON(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", u, bytes.NewBuffer(data))
-	respBody, statusCode, err := w.execute(req, headers)
+	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
 	log.WithFields(log.Fields{
@@ -161,7 +166,7 @@ func (w *DefaultHTTPClient) Delete(
 		buf = bytes.NewBuffer(make([]byte, 0))
 	}
 	req, err := http.NewRequestWithContext(ctx, "DELETE", u, buf)
-	respBody, statusCode, err := w.execute(req, headers)
+	respBody, statusCode, err := w.execute(req, headers, nil)
 
 	elapsed := time.Since(started).String()
 
@@ -178,7 +183,9 @@ func (w *DefaultHTTPClient) Delete(
 func (w *DefaultHTTPClient) Get(
 	ctx context.Context,
 	u string,
-	headers map[string]string) ([]byte, int, error) {
+	headers map[string]string,
+	params map[string]string,
+) ([]byte, int, error) {
 	log.WithFields(log.Fields{
 		"Component": "DefaultHTTPClient",
 		"URL":       u,
@@ -186,7 +193,7 @@ func (w *DefaultHTTPClient) Get(
 	started := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
-	respBody, statusCode, err := w.execute(req, headers)
+	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
 
@@ -203,7 +210,16 @@ func (w *DefaultHTTPClient) Get(
 //////////////////////////////////// PRIVATE METHODS ///////////////////////////////////////////
 func (w *DefaultHTTPClient) execute(
 	req *http.Request,
-	headers map[string]string) ([]byte, int, error) {
+	headers map[string]string,
+	params map[string]string,
+) ([]byte, int, error) {
+	if len(params) > 0 {
+		paramVals := url.Values{}
+		for k, v := range params {
+			paramVals.Add(k, v)
+		}
+		req.URL.RawQuery = paramVals.Encode()
+	}
 	if headers != nil {
 		for k, v := range headers {
 			req.Header.Set(k, v)

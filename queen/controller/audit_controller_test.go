@@ -16,6 +16,8 @@ import (
 func Test_InitializeSwaggerStructsForAuditController(t *testing.T) {
 	_ = auditQueryParams{}
 	_ = auditQueryResponseBody{}
+	_ = logEvent{}
+	_ = logResponse{}
 }
 
 func Test_ShouldQueryAudits(t *testing.T) {

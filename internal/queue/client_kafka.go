@@ -546,6 +546,9 @@ func (c *ClientKafka) send(
 			Headers: headers,
 			Time:    time.Now(),
 		})
+	if err != nil {
+		c.closeProducer(topic)
+	}
 	return
 }
 
@@ -671,6 +674,18 @@ func (c *ClientKafka) connect() (conn *kafka.Conn, closer connectionCloser, err 
 	return controllerConn, closer, nil
 }
 
+func (c *ClientKafka) closeProducer(
+	topic string,
+) {
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+	writer := c.producers[topic]
+	if writer != nil {
+		_ = writer.Close()
+	}
+	delete(c.producers, topic)
+}
+
 func (c *ClientKafka) getProducer(
 	topic string,
 ) *kafka.Writer {
@@ -733,4 +748,3 @@ func kafkaMessageToEvent(msg kafka.Message, ack AckHandler, nack AckHandler) (ev
 func topicGroupKey(topic string, group string) string {
 	return topic + ":" + group
 }
-

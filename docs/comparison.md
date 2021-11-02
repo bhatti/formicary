@@ -22,7 +22,7 @@
 | **Task Variables**    | Yes       | No        | Yes       | Yes          | NO        | Yes       | No          |
 | **Job Config/Secrets**| Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
 | **Org Config/Secrets**| No        | No        | Yes       | Yes          | Yes       | No        | No          |
-| **Encrypted Config**  | Yes/Fernet| No        | Yes       | Yes          | No        | No        | Yes         |
+| **Encrypted Config**  | Yes/Fernet| No        | Yes       | Yes          | No        | Yes       | Yes         |
 | **Template Support**  | Yes       | No        | No        | Yes          | No        | No        | No          |
 | **Shell Execution**   | Yes       | Yes       | No        | Yes          | No        | No        | Yes         |
 | **HTTP Execution**    | via Python| via Script| via Script| Native Exec. | via Script| via Script| via Script  |
@@ -39,7 +39,7 @@
 | **Delay before Retry**| Yes       | No        | No        | Yes          | No        | No        | No          |
 | **JWT Auth**          | Yes       | Yes       | Yes       | Yes          | Yes       | Yes       | No          |
 | **Email Notifications** | Yes     | Yes       | Yes       | Yes          | Yes       | Yes       | Yes         |
-| **Slack Notifications** | No      | No        | No        | Yes          | No        | No        | No          |
+| **Slack Notifications** | No      | No        | No        | Yes          | No        | Yes       | No          |
 | **Tags based routing**| No        | No        | No        | Yes          | No        | Yes       | No          |
 | **Webhooks**          | No        | No        | No        | Yes          | No        | No        | No          |
 | **CPU/Disk Usage Reports** | No   | No        | No        | Yes          | No        | No        | No          |

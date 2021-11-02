@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"bytes"
+	"github.com/sirupsen/logrus"
 	"net/http"
 
 	"plexobject.com/formicary/internal/acl"
@@ -24,10 +26,28 @@ func NewAuditController(
 		webserver:             webserver,
 	}
 	webserver.GET("/api/audits", c.queryAudits, acl.NewPermission(acl.Audit, acl.Query)).Name = "query_audits"
+	webserver.POST("/api/logs", c.logEvent, acl.NewPermission(acl.Logs, acl.Update)).Name = "post_log"
 	return c
 }
 
 // ********************************* HTTP Handlers ***********************************
+
+// swagger:route POST /api/logs logs logEvent
+// Post log event
+// responses:
+//   200: logResponse
+func (uc *AuditController) logEvent(c web.APIContext) error {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(c.Request().Body)
+
+	logrus.WithFields(logrus.Fields{
+		"Component": "AuditController",
+		"Body":      buf.String(),
+		"URL":       c.Request().URL,
+	}).Infof("log event")
+
+	return c.NoContent(http.StatusOK)
+}
 
 // swagger:route GET /api/audits audits queryAudits
 // Queries audits within the organization that is allowed.
@@ -47,6 +67,17 @@ func (uc *AuditController) queryAudits(c web.APIContext) error {
 }
 
 // ********************************* Swagger types ***********************************
+// swagger:parameters logEvent
+// The request body includes log event for persistence.
+type logEvent struct {
+	// in:body
+	Body []byte
+}
+
+// logResponse defines response of log event
+// swagger:response logResponse
+type logResponse struct {
+}
 
 // swagger:parameters queryAudits
 // The params for querying audits.

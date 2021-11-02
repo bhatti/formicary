@@ -161,6 +161,9 @@
 <h4 id="processing-pipeline-pipes-filters-">Processing Pipeline (Pipes &amp; Filters)</h4>
 <p>The formicary applies pipes &amp; filters pattern where tasks takes parameters or artifacts as input and produce other sets of artifacts and response variables, which in turn can be used by other tasks as input in the data pipeline processing, e.g.</p>
 <p><img class='img-fluid' src="pipeline-arch.png" alt="Processing Pipeline"></p>
+<h4 id="fork-join">Fork/Join</h4>
+<p>The formicary allows a job to spawn other jobs that can run in parallel and then join them for the results, e.g.</p>
+<p><img class='img-fluid' src="examples/parallel-video-pipeline.png" alt="DataFlow"></p>
 <p>Following are fundamental concepts in formicary:</p>
 <h4 id="job-definition">Job Definition</h4>
 <p>A job represents a directed acyclic graph (DAG) of tasks that are executed where each subsequent task is determined by completion status of prior task. The job definition defines dependency of tasks for executing the workflow. The formicary uses YAML configuration to define job and task definitions.</p>

@@ -131,6 +131,14 @@ func (qc *QueryContext) GetUsername() string {
 	return ""
 }
 
+// GetBundle - bundle of org
+func (qc *QueryContext) GetBundle() string {
+	if qc.HasOrganization() {
+		return qc.User.Organization.BundleID
+	}
+	return ""
+}
+
 // AddOrgElseUserWhere - adds user scope
 func (qc *QueryContext) AddOrgElseUserWhere(db *gorm.DB, readonly bool) *gorm.DB {
 	if qc.IsAdmin() || (readonly && qc.IsReadAdmin()) {
@@ -188,7 +196,7 @@ func (qc *QueryContext) AddOrgWhereSQL(readonly bool) (string, string) {
 
 // AddOrgUserWhereSQL - adds user scope
 func (qc *QueryContext) AddOrgUserWhereSQL(readonly bool) (string, string) {
-	if qc.IsAdmin() || (readonly && qc.IsReadAdmin()){
+	if qc.IsAdmin() || (readonly && qc.IsReadAdmin()) {
 		return "'1' = ?", "1"
 	}
 	if qc.User != nil && qc.User.Organization != nil && qc.OrganizationIDColumn != "" {

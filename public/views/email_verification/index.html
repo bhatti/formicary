@@ -1,14 +1,16 @@
 {{ template "layouts/header" . }}
 <h3>Email Verifications</h3>
-<form action="/dashboard/users/email_verifications" method="GET">
-    <div class="form-group">
-        <div class="form-group row">
-            <input type="text" class="col-sm-3 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search email verifications">
-            &nbsp;
-            <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
+<div class="float-right text-right row">
+    <form action="/dashboard/users/email_verifications" method="GET">
+        <div class="form-group">
+            <div class="form-group row">
+                <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search verifications">
+                &nbsp;
+                <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
+            </div>
         </div>
-    </div>
-</form>
+    </form>
+</div>
 
 <div class="table-responsive">
     <table class="table table-striped table-sm">

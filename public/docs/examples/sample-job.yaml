@@ -1,0 +1,161 @@
+description: A sample job
+job_type: sample-job
+cron_trigger: 0 0/30 * * * * *
+url: https://github.com/securego/gosec
+timeout: 200s
+max_concurrency: 1
+job_variables:
+  GitRepo: go-cicd
+filter: {{if eq .Target "charlie"}} true {{end}}
+retry: 2
+public_plugin: false
+sem_version: 1.0-rc
+webhook:
+  url: {{.WebhookURL}}
+  method: POST 
+  headers:
+    Authorization: Bearer {{.WebhookAuth}}
+  query:
+    job_key: job_value
+notify:
+  email: 
+    recipients: 
+      - support@formicary.io
+      - bhatti@plexobject.com
+    when: always
+  except: {{if gt .JobID 5}} true {{end}}
+tasks:
+- task_type: init
+  container:
+    image: alpine
+  script:
+    - ls -l / > ls.txt
+    - env > env.txt
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - env.txt
+      - ls.txt
+  webhook:
+    url: {{.WebhookURL}}
+    method: POST 
+    headers:
+      Authorization: Bearer {{.WebhookAuth}}
+    query:
+      task_key: task_value
+  on_completed: fork
+- task_type: fork
+  method: FORK_JOB
+  fork_job_type: video-encoding
+  variables:
+    URL: http://blah
+    InputEncoding: {{.InputEncoding}}
+    OutputEncoding: {{.OutputEncoding}}
+  on_completed: post
+- task_type: post
+  method: HTTP_POST_JSON
+  headers:
+    h1: val1
+  tags:
+  - builder
+  script:
+    - https://jsonplaceholder.typicode.com/todos
+  on_completed: k8
+- task_type: k8
+  working_dir: /sample
+  host_network: true
+  privileged: true
+  environment:
+    GO111MODULE: on
+    CGO_ENABLED: 0
+  variables:
+    repo: https://{{.GithubToken}}@github.com/bhatti/go-cicd.git
+  cache:
+    key_paths:
+      - go.mod
+    paths:
+      - vendor
+  container:
+    image: alpine
+    cpu_limit: "1"
+    cpu_request: 500m
+    memory_limit: 500m
+    memory_request: 500m
+    ephemeral_storage_limit: 1Gi
+    ephemeral_storage_request: 1Gi
+    volumes:
+      empty_dir:
+        - name: tmp-dir
+          mount_path: /tmp/dir
+      host_path:
+        - name: mount1
+          mount_path: /sample-shared
+          host_path: /shared
+  pod_labels:
+    foor: bar
+  before_script:
+    - git clone {{.repo}} .
+  script:
+    - pwd > pwd.txt
+  services:
+    - name: docker-dind
+      alias: docker
+      image: docker:20.10-dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+      volumes:
+        empty_dir:
+          - name: certs
+            mount_path: /mycerts/client
+  artifacts:
+    paths:
+      - pwd.txt
+  allow_failure: true
+  on_completed: await
+- task_type: await
+  method: AWAIT_FORKED_JOB
+  await_forked_tasks:
+    - fork
+  on_completed: messaging
+- task_type: messaging
+  method: MESSAGING
+  messaging_request_queue: formicary-message-ant-request
+  messaging_reply_queue: formicary-message-ant-response
+  timeout: 15s
+  delay_between_retries: 5s
+  on_exit_code:
+    COMPLETED: cleanup
+- task_type: cleanup
+  always_run: true
+  retry: 2
+  container:
+    image: alpine
+  dependencies:
+    - init
+    - k8
+  script:
+    - ls -l
+  resources:
+    resource_type: NetworkBandwidth
+    platform: LINUX
+    tags: 
+    - gig 
+    - network
+    value: 10
+    extract_config:
+      properties:
+      - network-id
+      - route
+      context_prefix: connection
+resources:
+  resource_type: License
+  platform: Vendor
+  tags: 
+  - vendor-a-api
+  value: 2
+  extract_config:
+    properties:
+    - license-id
+    - expiration
+    context_prefix: sample-job

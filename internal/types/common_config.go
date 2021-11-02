@@ -227,6 +227,24 @@ func (c *CommonConfig) GetJobExecutionLifecycleTopic() string {
 		"job-execution-lifecycle")
 }
 
+// GetJobWebhookTopic topic
+func (c *CommonConfig) GetJobWebhookTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"job-webhook-lifecycle")
+}
+
+// GetTaskWebhookTopic topic
+func (c *CommonConfig) GetTaskWebhookTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"task-webhook-lifecycle")
+}
+
 // GetTaskExecutionLifecycleTopic topic
 func (c *CommonConfig) GetTaskExecutionLifecycleTopic() string {
 	return PersistentTopic(

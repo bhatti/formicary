@@ -48,9 +48,9 @@
 
 <div class="container-fluid">
 <h1 id="formicary-api">Formicary API</h1>
-<p>The formicary is a distributed orchestration engine based on <code>Leader-Follower</code> and <code>Pipes-Filter</code> design principles for executing a directed acyclic graph of tasks and workflows.</p>
+<p>The formicary is a distributed orchestration engine based on <code>Leader-Follower</code>, <code>Pipes-Filter</code>, <code>Fork-Join</code> and <code>SEDA</code> design principles for executing a directed acyclic graph of tasks, which is also referred as a job workflow. A task represents a unit of work and a job definition is used to specify the task dependencies in the graph/workflow including configuration parameters and conditional logic.</p>
 <h2 id="version-0-0-1">Version: 0.0.1</h2>
-<p><strong>Contact information:</strong> Support <a href="http://formicary.io">http://formicary.io</a> <a href="mailto:support@formicary.io">support@formicary.io</a>  </p>
+<p><strong>Contact information:</strong> Support <a href="https://formicary.io">https://formicary.io</a> <a href="mailto:support@formicary.io">support@formicary.io</a>  </p>
 <p><strong>License:</strong> <a href="https://opensource.org/licenses/AGPL-3.0">AGPL</a></p>
 <h3 id="security">Security</h3>
 <p><strong>api_key</strong>  </p>
@@ -2548,6 +2548,46 @@
 <tr>
 <td>200</td>
 <td>Empty response body</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-logs">/api/logs</h3>
+<h4 id="post">POST</h4>
+<h5 id="description">Description</h5>
+<p>Post log event</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body</td>
+<td>body</td>
+<td></td>
+<td>No</td>
+<td>[ integer (uint8) ]</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>logResponse defines response of log event</td>
 </tr>
 </tbody>
 </table>
@@ -6609,6 +6649,12 @@
 <td>Transient properties -- these are populated when AfterLoad or Validate is called</td>
 <td>No</td>
 </tr>
+<tr>
+<td>webhook</td>
+<td><a href="#webhook">Webhook</a></td>
+<td></td>
+<td>No</td>
+</tr>
 </tbody>
 </table>
 <h4 id="taskexecution">TaskExecution</h4>
@@ -7109,6 +7155,44 @@
 <td>user_id</td>
 <td>string</td>
 <td>UserID `defines foreign key</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="webhook">Webhook</h4>
+<p>Webhook structure defines config options for callback webhook</p>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>headers</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>method</td>
+<td>string</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>query</td>
+<td>object</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td></td>
 <td>No</td>
 </tr>
 </tbody>

@@ -104,7 +104,7 @@ func Test_ShouldJobDefinitionValidateWithLoopingTasks(t *testing.T) {
 
 	// THEN it should fail
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no leaf task found")
+	require.Contains(t, err.Error(), "could not find starting task")
 }
 
 // Validate job with empty on-exit
@@ -706,8 +706,8 @@ func Test_ShouldParseLoopJobDefinition(t *testing.T) {
 	job, err := NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
 	require.NotNil(t, job)
-	params := map[string]common.VariableValue{
-	}
+	params := map[string]common.VariableValue{}
+	require.True(t, rangeRegex.FindStringIndex(string(b)) != nil)
 	task, _, err := job.GetDynamicTask("t3", params)
 	require.Equal(t, 17, len(task.Script))
 }

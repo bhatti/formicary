@@ -115,7 +115,9 @@
 <p>Or you can store ssh keys in job-definition / organization configs for accessing the git repositories:</p>
 <pre><code class="lang-bash">git clone https://&lt;username&gt;:&lt;password&gt;@github.com/&lt;yourid&gt;/&lt;your-project&gt;.git
 </code></pre>
-<h3 id="webhooks">Webhooks</h3>
+<h3 id="general-webhooks">General Webhooks</h3>
+<p>See <a href="definition_options.html#Webhooks">Webhooks</a> for defining general purpose webhooks.</p>
+<h3 id="github-webhooks">Github Webhooks</h3>
 <p>You can submit jobs by creating GitHub Webhook, e.g., <img class='img-fluid' src="github_webhook.png" alt="Github Webhook"></p>
 <p>First set <code>Payload URL</code> to <code>$SERVER/auth/github/webhook?authorization=&lt;api-token&amp;job=&lt;job-type&gt;</code>, where the <code>api-token</code> can be generated from the dashboard-UI and <code>job</code> points to the job-type that you have configured. Next, set a secret for the payload and add a job configuration for <code>GithubWebhookSecret</code>, e.g.</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
@@ -191,6 +193,7 @@ curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
 <p>You can configure your user profile to receive job notificatios via email or slack, e.g. <img class='img-fluid' src="notifications.png" alt="Notifications"></p>
 <p>Note: Slack messages require access token and see slack documentation for generating the token, e.g. <img class='img-fluid' src="slack.png" alt="Slack Token"></p>
 <p>And then add token in your organization configurations, e.g. <img class='img-fluid' src="org_config.png" alt="Organization Config"></p>
+<p>See <a href="definition_options.html">Notification Config</a> for more information on email/slack notification configuration.</p>
 <h3 id="additional-references">Additional References</h3>
 <ul>
 <li><p><a href="expire-artifacts.html">Artifacts Expiration</a> for expiring old artifacts.</p>

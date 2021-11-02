@@ -19,6 +19,7 @@ import (
 const keyHeaders = "headers"
 const keyScript = "script"
 const keyBeforeScript = "before_script"
+const keyWebhook = "webhook"
 const keyAfterScript = "after_script"
 const keyExecutorOptions = "executor_options"
 const keyResources = "resources"
@@ -60,6 +61,8 @@ type TaskDefinition struct {
 	Retry int `yaml:"retry,omitempty" json:"retry"`
 	// DelayBetweenRetries defines time between retry of task
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
+	// Webhook config
+	Webhook *common.Webhook `yaml:"webhook,omitempty" json:"webhook" gorm:"-"`
 	// OnExitCodeSerialized defines next task to execute
 	OnExitCodeSerialized string `yaml:"-" json:"-"`
 	// OnExitCode defines next task to run based on exit code

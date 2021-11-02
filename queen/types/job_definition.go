@@ -141,9 +141,11 @@ type JobDefinition struct {
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
 	CanEdit            bool                                            `yaml:"-" json:"-" gorm:"-"`
+	webhook            *common.Webhook                                 `yaml:"webhook,omitempty" json:"webhook" gorm:"-"`
 	NameValueVariables interface{}                                     `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
 	Notify             map[common.NotifyChannel]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 	Resources          BasicResource                                   `yaml:"resources,omitempty" json:"resources" gorm:"-"`
+	Errors             map[string]string                               `yaml:"-" json:"-" gorm:"-"`
 	filter             string
 	lookupTasks        *cutils.SafeMap
 	lock               sync.RWMutex
@@ -236,12 +238,32 @@ func (jd *JobDefinition) Filter() string {
 	if !jd.UsesTemplate || jd.filter != "" {
 		return jd.filter
 	}
-	// parse job
+	// parse job filter
 	jd.filter = utils.ParseYamlTag(jd.RawYaml, "filter:")
 	if jd.filter == "" {
 		jd.filter = "none"
 	}
 	return jd.filter
+}
+
+// Webhook returns webhook config
+func (jd *JobDefinition) Webhook(vars map[string]common.VariableValue) (wh *common.Webhook, err error) {
+	if !jd.UsesTemplate || jd.webhook != nil {
+		return jd.webhook, nil
+	}
+	data := make(map[string]interface{})
+	for k, v := range vars {
+		data[k] = v.Value
+	}
+	// parse webhook
+	webhookVal := utils.ParseYamlTag(jd.RawYaml, "webhook:")
+	if webhookVal == "" {
+		return nil, nil
+	}
+	if strings.Contains(webhookVal, "{{") {
+		webhookVal, err = utils.ParseTemplate(webhookVal, data)
+	}
+	return common.NewWebhookFromString(webhookVal)
 }
 
 // Filtered checks filter condition
@@ -264,9 +286,6 @@ func (jd *JobDefinition) Filtered(vars map[string]common.VariableValue) bool {
 func (jd *JobDefinition) GetDynamicTask(
 	taskType string,
 	vars map[string]common.VariableValue) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
-	if vars == nil {
-		vars = make(map[string]common.VariableValue)
-	}
 	data := make(map[string]interface{})
 	for k, v := range vars {
 		data[k] = v.Value
@@ -286,7 +305,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		}
 	}
 
-	// parse job
+	// parse task-type
 	serData := utils.ParseYamlTag(jd.RawYaml, fmt.Sprintf("task_type: %s", taskType))
 	if serData == "" {
 		return nil, nil, fmt.Errorf("failed to find %s from Yaml definition", taskType)
@@ -326,6 +345,10 @@ func (jd *JobDefinition) GetDynamicTask(
 		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
 	}
 	_ = task.addVariablesFromNameValueVariables()
+
+	if task.Webhook == nil {
+		task.Webhook, _ = jd.Webhook(vars)
+	}
 
 	// after-load to add on-exit and other properties
 	if err = task.AfterLoad(); err != nil {
@@ -409,8 +432,8 @@ func (jd *JobDefinition) ShortUserID() string {
 
 // ShortJobType short job type
 func (jd *JobDefinition) ShortJobType() string {
-	if len(jd.JobType) > 10 {
-		return jd.JobType[0:10] + "..."
+	if len(jd.JobType) > 12 {
+		return jd.JobType[0:12] + "..."
 	}
 	return jd.JobType
 }
@@ -817,43 +840,66 @@ func (jd *JobDefinition) CheckSemVersion() (SemanticVersionType, error) {
 
 // Validate validates job-definition
 func (jd *JobDefinition) Validate() (err error) {
+	jd.Errors = make(map[string]string)
 	if jd.JobType == "" {
-		return fmt.Errorf("jobType is not specified")
+		err = fmt.Errorf("jobType is not specified")
+		jd.Errors["JobType"] = err.Error()
+		return err
 	}
 	if len(jd.JobType) > 100 {
-		return fmt.Errorf("jobType is too big")
+		err = fmt.Errorf("jobType is too big")
+		jd.Errors["JobType"] = err.Error()
+		return err
 	}
 	if len(jd.URL) > 200 {
-		return fmt.Errorf("URL is too big")
+		err = fmt.Errorf("URL is too big")
+		jd.Errors["URL"] = err.Error()
+		return err
 	}
 	if len(jd.Description) > 500 {
-		return fmt.Errorf("description is too big")
+		err = fmt.Errorf("description is too big")
+		jd.Errors["Description"] = err.Error()
+		return err
 	}
 	if len(jd.Platform) > 100 {
-		return fmt.Errorf("platform is too big")
+		err = fmt.Errorf("platform is too big")
+		jd.Errors["Platform"] = err.Error()
+		return err
 	}
 	if len(jd.Tags) > 1000 {
-		return fmt.Errorf("tags size is too big")
+		err = fmt.Errorf("tags size is too big")
+		jd.Errors["Tags"] = err.Error()
+		return err
 	}
 	if jd.PublicPlugin && len(strings.Split(jd.JobType, ".")) < 3 {
-		return errors.New("the plugin jobType must start organization bundle id such as io.formicary.test-job or com.xyz.test-job")
+		err = errors.New("the plugin jobType must start organization bundle id such as io.formicary.test-job or com.xyz.test-job")
+		jd.Errors["PublicPlugin"] = err.Error()
+		return err
 	}
 	if jd.SemVersion != "" || jd.PublicPlugin {
 		if _, err = jd.CheckSemVersion(); err != nil {
+			jd.Errors["SemVersion"] = err.Error()
 			return err
 		}
 	}
 	if jd.CronTrigger != "" && cronexpr.MustParse(jd.CronTrigger).Next(time.Now()).IsZero() {
-		return fmt.Errorf("cron expression %s is invalid", jd.CronTrigger)
+		err = fmt.Errorf("cron expression %s is invalid", jd.CronTrigger)
+		jd.Errors["CronTrigger"] = err.Error()
+		return err
 	}
 	if len(jd.Tasks) == 0 {
-		return fmt.Errorf("tasks are not specified for %v", jd.JobType)
+		err = fmt.Errorf("tasks are not specified for %v", jd.JobType)
+		jd.Errors["Tasks"] = err.Error()
+		return err
 	}
 	if len(jd.Tasks) > maxTasksPerJob {
-		return fmt.Errorf("number of tasks cannot exceed %d %v", maxTasksPerJob, jd.JobType)
+		err = fmt.Errorf("number of tasks cannot exceed %d %v", maxTasksPerJob, jd.JobType)
+		jd.Errors["Tasks"] = err.Error()
+		return err
 	}
 	for _, t := range jd.Tasks {
 		if err := t.Validate(); err != nil {
+			jd.Errors["Tasks"] = err.Error()
 			return err
 		}
 	}
@@ -861,10 +907,14 @@ func (jd *JobDefinition) Validate() (err error) {
 	jd.Methods = jd.buildMethods()
 	jd.filter = ""
 	if jd.Methods == "" {
-		return fmt.Errorf("methods not specified for job-definition")
+		err = fmt.Errorf("methods not specified for job-definition")
+		jd.Errors["Methods"] = err.Error()
+		return err
 	}
 	if jd.RawYaml == "" {
-		return fmt.Errorf("raw-yaml not specified")
+		err = fmt.Errorf("raw-yaml not specified")
+		jd.Errors["RawYaml"] = err.Error()
+		return err
 	}
 	jd.lookupTasks = cutils.NewSafeMap()
 	if jd.MaxConcurrency <= 1 {
@@ -872,16 +922,19 @@ func (jd *JobDefinition) Validate() (err error) {
 	}
 	jd.UsesTemplate = strings.Contains(jd.RawYaml, "{{") && strings.Contains(jd.RawYaml, "}}")
 	if err = jd.validateTaskExitCodes(); err != nil {
+		jd.Errors["Tasks"] = err.Error()
 		return err
 	}
 	for source, notify := range jd.Notify {
 		if source == common.EmailChannel {
 			if err = notify.ValidateEmail(); err != nil {
+				jd.Errors["EmailChannel"] = err.Error()
 				return err
 			}
 		}
 	}
 	if _, err = jd.GetFirstTask(); err != nil {
+		jd.Errors["Tasks"] = err.Error()
 		return err
 	}
 	return nil
@@ -999,7 +1052,7 @@ func (jd *JobDefinition) ValidateBeforeSave(key []byte) error {
 	return nil
 }
 
-// Enabled returns if job is enabled
+// Enabled returns true if job is enabled
 func (jd *JobDefinition) Enabled() bool {
 	return !jd.Disabled
 }
@@ -1207,7 +1260,7 @@ func (jd *JobDefinition) validateTaskExitCodes() error {
 	}
 
 	if len(tasksWithoutExitCodes) == 0 {
-		return fmt.Errorf("no leaf task found")
+		return fmt.Errorf("tasks are not valid and could not find starting task")
 	}
 
 	if len(tasksWithoutExitCodes) > 1 {
@@ -1256,6 +1309,8 @@ func (jd *JobDefinition) buildTags() string {
 	return buf.String()
 }
 
+var rangeRegex, _ = regexp.Compile("{{[-\\s]*range")
+
 // NewJobDefinitionFromYaml creates new instance of job-definition
 func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
 	if len(b) == 0 {
@@ -1271,11 +1326,12 @@ func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
 	yamlSource := strings.TrimSpace(string(b))
 	names := jobTypeRegex.FindStringSubmatch(yamlSource)
 	if len(names) <= 1 {
-		return nil, fmt.Errorf("failed to find job-type in %v", names)
+		return nil, fmt.Errorf("failed to find job-type in job definition (%v)", names)
 	}
 	job = &JobDefinition{}
 
-	if strings.TrimSpace(utils.ParseYamlTag(yamlSource, "dynamic_template_tasks:")) == "true" {
+	if rangeRegex.FindStringIndex(yamlSource) != nil ||
+		strings.TrimSpace(utils.ParseYamlTag(yamlSource, "dynamic_template_tasks:")) == "true" {
 		yamlSource = loadDynamicTasksFromYaml(yamlSource)
 	}
 	if strings.Contains(yamlSource, "{{") && strings.Contains(yamlSource, "}}") {

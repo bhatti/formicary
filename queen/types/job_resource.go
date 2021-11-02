@@ -121,7 +121,7 @@ func (jr *JobResource) MatchTag(other []string) error {
 	return utils.MatchTagsArray(jr.Tags, other)
 }
 
-// Enabled returns if resource is enabled
+// Enabled returns true if resource is enabled
 func (jr *JobResource) Enabled() bool {
 	return !jr.Disabled
 }

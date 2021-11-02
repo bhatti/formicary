@@ -222,6 +222,16 @@ func Test_ShouldQueryAllErrorCodes(t *testing.T) {
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(all))
+	// WHEN querying by Q
+	all, _, err = repo.Query(
+		qc,
+		map[string]interface{}{"q": "cmd-1"},
+		0,
+		100,
+		make([]string, 0))
+	// THEN it should match expected count
+	require.NoError(t, err)
+	require.Equal(t, 1, len(all))
 }
 
 func Test_ShouldMatchErrorCodes(t *testing.T) {

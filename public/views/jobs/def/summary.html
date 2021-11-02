@@ -6,9 +6,8 @@
                     <h3 class="group-title">Job Definition: {{ .JobType }}</h3>
                 </td>
                 <td class="text-right row">
-                    <form action="/dashboard/jobs/requests/new" method="GET">
-                        <input type="submit" class="btn btn-secondary " value="Trigger">
-                        <input type="hidden" name="jobType" value="{{.JobType}}">
+                    <form action="/dashboard/jobs/definitions/{{.ID}}/edit" method="GET">
+                        <input type="submit" class="btn btn-secondary" value="Edit">
                     </form>
                     &nbsp;
                     <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
@@ -22,6 +21,11 @@
                         <input type="submit" class="btn btn-warning" value="Enable">
                     </form>
                     {{else}}
+                    <form action="/dashboard/jobs/requests/new" method="GET">
+                        <input type="submit" class="btn btn-success" value="Trigger">
+                        <input type="hidden" name="jobType" value="{{.JobType}}">
+                    </form>
+                    &nbsp;
                     <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
                         <input type="submit" class="btn btn-warning" value="Disable">
                     </form>

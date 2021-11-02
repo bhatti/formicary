@@ -19,7 +19,7 @@ Apache Airflow is a popular solution for building, scheduling and monitoring wor
 | control-flow | [on_exit](definition_options.md#on_exit) | Airflow uses [control-flow](https://airflow.apache.org/docs/apache-airflow/stable/concepts/overview.html#control-flow) to define dependency and control-flow between tasks whereas Formicary uses `on_exit`, `on_completed`, `on_failed` to define task dependencies in the workflow.
 
 ## Sample Airflow DAGs
-Here is a sample dag of Airflow :
+Here is a sample DAG of Airflow :
 ```
 from datetime import datetime, timedelta
 from textwrap import dedent
@@ -75,7 +75,7 @@ with DAG(
     t1 >> [t2, t3]
 ```
 
-Following is equivalent workflow in formicary:
+Following is equivalent DAG in formicary:
 ```
 job_type: loop-job
 tasks:

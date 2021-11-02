@@ -1,5 +1,4 @@
 job_type: loop-job
-dynamic_template_tasks: true
 tasks:
 - task_type: t1
   container:

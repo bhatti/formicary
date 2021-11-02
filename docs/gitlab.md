@@ -46,7 +46,7 @@ deploy:
     - master
 ```
 
-Following is equivalent workflow in formicary:
+Following is equivalent job in formicary:
 ```
 job_type: maven-ci-job
 tasks:
