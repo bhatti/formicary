@@ -1,0 +1,292 @@
+job_type: io.formicary.tokens
+public_plugin: true
+cron_trigger: 0 0 * * * * *
+sem_version: 1.0-dev
+# TODO
+# Get token for https://tokenfomo.io/docs/API
+# Find API for https://isthiscoinascam.com/ https://isthiscoinascam.com/active-cryptocurrencies
+# scam:
+# - https://tokensniffer.com/
+# - https://tokenfomo.io/docs/API
+# - https://tokensniffer.com/tokens/new
+# - https://tokenfomo.io/
+# - https://isthiscoinascam.com/
+# - rapidapi.com/isthiscoinascam
+# - https://isthiscoinascam.com/active-cryptocurrencies
+# - https://www.rdauditors.com/
+# - https://rugdoc.io/
+# activity:
+# - https://coinmarketcal.com/en/
+# - https://coinmarketcal.com/en/api
+# - https://www.dextools.io/app/
+# - https://www.livecoinwatch.com/tools/api
+# - https://poocoin.app/tools
+# - https://www.dextools.io/app/ether/pool-explorer
+# - https://www.coingecko.com/en/coins/recently_added
+# - https://www.coingecko.com/en/api
+# - https://algotrading101.com/learn/coingecko-api-guide/
+# - https://coinmarketcap.com/api/
+# - https://twitter.com/CryptoGemsBot
+# - https://github.com/lorem-ipsumm/crypto-twitter
+# search:
+# - https://docs.uniswap.org/protocol/V2/reference/API/entities or again from Ethplorer directly:
+# - https://github.com/EverexIO/Ethplorer/wiki/Ethplorer-API
+# - https://bitquery.io/blog/dex-data-apis
+# - https://thegraph.com/hosted-service/subgraph/graphprotocol/uniswap
+# locks/liquidity/vesting
+# - https://wiki.rugdoc.io/docs/timelocks-explained/
+# - https://app.unicrypt.network/dashboard
+# - https://www.team.finance/  
+# - https://www.team.finance/view-all-coins
+# social
+# https://apewisdom.io/api/
+# - https://cryptomarketpool.com/reddit-sentiment-indicator-for-crypto-in-python/
+# - https://www.learndatasci.com/tutorials/sentiment-analysis-reddit-headlines-pythons-nltk/
+# - https://github.com/malavmodi/4Chan-Scraper
+# - https://os2int.com/toolbox/creating-visual-intelligence-from-telegram-user-group-data/
+# audit:
+# - https://www.certik.org/
+# - https://www.certik.org/technology
+# - https://www.certik.io/ 
+# - https://hacken.io/ 
+# - https://hacken.io/audits/
+# - https://techrate.org/#product-list 
+# - https://paladinsec.co/ https://paladinsec.co/audits/ 
+# - https://obeliskauditing.com/ https://obeliskauditing.com/audits
+# - https://omniscia.io/projects.html
+# - https://solidity.finance/audits/ 
+# - https://peckshield.com/en#customers
+# - https://www.diffchecker.com/
+# - https://consensys.net/diligence/
+# - https://www.reddit.com/r/CryptoMoonShots/comments/mbdlil/cryptomoonshots_101/
+# whale watching:
+# - https://medium.com/general_knowledge/watch-the-whales-101-guide-to-wallet-tracking-8ff5799f3dc4
+# - https://clankapp.com/
+# - https://www.whalestats.com/
+# - https://www.coincarp.com/
+#
+notify:
+  email: 
+    recipients: 
+      - shahbhat@gmail.com
+      - s.hugh.brooks@gmail.com
+      - brandon.pliska@gmail.com
+    when: always
+tasks:
+- task_type: apewisdom
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://apewisdom.io/api/
+    #
+    - >
+      for topic in CryptoCurrency CryptoCurrencies CryptoMoonShots CryptoMarkets; do for page in 1 2 3; do sleep 2;curl https://apewisdom.io/api/v1.0/filter/$topic/page/$page > data/apewisdom_${topic}_${page}.json;done;done
+  artifacts:
+    paths:
+      - data
+  on_completed: coinmarketcal-tokens
+- task_type: coinmarketcal-tokens
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See  https://coinmarketcal.com/en/api 
+    # https://coinmarketcal.com/en/doc/redoc#section/Introduction
+    - >
+      curl 'https://developers.coinmarketcal.com/v1/coins' -H 'Accept: application/json' -H 'x-api-key: {{.COINMARKETCAL_KEY}}' > data/coinmarketcal_tokens.json
+  artifacts:
+    paths:
+      - data
+  on_completed: uniswap-tokens
+- task_type: uniswap-tokens
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://thegraph.com/hosted-service/subgraph/graphprotocol/uniswap 
+    # See https://thegraph.com/hosted-service/subgraph/uniswap/uniswap-v2
+    # https://docs.uniswap.org/protocol/V2/reference/API/entities
+    - >
+      curl -H "Content-Type: application/json" "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2" --data '{"query":"{\n  pairs {\n    id\n    token0 {\n      id\n      symbol\n      tradeVolumeUSD\n    }\n    token1 {\n      id\n      symbol\n      tradeVolumeUSD\n    }\n    \n    token0Price\n    token1Price\n    totalSupply\n  }\n}\n","variables":null}' > data/uniswap_pairs.json
+  artifacts:
+    paths:
+      - data
+  on_completed: coingecko-tokens
+- task_type: coingecko-tokens
+  method: DOCKER
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+    - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
+    - echo pip install sanpy
+    - pip install requests
+    - pip install beautifulsoup4
+  script:
+    # See https://www.coingecko.com/en/api/documentation
+    # https://www.coingecko.com/en/coins/recently_added 
+    # https://www.coingecko.com/en/api
+    # https://algotrading101.com/learn/coingecko-api-guide/
+    - python token-scripts/coingecko-new-tokens.py > data/coingecko-tokens.csv
+  artifacts:
+    paths:
+      - data
+  on_completed: coinmarketcap-tokens
+- task_type: coinmarketcap-tokens
+  # See https://coinmarketcap.com/api/
+  # https://coinmarketcap.com/methodology/
+  # https://coinmarketcap.com/api/documentation/v1/#section/Quick-Start-Guide
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    - >
+      curl -H "X-CMC_PRO_API_KEY: {{.COINMARKETCAP_KEY}}" -H "Accept: application/json" -d "start=1&limit=5000&convert=USD" -G https://pro-api.coinmarketcap.com/v1/cryptocurrency/trending/latest > data/coinmarketcap_trending_latest_tokens.json
+    - sleep 5
+    - >
+      curl -H "X-CMC_PRO_API_KEY: {{.COINMARKETCAP_KEY}}" -H "Accept: application/json" -d "start=1&limit=5000&convert=USD" -G https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest > data/coinmarketcap_latest_tokens.json
+    - sleep 5
+    - >
+      curl -H "X-CMC_PRO_API_KEY: {{.COINMARKETCAP_KEY}}" -H "Accept: application/json" -d "start=1&limit=5000&convert=USD" -G https://pro-api.coinmarketcap.com/v1/cryptocurrency/map > data/coinmarketcap_tokens_map.json
+  artifacts:
+    paths:
+      - data
+  on_completed: santiment
+- task_type: santiment
+  # See https://api.santiment.net/graphiql
+  # See https://academy.santiment.net/sanapi/queries/, https://academy.santiment.net/sanapi/, https://github.com/santiment/sanpy 
+  # https://academy.santiment.net/for-developers/ 
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    - >
+      curl -H "Content-Type: application/json" "https://api.santiment.net/graphiql" --data '{"query":"{\n  ohlc(slug: \"santiment\", from: \"{{.DateYear}}-01-01T00:00:00Z\", to: \"{{.FullDate}}T00:00:00Z\", interval: \"1d\") {\n    datetime\n    openPriceUsd\n    highPriceUsd\n    lowPriceUsd\n    closePriceUsd\n  }\n}\n","variables":{},"operationName":null}' > data/santiment_ohlc.json
+  artifacts:
+    paths:
+      - data
+  on_completed: ethplorer-tokens
+- task_type: ethplorer-tokens
+  # See https://github.com/EverexIO/Ethplorer/wiki/Ethplorer-API
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://bitquery.io/blog/dex-data-apis
+    - curl https://api.ethplorer.io/getTokensNew?apiKey=freekey > data/ethplorer_tokens.json
+  artifacts:
+    paths:
+      - data
+  on_completed: token-sniffer
+- task_type: token-sniffer
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://tokensniffer.com/tokens/top https://tokensniffer.com/tokens/trending https://tokensniffer.com/tokens/new https://tokensniffer.com/tokens/scam
+    # See https://tokenfomo.io/docs/API
+    - >
+      for tok in top trending new scam; do curl -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" -H "Accept-Encoding: gzip, deflate, br" -H "Accept-Language: en-US,en;q=0.5" -H "Cache-Control: max-age=0" -H "Connection: keep-alive" -H "DNT: 1" -H "Host: tokensniffer.com" -H "Referer: https://tokensniffer.com/" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-User: ?1" -H "Sec-GPC: 1" -H "Upgrade-Insecure-Requests: 1" -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:93.0) Gecko/20100101 Firefox/93.0" "https://tokensniffer.com/tokens/$tok" > ${tok}_tokens.gz; gunzip ${tok}_tokens.gz; cat ${tok}_tokens| grep -i -e '</\?TABLE\|</\?TD\|</\?TR\|</\?TH' | sed  's/^[\ \t]*//g' | tr -d '\n' | sed 's/<\/TR[^>]*>/\n/Ig'  | sed 's/<\/\?\(TABLE\|TR\)[^>]*>//Ig' | sed 's/^<T[DH][^>]*>\|<\/\?T[DH][^>]*>$//Ig' | sed 's/<\/T[DH][^>]*><T[DH][^>]*>/,/Ig' | grep json|sed 's/.*json..//g' | sed 's/<.*//g' > data/sniffer_${tok}_tokens.json;sleep 5;done
+  artifacts:
+    paths:
+      - data
+  on_completed: etherscan-stats
+- task_type: etherscan-stats
+  container:
+    image: python:3.8-buster
+  # See https://docs.etherscan.io/api-endpoints/contracts
+  before_script:
+    - mkdir -p data
+  script:
+    - curl https://api.etherscan.io/api?module=stats&action=ethsupply&apikey={{.ETHERSCAN_TOKEN}} > data/etherscan_stats.json
+  delay_between_retries: 5s
+  retry: 2
+  on_completed: scam-tokens
+- task_type: scam-tokens
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://isthiscoinascam.com/all-cryptocurrencies
+    # https://isthiscoinascam.com/latest-cryptocurrencies
+    # https://isthiscoinascam.com/active-cryptocurrencies
+    - >
+      curl 'https://xapi.isthiscoinascam.com/full-table?draw=10&columns[0][data]=name&columns[0][name]=&columns[0][searchable]=true&columns[0][orderable]=true&columns[0][search][value]=&columns[0][search][regex]=false&columns[1][data]=year&columns[1][name]=&columns[1][searchable]=true&columns[1][orderable]=true&columns[1][search][value]={{.DateYear}}&columns[1][search][regex]=false&columns[2][data]=tags&columns[2][name]=&columns[2][searchable]=true&columns[2][orderable]=false&columns[2][search][value]=&columns[2][search][regex]=false&columns[3][data]=category&columns[3][name]=&columns[3][searchable]=true&columns[3][orderable]=true&columns[3][search][value]=&columns[3][search][regex]=false&columns[4][data]=style&columns[4][name]=&columns[4][searchable]=true&columns[4][orderable]=true&columns[4][search][value]=&columns[4][search][regex]=false&columns[5][data]=cap_type&columns[5][name]=&columns[5][searchable]=true&columns[5][orderable]=true&columns[5][search][value]=&columns[5][search][regex]=false&columns[6][data]=price&columns[6][name]=&columns[6][searchable]=true&columns[6][orderable]=true&columns[6][search][value]=&columns[6][search][regex]=false&columns[7][data]=volume&columns[7][name]=&columns[7][searchable]=true&columns[7][orderable]=true&columns[7][search][value]=&columns[7][search][regex]=false&columns[8][data]=status&columns[8][name]=&columns[8][searchable]=true&columns[8][orderable]=true&columns[8][search][value]=&columns[8][search][regex]=false&columns[9][data]=score&columns[9][name]=&columns[9][searchable]=true&columns[9][orderable]=true&columns[9][search][value]=&columns[9][search][regex]=false&order[0][column]=9&order[0][dir]=desc&start=25&length=25&search[value]=&search[regex]=false&_={{.EpochSecs}}' > data/tokens_safety.json
+  artifacts:
+    paths:
+      - data
+  on_completed: etherscan-contracts
+- task_type: etherscan-contracts
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  before_script:
+    - mkdir -p data
+  script:
+    # See https://docs.etherscan.io/api-endpoints/contracts
+    # https://etherscan.io/contractsVerified/3
+    # https://api.etherscan.io/api?module=account&action=tokenbalance&contractaddress=0x57d90b64a1a57749b0f932f1a3395792e12e7055
+    # TODO See https://docs.etherscan.io/api-endpoints/tokens https://etherscan.io/contractsVerified/3
+    - >
+      curl "https://etherscan.io/contractsVerified/3" 2>/dev/null | grep -i -e '</\?TABLE\|</\?TD\|</\?TR\|</\?TH' | sed 's/^[\ \t]*//g' | tr -d '\n' | sed 's/<\/TR[^>]*>/\n/Ig'  | sed 's/<\/\?\(TABLE\|TR\)[^>]*>//Ig' | sed 's/^<T[DH][^>]*>\|<\/\?T[DH][^>]*>$//Ig' | sed 's/<\/T[DH][^>]*><T[DH][^>]*>/,/Ig' | sed 's/.*href=.//g' | sed 's/<span.*span>//Ig' | sed 's/. class=.hash-tag text-truncate.>/,/Ig' | sed 's/<.a.//g' | sed 's/<.*//g' | grep address > data/contracts.csv
+    - sleep 5
+    - >
+      for addr in `cat contracts.csv | cut -d ',' -f2`;do name=`grep $addr contracts.csv|cut -d ',' -f2`;sleep 10;curl 'https://api.etherscan.io/api?module=contract&action=getsourcecode&apikey={{.ETHERSCAN_TOKEN}}&address='"$addr" > data/source_${addr}_${name}.js;sleep 10;curl 'https://api.etherscan.io/api?module=stats&action=tokensupply&apikey={{.ETHERSCAN_TOKEN}}&contractaddress='"$addr" > data/token_supply_${addr}_${name}.json;done
+  artifacts:
+    paths:
+      - data
+  on_completed: analyze
+- task_type: analyze
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  retry: 2
+  report_stdout: true
+  before_script:
+    - mkdir -p data
+    - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
+  script:
+    - python token-scripts/analyze.py
+  dependencies:
+    - apewisdom
+    - coinmarketcal-tokens
+    - uniswap-tokens
+    - coingecko-tokens
+    - coinmarketcap-tokens
+    - santiment
+    - ethplorer-tokens
+    - token-sniffer
+    - etherscan-stats
+    - scam-tokens
+    - etherscan-contracts
+  artifacts:
+    paths:
+      - data

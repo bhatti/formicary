@@ -77,6 +77,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 
 	artifactManager, err := manager.NewArtifactManager(
 		serverCfg,
+		repoFactory.LogEventRepository,
 		repoFactory.ArtifactRepository,
 		artifactService)
 	if err != nil {
@@ -85,6 +86,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 
 	notifier, err := notify.New(
 		serverCfg,
+		repoFactory.LogEventRepository,
 		repoFactory.EmailVerificationRepository)
 	if err != nil {
 		return err

@@ -207,7 +207,7 @@ func (uc *UserAdminController) getUser(c web.APIContext) error {
 	}
 	unverifiedEmails := user.GetUnverifiedNotificationEmails()
 	if len(unverifiedEmails) > 0 {
-		verifiedEmails := uc.userManager.GetVerifiedEmails(qc, user.ID)
+		verifiedEmails := uc.userManager.GetVerifiedEmails(qc, user)
 		newUnverifiedEmails := make([]string, 0)
 		for _, email := range unverifiedEmails {
 			if !verifiedEmails[email] {

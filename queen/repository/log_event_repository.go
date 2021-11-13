@@ -1,6 +1,10 @@
 package repository
 
-import "plexobject.com/formicary/internal/events"
+import (
+	"plexobject.com/formicary/internal/events"
+	common "plexobject.com/formicary/internal/types"
+	"time"
+)
 
 // LogEventRepository defines data access methods for log-events
 type LogEventRepository interface {
@@ -9,7 +13,7 @@ type LogEventRepository interface {
 		params map[string]interface{},
 		page int,
 		pageSize int,
-		order []string) (jobs []*events.LogEvent, totalRecords int64, err error)
+		order []string) (recs []*events.LogEvent, totalRecords int64, err error)
 	// DeleteByRequestID delete all logs by request-id
 	DeleteByRequestID(requestID uint64) (int64, error)
 	// DeleteByJobExecutionID delete all logs by job-execution-id
@@ -18,4 +22,8 @@ type LogEventRepository interface {
 	DeleteByTaskExecutionID(taskExecutionID string) (int64, error)
 	// Save saves log events
 	Save(job *events.LogEvent) (*events.LogEvent, error)
+	// ExpireLogEvents delete old logs
+	ExpireLogEvents(
+		qc *common.QueryContext,
+		expiration time.Duration) (int64, error)
 }

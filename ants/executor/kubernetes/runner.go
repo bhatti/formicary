@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/types"
 	cutils "plexobject.com/formicary/internal/utils"
 	"runtime/debug"
 	"strconv"
@@ -86,9 +87,11 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 	kcr.Err = err
 
 	if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
-		_, _ = kcr.Trace.Write(kcr.Stdout.Bytes())
+		if len(kcr.Stdout.Bytes()) > 0 {
+			_, _ = kcr.Trace.Write(kcr.Stdout.Bytes(), types.StdoutTags)
+		}
 		if len(kcr.Stderr.Bytes()) > 0 {
-			_, _ = kcr.Trace.Write(kcr.Stderr.Bytes())
+			_, _ = kcr.Trace.Write(kcr.Stderr.Bytes(), types.StderrTags)
 		}
 	}
 	if err == nil {
@@ -101,6 +104,7 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Name":      kcr.Name,
 			"Container": kcr.containerName,
 			"Command":   kcr.Command,
+			"StdoutLen": len(kcr.Stdout.Bytes()),
 			"Host":      kcr.Host,
 			"IP":        kcr.ContainerIP,
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
@@ -116,6 +120,7 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Name":      kcr.Name,
 			"Container": kcr.containerName,
 			"Command":   kcr.Command,
+			"StderrLen": len(kcr.Stderr.Bytes()),
 			"Host":      kcr.Host,
 			"IP":        kcr.ContainerIP,
 			"Message":   kcr.ExitCode,
@@ -128,9 +133,9 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 				kcr.Command, kcr.ContainerIP, kcr.ExitCode, err, kcr.BaseExecutor.Elapsed()))
 		if !kcr.DumpedRuntimeInfo {
 			kcr.DumpedRuntimeInfo = true
-			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO BEGIN>> **************************"))
-			_, _ = kcr.Trace.Write([]byte(kcr.exec.GetRuntimeInfo(ctx)))
-			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO END>>  **************************"))
+			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO BEGIN>> **************************"), types.DumpTags)
+			_, _ = kcr.Trace.Write([]byte(kcr.exec.GetRuntimeInfo(ctx)), types.DumpTags)
+			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO END>>  **************************"), types.DumpTags)
 		}
 	}
 	return kcr.Stdout.Bytes(), kcr.Stderr.Bytes(), err

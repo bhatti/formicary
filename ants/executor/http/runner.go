@@ -66,8 +66,12 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 	stderr = make([]byte, 0)
 	scr.Err = err
 
-	if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
-		_, _ = scr.Trace.Write(stdout)
+	if len(stdout) > 0 && (scr.ExecutorOptions.Debug || !scr.IsHelper(ctx)) {
+		_, _ = scr.Trace.Write(stdout, types.StdoutTags)
+	}
+
+	if len(stderr) > 0 && (scr.ExecutorOptions.Debug || !scr.IsHelper(ctx)) {
+		_, _ = scr.Trace.Write(stderr, types.StderrTags)
 	}
 
 	if err == nil {
@@ -76,6 +80,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"ID":        scr.ID,
 			"Name":      scr.Name,
 			"Endpoint":  scr.Command,
+			"StdoutLen": len(stdout),
 			"HTTPCode":  scr.ExitCode,
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
@@ -89,6 +94,7 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"Component": "HTTPCommandRunner",
 			"ID":        scr.ID,
 			"Name":      scr.Name,
+			"StderrLen": len(stderr),
 			"Endpoint":  scr.Command,
 			"HTTPCode":  scr.ExitCode,
 			"Error":     err,

@@ -28,12 +28,14 @@ func Test_ShouldReturnStringForJobExecution(t *testing.T) {
 func Test_ShouldMatchJobExecutionState(t *testing.T) {
 	// Given job execution
 	jobExec := testNewJobExecution("test-exec-job")
+	jobExec.Tasks[0].Stdout = []string{"one", "two", "three"}
 	jobExec.JobState = common.PENDING
 	require.Equal(t, jobExec.JobState.CanRestart(), jobExec.CanRestart())
 	require.Equal(t, jobExec.JobState.CanCancel(), jobExec.CanCancel())
 	require.Equal(t, jobExec.JobState.Completed(), jobExec.Completed())
 	require.Equal(t, jobExec.JobState.Failed(), jobExec.Failed())
 	require.Equal(t, !jobExec.JobState.IsTerminal(), jobExec.NotTerminal())
+	require.Equal(t, 5, len(jobExec.Stdout()))
 }
 
 // Validate GetUserJobTypeKey
@@ -159,10 +161,11 @@ func testNewJobExecution(name string) *JobExecution {
 	jobExec := NewJobExecution(req.ToInfo())
 	_, _ = jobExec.AddContext("jk1", "jv1")
 	_, _ = jobExec.AddContext("jk2", "jv2")
-	for _, t := range job.Tasks {
-		task := jobExec.AddTasks(t)
-		_, _ = task.AddContext("tk1", "v1")
-		_, _ = task.AddContext("tk2", "v2")
+	for i, t := range job.Tasks {
+		jobExec.AddTasks(t)
+		jobExec.Tasks[i].Stdout = []string{"test"}
+		_, _ = jobExec.Tasks[i].AddContext("tk1", "v1")
+		_, _ = jobExec.Tasks[i].AddContext("tk2", "v2")
 	}
 	_ = jobExec.AfterLoad()
 	return jobExec

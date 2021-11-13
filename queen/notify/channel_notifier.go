@@ -2,15 +2,15 @@ package notify
 
 import (
 	"fmt"
-	"io/ioutil"
-	"sync"
-
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/utils"
+	"strings"
+	"sync"
 )
 
 // Notifier defines operations to notify job results
@@ -20,6 +20,7 @@ type Notifier interface {
 		user *common.User,
 		job *types.JobDefinition,
 		request types.IJobRequest,
+		jobExec *types.JobExecution,
 		lastRequestState common.RequestState) error
 	SendEmailVerification(
 		qc *common.QueryContext,
@@ -37,6 +38,7 @@ type Notifier interface {
 type DefaultNotifier struct {
 	cfg                    *config.ServerConfig
 	senders                map[common.NotifyChannel]types.Sender
+	logEventRepository     repository.LogEventRepository
 	emailRepository        repository.EmailVerificationRepository
 	jobsTemplates          map[string]string
 	verifyEmailTemplate    string
@@ -47,13 +49,15 @@ type DefaultNotifier struct {
 // New constructor
 func New(
 	cfg *config.ServerConfig,
+	logEventRepository repository.LogEventRepository,
 	emailRepository repository.EmailVerificationRepository,
 ) (*DefaultNotifier, error) {
 	n := &DefaultNotifier{
-		cfg:             cfg,
-		senders:         make(map[common.NotifyChannel]types.Sender),
-		emailRepository: emailRepository,
-		jobsTemplates:   make(map[string]string),
+		cfg:                cfg,
+		senders:            make(map[common.NotifyChannel]types.Sender),
+		logEventRepository: logEventRepository,
+		emailRepository:    emailRepository,
+		jobsTemplates:      make(map[string]string),
 	}
 	if b, err := loadTemplate(cfg.Notify.VerifyEmailTemplateFile, cfg.PublicDir); err == nil {
 		n.verifyEmailTemplate = string(b)
@@ -193,6 +197,7 @@ func (n *DefaultNotifier) NotifyJob(
 	user *common.User,
 	job *types.JobDefinition,
 	request types.IJobRequest,
+	jobExec *types.JobExecution,
 	lastRequestState common.RequestState) (err error) {
 	prefix := ""
 	if request.GetJobState().Completed() && lastRequestState.Failed() {
@@ -228,6 +233,8 @@ func (n *DefaultNotifier) NotifyJob(
 	}
 	var verifiedEmails map[string]bool
 
+	reportStdoutLen := 0
+
 	whens := make([]common.NotifyWhen, 0)
 	for k, v := range jobNotify {
 		sender := n.senders[k]
@@ -239,7 +246,10 @@ func (n *DefaultNotifier) NotifyJob(
 		}
 		whens = append(whens, v.When)
 		senders = append(senders, k)
-		if v.When.Accept(request.GetJobState(), lastRequestState) {
+
+		reportStdoutTask := job.ReportStdoutTask()
+		if v.When.Accept(request.GetJobState(), lastRequestState) ||
+			(sender.SupportsLongReport() && reportStdoutTask != nil && request.GetJobState().Completed()) {
 			tmpl, err := n.loadJobsTemplate(sender)
 			if err != nil {
 				return err
@@ -249,13 +259,25 @@ func (n *DefaultNotifier) NotifyJob(
 				return err
 			}
 
+			if sender.SupportsLongReport() && reportStdoutTask != nil && request.GetJobState().Completed() {
+				var sb strings.Builder
+				for _, stdout := range jobExec.Stdout() {
+					sb.WriteString(stdout)
+				}
+
+				if sb.Len() > 0 {
+					reportStdoutLen = sb.Len()
+					msg = strings.TrimSpace(sb.String())
+				}
+			}
+
 			for _, recipient := range v.Recipients {
 				if k == common.EmailChannel && user != nil {
 					if recipient != user.Email {
-						if verifiedEmails == nil {
+						if len(verifiedEmails) == 0 {
 							verifiedEmails = n.emailRepository.GetVerifiedEmails(
 								common.NewQueryContext(nil, "").WithAdmin(),
-								user.ID)
+								user)
 						}
 						if !verifiedEmails[recipient] {
 							unverified = append(unverified, recipient)
@@ -292,6 +314,9 @@ func (n *DefaultNotifier) NotifyJob(
 		"Whens":            whens,
 		"Subject":          subject,
 		"Total":            total,
+		"ReportStdoutTask": job.ReportStdoutTask(),
+		"ReportStdoutLen":  reportStdoutLen,
+		"Stdout":           len(jobExec.Stdout()),
 		"Error":            err,
 	}).Infof("notified job")
 	return

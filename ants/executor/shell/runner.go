@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	common "plexobject.com/formicary/internal/types"
 	cutils "plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
@@ -79,9 +80,11 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 	_, err := async.Execute(ctx, handler, abort, nil).Await(ctx)
 	scr.Err = err
 	if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
-		_, _ = scr.Trace.Write(scr.Stdout.Bytes())
+		if len(scr.Stdout.Bytes()) > 0 {
+			_, _ = scr.Trace.Write(scr.Stdout.Bytes(), common.StdoutTags)
+		}
 		if len(scr.Stderr.Bytes()) > 0 {
-			_, _ = scr.Trace.Write(scr.Stderr.Bytes())
+			_, _ = scr.Trace.Write(scr.Stderr.Bytes(), common.StderrTags)
 		}
 	}
 	//scr.Trace.Finish()
@@ -90,6 +93,7 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Component": "ShellCommandRunner",
 			"ID":        scr.ID,
 			"Name":      scr.Name,
+			"StdoutLen": len(scr.Stdout.Bytes()),
 			"Command":   scr.Command,
 			"Host":      scr.Host,
 			"IP":        scr.ContainerIP,
@@ -107,6 +111,7 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Component": "ShellCommandRunner",
 			"ID":        scr.ID,
 			"Name":      scr.Name,
+			"StderrLen": len(scr.Stderr.Bytes()),
 			"Command":   scr.Command,
 			"Host":      scr.Host,
 			"IP":        scr.ContainerIP,

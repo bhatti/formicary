@@ -57,7 +57,7 @@ func Test_ShouldGetNotfound(t *testing.T) {
 	var stderr []byte
 	err = opts.Validate()
 	require.NoError(t, err)
-	jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+	jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 	require.NoError(t, err)
 	ctx := context.Background()
 	// AND an executor
@@ -98,7 +98,7 @@ func Test_ShouldGetCreated(t *testing.T) {
 	var stderr []byte
 	err = opts.Validate()
 	require.NoError(t, err)
-	jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+	jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 	require.NoError(t, err)
 	ctx := context.Background()
 	// AND an executor
@@ -138,7 +138,7 @@ func Test_ShouldGetSubmitted(t *testing.T) {
 	var stderr []byte
 	err = opts.Validate()
 	require.NoError(t, err)
-	jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+	jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 	require.NoError(t, err)
 	ctx := context.Background()
 	// AND an executor

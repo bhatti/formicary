@@ -600,7 +600,6 @@ You can configure job to call an external webhook API upon completion of a job o
 job_type: hook-job
 webhook:
   url: {{.WebhookURL}}
-  method: POST 
   headers:
     Authorization: Bearer {{.WebhookAuth}}
   query:
@@ -613,7 +612,6 @@ tasks:
     - ls -l
   webhook:
     url: {{.WebhookURL}}
-    method: POST 
     headers:
       Authorization: Bearer {{.WebhookAuth}}
     query:

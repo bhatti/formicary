@@ -7,6 +7,7 @@
       description TEXT,
       endpoint TEXT,
       always_run BOOLEAN NOT NULL DEFAULT FALSE,
+      report_stdout BOOLEAN NOT NULL DEFAULT FALSE,
       allow_failure BOOLEAN NOT NULL DEFAULT FALSE,
       allow_start_if_completed BOOLEAN NOT NULL DEFAULT FALSE,
       timeout BIGINT NOT NULL DEFAULT 0,

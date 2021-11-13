@@ -14,8 +14,6 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-const console = "console.txt"
-
 // AsyncCommandExecutor - executes command in the executor
 type AsyncCommandExecutor func(
 	ctx context.Context,
@@ -69,7 +67,7 @@ func UploadCacheAndArtifacts(
 
 	paths, expiration := taskReq.ExecutorOpts.Artifacts.GetPathsAndExpiration(taskResp.Status.Completed())
 	artifacts = make([]*types.Artifact, 0)
-	if taskReq.ExecutorOpts.Method.SupportsDependentArtifacts() && len(paths) > 0 {
+	if len(paths) > 0 { // taskReq.ExecutorOpts.Method.SupportsDependentArtifacts()
 		artifact, err := uploadArtifacts(
 			ctx,
 			antCfg,
@@ -360,7 +358,7 @@ func UploadConsoleLog(
 	} else if artifact, err := artifactService.SaveBytes(
 		ctx,
 		taskReq.KeyPath(),
-		console,
+		fmt.Sprintf("%s_console.txt", taskReq.TaskType),
 		consoleLog); err != nil {
 		return err
 	} else {

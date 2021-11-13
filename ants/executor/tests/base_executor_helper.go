@@ -79,7 +79,7 @@ func DoTestExecuteWithSimpleList(
 		require.NoError(t, err)
 		//t.Logf("****** TestExecuteWithSimpleList BEGIN provider %s", name)
 		started := time.Now()
-		jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+		jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 		require.NoError(t, err)
 
 		// AND an executor
@@ -130,7 +130,7 @@ func DoTestExecuteWithTimeout(
 		require.NoError(t, err)
 		t.Logf("****** TestExecuteWithTimeout BEGIN provider %s", name)
 		started := time.Now()
-		jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+		jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 		require.NoError(t, err)
 
 		// AND an executor
@@ -180,7 +180,7 @@ func DoTestExecuteWithBadCommand(
 		require.NoError(t, err)
 		//t.Logf("****** TestExecuteWithBadCommand BEGIN provider %s", name)
 		started := time.Now()
-		jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+		jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 		require.NoError(t, err)
 
 		// AND an executor
@@ -230,7 +230,7 @@ func DoTestListExecutors(
 		containerName := opts.Name
 		t.Logf("****** TestListExecutors BEGIN provider %s", name)
 		started := time.Now()
-		jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+		jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 		require.NoError(t, err)
 
 		// WHEN executors are created
@@ -275,7 +275,7 @@ func DoTestGetRuntime(
 		require.NoError(t, err)
 		t.Logf("****** TestGetRuntime BEGIN provider %s", name)
 		started := time.Now()
-		jobTrace, err := trace.NewJobTrace(func(bytes []byte) {}, 1000, make([]string, 0))
+		jobTrace, err := trace.NewJobTrace(func(bytes []byte, tags string) {}, 1000, make([]string, 0))
 		require.NoError(t, err)
 
 		// AND an executor

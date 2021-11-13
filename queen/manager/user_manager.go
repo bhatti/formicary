@@ -583,7 +583,7 @@ func (m *UserManager) GetStorageResourcesByOrgUser(
 func (m *UserManager) CombinedResourcesByOrgUser(
 	from time.Time,
 	to time.Time,
-	limit int,
+	_ int,
 ) []types.CombinedResourceUsage {
 	ranges := []types.DateRange{
 		{
@@ -663,9 +663,9 @@ func (m *UserManager) GetVerifiedEmailByID(
 // GetVerifiedEmails finds verified emails
 func (m *UserManager) GetVerifiedEmails(
 	qc *common.QueryContext,
-	userID string,
+	user *common.User,
 ) map[string]bool {
-	return m.emailVerificationRepository.GetVerifiedEmails(qc, userID)
+	return m.emailVerificationRepository.GetVerifiedEmails(qc, user)
 }
 
 // CreateEmailVerification adds email verifications
@@ -710,7 +710,7 @@ func (m *UserManager) VerifyEmail(
 	if err != nil {
 		return nil, err
 	}
-	rec, err = m.emailVerificationRepository.Verify(qc, userID, code)
+	rec, err = m.emailVerificationRepository.Verify(qc, user, code)
 	if err == nil {
 		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromEmailVerification(rec, types.EmailVerificationVerified, qc))
 		if !user.EmailVerified && user.Email == rec.Email {

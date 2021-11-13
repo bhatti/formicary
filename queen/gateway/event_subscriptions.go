@@ -32,7 +32,7 @@ func (gw *Gateway) startReaperTicker(ctx context.Context) {
 func (gw *Gateway) reapStaleLeases(_ context.Context) (count int) {
 	now := time.Now()
 	for _, lease := range gw.registry.getAllLeases() {
-		if time.Duration(now.Unix()-lease.updatedAt.Unix()) * time.Second > gw.serverCfg.Jobs.OrphanRequestsTimeout {
+		if time.Duration(now.Unix()-lease.updatedAt.Unix())*time.Second > gw.serverCfg.Jobs.OrphanRequestsTimeout {
 			_ = gw.registry.Remove(lease)
 			logrus.WithFields(logrus.Fields{
 				"Component": "WebsocketGateway",

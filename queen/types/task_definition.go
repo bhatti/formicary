@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,8 @@ type TaskDefinition struct {
 	// UpdatedAt job update time
 	UpdatedAt time.Time `yaml:"-" json:"updated_at"`
 	TaskOrder int       `yaml:"-" json:"-" gorm:"task_order"`
+	// ReportStdout is used to send stdout as a report
+	ReportStdout bool `yaml:"report_stdout,omitempty" json:"report_stdout"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
 	NameValueVariables interface{} `yaml:"variables,omitempty" json:"variables" gorm:"-"`
 	// Header defines HTTP headers
@@ -103,6 +106,8 @@ type TaskDefinition struct {
 	ArtifactIDs []string `json:"artifact_ids,omitempty" yaml:"artifact_ids,omitempty" gorm:"-"`
 	// ForkJobType defines type of job to work
 	ForkJobType string `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty" gorm:"-"`
+	// URL to use
+	URL string `json:"url,omitempty" yaml:"url,omitempty" gorm:"-"`
 	// AwaitForkedTasks defines list of jobs to wait for completion
 	AwaitForkedTasks      []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
 	MessagingRequestQueue string   `json:"messaging_request_queue,omitempty" yaml:"messaging_request_queue,omitempty" gorm:"-"`
@@ -141,10 +146,11 @@ func (td *TaskDefinition) String() string {
 
 // ShortTaskType returns abbrev. task-type
 func (td *TaskDefinition) ShortTaskType() string {
-	if len(td.TaskType) <= 10 {
-		return td.TaskType
+	reg := regexp.MustCompile("[^a-zA-Z]+")
+	if len(td.TaskType) <= 8 {
+		return reg.ReplaceAllString(td.TaskType, "")
 	}
-	return td.TaskType[0:10]
+	return reg.ReplaceAllString(td.TaskType[0:8], "")
 }
 
 // ScriptString - text view of script
@@ -363,6 +369,9 @@ func (td *TaskDefinition) AfterLoad() error {
 		}
 	}
 	td.NameValueVariables = nameValueVariables
+	if len(td.Script) == 0 && td.URL != "" {
+		td.Script = []string{td.URL}
+	}
 	return nil
 }
 

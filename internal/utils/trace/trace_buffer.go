@@ -19,19 +19,21 @@ const maskedText = "[MASKED]"
 const defaultBytesLimit = 4 * 1024 * 1024 // 4MB
 
 // LineFeeder - callback function when new-line is reached
-type LineFeeder func([]byte)
+type LineFeeder func([]byte, string)
 
 // Buffer for tracing
 type Buffer struct {
 	lineFeeder    LineFeeder
 	writer        io.WriteCloser
-	lock          sync.RWMutex
+	tagsLock      sync.RWMutex
+	bufferLock    sync.RWMutex
 	logFile       *os.File
 	logSize       int
 	logWriter     *bufio.Writer
 	advanceBuffer bytes.Buffer
 	lineBuffer    bytes.Buffer
 	bytesLimit    int
+	tags          string
 	finish        chan struct{}
 	checksum      hash.Hash32
 	maskTree      *trie.Trie
@@ -76,9 +78,9 @@ func (b *Buffer) SetMasked(values []string) {
 
 // SetLimit limit max size
 func (b *Buffer) SetLimit(size int) {
-	b.lock.Lock()
+	b.bufferLock.Lock()
 	b.bytesLimit = size
-	b.lock.Unlock()
+	b.bufferLock.Unlock()
 }
 
 // Size size of buffer
@@ -88,8 +90,8 @@ func (b *Buffer) Size() int {
 
 // Reader reads bytes
 func (b *Buffer) Reader(offset, n int) (io.ReadSeeker, error) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
+	b.bufferLock.Lock()
+	defer b.bufferLock.Unlock()
 
 	err := b.logWriter.Flush()
 	if err != nil {
@@ -110,8 +112,10 @@ func (b *Buffer) Bytes(offset, n int) ([]byte, error) {
 }
 
 // Write adds bytes
-func (b *Buffer) Write(data []byte) (n int, err error) {
-	return b.writer.Write(data)
+func (b *Buffer) Write(data []byte, tags string) (n int, err error) {
+	b.setTags(tags)
+	n, err = b.writer.Write(data)
+	return
 }
 
 // Finish closes buffer
@@ -135,10 +139,10 @@ func (b *Buffer) Checksum() string {
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (b *Buffer) advanceAllUnsafe() error {
 	b.lineBuffer.Write(b.advanceBuffer.Bytes())
-	if b.lineBuffer.Len() > 1 &&
-		b.lineBuffer.Bytes()[b.lineBuffer.Len()-2] == '\r' &&
+	tags := b.getTags()
+	if b.lineBuffer.Len() > 1 && b.lineBuffer.Bytes()[b.lineBuffer.Len()-2] == '\r' &&
 		b.lineBuffer.Bytes()[b.lineBuffer.Len()-1] == '\n' {
-		b.lineFeeder(b.lineBuffer.Bytes())
+		b.lineFeeder(b.lineBuffer.Bytes(), tags)
 		b.lineBuffer.Reset()
 	}
 	n, err := b.advanceBuffer.WriteTo(b.logWriter)
@@ -146,9 +150,21 @@ func (b *Buffer) advanceAllUnsafe() error {
 	return err
 }
 
+func (b *Buffer) getTags() string {
+	b.tagsLock.RLock()
+	defer b.tagsLock.RUnlock()
+	return b.tags
+}
+
+func (b *Buffer) setTags(tags string) {
+	b.tagsLock.Lock()
+	defer b.tagsLock.Unlock()
+	b.tags = tags
+}
+
 func (b *Buffer) advanceAll() {
-	b.lock.Lock()
-	defer b.lock.Unlock()
+	b.bufferLock.Lock()
+	defer b.bufferLock.Unlock()
 
 	_ = b.advanceAllUnsafe()
 }
@@ -188,8 +204,8 @@ func (b *Buffer) limitExceededMessage() string {
 }
 
 func (b *Buffer) writeRune(r rune) error {
-	b.lock.Lock()
-	defer b.lock.Unlock()
+	b.bufferLock.Lock()
+	defer b.bufferLock.Unlock()
 
 	// over trace limit
 	if b.logSize > b.bytesLimit {

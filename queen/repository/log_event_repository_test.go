@@ -61,6 +61,7 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 				fmt.Sprintf("job-exec-%d", i),
 				fmt.Sprintf("task-exec-%d-%d", i, j),
 				fmt.Sprintf("message-%d-%d", i, j),
+				"tags",
 				"ant")
 			_, err = repo.Save(e)
 			require.NoError(t, err)

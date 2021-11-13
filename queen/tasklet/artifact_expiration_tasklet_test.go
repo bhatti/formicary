@@ -92,9 +92,12 @@ func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *Artifact
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)
+	logRepository, err := repository.NewTestLogEventRepository()
+	require.NoError(t, err)
 
 	mgr, err := manager.NewArtifactManager(
 		cfg,
+		logRepository,
 		artifactRepository,
 		artifactService)
 	require.NoError(t, err)

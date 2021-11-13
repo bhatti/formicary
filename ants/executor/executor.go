@@ -31,6 +31,8 @@ const (
 	Succeeded State = "SUCCEEDED"
 	// Failed state
 	Failed State = "FAILED"
+	// ContainerFailed state
+	ContainerFailed State = "CONTAINER_FAILED"
 )
 
 // ReadyOrRunning state
@@ -172,12 +174,10 @@ func (e *BaseExecutor) WriteTrace(msg string) (err error) {
 	_, err = e.Trace.Writeln(fmt.Sprintf("[%s %s %s%s] %s",
 		time.Now().Format(time.RFC3339),
 		e.ExecutorOptions.Method,
-		//e.ID,
 		e.ExecutorOptions.Name,
 		helper,
-		//e.ContainerIP,
 		msg,
-	))
+	), types.ExecTraceTags)
 	return
 }
 

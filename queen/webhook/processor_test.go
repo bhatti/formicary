@@ -23,9 +23,9 @@ func Test_ShouldCreateJobWebhook(t *testing.T) {
 	http.PostMapping["https://formicary.io/webhook/jobs"] = web.NewStubHTTPResponse(200, "test-body")
 
 	processor := New(serverCfg, queueClient, http)
-	processor.Start(ctx)
+	_ = processor.Start(ctx)
 	defer func() {
-		processor.Stop(ctx)
+		_ = processor.Stop(ctx)
 	}()
 	event := events.NewWebhookJobEvent(
 		&events.JobExecutionLifecycleEvent{
@@ -56,9 +56,9 @@ func Test_ShouldCreateTaskWebhook(t *testing.T) {
 	http.PostMapping["https://formicary.io/webhook/tasks"] = web.NewStubHTTPResponse(200, "test-body")
 
 	processor := New(serverCfg, queueClient, http)
-	processor.Start(ctx)
+	_ = processor.Start(ctx)
 	defer func() {
-		processor.Stop(ctx)
+		_ = processor.Stop(ctx)
 	}()
 	event := events.NewWebhookTaskEvent(
 		&events.TaskExecutionLifecycleEvent{

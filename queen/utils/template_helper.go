@@ -6,10 +6,17 @@ import (
 	"html/template"
 	"math/rand"
 	"regexp"
+	"strings"
 )
 
+// UnescapeHTML flag
+const UnescapeHTML = "UnescapeHTML"
+
 // ParseTemplate parses GO template with dynamic parameters
-func ParseTemplate(body string, data interface{}) (string, error) {
+func ParseTemplate(body string, data interface{}) (res string, err error) {
+	if !strings.Contains(body, "{{") {
+		return body, nil
+	}
 	emptyLineRegex, err := regexp.Compile(`(?m)^\s*$[\r\n]*|[\r\n]+\s+\z`)
 	if err != nil {
 		return "", err
@@ -22,10 +29,18 @@ func ParseTemplate(body string, data interface{}) (string, error) {
 	err = t.Execute(&out, data)
 	//err = t.ExecuteTemplate(&out, body, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template due to %s, data=%v",
+		return "", fmt.Errorf("failed to execute template due to '%s', data=%v",
 			err, data)
 	}
-	return emptyLineRegex.ReplaceAllString(out.String(), ""), nil
+	res = emptyLineRegex.ReplaceAllString(out.String(), "")
+	switch data.(type) {
+	case map[string]interface{}:
+		m := data.(map[string]interface{})
+		if m[UnescapeHTML] == true {
+			res = strings.ReplaceAll(res, "&lt;", "<")
+		}
+	}
+	return
 }
 
 // TemplateFuncs returns template functions

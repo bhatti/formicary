@@ -657,6 +657,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 	if jsm.JobDefinition != nil {
 		fields["JobDefinitionID"] = jsm.JobDefinition.ID
 		fields["JobTimeout"] = jsm.JobDefinition.Timeout
+		fields["ReportStdout"] = jsm.JobDefinition.ReportStdoutTask()
 		fields["DefaultJobTimeout"] = jsm.serverCfg.MaxJobTimeout
 	}
 

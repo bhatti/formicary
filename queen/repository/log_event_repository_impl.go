@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	common "plexobject.com/formicary/internal/types"
 	"time"
 
@@ -86,16 +87,45 @@ func (l *LogEventRepositoryImpl) Query(
 		}
 	}
 	tx = l.addQuery(params, tx)
+
 	res := tx.Find(&records)
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "LogEventRepositoryImpl",
+			"Query":     res.Statement.SQL,
+			"Vars":      res.Statement.Vars,
+			"Error":     res.Error,
+			"Affected":  res.RowsAffected,
+			"Records":   len(records),
+			"Params":    params,
+			"PageSize":  pageSize,
+			"Page":      page,
+		}).Debugf("queried log events")
+	}
+
 	if res.Error != nil {
 		err = res.Error
 		return nil, 0, err
 	}
+
 	for _, r := range records {
 		r.AfterLoad()
 	}
+
 	totalRecords, _ = l.Count(params)
 	return
+}
+
+// ExpireLogEvents delete old logs
+func (l *LogEventRepositoryImpl) ExpireLogEvents(
+	qc *common.QueryContext,
+	expiration time.Duration) (int64, error) {
+	res := qc.AddUserWhere(l.db.Model(&events.LogEvent{}), false).
+		Where("created_at < ?", time.Now().Add(-expiration)).Delete(&events.LogEvent{})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
 }
 
 // Count counts records by query

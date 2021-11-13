@@ -53,11 +53,11 @@ func (urc *EmailVerificationRepositoryCached) Create(
 // GetVerifiedEmails returns verified emails
 func (urc *EmailVerificationRepositoryCached) GetVerifiedEmails(
 	qc *common.QueryContext,
-	userID string,
+	user *common.User,
 ) map[string]bool {
-	item, err := urc.cache.Fetch("VerifiedEmails:"+userID,
+	item, err := urc.cache.Fetch("VerifiedEmails:"+user.ID,
 		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
-			return urc.adapter.GetVerifiedEmails(qc, userID), nil
+			return urc.adapter.GetVerifiedEmails(qc, user), nil
 		})
 	if err != nil {
 		return make(map[string]bool)
@@ -78,11 +78,11 @@ func (urc *EmailVerificationRepositoryCached) Query(
 // Verify updates database for email verification
 func (urc *EmailVerificationRepositoryCached) Verify(
 	qc *common.QueryContext,
-	userID string,
+	user *common.User,
 	code string) (recs *types.EmailVerification, err error) {
-	recs, err = urc.adapter.Verify(qc, userID, code)
+	recs, err = urc.adapter.Verify(qc, user, code)
 	if err == nil {
-		urc.cache.DeletePrefix("VerifiedEmails:" + userID)
+		urc.cache.DeletePrefix("VerifiedEmails:" + user.ID)
 	}
 	return
 }

@@ -16,6 +16,7 @@ func Test_ShouldCreateLogEvent(t *testing.T) {
 		"execution-id",
 		"task-id",
 		"message",
+		"tags",
 		"ant-id",
 	)
 
@@ -36,6 +37,7 @@ func Test_ShouldMarshalLogEvent(t *testing.T) {
 		"execution-id",
 		"task-id",
 		"message",
+		"tags",
 		"ant-id",
 	)
 
@@ -43,7 +45,7 @@ func Test_ShouldMarshalLogEvent(t *testing.T) {
 	// THEN it should return serialized bytes
 	b, err := e.Marshal()
 	require.NoError(t, err)
-	copy, err := UnmarshalLogEvent(b)
+	logEvent, err := UnmarshalLogEvent(b)
 	require.NoError(t, err)
-	require.Equal(t, e.String(), copy.String())
+	require.Equal(t, e.String(), logEvent.String())
 }

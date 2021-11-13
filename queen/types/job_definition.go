@@ -290,6 +290,12 @@ func (jd *JobDefinition) GetDynamicTask(
 	for k, v := range vars {
 		data[k] = v.Value
 	}
+	data["UnescapeHTML"] = true
+	data["DateYear"] = time.Now().Year()
+	data["DateMonth"] = time.Now().Month()
+	data["DateDay"] = time.Now().Day()
+	data["FullDate"] = time.Now().Format("2006-01-02")
+	data["EpochSecs"] = time.Now().Unix()
 	task = jd.GetTask(taskType)
 	if task == nil {
 		return nil, nil, fmt.Errorf("failed to find task %s", taskType)
@@ -936,6 +942,21 @@ func (jd *JobDefinition) Validate() (err error) {
 	if _, err = jd.GetFirstTask(); err != nil {
 		jd.Errors["Tasks"] = err.Error()
 		return err
+	}
+	return nil
+}
+
+// ReportStdoutTask returns task with report from stdout
+func (jd *JobDefinition) ReportStdoutTask() *TaskDefinition {
+	if jd.Tasks == nil || len(jd.Tasks) == 0 {
+		return nil
+	}
+	for _, t := range jd.Tasks {
+		if t.ReportStdout {
+			return t
+		} else if dynT, _, _ := jd.GetDynamicTask(t.TaskType, nil); dynT != nil && dynT.ReportStdout {
+			return dynT
+		}
 	}
 	return nil
 }

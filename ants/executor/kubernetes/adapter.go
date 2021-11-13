@@ -213,7 +213,7 @@ func (u *Utils) AwaitPodRunning(
 		res := payload.(PodPhaseResponse)
 		if res.phase == api.PodRunning {
 			_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 👍 pod-running ready with Status=%s",
-				time.Now().Format(time.RFC3339), name, res.phase))
+				time.Now().Format(time.RFC3339), name, res.phase), domain.ExecTags)
 			return true, res, nil
 		} else if res.phase == api.PodSucceeded {
 			return true, nil, fmt.Errorf("⛔ failed to wait for running state, pod %s is already succeeded", name)
@@ -233,7 +233,7 @@ func (u *Utils) AwaitPodRunning(
 			case "ErrImagePull", "ImagePullBackOff":
 				err = fmt.Errorf("⛔ image pull failed: %s", container.State.Waiting.Message)
 				_, _ = trace.Writeln(fmt.Sprintf("[%s %s %s] ⌛ waiting for pod-running failed with Status=%s Error=%v",
-					time.Now().Format(time.RFC3339), u.config.Kubernetes.Namespace, name, res.phase, err))
+					time.Now().Format(time.RFC3339), u.config.Kubernetes.Namespace, name, res.phase, err), domain.ExecTags)
 				return false, res, err
 			}
 		}
@@ -246,17 +246,17 @@ func (u *Utils) AwaitPodRunning(
 			//	condition.Reason, condition.Message))
 		}
 		_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⌛ waiting for running state but status is still %s",
-			time.Now().Format(time.RFC3339), name, res.phase))
+			time.Now().Format(time.RFC3339), name, res.phase), domain.ExecTags)
 		if tried%60 == 0 {
 			if pod, err := u.GetPod(ctx, name); err == nil {
 				for _, c := range pod.Status.Conditions {
 					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ pod-state %s %v %v message=%s reason=%s condition=%s",
-						time.Now().Format(time.RFC3339), name, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.Message, pod.Status.Reason, c))
+						time.Now().Format(time.RFC3339), name, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.Message, pod.Status.Reason, c), domain.ExecTags)
 				}
 			} else if events, err := u.GetEvents(ctx, u.config.Kubernetes.Namespace, name, "", make(map[string]string)); err == nil {
 				for _, ev := range events.Items {
 					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ type=%s reason=%s from=%s message=%s action=%s",
-						time.Now().Format(time.RFC3339), name, ev.Type, ev.Reason, ev.Source, ev.Message, ev.Action))
+						time.Now().Format(time.RFC3339), name, ev.Type, ev.Reason, ev.Source, ev.Message, ev.Action), domain.ExecTags)
 				}
 			}
 		}
@@ -275,7 +275,7 @@ func (u *Utils) AwaitPodRunning(
 	res, err := future.Await(ctx)
 	if err != nil {
 		_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⌛ waiting for running but status timeout %v elapsed %s",
-			time.Now().Format(time.RFC3339), name, timeout, time.Since(started)))
+			time.Now().Format(time.RFC3339), name, timeout, time.Since(started)), domain.ExecTags)
 		return PodPhaseResponse{}, err
 	}
 	return res.(PodPhaseResponse), nil
@@ -314,7 +314,7 @@ func (u *Utils) AwaitPodTerminating(
 			return true, res, nil
 		}
 		_, _ = trace.Writeln(fmt.Sprintf("[%s %s %s] ⌛ waiting for terminating but status is still %s",
-			time.Now().Format(time.RFC3339), u.config.Kubernetes.Namespace, name, res.phase))
+			time.Now().Format(time.RFC3339), u.config.Kubernetes.Namespace, name, res.phase), domain.ExecTags)
 		logrus.WithFields(logrus.Fields{
 			"Component": "KubernetesAdapter",
 			"POD":       name,
@@ -569,7 +569,7 @@ func (u *Utils) BuildPod(
 			"Error":       err,
 			"Namespace":   u.config.Kubernetes.Namespace,
 			"Memory":      utils.MemUsageMiBString(),
-		}).Warnf("failed to create pod!")
+		}).Warnf("failed to create pod '%s'", podConfig.Name)
 	} else {
 		logrus.WithFields(logrus.Fields{
 			"Component":     "KubernetesAdapter",
@@ -713,9 +713,8 @@ func (u *Utils) GetRuntimeInfo(
 	if err != nil {
 		return fmt.Sprintf("pod=%s error=%s", podName, err.Error())
 	}
-	if u.config.Debug {
-		result["PodInfo"] = pod
-	}
+	pod.ObjectMeta.ManagedFields = make([]metav1.ManagedFieldsEntry, 0) // mask useless raw data
+	result["PodInfo"] = pod
 	events, err := u.GetEvents(ctx, pod.Namespace, pod.Name, pod.ResourceVersion, pod.Labels)
 	if err == nil {
 		result["PodEvents"] = events

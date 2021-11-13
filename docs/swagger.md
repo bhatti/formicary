@@ -2442,6 +2442,5 @@ Webhook structure defines config options for callback webhook
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | headers | object |  | No |
-| method | string |  | No |
 | query | object |  | No |
 | url | string |  | No |

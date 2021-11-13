@@ -58,7 +58,8 @@ type TaskExecution struct {
 	// UpdatedAt job execution last update time
 	UpdatedAt time.Time `json:"updated_at"`
 	// Active is used to softly delete job definition
-	Active bool `yaml:"-" json:"-"`
+	Active bool     `yaml:"-" json:"-"`
+	Stdout []string `json:"stdout" gorm:"-"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
 	lookupContexts map[string]*TaskExecutionContext
 }

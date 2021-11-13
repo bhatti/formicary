@@ -72,6 +72,9 @@ func (w *DefaultHTTPClient) PostForm(
 	started := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, 0, err
+	}
 	respBody, statusCode, err := w.execute(req, headers, nil)
 
 	elapsed := time.Since(started).String()
@@ -103,6 +106,9 @@ func (w *DefaultHTTPClient) PostJSON(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, 0, err
+	}
 	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
@@ -134,6 +140,9 @@ func (w *DefaultHTTPClient) PutJSON(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", u, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, 0, err
+	}
 	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
@@ -166,6 +175,9 @@ func (w *DefaultHTTPClient) Delete(
 		buf = bytes.NewBuffer(make([]byte, 0))
 	}
 	req, err := http.NewRequestWithContext(ctx, "DELETE", u, buf)
+	if err != nil {
+		return nil, 0, err
+	}
 	respBody, statusCode, err := w.execute(req, headers, nil)
 
 	elapsed := time.Since(started).String()
@@ -193,6 +205,9 @@ func (w *DefaultHTTPClient) Get(
 	started := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, 0, err
+	}
 	respBody, statusCode, err := w.execute(req, headers, params)
 
 	elapsed := time.Since(started).String()
@@ -213,6 +228,9 @@ func (w *DefaultHTTPClient) execute(
 	headers map[string]string,
 	params map[string]string,
 ) ([]byte, int, error) {
+	if req == nil {
+		return nil, 0, fmt.Errorf("request not specified")
+	}
 	if len(params) > 0 {
 		paramVals := url.Values{}
 		for k, v := range params {
@@ -225,7 +243,9 @@ func (w *DefaultHTTPClient) execute(
 			req.Header.Set(k, v)
 		}
 	}
-	req.Header.Set("User-Agent", w.config.UserAgent)
+	if w.config.UserAgent != "" {
+		req.Header.Set("User-Agent", w.config.UserAgent)
+	}
 
 	client := httpClient(w.config)
 	resp, err := client.Do(req)

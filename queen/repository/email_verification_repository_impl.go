@@ -84,13 +84,17 @@ func (ur *EmailVerificationRepositoryImpl) Delete(
 // GetVerifiedEmails finds verified emails
 func (ur *EmailVerificationRepositoryImpl) GetVerifiedEmails(
 	qc *common.QueryContext,
-	userID string,
+	user *common.User,
 ) (emails map[string]bool) {
 	emails = make(map[string]bool)
 	recs := make([]*types.EmailVerification, 0)
-	tx := qc.AddUserWhere(ur.db, true).Limit(100).
-		Where("user_id = ?", userID).
+	tx := qc.AddOrgElseUserWhere(ur.db, true).Limit(100).
 		Where("verified_at is NOT NULL")
+	if user.HasOrganization() {
+		tx = tx.Where("organization_id = ?", user.OrganizationID)
+	} else {
+		tx = tx.Where("user_id = ?", user.ID)
+	}
 	res := tx.Find(&recs)
 	if res.Error != nil {
 		logrus.WithFields(logrus.Fields{
@@ -109,14 +113,18 @@ func (ur *EmailVerificationRepositoryImpl) GetVerifiedEmails(
 // Verify performs email verification
 func (ur *EmailVerificationRepositoryImpl) Verify(
 	qc *common.QueryContext,
-	userID string,
+	user *common.User,
 	code string) (rec *types.EmailVerification, err error) {
-	res := qc.AddUserWhere(ur.db, false).Model(&types.EmailVerification{}).
-		Where("user_id = ?", userID).
+	tx := qc.AddOrgElseUserWhere(ur.db, false).Model(&types.EmailVerification{}).
 		Where("email_code = ?", code).
 		Where("expires_at > ?", time.Now()).
-		Where("verified_at is NULL").
-		Updates(map[string]interface{}{"verified_at": time.Now()})
+		Where("verified_at is NULL")
+	if user.HasOrganization() {
+		tx = tx.Where("organization_id = ?", user.OrganizationID)
+	} else {
+		tx = tx.Where("user_id = ?", user.ID)
+	}
+	res := tx.Updates(map[string]interface{}{"verified_at": time.Now()})
 	if res.Error != nil {
 		return nil, res.Error
 	}

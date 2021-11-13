@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/twinj/uuid"
@@ -25,6 +26,8 @@ type LogEvent struct {
 	TaskExecutionID string `json:"task_execution_id"`
 	// AntID
 	AntID string `json:"ant_id"`
+	// Tags
+	Tags string `json:"tags"`
 	// Message
 	Message string `json:"message" gorm:"-"`
 	// EncodedMessage
@@ -41,6 +44,7 @@ func NewLogEvent(
 	jobExecutionID string,
 	taskExecutionID string,
 	msg string,
+	tags string,
 	antID string) *LogEvent {
 	return &LogEvent{
 		BaseEvent: BaseEvent{
@@ -56,6 +60,7 @@ func NewLogEvent(
 		JobExecutionID:  jobExecutionID,
 		TaskExecutionID: taskExecutionID,
 		Message:         msg,
+		Tags:            tags,
 		AntID:           antID,
 	}
 }
@@ -97,6 +102,12 @@ func (l *LogEvent) AfterLoad() {
 	decodedString, err := base64.StdEncoding.DecodeString(l.EncodedMessage)
 	if err == nil {
 		l.Message = string(decodedString)
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component": "LogEvent",
+			"Encoded":   l.EncodedMessage,
+			"Error":     err,
+		}).Warnf("failed to decode log message")
 	}
 }
 

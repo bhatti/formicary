@@ -426,7 +426,6 @@ tasks:
 <pre><code class="lang-yaml">job_type: hook-job
 webhook:
   url: {{.WebhookURL}}
-  method: POST 
   headers:
     Authorization: Bearer {{.WebhookAuth}}
   query:
@@ -439,7 +438,6 @@ tasks:
     - ls -l
   webhook:
     url: {{.WebhookURL}}
-    method: POST 
     headers:
       Authorization: Bearer {{.WebhookAuth}}
     query:

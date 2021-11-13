@@ -11,7 +11,7 @@ import (
 )
 
 // local constants
-const maxConfigValueLength = 1000
+const maxConfigValueLength = 10000
 const encryptedPrefix = "_ENCRYPTED_"
 
 // NameTypeValue defines structure for name, type, value

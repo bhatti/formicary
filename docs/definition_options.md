@@ -572,6 +572,16 @@ it's cancelled, e.g.,
     timeout: 5m
 ```
 
+#### url
+
+The url specifies URL to invoke for HTTP executor, e.g.
+
+```yaml
+- task_type: get
+  method: HTTP_GET
+  url: https://jsonplaceholder.typicode.com/todos/1
+```
+
 #### variables
 
 A task can define variables that can be used for scripts as template parameters or pass to the executors, e.g.
@@ -600,7 +610,6 @@ You can configure job to call an external webhook API upon completion of a job o
 job_type: hook-job
 webhook:
   url: {{.WebhookURL}}
-  method: POST 
   headers:
     Authorization: Bearer {{.WebhookAuth}}
   query:
@@ -613,7 +622,6 @@ tasks:
     - ls -l
   webhook:
     url: {{.WebhookURL}}
-    method: POST 
     headers:
       Authorization: Bearer {{.WebhookAuth}}
     query:

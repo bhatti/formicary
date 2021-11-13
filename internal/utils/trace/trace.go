@@ -1,9 +1,5 @@
 package trace
 
-import (
-	"github.com/sirupsen/logrus"
-)
-
 // JobTraceImpl --
 type JobTraceImpl struct {
 	buffer *Buffer
@@ -11,8 +7,8 @@ type JobTraceImpl struct {
 
 // JobTrace interface
 type JobTrace interface {
-	Writeln(input string) (n int, err error)
-	Write(data []byte) (n int, err error)
+	Write(data []byte, tags string) (n int, err error)
+	Writeln(data string, tags string) (n int, err error)
 	Finish() ([]byte, error)
 	Close()
 }
@@ -32,24 +28,14 @@ func NewJobTrace(lineFeeder LineFeeder, bufferLimit int, mask []string) (JobTrac
 	}, nil
 }
 
-// Writeln writes string and new-line to the Buffer --
-func (j *JobTraceImpl) Writeln(input string) (n int, err error) {
-	n, err = j.Write([]byte(input))
-	//if err == nil {
-	//	_, err = j.Write([]byte("\r\n"))
-	//}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.Debug(input)
-	}
-	return
+// Writeln Data to the Buffer
+func (j *JobTraceImpl) Writeln(data string, tags string) (n int, err error) {
+	return j.Write([]byte(data), tags)
 }
 
 // Write Data to the Buffer
-func (j *JobTraceImpl) Write(data []byte) (n int, err error) {
-	n, err = j.buffer.Write(data)
-	if err == nil {
-		_, err = j.buffer.Write([]byte("\r\n"))
-	}
+func (j *JobTraceImpl) Write(data []byte, tags string) (n int, err error) {
+	n, err = j.buffer.Write(append(data, []byte("\r\n")...), tags)
 	return
 }
 

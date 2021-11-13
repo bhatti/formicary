@@ -7,6 +7,7 @@
         job_request_id INT(20),
         job_type VARCHAR(100) ,
         task_type VARCHAR(100),
+        tags VARCHAR(100),
         job_execution_id VARCHAR(36),
         task_execution_id VARCHAR(36),
         ant_id VARCHAR(100),

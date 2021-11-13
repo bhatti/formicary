@@ -110,12 +110,17 @@ func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manag
 		t.Fatalf("unexpected error %s", err)
 	}
 	artifactRepository.Clear()
+	logRepository, err := repository.NewTestLogEventRepository()
+	if err != nil {
+		t.Fatalf("unexpected error %s", err)
+	}
 
 	art := types.NewArtifact("bucket", uuid.NewV4().String(), "group", "kind", 101, "sha", 100)
 	art.ID = uuid.NewV4().String()
 	_, _ = artifactRepository.Save(art)
 	mgr, err := manager.NewArtifactManager(
 		serverCfg,
+		logRepository,
 		artifactRepository,
 		artifactService)
 	if err != nil {

@@ -1,11 +1,4 @@
 job_type: hook-job
-webhookx:
-  url: {{.WebhookURL}}
-  method: POST 
-  headers:
-    Authorization: Bearer {{.WebhookAuth}}
-  query:
-    job_key: job_value
 tasks:
 - task_type: init
   container:
@@ -21,7 +14,6 @@ tasks:
       - ls.txt
   webhook:
     url: {{.WebhookURL}}
-    method: POST 
     headers:
       Authorization: Bearer {{.WebhookAuth}}
     query:

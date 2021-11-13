@@ -1006,6 +1006,7 @@ func (jm *JobManager) NotifyJobMessage(
 	user *common.User,
 	job *types.JobDefinition,
 	request types.IJobRequest,
+	jobExec *types.JobExecution,
 	lastRequestState common.RequestState,
 ) error {
 	return jm.jobsNotifier.NotifyJob(
@@ -1013,6 +1014,7 @@ func (jm *JobManager) NotifyJobMessage(
 		user,
 		job,
 		request,
+		jobExec,
 		lastRequestState)
 }
 
@@ -1057,6 +1059,7 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 				user,
 				job,
 				req,
+				jobExec,
 				lastRequestState); notifyErr != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":        "JobManager",
@@ -1255,7 +1258,7 @@ func (jm *JobManager) overrideCancelRequest(
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error": err,
+				"Error":                      err,
 			}).Errorf("failed to cancel request after override")
 		}
 	} else if err != nil {
@@ -1266,7 +1269,7 @@ func (jm *JobManager) overrideCancelRequest(
 			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 			"EventState":                 jobExecutionLifecycleEvent.JobState,
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-			"Error": err,
+			"Error":                      err,
 		}).Errorf("failed to find request after cancel verification")
 	}
 }

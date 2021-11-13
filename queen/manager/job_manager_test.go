@@ -2,6 +2,7 @@ package manager
 
 import (
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"testing"
 
 	common "plexobject.com/formicary/internal/types"
@@ -9,6 +10,34 @@ import (
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 )
+
+func Test_ShouldSaveJobDefinition(t *testing.T) {
+	// GIVEN job-definition loaded from pipeline yaml
+	qc, err := repository.NewTestQC()
+	b, err := ioutil.ReadFile("../../docs/examples/io.formicary.tokens.yaml")
+	require.NoError(t, err)
+	job, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	serverCfg := config.TestServerConfig()
+	jobManager, _ , err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+
+	// WHEN: the job definition is saved, which will automatically create job-request
+	_, err = jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	// THEN: loading should not fail
+	loaded, err := jobManager.GetJobDefinition(qc, job.ID)
+	require.NoError(t, err)
+	task := loaded.GetTask("analyze")
+	require.NoError(t, err)
+	require.True(t, task.ReportStdout)
+	require.NotNil(t, loaded.ReportStdoutTask())
+	task, _, err = loaded.GetDynamicTask("analyze", nil)
+	require.NoError(t, err)
+	require.True(t, task.ReportStdout)
+	require.NotNil(t, loaded.ReportStdoutTask())
+}
 
 func Test_ShouldNotThrowErrorWhenSavingCronJobDefinitionAgain(t *testing.T) {
 	// GIVEN: a job definition with cron trigger is created

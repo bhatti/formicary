@@ -341,6 +341,7 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 	if taskResp.Status == common.COMPLETED {
 		tsm.TaskExecution.ErrorCode = ""
 		tsm.TaskExecution.ErrorMessage = ""
+		tsm.TaskExecution.Stdout = taskResp.Stdout
 	} else {
 		if tsm.errorCode, err = tsm.ErrorCodeRepository.Match(
 			tsm.QueryContext(),

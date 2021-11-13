@@ -69,38 +69,24 @@ func NewLogStreamer(
 	return streamer, nil
 }
 
-// Writeln writes string and new-line to the Buffer --
-func (s *LogStreamer) Writeln(input string) (n int, err error) {
-	n, err = s.jobTrace.Writeln(input)
-	if err != nil {
-		return 0, err
-	}
-	// will be called by line feeder
-	//s.publish([]byte(input + "\n"))
-
-	return n, err
+// Writeln Data to the Buffer
+func (s *LogStreamer) Writeln(data string, tags string) (n int, err error) {
+	return s.jobTrace.Writeln(data, tags)
 }
 
 // Write Data to the Buffer
-func (s *LogStreamer) Write(data []byte) (n int, err error) {
-	n, err = s.jobTrace.Write(data)
-	if err != nil {
-		return 0, err
-	}
-	// will be called by line feeder
-	//s.publish(data)
-
-	return n, err
+func (s *LogStreamer) Write(data []byte, tags string) (n int, err error) {
+	return s.jobTrace.Write(data, tags)
 }
 
-func (s *LogStreamer) publish(data []byte) {
+func (s *LogStreamer) publish(data []byte, tags string) {
 	if len(data) == 0 {
 		return
 	}
 	var msg string
 	if len(data) > s.maxMessageSize {
-		msg = fmt.Sprintf("%s\n__TRUNCATED__\n%s",
-			data[0:s.maxMessageSize/2], data[s.maxMessageSize/2:])
+		msg = fmt.Sprintf("%s\n__TRUNCATED__(%d:%d)\n%s",
+			data[0:s.maxMessageSize/2], len(data), s.maxMessageSize, data[s.maxMessageSize/2:])
 	} else {
 		msg = string(data)
 	}
@@ -114,12 +100,14 @@ func (s *LogStreamer) publish(data []byte) {
 		s.jobExecutionID,
 		s.taskExecutionID,
 		msg,
+		tags,
 		s.antID)
 
 	if b, serErr := event.Marshal(); serErr != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "LogStreamer",
 			"Message":   string(data),
+			"Tags":      tags,
 			"Error":     serErr,
 		}).Error("failed to marshal log event")
 	} else {
@@ -136,6 +124,7 @@ func (s *LogStreamer) publish(data []byte) {
 			logrus.WithFields(logrus.Fields{
 				"Component": "LogStreamer",
 				"Message":   string(data),
+				"Tags":      tags,
 				"Error":     pubErr,
 			}).Error("failed to publish log event")
 		}

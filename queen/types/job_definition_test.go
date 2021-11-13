@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -486,6 +487,30 @@ func Test_ShouldSerializeJsonJobDefinition(t *testing.T) {
 	err = loaded.ValidateBeforeSave(testEncryptedKey)
 	require.NoError(t, err)
 	require.NoError(t, job.Equals(loaded))
+}
+
+// Test pipe job
+func Test_ShouldParsePipeString(t *testing.T) {
+	// GIVEN job-definition loaded from pipeline yaml
+	b, err := ioutil.ReadFile("../../docs/examples/io.formicary.tokens.yaml")
+	require.NoError(t, err)
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	require.NotNil(t, job.ReportStdoutTask())
+	task, _, err := job.GetDynamicTask(
+		"etherscan-contracts",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(1, false)},
+	)
+	require.NoError(t, err)
+	require.True(t, len(task.Script) > 1)
+	require.NotNil(t, job.ReportStdoutTask())
+	require.False(t, strings.Contains(task.Script[0], "&lt;"), task.Script[0])
+	task = job.GetTask("analyze")
+	require.True(t, task.ReportStdout)
+	task, _, err = job.GetDynamicTask(
+		"santiment",
+		map[string]common.VariableValue{"JobRetry": common.NewVariableValue(1, false)},
+	)
 }
 
 // Test iterate loop

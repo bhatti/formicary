@@ -21,6 +21,7 @@ type KubernetesVolumes struct {
 	PVCs       []KubernetesPVC       `yaml:"pvc" json:"pvc" mapstructure:"pvc"`
 	ConfigMaps []KubernetesConfigMap `yaml:"config_map" json:"config_map" mapstructure:"config_map"`
 	Secrets    []KubernetesSecret    `yaml:"secret" json:"secret" mapstructure:"secret"`
+	Projected  []KubernetesProjected `yaml:"projected" json:"projected" mapstructure:"projected"`
 	EmptyDirs  []KubernetesEmptyDir  `yaml:"empty_dir" json:"empty_dir" mapstructure:"empty_dir"`
 }
 
@@ -72,6 +73,40 @@ type KubernetesSecret struct {
 	SubPath   string            `yaml:"sub_path,omitempty" json:"sub_path,omitempty" mapstructure:"sub_path,omitempty"`
 	ReadOnly  bool              `yaml:"read_only,omitempty" json:"read_only,omitempty" mapstructure:"read_only,omitempty"`
 	Items     map[string]string `yaml:"items,omitempty" json:"items,omitempty"`
+}
+
+// KubernetesProjected sources
+// swagger:ignore
+type KubernetesProjected struct {
+	Name      string                       `yaml:"name" json:"name"`
+	MountPath string                       `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
+	Sources   []KubernetesVolumeProjection `yaml:"sources" json:"sources" mapstructure:"sources"`
+}
+
+// KubernetesVolumeProjection sources
+// swagger:ignore
+type KubernetesVolumeProjection struct {
+	Secret              *KubernetesSecretProjection              `yaml:"secret" json:"secret" mapstructure:"secret"`
+	ConfigMap           *KubernetesConfigMapProjection           `yaml:"config_map" json:"config_map" mapstructure:"config_map"`
+	ServiceAccountToken *KubernetesServiceAccountTokenProjection `yaml:"service_account_token" json:"service_account_token" mapstructure:"service_account_token"`
+}
+
+// KubernetesSecretProjection projection
+type KubernetesSecretProjection struct {
+	Items []api.KeyToPath `yaml:"items" json:"items" mapstructure:"items"`
+}
+
+// KubernetesConfigMapProjection projection
+type KubernetesConfigMapProjection struct {
+	Items []api.KeyToPath `yaml:"items" json:"items" mapstructure:"items"`
+}
+
+// KubernetesServiceAccountTokenProjection account
+// swagger:ignore
+type KubernetesServiceAccountTokenProjection struct {
+	Audience          string `yaml:"audience" json:"audience" mapstructure:"audience"`
+	ExpirationSeconds *int64 `yaml:"expiration_seconds" json:"expiration_seconds" mapstructure:"expiration_seconds"`
+	Path              string `yaml:"path" json:"path" mapstructure:"path"`
 }
 
 // KubernetesEmptyDir empty-dir
@@ -305,6 +340,7 @@ func (kv *KubernetesVolumes) AddVolumes(volumes []api.Volume) []api.Volume {
 	volumes = addVolumes(volumes, kv.getVolumesForPVCs())
 	volumes = addVolumes(volumes, kv.getVolumesForConfigMaps())
 	volumes = addVolumes(volumes, kv.getVolumesForEmptyDirs())
+	volumes = addVolumes(volumes, kv.getVolumesForProjected())
 
 	return volumes
 }
@@ -324,6 +360,46 @@ func (kv *KubernetesVolumes) getVolumesForHostPaths() []api.Volume {
 			VolumeSource: api.VolumeSource{
 				HostPath: &api.HostPathVolumeSource{
 					Path: path,
+				},
+			},
+		})
+	}
+
+	return volumes
+}
+
+func (kv *KubernetesVolumes) getVolumesForProjected() []api.Volume {
+	var volumes []api.Volume
+
+	for _, volume := range kv.Projected {
+		var sources []api.VolumeProjection
+		for _, source := range volume.Sources {
+			projection := api.VolumeProjection{}
+			if source.Secret != nil {
+				projection.Secret = &api.SecretProjection{
+					Items: source.Secret.Items,
+				}
+			}
+			if source.ServiceAccountToken != nil {
+				projection.ServiceAccountToken = &api.ServiceAccountTokenProjection{
+					Audience:          source.ServiceAccountToken.Audience,
+					Path:              source.ServiceAccountToken.Path,
+					ExpirationSeconds: source.ServiceAccountToken.ExpirationSeconds,
+				}
+			}
+			if source.ConfigMap != nil {
+				projection.ConfigMap = &api.ConfigMapProjection{
+					Items: source.ConfigMap.Items,
+				}
+			}
+			sources = append(sources, projection)
+		}
+
+		volumes = append(volumes, api.Volume{
+			Name: volume.Name,
+			VolumeSource: api.VolumeSource{
+				Projected: &api.ProjectedVolumeSource{
+					Sources: sources,
 				},
 			},
 		})

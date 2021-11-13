@@ -20,6 +20,8 @@ type EmailVerification struct {
 	EmailCode string `json:"email_code"`
 	// UserID defines foreign key
 	UserID string `json:"user_id"`
+	// OrganizationID defines org who submitted the job
+	OrganizationID string `json:"organization_id"`
 	// ExpiresAt expiration time
 	ExpiresAt time.Time `json:"expires_at"`
 	// VerifiedAt verification time
@@ -35,11 +37,12 @@ func NewEmailVerification(
 	user *common.User,
 ) *EmailVerification {
 	return &EmailVerification{
-		Email:     email,
-		EmailCode: randomString(20),
-		UserID:    user.ID,
-		ExpiresAt: time.Now().Add(time.Hour * 24 * 1),
-		CreatedAt: time.Now(),
+		Email:          email,
+		EmailCode:      randomString(20),
+		UserID:         user.ID,
+		OrganizationID: user.OrganizationID,
+		ExpiresAt:      time.Now().Add(time.Hour * 24 * 1),
+		CreatedAt:      time.Now(),
 	}
 }
 

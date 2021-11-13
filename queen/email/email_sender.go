@@ -43,6 +43,11 @@ func (d *DefaultEmailSender) JobNotifyTemplateFile() string {
 	return d.cfg.Notify.EmailJobsTemplateFile
 }
 
+// SupportsLongReport is supported
+func (d *DefaultEmailSender) SupportsLongReport() bool {
+	return true
+}
+
 // SendMessage sends email to recipients
 func (d *DefaultEmailSender) SendMessage(
 	qc *common.QueryContext,

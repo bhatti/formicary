@@ -87,14 +87,14 @@ func Test_ShouldVerifyEmailVerification(t *testing.T) {
 	require.Equal(t, int64(1), total)
 
 	// AND should verify it
-	saved, err := verificationRepository.Verify(qc, qc.User.ID, ev.EmailCode)
+	saved, err := verificationRepository.Verify(qc, qc.User, ev.EmailCode)
 	require.NoError(t, err)
 	require.Equal(t, ev.EmailCode, saved.EmailCode)
 
 	// AND should work with verify again
-	saved, err = verificationRepository.Verify(qc, qc.User.ID, ev.EmailCode)
+	saved, err = verificationRepository.Verify(qc, qc.User, ev.EmailCode)
 	require.NoError(t, err)
 
-	emails := verificationRepository.GetVerifiedEmails(qc, qc.User.ID)
+	emails := verificationRepository.GetVerifiedEmails(qc, qc.User)
 	require.Equal(t, 1, len(emails))
 }

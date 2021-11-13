@@ -167,6 +167,15 @@ func (je *JobExecution) NotTerminal() bool {
 	return !je.JobState.IsTerminal()
 }
 
+// Stdout of tasks
+func (je *JobExecution) Stdout() []string {
+	res := make([]string, 0)
+	for _, t := range je.Tasks {
+		res = append(res, t.Stdout...)
+	}
+	return res
+}
+
 // Methods of tasks
 func (je *JobExecution) Methods() string {
 	taskMethods := make(map[types.TaskMethod]bool)

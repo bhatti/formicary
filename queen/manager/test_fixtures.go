@@ -67,8 +67,13 @@ func TestUserManager(serverCfg *config.ServerConfig) (userManager *UserManager, 
 	if err != nil {
 		return nil, err
 	}
+	logRepository, err := repository.NewTestLogEventRepository()
+	if err != nil {
+		return nil, err
+	}
 	notifier, err := notify.New(
 		serverCfg,
+		logRepository,
 		emailVerificationRepository)
 	if err != nil {
 		return nil, err
@@ -109,12 +114,17 @@ func TestArtifactManager(serverCfg *config.ServerConfig) (manager *ArtifactManag
 	if err != nil {
 		return nil, err
 	}
+	logRepository, err := repository.NewTestLogEventRepository()
+	if err != nil {
+		return nil, err
+	}
 	artifactService, err := artifacts.NewStub(nil)
 	if err != nil {
 		return nil, err
 	}
 	return NewArtifactManager(
 		serverCfg,
+		logRepository,
 		artifactRepository,
 		artifactService)
 }
@@ -164,6 +174,10 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 	if err != nil {
 		return nil, err
 	}
+	logRepository, err := repository.NewTestLogEventRepository()
+	if err != nil {
+		return nil, err
+	}
 
 	artifactManager, err := TestArtifactManager(serverCfg)
 	if err != nil {
@@ -172,6 +186,7 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 
 	notifier, err := notify.New(
 		serverCfg,
+		logRepository,
 		emailVerificationRepository)
 	if err != nil {
 		return nil, err

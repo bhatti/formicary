@@ -109,9 +109,12 @@ func newTestArtifactManager(t *testing.T, err error, serverCfg *config.ServerCon
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)
+	logRepository, err := repository.NewTestLogEventRepository()
+	require.NoError(t, err)
 
 	mgr, err := NewArtifactManager(
 		serverCfg,
+		logRepository,
 		artifactRepository,
 		artifactService)
 	require.NoError(t, err)

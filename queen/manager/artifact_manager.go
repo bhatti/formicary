@@ -21,12 +21,14 @@ import (
 type ArtifactManager struct {
 	serverCfg          *config.ServerConfig
 	artifactRepository repository.ArtifactRepository
+	logEventRepository repository.LogEventRepository
 	artifactService    artifacts.Service
 }
 
 // NewArtifactManager manages artifacts
 func NewArtifactManager(
 	serverCfg *config.ServerConfig,
+	logEventRepository repository.LogEventRepository,
 	artifactRepository repository.ArtifactRepository,
 	artifactService artifacts.Service) (*ArtifactManager, error) {
 	if artifactRepository == nil {
@@ -37,6 +39,7 @@ func NewArtifactManager(
 	}
 	return &ArtifactManager{
 		serverCfg:          serverCfg,
+		logEventRepository: logEventRepository,
 		artifactRepository: artifactRepository,
 		artifactService:    artifactService,
 	}, nil
@@ -49,6 +52,16 @@ func (am *ArtifactManager) ExpireArtifacts(
 	expiration time.Duration,
 	limit int,
 ) (expired int, size int64, err error) {
+	if _, err = am.logEventRepository.ExpireLogEvents(qc, expiration); err != nil {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":  "ArtifactManager",
+				"QC":         qc,
+				"Expiration": expiration,
+				"Error":      err,
+			}).Warnf("failed to expire log events")
+	}
+
 	for i := 0; i < limit; i += 10000 {
 		records, err := am.artifactRepository.ExpiredArtifacts(qc, expiration, 10000)
 		if err != nil {

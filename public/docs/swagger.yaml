@@ -2067,9 +2067,6 @@ definitions:
           type: string
         type: object
         x-go-name: Headers
-      method:
-        type: string
-        x-go-name: Method
       query:
         additionalProperties:
           type: string

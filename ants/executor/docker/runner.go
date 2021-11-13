@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	common "plexobject.com/formicary/internal/types"
 	"strconv"
 	"strings"
 	"time"
@@ -64,9 +65,11 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 	dcr.Err = err
 	//dcr.Trace.Finish()
 	if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
-		_, _ = dcr.Trace.Write(dcr.Stdout.Bytes())
+		if len(dcr.Stdout.Bytes()) > 0 {
+			_, _ = dcr.Trace.Write(dcr.Stdout.Bytes(), common.StdoutTags)
+		}
 		if len(dcr.Stderr.Bytes()) > 0 {
-			_, _ = dcr.Trace.Write(dcr.Stderr.Bytes())
+			_, _ = dcr.Trace.Write(dcr.Stderr.Bytes(), common.StderrTags)
 		}
 	}
 
@@ -75,6 +78,7 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Component": "DockerCommandRunner",
 			"Command":   dcr.Command,
 			"Container": dcr.containerName,
+			"StdoutLen": len(dcr.Stdout.Bytes()),
 			"ID":        dcr.ID,
 			"Name":      dcr.Name,
 			"Host":      dcr.Host,
@@ -96,6 +100,7 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Command":   dcr.Command,
 			"Container": dcr.containerName,
 			"ID":        dcr.ID,
+			"StderrLen": len(dcr.Stderr.Bytes()),
 			"Name":      dcr.Name,
 			"Host":      dcr.Host,
 			"IP":        dcr.ContainerIP,
@@ -109,9 +114,9 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 				dcr.Command, dcr.ExitMessage, dcr.ExitCode, dcr.ContainerIP, err, dcr.BaseExecutor.Elapsed()))
 		if !dcr.DumpedRuntimeInfo {
 			dcr.DumpedRuntimeInfo = true
-			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO BEGIN>> **************************"))
-			_, _ = dcr.Trace.Write([]byte(dcr.exec.GetRuntimeInfo(ctx)))
-			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO END>>  **************************"))
+			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO BEGIN>> **************************"), common.DumpTags)
+			_, _ = dcr.Trace.Write([]byte(dcr.exec.GetRuntimeInfo(ctx)), common.DumpTags)
+			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO END>>  **************************"), common.DumpTags)
 		}
 		if err == nil {
 			err = fmt.Errorf("failed to execute command '%s' exit-code=%d", dcr.Command, dcr.ExitCode)

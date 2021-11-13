@@ -87,6 +87,7 @@ type TaskResponse struct {
 	JobContext      map[string]interface{} `json:"job_context"`
 	Artifacts       []*Artifact            `json:"artifacts"`
 	Warnings        []string               `json:"warnings"`
+	Stdout          []string               `json:"stdout"`
 	CostFactor      float64                `json:"cost_factor"`
 	Timings         TaskResponseTimings    `json:"timings"`
 }

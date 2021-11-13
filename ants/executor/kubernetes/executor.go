@@ -209,12 +209,20 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 			initContainers,
 			ke.registryCredentials)
 		if err == nil {
+			if i > 0 {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesExecutor",
+					"Elapsed":      time.Since(started),
+					"I":            i,
+					"ExecutorOpts": ke.ExecutorOptions}).
+					Infof("succeeded to create pod after failure '%s'", ke.ExecutorOptions.Name)
+			}
 			break
 		}
 		if i == maxBuildPodTries-1 || !strings.Contains(err.Error(), "try again") {
-			return fmt.Errorf("setting up failed for pod: %w (%s)", err, ke.ExecutorOptions.Name)
+			return fmt.Errorf("setting up failed for pod: %w (%s), tries %d", err, ke.ExecutorOptions.Name, i+1)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Duration(i+1) * time.Second)
 	}
 
 	_, _ = ke.Trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🐳 creating pod Image=%s Containers=%d Services=%v Aliases=%v Privileged=%v/%v Cost=%v",
@@ -226,7 +234,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 		aliases,
 		ke.ExecutorOptions.Privileged,
 		ke.AntConfig.Kubernetes.AllowPrivilegeEscalation,
-		ke.ExecutorOptions.CostFactor))
+		ke.ExecutorOptions.CostFactor), types.ExecTags)
 
 	var status PodPhaseResponse
 	status, err = ke.adapter.AwaitPodRunning(
@@ -238,7 +246,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 	)
 	if err != nil {
 		_, _ = ke.Trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⛔ failed to create pod Image=%s Error=%v Elapsed=%s",
-			time.Now().Format(time.RFC3339), ke.pod.Name, ke.ExecutorOptions.MainContainer.Image, err, time.Since(started)))
+			time.Now().Format(time.RFC3339), ke.pod.Name, ke.ExecutorOptions.MainContainer.Image, err, time.Since(started)), types.ExecTags)
 
 		return fmt.Errorf("waiting for pod running: %w, AwaitRunningPeriod=%v, Timeout=%v, Elapsed=%s",
 			err, ke.AntConfig.GetAwaitRunningPeriod(), ke.AntConfig.GetPollTimeout(), time.Since(started))
@@ -246,7 +254,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 
 	if status.phase != api.PodRunning {
 		_, _ = ke.Trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ⛔ failed to enter running status pod Image=%s Status=%v Elapsed=%s",
-			time.Now().Format(time.RFC3339), ke.pod.Name, ke.ExecutorOptions.MainContainer.Image, status, time.Since(started)))
+			time.Now().Format(time.RFC3339), ke.pod.Name, ke.ExecutorOptions.MainContainer.Image, status, time.Since(started)), types.ExecTags)
 
 		return fmt.Errorf("pod failed to enter running State=%v Elapsed=%s", status, time.Since(started))
 	}
@@ -279,6 +287,7 @@ func (ke *Executor) doAsyncExecute(
 
 	err := ke.ensurePodsConfigured()
 	if err != nil {
+		ke.State = executor.ContainerFailed
 		return nil, err
 	}
 	ke.State = executor.Running

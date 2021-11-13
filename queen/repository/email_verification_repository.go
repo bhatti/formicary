@@ -23,7 +23,7 @@ type EmailVerificationRepository interface {
 
 	GetVerifiedEmails(
 		qc *common.QueryContext,
-		userID string,
+		user *common.User,
 	) map[string]bool
 
 	Query(
@@ -35,6 +35,6 @@ type EmailVerificationRepository interface {
 
 	Verify(
 		qc *common.QueryContext,
-		userID string,
+		user *common.User,
 		code string) (*types.EmailVerification, error)
 }

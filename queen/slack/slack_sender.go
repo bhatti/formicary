@@ -28,6 +28,11 @@ func New(
 	}, nil
 }
 
+// SupportsLongReport is not supported
+func (d *DefaultSlackSender) SupportsLongReport() bool {
+	return false
+}
+
 // SendMessage sends slack to recipients
 func (d *DefaultSlackSender) SendMessage(
 	qc *common.QueryContext,

@@ -13,6 +13,7 @@ type Sender interface {
 		subject string,
 		body string,
 		opts map[string]interface{}) error
+	SupportsLongReport() bool
 	JobNotifyTemplateFile() string
 }
 

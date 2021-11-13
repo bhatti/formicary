@@ -6,8 +6,7 @@ tasks:
   method: HTTP_GET
   timeout: 15s
   delay_between_retries: 5s
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_exit_code:
     10: RESTART_JOB
   on_completed: second

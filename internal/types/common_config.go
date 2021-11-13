@@ -354,7 +354,7 @@ func (c *CommonConfig) Validate(_ []string) error {
 	}
 
 	if c.MaxStreamingLogMessageSize == 0 {
-		c.MaxStreamingLogMessageSize = 1024
+		c.MaxStreamingLogMessageSize = 1024*1024
 	}
 
 	// Note: Following config will limit the max runtime for a task with default value of about 1 hours

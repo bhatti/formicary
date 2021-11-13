@@ -181,7 +181,7 @@ func (re *RequestExecutorImpl) execute(
 
 	doExecute := func(cmd string) ([]byte, error) {
 		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = checkCommandCanExecuteWithoutShell(cmd)
-		_ = container.WriteTraceInfo(fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' request-id '%d'...",
+		_ = container.WriteTraceInfo(fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
 			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 		stdout, stderr, exitCode, exitMessage, err := re.asyncExecuteCommand(
 			ctx,
@@ -189,8 +189,13 @@ func (re *RequestExecutorImpl) execute(
 			cmd,
 			taskReq.Variables,
 			false)
-		_ = container.WriteTraceInfo(fmt.Sprintf("🏔️ executed command '%s' of task '%s' of job '%s' request-id '%d', exit=%d, error=%s",
-			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err))
+		if err == nil {
+			_ = container.WriteTraceInfo(fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d stdout-len=%d",
+				cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, len(stdout)))
+		} else {
+			_ = container.WriteTraceInfo(fmt.Sprintf("😡️ executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d, error=%s stderr-len=%d",
+				cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err, len(stderr)))
+		}
 		if taskResp.ExitCode == "" {
 			taskResp.ExitCode = strconv.Itoa(exitCode)
 		}
@@ -216,6 +221,18 @@ func (re *RequestExecutorImpl) execute(
 		} else if err != nil {
 			lastError = err
 			_ = container.WriteTraceError(err.Error())
+		} else if taskReq.ExecutorOpts.ReportStdout {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(
+					logrus.Fields{
+						"Component": "RequestExecutorImpl",
+						"AntID":     re.antCfg.ID,
+						"Container": container,
+						"CMD":       cmd,
+						"Len":       len(stdout),
+					}).Debugf("adding stdout")
+			}
+			taskResp.Stdout = append(taskResp.Stdout, string(stdout))
 		}
 
 		// Note: this only works for SHELL/HTTP but containers will need to use it explicitly
@@ -228,6 +245,7 @@ func (re *RequestExecutorImpl) execute(
 				_ = container.WriteTraceError(err.Error())
 			}
 			if path != "" {
+				_ = container.WriteTraceInfo(fmt.Sprintf("Adding output to artifact path %s with size %d\n", path, len(stdout)))
 				taskReq.ExecutorOpts.Artifacts.Paths = append(taskReq.ExecutorOpts.Artifacts.Paths, path)
 			}
 		}
@@ -388,7 +406,7 @@ func (re *RequestExecutorImpl) postProcess(
 	taskResp *types.TaskResponse,
 	container executor.Executor) {
 	// upload artifacts unless job is cancelled
-	if !taskReq.Cancelled {
+	if !taskReq.Cancelled && container.GetState() != executor.ContainerFailed {
 		cmdExecutor := func(
 			ctx context.Context,
 			cmd string,
@@ -424,6 +442,10 @@ func (re *RequestExecutorImpl) postProcess(
 						re.antCfg.S3.Bucket, artifact.ID, artifact.SHA256, artifact.ContentLength))
 			}
 		}
+	} else {
+		_ = container.WriteTraceInfo(
+			fmt.Sprintf("🚫 skipped uploading artifacts, cancelled=%v, container=%s",
+				taskReq.Cancelled, container.GetState()))
 	}
 	taskResp.Timings.ArtifactsUploadedAt = time.Now()
 	// Stopping container
@@ -507,7 +529,6 @@ func (re *RequestExecutorImpl) postProcess(
 				"Error":     sendErr,
 			}).Warnf("failed to send stop lifecycle event container by request-executor")
 	}
-
 }
 
 // remove any temporary files created if using SHELL or HTTP
@@ -628,7 +649,7 @@ func sendContainerEvent(
 				"ContainerID", container.GetID(),
 				"UserID", userID,
 			),
-			); err != nil {
+		); err != nil {
 			logrus.WithFields(
 				logrus.Fields{
 					"Component": "RequestExecutorImpl",

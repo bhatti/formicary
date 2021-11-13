@@ -7,10 +7,12 @@ import (
 
 // Webhook structure defines config options for callback webhook
 type Webhook struct {
-	URL     string            `yaml:"url" json:"url" gorm:"-"`
-	Method  string            `yaml:"method" json:"method" gorm:"-"`
+	// URL defines POST url
+	URL string `yaml:"url" json:"url" gorm:"-"`
+	// Header defines http headers
 	Headers map[string]string `yaml:"headers" json:"headers" gorm:"-"`
-	Query   map[string]string `yaml:"query" json:"query" gorm:"-"`
+	// Query defines URL query params
+	Query map[string]string `yaml:"query" json:"query" gorm:"-"`
 }
 
 // NewWebhookFromString constructor
