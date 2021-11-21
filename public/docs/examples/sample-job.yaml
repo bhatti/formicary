@@ -57,8 +57,7 @@ tasks:
     h1: val1
   tags:
   - builder
-  script:
-    - https://jsonplaceholder.typicode.com/todos
+  url: https://jsonplaceholder.typicode.com/todos
   on_completed: k8
 - task_type: k8
   working_dir: /sample

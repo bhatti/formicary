@@ -225,6 +225,8 @@ You can configure your user profile to receive job notificatios via email or sla
 ![Notifications](notifications.png)
 
 Note: Slack messages require access token and see slack documentation for generating the token, e.g.
+![Slack Create App](slack_app.png)
+
 ![Slack Token](slack.png)
 
 And then add token in your organization configurations, e.g.

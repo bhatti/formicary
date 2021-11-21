@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"jaytaylor.com/html2text"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"runtime"
@@ -18,6 +19,11 @@ func NormalizePrefix(prefix string) string {
 		return prefix + "/"
 	}
 	return prefix
+}
+
+// HtmlToText converts html to text
+func HtmlToText(str string) (string, error) {
+	return html2text.FromString(str, html2text.Options{PrettyTables: true})
 }
 
 // CacheArtifactID builds unique id for task cache

@@ -177,6 +177,7 @@ func (u *User) AfterLoad() error {
 	}
 	if u.Organization != nil {
 		u.OrgUnit = u.Organization.OrgUnit
+		u.BundleID = u.Organization.BundleID
 	}
 	return nil
 }

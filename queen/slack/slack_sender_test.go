@@ -1,7 +1,10 @@
 package slack
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"jaytaylor.com/html2text"
 	"os"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
@@ -9,6 +12,20 @@ import (
 	"plexobject.com/formicary/queen/types"
 	"testing"
 )
+
+func Test_ShouldFormatHTML(t *testing.T) {
+	content, err := ioutil.ReadFile("../../sample-report.html")
+	if err != nil {
+		panic(err)
+	}
+	inputHTML := string(content)
+
+	text, err := html2text.FromString(inputHTML, html2text.Options{PrettyTables: true})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(text)
+}
 
 func Test_ShouldSendSlackMessage(t *testing.T) {
 	qc, err := repository.NewTestQC()

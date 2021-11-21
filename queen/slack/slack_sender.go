@@ -84,6 +84,9 @@ func (d *DefaultSlackSender) SendMessage(
 	if opts[types.Thread] != nil {
 		msgOpts = append(msgOpts, slack.MsgOptionTS(opts[types.Thread].(string)))
 	}
+	if opts[types.LongReport] != nil {
+		msgOpts = append(msgOpts, slack.MsgOptionText(opts[types.LongReport].(string), true))
+	}
 	for _, recipient := range to {
 		_, _, err = api.PostMessage(
 			recipient,

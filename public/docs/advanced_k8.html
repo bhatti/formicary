@@ -81,6 +81,14 @@ tasks:
       empty_dir:
         - name: mount2
           mount_path: /myempty
+      projected:
+        - name: oidc-token
+          mount_path: /var/run/sigstore/cosign
+          sources:
+            - service_account_token:
+              path: oidc-token
+              expiration_seconds: 600
+              audience: sigstore
 </code></pre>
 <p>You can store above definition in a file such as <code>kube-example1.yaml</code> and then upload to formicary using</p>
 <pre><code class="lang-bash">curl -H &quot;Content-Type: application/yaml&quot; \

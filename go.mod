@@ -39,6 +39,7 @@ require (
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/myesui/uuid v1.0.0 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
@@ -50,6 +51,7 @@ require (
 	github.com/slack-go/slack v0.9.4
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
+	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/twinj/uuid v1.0.0
 	github.com/xdg-go/scram v1.0.2 // indirect
@@ -69,6 +71,7 @@ require (
 	gorm.io/driver/sqlserver v1.0.6
 	gorm.io/gorm v1.20.12
 	gotest.tools/v3 v3.0.3 // indirect
+	jaytaylor.com/html2text v0.0.0-20211105163654-bc68cce691ba
 	k8s.io/api v0.20.1
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v0.20.1

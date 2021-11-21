@@ -11,8 +11,7 @@ tasks:
   method: HTTP_GET
   timeout: 15s
   delay_between_retries: 5s
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_exit_code:
     10: RESTART_JOB
   on_completed: second
@@ -72,6 +71,14 @@ the python support, e.g.
 ```yaml
   container:
     image: alpine
+```
+
+##### URL
+
+The `url` define URL to invoke for HTTP executor, e.g.
+
+```yaml
+  url: https://jsonplaceholder.typicode.com/todos/1
 ```
 
 ##### Script Commands

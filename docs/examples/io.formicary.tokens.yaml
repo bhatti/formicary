@@ -1,6 +1,6 @@
 job_type: io.formicary.tokens
 public_plugin: true
-cron_trigger: 0 0 * * * * *
+cron_trigger: 0 0 * * *
 sem_version: 1.0-dev
 # TODO
 # Get token for https://tokenfomo.io/docs/API
@@ -71,6 +71,10 @@ notify:
       - shahbhat@gmail.com
       - s.hugh.brooks@gmail.com
       - brandon.pliska@gmail.com
+    when: always
+  slack: 
+    recipients: 
+      - formicary-reports
     when: always
 tasks:
 - task_type: apewisdom
@@ -225,6 +229,17 @@ tasks:
     - curl https://api.etherscan.io/api?module=stats&action=ethsupply&apikey={{.ETHERSCAN_TOKEN}} > data/etherscan_stats.json
   delay_between_retries: 5s
   retry: 2
+  on_completed: cryptomiso
+- task_type: cryptomiso
+  container:
+    image: python:3.8-buster
+  # See https://docs.etherscan.io/api-endpoints/contracts
+  before_script:
+    - mkdir -p data
+  script:
+    - python cryptomiso.py > data/cryptomiso_github.json
+  delay_between_retries: 5s
+  retry: 2
   on_completed: scam-tokens
 - task_type: scam-tokens
   container:
@@ -274,7 +289,8 @@ tasks:
     - mkdir -p data
     - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
   script:
-    - python token-scripts/analyze.py
+    - python token-scripts/analyze.py -f html
+    - python token-scripts/analyze.py -f csv
   dependencies:
     - apewisdom
     - coinmarketcal-tokens

@@ -107,6 +107,18 @@ func (ur *EmailVerificationRepositoryImpl) GetVerifiedEmails(
 	for _, rec := range recs {
 		emails[strings.ToLower(rec.Email)] = true
 	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "EmailVerificationRepositoryImpl",
+			"Method":    "GetVerifiedEmails",
+			"Emails":    emails,
+			"QC":        qc,
+			"User":      user,
+			"SQL":       tx.Statement.SQL,
+			"Args":      tx.Statement.Vars,
+			"Affected":  res.RowsAffected,
+		}).Debugf("queried verified emails")
+	}
 	return
 }
 
@@ -115,15 +127,11 @@ func (ur *EmailVerificationRepositoryImpl) Verify(
 	qc *common.QueryContext,
 	user *common.User,
 	code string) (rec *types.EmailVerification, err error) {
-	tx := qc.AddOrgElseUserWhere(ur.db, false).Model(&types.EmailVerification{}).
+	tx := qc.AddUserWhere(ur.db, false).Model(&types.EmailVerification{}).
 		Where("email_code = ?", code).
 		Where("expires_at > ?", time.Now()).
-		Where("verified_at is NULL")
-	if user.HasOrganization() {
-		tx = tx.Where("organization_id = ?", user.OrganizationID)
-	} else {
-		tx = tx.Where("user_id = ?", user.ID)
-	}
+		Where("verified_at is NULL").
+		Where("user_id = ?", user.ID)
 	res := tx.Updates(map[string]interface{}{"verified_at": time.Now()})
 	if res.Error != nil {
 		return nil, res.Error

@@ -57,8 +57,7 @@ tasks:
   method: HTTP_GET
   timeout: 15s
   delay_between_retries: 5s
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_exit_code:
     10: RESTART_JOB
   on_completed: second
@@ -98,6 +97,10 @@ tasks:
 <p>The <code>image</code> tag within <code>container</code> defines docker-image to use for execution commands, which is <code>python:3.8-buster</code> for the python support, e.g.</p>
 <pre><code class="lang-yaml">  container:
     image: alpine
+</code></pre>
+<h5 id="url">URL</h5>
+<p>The <code>url</code> define URL to invoke for HTTP executor, e.g.</p>
+<pre><code class="lang-yaml">  url: https://jsonplaceholder.typicode.com/todos/1
 </code></pre>
 <h5 id="script-commands">Script Commands</h5>
 <p>The <code>script</code> defines an array of shell commands that are executed inside container, e.g.,</p>

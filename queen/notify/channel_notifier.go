@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	common "plexobject.com/formicary/internal/types"
+	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
@@ -233,7 +234,7 @@ func (n *DefaultNotifier) NotifyJob(
 	}
 	var verifiedEmails map[string]bool
 
-	reportStdoutLen := 0
+	reportStdoutLen := make(map[common.NotifyChannel]int)
 
 	whens := make([]common.NotifyWhen, 0)
 	for k, v := range jobNotify {
@@ -259,15 +260,28 @@ func (n *DefaultNotifier) NotifyJob(
 				return err
 			}
 
-			if sender.SupportsLongReport() && reportStdoutTask != nil && request.GetJobState().Completed() {
-				var sb strings.Builder
+			var stdoutStr string
+			if reportStdoutTask != nil && request.GetJobState().Completed() {
 				for _, stdout := range jobExec.Stdout() {
-					sb.WriteString(stdout)
+					if len(stdout) == 0 {
+						continue
+					}
+					stdoutStr = stdout
+					if sender.SupportsLongReport() {
+						break
+					}
 				}
+			}
 
-				if sb.Len() > 0 {
-					reportStdoutLen = sb.Len()
-					msg = strings.TrimSpace(sb.String())
+			if len(stdoutStr) > 0 {
+				report := strings.TrimSpace(stdoutStr)
+				if sender.SupportsLongReport() {
+					reportStdoutLen[k] = len(stdoutStr)
+					msg = report
+				} else if html, err := cutils.HtmlToText(report); err == nil {
+					opts[types.LongReport] = html
+				} else {
+					opts[types.LongReport] = report
 				}
 			}
 
@@ -276,7 +290,7 @@ func (n *DefaultNotifier) NotifyJob(
 					if recipient != user.Email {
 						if len(verifiedEmails) == 0 {
 							verifiedEmails = n.emailRepository.GetVerifiedEmails(
-								common.NewQueryContext(nil, "").WithAdmin(),
+								common.NewQueryContext(user, ""),
 								user)
 						}
 						if !verifiedEmails[recipient] {
@@ -311,6 +325,7 @@ func (n *DefaultNotifier) NotifyJob(
 		"Unverified":       unverified,
 		"Failed":           failed,
 		"Recipients":       recipients,
+		"Notify":           jobNotify,
 		"Whens":            whens,
 		"Subject":          subject,
 		"Total":            total,

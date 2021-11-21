@@ -1,6 +1,10 @@
 job_type: check-oidc
 tasks:
 - task_type: oidc
+  before_script:
+    - COSIGN_EXPERIMENTAL=1  cosign verify-blob mnemonic-0.3.1.tar.gz --signature mnemonic-0.3.1.tar.gz.sig
+    - rekor-cli get --uuid 228527476f82c59641e27b8fb9b32f5fadbe47cf42c544ea97dc798490c4c14e --format json | jq -r '.Body.RekordObj.signature.publicKey.content' | base64 -d > pub.crt
+    - openssl x509 -noout -text -in pub.crt
   script:
     - find /var/run
     - /bin/cosign sign --force --k8s-keychain {{.IMAGE}}

@@ -27,6 +27,8 @@ const (
 	Link = "Link"
 	// Emoji option
 	Emoji = "Emoji"
+	// LongReport option
+	LongReport = "LongReport"
 	// Thread option
 	Thread = "Thread"
 )

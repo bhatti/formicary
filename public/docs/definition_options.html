@@ -407,6 +407,12 @@ tasks:
 <pre><code class="lang-yaml"> - task_type: lint
     timeout: 5m
 </code></pre>
+<h4 id="url">url</h4>
+<p>The url specifies URL to invoke for HTTP executor, e.g.</p>
+<pre><code class="lang-yaml">- task_type: get
+  method: HTTP_GET
+  url: https://jsonplaceholder.typicode.com/todos/1
+</code></pre>
 <h4 id="variables">variables</h4>
 <p>A task can define variables that can be used for scripts as template parameters or pass to the executors, e.g.</p>
 <pre><code class="lang-yaml"> - task_type: task2

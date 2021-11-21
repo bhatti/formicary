@@ -6,32 +6,28 @@ tasks:
   tags:
   - builder
   - pulsar
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_completed: post
 - task_type: post
   method: HTTP_POST_JSON
   tags:
   - builder
   - pulsar
-  script:
-    - https://jsonplaceholder.typicode.com/todos
+  url: https://jsonplaceholder.typicode.com/todos
   on_completed: put
 - task_type: put
   method: HTTP_PUT_JSON
   tags:
   - builder
   - pulsar
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_completed: delete
 - task_type: delete
   method: HTTP_DELETE
   tags:
   - builder
   - pulsar
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_completed: another-fork-task
 - task_type: another-fork-task
   method: FORK_JOB

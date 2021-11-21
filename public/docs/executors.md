@@ -12,23 +12,19 @@ job_type: http-job
 tasks:
 - task_type: get
   method: HTTP_GET
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_completed: post
 - task_type: post
   method: HTTP_POST_JSON
-  script:
-    - https://jsonplaceholder.typicode.com/todos
+  url: https://jsonplaceholder.typicode.com/todos
   on_completed: put
 - task_type: put
   method: HTTP_PUT_JSON
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
   on_completed: delete
 - task_type: delete
   method: HTTP_DELETE
-  script:
-    - https://jsonplaceholder.typicode.com/todos/1
+  url: https://jsonplaceholder.typicode.com/todos/1
 ```
 
 ### Docker
@@ -215,6 +211,14 @@ container:
     empty_dir:
       - name: mount4
         mount_path: /mnt/sh3
+    projected:
+      - name: oidc-token
+        mount_path: /var/run/sigstore/cosign
+        sources:
+          - service_account_token:
+            path: oidc-token
+            expiration_seconds: 600
+            audience: sigstore
   volume_driver: voldriver
   devices:
     - devices
@@ -254,6 +258,14 @@ services:
       empty_dir:
         - name: svc-mount5
           mount_path: /mnt/sh3
+      projected:
+        - name: oidc-token
+          mount_path: /var/run/sigstore/cosign
+          sources:
+            - service_account_token:
+              path: oidc-token
+              expiration_seconds: 600
+              audience: sigstore
     cpu_limit: "1"
     cpu_request: 500m
     memory_limit: 1Gi
