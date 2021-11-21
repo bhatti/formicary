@@ -1,0 +1,44 @@
+job_type: report-job
+notify:
+  email: 
+    recipients: 
+      - shahbhat@gmail.com
+      - bhatti@plexobject.com
+      - bhatti_shahzad@yahoo.com
+    when: always
+  slack: 
+    recipients: 
+      - formicary-reports
+    when: always
+tasks:
+- task_type: hello
+  container:
+    image: alpine
+  script:
+    - echo "<html><body><h1>hello world</h1>" > hello.html
+  artifacts:
+    paths:
+      - hello.html
+  on_completed: bye
+- task_type: bye
+  container:
+    image: alpine
+  script:
+    - echo "<h1>bye</h1></body></html>" > bye.html
+    - echo cat hello.html bye.html
+  artifacts:
+    paths:
+      - bye.html
+  on_completed: combine
+- task_type: combine
+  container:
+    image: python:3.8-buster
+  dependencies:
+    - hello
+    - bye
+  before_script:
+    - mkdir -p data
+    - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
+  script:
+    - cat token-scripts/sample-report.html
+  report_stdout: true
