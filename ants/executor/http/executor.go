@@ -27,6 +27,7 @@ type Executor struct {
 
 // NewHTTPExecutor for creating http executor
 func NewHTTPExecutor(
+	ctx context.Context,
 	cfg *config.AntConfig,
 	trace trace.JobTrace,
 	client web.HTTPClient,
@@ -39,9 +40,9 @@ func NewHTTPExecutor(
 	base.Name = opts.Name
 
 	hostName, _ := os.Hostname()
-	_ = base.WriteTrace(fmt.Sprintf(
+	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"🔥 running with formicary %s on %s", cfg.ID, hostName))
-	_ = base.WriteTraceInfo(fmt.Sprintf("🌅 preparing http executor"))
+	_ = base.WriteTraceInfo(ctx, fmt.Sprintf("🌅 preparing http executor"))
 
 	return &Executor{
 		BaseExecutor: base,
@@ -82,11 +83,11 @@ func (h *Executor) AsyncExecute(
 }
 
 // Stop stopping execution by http executor
-func (h *Executor) Stop() error {
+func (h *Executor) Stop(ctx context.Context) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if h.State == executor.Removing {
-		_ = h.WriteTraceError(fmt.Sprintf("⛔ cannot remove executor as it's already stopped"))
+		_ = h.WriteTraceError(ctx, fmt.Sprintf("⛔ cannot remove executor as it's already stopped"))
 		return fmt.Errorf("executor [%s] is already stopped", h.Name)
 	}
 	started := time.Now()
@@ -94,7 +95,7 @@ func (h *Executor) Stop() error {
 	now := time.Now()
 	h.EndedAt = &now
 	var err error
-	_ = h.WriteTrace(fmt.Sprintf("✋ stopping runners=%d",
+	_ = h.WriteTrace(ctx, fmt.Sprintf("✋ stopping runners=%d",
 		len(h.runners)))
 
 	ctx, cancel := context.WithTimeout(context.Background(), h.AntConfig.GetShutdownTimeout())
@@ -106,7 +107,7 @@ func (h *Executor) Stop() error {
 			err = rErr
 		}
 	}
-	_ = h.BaseExecutor.WriteTraceInfo(
+	_ = h.BaseExecutor.WriteTraceInfo(ctx,
 		fmt.Sprintf("🛑 stopped container: Error=%v Elapsed=%v, StopWait=%v",
 			err, time.Since(started).String(), h.AntConfig.GetShutdownTimeout()))
 	h.runners = make(map[string]*CommandRunner)
@@ -122,7 +123,7 @@ func (h *Executor) doAsyncExecute(
 	defer h.lock.Unlock()
 	if h.State == executor.Removing {
 		err := fmt.Sprintf("failed to execute Command='%s' because executor is already stopped", cmd)
-		_ = h.WriteTraceError(err)
+		_ = h.WriteTraceError(ctx, err)
 		return nil, fmt.Errorf(err)
 	}
 	h.State = executor.Running

@@ -57,9 +57,11 @@ func NewCommandRunner(
 	return &runner, nil
 }
 
-func (scr *CommandRunner) run() error {
-	_ = scr.BaseExecutor.WriteTrace(
-		fmt.Sprintf("🔄 $ %s", scr.Command))
+func (scr *CommandRunner) run(ctx context.Context) error {
+	if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+		_ = scr.BaseExecutor.WriteTrace(ctx,
+			fmt.Sprintf("🔄 $ %s", scr.Command))
+	}
 	err := scr.cmd.Start()
 	if err != nil {
 		return err
@@ -100,9 +102,11 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing command")
-		_ = scr.BaseExecutor.WriteTraceSuccess(fmt.Sprintf(
-			"✅ %s on Host=%s Duration=%v",
-			scr.Command, scr.Host, scr.BaseExecutor.Elapsed()))
+		if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+			_ = scr.BaseExecutor.WriteTraceSuccess(ctx, fmt.Sprintf(
+				"✅ %s on Host=%s Duration=%v",
+				scr.Command, scr.Host, scr.BaseExecutor.Elapsed()))
+		}
 	} else {
 		tks := strings.Split(err.Error(), " ")
 		scr.ExitCode, _ = strconv.Atoi(tks[len(tks)-1])
@@ -120,9 +124,11 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
-		_ = scr.BaseExecutor.WriteTraceError(fmt.Sprintf(
-			"❌ %s failed to execute on Host=%s Message=%d Error=%s Duration=%v",
-			scr.Command, scr.Host, scr.ExitCode, err, scr.BaseExecutor.Elapsed()))
+		if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+			_ = scr.BaseExecutor.WriteTraceError(ctx, fmt.Sprintf(
+				"❌ %s failed to execute on Host=%s Message=%d Error=%s Duration=%v",
+				scr.Command, scr.Host, scr.ExitCode, err, scr.BaseExecutor.Elapsed()))
+		}
 	}
 	return scr.Stdout.Bytes(), scr.Stderr.Bytes(), err
 }

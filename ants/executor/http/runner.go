@@ -85,9 +85,11 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing http request")
-		_ = scr.BaseExecutor.WriteTraceSuccess(fmt.Sprintf(
-			"✅ %s Duration=%v",
-			scr.Command, scr.BaseExecutor.Elapsed()))
+		if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+			_ = scr.BaseExecutor.WriteTraceSuccess(ctx, fmt.Sprintf(
+				"✅ %s Duration=%v",
+				scr.Command, scr.BaseExecutor.Elapsed()))
+		}
 	} else if err != nil {
 		scr.ExitMessage = err.Error()
 		logrus.WithFields(logrus.Fields{
@@ -101,9 +103,12 @@ func (scr *CommandRunner) Await(ctx context.Context) (stdout []byte, stderr []by
 			"Elapsed":   scr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute http request")
-		_ = scr.BaseExecutor.WriteTraceError(fmt.Sprintf(
-			"❌ %s failed HTTPCode=%d Error=%s Duration=%v",
-			scr.Command, scr.ExitCode, err, scr.BaseExecutor.Elapsed()))
+		if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+			_ = scr.BaseExecutor.WriteTraceError(ctx, fmt.Sprintf(
+				"❌ %s failed HTTPCode=%d Error=%s Duration=%v",
+				scr.Command, scr.ExitCode, err, scr.BaseExecutor.Elapsed(),
+			))
+		}
 	}
 	return
 }
@@ -128,8 +133,10 @@ func (scr *CommandRunner) run(ctx context.Context) (out interface{}, err error) 
 	defer func() {
 		scr.running = false
 	}()
-	_ = scr.BaseExecutor.WriteTrace(
-		fmt.Sprintf("🔄 $ %s", scr.Command))
+	if scr.ExecutorOptions.Debug || !scr.IsHelper(ctx) {
+		_ = scr.BaseExecutor.WriteTrace(ctx,
+			fmt.Sprintf("🔄 $ %s", scr.Command))
+	}
 	var j []byte
 	switch scr.Method {
 	case types.HTTPGet:

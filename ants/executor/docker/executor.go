@@ -77,10 +77,10 @@ func NewDockerExecutor(
 	exec.Name = opts.Name
 
 	hostName, _ := os.Hostname()
-	_ = base.WriteTrace(fmt.Sprintf(
+	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"[%s DOCKER %s] 🔥 running with formicary %s on %s",
 		time.Now().Format(time.RFC3339), opts.Name, cfg.ID, hostName))
-	_ = exec.WriteTraceInfo(fmt.Sprintf(
+	_ = exec.WriteTraceInfo(ctx, fmt.Sprintf(
 		"[%s DOCKER %s] 🐳 preparing docker container with image %s",
 		time.Now().Format(time.RFC3339), opts.Name, opts.MainContainer.Image))
 	return
@@ -120,16 +120,16 @@ func (de *Executor) AsyncExecute(
 }
 
 // Stop - stop executing command by docker executor
-func (de *Executor) Stop() error {
+func (de *Executor) Stop(ctx context.Context) error {
 	de.lock.Lock()
 	defer de.lock.Unlock()
 	if de.State == executor.Removing {
-		_ = de.WriteTraceError(fmt.Sprintf("⛔ cannot remove container as it's already stopped"))
+		_ = de.WriteTraceError(ctx, fmt.Sprintf("⛔ cannot remove container as it's already stopped"))
 		return fmt.Errorf("container [%s %s] is already stopped", de.ID, de.Name)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	_ = de.BaseExecutor.WriteTraceInfo(fmt.Sprintf("✋ stopping container"))
+	_ = de.BaseExecutor.WriteTraceInfo(ctx, fmt.Sprintf("✋ stopping container"))
 
 	// stopping main and helper container
 	err := de.adapter.Stop(
@@ -149,10 +149,10 @@ func (de *Executor) Stop() error {
 	de.EndedAt = &now
 	de.State = executor.Removing
 	if err != nil {
-		_ = de.WriteTraceError(fmt.Sprintf("⛔ failed to stop container: Error=%v Elapsed=%v, StopWait=%v",
+		_ = de.WriteTraceError(ctx, fmt.Sprintf("⛔ failed to stop container: Error=%v Elapsed=%v, StopWait=%v",
 			err, de.Elapsed(), de.AntConfig.GetShutdownTimeout()))
 	} else {
-		_ = de.WriteTraceInfo(fmt.Sprintf("🛑 stopped container: Elapsed=%v, StopWait=%v",
+		_ = de.WriteTraceInfo(ctx, fmt.Sprintf("🛑 stopped container: Elapsed=%v, StopWait=%v",
 			de.Elapsed(), de.AntConfig.GetShutdownTimeout()))
 	}
 	return err
@@ -171,7 +171,7 @@ func (de *Executor) doAsyncExecute(
 	defer de.lock.Unlock()
 	if de.State == executor.Removing {
 		err := fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd)
-		_ = de.WriteTraceError(err)
+		_ = de.WriteTraceError(ctx, err)
 		return nil, fmt.Errorf(err)
 	}
 	de.State = executor.Running

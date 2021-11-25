@@ -106,21 +106,16 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		if path.Base(p) != p {
 			mvDir = path.Join(dir, path.Dir(p))
 		}
-		cmd := fmt.Sprintf("mkdir -p %s && find %s|head -10 && cp -R %s %s", mvDir, p, p, mvDir)
+		tarDir := types.TarNameDirPath(mvDir, p)
+		cmd := fmt.Sprintf("mkdir -p %s && cd %s && tar -cf %s .", mvDir, p, tarDir)
 		if _, stderr, _, _, err := t.execute(
 			ctx,
 			cmd,
 			false); err != nil {
-			_ = t.jobWriter.WriteTrace(fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
+			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
 				p, err, string(stderr)))
-			//return nil, fmt.Errorf("failed to copy artifact %s due to %v, stderr=%s",
-			//	p, err, string(stderr))
 		} else {
-			if path.Base(p) != p {
-				names.WriteString(path.Dir(p) + " ")
-			} else {
-				names.WriteString(p + " ")
-			}
+			names.WriteString(types.TarNamePath(p) + " ")
 		}
 	}
 
@@ -135,8 +130,8 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		ctx,
 		cmd,
 		true); err != nil {
-		return nil, fmt.Errorf("failed to zip artifacts %s due to %v, stderr=%s",
-			zipFile, err, string(stderr))
+		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %v, stderr=%s",
+			zipFile, cmd, err, string(stderr))
 	}
 
 	parts := strings.Split(string(stdout), " ")
@@ -197,11 +192,12 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	ctx context.Context,
 	extractedDir string,
 	id string) (err error) {
+	// TODO verify download
 	cmds := []string{
 		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url $AWS_URL cp s3://%s/%s all_artifacts.zip",
 			extractedDir, t.antCfg.S3.Bucket, id),
-		fmt.Sprintf(" python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
-		fmt.Sprintf("rm all_artifacts.zip && find %s/|head -10", extractedDir),
+		fmt.Sprintf("python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
+		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),
 	}
 
 	for _, cmd := range cmds {

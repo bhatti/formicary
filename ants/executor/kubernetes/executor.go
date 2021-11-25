@@ -33,6 +33,7 @@ type Executor struct {
 // NewKubernetesExecutor - creating kubernetes executor
 // &backoff.Backoff{Min: time.Second, Max: 30 * time.Second},
 func NewKubernetesExecutor(
+	ctx context.Context,
 	cfg *config.AntConfig,
 	trace trace.JobTrace,
 	adapter Adapter,
@@ -45,9 +46,9 @@ func NewKubernetesExecutor(
 	base.ID = uuid.NewV4().String()
 	base.Name = opts.Name
 	hostName, _ := os.Hostname()
-	_ = base.WriteTrace(fmt.Sprintf(
+	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"🔥 running with formicary %s on %s", cfg.ID, hostName))
-	_ = base.WriteTraceInfo(fmt.Sprintf(
+	_ = base.WriteTraceInfo(ctx, fmt.Sprintf(
 		"🐳 preparing kubernetes container '%s' with image '%s'",
 		opts.Name, opts.MainContainer.Image))
 	return &Executor{
@@ -110,29 +111,31 @@ func (ke *Executor) AsyncExecute(
 }
 
 // Stop - stop executing command by kubernetes executor
-func (ke *Executor) Stop() error {
+func (ke *Executor) Stop(
+	ctx context.Context,
+) error {
 	ke.lock.Lock()
 	defer ke.lock.Unlock()
 	if ke.pod == nil {
 		return fmt.Errorf("no pod is running")
 	}
 	started := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), ke.AntConfig.GetShutdownTimeout())
-	defer cancel()
 
 	if ke.State == executor.Removing {
-		_ = ke.WriteTrace(
+		_ = ke.WriteTrace(ctx,
 			fmt.Sprintf("cannot remove container as it's already stopped"))
 		return fmt.Errorf("container [%s %s] is already stopped", ke.pod.UID, ke.Name)
 	}
-	_ = ke.BaseExecutor.WriteTraceInfo(fmt.Sprintf("✋ stopping container"))
+	_ = ke.BaseExecutor.WriteTraceInfo(ctx, fmt.Sprintf("✋ stopping container"))
 
+	cancelCtx, cancel := context.WithTimeout(context.Background(), ke.AntConfig.GetShutdownTimeout())
+	defer cancel()
 	ke.State = executor.Removing
 	now := time.Now()
 	ke.EndedAt = &now
-	err := ke.adapter.Stop(ctx, ke.pod.Name)
+	err := ke.adapter.Stop(cancelCtx, ke.pod.Name)
 	errors := ke.adapter.Dispose(
-		ctx,
+		cancelCtx,
 		ke.pod.Namespace,
 		ke.services,
 		nil,
@@ -143,34 +146,34 @@ func (ke *Executor) Stop() error {
 	}
 
 	if err != nil {
-		_ = ke.BaseExecutor.WriteTraceInfo(
+		_ = ke.BaseExecutor.WriteTraceInfo(ctx,
 			fmt.Sprintf("🛑 failed to stop container: Error=%v Elapsed=%v, StopWait=%v",
 				err, time.Since(started).String(), ke.AntConfig.GetShutdownTimeout()))
 	} else {
-		_ = ke.BaseExecutor.WriteTraceInfo(
+		_ = ke.BaseExecutor.WriteTraceInfo(ctx,
 			fmt.Sprintf("🛑 stopped container: Errors=%v Elapsed=%v, StopWait=%v",
 				len(errors), time.Since(started).String(), ke.AntConfig.GetShutdownTimeout()))
 	}
 
 	for _, err := range errors {
-		_ = ke.BaseExecutor.WriteTrace(fmt.Sprintf("dispose failed %v", err.Error()))
+		_ = ke.BaseExecutor.WriteTrace(ctx, fmt.Sprintf("dispose failed %v", err.Error()))
 	}
 	if err == nil && ke.AntConfig.Kubernetes.AwaitShutdownPod {
-		_ = ke.BaseExecutor.WriteTrace(fmt.Sprintf("awaiting for container to stop"))
+		_ = ke.BaseExecutor.WriteTrace(ctx, fmt.Sprintf("awaiting for container to stop"))
 		if _, err = ke.adapter.AwaitPodTerminating(
-			ctx,
+			cancelCtx,
 			ke.Trace,
 			ke.pod.Name,
 			ke.AntConfig.GetShutdownTimeout(),
 			ke.AntConfig.GetPollInterval(),
 		); err == nil {
-			_ = ke.BaseExecutor.WriteTrace(
+			_ = ke.BaseExecutor.WriteTrace(ctx,
 				fmt.Sprintf("🛑 done waiting for container to stop Error=%v Elapsed %v",
 					err, time.Since(started).String()))
 		}
 	}
 	if err != nil {
-		_ = ke.BaseExecutor.WriteTrace(
+		_ = ke.BaseExecutor.WriteTrace(ctx,
 			fmt.Sprintf("⛔ failed waiting for container to stop, Error=%v Elapsed=%v",
 				err, time.Since(started).String()))
 		logrus.WithFields(logrus.Fields{
@@ -274,7 +277,7 @@ func (ke *Executor) doAsyncExecute(
 
 	if ke.State == executor.Removing {
 		err := fmt.Sprintf("failed to execute '%s' because container is already stopped", cmd)
-		_ = ke.WriteTraceError(err)
+		_ = ke.WriteTraceError(ctx, err)
 		return nil, fmt.Errorf(err)
 	}
 
@@ -290,6 +293,7 @@ func (ke *Executor) doAsyncExecute(
 		ke.State = executor.ContainerFailed
 		return nil, err
 	}
+	ke.Name = ke.pod.Name
 	ke.State = executor.Running
 	runner, err := NewCommandRunner(
 		ke,

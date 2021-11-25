@@ -2,7 +2,7 @@
 - *Type*: {{.Job.JobType}}
 - *State*: {{.Job.JobState}}
 {{with .User}}
-- *User*: {{.Name}} ({{.Email}})
+- *User*: {{.Name}}
 {{end}}
 - *Scheduled At*: {{.Job.ScheduledAtString}}
 - *Ended At*: {{.Job.UpdatedAtString}}

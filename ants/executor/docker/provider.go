@@ -83,7 +83,7 @@ func (dep *ExecutorProvider) StopExecutor(
 			dep.AntConfig.GetShutdownTimeout())
 	}
 	delete(dep.executors, id)
-	return exec.Stop()
+	return exec.Stop(ctx)
 }
 
 // NewExecutor creates new executor

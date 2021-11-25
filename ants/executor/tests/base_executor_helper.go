@@ -101,7 +101,7 @@ func DoTestExecuteWithSimpleList(
 		require.Equal(t, 0, len(stderr))
 
 		// FINAL Cleanup
-		err = exec.Stop()
+		err = exec.Stop(ctx)
 		require.NoError(t, err)
 		require.Contains(t, string(stdout), "bin")
 		elapsed := time.Since(started)
@@ -152,7 +152,7 @@ func DoTestExecuteWithTimeout(
 		require.Equal(t, 0, len(stderr))
 
 		// FINALIZE
-		err = exec.Stop()
+		err = exec.Stop(ctx)
 		require.NoError(t, err)
 		elapsed := time.Since(started)
 		t.Logf("****** TestExecuteWithTimeout END for %s, elapsed %s", name, elapsed)
@@ -201,7 +201,7 @@ func DoTestExecuteWithBadCommand(
 		}
 
 		// FINALIZE
-		err = exec.Stop()
+		err = exec.Stop(ctx)
 		require.NoError(t, err)
 		elapsed := time.Since(started)
 		t.Logf("****** TestExecuteWithBadCommand END for %s elapsed %s", name, elapsed)
@@ -289,7 +289,7 @@ func DoTestGetRuntime(
 		if !strings.Contains(rt, exec.GetName()) || !strings.Contains(rt, exec.GetID()) {
 			t.Fatalf("Missing name %s or id %s: Unexpected runtime '%s'", exec.GetName(), exec.GetID(), rt)
 		}
-		_ = exec.Stop()
+		_ = exec.Stop(ctx)
 		elapsed := time.Since(started)
 		t.Logf("****** TestGetRuntime END provider %s, elapsed %s", name, elapsed)
 	}

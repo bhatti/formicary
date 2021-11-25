@@ -63,12 +63,16 @@ type Info interface {
 // swagger:ignore
 type TraceWriter interface {
 	WriteTrace(
+		ctx context.Context,
 		msg string) error
 	WriteTraceInfo(
+		ctx context.Context,
 		msg string) (err error)
 	WriteTraceSuccess(
+		ctx context.Context,
 		msg string) (err error)
 	WriteTraceError(
+		ctx context.Context,
 		msg string) (err error)
 }
 
@@ -93,17 +97,23 @@ type Executor interface {
 		cmd string,
 		variables map[string]types.VariableValue,
 	) (CommandRunner, error) // executes command asynchronously on helper container
-	Stop() error // stops executor
+	Stop(
+		ctx context.Context,
+		) error // stops executor
 	GetStartedAt() time.Time
 	GetEndedAt() *time.Time
 	Elapsed() string // time since executor started
 	WriteTrace(
+		ctx context.Context,
 		msg string) error
 	WriteTraceInfo(
+		ctx context.Context,
 		msg string) (err error)
 	WriteTraceSuccess(
+		ctx context.Context,
 		msg string) (err error)
 	WriteTraceError(
+		ctx context.Context,
 		msg string) (err error)
 	GetHost() string
 	GetContainerIP() string
@@ -146,29 +156,39 @@ func NewBaseExecutor(
 }
 
 // WriteTraceYellow writes message
-func (e *BaseExecutor) WriteTraceYellow(msg string) (err error) {
-	return e.WriteTrace(utils.AnsiBoldYellow + msg + utils.AnsiReset)
+func (e *BaseExecutor) WriteTraceYellow(
+	ctx context.Context,
+	msg string) (err error) {
+	return e.WriteTrace(ctx, utils.AnsiBoldYellow+msg+utils.AnsiReset)
 }
 
 // WriteTraceInfo writes message
-func (e *BaseExecutor) WriteTraceInfo(msg string) (err error) {
-	return e.WriteTrace(utils.AnsiBoldCyan + msg + utils.AnsiReset)
+func (e *BaseExecutor) WriteTraceInfo(
+	ctx context.Context,
+	msg string) (err error) {
+	return e.WriteTrace(ctx, utils.AnsiBoldCyan+msg+utils.AnsiReset)
 }
 
 // WriteTraceSuccess writes message
-func (e *BaseExecutor) WriteTraceSuccess(msg string) (err error) {
-	return e.WriteTrace(utils.AnsiBoldGreen + msg + utils.AnsiReset)
+func (e *BaseExecutor) WriteTraceSuccess(
+	ctx context.Context,
+	msg string) (err error) {
+	return e.WriteTrace(ctx, utils.AnsiBoldGreen+msg+utils.AnsiReset)
 }
 
 // WriteTraceError writes message
-func (e *BaseExecutor) WriteTraceError(msg string) (err error) {
-	return e.WriteTrace(utils.AnsiBoldRed + msg + utils.AnsiReset)
+func (e *BaseExecutor) WriteTraceError(
+	ctx context.Context,
+	msg string) (err error) {
+	return e.WriteTrace(ctx, utils.AnsiBoldRed+msg+utils.AnsiReset)
 }
 
 // WriteTrace writes message
-func (e *BaseExecutor) WriteTrace(msg string) (err error) {
+func (e *BaseExecutor) WriteTrace(
+	ctx context.Context,
+	msg string) (err error) {
 	helper := ""
-	if strings.Contains(e.Name, "helper") {
+	if e.IsHelper(ctx) || strings.Contains(e.Name, "helper") {
 		helper = "-helper"
 	}
 	_, err = e.Trace.Writeln(fmt.Sprintf("[%s %s %s%s] %s",
@@ -179,6 +199,11 @@ func (e *BaseExecutor) WriteTrace(msg string) (err error) {
 		msg,
 	), types.ExecTraceTags)
 	return
+}
+
+// IsHelper checks if container is helper
+func (e *BaseExecutor) IsHelper(ctx context.Context) bool {
+	return ctx.Value(types.HelperContainerKey) != nil
 }
 
 // String

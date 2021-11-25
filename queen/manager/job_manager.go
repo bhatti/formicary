@@ -1327,7 +1327,7 @@ func (jm *JobManager) doCheckSubscriptionQuota(
 	user *common.User,
 ) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
 	if user == nil || user.Subscription == nil {
-		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription not found for user %s", user)
+		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription not found")
 	}
 	if user.Subscription.Expired() {
 		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription is expired")

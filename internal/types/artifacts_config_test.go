@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+func Test_ShouldMatchTarNamePath(t *testing.T) {
+	require.Equal(t, "_export_build_file_dat_3f38af1b4dab7902663fca47efb92e6b.tar", TarNamePath("/export/build/file.dat"))
+}
+
+func Test_ShouldMatchTarDirNamePath(t *testing.T) {
+	require.Equal(t, "/tmp/file/a/_export_build_file_dat_3f38af1b4dab7902663fca47efb92e6b.tar", TarNameDirPath("/tmp/file/a", "/export/build/file.dat"))
+}
+
 func Test_ShouldCreateArtifactsConfig(t *testing.T) {
 	// Given artifacts config
 	ac := NewArtifactsConfig()

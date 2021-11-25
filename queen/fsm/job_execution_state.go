@@ -340,7 +340,7 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 				return common.NewQuotaExceededError(err)
 			}
 		} else {
-			err = fmt.Errorf("quota-error: user subscription not found for user %s", jsm.User)
+			err = fmt.Errorf("quota-error: user subscription not found")
 			return common.NewQuotaExceededError(err)
 		}
 	}

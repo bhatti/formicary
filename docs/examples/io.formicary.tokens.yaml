@@ -77,6 +77,29 @@ notify:
       - formicary-reports
     when: always
 tasks:
+- task_type: token-sniffer
+  container:
+    image: python:3.8-buster
+  delay_between_retries: 5s
+  xretry: 2
+  before_script:
+    - mkdir -p data
+    - mkdir -p cache_new_tokens
+  script:
+    # See https://tokensniffer.com/tokens/top https://tokensniffer.com/tokens/trending https://tokensniffer.com/tokens/new https://tokensniffer.com/tokens/scam
+    # See https://tokenfomo.io/docs/API
+    - >
+      for tok in top trending new scam; do curl -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" -H "Accept-Encoding: gzip, deflate, br" -H "Accept-Language: en-US,en;q=0.5" -H "Cache-Control: max-age=0" -H "Connection: keep-alive" -H "DNT: 1" -H "Host: tokensniffer.com" -H "Referer: https://tokensniffer.com/" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-User: ?1" -H "Sec-GPC: 1" -H "Upgrade-Insecure-Requests: 1" -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:93.0) Gecko/20100101 Firefox/93.0" "https://tokensniffer.com/tokens/$tok" > ${tok}_tokens.gz; gunzip ${tok}_tokens.gz; cat ${tok}_tokens| grep -i -e '</\?TABLE\|</\?TD\|</\?TR\|</\?TH' | sed  's/^[\ \t]*//g' | tr -d '\n' | sed 's/<\/TR[^>]*>/\n/Ig'  | sed 's/<\/\?\(TABLE\|TR\)[^>]*>//Ig' | sed 's/^<T[DH][^>]*>\|<\/\?T[DH][^>]*>$//Ig' | sed 's/<\/T[DH][^>]*><T[DH][^>]*>/,/Ig' | grep json|sed 's/.*json..//g' | sed 's/<.*//g' > data/sniffer_${tok}_tokens.json;sleep 5;done
+    - cp data/sniffer_new_tokens.json cache_new_tokens/sniffer_new_tokens_{{.DateDay}}.json
+    - cd cache_new_tokens && tar cf - . | (cd ../data && tar xvf -)
+  cache:
+    key: key-tokens-cache
+    paths:
+      - cache_new_tokens
+  artifacts:
+    paths:
+      - data
+  on_completed: apewisdom
 - task_type: apewisdom
   container:
     image: python:3.8-buster
@@ -184,6 +207,8 @@ tasks:
   script:
     - >
       curl -H "Content-Type: application/json" "https://api.santiment.net/graphiql" --data '{"query":"{\n  ohlc(slug: \"santiment\", from: \"{{.DateYear}}-01-01T00:00:00Z\", to: \"{{.FullDate}}T00:00:00Z\", interval: \"1d\") {\n    datetime\n    openPriceUsd\n    highPriceUsd\n    lowPriceUsd\n    closePriceUsd\n  }\n}\n","variables":{},"operationName":null}' > data/santiment_ohlc.json
+    - >
+      curl -H 'Content-Type: application/json' 'https://api.santiment.net/graphiql?query=%7B%0A%20%20allCurrencyProjects%20%7B%0A%20%20%20%20symbol%0A%20%20%20%20averageDevActivity%0A%20%20%20%20averageGithubActivity%0A%20%20%20%20availableSupply%0A%20%20%20%20totalSupply%0A%20%20%20%20volumeUsd%0A%20%20%20%20tokenAddress%0A%20%20%20%20usdBalance%0A%20%20%20%20rank%0A%20%20%20%20marketcapUsd%0A%20%20%20%20tags%20%7B%0A%20%20%20%20%20%20type%0A%20%20%20%20%7D%0A%20%20%20%20mainContractAddress%0A%20%20%20%20githubLinks%0A%20%20%20%20percentChange7d%0A%20%20%20%20redditLink%0A%20%20%20%20contractAddresses%20%7B%0A%20%20%20%20%20%20insertedAt%0A%20%20%20%20%20%20label%0A%20%20%20%20%20%20updatedAt%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A' > data/santiment_activity.json
   artifacts:
     paths:
       - data
@@ -202,22 +227,6 @@ tasks:
   artifacts:
     paths:
       - data
-  on_completed: token-sniffer
-- task_type: token-sniffer
-  container:
-    image: python:3.8-buster
-  delay_between_retries: 5s
-  retry: 2
-  before_script:
-    - mkdir -p data
-  script:
-    # See https://tokensniffer.com/tokens/top https://tokensniffer.com/tokens/trending https://tokensniffer.com/tokens/new https://tokensniffer.com/tokens/scam
-    # See https://tokenfomo.io/docs/API
-    - >
-      for tok in top trending new scam; do curl -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" -H "Accept-Encoding: gzip, deflate, br" -H "Accept-Language: en-US,en;q=0.5" -H "Cache-Control: max-age=0" -H "Connection: keep-alive" -H "DNT: 1" -H "Host: tokensniffer.com" -H "Referer: https://tokensniffer.com/" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-User: ?1" -H "Sec-GPC: 1" -H "Upgrade-Insecure-Requests: 1" -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:93.0) Gecko/20100101 Firefox/93.0" "https://tokensniffer.com/tokens/$tok" > ${tok}_tokens.gz; gunzip ${tok}_tokens.gz; cat ${tok}_tokens| grep -i -e '</\?TABLE\|</\?TD\|</\?TR\|</\?TH' | sed  's/^[\ \t]*//g' | tr -d '\n' | sed 's/<\/TR[^>]*>/\n/Ig'  | sed 's/<\/\?\(TABLE\|TR\)[^>]*>//Ig' | sed 's/^<T[DH][^>]*>\|<\/\?T[DH][^>]*>$//Ig' | sed 's/<\/T[DH][^>]*><T[DH][^>]*>/,/Ig' | grep json|sed 's/.*json..//g' | sed 's/<.*//g' > data/sniffer_${tok}_tokens.json;sleep 5;done
-  artifacts:
-    paths:
-      - data
   on_completed: etherscan-stats
 - task_type: etherscan-stats
   container:
@@ -231,13 +240,17 @@ tasks:
   retry: 2
   on_completed: cryptomiso
 - task_type: cryptomiso
+  method: DOCKER
   container:
     image: python:3.8-buster
   # See https://docs.etherscan.io/api-endpoints/contracts
   before_script:
     - mkdir -p data
+    - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
+    - pip install requests
+    - pip install beautifulsoup4
   script:
-    - python cryptomiso.py > data/cryptomiso_github.json
+    - python token-scripts/cryptomiso.py > data/cryptomiso_github.json
   delay_between_retries: 5s
   retry: 2
   on_completed: scam-tokens
@@ -303,6 +316,7 @@ tasks:
     - etherscan-stats
     - scam-tokens
     - etherscan-contracts
+    - cryptomiso
   artifacts:
     paths:
       - data

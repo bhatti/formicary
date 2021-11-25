@@ -86,9 +86,11 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Elapsed":   dcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Info("succeeded in executing command")
-		_ = dcr.BaseExecutor.WriteTraceSuccess(
-			fmt.Sprintf("✅ %s Duration=%v",
-				dcr.Command, dcr.BaseExecutor.Elapsed()))
+		if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
+			_ = dcr.BaseExecutor.WriteTraceSuccess(ctx,
+				fmt.Sprintf("✅ %s Duration=%v",
+					dcr.Command, dcr.BaseExecutor.Elapsed()))
+		}
 	} else if err != nil || dcr.ExitCode != 0 {
 		if err != nil {
 			tks := strings.Split(err.Error(), " ")
@@ -109,14 +111,16 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Elapsed":   dcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
-		_ = dcr.BaseExecutor.WriteTraceError(
-			fmt.Sprintf("❌ %s failed to execute Message=%s ExitCode=%d Host=%s Error=%v Duration=%v",
-				dcr.Command, dcr.ExitMessage, dcr.ExitCode, dcr.ContainerIP, err, dcr.BaseExecutor.Elapsed()))
-		if !dcr.DumpedRuntimeInfo {
-			dcr.DumpedRuntimeInfo = true
-			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO BEGIN>> **************************"), common.DumpTags)
-			_, _ = dcr.Trace.Write([]byte(dcr.exec.GetRuntimeInfo(ctx)), common.DumpTags)
-			_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO END>>  **************************"), common.DumpTags)
+		if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
+			_ = dcr.BaseExecutor.WriteTraceError(ctx,
+				fmt.Sprintf("❌ %s failed to execute Message=%s ExitCode=%d Host=%s Error=%v Duration=%v",
+					dcr.Command, dcr.ExitMessage, dcr.ExitCode, dcr.ContainerIP, err, dcr.BaseExecutor.Elapsed()))
+			if !dcr.DumpedRuntimeInfo && !dcr.IsHelper(ctx) {
+				dcr.DumpedRuntimeInfo = true
+				_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO BEGIN>> **************************"), common.DumpTags)
+				_, _ = dcr.Trace.Write([]byte(dcr.exec.GetRuntimeInfo(ctx)), common.DumpTags)
+				_, _ = dcr.Trace.Write([]byte("*********************** <<DOCKER RUNTIME-INFO END>>  **************************"), common.DumpTags)
+			}
 		}
 		if err == nil {
 			err = fmt.Errorf("failed to execute command '%s' exit-code=%d", dcr.Command, dcr.ExitCode)
@@ -159,6 +163,10 @@ func (dcr *CommandRunner) IsRunning(ctx context.Context) (bool, error) {
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (dcr *CommandRunner) run(ctx context.Context, helper bool) error {
+	if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
+		_ = dcr.WriteTrace(ctx, fmt.Sprintf("🔄 $ %s",
+			dcr.Command))
+	}
 	info, err := dcr.adapter.Execute(
 		ctx,
 		dcr.ExecutorOptions,
@@ -167,7 +175,7 @@ func (dcr *CommandRunner) run(ctx context.Context, helper bool) error {
 		dcr.ExecutorOptions.ExecuteCommandWithoutShell,
 		helper)
 	if err != nil {
-		_ = dcr.BaseExecutor.WriteTraceError(fmt.Sprintf(
+		_ = dcr.BaseExecutor.WriteTraceError(ctx, fmt.Sprintf(
 			"⛔ $ %s Error=%v",
 			dcr.Command, err))
 		return err
@@ -176,8 +184,6 @@ func (dcr *CommandRunner) run(ctx context.Context, helper bool) error {
 	dcr.Host = info.HostName
 	dcr.ContainerIP = info.IPAddress
 	dcr.BaseCommandRunner.ID = info.ID
-	_ = dcr.WriteTrace(fmt.Sprintf("🔄 $ %s",
-		dcr.Command))
 	dcr.hijack = info.Hijack
 	go func() {
 		_, _ = io.Copy(&dcr.Stdout, info.Hijack.Reader)

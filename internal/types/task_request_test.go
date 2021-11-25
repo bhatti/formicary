@@ -10,7 +10,7 @@ import (
 func Test_ShouldVerifyTaskKeyForTaskRequest(t *testing.T) {
 	req := newTestTaskRequest()
 	require.Equal(t, "102-task", req.Key())
-	require.Equal(t, "user/job-102/task", req.KeyPath())
+	require.Equal(t, "org/job-102/task", req.KeyPath())
 	require.NotEqual(t, "", req.String())
 	req.AddVariable("name", "value", true)
 }

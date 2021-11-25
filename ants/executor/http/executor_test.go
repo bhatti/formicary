@@ -83,7 +83,7 @@ func Test_ShouldGetNotfound(t *testing.T) {
 	require.Equal(t, 404, runner.GetExitCode())
 
 	// FINAL Cleanup
-	err = exec.Stop()
+	err = exec.Stop(ctx)
 	require.NoError(t, err)
 }
 
@@ -123,7 +123,7 @@ func Test_ShouldGetCreated(t *testing.T) {
 	require.Equal(t, 201, runner.GetExitCode())
 
 	// FINAL Cleanup
-	err = exec.Stop()
+	err = exec.Stop(ctx)
 	require.NoError(t, err)
 }
 
@@ -164,7 +164,7 @@ func Test_ShouldGetSubmitted(t *testing.T) {
 	require.Equal(t, 202, runner.GetExitCode())
 
 	// FINAL Cleanup
-	err = exec.Stop()
+	err = exec.Stop(ctx)
 	require.NoError(t, err)
 }
 

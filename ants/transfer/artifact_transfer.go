@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -117,29 +118,30 @@ func uploadCache(
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter,
 ) (artifact *types.Artifact) {
+	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	if taskReq.ExecutorOpts.Cache.NewKeyDigest == "" {
-		_ = traceWriter.WriteTraceInfo("skipping uploading cache because key not found")
+		_ = traceWriter.WriteTraceInfo(ctx, "skipping uploading cache because key not found")
 		return nil
 	}
 	artifactID := taskReq.CacheArtifactID(antCfg.S3.Prefix, taskReq.ExecutorOpts.Cache.NewKeyDigest)
 	var err error
 	if artifact, err = transferService.UploadCache(ctx, artifactID, paths, expiration); err != nil {
 		taskResp.AdditionalError(err.Error(), false)
-		_ = traceWriter.WriteTraceError(err.Error())
+		_ = traceWriter.WriteTraceError(ctx, err.Error())
 		return nil
 	}
 
 	artifact.Kind = types.ArtifactKindCache
 	if err = artifact.Validate(); err != nil {
 		taskResp.AdditionalError(fmt.Sprintf("failed to validate artifact %v due to %v", artifact, err), false)
-		_ = traceWriter.WriteTraceError(err.Error())
+		_ = traceWriter.WriteTraceError(ctx, err.Error())
 		return nil
 	}
 	artifact.Metadata[types.KeysDigest] = taskReq.ExecutorOpts.Cache.NewKeyDigest
 
 	taskResp.AddArtifact(artifact)
 	taskResp.AddContext("CachedArtifactKey", taskReq.ExecutorOpts.Cache.NewKeyDigest)
-	_ = traceWriter.WriteTraceInfo(
+	_ = traceWriter.WriteTraceInfo(ctx,
 		fmt.Sprintf("🌟 uploading cache for %v, id %s, key %s",
 			paths, artifact.ID, taskReq.ExecutorOpts.Cache.NewKeyDigest))
 
@@ -172,6 +174,7 @@ func uploadArtifacts(
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter,
 ) (artifact *types.Artifact, err error) {
+	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	if artifact, err = transferService.UploadArtifacts(ctx, paths, expiration); err != nil {
 		taskResp.AdditionalError(err.Error(), true)
 		return nil, err
@@ -183,7 +186,7 @@ func uploadArtifacts(
 	}
 
 	taskResp.AddArtifact(artifact)
-	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 uploaded artifacts for %v size=%d", paths, artifact.ContentLength))
+	_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 uploaded artifacts for %v size=%d", paths, artifact.ContentLength))
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(
@@ -212,6 +215,7 @@ func SetupCacheAndDownloadArtifacts(
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter) (err error) {
+	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	taskResp.Timings.PreScriptFinishedAt = time.Now()
 	defer func() {
 		taskResp.Timings.DependentArtifactsDownloadedAt = time.Now()
@@ -225,7 +229,7 @@ func SetupCacheAndDownloadArtifacts(
 		taskReq,
 		taskResp)
 	if err != nil {
-		_ = traceWriter.WriteTraceError(err.Error())
+		_ = traceWriter.WriteTraceError(ctx, err.Error())
 		return err
 	}
 
@@ -243,7 +247,7 @@ func SetupCacheAndDownloadArtifacts(
 
 	// Downloading Cache for npm, yarn, gradle, etc. (only for docker/kubernetes)
 	if taskReq.ExecutorOpts.Cache.Valid() && taskReq.ExecutorOpts.Method.SupportsCache() {
-		_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloading cache %s...",
+		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading cache %s...",
 			taskReq.ExecutorOpts.Cache.String()))
 		return downloadCache(
 			ctx,
@@ -254,7 +258,7 @@ func SetupCacheAndDownloadArtifacts(
 			traceWriter,
 			transferService)
 	} else if len(taskReq.ExecutorOpts.Cache.Paths) > 0 {
-		_ = traceWriter.WriteTraceError(fmt.Sprintf("🌟 skip downloading cache because no key (files) specified for %s",
+		_ = traceWriter.WriteTraceError(ctx, fmt.Sprintf("🌟 skip downloading cache because no key (key_paths) specified for %s",
 			taskReq.ExecutorOpts.Cache.String()))
 	}
 	return nil
@@ -268,17 +272,18 @@ func downloadCache(
 	execute AsyncCommandExecutor,
 	traceWriter executor.TraceWriter,
 	transferService ArtifactTransfer) (err error) {
+	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	actualDigest := taskReq.ExecutorOpts.Cache.Key
 	if actualDigest == "" && len(taskReq.ExecutorOpts.Cache.KeyPaths) > 0 {
 		actualDigest, err = transferService.CalculateDigest(ctx, taskReq.ExecutorOpts.Cache.KeyPaths)
 		if err != nil {
 			taskResp.AdditionalError(err.Error(), false)
-			_ = traceWriter.WriteTraceError(err.Error())
+			_ = traceWriter.WriteTraceError(ctx, err.Error())
 		}
 	}
 
 	if actualDigest == "" {
-		_ = traceWriter.WriteTraceInfo("failed to find cached artifact")
+		_ = traceWriter.WriteTraceInfo(ctx, "failed to find cached artifact")
 		return nil // ignoring error
 	}
 
@@ -287,22 +292,28 @@ func downloadCache(
 
 	// downloading cache zip file
 	if err = transferService.DownloadArtifact(ctx, taskReq.ExecutorOpts.CacheDirectory, artifactID); err != nil {
-		_ = traceWriter.WriteTraceError(err.Error())
+		_ = traceWriter.WriteTraceError(ctx, err.Error())
 		return nil // ignoring error
 	}
 
-	_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloaded cache artifact %s with key %s", artifactID, actualDigest))
+	_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloaded cache artifact %s with key %s", artifactID, actualDigest))
 
 	// running on main container
 	for _, p := range taskReq.ExecutorOpts.Cache.Paths {
 		// Copy cache to current working folder
-		cmd := fmt.Sprintf("mkdir -p %s && mv %s %s",
-			filepath.Dir(p), filepath.Join(taskReq.ExecutorOpts.CacheDirectory, p), p)
+		var dir string
+		if strings.Contains(p, ".") {
+			dir = filepath.Dir(p)
+		} else {
+			dir = p
+		}
+		cmd := fmt.Sprintf("mkdir -p %s && cd %s && tar -xf %s && find . | head -10",
+			dir, dir, filepath.Join(taskReq.ExecutorOpts.CacheDirectory, types.TarNamePath(p)))
 		if _, stderr, _, _, err := execute(ctx, cmd, false); err != nil {
-			_ = traceWriter.WriteTraceError(fmt.Sprintf("failed to extract cache artifact '%s' due to '%v', stderr=%s",
+			_ = traceWriter.WriteTraceError(ctx, fmt.Sprintf("failed to extract cache artifact '%s' due to '%v', stderr=%s",
 				p, err, string(stderr)))
 		} else {
-			_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 extracted cached '%s' from artifact %s", p, artifactID))
+			_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 extracted cached '%s' from artifact %s", p, artifactID))
 		}
 	}
 
@@ -316,14 +327,15 @@ func downloadDependentArtifacts(
 	execute AsyncCommandExecutor,
 	traceWriter executor.TraceWriter,
 	transferService ArtifactTransfer) (err error) {
+	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	extractedDir := fmt.Sprintf("%s/extracted-artifacts", taskReq.ExecutorOpts.ArtifactsDirectory)
 	for _, id := range taskReq.ExecutorOpts.DependentArtifactIDs {
 		if err = transferService.DownloadArtifact(ctx, extractedDir, id); err != nil {
 			taskResp.AdditionalError(err.Error(), true)
-			_ = traceWriter.WriteTraceError(err.Error())
+			_ = traceWriter.WriteTraceError(ctx, err.Error())
 			return err
 		}
-		_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 downloading dependent artifact %s", id))
+		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading dependent artifact %s", id))
 	} // downloaded all files
 
 	// Copy all dependent artifacts to current working folder
@@ -334,12 +346,12 @@ func downloadDependentArtifacts(
 		cmd,
 		false); err == nil {
 		if taskReq.ExecutorOpts.Debug {
-			_ = traceWriter.WriteTraceInfo(fmt.Sprintf("🌟 extracted dependent artifact %s", stdout))
+			_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 extracted dependent artifact %s", stdout))
 		}
 	} else {
 		taskResp.AdditionalError(fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s",
 			err, string(stderr)), true)
-		_ = traceWriter.WriteTraceError(err.Error())
+		_ = traceWriter.WriteTraceError(ctx, err.Error())
 	}
 	return err
 }

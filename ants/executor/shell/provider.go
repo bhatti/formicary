@@ -45,7 +45,7 @@ func (sep *ExecutorProvider) AllRunningExecutors(ctx context.Context) ([]executo
 
 // StopExecutor stops executor
 func (sep *ExecutorProvider) StopExecutor(
-	_ context.Context,
+	ctx context.Context,
 	id string,
 	_ *types.ExecutorOptions) error {
 	sep.lock.Lock()
@@ -55,17 +55,17 @@ func (sep *ExecutorProvider) StopExecutor(
 		return fmt.Errorf("failed to find executor with id %v", id)
 	}
 	delete(sep.executors, id)
-	return exec.Stop()
+	return exec.Stop(ctx)
 }
 
 // NewExecutor creates new executor
 func (sep *ExecutorProvider) NewExecutor(
-	_ context.Context,
+	ctx context.Context,
 	trace trace.JobTrace,
 	opts *types.ExecutorOptions) (executor.Executor, error) {
 	sep.lock.Lock()
 	defer sep.lock.Unlock()
-	exec, err := NewShellExecutor(sep.AntConfig, trace, opts)
+	exec, err := NewShellExecutor(ctx, sep.AntConfig, trace, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -93,8 +93,9 @@ func (re *RequestExecutorImpl) Execute(
 	}
 
 	if len(taskReq.BeforeScript) > 0 {
-		_ = container.WriteTraceInfo(fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' ...",
-			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+		_ = container.WriteTraceInfo(ctx,
+			fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' ...",
+				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// prescript
 	if err := re.execute(
@@ -135,8 +136,10 @@ func (re *RequestExecutorImpl) Execute(
 
 	taskResp.Timings.ScriptFinishedAt = time.Now()
 	if len(taskReq.AfterScript) > 0 {
-		_ = container.WriteTraceInfo(fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' ...",
-			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+		_ = container.WriteTraceInfo(
+			ctx,
+			fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' ...",
+				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// Executing post-script regardless the task fails or succeeds
 	if taskReq.ExecutorOpts.Debug {
@@ -181,20 +184,32 @@ func (re *RequestExecutorImpl) execute(
 
 	doExecute := func(cmd string) ([]byte, error) {
 		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = checkCommandCanExecuteWithoutShell(cmd)
-		_ = container.WriteTraceInfo(fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
-			cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+		if ctx.Value(types.HelperContainerKey) == nil && taskReq.ExecutorOpts.Debug {
+			_ = container.WriteTraceInfo(
+				ctx,
+				fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
+					cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+		}
+		// executing...
 		stdout, stderr, exitCode, exitMessage, err := re.asyncExecuteCommand(
 			ctx,
 			container,
 			cmd,
 			taskReq.Variables,
 			false)
-		if err == nil {
-			_ = container.WriteTraceInfo(fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d stdout-len=%d",
-				cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, len(stdout)))
-		} else {
-			_ = container.WriteTraceInfo(fmt.Sprintf("😡️ executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d, error=%s stderr-len=%d",
-				cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err, len(stderr)))
+		// debugging...
+		if ctx.Value(types.HelperContainerKey) == nil {
+			if err == nil {
+				_ = container.WriteTraceInfo(
+					ctx,
+					fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d stdout-len=%d",
+						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, len(stdout)))
+			} else {
+				_ = container.WriteTraceInfo(
+					ctx,
+					fmt.Sprintf("😡️ executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d, error=%s stderr-len=%d",
+						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err, len(stderr)))
+			}
 		}
 		if taskResp.ExitCode == "" {
 			taskResp.ExitCode = strconv.Itoa(exitCode)
@@ -220,7 +235,7 @@ func (re *RequestExecutorImpl) execute(
 			return err
 		} else if err != nil {
 			lastError = err
-			_ = container.WriteTraceError(err.Error())
+			_ = container.WriteTraceError(ctx, err.Error())
 		} else if taskReq.ExecutorOpts.ReportStdout {
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(
@@ -242,10 +257,12 @@ func (re *RequestExecutorImpl) execute(
 				return err
 			} else if err != nil {
 				lastError = err
-				_ = container.WriteTraceError(err.Error())
+				_ = container.WriteTraceError(ctx, err.Error())
 			}
 			if path != "" {
-				_ = container.WriteTraceInfo(fmt.Sprintf("Adding output to artifact path %s with size %d\n", path, len(stdout)))
+				_ = container.WriteTraceInfo(
+					ctx,
+					fmt.Sprintf("Adding output to artifact path %s with size %d\n", path, len(stdout)))
 				taskReq.ExecutorOpts.Artifacts.Paths = append(taskReq.ExecutorOpts.Artifacts.Paths, path)
 			}
 		}
@@ -281,6 +298,7 @@ func (re *RequestExecutorImpl) asyncExecuteCommand(
 	helper bool) (stdout []byte, stderr []byte, exitCode int, exitMessage string, err error) {
 	var runner executor.CommandRunner
 	if helper {
+		ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 		runner, err = container.AsyncHelperExecute(ctx, cmd, variables)
 	} else {
 		runner, err = container.AsyncExecute(ctx, cmd, variables)
@@ -391,10 +409,14 @@ func (re *RequestExecutorImpl) preProcess(
 				"Error":     sendErr,
 			}).Warnf("failed to send lifecycle event container")
 	}
-	_ = container.WriteTraceInfo(fmt.Sprintf("🚀 starting task '%s' of job '%s' with request-id '%d'...",
-		taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
+	_ = container.WriteTraceInfo(
+		ctx,
+		fmt.Sprintf("🚀 starting task '%s' of job '%s' with request-id '%d'...",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	if taskReq.ExecutorOpts.Debug {
-		_ = container.WriteTraceInfo(fmt.Sprintf("env variables: %v", taskReq.ExecutorOpts.Environment))
+		_ = container.WriteTraceInfo(
+			ctx,
+			fmt.Sprintf("env variables: %v", taskReq.ExecutorOpts.Environment))
 	}
 
 	return
@@ -430,6 +452,7 @@ func (re *RequestExecutorImpl) postProcess(
 			taskResp,
 			container); err != nil {
 			re.additionalError(
+				ctx,
 				container,
 				taskReq,
 				taskResp,
@@ -438,19 +461,21 @@ func (re *RequestExecutorImpl) postProcess(
 		} else if len(uploadedArtifacts) > 0 {
 			for _, artifact := range uploadedArtifacts {
 				_ = container.WriteTraceInfo(
+					ctx,
 					fmt.Sprintf("🌟 uploaded artifact Bucket=%s ID=%s SHA256=%s Size=%d",
 						re.antCfg.S3.Bucket, artifact.ID, artifact.SHA256, artifact.ContentLength))
 			}
 		}
 	} else {
 		_ = container.WriteTraceInfo(
+			ctx,
 			fmt.Sprintf("🚫 skipped uploading artifacts, cancelled=%v, container=%s",
 				taskReq.Cancelled, container.GetState()))
 	}
 	taskResp.Timings.ArtifactsUploadedAt = time.Now()
 	// Stopping container
 	now := time.Now()
-	if err := container.Stop(); err != nil {
+	if err := container.Stop(ctx); err != nil {
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutorImpl",
@@ -480,15 +505,21 @@ func (re *RequestExecutorImpl) postProcess(
 
 	elapsed := time.Now().Sub(taskReq.StartedAt).String()
 	if taskResp.Status.Failed() {
-		_ = container.WriteTraceError(fmt.Sprintf("🌋 task '%s' of job '%s' with request-id '%d' failed Error=%s Exit=%s Duration=%s",
-			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, taskResp.ExitCode, elapsed))
+		_ = container.WriteTraceError(
+			ctx,
+			fmt.Sprintf("🌋 task '%s' of job '%s' with request-id '%d' failed Error=%s Exit=%s Duration=%s",
+				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, taskResp.ExitCode, elapsed))
 	} else {
-		_ = container.WriteTraceSuccess(fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
-			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, elapsed))
+		_ = container.WriteTraceSuccess(
+			ctx,
+			fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
+				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, elapsed))
 	}
 
-	_ = container.WriteTraceSuccess(fmt.Sprintf("⏱ task '%s' of job '%s' with request-id '%d' stats: %s",
-		taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.Timings.String()))
+	_ = container.WriteTraceSuccess(
+		ctx,
+		fmt.Sprintf("⏱ task '%s' of job '%s' with request-id '%d' stats: %s",
+			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.Timings.String()))
 
 	// upload console
 	if !taskReq.Cancelled {
@@ -597,12 +628,13 @@ func (re *RequestExecutorImpl) updateResponseContext(
 
 // adds additional error for tracking
 func (re *RequestExecutorImpl) additionalError(
+	ctx context.Context,
 	container executor.Executor,
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	err error,
 	fatal bool) {
-	_ = container.WriteTraceError("💣 " + err.Error())
+	_ = container.WriteTraceError(ctx, "💣 "+err.Error())
 	logrus.WithFields(
 		logrus.Fields{
 			"Component":    "RequestExecutorImpl",

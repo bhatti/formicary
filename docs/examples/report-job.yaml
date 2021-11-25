@@ -6,10 +6,6 @@ notify:
       - bhatti@plexobject.com
       - bhatti_shahzad@yahoo.com
     when: always
-  slack: 
-    recipients: 
-      - formicary-reports
-    when: always
 tasks:
 - task_type: hello
   container:

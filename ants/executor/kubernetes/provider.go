@@ -88,7 +88,7 @@ func (kep *ExecutorProvider) StopExecutor(
 		return kep.adapter.Stop(ctx, id)
 	}
 	delete(kep.executors, id)
-	return exec.Stop()
+	return exec.Stop(ctx)
 }
 
 // NewExecutor creates new executor
@@ -105,7 +105,7 @@ func (kep *ExecutorProvider) NewExecutor(
 		_, _ = trace.Writeln(fmt.Sprintf("📌  failed to setup registry credentials due to %s", err), types.ExecTags)
 		return nil, fmt.Errorf("setting up registryCredentials: %w", err)
 	}
-	exec, err := NewKubernetesExecutor(kep.AntConfig, trace, kep.adapter, kep.registryCredentials, opts)
+	exec, err := NewKubernetesExecutor(ctx, kep.AntConfig, trace, kep.adapter, kep.registryCredentials, opts)
 	if err != nil {
 		return nil, err
 	}

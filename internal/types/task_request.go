@@ -70,7 +70,15 @@ func (req *TaskRequest) Key() string {
 
 // KeyPath key path of job
 func (req *TaskRequest) KeyPath() string {
-	return fmt.Sprintf("%sjob-%d/%s", utils.NormalizePrefix(req.UserID), req.JobRequestID, req.TaskType)
+	userOrg := req.OrganizationID
+	if userOrg == "" {
+		userOrg = req.UserID
+	}
+	prefix := req.ExecutorOpts.ArtifactKeyPrefix
+	if prefix == "" {
+		prefix = fmt.Sprintf("job-%d/%s", req.JobRequestID, req.TaskType)
+	}
+	return utils.NormalizePrefix(userOrg) + prefix
 }
 
 // TaskKey builds task key

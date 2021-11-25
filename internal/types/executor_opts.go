@@ -84,6 +84,9 @@ func (em EnvironmentMap) AddFromEnvCommand(cmd string) bool {
 	return false
 }
 
+// HelperContainerKey key for context
+const HelperContainerKey = "HelperContainer"
+
 // ExecutorOptions options for executor
 type ExecutorOptions struct {
 	Name                       string                  `json:"name" yaml:"name"`
@@ -114,6 +117,7 @@ type ExecutorOptions struct {
 	MessagingReplyQueue        string                  `json:"messaging_reply_queue,omitempty" yaml:"messaging_reply_queue,omitempty"`
 	ForkJobType                string                  `json:"fork_job_type,omitempty" yaml:"fork_job_type,omitempty"`
 	ForkJobVersion             string                  `json:"fork_job_version,omitempty" yaml:"fork_job_version,omitempty"`
+	ArtifactKeyPrefix          string                  `json:"artifact_key_prefix,omitempty" yaml:"artifact_key_prefix,omitempty"`
 	AwaitForkedTasks           []string                `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty"`
 	CostFactor                 float64                 `json:"cost_factor,omitempty" yaml:"cost_factor,omitempty"`
 	ExecuteCommandWithoutShell bool                    `json:"execute_command_without_shell,omitempty" yaml:"execute_command_without_shell,omitempty"`

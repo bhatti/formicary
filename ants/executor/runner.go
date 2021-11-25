@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	common "plexobject.com/formicary/internal/types"
 	"time"
 )
 
@@ -63,7 +64,7 @@ func (r *BaseCommandRunner) GetExitMessage() string {
 	return r.ExitMessage
 }
 
-// IsHelper checks if contianer is helper
-func (r *BaseCommandRunner) IsHelper(_ context.Context) bool {
-	return r.HelperContainer
+// IsHelper checks if container is helper
+func (r *BaseCommandRunner) IsHelper(ctx context.Context) bool {
+	return ctx.Value(common.HelperContainerKey) != nil
 }

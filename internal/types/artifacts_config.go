@@ -1,7 +1,11 @@
 package types
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"path"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -32,6 +36,21 @@ type ArtifactsConfig struct {
 	Paths        []string      `json:"paths,omitempty" yaml:"paths,omitempty"`
 	ExpiresAfter time.Duration `json:"expires_after,omitempty" yaml:"expires_after,omitempty"`
 	When         ArtifactsWhen `json:"when,omitempty" yaml:"when,omitempty"`
+}
+
+// TarNameDirPath builds tar name for path with dir
+func TarNameDirPath(dir string, p string) string {
+	return path.Join(dir, TarNamePath(p))
+}
+
+// TarNamePath builds tar name for path
+func TarNamePath(path string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return path
+	}
+	hash := md5.Sum([]byte(path))
+	return reg.ReplaceAllString(path, "_") + "_" + hex.EncodeToString(hash[:]) + ".tar"
 }
 
 // NewArtifactsConfig - constructor

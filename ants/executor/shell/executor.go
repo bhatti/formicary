@@ -25,6 +25,7 @@ type Executor struct {
 
 // NewShellExecutor for creating shell executor
 func NewShellExecutor(
+	ctx context.Context,
 	cfg *config.AntConfig,
 	trace trace.JobTrace,
 	opts *types.ExecutorOptions) (*Executor, error) {
@@ -36,10 +37,10 @@ func NewShellExecutor(
 	base.Name = opts.Name
 
 	hostName, _ := os.Hostname()
-	_ = base.WriteTrace(fmt.Sprintf(
+	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"[%s SHELL %s] 🔥 running with formicary %s on %s",
 		time.Now().Format(time.RFC3339), opts.Name, cfg.ID, hostName))
-	_ = base.WriteTraceInfo(fmt.Sprintf("[%s SHELL %s] 🌱 preparing shell executor",
+	_ = base.WriteTraceInfo(ctx, fmt.Sprintf("[%s SHELL %s] 🌱 preparing shell executor",
 		time.Now().Format(time.RFC3339), opts.Name))
 
 	return &Executor{
@@ -65,28 +66,28 @@ func (se *Executor) GetRuntimeInfo(
 
 // AsyncHelperExecute for executing by shell executor on helper container
 func (se *Executor) AsyncHelperExecute(
-	_ context.Context,
+	ctx context.Context,
 	cmd string,
 	_ map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
-	return se.doAsyncExecute(cmd, true)
+	return se.doAsyncExecute(ctx, cmd, true)
 }
 
 // AsyncExecute for executing by shell executor
 func (se *Executor) AsyncExecute(
-	_ context.Context,
+	ctx context.Context,
 	cmd string,
 	_ map[string]types.VariableValue,
 ) (executor.CommandRunner, error) {
-	return se.doAsyncExecute(cmd, false)
+	return se.doAsyncExecute(ctx, cmd, false)
 }
 
-func (se *Executor) doAsyncExecute(cmd string, helper bool) (executor.CommandRunner, error) {
+func (se *Executor) doAsyncExecute(ctx context.Context, cmd string, helper bool) (executor.CommandRunner, error) {
 	se.lock.Lock()
 	defer se.lock.Unlock()
 	if se.State == executor.Removing {
 		err := fmt.Sprintf("failed to execute Command='%s' because executor is already stopped", cmd)
-		_ = se.WriteTraceError(err)
+		_ = se.WriteTraceError(ctx, err)
 		return nil, fmt.Errorf(err)
 	}
 	se.State = executor.Running
@@ -94,7 +95,7 @@ func (se *Executor) doAsyncExecute(cmd string, helper bool) (executor.CommandRun
 	if err != nil {
 		return nil, err
 	}
-	if err = r.run(); err != nil {
+	if err = r.run(ctx); err != nil {
 		return nil, err
 	}
 	se.runners[r.ID] = r
@@ -102,11 +103,12 @@ func (se *Executor) doAsyncExecute(cmd string, helper bool) (executor.CommandRun
 }
 
 // Stop stopping execution by shell executor
-func (se *Executor) Stop() error {
+func (se *Executor) Stop(ctx context.Context,
+	) error {
 	se.lock.Lock()
 	defer se.lock.Unlock()
 	if se.State == executor.Removing {
-		_ = se.WriteTraceError(fmt.Sprintf("⛔ cannot remove executor as it's already stopped"))
+		_ = se.WriteTraceError(ctx, fmt.Sprintf("⛔ cannot remove executor as it's already stopped"))
 		return fmt.Errorf("executor [%s] is already stopped", se.Name)
 	}
 	started := time.Now()
@@ -114,7 +116,7 @@ func (se *Executor) Stop() error {
 	now := time.Now()
 	se.EndedAt = &now
 	var err error
-	_ = se.WriteTrace(fmt.Sprintf("✋ stopping runners=%d",
+	_ = se.WriteTrace(ctx, fmt.Sprintf("✋ stopping runners=%d",
 		len(se.runners)))
 
 	ctx, cancel := context.WithTimeout(context.Background(), se.AntConfig.GetShutdownTimeout())
@@ -126,7 +128,7 @@ func (se *Executor) Stop() error {
 			err = rErr
 		}
 	}
-	_ = se.BaseExecutor.WriteTraceInfo(
+	_ = se.BaseExecutor.WriteTraceInfo(ctx,
 		fmt.Sprintf("🛑 stopped container: Error=%v Elapsed=%v, StopWait=%v",
 			err, time.Since(started).String(), se.AntConfig.GetShutdownTimeout()))
 	se.runners = make(map[string]*CommandRunner)

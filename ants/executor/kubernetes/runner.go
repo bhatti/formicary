@@ -95,9 +95,11 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 		}
 	}
 	if err == nil {
-		_ = kcr.BaseExecutor.WriteTraceSuccess(
-			fmt.Sprintf("✅ %s succeeded Duration=%v",
-				kcr.Command, kcr.BaseExecutor.Elapsed()))
+		if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
+			_ = kcr.BaseExecutor.WriteTraceSuccess(ctx,
+				fmt.Sprintf("✅ %s succeeded Duration=%v",
+					kcr.Command, kcr.BaseExecutor.Elapsed()))
+		}
 		logrus.WithFields(logrus.Fields{
 			"Component": "KubernetesCommandRunner",
 			"ID":        kcr.ID,
@@ -128,14 +130,16 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
 		}).Warn("failed to execute command")
-		_ = kcr.BaseExecutor.WriteTraceError(
-			fmt.Sprintf("❌ %s failed to execute Host=%s Exitcode=%d Error=%s Duration=%v",
-				kcr.Command, kcr.ContainerIP, kcr.ExitCode, err, kcr.BaseExecutor.Elapsed()))
-		if !kcr.DumpedRuntimeInfo {
-			kcr.DumpedRuntimeInfo = true
-			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO BEGIN>> **************************"), types.DumpTags)
-			_, _ = kcr.Trace.Write([]byte(kcr.exec.GetRuntimeInfo(ctx)), types.DumpTags)
-			_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO END>>  **************************"), types.DumpTags)
+		if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
+			_ = kcr.BaseExecutor.WriteTraceError(ctx,
+				fmt.Sprintf("❌ %s failed to execute Host=%s Exitcode=%d Error=%s Duration=%v",
+					kcr.Command, kcr.ContainerIP, kcr.ExitCode, err, kcr.BaseExecutor.Elapsed()))
+			if !kcr.DumpedRuntimeInfo && !kcr.IsHelper(ctx) {
+				kcr.DumpedRuntimeInfo = true
+				_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO BEGIN>> **************************"), types.DumpTags)
+				_, _ = kcr.Trace.Write([]byte(kcr.exec.GetRuntimeInfo(ctx)), types.DumpTags)
+				_, _ = kcr.Trace.Write([]byte("*********************** <<KUBERNETES RUNTIME-INFO END>>  **************************"), types.DumpTags)
+			}
 		}
 	}
 	return kcr.Stdout.Bytes(), kcr.Stderr.Bytes(), err
@@ -164,6 +168,10 @@ func (kcr *CommandRunner) IsRunning(context.Context) (bool, error) {
 func (kcr *CommandRunner) run(
 	ctx context.Context) error {
 	handler := func(ctx context.Context, payload interface{}) (interface{}, error) {
+		if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
+			_ = kcr.BaseExecutor.WriteTrace(ctx, fmt.Sprintf("🔄 $ %s",
+				kcr.Command))
+		}
 		pod, err := kcr.adapter.Execute(
 			ctx,
 			&kcr.BaseCommandRunner,
@@ -176,8 +184,6 @@ func (kcr *CommandRunner) run(
 			kcr.Host = pod.Status.HostIP
 			kcr.ContainerIP = pod.Status.PodIP
 			_ = kcr.ExecutorOptions.Environment.AddFromEnvCommand(kcr.Command)
-			_ = kcr.BaseExecutor.WriteTrace(fmt.Sprintf("🔄 $ %s",
-				kcr.Command))
 		} else {
 			//_ = kcr.BaseExecutor.WriteTraceError(
 			//	fmt.Sprintf("❌ %s failed to run! Pod=%s Error=%s",
