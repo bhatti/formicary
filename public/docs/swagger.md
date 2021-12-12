@@ -161,6 +161,25 @@ Download artifact by its id
 | ---- | ----------- | ------ |
 | 200 | Byte Array response body | [ integer (uint8) ] |
 
+### /api/artifacts/{id}/logs
+
+#### GET
+##### Description
+
+Download artifact by its id
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Byte Array response body | [ integer (uint8) ] |
+
 ### /api/audits
 
 #### GET
@@ -1849,6 +1868,7 @@ EmailVerification represents verified email
 | email_code | string | EmailCode defines code | No |
 | expires_at | dateTime | ExpiresAt expiration time | No |
 | id | string | gorm.Model ID defines UUID for primary key | No |
+| organization_id | string | OrganizationID defines org who submitted the job | No |
 | user_id | string | UserID defines foreign key | No |
 | verified_at | dateTime | VerifiedAt verification time | No |
 
@@ -2312,6 +2332,7 @@ the database.
 | on_completed | string | OnCompleted defines next task to run based on completion | No |
 | on_exit_code | object | OnExitCode defines next task to run based on exit code | No |
 | on_failed | string | OnFailed defines next task to run based on failure | No |
+| report_stdout | boolean | ReportStdout is used to send stdout as a report | No |
 | resources | [BasicResource](#basicresource) |  | No |
 | retry | long | Retry defines max number of tries a task can be retried where it re-runs failed tasks | No |
 | script | [ string ] | Script defines list of commands to execute in container | No |
@@ -2319,6 +2340,7 @@ the database.
 | task_type | string | TaskType defines type of task | No |
 | timeout | [Duration](#duration) |  | No |
 | updated_at | dateTime | UpdatedAt job update time | No |
+| url | string | URL to use | No |
 | variables | object | Transient properties -- these are populated when AfterLoad or Validate is called | No |
 | webhook | [Webhook](#webhook) |  | No |
 
@@ -2344,6 +2366,7 @@ the database.
 | method | [TaskMethod](#taskmethod) |  | No |
 | retried | long | Retried keeps track of retry attempts | No |
 | started_at | dateTime | StartedAt job creation time | No |
+| stdout | [ string ] |  | No |
 | task_order | long | TaskOrder | No |
 | task_state | [RequestState](#requeststate) |  | No |
 | task_type | string | TaskType defines type of task | No |
@@ -2441,6 +2464,6 @@ Webhook structure defines config options for callback webhook
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| headers | object |  | No |
-| query | object |  | No |
-| url | string |  | No |
+| headers | object | Header defines http headers | No |
+| query | object | Query defines URL query params | No |
+| url | string | URL defines POST url | No |

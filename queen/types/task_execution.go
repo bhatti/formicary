@@ -174,6 +174,16 @@ func (te *TaskExecution) AddArtifact(art *types.Artifact) {
 	te.Artifacts = append(te.Artifacts, art)
 }
 
+// LogArtifact finds logs
+func (te *TaskExecution) LogArtifact() *types.Artifact {
+	for _, ar := range te.Artifacts {
+		if ar.Kind == types.ArtifactKindLogs {
+			return ar
+		}
+	}
+	return nil
+}
+
 // AddContext adds task context
 func (te *TaskExecution) AddContext(
 	name string,

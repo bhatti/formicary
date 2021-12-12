@@ -94,9 +94,10 @@
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
 <script type="text/javascript" src="/js/ansi_colors.js"></script>
 
-<h4>Log Events:</h4>
+{{if .Request.NotTerminal }}
+<h4>Streaming Events:</h4>
 <pre id="logs"></pre>
-<script>
+<script type="text/javascript">
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
     console.log({uri}, 'Connecting')
@@ -108,7 +109,10 @@
         const intervalId = setInterval(function () {
             ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
             ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
-            console.log({"event_type": "LogEvent & TaskExecutionLifecycleEvent", "event_scope": requestID}, 'subscribing');
+            console.log({
+                "event_type": "LogEvent & TaskExecutionLifecycleEvent",
+                "event_scope": requestID
+            }, 'subscribing');
         }, 15000);
         ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
         ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
@@ -127,7 +131,8 @@
             console.log({evt}, 'unknown event');
         }
     }
-
 </script>
+{{ end }}
+
 
 {{ template "layouts/footer" }}

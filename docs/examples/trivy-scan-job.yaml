@@ -22,7 +22,7 @@ tasks:
       entrypoint: ["env", "-u", "DOCKER_HOST"]
       command: ["dockerd-entrypoint.sh"]
   before_script:
-    - echo image $IMAGE
+    - echo image variable $IMAGE
     - git clone https://github.com/aquasecurity/trivy-ci-test.git .
     - wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/'
     - export TRIVY_VERSION=$(wget -qO - "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
@@ -35,6 +35,7 @@ tasks:
   allow_failure: true
   script:
     # Build image
+    - echo docker build -t $IMAGE .
     - docker build -t $IMAGE .
     - curl -o tmpl.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/gitlab-codequality.tpl
     # Build report

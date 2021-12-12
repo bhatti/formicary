@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -214,6 +215,17 @@ func (a *Artifact) AfterLoad() error {
 // DashboardURL link to download artifact
 func (a *Artifact) DashboardURL() string {
 	return strings.ReplaceAll(a.URL, "/api/", "/dashboard/")
+}
+
+// DashboardRawURL link to download artifact
+func (a *Artifact) DashboardRawURL() string {
+	return strings.ReplaceAll(a.URL, "/api/", "/dashboard/") + "/raw"
+}
+
+// Digest hash
+func (a *Artifact) Digest() uint64 {
+	n, _ := strconv.ParseUint(a.SHA256, 16, 64)
+	return n
 }
 
 // LengthString / 1024 * 1024

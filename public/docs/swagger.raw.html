@@ -366,6 +366,48 @@
 </tr>
 </tbody>
 </table>
+<h3 id="-api-artifacts-id-logs">/api/artifacts/{id}/logs</h3>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Download artifact by its id</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Byte Array response body</td>
+<td>[ integer (uint8) ]</td>
+</tr>
+</tbody>
+</table>
 <h3 id="-api-audits">/api/audits</h3>
 <h4 id="get">GET</h4>
 <h5 id="summary">Summary</h5>
@@ -4495,6 +4537,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
 <td>user_id</td>
 <td>string</td>
 <td>UserID defines foreign key</td>
@@ -6553,6 +6601,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>report_stdout</td>
+<td>boolean</td>
+<td>ReportStdout is used to send stdout as a report</td>
+<td>No</td>
+</tr>
+<tr>
 <td>resources</td>
 <td><a href="#basicresource">BasicResource</a></td>
 <td></td>
@@ -6592,6 +6646,12 @@
 <td>updated_at</td>
 <td>dateTime</td>
 <td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td>URL to use</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6725,6 +6785,12 @@
 <td>started_at</td>
 <td>dateTime</td>
 <td>StartedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>stdout</td>
+<td>[ string ]</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -7125,19 +7191,19 @@
 <tr>
 <td>headers</td>
 <td>object</td>
-<td></td>
+<td>Header defines http headers</td>
 <td>No</td>
 </tr>
 <tr>
 <td>query</td>
 <td>object</td>
-<td></td>
+<td>Query defines URL query params</td>
 <td>No</td>
 </tr>
 <tr>
 <td>url</td>
 <td>string</td>
-<td></td>
+<td>URL defines POST url</td>
 <td>No</td>
 </tr>
 </tbody>

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -300,15 +299,9 @@ func downloadCache(
 
 	// running on main container
 	for _, p := range taskReq.ExecutorOpts.Cache.Paths {
+		cmd := fmt.Sprintf("mkdir -p %s && mv %s %s",
+			filepath.Dir(p), filepath.Join(taskReq.ExecutorOpts.CacheDirectory, p), p)
 		// Copy cache to current working folder
-		var dir string
-		if strings.Contains(p, ".") {
-			dir = filepath.Dir(p)
-		} else {
-			dir = p
-		}
-		cmd := fmt.Sprintf("mkdir -p %s && cd %s && tar -xf %s && find . | head -10",
-			dir, dir, filepath.Join(taskReq.ExecutorOpts.CacheDirectory, types.TarNamePath(p)))
 		if _, stderr, _, _, err := execute(ctx, cmd, false); err != nil {
 			_ = traceWriter.WriteTraceError(ctx, fmt.Sprintf("failed to extract cache artifact '%s' due to '%v', stderr=%s",
 				p, err, string(stderr)))
@@ -338,6 +331,7 @@ func downloadDependentArtifacts(
 		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading dependent artifact %s", id))
 	} // downloaded all files
 
+	// TODO verify download/upload
 	// Copy all dependent artifacts to current working folder
 	cmd := fmt.Sprintf("touch %s/ignore && cp -R %s/* . && find %s | head -10",
 		extractedDir, extractedDir, extractedDir)

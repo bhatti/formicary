@@ -355,6 +355,10 @@ definitions:
           ID defines UUID for primary key
         type: string
         x-go-name: ID
+      organization_id:
+        description: OrganizationID defines org who submitted the job
+        type: string
+        x-go-name: OrganizationID
       user_id:
         description: UserID defines foreign key
         type: string
@@ -1684,6 +1688,10 @@ definitions:
         description: OnFailed defines next task to run based on failure
         type: string
         x-go-name: OnFailed
+      report_stdout:
+        description: ReportStdout is used to send stdout as a report
+        type: boolean
+        x-go-name: ReportStdout
       resources:
         $ref: '#/definitions/BasicResource'
       retry:
@@ -1717,6 +1725,10 @@ definitions:
         format: date-time
         type: string
         x-go-name: UpdatedAt
+      url:
+        description: URL to use
+        type: string
+        x-go-name: URL
       variables:
         description: Transient properties -- these are populated when AfterLoad or
           Validate is called
@@ -1814,6 +1826,11 @@ definitions:
         format: date-time
         type: string
         x-go-name: StartedAt
+      stdout:
+        items:
+          type: string
+        type: array
+        x-go-name: Stdout
       task_order:
         description: TaskOrder
         format: int64
@@ -2065,14 +2082,17 @@ definitions:
       headers:
         additionalProperties:
           type: string
+        description: Header defines http headers
         type: object
         x-go-name: Headers
       query:
         additionalProperties:
           type: string
+        description: Query defines URL query params
         type: object
         x-go-name: Query
       url:
+        description: URL defines POST url
         type: string
         x-go-name: URL
     type: object
@@ -2232,6 +2252,21 @@ paths:
       tags:
       - artifacts
   /api/artifacts/{id}/download:
+    get:
+      description: Download artifact by its id
+      operationId: downloadArtifact
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/byteResponse'
+      tags:
+      - artifacts
+  /api/artifacts/{id}/logs:
     get:
       description: Download artifact by its id
       operationId: downloadArtifact

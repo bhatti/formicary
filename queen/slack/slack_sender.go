@@ -105,7 +105,6 @@ func (d *DefaultSlackSender) SendMessage(
 		"Subject":               subject,
 		"Channel":               to,
 		"JobNotifyTemplateFile": d.JobNotifyTemplateFile(),
-		"Opts":                  opts,
 		"Size":                  len(body),
 	}).Infof("sending slack message")
 

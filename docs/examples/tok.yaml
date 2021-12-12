@@ -1,87 +1,14 @@
-job_type: io.formicary.tokens
-public_plugin: true
-cron_trigger: 0 0 * * *
-sem_version: 1.0-dev
-# TODO
-# Get token for https://tokenfomo.io/docs/API
-# Find API for https://isthiscoinascam.com/ https://isthiscoinascam.com/active-cryptocurrencies
-# scam:
-# - https://tokensniffer.com/
-# - https://tokenfomo.io/docs/API
-# - https://tokensniffer.com/tokens/new
-# - https://tokenfomo.io/
-# - https://isthiscoinascam.com/
-# - rapidapi.com/isthiscoinascam
-# - https://isthiscoinascam.com/active-cryptocurrencies
-# - https://www.rdauditors.com/
-# - https://rugdoc.io/
-# activity:
-# - https://coinmarketcal.com/en/
-# - https://coinmarketcal.com/en/api
-# - https://www.dextools.io/app/
-# - https://www.livecoinwatch.com/tools/api
-# - https://poocoin.app/tools
-# - https://www.dextools.io/app/ether/pool-explorer
-# - https://www.coingecko.com/en/coins/recently_added
-# - https://www.coingecko.com/en/api
-# - https://algotrading101.com/learn/coingecko-api-guide/
-# - https://coinmarketcap.com/api/
-# - https://twitter.com/CryptoGemsBot
-# - https://github.com/lorem-ipsumm/crypto-twitter
-# search:
-# - https://docs.uniswap.org/protocol/V2/reference/API/entities or again from Ethplorer directly:
-# - https://github.com/EverexIO/Ethplorer/wiki/Ethplorer-API
-# - https://bitquery.io/blog/dex-data-apis
-# - https://thegraph.com/hosted-service/subgraph/graphprotocol/uniswap
-# locks/liquidity/vesting
-# - https://wiki.rugdoc.io/docs/timelocks-explained/
-# - https://app.unicrypt.network/dashboard
-# - https://www.team.finance/  
-# - https://www.team.finance/view-all-coins
-# social
-# https://apewisdom.io/api/
-# - https://cryptomarketpool.com/reddit-sentiment-indicator-for-crypto-in-python/
-# - https://www.learndatasci.com/tutorials/sentiment-analysis-reddit-headlines-pythons-nltk/
-# - https://github.com/malavmodi/4Chan-Scraper
-# - https://os2int.com/toolbox/creating-visual-intelligence-from-telegram-user-group-data/
-# audit:
-# - https://www.certik.org/
-# - https://www.certik.org/technology
-# - https://www.certik.io/ 
-# - https://hacken.io/ 
-# - https://hacken.io/audits/
-# - https://techrate.org/#product-list 
-# - https://paladinsec.co/ https://paladinsec.co/audits/ 
-# - https://obeliskauditing.com/ https://obeliskauditing.com/audits
-# - https://omniscia.io/projects.html
-# - https://solidity.finance/audits/ 
-# - https://peckshield.com/en#customers
-# - https://www.diffchecker.com/
-# - https://consensys.net/diligence/
-# - https://www.reddit.com/r/CryptoMoonShots/comments/mbdlil/cryptomoonshots_101/
-# whale watching:
-# - https://medium.com/general_knowledge/watch-the-whales-101-guide-to-wallet-tracking-8ff5799f3dc4
-# - https://clankapp.com/
-# - https://www.whalestats.com/
-# - https://www.coincarp.com/
-#
+job_type: tok
 notify:
   email: 
     recipients: 
       - shahbhat@gmail.com
-      - s.hugh.brooks@gmail.com
-      - brandon.pliska@gmail.com
-    when: always
-  slack: 
-    recipients: 
-      - formicary-reports
-    when: always
+    when: none
 tasks:
 - task_type: token-sniffer
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
     - mkdir -p cache_new_tokens
@@ -90,7 +17,7 @@ tasks:
     # See https://tokenfomo.io/docs/API
     - >
       for tok in top trending new scam; do curl -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8" -H "Accept-Encoding: gzip, deflate, br" -H "Accept-Language: en-US,en;q=0.5" -H "Cache-Control: max-age=0" -H "Connection: keep-alive" -H "DNT: 1" -H "Host: tokensniffer.com" -H "Referer: https://tokensniffer.com/" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-User: ?1" -H "Sec-GPC: 1" -H "Upgrade-Insecure-Requests: 1" -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:93.0) Gecko/20100101 Firefox/93.0" "https://tokensniffer.com/tokens/$tok" > ${tok}_tokens.gz; gunzip ${tok}_tokens.gz; cat ${tok}_tokens| grep -i -e '</\?TABLE\|</\?TD\|</\?TR\|</\?TH' | sed  's/^[\ \t]*//g' | tr -d '\n' | sed 's/<\/TR[^>]*>/\n/Ig'  | sed 's/<\/\?\(TABLE\|TR\)[^>]*>//Ig' | sed 's/^<T[DH][^>]*>\|<\/\?T[DH][^>]*>$//Ig' | sed 's/<\/T[DH][^>]*><T[DH][^>]*>/,/Ig' | grep json|sed 's/.*json..//g' | sed 's/<.*//g' > data/sniffer_${tok}_tokens.json;sleep 5;done
-    - cp data/sniffer_new_tokens.json cache_new_tokens/sniffer_new_tokens_{{.YearDay}}.json
+    - cp data/sniffer_new_tokens.json cache_new_tokens/sniffer_new_tokens_{{.DateDay}}.json
     - cd cache_new_tokens && tar cf - . | (cd ../data && tar xvf -)
   cache:
     key: key-tokens-cache
@@ -104,7 +31,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -120,7 +46,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -136,7 +61,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -154,7 +78,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
     - git clone https://{{.GithubToken}}@github.com/bhatti/token-scripts.git
@@ -178,7 +101,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -201,7 +123,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -218,7 +139,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -237,7 +157,6 @@ tasks:
   script:
     - curl https://api.etherscan.io/api?module=stats&action=ethsupply&apikey={{.ETHERSCAN_TOKEN}} > data/etherscan_stats.json
   delay_between_retries: 5s
-  retry: 2
   on_completed: cryptomiso
 - task_type: cryptomiso
   method: DOCKER
@@ -252,13 +171,11 @@ tasks:
   script:
     - python token-scripts/cryptomiso.py > data/cryptomiso_github.json
   delay_between_retries: 5s
-  retry: 2
   on_completed: scam-tokens
 - task_type: scam-tokens
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -275,7 +192,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   before_script:
     - mkdir -p data
   script:
@@ -296,7 +212,6 @@ tasks:
   container:
     image: python:3.8-buster
   delay_between_retries: 5s
-  retry: 2
   report_stdout: true
   before_script:
     - mkdir -p data

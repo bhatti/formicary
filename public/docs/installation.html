@@ -112,8 +112,20 @@
 <li>microk8s.kubectl config view --raw &gt; $HOME/.kube/config</li>
 <li>copy above config to your local ~/.kube/config</li>
 </ul>
-<h4 id="miscellaneous-pod-commands">Miscellaneous POD Commands</h4>
+<h4 id="starting-k3-on-ubuntu">Starting K3 on Ubuntu</h4>
 <ul>
+<li>See <a href="https://k3s.io/">https://k3s.io/</a> for installing k3, e.g.<pre><code>ssh ${HOST} &#39;export INSTALL_K3S_EXEC=&quot; --no-deploy servicelb --no-deploy traefik&quot;; \
+ curl -sfL https://get.k3s.io | sh -&#39;
+scp ${HOST}:/etc/rancher/k3s/k3s.yaml .
+sed -r &#39;s/(\b[0-9]{1,3}\.){3}[0-9]{1,3}\b&#39;/&quot;${HOST_IP}&quot;/ k3s.yaml &gt; ~/.kube/k3s-vm-config &amp;&amp; rm k3s.yaml
+</code></pre></li>
+<li>Then set environment variables for:<pre><code># set your host IP and name
+HOST_IP=192.168.1.101
+HOST=k3s
+KUBECTL=kubectl --kubeconfig ~/.kube/k3s-vm-config
+</code></pre></li>
+<li>Optionally install <a href="https://k9scli.io/">https://k9scli.io/</a> or <a href="https://k8slens.dev/">https://k8slens.dev/</a>. -<h4 id="miscellaneous-pod-commands">Miscellaneous POD Commands</h4>
+</li>
 <li>kubectl config view</li>
 <li>kubectl cluster-info</li>
 <li>kubectl get nodes</li>

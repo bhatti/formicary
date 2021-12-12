@@ -142,7 +142,7 @@ func (re *RequestExecutorImpl) Execute(
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// Executing post-script regardless the task fails or succeeds
-	if taskReq.ExecutorOpts.Debug {
+	if taskReq.ExecutorOpts.Debug && taskReq.ExecutorOpts.Privileged {
 		// TODO check /run/secrets/kubernetes.io/serviceaccount
 		taskReq.AfterScript = append(taskReq.AfterScript, "echo system memory in bytes && cat /sys/fs/cgroup/memory/memory.usage_in_bytes && echo cpu usage in nanoseconds && cat /sys/fs/cgroup/cpu/cpuacct.usage && df -k")
 	}
@@ -184,7 +184,7 @@ func (re *RequestExecutorImpl) execute(
 
 	doExecute := func(cmd string) ([]byte, error) {
 		taskReq.ExecutorOpts.ExecuteCommandWithoutShell = checkCommandCanExecuteWithoutShell(cmd)
-		if ctx.Value(types.HelperContainerKey) == nil && taskReq.ExecutorOpts.Debug {
+		if ctx.Value(types.HelperContainerKey) == nil && taskReq.ExecutorOpts.Debug && taskReq.ExecutorOpts.Privileged {
 			_ = container.WriteTraceInfo(
 				ctx,
 				fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
@@ -698,6 +698,7 @@ func checkCommandCanExecuteWithoutShell(cmd string) bool {
 	for i := 0; i < len(cmd); i++ {
 		if cmd[i] == '&' ||
 			cmd[i] == '|' ||
+			cmd[i] == '$' ||
 			cmd[i] == '>' ||
 			cmd[i] == '<' ||
 			(cmd[i] >= '0' && cmd[i] <= '9') {

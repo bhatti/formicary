@@ -3,7 +3,6 @@ package transfer
 import (
 	"context"
 	"fmt"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -93,6 +92,7 @@ func (t *ArtifactTransferHelperContainer) UploadArtifacts(
 	return t.uploadArtifacts(ctx, id, name, paths, expiration, artifactsDir)
 }
 
+// docker run -it --rm -v /home/shahzad:/download --entrypoint /bin/bash amazon/aws-cli
 func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	ctx context.Context,
 	id string,
@@ -101,37 +101,45 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	expiration time.Time,
 	dir string) (artifact *types.Artifact, err error) {
 	var names strings.Builder
+
 	for _, p := range paths {
-		mvDir := dir
-		if path.Base(p) != p {
-			mvDir = path.Join(dir, path.Dir(p))
-		}
-		tarDir := types.TarNameDirPath(mvDir, p)
-		cmd := fmt.Sprintf("mkdir -p %s && cd %s && tar -cf %s .", mvDir, p, tarDir)
+		cmd := fmt.Sprintf("mv %s %s", p, dir)
 		if _, stderr, _, _, err := t.execute(
 			ctx,
 			cmd,
 			false); err != nil {
-			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
-				p, err, string(stderr)))
+			_ = t.jobWriter.WriteTrace(ctx,
+				fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
+					p, err, string(stderr)))
 		} else {
-			names.WriteString(types.TarNamePath(p) + " ")
+			names.WriteString(p + " ")
 		}
 	}
 
+	// TODO verify download/upload
 	// zip all artifacts and copy them to S3
 	zipFile := filepath.Join(dir, name)
-	cmd := fmt.Sprintf("cd %s && python /usr/lib64/python2.7/zipfile.py -c %s %s "+
-		"&& sha256sum %s && ls -l %s && python /usr/lib64/python2.7/zipfile.py -l %s|head -10",
-		dir, zipFile, names.String(), zipFile, zipFile, zipFile)
+	zipCmd := fmt.Sprintf("cd %s && ls -l && python /usr/lib64/python2.7/zipfile.py -c %s %s && python /usr/lib64/python2.7/zipfile.py -l %s",
+		dir, zipFile, names.String(), zipFile)
 
 	var stdout, stderr []byte
 	if stdout, stderr, _, _, err = t.execute(
 		ctx,
-		cmd,
+		zipCmd,
 		true); err != nil {
 		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %v, stderr=%s",
-			zipFile, cmd, err, string(stderr))
+			zipFile, zipCmd, err, string(stderr))
+	}
+
+	shaCmd := fmt.Sprintf("sha256sum %s && ls -l %s && python /usr/lib64/python2.7/zipfile.py -l %s|head -10",
+		zipFile, zipFile, zipFile)
+
+	if stdout, stderr, _, _, err = t.execute(
+		ctx,
+		shaCmd,
+		true); err != nil {
+		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %v, stderr=%s",
+			zipFile, shaCmd, err, string(stderr))
 	}
 
 	parts := strings.Split(string(stdout), " ")
@@ -156,16 +164,16 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		sha256 = sha256[diff:]
 	}
 
-	cmd = fmt.Sprintf("aws s3 --endpoint-url $AWS_URL cp %s s3://%s/%s",
-		zipFile, t.antCfg.S3.Bucket, id)
+	uploadCmd := fmt.Sprintf("ls -l %s && aws s3 --endpoint-url $AWS_URL cp %s s3://%s/%s",
+		zipFile, zipFile, t.antCfg.S3.Bucket, id)
 	if expiration.Unix() > time.Now().Unix() {
-		cmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
+		uploadCmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
 	}
 
 	// upload artifact
 	if _, _, _, _, err := t.execute(
 		ctx,
-		cmd,
+		uploadCmd,
 		true); err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("failed to upload %s due to %v, stderr=%s",
 			id, err, string(stderr)))
@@ -192,9 +200,9 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	ctx context.Context,
 	extractedDir string,
 	id string) (err error) {
-	// TODO verify download
+	// TODO verify download/upload
 	cmds := []string{
-		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url $AWS_URL cp s3://%s/%s all_artifacts.zip",
+		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url $AWS_URL cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
 			extractedDir, t.antCfg.S3.Bucket, id),
 		fmt.Sprintf("python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
 		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),

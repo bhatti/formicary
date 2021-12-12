@@ -290,10 +290,16 @@ func (jd *JobDefinition) GetDynamicTask(
 	for k, v := range vars {
 		data[k] = v.Value
 	}
+	//if cfg, err := jd.GetDynamicConfig(make(map[string]interface{})); err == nil {
+	//	for k, v := range cfg {
+	//		data[k] = v
+	//	}
+	//}
 	data["UnescapeHTML"] = true
 	data["DateYear"] = time.Now().Year()
 	data["DateMonth"] = time.Now().Month()
 	data["DateDay"] = time.Now().Day()
+	data["YearDay"] = time.Now().YearDay()
 	data["FullDate"] = time.Now().Format("2006-01-02")
 	data["EpochSecs"] = time.Now().Unix()
 	task = jd.GetTask(taskType)
@@ -326,9 +332,11 @@ func (jd *JobDefinition) GetDynamicTask(
 				"TaskType":  taskType,
 				"DataVars":  common.MaskVariableValues(vars),
 				"DataTask":  task.MaskTaskVariables(),
-				"Raw":       serData,
 				"Error":     err,
 			}).Error("failed to parse yaml task")
+			fmt.Printf("%s\n", serData)
+			fmt.Printf("TODO Data: %v\n", data)
+			debug.PrintStack()
 			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %s",
 				taskType, err.Error())
 		}
@@ -344,9 +352,10 @@ func (jd *JobDefinition) GetDynamicTask(
 			"TaskType":  taskType,
 			"DataVars":  common.MaskVariableValues(vars),
 			"DataTask":  task.MaskTaskVariables(),
-			"Raw":       serData,
 			"Error":     err,
 		}).Errorf("failed to unmarshal yaml task '%s", taskType)
+		fmt.Printf("%s\n", serData)
+		fmt.Printf("TODO Data: %v\n", data)
 		debug.PrintStack()
 		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
 	}

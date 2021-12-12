@@ -69,6 +69,23 @@ The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. Yo
  - microk8s.kubectl config view --raw > $HOME/.kube/config
  - copy above config to your local ~/.kube/config
 
+#### Starting K3 on Ubuntu
+ - See https://k3s.io/ for installing k3, e.g.
+```
+  ssh ${HOST} 'export INSTALL_K3S_EXEC=" --no-deploy servicelb --no-deploy traefik"; \
+    curl -sfL https://get.k3s.io | sh -'
+  scp ${HOST}:/etc/rancher/k3s/k3s.yaml .
+  sed -r 's/(\b[0-9]{1,3}\.){3}[0-9]{1,3}\b'/"${HOST_IP}"/ k3s.yaml > ~/.kube/k3s-vm-config && rm k3s.yaml
+```
+ - Then set environment variables for:
+```
+# set your host IP and name
+HOST_IP=192.168.1.101
+HOST=k3s
+KUBECTL=kubectl --kubeconfig ~/.kube/k3s-vm-config
+```
+ - Optionally install https://k9scli.io/ or https://k8slens.dev/.
+ -
 #### Miscellaneous POD Commands
  - kubectl config view
  - kubectl cluster-info

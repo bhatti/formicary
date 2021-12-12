@@ -1,11 +1,13 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"regexp"
 
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -31,6 +33,7 @@ func NewArtifactAdminController(
 	webserver.GET("/dashboard/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_admin_artifacts"
 	webserver.GET("/dashboard/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_admin_artifact"
 	webserver.GET("/dashboard/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_artifact"
+	webserver.GET("/dashboard/artifacts/:id/download/raw", ac.downloadRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_raw_artifact"
 	webserver.POST("/dashboard/artifacts/:id/delete", ac.deleteArtifact, acl.NewPermission(acl.Artifact, acl.Delete)).Name = "delete_admin_artifact"
 	webserver.POST("/dashboard/artifacts", ac.uploadArtifact, acl.NewPermission(acl.Artifact, acl.Upload)).Name = "post_admin_artifact"
 	return ac
@@ -74,6 +77,27 @@ func (ac *ArtifactAdminController) downloadArtifact(c web.APIContext) error {
 	}
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
 	return c.Stream(http.StatusOK, contentType, reader)
+}
+
+func (ac *ArtifactAdminController) downloadRawArtifact(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	id := c.Param("id")
+	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	if err != nil {
+		return err
+	}
+	matchedName, _ := regexp.Match("(txt|csv|text|html)", []byte(name))
+	matchedContent, _ := regexp.Match("(txt|csv|text|html|plain)", []byte(contentType))
+	if matchedName || matchedContent {
+		buf := new(bytes.Buffer)
+		if _, err = buf.ReadFrom(reader); err != nil {
+			return err
+		}
+		contentType = http.DetectContentType(buf.Bytes())
+		c.Response().Header().Set("Content-Type", contentType)
+		return c.Blob(http.StatusOK, contentType, buf.Bytes())
+	}
+	return common.NewValidationError(fmt.Sprintf("cannot return artifact %s of content-type %s", name, contentType))
 }
 
 func (ac *ArtifactAdminController) getArtifact(c web.APIContext) error {

@@ -63,7 +63,7 @@ func Test_ShouldCalculateJobExecutionDuration(t *testing.T) {
 	job := testNewJobExecution("test-exec-job")
 	job.AddTask(NewTaskDefinition("type", common.Kubernetes))
 	require.NotEqual(t, "", job.ElapsedDuration())
-	require.Equal(t, int64(0), job.ElapsedMillis())
+	require.True(t, job.ElapsedMillis() <= 1)
 	ended := time.Now().Add(time.Hour)
 	for _, task := range job.Tasks {
 		task.TaskState = common.COMPLETED

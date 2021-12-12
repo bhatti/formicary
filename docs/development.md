@@ -134,3 +134,10 @@ Find the golang process, e.g. `ps -ef|grep main`, then send `SIGHUP` or 1 such a
 ### Graceful shutdown 
 Find the golang process, e.g. `ps -ef|grep main`, then send `SIGQUIT` or 3 such as `kill -3 <pid>` to shutdown process gracefully so that it allows executing jobs/tasks
 to complete while not receiving new jobs/tasks. In order to reduce any shutdown, you can start another process that can receive new requests at the same time.
+
+#### Installation
+See [Installation](installation.md)
+
+#### Running
+See [Get it running](running.md)
+

@@ -1,14 +1,15 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
-
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
+	"regexp"
 )
 
 // ArtifactController structure
@@ -28,6 +29,7 @@ func NewArtifactController(
 	webserver.GET("/api/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_artifacts"
 	webserver.GET("/api/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_artifact"
 	webserver.GET("/api/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_artifact"
+	webserver.GET("/api/artifacts/:id/download/raw", ac.downloadRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_raw_artifact"
 	webserver.POST("/api/artifacts", ac.uploadArtifact, acl.NewPermission(acl.Artifact, acl.Upload)).Name = "post_artifact"
 	webserver.DELETE("/api/artifacts/:id", ac.deleteArtifact, acl.NewPermission(acl.Artifact, acl.Delete)).Name = "delete_artifact"
 	return ac
@@ -96,6 +98,31 @@ func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 	}
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
 	return c.Stream(http.StatusOK, contentType, reader)
+}
+
+// swagger:route GET /api/artifacts/{id}/logs artifacts downloadArtifact
+// Download artifact by its id
+// responses:
+//   200: byteResponse
+func (ac *ArtifactController) downloadRawArtifact(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	id := c.Param("id")
+	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	if err != nil {
+		return err
+	}
+	matchedName, _ := regexp.Match("(txt|csv|text|html)", []byte(name))
+	matchedContent, _ := regexp.Match("(txt|csv|text|html|plain)", []byte(contentType))
+	if matchedName || matchedContent {
+		buf := new(bytes.Buffer)
+		if _, err = buf.ReadFrom(reader); err != nil {
+			return err
+		}
+		contentType = http.DetectContentType(buf.Bytes())
+		c.Response().Header().Set("Content-Type", contentType)
+		return c.Blob(http.StatusOK, contentType, buf.Bytes())
+	}
+	return types.NewValidationError(fmt.Sprintf("cannot return artifact %s of content-type %s", name, contentType))
 }
 
 // swagger:route DELETE /api/artifacts/{id} artifacts deleteArtifact

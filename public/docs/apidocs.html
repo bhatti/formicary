@@ -56,6 +56,7 @@
 <h1 id="formicary-api">Formicary API</h1>
 <p>The formicary is a distributed orchestration engine based on <code>Leader-Follower</code>, <code>Pipes-Filter</code>, <code>Fork-Join</code> and <code>SEDA</code> design principles for executing a directed acyclic graph of tasks, which is also referred as a job workflow. A task represents a unit of work and a job definition is used to specify the task dependencies in the graph/workflow including configuration parameters and conditional logic.</p>
 <h2 id="version-0-0-1">Version: 0.0.1</h2>
+<h3 id="security">Security</h3>
 <p><strong>api_key</strong>  </p>
 <table class='table table-sm'>
 <thead>
@@ -377,6 +378,48 @@
 </tbody>
 </table>
 <h3 id="-api-artifacts-id-download">/api/artifacts/{id}/download</h3>
+<h4 id="get">GET</h4>
+<h5 id="description">Description</h5>
+<p>Download artifact by its id</p>
+<h5 id="parameters">Parameters</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Name</th>
+<th>Located in</th>
+<th>Description</th>
+<th>Required</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>path</td>
+<td></td>
+<td>Yes</td>
+<td>string</td>
+</tr>
+</tbody>
+</table>
+<h5 id="responses">Responses</h5>
+<table class='table table-sm'>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Byte Array response body</td>
+<td>[ integer (uint8) ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-api-artifacts-id-logs">/api/artifacts/{id}/logs</h3>
 <h4 id="get">GET</h4>
 <h5 id="description">Description</h5>
 <p>Download artifact by its id</p>
@@ -4547,6 +4590,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>organization_id</td>
+<td>string</td>
+<td>OrganizationID defines org who submitted the job</td>
+<td>No</td>
+</tr>
+<tr>
 <td>user_id</td>
 <td>string</td>
 <td>UserID defines foreign key</td>
@@ -6605,6 +6654,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>report_stdout</td>
+<td>boolean</td>
+<td>ReportStdout is used to send stdout as a report</td>
+<td>No</td>
+</tr>
+<tr>
 <td>resources</td>
 <td><a href="#basicresource">BasicResource</a></td>
 <td></td>
@@ -6644,6 +6699,12 @@
 <td>updated_at</td>
 <td>dateTime</td>
 <td>UpdatedAt job update time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>url</td>
+<td>string</td>
+<td>URL to use</td>
 <td>No</td>
 </tr>
 <tr>
@@ -6777,6 +6838,12 @@
 <td>started_at</td>
 <td>dateTime</td>
 <td>StartedAt job creation time</td>
+<td>No</td>
+</tr>
+<tr>
+<td>stdout</td>
+<td>[ string ]</td>
+<td></td>
 <td>No</td>
 </tr>
 <tr>
@@ -7177,19 +7244,19 @@
 <tr>
 <td>headers</td>
 <td>object</td>
-<td></td>
+<td>Header defines http headers</td>
 <td>No</td>
 </tr>
 <tr>
 <td>query</td>
 <td>object</td>
-<td></td>
+<td>Query defines URL query params</td>
 <td>No</td>
 </tr>
 <tr>
 <td>url</td>
 <td>string</td>
-<td></td>
+<td>URL defines POST url</td>
 <td>No</td>
 </tr>
 </tbody>

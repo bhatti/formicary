@@ -9,6 +9,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func Test_ShouldNotHaveExtraSpace(t *testing.T) {
+	// GIVEN a template string
+	str := `
+<script type="text/javascript">
+    function load_{{.Digest}}() {
+        document.getElementById("log_btn_{{.Digest}}").hidden = true;
+        let xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("GET", "{{.DashboardRawURL}}", false);
+        xmlhttp.send();
+        document.getElementById("logs_{{.Digest}}").textContent = xmlhttp.responseText;
+    }
+</script>
+`
+
+	// WHEN parsing template
+	_, err := ParseTemplate(str, map[string]interface{}{"Digest": "123"})
+	// THEN it should not fail
+	require.NoError(t, err)
+}
+
 func Test_ShouldFailOnNoVariables(t *testing.T) {
 	// GIVEN a template string
 	str := `

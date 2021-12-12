@@ -143,6 +143,10 @@ kafka-topics --zookeeper $SERVER --topic formicary-queue-fork-job-tasklet-topic 
 <p>Find the golang process, e.g. <code>ps -ef|grep main</code>, then send <code>SIGHUP</code> or 1 such as <code>kill -1 &lt;pid&gt;</code> to dump the stack trace of goroutines.</p>
 <h3 id="graceful-shutdown">Graceful shutdown</h3>
 <p>Find the golang process, e.g. <code>ps -ef|grep main</code>, then send <code>SIGQUIT</code> or 3 such as <code>kill -3 &lt;pid&gt;</code> to shutdown process gracefully so that it allows executing jobs/tasks to complete while not receiving new jobs/tasks. In order to reduce any shutdown, you can start another process that can receive new requests at the same time.</p>
+<h4 id="installation">Installation</h4>
+<p>See <a href="installation.html">Installation</a></p>
+<h4 id="running">Running</h4>
+<p>See <a href="running.html">Get it running</a></p>
 </div>  
 </body>
 </html>
