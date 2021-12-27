@@ -30,6 +30,8 @@ const jobVariables = "job_variables:"
 const maxTasksPerJob = 100
 const keyRequiredParams = "required_params"
 
+var rangeRegex, _ = regexp.Compile("{{[-\\s]*range")
+
 // JobTypeCronTrigger abstracts job-type and cron trigger
 type JobTypeCronTrigger struct {
 	// UserID defines user who updated the job
@@ -141,7 +143,7 @@ type JobDefinition struct {
 	Active bool `yaml:"-" json:"-"`
 	// Following are transient properties -- these are populated when AfterLoad or Validate is called
 	CanEdit            bool                                            `yaml:"-" json:"-" gorm:"-"`
-	webhook            *common.Webhook                                 `yaml:"webhook,omitempty" json:"webhook" gorm:"-"`
+	webhook            *common.Webhook                                 `yaml:"webhook,omitempty" json:"-" gorm:"-"`
 	NameValueVariables interface{}                                     `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
 	Notify             map[common.NotifyChannel]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 	Resources          BasicResource                                   `yaml:"resources,omitempty" json:"resources" gorm:"-"`
@@ -290,11 +292,6 @@ func (jd *JobDefinition) GetDynamicTask(
 	for k, v := range vars {
 		data[k] = v.Value
 	}
-	//if cfg, err := jd.GetDynamicConfig(make(map[string]interface{})); err == nil {
-	//	for k, v := range cfg {
-	//		data[k] = v
-	//	}
-	//}
 	data["UnescapeHTML"] = true
 	data["DateYear"] = time.Now().Year()
 	data["DateMonth"] = time.Now().Month()
@@ -335,7 +332,6 @@ func (jd *JobDefinition) GetDynamicTask(
 				"Error":     err,
 			}).Error("failed to parse yaml task")
 			fmt.Printf("%s\n", serData)
-			fmt.Printf("TODO Data: %v\n", data)
 			debug.PrintStack()
 			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %s",
 				taskType, err.Error())
@@ -355,7 +351,6 @@ func (jd *JobDefinition) GetDynamicTask(
 			"Error":     err,
 		}).Errorf("failed to unmarshal yaml task '%s", taskType)
 		fmt.Printf("%s\n", serData)
-		fmt.Printf("TODO Data: %v\n", data)
 		debug.PrintStack()
 		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
 	}
@@ -395,8 +390,29 @@ func (jd *JobDefinition) GetDynamicTask(
 	return task, opts, nil
 }
 
-// GetDynamicConfig from yaml
-func (jd *JobDefinition) GetDynamicConfig(
+// GetDynamicConfigAndVariables builds config and variables
+func (jd *JobDefinition) GetDynamicConfigAndVariables(data interface{}) map[string]common.VariableValue {
+	res := make(map[string]common.VariableValue)
+	for _, next := range jd.Variables {
+		if vv, err := next.GetVariableValue(); err == nil {
+			res[next.Name] = vv
+		}
+	}
+	if cfg, err := jd.getDynamicVariables(data); err == nil {
+		for k, v := range cfg {
+			res[k] = common.NewVariableValue(v, false)
+		}
+	}
+	for _, v := range jd.Configs {
+		if vv, err := v.GetVariableValue(); err == nil {
+			res[v.Name] = vv
+		}
+	}
+	return res
+}
+
+// getDynamicVariables from yaml
+func (jd *JobDefinition) getDynamicVariables(
 	data interface{}) (out map[string]interface{}, err error) {
 	if !jd.UsesTemplate {
 		jd.lock.RLock()
@@ -414,11 +430,6 @@ func (jd *JobDefinition) GetDynamicConfig(
 	err = yaml.Unmarshal([]byte(serVariablesAfterTemplate), &out)
 	if err != nil {
 		return nil, err
-	}
-	for _, c := range jd.Configs {
-		if v, err := c.GetParsedValue(); err == nil {
-			out[c.Name] = v
-		}
 	}
 	return
 }
@@ -960,10 +971,11 @@ func (jd *JobDefinition) ReportStdoutTask() *TaskDefinition {
 	if jd.Tasks == nil || len(jd.Tasks) == 0 {
 		return nil
 	}
+	vars := jd.GetDynamicConfigAndVariables(nil)
 	for _, t := range jd.Tasks {
 		if t.ReportStdout {
 			return t
-		} else if dynT, _, _ := jd.GetDynamicTask(t.TaskType, nil); dynT != nil && dynT.ReportStdout {
+		} else if dynT, _, _ := jd.GetDynamicTask(t.TaskType, vars); dynT != nil && dynT.ReportStdout {
 			return dynT
 		}
 	}
@@ -1101,111 +1113,6 @@ func (jd *JobDefinition) addVariablesFromNameValueVariables() error {
 	return nil
 }
 
-// JobDefinitionConfig defines variables for job definition
-type JobDefinitionConfig struct {
-	//gorm.Model
-	// Inheriting name, value, type
-	common.NameTypeValue
-	// ID defines UUID for primary key
-	ID string `yaml:"-" json:"id" gorm:"primary_key"`
-	// JobDefinitionID defines foreign key for JobDefinition
-	JobDefinitionID string `yaml:"-" json:"job_definition_id"`
-	// CreatedAt job creation time
-	CreatedAt time.Time `yaml:"-" json:"created_at"`
-	// UpdatedAt job update time
-	UpdatedAt time.Time         `yaml:"-" json:"updated_at"`
-	Errors    map[string]string `yaml:"-" json:"-" gorm:"-"`
-}
-
-// TableName overrides default table name
-func (JobDefinitionConfig) TableName() string {
-	return "formicary_job_definition_configs"
-}
-
-// NewJobDefinitionConfig creates new job variable
-func NewJobDefinitionConfig(name string, value interface{}, secret bool) (*JobDefinitionConfig, error) {
-	nv, err := common.NewNameTypeValue(name, value, secret)
-	if err != nil {
-		return nil, err
-	}
-	return &JobDefinitionConfig{
-		NameTypeValue: nv,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}, nil
-}
-
-func (u *JobDefinitionConfig) String() string {
-	return fmt.Sprintf("%s=%s", u.Name, u.Value)
-}
-
-// ValidateBeforeSave validates before save
-func (u *JobDefinitionConfig) ValidateBeforeSave(key []byte) error {
-	if err := u.Validate(); err != nil {
-		return err
-	}
-	return u.Encrypt(key)
-}
-
-// Validate validates job-config
-func (u *JobDefinitionConfig) Validate() (err error) {
-	u.Errors = make(map[string]string)
-	if u.ID != "" && u.JobDefinitionID == "" {
-		err = errors.New("job-definition-id is not specified")
-		u.Errors["JobDefinitionID"] = err.Error()
-	}
-	if u.Name == "" {
-		err = errors.New("name is not specified")
-		u.Errors["Name"] = err.Error()
-	}
-	if u.Type == "" {
-		err = errors.New("type is not specified")
-		u.Errors["Type"] = err.Error()
-	}
-	if u.Value == "" {
-		err = errors.New("value is not specified")
-		u.Errors["Value"] = err.Error()
-	}
-	if len(u.Value) > maxConfigValueLength {
-		err = errors.New("value is too big")
-		u.Errors["Value"] = err.Error()
-	}
-	return
-}
-
-// JobDefinitionVariable defines variables for job definition
-type JobDefinitionVariable struct {
-	//gorm.Model
-	// Inheriting name, value, type
-	common.NameTypeValue
-	// ID defines UUID for primary key
-	ID string `yaml:"-" json:"id" gorm:"primary_key"`
-	// JobDefinitionID defines foreign key for JobDefinition
-	JobDefinitionID string `yaml:"-" json:"job_definition_id"`
-	// CreatedAt job creation time
-	CreatedAt time.Time `yaml:"-" json:"created_at"`
-	// UpdatedAt job update time
-	UpdatedAt time.Time `yaml:"-" json:"updated_at"`
-}
-
-// TableName overrides default table name
-func (JobDefinitionVariable) TableName() string {
-	return "formicary_job_definition_variables"
-}
-
-// NewJobDefinitionVariable creates new job variable
-func NewJobDefinitionVariable(name string, value interface{}) (*JobDefinitionVariable, error) {
-	nv, err := common.NewNameTypeValue(name, value, false)
-	if err != nil {
-		return nil, err
-	}
-	return &JobDefinitionVariable{
-		NameTypeValue: nv,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}, nil
-}
-
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jd *JobDefinition) tasksString() string {
 	var b strings.Builder
@@ -1338,8 +1245,6 @@ func (jd *JobDefinition) buildTags() string {
 	}
 	return buf.String()
 }
-
-var rangeRegex, _ = regexp.Compile("{{[-\\s]*range")
 
 // NewJobDefinitionFromYaml creates new instance of job-definition
 func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {

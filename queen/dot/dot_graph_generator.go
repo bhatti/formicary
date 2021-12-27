@@ -235,12 +235,12 @@ func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
 	if parentNode == nil || parentNode.task == nil {
 		return
 	}
-	params := map[string]common.VariableValue{
-		"JobRetry":       common.NewVariableValue(0, false),
-		"TaskRetry":      common.NewVariableValue(0, false),
-		"Nonce":          common.NewVariableValue(0, false),
-		"JobElapsedSecs": common.NewVariableValue(0, false),
-	}
+	params := dg.jobDefinition.GetDynamicConfigAndVariables(nil)
+	params["JobRetry"] = common.NewVariableValue(0, false)
+	params["TaskRetry"] = common.NewVariableValue(0, false)
+	params["Nonce"] = common.NewVariableValue(0, false)
+	params["JobElapsedSecs"] = common.NewVariableValue(0, false)
+
 	var fromExecTask *types.TaskExecution
 	if dg.jobExecution != nil {
 		_, fromExecTask = dg.jobExecution.GetTask("", parentNode.task.TaskType)

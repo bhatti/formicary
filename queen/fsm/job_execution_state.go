@@ -328,19 +328,19 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 // UpdateJobRequestTimestampAndCheckQuota updates timestamp so that job scheduler doesn't consider it as orphan
 func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ context.Context) (err error) {
 	if jsm.serverCfg.SubscriptionQuotaEnabled {
-		if jsm.User != nil && jsm.User.Subscription != nil {
+		if jsm.User != nil && jsm.User.Subscription != nil && !jsm.User.IsAdmin() {
 			if jsm.User.Subscription.Expired() {
-				err = fmt.Errorf("quota-error: user subscription is expired")
+				err = fmt.Errorf("quota-error: user subscription of user %s is expired for execution", jsm.User.ID)
 				return common.NewQuotaExceededError(err)
 			}
 			secs := time.Now().Sub(jsm.JobExecution.StartedAt).Seconds()
 			if jsm.cpuUsage.Value+int64(secs) >= jsm.User.Subscription.CPUQuota {
-				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs, usage %s, job time %f",
-					jsm.User.Subscription.CPUQuota, jsm.cpuUsage.ValueString(), secs)
+				err = fmt.Errorf("quota-error: exceeded running cpu quota %d secs, usage %s, job time %f of user %s for execution",
+					jsm.User.Subscription.CPUQuota, jsm.cpuUsage.ValueString(), secs, jsm.User.ID)
 				return common.NewQuotaExceededError(err)
 			}
-		} else {
-			err = fmt.Errorf("quota-error: user subscription not found")
+		} else if jsm.User == nil || !jsm.User.IsAdmin() {
+			err = fmt.Errorf("quota-error: user subscription not found for execution")
 			return common.NewQuotaExceededError(err)
 		}
 	}
@@ -794,10 +794,9 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 		}
 	}
 	if jsm.JobDefinition != nil {
-		for _, v := range jsm.JobDefinition.Configs {
-			if vv, err := v.GetVariableValue(); err == nil {
-				res[v.Name] = vv
-			}
+		cfg := jsm.JobDefinition.GetDynamicConfigAndVariables(nil)
+		for k, v := range cfg {
+			res[k] = v
 		}
 	}
 	return res
@@ -816,11 +815,6 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 	res["JobType"] = common.NewVariableValue(jsm.JobDefinition.JobType, false)
 	res["JobRetry"] = common.NewVariableValue(jsm.Request.GetRetried(), false)
 	res["JobElapsedSecs"] = common.NewVariableValue(uint64(time.Since(jsm.StartedAt).Seconds()), false)
-	for _, next := range jsm.JobDefinition.Variables {
-		if vv, err := next.GetVariableValue(); err == nil {
-			res[next.Name] = vv
-		}
-	}
 	for k, v := range taskDefParams {
 		res[k] = v
 	}

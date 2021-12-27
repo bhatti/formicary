@@ -46,8 +46,8 @@ func Test_ShouldValidateGoodJobDefinition(t *testing.T) {
 	task, _, err := job.GetDynamicTask("task1", nil)
 	require.NoError(t, err)
 	require.Equal(t, "task1", task.TaskType)
-	config, _ := job.GetDynamicConfig(nil)
-	require.Equal(t, "jv1", config["jk1"])
+	config := job.GetDynamicConfigAndVariables(nil)
+	require.Equal(t, "jv1", config["jk1"].Value)
 	require.Equal(t, "", job.CronAndScheduleTime())
 }
 
@@ -821,11 +821,10 @@ func Test_ShouldGetDynamicConfigForJobDefinition(t *testing.T) {
 		"Platform":          "LINUX",
 		"OSVersion":         "20.04.1",
 	}
-	cfg, err := job.GetDynamicConfig(params)
+	cfg := job.GetDynamicConfigAndVariables(params)
 	// THEN it should not fail and match expected values
-	require.NoError(t, err)
 	require.Equal(t, 3, len(cfg))
-	require.Equal(t, "jv1", cfg["jk1"])
+	require.Equal(t, "jv1", cfg["jk1"].Value)
 	require.Equal(t, "License", job.Resources.ResourceType)
 	require.Equal(t, "my-job", job.Resources.ExtractConfig.ContextPrefix)
 }

@@ -1326,6 +1326,9 @@ func (jm *JobManager) doCheckSubscriptionQuota(
 	qc *common.QueryContext,
 	user *common.User,
 ) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
+	if user != nil && user.IsAdmin() {
+		return
+	}
 	if user == nil || user.Subscription == nil {
 		return cpuUsage, diskUsage, fmt.Errorf("quota-error: user subscription not found")
 	}

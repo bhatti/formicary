@@ -302,7 +302,7 @@ type jobDefinitionQueryParams struct {
 	// Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering
 	Platform string `json:"platform"`
 	// disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
-	disabled bool `json:"disabled"`
+	Disabled bool `json:"disabled"`
 	// PublicPlugin means job is public plugin
 	PublicPlugin bool `json:"public_plugin"`
 	// Tags is aggregation of task tags, and it can be searched via `tags:in`

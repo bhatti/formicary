@@ -1,6 +1,13 @@
 # formicary
+![formicary logo](public/assets/images/formicary.png)
 
 The formicary is a distributed orchestration engine that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.
+
+[![GoDoc](https://pkg.go.dev/badge/github.com/bhatti/formicary)](https://pkg.go.dev/github.com/bhatti/formicary)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bhatti/formicary)](https://goreportcard.com/report/github.com/bhatti/formicary)
+[![Maintainability](https://api.codeclimate.com/v1/badges/99/maintainability)](https://codeclimate.com/github/bhatti/formicary/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/99/test_coverage)](https://codeclimate.com/github/bhatti/formicary/test_coverage)
+![Docker Image Version (latest by date)](https://img.shields.io/docker/v/bhatti/formicary?label=Docker%20Image)
 
 ## Overview
 
