@@ -19,6 +19,7 @@ type SendReceiveMultiplexer struct {
 type callBackCoRelation struct {
 	ctx             context.Context
 	callback        Callback
+	filter          Filter
 	correlationID   string
 	consumerChannel chan *MessageEvent
 }
@@ -47,16 +48,18 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 	for _, cbRel := range subscribers {
 		if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
 			sent++
-			if err := cbRel.callback(ctx, event); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "SendReceiveMultiplexer",
-					"Event":     event,
-					"Topic":     mx.topic,
-				}).Warnf("failed to notify event")
-			}
-			if cbRel.consumerChannel != nil {
-				// this is mainly used by send/receive and could be blocked if buffer is full in other use cases
-				cbRel.consumerChannel <- event
+			if cbRel.filter == nil || cbRel.filter(ctx, event) {
+				if err := cbRel.callback(ctx, event); err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component": "SendReceiveMultiplexer",
+						"Event":     event,
+						"Topic":     mx.topic,
+					}).Warnf("failed to notify event")
+				}
+				if cbRel.consumerChannel != nil {
+					// this is mainly used by send/receive and could be blocked if buffer is full in other use cases
+					cbRel.consumerChannel <- event
+				}
 			}
 		} else {
 			age := started.Unix() - event.PublishTime.Unix()
@@ -84,6 +87,7 @@ func (mx *SendReceiveMultiplexer) Add(
 	id string,
 	correlationID string,
 	cb Callback,
+	filter Filter,
 	consumerChannel chan *MessageEvent) int {
 	mx.lock.Lock()
 	defer mx.lock.Unlock()
@@ -91,6 +95,7 @@ func (mx *SendReceiveMultiplexer) Add(
 		ctx:             ctx,
 		correlationID:   correlationID,
 		callback:        cb,
+		filter:          filter,
 		consumerChannel: consumerChannel,
 	}
 	go func() {

@@ -1,8 +1,10 @@
 package types
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/utils"
@@ -11,20 +13,27 @@ import (
 // RegistrationTopic topic
 const RegistrationTopic = "ant-registration"
 
+// ValidRegistration - for validating
+type ValidRegistration func(
+	ctx context.Context,
+) bool
+
 // AntRegistration is used to register remote ants with the resource manager so that tasks can be routed to them based on their capacity.
 type AntRegistration struct {
-	AntID         string                    `json:"ant_id" mapstructure:"ant_id"`
-	AntTopic      string                    `json:"ant_topic" mapstructure:"ant_topic"`
-	EncryptionKey string                    `json:"encryption_key" mapstructure:"encryption_key"`
-	MaxCapacity   int                       `json:"max_capacity" mapstructure:"max_capacity"`
-	Tags          []string                  `json:"tags" mapstructure:"tags"`
-	Methods       []TaskMethod              `json:"methods" mapstructure:"methods"`
-	CurrentLoad   int                       `json:"current_load" mapstructure:"current_load"`
-	Allocations   map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
-	CreatedAt     time.Time                 `json:"created_at" mapstructure:"created_at"`
-	AntStartedAt  time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
+	AntID                string                    `json:"ant_id" mapstructure:"ant_id"`
+	AntTopic             string                    `json:"ant_topic" mapstructure:"ant_topic"`
+	EncryptionKey        string                    `json:"encryption_key" mapstructure:"encryption_key"`
+	MaxCapacity          int                       `json:"max_capacity" mapstructure:"max_capacity"`
+	Tags                 []string                  `json:"tags" mapstructure:"tags"`
+	Methods              []TaskMethod              `json:"methods" mapstructure:"methods"`
+	CurrentLoad          int                       `json:"current_load" mapstructure:"current_load"`
+	Allocations          map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
+	CreatedAt            time.Time                 `json:"created_at" mapstructure:"created_at"`
+	AntStartedAt         time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
+	PersistentConnection bool                      `json:"persistent_connection" mapstructure:"persistent_connection"`
 	// Transient property
-	ReceivedAt time.Time `json:"-" mapstructure:"-"`
+	ReceivedAt        time.Time         `json:"-" mapstructure:"-"`
+	ValidRegistration ValidRegistration `json:"-" mapstructure:"-"`
 }
 
 // AntAllocation is used for keeping track of allocation capacity of the ant worker so that resource manager can throttle
@@ -71,20 +80,33 @@ func (wa *AntAllocation) AllocatedAtString() string {
 }
 
 // Validate validates
-func (wr *AntRegistration) Validate() error {
-	if wr.AntID == "" {
-		return fmt.Errorf("antID is not specified")
+func (r *AntRegistration) Validate() error {
+	if r.AntID == "" {
+		return fmt.Errorf("antID is not specified for registration")
 	}
-	if wr.Methods == nil || len(wr.Methods) == 0 {
-		return fmt.Errorf("methods is not specified")
+	if r.Methods == nil || len(r.Methods) == 0 {
+		return fmt.Errorf("methods is not specified for registration")
 	}
-	if wr.AntTopic == "" {
-		return fmt.Errorf("antTopic is not specified")
-	}
-	if wr.MaxCapacity <= 0 {
-		return fmt.Errorf("maxCapacity is not specified")
+	//if r.AntTopic == "" {
+	//	return fmt.Errorf("antTopic is not specified")
+	//}
+	if r.MaxCapacity <= 0 {
+		r.MaxCapacity = 1
 	}
 	return nil
+}
+
+// Key returns unique key
+func (r *AntRegistration) Key() string {
+	var key strings.Builder
+	key.WriteString(r.AntID)
+	for _, t := range r.Tags {
+		key.WriteString(t + ":")
+	}
+	for _, m := range r.Methods {
+		key.WriteString(string(m) + ":")
+	}
+	return key.String()
 }
 
 // UnmarshalAntRegistration unmarshal
@@ -100,30 +122,38 @@ func UnmarshalAntRegistration(b []byte) (*AntRegistration, error) {
 }
 
 // Marshal marshals
-func (wr *AntRegistration) Marshal() ([]byte, error) {
-	if err := wr.Validate(); err != nil {
+func (r *AntRegistration) Marshal() ([]byte, error) {
+	if err := r.Validate(); err != nil {
 		return nil, err
 	}
-	return json.Marshal(wr)
+	return json.Marshal(r)
 }
 
 // String defines description of registration
-func (wr *AntRegistration) String() string {
+func (r *AntRegistration) String() string {
 	return fmt.Sprintf("ID=%s Tags=%s Max=%d Load=%d\n",
-		wr.AntID, wr.Tags, wr.MaxCapacity, wr.CurrentLoad)
+		r.AntID, r.Tags, r.MaxCapacity, r.CurrentLoad)
 }
 
 // UpdatedAtString defines formatted date
-func (wr *AntRegistration) UpdatedAtString() string {
-	return wr.ReceivedAt.Format("Jan _2, 15:04:05 MST")
+func (r *AntRegistration) UpdatedAtString() string {
+	return r.ReceivedAt.Format("Jan _2, 15:04:05 MST")
 }
 
 // Supports check supported method and tags
-func (wr *AntRegistration) Supports(
+func (r *AntRegistration) Supports(
 	method TaskMethod,
-	tags []string) bool {
+	tags []string,
+	timeout time.Duration) bool {
+	if !r.PersistentConnection &&
+		time.Duration(time.Now().Unix()-r.ReceivedAt.Unix())*time.Second > timeout {
+		return false
+	}
+	if r.ValidRegistration != nil && !r.ValidRegistration(context.Background()) {
+		return false
+	}
 	matchedMethod := false
-	for _, m := range wr.Methods {
+	for _, m := range r.Methods {
 		if m == method {
 			matchedMethod = true
 			break
@@ -132,5 +162,5 @@ func (wr *AntRegistration) Supports(
 	if !matchedMethod {
 		return false
 	}
-	return utils.MatchTagsArray(wr.Tags, tags) == nil
+	return utils.MatchTagsArray(r.Tags, tags) == nil
 }

@@ -24,7 +24,7 @@ const (
 	// CANCEL action
 	CANCEL TaskAction = "CANCEL"
 	// TERMINATE action
-	TERMINATE TaskAction = "TERMINATE_CONTAINER "
+	TERMINATE TaskAction = "TERMINATE_CONTAINER"
 	// LIST action
 	LIST TaskAction = "LIST_CONTAINERS"
 )
@@ -66,6 +66,14 @@ type TaskRequest struct {
 // Key of task
 func (req *TaskRequest) Key() string {
 	return TaskKey(req.JobRequestID, req.TaskType)
+}
+
+// ErrorResponse builds error response
+func (req *TaskRequest) ErrorResponse(err error) *TaskResponse {
+	taskResp := NewTaskResponse(req)
+	taskResp.ErrorMessage = err.Error()
+	taskResp.Status = FAILED
+	return taskResp
 }
 
 // KeyPath key path of job
@@ -143,27 +151,27 @@ func (req *TaskRequest) Mask(s string) string {
 // Validate validates
 func (req *TaskRequest) Validate() error {
 	if req.Action == "" {
-		return fmt.Errorf("action is not specified")
+		return fmt.Errorf("action is not specified in task-request")
 	}
 	if req.Action == EXECUTE || req.Action == CANCEL {
 		if req.JobRequestID == 0 {
-			return fmt.Errorf("requestID is not specified")
+			return fmt.Errorf("requestID is not specified in task-request")
 		}
 		if req.JobExecutionID == "" {
-			return fmt.Errorf("jobExecutionID is not specified")
+			return fmt.Errorf("jobExecutionID is not specified in task-request")
 		}
 		if req.TaskExecutionID == "" {
-			return fmt.Errorf("taskExecutionID is not specified")
+			return fmt.Errorf("taskExecutionID is not specified in task-request")
 		}
 		if req.JobType == "" {
-			return fmt.Errorf("jobType is not specified")
+			return fmt.Errorf("jobType is not specified in task-request")
 		}
 		if req.TaskType == "" {
-			return fmt.Errorf("taskType is not specified")
+			return fmt.Errorf("taskType is not specified in task-request")
 		}
 		if req.ExecutorOpts.Method.RequiresScript() {
 			if req.Script == nil || len(req.Script) == 0 {
-				return fmt.Errorf("script is not specified")
+				return fmt.Errorf("script is not specified in task-request")
 			}
 		}
 		if err := req.ExecutorOpts.Validate(); err != nil {
@@ -233,6 +241,7 @@ func UnmarshalTaskRequest(
 				"TaskType":        req.TaskType,
 				"TaskExecutionID": req.TaskExecutionID,
 				"Params":          req.Variables,
+				"Payload":         string(payload),
 				"Error":           err,
 			}).Error("failed to validate task request")
 		return nil, err

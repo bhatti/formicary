@@ -48,7 +48,7 @@
 
 <div class="container-fluid">
 <h2 id="high-level-architecture">High level Architecture</h2>
-<p>The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task defines a unit of work, which is distributed among ant-workers based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen-leader encompasses resource-manager, job-scheduler, job-launcher and job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off the job to job-launcher. The job-supervisor orchestrates the job execution and delegates task to the task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the task-supervisor persists the results and job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. </p>
+<p>The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker) pattern where queen-leader schedules and orchestrates execution of the graph of tasks. The task defines a unit of work, which is distributed among ant-workers based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, Websockets, etc. The queen-leader encompasses resource-manager, job-scheduler, job-launcher and job/task supervisors, where job-scheduler finds next job to execute based on resource-manager and hands-off the job to job-launcher. The job-supervisor orchestrates the job execution and delegates task to the task-supervisor, which sends the request to a remote ant worker and then waits for the response. After task completion, the task-supervisor persists the results and job-supervisor finds the next task to execute based on exit-values of previous task and persists its state. </p>
 <h2 id="key-models-and-concepts">Key Models and Concepts</h2>
 <h3 id="directed-acyclic-graph-dag-">Directed Acyclic Graph (DAG)</h3>
 <p>The formicary uses directed acyclic graph for specifying dependencies between tasks where each task defines a unit of work. </p>
@@ -94,7 +94,7 @@
 <ul>
 <li>Register with the server and continuously update them with their workload</li>
 <li>Download dependent artifacts before execution</li>
-<li>Execute tasks using supported executors such as Docker, HTTP, Kubernetes, Shell, etc.</li>
+<li>Execute tasks using supported executors such as Docker, HTTP, Kubernetes, Shell, Websockets, etc.</li>
 <li>Upload artifacts at the end of task</li>
 <li>Monitor Docker/Kubernetes containers and notify server with their lifecycle events</li>
 </ul>
@@ -142,7 +142,7 @@
 </tr>
 <tr>
 <td style="text-align:left">HTTP (GET POST, PUT, DELETE)</td>
-<td style="text-align:left">HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE</td>
+<td style="text-align:left">HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE WEBSOCKET</td>
 </tr>
 <tr>
 <td style="text-align:left">Fork/Await</td>

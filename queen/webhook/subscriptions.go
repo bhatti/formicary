@@ -62,6 +62,7 @@ func (p *Processor) subscribeToJobWebhookLifecycleEvent(
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -116,6 +117,7 @@ func (p *Processor) subscribeToTaskWebhookLifecycleEvent(ctx context.Context,
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

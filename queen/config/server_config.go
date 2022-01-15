@@ -74,6 +74,7 @@ type JobsConfig struct {
 	DisableJobScheduler                  bool          `yaml:"disable_job_scheduler" mapstructure:"disable_job_scheduler"`
 	MaxForkTaskletCapacity               int           `yaml:"max_fork_tasklet_capacity" mapstructure:"max_fork_tasklet_capacity"`
 	MaxMessagingTaskletCapacity          int           `yaml:"max_messaging_tasklet_capacity" mapstructure:"max_messaging_tasklet_capacity"`
+	MessagingEncryptionKey               string        `yaml:"messaging_encryption_key" mapstructure:"messaging_encryption_key"`
 	ExpireArtifactsTaskletCapacity       int           `yaml:"expire_artifacts_tasklet_capacity" mapstructure:"expire_artifacts_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
 	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`

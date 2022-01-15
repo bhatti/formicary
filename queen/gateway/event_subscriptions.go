@@ -72,6 +72,7 @@ func (gw *Gateway) subscribeToJobDefinitionLifecycleEvent(
 			)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -103,6 +104,7 @@ func (gw *Gateway) subscribeToJobRequestLifecycleEvent(
 				event.Payload)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -134,6 +136,7 @@ func (gw *Gateway) subscribeToJobExecutionLifecycleEvent(
 				event.Payload)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -164,6 +167,7 @@ func (gw *Gateway) subscribeToTaskExecutionLifecycleEvent(ctx context.Context,
 				event.Payload)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -203,6 +207,7 @@ func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -233,6 +238,7 @@ func (gw *Gateway) subscribeToHealthErrorEvent(ctx context.Context,
 				event.Payload)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -263,6 +269,7 @@ func (gw *Gateway) subscribeToContainersLifecycleEvents(
 				event.Payload)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

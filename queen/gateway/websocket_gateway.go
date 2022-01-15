@@ -163,26 +163,49 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 	defer func() {
 		for _, lease := range gw.registry.getLeasesByAddress(ws.RemoteAddr().String()) {
 			_ = gw.registry.Remove(lease)
-			logrus.WithFields(logrus.Fields{
-				"Component": "WebsocketGateway",
-				"Address":   ws.RemoteAddr().String(),
-				"Key":       lease.Key(),
-			}).Info("removing disconnected lease")
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component": "WebsocketGateway",
+					"Address":   ws.RemoteAddr().String(),
+					"Key":       lease.Key(),
+				}).Debugf("removing disconnected lease")
+			}
 		}
 	}()
 
+	controlTries := 0
 	for {
-		_, msg, err := ws.ReadMessage()
+		msgType, msg, err := ws.ReadMessage()
 		if err != nil {
 			if !strings.Contains(err.Error(), "close 1001") {
 				logrus.WithFields(logrus.Fields{
 					"Component": "WebsocketGateway",
 					"Address":   ws.RemoteAddr().String(),
+					"MsgType":   msgType,
 					"Error":     err,
-				}).Warnf("failed to receive websocket message")
+				}).Warnf("failed to receive websocket message from web client")
 			}
 			return
 		}
+		if controlTries < 10 && msgType != websocket.TextMessage && msgType != websocket.BinaryMessage {
+			logrus.WithFields(logrus.Fields{
+				"Component": "WebsocketGateway",
+				"Address":   ws.RemoteAddr().String(),
+				"MsgType":   msgType,
+				"Data":      string(msg),
+			}).Warnf("received control websocket message from web client")
+			controlTries++
+			continue
+		} else if controlTries >= 10 {
+			logrus.WithFields(logrus.Fields{
+				"Component": "WebsocketGateway",
+				"Address":   ws.RemoteAddr().String(),
+				"MsgType":   msgType,
+				"Data":      string(msg),
+			}).Warnf("received too many control websocket message from web client")
+			return
+		}
+		controlTries = 0
 
 		lease, err := UnmarshalSubscriptionLease(msg, ws)
 		if err != nil {
@@ -190,7 +213,7 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 				"Component": "WebsocketGateway",
 				"Address":   ws.RemoteAddr().String(),
 				"Error":     err,
-			}).Warnf("failed to unmarshal websocket message")
+			}).Warnf("failed to unmarshal websocket message from web client")
 			return
 		}
 
@@ -201,7 +224,7 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 					"Component": "WebsocketGateway",
 					"Address":   ws.RemoteAddr().String(),
 					"Lease":     lease,
-				}).Errorf("failed to get logged in user")
+				}).Errorf("failed to get logged in user from web client")
 				msg := events.NewErrorEvent("WebsocketGateway", "", "session token not found").Marshal()
 				_ = lease.connection.WriteMessage(websocket.TextMessage, msg)
 				return
@@ -214,7 +237,7 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 				"Component": "WebsocketGateway",
 				"Address":   ws.RemoteAddr().String(),
 				"Error":     err,
-			}).Warnf("failed to add lease")
+			}).Warnf("failed to add lease from web client")
 			return
 		}
 	}

@@ -49,10 +49,11 @@ func NewArtifactExpirationTasklet(
 		id,
 		&serverCfg.CommonConfig,
 		queueClient,
+		nil,
 		requestRegistry,
 		requestTopic,
 		serverCfg.GetRegistrationTopic(),
-		registration,
+		&registration,
 		t,
 	)
 	return t
@@ -71,6 +72,9 @@ func (t *ArtifactExpirationTasklet) ListContainers(
 	req *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	taskResp = common.NewTaskResponse(req)
 	taskResp.Status = common.COMPLETED
+	taskResp.AntID = t.ID
+	taskResp.Host = "server"
+	taskResp.AddContext("action", "ListContainers")
 	taskResp.AddContext("containers", make([]*events.ContainerLifecycleEvent, 0))
 	return
 }
@@ -106,7 +110,7 @@ func (t *ArtifactExpirationTasklet) Execute(
 			"DefaultArtifactLimit":      t.serverCfg.DefaultArtifactLimit,
 			"Error":                     err,
 		}).Warnf("failed to expire artifacts")
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 	logrus.WithFields(logrus.Fields{
 		"Component":                 "ArtifactExpirationTasklet",
@@ -120,6 +124,8 @@ func (t *ArtifactExpirationTasklet) Execute(
 
 	taskResp = common.NewTaskResponse(taskReq)
 	taskResp.Status = common.COMPLETED
+	taskResp.AntID = t.ID
+	taskResp.Host = "server"
 	taskResp.AddContext("DefaultArtifactExpiration", t.serverCfg.DefaultArtifactExpiration.String())
 	taskResp.AddContext("DefaultArtifactLimit", t.serverCfg.DefaultArtifactLimit)
 	taskResp.AddJobContext("TotalExpired", expired)

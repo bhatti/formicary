@@ -48,9 +48,11 @@
 
 <div class="container-fluid">
 <h1 id="formicary">formicary</h1>
+<p><img class='img-fluid' src="public/assets/images/formicary.png" alt="formicary logo"></p>
 <p>The formicary is a distributed orchestration engine that allows to execute batch jobs, workflows or CI/CD pipelines based on docker, kubernetes, shell, http or messaging executors.</p>
+<p><a href="https://pkg.go.dev/github.com/bhatti/formicary"><img class='img-fluid' src="https://pkg.go.dev/badge/github.com/bhatti/formicary" alt="GoDoc"></a> <a href="https://goreportcard.com/report/github.com/bhatti/formicary"><img class='img-fluid' src="https://goreportcard.com/badge/github.com/bhatti/formicary" alt="Go Report Card"></a> <a href="https://codeclimate.com/github/bhatti/formicary/maintainability"><img class='img-fluid' src="https://api.codeclimate.com/v1/badges/99/maintainability" alt="Maintainability"></a> <a href="https://codeclimate.com/github/bhatti/formicary/test_coverage"><img class='img-fluid' src="https://api.codeclimate.com/v1/badges/99/test_coverage" alt="Test Coverage"></a> <img class='img-fluid' src="https://img.shields.io/docker/v/bhatti/formicary?label=Docker%20Image" alt="Docker Image Version (latest by date)"></p>
 <h2 id="overview">Overview</h2>
-<p>The formicary is a distributed orchestration engine for executing background jobs and workflows that are executed remotely using Docker/Kubernetes/Shell/HTTP/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task defines a unit of work. The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker), <b>Pipes-Filter</b>, <b>Fork-Join</b> and <b>SEDA</b> deisgn  patterns. The queen-leader schedules and orchestrates the graph of tasks and ant-workers execute the work. The task work is distributed among ant-workers based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using <b>Pipes and Filter</b> and <b>SEDA</b> patterns, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task. The <b>Fork/Join</b> pattern allows executing work in parallel and then joining the results at the end. The main use-cases for formicary include:</p>
+<p>The formicary is a distributed orchestration engine for executing background jobs and workflows that are executed remotely using Docker/Kubernetes/Shell/HTTP/Websocket/Messaging or other protocols. A job comprises directed acyclic graph of tasks, where the task defines a unit of work. The formicary architecture is based on the <b>Leader-Follower</b> (or master/worker), <b>Pipes-Filter</b>, <b>Fork-Join</b> and <b>SEDA</b> deisgn  patterns. The queen-leader schedules and orchestrates the graph of tasks and ant-workers execute the work. The task work is distributed among ant-workers based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, which can be used by other tasks as input for their work. This allows building stages of tasks using <b>Pipes and Filter</b> and <b>SEDA</b> patterns, where artifacts and variables can be passed from one task to another so that output of a task can be used as input of another task. The <b>Fork/Join</b> pattern allows executing work in parallel and then joining the results at the end. The main use-cases for formicary include:</p>
 <ul>
 <li>Processing directed acyclic graphs of tasks</li>
 <li>Batch jobs such as ETL, data imports and other offline processing</li>
@@ -65,7 +67,7 @@
 <li>Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.</li>
 <li>GO based templates for job-definitions so that you can define customized variables and actions. </li>
 <li>Persistence of artifacts from tasks that can be used by other tasks or used as output of jobs.</li>
-<li>Extensible Method abstraction for supporting a variety of execution protocols such as Docker, Kubernetes HTTP, Messaging or other customized protocols.</li>
+<li>Extensible Method abstraction for supporting a variety of execution protocols such as Docker, Kubernetes HTTP, Websocket, Messaging or other customized protocols.</li>
 <li>Caching of dependencies such as npm, maven, gradle, python, etc.</li>
 <li>Encryption for storing secured configuration in the database or while in network communication.</li>
 <li>Cron based scheduled processing where jobs can be executed at specific times or run periodically.</li>
@@ -79,7 +81,7 @@
 <li>Applies CPU/Memory/Disk quota to tasks for managing available computing resources.</li>
 <li>Provides reports and statistics on job outcomes and resource usage such as CPU, memory and storage.</li>
 <li>Resource constraints based scheduling and routing where ants register with tags that support special annotations and tasks are routed based on tags defined in the job definition.</li>
-<li>Ant executors support multiple protocols that ants can register with queen node such as queue, http, docker, kubernetes, etc.</li>
+<li>Ant executors support multiple protocols that ants can register with queen node such as queue, http, websocket, docker, kubernetes, etc.</li>
 <li>Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.</li>
 <li>Streaming of real-time Logs to the UI as job/tasks are processed. </li>
 <li>Provides email notifications on job completion or failures.</li>

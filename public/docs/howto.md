@@ -216,6 +216,9 @@ parameters:
 ### REST based ant workers
 Use See [REST executors](executors.md#REST) for invoking external REST APIs when executing a job.
 
+### Websocket based ant workers
+Use See [Websocket executors](executors.md#Websockets) for invoking Websocket APIs from web client.
+
 ### Customized Messaging ant workers
 See [Customized executors](executors.md#Customized) for building a customized messaging ant worker.
 

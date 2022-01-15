@@ -69,6 +69,32 @@ tasks:
 - task_type: delete
   method: HTTP_DELETE
   url: https://jsonplaceholder.typicode.com/todos/1
+</code></pre><h3 id="websockets">Websockets</h3>
+<p>Websockets method allows connecting browser based ant workers to execute the tasks, e.g.</p>
+<pre><code>job_type: web-job
+tasks:
+- task_type: process
+  method: WEBSOCKET
+  tags:
+    - web
+    - js
+</code></pre><p>The web client uses websocket to register with the server, e.g.</p>
+<pre><code>    const ws = new WebSocket(uri);
+    ws.onopen = function () {
+        const registration = {
+            &#39;ant_id&#39;: &#39;sample-web&#39;,
+            &#39;tags&#39;: [&#39;js&#39;, &#39;web&#39;],
+            &#39;methods&#39;: [&#39;WEBSOCKET&#39;]
+        }
+        ws.send(JSON.stringify(registration));
+    }
+
+    ws.onmessage = function (evt) {
+        const msg = JSON.parse(evt.data);
+        // handle message
+        msg.status = &#39;COMPLETED&#39;;
+        ws.send(JSON.stringify(msg));
+    }
 </code></pre><h3 id="docker">Docker</h3>
 <p>The Docker executor starts a main container for executing script named after job/task name and a helper container wth <code>-helper</code> suffix for managing artifacts. The initial docker config are defined by the ant config that are available for all jobs such as:</p>
 <ul>
@@ -412,12 +438,12 @@ func (h *MessagingHandler) Stop(
 func (h *MessagingHandler) execute(
     ctx context.Context,
     reqPayload []byte) (err error) {
-    var req types.TaskRequest
-    err = json.Unmarshal(reqPayload, &amp;req)
+    var req *types.TaskRequest
+    req, err = types.UnmarshalTaskRequest(h.antCfg.EncryptionKey, reqPayload)
     if err != nil {
         return err
     }
-    resp := types.NewTaskResponse(&amp;req)
+    resp := types.NewTaskResponse(req)
 
     // Implement business logic below
     epoch := time.Now().Unix()
@@ -431,7 +457,7 @@ func (h *MessagingHandler) execute(
     resp.AddContext(&quot;epoch&quot;, epoch)
 
     // Send back reply
-    resPayload, err := json.Marshal(resp)
+    resPayload, err := resp.Marshal(h.antCfg.EncryptionKey)
     if err != nil {
         return err
     }
@@ -655,7 +681,6 @@ tasks:
         &quot;task_type&quot;: &quot;task1&quot;,
         &quot;job_execution_id&quot;: &quot;uuid&quot;,
         &quot;task_execution_id&quot;: &quot;uuid&quot;,
-        &quot;task_id&quot;: &quot;uuid&quot;,
         &quot;co_relation_id&quot;: &quot;uuid&quot;,
         &quot;tags&quot;: [],
         &quot;platform&quot;: &quot;linux&quot;,
@@ -686,7 +711,7 @@ tasks:
         &quot;job_request_id&quot;: 1,
         &quot;job_type&quot;: &quot;my-test-job&quot;,
         &quot;task_type&quot;: &quot;task1&quot;,
-        &quot;task_id&quot;: &quot;uuid&quot;,
+        &quot;task_execution_id&quot;: &quot;uuid&quot;,
         &quot;co_relation_id&quot;: &quot;uuid&quot;,
         &quot;status&quot;: &quot;COMPLETED&quot;,
         &quot;co_relation_id&quot;: &quot;uuid&quot;,

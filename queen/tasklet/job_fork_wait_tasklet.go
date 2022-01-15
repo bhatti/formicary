@@ -46,10 +46,11 @@ func NewJobForkWaitTasklet(
 		id,
 		&serverCfg.CommonConfig,
 		queueClient,
+		nil,
 		requestRegistry,
 		requestTopic,
 		serverCfg.GetRegistrationTopic(),
-		registration,
+		&registration,
 		t,
 	)
 	return t
@@ -68,6 +69,8 @@ func (t *JobForkWaitTasklet) ListContainers(
 	req *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	taskResp = common.NewTaskResponse(req)
 	taskResp.Status = common.COMPLETED
+	taskResp.AntID = t.ID
+	taskResp.Host = "server"
 	taskResp.AddContext("containers", make([]*events.ContainerLifecycleEvent, 0))
 	return
 }
@@ -86,15 +89,16 @@ func (t *JobForkWaitTasklet) Execute(
 	started := time.Now()
 	waiter, err := NewJobWaiter(
 		ctx,
+		t.ID,
 		t.jobManager,
 		taskReq)
 	if err != nil {
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 	if err = t.EventBus.Subscribe(
 		t.Config.GetJobExecutionLifecycleTopic(),
 		waiter.UpdateFromJobLifecycleEvent); err != nil {
-		return buildTaskResponseWithError(taskReq, fmt.Errorf("failed to subscribe to event bus %v", err))
+		return taskReq.ErrorResponse(fmt.Errorf("failed to subscribe to event bus %v", err)), nil
 	}
 
 	defer func() {
@@ -106,7 +110,7 @@ func (t *JobForkWaitTasklet) Execute(
 	for {
 		done, err := waiter.Poll()
 		if err != nil {
-			return buildTaskResponseWithError(taskReq, fmt.Errorf("failed to poll job due to %v", err))
+			return taskReq.ErrorResponse(fmt.Errorf("failed to poll job due to %v", err)), nil
 		}
 		if done {
 			break

@@ -2,7 +2,6 @@ package golang
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"time"
@@ -13,6 +12,7 @@ import (
 
 // MessagingHandler structure
 type MessagingHandler struct {
+	cfg           *types.CommonConfig
 	id            string
 	subscriberID  string
 	requestTopic  string
@@ -22,12 +22,14 @@ type MessagingHandler struct {
 
 // NewMessagingHandler constructor
 func NewMessagingHandler(
+	cfg *types.CommonConfig,
 	id string,
 	requestTopic string,
 	responseTopic string,
 	queueClient queue.Client,
 ) *MessagingHandler {
 	return &MessagingHandler{
+		cfg:           cfg,
 		id:            id,
 		requestTopic:  requestTopic,
 		responseTopic: responseTopic,
@@ -65,6 +67,7 @@ func (h *MessagingHandler) Start(
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 	return
@@ -85,8 +88,8 @@ func (h *MessagingHandler) execute(
 	ctx context.Context,
 	props queue.MessageHeaders,
 	reqPayload []byte) (err error) {
-	var req types.TaskRequest
-	err = json.Unmarshal(reqPayload, &req)
+	var req *types.TaskRequest
+	req, err = types.UnmarshalTaskRequest(h.cfg.EncryptionKey, reqPayload)
 	if err != nil {
 		return err
 	}
@@ -96,7 +99,7 @@ func (h *MessagingHandler) execute(
 		"Request":      req.String(),
 	}).
 		Infof("received messaging request")
-	resp := types.NewTaskResponse(&req)
+	resp := types.NewTaskResponse(req)
 
 	// Implement business logic below
 	epoch := time.Now().Unix()
@@ -110,7 +113,7 @@ func (h *MessagingHandler) execute(
 	resp.AddContext("epoch", epoch)
 
 	// Send back reply
-	resPayload, err := json.Marshal(resp)
+	resPayload, err := resp.Marshal(h.cfg.EncryptionKey)
 	if err != nil {
 		return err
 	}
@@ -121,6 +124,7 @@ func (h *MessagingHandler) execute(
 		queue.NewMessageHeaders(
 			queue.ReusableTopicKey, "false",
 			queue.CorrelationIDKey, props.GetCorrelationID(),
+			queue.Source, h.id,
 		),
 	)
 	logrus.WithFields(logrus.Fields{

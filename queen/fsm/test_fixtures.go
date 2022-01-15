@@ -66,6 +66,8 @@ func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 			return nil, err
 		}
 		res := common.NewTaskResponse(&req)
+		res.AntID = "test"
+		res.Host = "test"
 		res.Status = common.COMPLETED
 		return json.Marshal(res)
 	}
@@ -99,7 +101,10 @@ func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 
 	reservations := make(map[string]*common.AntReservation)
 	for _, task := range jobExec.Tasks {
-		reservations[task.TaskType] = &common.AntReservation{}
+		reservations[task.TaskType] = &common.AntReservation{
+			AntID:    "test-ant",
+			AntTopic: "test-topic",
+		}
 	}
 
 	jsm := NewJobExecutionStateMachine(

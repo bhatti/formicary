@@ -12,7 +12,7 @@ import (
 func (rm *ManagerImpl) startReaperTicker(ctx context.Context) {
 	rm.ticker = time.NewTicker(rm.serverCfg.Jobs.AntRegistrationAliveTimeout / 2)
 	go func() {
-		for {
+		for !rm.isStopped() {
 			select {
 			case <-ctx.Done():
 				rm.ticker.Stop()
@@ -27,12 +27,16 @@ func (rm *ManagerImpl) startReaperTicker(ctx context.Context) {
 
 // The ants need to keep sending heart beat events to notify the server otherwise server
 // treats them as dead ants
-func (rm *ManagerImpl) reapStaleAnts(_ context.Context) int {
+func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 	now := time.Now()
 	removeAntIDs := make([]string, 0)
 	// ant-id => registration
 	for _, registration := range rm.state.getRegistrations() {
-		if time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
+		if !registration.PersistentConnection &&
+			time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
+			removeAntIDs = append(removeAntIDs, registration.AntID)
+		}
+		if registration.ValidRegistration != nil && !registration.ValidRegistration(ctx) {
 			removeAntIDs = append(removeAntIDs, registration.AntID)
 		}
 	}

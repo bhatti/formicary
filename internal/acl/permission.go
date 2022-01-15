@@ -105,6 +105,8 @@ const (
 	Metrics = 65536
 	// Subscribe action
 	Subscribe = 131072
+	// Register action
+	Register = 262144
 	// All action
 	All = 1024 * 1024 * 1024
 )
@@ -223,6 +225,9 @@ func (p *Permission) LongAction() string {
 	if p.Actions&Subscribe == Subscribe {
 		sb.WriteString("Subscribe ")
 	}
+	if p.Actions&Register == Register {
+		sb.WriteString("Register")
+	}
 	return strings.TrimSpace(sb.String())
 }
 
@@ -322,7 +327,7 @@ func DefaultPermissionsString() string {
 func DefaultPermissions() []*Permission {
 	return []*Permission{
 		NewPermission(Audit, None),
-		NewPermission(Websocket, Subscribe),
+		NewPermission(Websocket, Subscribe|Register),
 		NewPermission(Dashboard, View),
 		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart),
 		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Disable|Enable|Metrics),
@@ -354,7 +359,7 @@ func AdminPermissions() []*Permission {
 		NewPermission(AntExecutor, Query|View|Read),
 		NewPermission(Container, Query|View|Read|Delete),
 		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
-		NewPermission(Websocket, Subscribe),
+		NewPermission(Websocket, Subscribe|Register),
 		NewPermission(Dashboard, View),
 		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
 		NewPermission(JobDefinition, Create|Read|Update|Delete|Query|Disable|Enable|Metrics),
@@ -363,7 +368,7 @@ func AdminPermissions() []*Permission {
 		NewPermission(Organization, Read|Update|Delete|Invite),
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
-		NewPermission(Subscription, Create|Read|Update|Delete|Query),
+		NewPermission(Subscription, Create|Read|Update|Delete|Query|Register),
 		NewPermission(TermsService, View|Read),
 		NewPermission(PrivacyPolicies, View|Read),
 		NewPermission(ErrorCode, Create|Read|Update|Delete|Query),

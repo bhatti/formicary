@@ -418,6 +418,7 @@ The method defines executor to use for the task such as
     - HTTP_PUT_FORM 
     - HTTP_PUT_JSON 
     - HTTP_DELETE 
+    - WEBSOCKET
     - MESSAGING
     - FORK_JOB 
     - AWAIT_FORKED_JOB

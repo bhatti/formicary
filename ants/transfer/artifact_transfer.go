@@ -406,6 +406,8 @@ func buildArtifactTransferService(
 	case types.HTTPPutJSON:
 		fallthrough
 	case types.HTTPDelete:
+		fallthrough
+	case types.WebSocket: // TODO this won't work
 		return NewArtifactTransferService(
 			artifactService,
 			execute,

@@ -53,6 +53,7 @@ func Test_ShouldNotReceiveWithoutSend(t *testing.T) {
 			_, _ = cli.Send(ctx, event.ReplyTopic(), event.Payload, make(map[string]string))
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 	if err != nil {
@@ -112,6 +113,7 @@ func Test_ShouldSendReceive(t *testing.T) {
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 	if err != nil {
@@ -185,6 +187,7 @@ func Test_ShouldSubscribePubSub(t *testing.T) {
 				}
 				return nil
 			},
+			nil,
 			map[string]string{groupKey: group, "LastOffset": "true"},
 		)
 		if err != nil {

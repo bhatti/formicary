@@ -24,20 +24,21 @@ func Test_ShouldCreateAntAllocation(t *testing.T) {
 
 func Test_ShouldMarshalAntRegistration(t *testing.T) {
 	// Given ant registration
-	reg := AntRegistration {
-		AntID: "ant",
-		AntTopic: "topic",
-		MaxCapacity: 10,
-		Tags: []string{"a", "b"},
-		Methods: []TaskMethod{Kubernetes},
-		CurrentLoad: 0,
-		Allocations: make(map[uint64]*AntAllocation),
-		CreatedAt: time.Now(),
+	reg := AntRegistration{
+		AntID:        "ant",
+		AntTopic:     "topic",
+		MaxCapacity:  10,
+		Tags:         []string{"a", "b"},
+		Methods:      []TaskMethod{Kubernetes},
+		CurrentLoad:  0,
+		Allocations:  make(map[uint64]*AntAllocation),
+		ReceivedAt:   time.Now(),
+		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
 	}
-	require.True(t, reg.Supports(Kubernetes, []string{"a"}))
-	require.True(t, reg.Supports(Kubernetes, []string{"b"}))
-	require.False(t, reg.Supports(Docker, []string{"b"}))
+	require.True(t, reg.Supports(Kubernetes, []string{"a"}, time.Hour))
+	require.True(t, reg.Supports(Kubernetes, []string{"b"}, time.Hour))
+	require.False(t, reg.Supports(Docker, []string{"b"}, time.Hour))
 
 	// WHEN marshaling registration
 	// THEN it should return serialized bytes

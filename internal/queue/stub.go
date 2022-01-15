@@ -29,6 +29,7 @@ func (c *StubClientImpl) Subscribe(
 	topic string,
 	_ bool,
 	cb Callback,
+	_ Filter,
 	_ MessageHeaders,
 ) (id string, err error) {
 	id = uuid.NewV4().String()

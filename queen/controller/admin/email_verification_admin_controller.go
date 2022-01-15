@@ -99,6 +99,7 @@ func (ctr *EmailVerificationAdminController) showEmailVerification(c web.APICont
 		rec, err := ctr.userManager.GetVerifiedEmailByID(qc, id)
 		if err != nil {
 			res["Error"] = err
+			res["EmailCode"] = ""
 		} else {
 			res["Email"] = rec.Email
 			res["EmailCode"] = rec.EmailCode
@@ -128,7 +129,7 @@ func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.APICo
 		res["ID"] = id
 		if rec, dbErr := ctr.userManager.GetVerifiedEmailByID(qc, id); dbErr == nil {
 			res["Email"] = rec.Email
-			res["EmailCode"] = rec.EmailCode
+			res["EmailCode"] = "" // rec.EmailCode
 		}
 		return c.Render(http.StatusOK, "email_verification/verify_email", res)
 	}

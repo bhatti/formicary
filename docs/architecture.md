@@ -2,7 +2,7 @@
 
 The formicary architecture is based on the *Leader-Follower* (or master/worker) pattern
 where queen-leader schedules and orchestrates execution of the graph of tasks. The task defines a unit of work, which is distributed among ant-workers
-based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, etc. The queen-leader
+based on the task tags and executor protocols such as Kubernetes, Docker, Shell, HTTP, Websockets, etc. The queen-leader
 encompasses resource-manager, job-scheduler, job-launcher and job/task supervisors, where job-scheduler finds next job to 
 execute based on resource-manager and hands-off the job to job-launcher. The job-supervisor orchestrates the 
 job execution and delegates task to the task-supervisor, which sends the request to a remote ant worker and then waits for the response.
@@ -64,7 +64,7 @@ The ant workers registers themselves with the queen server and receives work for
 for communication with the server and provide following functionality:
    - Register with the server and continuously update them with their workload
    - Download dependent artifacts before execution
-   - Execute tasks using supported executors such as Docker, HTTP, Kubernetes, Shell, etc.
+   - Execute tasks using supported executors such as Docker, HTTP, Kubernetes, Shell, Websockets, etc.
    - Upload artifacts at the end of task
    - Monitor Docker/Kubernetes containers and notify server with their lifecycle events
 
@@ -122,7 +122,7 @@ of executor. Following executor methods are supported:
 | Kubernetes Pods | KUBERNETES |
 | Docker containers | DOCKER |
 | Shell | SHELL |
-| HTTP (GET POST, PUT, DELETE) | HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE |
+| HTTP (GET POST, PUT, DELETE) | HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE WEBSOCKET |
 | Fork/Await | JOB_FORK, JOB_FORK_AWAIT |
 | Artifact/Expiration | EXPIRE_ARTIFACTS |
 | Messaging | MESSAGING |

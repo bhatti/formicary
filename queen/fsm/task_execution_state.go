@@ -85,6 +85,14 @@ func (tsm *TaskExecutionStateMachine) PrepareExecution(
 			tsm.taskType, len(tsm.Reservations))
 	}
 
+	if err = tsm.Reservation.Validate(); err != nil {
+		logrus.WithFields(tsm.LogFields(
+			"TaskExecutionStateMachine")).
+			Warnf("reservations could not be validated %s in %v due to %s",
+				tsm.taskType, tsm.Reservations, err)
+		return err
+	}
+
 	// validate ant allocation
 	// TODO this can be retried --- in case ant disappear temporarily
 	if tsm.Reservation, err = tsm.validateAntAllocation(
@@ -328,13 +336,18 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 		_, _ = tsm.JobExecution.AddContext(k, v)
 	}
 
-	tsm.TaskExecution.AntID = taskResp.AntID
+	tsm.TaskExecution.AntID = tsm.Reservation.AntID
 	tsm.TaskExecution.AntHost = taskResp.Host
 	tsm.TaskExecution.FailedCommand = taskResp.FailedCommand
 	tsm.TaskExecution.ExitCode = taskResp.ExitCode
 	tsm.TaskExecution.ExitMessage = taskResp.ExitMessage
 	tsm.TaskExecution.CostFactor = taskResp.CostFactor
 	tsm.TaskExecution.CountServices = len(taskReq.ExecutorOpts.Services)
+	for _, svc := range taskReq.ExecutorOpts.Services {
+		if svc.Instances > 1 {
+			tsm.TaskExecution.CountServices += svc.Instances - 1
+		}
+	}
 
 	// save status and error code/messages
 	tsm.TaskExecution.TaskState = taskResp.Status
@@ -378,6 +391,9 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 	taskDefinition *types.TaskDefinition,
 	allocation *common.AntReservation) (_ *common.AntReservation, err error) {
+	if err = allocation.Validate(); err != nil {
+		return nil, err
+	}
 	// verify ant is still connected
 	ant := tsm.ResourceManager.Registration(allocation.AntID)
 	if ant == nil {
@@ -388,7 +404,7 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 			taskDefinition.Method,
 			taskDefinition.Tags)
 	}
-	if !ant.Supports(taskDefinition.Method, taskDefinition.Tags) {
+	if !ant.Supports(taskDefinition.Method, taskDefinition.Tags, tsm.serverCfg.Jobs.AntRegistrationAliveTimeout) {
 		_ = tsm.ResourceManager.Release(allocation)
 		return tsm.ResourceManager.Reserve(
 			tsm.Request.GetID(),
@@ -538,10 +554,14 @@ func (tsm *TaskExecutionStateMachine) LogFields(
 		"TaskStatus":         tsm.TaskExecution.TaskState,
 		"TaskRetried":        tsm.TaskExecution.Retried,
 		"Message":            tsm.TaskExecution.ExitCode,
-		"AntID":              tsm.TaskExecution.AntID,
 		"ErrorCode":          tsm.TaskExecution.ErrorCode,
 		"ErrorMessage":       tsm.TaskExecution.ErrorMessage,
 	})
+	if tsm.Reservation != nil {
+		fields["AntID"] = tsm.Reservation.AntID
+		fields["AntTopic"] = tsm.Reservation.AntTopic
+
+	}
 
 	if tsm.LastTaskExecution != nil {
 		fields["LastTaskExecutionID"] = tsm.LastTaskExecution.ID

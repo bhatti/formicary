@@ -20,7 +20,7 @@ func (js *JobScheduler) startTickerToSendJobSchedulerLeaderEvents(ctx context.Co
 	// use registration as a form of heart-beat along with current load so that server can load balance
 	ticker := time.NewTicker(js.serverCfg.Jobs.JobSchedulerLeaderInterval)
 	go func() {
-		for {
+		for !js.isStopped() {
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
@@ -47,7 +47,7 @@ func (js *JobScheduler) startTickerToSendJobSchedulerLeaderEvents(ctx context.Co
 func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.JobSchedulerCheckPendingJobsInterval)
 	go func() {
-		for {
+		for !js.isStopped() {
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
@@ -77,7 +77,7 @@ func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *t
 func (js *JobScheduler) startTickerToCheckMissingCronJobs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.MissingCronJobsInterval)
 	go func() {
-		for {
+		for !js.isStopped() {
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
@@ -102,7 +102,7 @@ func (js *JobScheduler) startTickerToCheckMissingCronJobs(ctx context.Context) *
 func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.OrphanRequestsUpdateInterval)
 	go func() {
-		for {
+		for !js.isStopped() {
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
@@ -153,6 +153,7 @@ func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (stri
 
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

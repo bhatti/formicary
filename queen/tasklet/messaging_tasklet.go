@@ -2,7 +2,6 @@ package tasklet
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/events"
@@ -33,14 +32,15 @@ func NewMessagingTasklet(
 ) *MessagingTasklet {
 	id := serverCfg.ID + "-job-messaging-tasklet"
 	registration := common.AntRegistration{
-		AntID:        id,
-		AntTopic:     requestTopic,
-		MaxCapacity:  serverCfg.Jobs.MaxMessagingTaskletCapacity,
-		Tags:         []string{},
-		Methods:      []common.TaskMethod{common.Messaging},
-		Allocations:  make(map[uint64]*common.AntAllocation),
-		CreatedAt:    time.Now(),
-		AntStartedAt: time.Now(),
+		AntID:         id,
+		AntTopic:      requestTopic,
+		MaxCapacity:   serverCfg.Jobs.MaxMessagingTaskletCapacity,
+		Tags:          []string{},
+		EncryptionKey: serverCfg.Jobs.MessagingEncryptionKey,
+		Methods:       []common.TaskMethod{common.Messaging},
+		Allocations:   make(map[uint64]*common.AntAllocation),
+		CreatedAt:     time.Now(),
+		AntStartedAt:  time.Now(),
 	}
 	t := &MessagingTasklet{
 		serverCfg:   serverCfg,
@@ -52,10 +52,11 @@ func NewMessagingTasklet(
 		id,
 		&serverCfg.CommonConfig,
 		queueClient,
+		nil,
 		requestRegistry,
 		requestTopic,
 		serverCfg.GetRegistrationTopic(),
-		registration,
+		&registration,
 		t,
 	)
 	return t
@@ -90,12 +91,12 @@ func (t *MessagingTasklet) Execute(
 	ctx context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	if taskReq.ExecutorOpts.MessagingRequestQueue == "" {
-		return buildTaskResponseWithError(taskReq,
-			fmt.Errorf("messaging_request_queue is not specified for %s", taskReq.TaskType))
+		return taskReq.ErrorResponse(
+			fmt.Errorf("messaging_request_queue is not specified for %s", taskReq.TaskType)), nil
 	}
 	if taskReq.ExecutorOpts.MessagingReplyQueue == "" {
-		return buildTaskResponseWithError(taskReq,
-			fmt.Errorf("messaging_reply_queue is not specified for %s", taskReq.TaskType))
+		return taskReq.ErrorResponse(
+			fmt.Errorf("messaging_reply_queue is not specified for %s", taskReq.TaskType)), nil
 	}
 
 	var b []byte
@@ -123,18 +124,22 @@ func (t *MessagingTasklet) Execute(
 			"Component":     "MessagingTasklet",
 			"RequestTopic":  taskReq.ExecutorOpts.MessagingRequestQueue,
 			"ResponseTopic": taskReq.ExecutorOpts.MessagingReplyQueue,
-			"Request": taskReq,
+			"Request":       taskReq,
 		}).
 			Errorf("failed to receive reply")
 		return nil, fmt.Errorf("failed to receive reply from " + taskReq.ExecutorOpts.MessagingReplyQueue)
 	}
-
-	taskResp = common.NewTaskResponse(taskReq)
-	err = json.Unmarshal(event.Payload, taskResp)
+	taskResp, err = common.UnmarshalTaskResponse(t.serverCfg.Jobs.MessagingEncryptionKey, event.Payload)
 	if err != nil {
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 	taskResp.Status = common.COMPLETED
+	if taskResp.AntID == "" {
+		taskResp.AntID = t.ID
+	}
+	if taskResp.Host == "" {
+		taskResp.Host = "server"
+	}
 	taskResp.AddContext("MessageQueue", taskReq.ExecutorOpts.MessagingRequestQueue)
 	taskResp.AddContext("ResponseQueue", taskReq.ExecutorOpts.MessagingReplyQueue)
 	return

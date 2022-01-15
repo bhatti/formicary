@@ -35,6 +35,7 @@ type KubernetesConfig struct {
 	DefaultLimits            api.ResourceList                   `yaml:"default_limits" json:"default_limits"`
 	MinLimits                api.ResourceList                   `yaml:"min_limits" json:"min_limits"`
 	MaxLimits                api.ResourceList                   `yaml:"max_limits" json:"max_limits"`
+	MaxServicesPerPod        int                                `yaml:"max_services_per_pod" json:"max_services_per_pod"`
 	AwaitShutdownPod         bool                               `yaml:"await_shutdown_pod" json:"await_shutdown_pod" mapstructure:"await_shutdown_pod"`
 }
 
@@ -190,6 +191,9 @@ func (kc *KubernetesConfig) Validate() error {
 	if kc.MaxLimits == nil {
 		kc.MaxLimits, _ = utils.CreateResourceList("2.0", "4G", "2G")
 	}
+	if kc.MaxServicesPerPod <= 0 {
+		kc.MaxServicesPerPod = 100
+	}
 	if len(kc.HostAliases) == 0 {
 		kc.HostAliases = []types.KubernetesHostAliases{
 			{Hostnames: []string{"dns1", "dns2"}, IP: "8.8.8.8"},
@@ -197,4 +201,3 @@ func (kc *KubernetesConfig) Validate() error {
 	}
 	return nil
 }
-

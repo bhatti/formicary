@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	evbus "github.com/asaskevich/EventBus"
@@ -214,14 +215,16 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 			ctx,
 			errorCode,
 			errorMessage); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component":                  "JobSupervisor",
-				"ID":                         jobExecutionLifecycleEvent.ID,
-				"Target":                     js.id,
-				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
-				"RequestState":               js.jobStateMachine.Request.GetJobState(),
-				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				"Error":                      err}).Warnf("failed to cancel job from lifecycle job event")
+			if !strings.Contains(err.Error(), "terminal") {
+				logrus.WithFields(logrus.Fields{
+					"Component":                  "JobSupervisor",
+					"ID":                         jobExecutionLifecycleEvent.ID,
+					"Target":                     js.id,
+					"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+					"RequestState":               js.jobStateMachine.Request.GetJobState(),
+					"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+					"Error":                      err}).Warnf("failed to cancel job from lifecycle job event")
+			}
 			return err
 		}
 

@@ -76,7 +76,7 @@ func NewJobExecutionStateMachine(
 	request types.IJobRequest,
 	reservations map[string]*common.AntReservation) *JobExecutionStateMachine {
 	return &JobExecutionStateMachine{
-		id:                  fmt.Sprintf("%s-websocket-gateway-%d", serverCfg.ID, request.GetID()),
+		id:                  fmt.Sprintf("%s-job-execution-fsm-%d", serverCfg.ID, request.GetID()),
 		serverCfg:           serverCfg,
 		QueueClient:         queueClient,
 		JobManager:          jobManager,
@@ -328,7 +328,13 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 // UpdateJobRequestTimestampAndCheckQuota updates timestamp so that job scheduler doesn't consider it as orphan
 func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ context.Context) (err error) {
 	if jsm.serverCfg.SubscriptionQuotaEnabled {
-		if jsm.User != nil && jsm.User.Subscription != nil && !jsm.User.IsAdmin() {
+		if jsm.User == nil {
+			err = fmt.Errorf("quota-error: user not found for execution")
+			return common.NewQuotaExceededError(err)
+		}
+		if jsm.User.IsAdmin() {
+			// do nothing
+		} else if jsm.User.Subscription != nil {
 			if jsm.User.Subscription.Expired() {
 				err = fmt.Errorf("quota-error: user subscription of user %s is expired for execution", jsm.User.ID)
 				return common.NewQuotaExceededError(err)
@@ -339,7 +345,7 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 					jsm.User.Subscription.CPUQuota, jsm.cpuUsage.ValueString(), secs, jsm.User.ID)
 				return common.NewQuotaExceededError(err)
 			}
-		} else if jsm.User == nil || !jsm.User.IsAdmin() {
+		} else { // subscription is nil
 			err = fmt.Errorf("quota-error: user subscription not found for execution")
 			return common.NewQuotaExceededError(err)
 		}
@@ -401,7 +407,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCancelled(
 	errorCode string,
 	errorMsg string) error {
 	if jsm.JobExecution.JobState.IsTerminal() {
-		return fmt.Errorf("job cannot be failed because it's already in terminal state")
+		return fmt.Errorf("job cannot be cancelled because it's already in terminal state")
 	}
 
 	if errorCode == "" {
@@ -948,7 +954,10 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 		ctx,
 		jsm.serverCfg.GetJobExecutionLaunchTopic(),
 		initiateEvent,
-		make(map[string]string),
+		queue.NewMessageHeaders(
+			queue.ReusableTopicKey, "false",
+			queue.Source, jsm.id,
+		),
 	); err != nil {
 		return fmt.Errorf("failed to send launch event due to %s", err.Error())
 	}

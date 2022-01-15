@@ -33,8 +33,9 @@ type redisPubSubConnection struct {
 
 // redisQueueSubscription structure
 type redisQueueSubscription struct {
-	cb   Callback
-	done chan bool
+	cb     Callback
+	filter Filter
+	done   chan bool
 }
 
 // HeadersPayload structure
@@ -72,6 +73,7 @@ func (c *ClientRedis) Subscribe(
 	topic string,
 	shared bool,
 	cb Callback,
+	filter Filter,
 	_ MessageHeaders,
 ) (id string, err error) {
 	id = uuid.NewV4().String()
@@ -89,9 +91,9 @@ func (c *ClientRedis) Subscribe(
 			Debug("Creating goroutine to receive messages")
 	}
 	if shared {
-		return id, c.addQueueSubscriber(ctx, topic, id, cb)
+		return id, c.addQueueSubscriber(ctx, topic, id, cb, filter)
 	}
-	return id, c.addPubSubscriber(ctx, topic, id, cb)
+	return id, c.addPubSubscriber(ctx, topic, id, cb, filter)
 }
 
 // UnSubscribe - unsubscribe
@@ -202,7 +204,8 @@ func (c *ClientRedis) addQueueSubscriber(
 	ctx context.Context,
 	topic string,
 	id string,
-	cb Callback) (err error) {
+	cb Callback,
+	filter Filter) (err error) {
 	started := time.Now()
 	key := buildKey(topic, id)
 	c.lock.Lock()
@@ -236,7 +239,9 @@ func (c *ClientRedis) addQueueSubscriber(
 						Debugf("failed to receive event!")
 				}
 			} else {
-				_ = cb(ctx, event)
+				if filter == nil || filter(ctx, event) {
+					_ = cb(ctx, event)
+				}
 			}
 			select {
 			case <-subscription.done:
@@ -273,7 +278,8 @@ func (c *ClientRedis) addPubSubscriber(
 	ctx context.Context,
 	topic string,
 	id string,
-	cb Callback) (err error) {
+	cb Callback,
+	filter Filter) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	sharedConn := c.pubsubConnections[topic]

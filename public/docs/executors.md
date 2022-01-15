@@ -27,6 +27,39 @@ tasks:
   url: https://jsonplaceholder.typicode.com/todos/1
 ```
 
+### Websockets
+Websockets method allows connecting browser based ant workers to execute the tasks, e.g.
+```
+job_type: web-job
+tasks:
+- task_type: process
+  method: WEBSOCKET
+  tags:
+    - web
+    - js
+```
+
+The web client uses websocket to register with the server, e.g.
+```
+    const ws = new WebSocket(uri);
+    ws.onopen = function () {
+        const registration = {
+            'ant_id': 'sample-web',
+            'tags': ['js', 'web'],
+            'methods': ['WEBSOCKET']
+        }
+        ws.send(JSON.stringify(registration));
+    }
+
+    ws.onmessage = function (evt) {
+        const msg = JSON.parse(evt.data);
+        // handle message
+        msg.status = 'COMPLETED';
+        ws.send(JSON.stringify(msg));
+    }
+```
+
+
 ### Docker
 The Docker executor starts a main container for executing script named after job/task name and a helper container
 wth `-helper` suffix for managing artifacts. The initial docker config are defined by the ant config that are available for all jobs such as:
@@ -376,12 +409,12 @@ func (h *MessagingHandler) Stop(
 func (h *MessagingHandler) execute(
 	ctx context.Context,
 	reqPayload []byte) (err error) {
-	var req types.TaskRequest
-	err = json.Unmarshal(reqPayload, &req)
+	var req *types.TaskRequest
+    req, err = types.UnmarshalTaskRequest(h.antCfg.EncryptionKey, reqPayload)
 	if err != nil {
 		return err
 	}
-	resp := types.NewTaskResponse(&req)
+	resp := types.NewTaskResponse(req)
 
 	// Implement business logic below
 	epoch := time.Now().Unix()
@@ -395,7 +428,7 @@ func (h *MessagingHandler) execute(
 	resp.AddContext("epoch", epoch)
 
 	// Send back reply
-	resPayload, err := json.Marshal(resp)
+    resPayload, err := resp.Marshal(h.antCfg.EncryptionKey)
 	if err != nil {
 		return err
 	}
@@ -625,7 +658,6 @@ The task request is sent to the ant work for executing the work and includes fol
         "task_type": "task1",
         "job_execution_id": "uuid",
         "task_execution_id": "uuid",
-        "task_id": "uuid",
         "co_relation_id": "uuid",
         "tags": [],
         "platform": "linux",
@@ -659,7 +691,7 @@ The task response is sent back by the ant work after executing the work and incl
         "job_request_id": 1,
         "job_type": "my-test-job",
         "task_type": "task1",
-        "task_id": "uuid",
+        "task_execution_id": "uuid",
         "co_relation_id": "uuid",
         "status": "COMPLETED",
         "co_relation_id": "uuid",

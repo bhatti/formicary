@@ -37,10 +37,11 @@ func Test_ShouldStartAndStopRegistration(t *testing.T) {
 		"suffix",
 		cfg,
 		queueClient,
+		nil,
 		requestRegistry,
 		"requestTopic",
 		"registrationTopic",
-		registration,
+		&registration,
 		&MockExecutorImpl{})
 
 	// THEN tasklet start and stop should not fail

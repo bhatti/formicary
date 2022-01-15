@@ -68,6 +68,7 @@ func (c *ClientKafka) Subscribe(
 	topic string,
 	shared bool,
 	cb Callback,
+	filter Filter,
 	props MessageHeaders,
 ) (id string, err error) {
 	if c.closed {
@@ -84,6 +85,7 @@ func (c *ClientKafka) Subscribe(
 		topic,
 		shared,
 		cb,
+		filter,
 		props,
 	)
 	return
@@ -156,6 +158,7 @@ func (c *ClientKafka) SendReceive(
 		func(ctx context.Context, e *MessageEvent) error {
 			return nil
 		},
+		nil,
 		props,
 	)
 	if err != nil {
@@ -293,6 +296,7 @@ func (c *ClientKafka) getOrCreateConsumer(
 	topic string,
 	shared bool,
 	cb Callback,
+	filter Filter,
 	props MessageHeaders,
 ) (id string, subscription *kafkaSubscription, consumerChannel chan *MessageEvent, err error) {
 	id = uuid.NewV4().String()
@@ -321,7 +325,7 @@ func (c *ClientKafka) getOrCreateConsumer(
 	// if subscription exists then add subscriber to multiplexer
 	if subscription != nil {
 		c.consumersByID[id] = subscription
-		subscription.mx.Add(ctx, id, props.GetCorrelationID(), cb, consumerChannel)
+		subscription.mx.Add(ctx, id, props.GetCorrelationID(), cb, filter, consumerChannel)
 		return
 	}
 
@@ -335,6 +339,7 @@ func (c *ClientKafka) getOrCreateConsumer(
 		offset,
 		shared,
 		cb,
+		filter,
 		consumerChannel)
 	if err != nil {
 		close(consumerChannel)
@@ -356,6 +361,7 @@ func (c *ClientKafka) createConsumer(
 	offset int64,
 	shared bool,
 	cb Callback,
+	filter Filter,
 	consumerChannel chan *MessageEvent) (subscription *kafkaSubscription, err error) {
 	// validate topics in case we use new topic without properly creating them in kafka
 	if err := c.checkTopic(topic); err != nil {
@@ -381,7 +387,7 @@ func (c *ClientKafka) createConsumer(
 		group: group,
 	}
 	// adding subscriber
-	_ = subscription.mx.Add(ctx, id, correlationID, cb, consumerChannel)
+	_ = subscription.mx.Add(ctx, id, correlationID, cb, filter, consumerChannel)
 
 	// Note: using fresh context instead of ctx parameter because we need to keep subscription alive
 	// even when a single subscriber dies as we have to multiplex a queue to multiple subscribers,

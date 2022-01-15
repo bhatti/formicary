@@ -119,7 +119,7 @@ func (s *State) reserve(
 
 		// matching all tags for the ant
 		// Note: we won't check capacity here as it's already checked in HasAntsForJobTags
-		if registration.Supports(method, tags) {
+		if registration.Supports(method, tags, s.serverCfg.Jobs.AntRegistrationAliveTimeout) {
 			reservations = append(reservations,
 				common.NewAntReservation(
 					registration.AntID,
@@ -417,11 +417,16 @@ func (s *State) terminateContainer(
 		return fmt.Errorf("failed to find ant with id %s", antID)
 	}
 	taskReq := &common.TaskRequest{
-		Action:        common.TERMINATE,
-		ExecutorOpts:  common.NewExecutorOptions(id, method),
-		StartedAt:     time.Now(),
+		JobExecutionID:  "TERMINATE_000",
+		TaskExecutionID: "TERMINATE_000",
+		JobType:         "DefaultResourceManager",
+		TaskType:        "DefaultResourceManager",
+		Action:          common.TERMINATE,
+		ExecutorOpts:    common.NewExecutorOptions(id, method),
+		StartedAt:       time.Now(),
 	}
 	var b []byte
+	var taskResp *common.TaskResponse
 	if b, err = taskReq.Marshal(registration.EncryptionKey); err == nil {
 		var event *queue.MessageEvent
 		if event, err = s.queueClient.SendReceive(
@@ -430,10 +435,9 @@ func (s *State) terminateContainer(
 			b,
 			s.serverCfg.GetResponseTopicAntRegistration(),
 			make(map[string]string),
-			); err == nil {
+		); err == nil {
 			defer event.Ack() // auto-ack
-			taskResp := common.NewTaskResponse(taskReq)
-			err = json.Unmarshal(event.Payload, taskResp)
+			taskResp, err = common.UnmarshalTaskResponse(registration.EncryptionKey, event.Payload)
 			if err == nil && taskResp.Status.Failed() {
 				err = fmt.Errorf("failed to terminate %s by %s due to %s", id, antID, taskResp.ErrorMessage)
 			}
@@ -447,9 +451,13 @@ func (s *State) addContainers(
 	ctx context.Context,
 	registration *common.AntRegistration) {
 	taskReq := &common.TaskRequest{
-		Action:        common.LIST,
-		ExecutorOpts:  common.NewExecutorOptions("", registration.Methods[0]),
-		StartedAt:     time.Now(),
+		JobExecutionID:  "LIST_000",
+		TaskExecutionID: "LIST_000",
+		JobType:         "DefaultResourceManager",
+		TaskType:        "DefaultResourceManager",
+		Action:          common.LIST,
+		ExecutorOpts:    common.NewExecutorOptions("", registration.Methods[0]),
+		StartedAt:       time.Now(),
 	}
 	if b, err := taskReq.Marshal(registration.EncryptionKey); err == nil {
 		if event, err := s.queueClient.SendReceive(
@@ -458,7 +466,7 @@ func (s *State) addContainers(
 			b,
 			s.serverCfg.GetResponseTopicAntRegistration(),
 			make(map[string]string),
-			); err == nil {
+		); err == nil {
 			if event == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "ResourceManager",
@@ -470,8 +478,7 @@ func (s *State) addContainers(
 				return
 			}
 			defer event.Ack() // auto-ack
-			taskResp := common.NewTaskResponse(taskReq)
-			err = json.Unmarshal(event.Payload, taskResp)
+			taskResp, err := common.UnmarshalTaskResponse(registration.EncryptionKey, event.Payload)
 			if err == nil {
 				jsonContainers := taskResp.TaskContext["containers"]
 				containers := make([]*events.ContainerLifecycleEvent, 0)
@@ -492,7 +499,7 @@ func (s *State) addContainers(
 							"AntID":     registration.AntID,
 							"JSON":      jsonContainers,
 							"Error":     err,
-						}).Warn("failed to add execution containers due to unmarshalling error")
+						}).Warn("failed to add execution containers due to unmarshalling containers")
 					}
 				}
 			} else {
@@ -500,7 +507,7 @@ func (s *State) addContainers(
 					"Component": "ResourceManager",
 					"AntID":     registration.AntID,
 					"Error":     err,
-				}).Warn("failed to add execution containers due to unmarshalling error")
+				}).Warn("failed to add execution containers due to unmarshalling task-response")
 			}
 		} else {
 			logrus.WithFields(logrus.Fields{

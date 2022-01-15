@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"runtime/debug"
 	"time"
 )
 
@@ -37,13 +38,25 @@ func NewAntReservation(
 	}
 }
 
+// Validate validates
+func (r *AntReservation) Validate() error {
+	if r.AntID == "" {
+		debug.PrintStack()
+		return fmt.Errorf("antID is not specified for ant reservation")
+	}
+	if r.AntTopic == "" {
+		return fmt.Errorf("antTopic is not specified for ant reservation")
+	}
+	return nil
+}
+
 // String defines description of reservation
-func (wr *AntReservation) String() string {
+func (r *AntReservation) String() string {
 	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v Load=%d",
-		wr.AntID, wr.AntTopic, wr.JobRequestID, wr.TaskType, wr.CurrentLoad)
+		r.AntID, r.AntTopic, r.JobRequestID, r.TaskType, r.CurrentLoad)
 }
 
 // AllocatedAtString formatted
-func (wr *AntReservation) AllocatedAtString() string {
-	return wr.AllocatedAt.Format("Jan _2, 15:04:05 MST")
+func (r *AntReservation) AllocatedAtString() string {
+	return r.AllocatedAt.Format("Jan _2, 15:04:05 MST")
 }

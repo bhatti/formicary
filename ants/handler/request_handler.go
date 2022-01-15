@@ -50,6 +50,7 @@ func NewRequestHandler(
 		antCfg.ID+"-request-handler",
 		&antCfg.CommonConfig,
 		queueClient,
+		nil,
 		requestRegistry,
 		requestTopic,
 		antCfg.GetRegistrationTopic(),

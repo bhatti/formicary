@@ -1,0 +1,24 @@
+job_type: web-job
+tasks:
+- task_type: init
+  method: WEBSOCKET
+  timeout: 5s
+  tags: 
+    - web
+  on_completed: process
+- task_type: process
+  method: WEBSOCKET
+  timeout: 5s
+  tags: 
+    - js
+  on_completed: record
+- task_type: record
+  method: WEBSOCKET
+  timeout: 5s
+  tags: 
+    - web
+    - js
+  container:
+    image: alpine
+  script:
+    - echo monday

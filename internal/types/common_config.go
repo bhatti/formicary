@@ -58,6 +58,7 @@ type CommonConfig struct {
 	ShuttingDown               bool               `yaml:"-" mapstructure:"-" json:"-"`
 	Development                bool               `yaml:"development" mapstructure:"development" json:"development"`
 	Version                    *buildversion.Info `yaml:"-" mapstructure:"-" json:"-"`
+	EncryptionKey              string             `json:"encryption_key" mapstructure:"encryption_key"`
 	Debug                      bool               `yaml:"debug"`
 	blockUserAgentsMap         map[string]bool    `yaml:"-" mapstructure:"-"`
 }
@@ -254,6 +255,15 @@ func (c *CommonConfig) GetTaskExecutionLifecycleTopic() string {
 		"task-execution-lifecycle")
 }
 
+// GetWebsocketTaskletTopic topic
+func (c *CommonConfig) GetWebsocketTaskletTopic() string {
+	return PersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"websocket-tasklet")
+}
+
 // GetExpireArtifactsTaskletTopic topic
 func (c *CommonConfig) GetExpireArtifactsTaskletTopic() string {
 	return PersistentTopic(
@@ -354,7 +364,7 @@ func (c *CommonConfig) Validate(_ []string) error {
 	}
 
 	if c.MaxStreamingLogMessageSize == 0 {
-		c.MaxStreamingLogMessageSize = 1024*1024
+		c.MaxStreamingLogMessageSize = 1024 * 1024
 	}
 
 	// Note: Following config will limit the max runtime for a task with default value of about 1 hours

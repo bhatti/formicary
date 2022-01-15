@@ -5,7 +5,7 @@ The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, w
 execution specifications are defined in a job configuration. A job defines directed acyclic 
 graph (DAG) of tasks for the order of execution, which can also be considered as 
 a workflow for the execution path of tasks. The task defines a unit of work, which can be executing using
-DOCKER, KUBERNETES, HTTP, SHELL, MESSAGING or other executors.
+DOCKER, KUBERNETES, HTTP, WEBSOCKET, SHELL, MESSAGING or other executors.
 
 *Note:* The formicary uses a yaml based job-definition to specify the metadata and workflow of the job and an instance
 of job-definition called `job-execution` is created upon submitting job-request.

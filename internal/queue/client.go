@@ -12,18 +12,23 @@ const (
 	DisableBatchingKey = "DisableBatching"
 	// ReusableTopicKey to cache producer
 	ReusableTopicKey = "ReusableTopic"
+	// Source to of message
+	Source = "Source"
 	// CorrelationIDKey for send/receive
 	CorrelationIDKey = "CorrelationID"
 	replyTopicKey    = "ReplyTopic"
-	messageKey         = "Key"
-	producerKey        = "Producer"
-	groupKey           = "Group"
-	lastOffsetKey      = "lastOffset"
-	firstOffsetKey     = "lastOffset"
+	messageKey       = "Key"
+	producerKey      = "Producer"
+	groupKey         = "Group"
+	lastOffsetKey    = "lastOffset"
+	firstOffsetKey   = "lastOffset"
 )
 
 // Callback - callback method for consumer
 type Callback func(ctx context.Context, event *MessageEvent) error
+
+// Filter - filters method for messages
+type Filter func(ctx context.Context, event *MessageEvent) bool
 
 // AckHandler - handles Ack
 type AckHandler func()
@@ -36,6 +41,7 @@ type Client interface {
 		topic string,
 		shared bool,
 		cb Callback,
+		filter Filter,
 		props MessageHeaders,
 	) (id string, err error)
 	// UnSubscribe - unsubscribe

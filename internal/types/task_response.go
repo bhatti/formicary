@@ -1,7 +1,11 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"plexobject.com/formicary/internal/crypto"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -68,7 +72,7 @@ func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
 // swagger:ignore
 type TaskResponse struct {
 	JobRequestID    uint64                 `json:"job_request_id"`
-	TaskExecutionID string                 `json:"task_id"`
+	TaskExecutionID string                 `json:"task_execution_id"`
 	JobType         string                 `json:"job_type"`
 	JobTypeVersion  string                 `json:"job_type_version"`
 	TaskType        string                 `json:"task_type"`
@@ -119,27 +123,21 @@ func (res *TaskResponse) String() string {
 
 // Validate validates
 func (res *TaskResponse) Validate() error {
-	if res.JobRequestID == 0 {
-		return fmt.Errorf("requestID is not specified")
-	}
 	if res.TaskExecutionID == "" {
-		return fmt.Errorf("taskExecutionID is not specified")
+		return fmt.Errorf("taskExecutionID is not specified in task-response")
 	}
 	if res.JobType == "" {
-		return fmt.Errorf("jobType is not specified")
+		return fmt.Errorf("jobType is not specified in task-response")
 	}
 	if res.TaskType == "" {
-		return fmt.Errorf("taskType is not specified")
+		return fmt.Errorf("taskType is not specified in task-response")
 	}
 	if res.Status == "" {
-		return fmt.Errorf("status is not specified")
+		return fmt.Errorf("status is not specified in task-response")
 	}
-	if res.AntID == "" {
-		return fmt.Errorf("antID is not specified")
-	}
-	if res.Host == "" {
-		return fmt.Errorf("host is not specified")
-	}
+	//if res.AntID == "" {
+	//	return fmt.Errorf("antID is not specified in task-response")
+	//}
 	return nil
 }
 
@@ -170,4 +168,66 @@ func (res *TaskResponse) AdditionalError(warning string, fatal bool) {
 	} else {
 		res.Warnings = append(res.Warnings, warning)
 	}
+}
+
+// Marshal converts task request to byte array
+func (res *TaskResponse) Marshal(
+	encryptionKeyStr string,
+) (b []byte, err error) {
+	if err := res.Validate(); err != nil {
+		return nil, err
+	}
+	b, err = json.Marshal(res)
+	if err != nil {
+		return nil, err
+	}
+	if encryptionKeyStr != "" {
+		encryptionKey := crypto.SHA256Key(encryptionKeyStr)
+		if b, err = crypto.Encrypt(encryptionKey, b); err != nil {
+			return nil, err
+		}
+		return b, nil
+	}
+	return b, nil
+}
+
+// UnmarshalTaskResponse converts byte array to task response
+func UnmarshalTaskResponse(
+	encryptionKeyStr string,
+	payload []byte) (res *TaskResponse, err error) {
+	if encryptionKeyStr != "" {
+		encryptionKey := crypto.SHA256Key(encryptionKeyStr)
+		var dec []byte
+		if dec, err = crypto.Decrypt(encryptionKey, payload); err != nil {
+			return nil, err
+		}
+		payload = dec
+	}
+
+	res = &TaskResponse{}
+	if err := json.Unmarshal(payload, res); err != nil {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component": "UnmarshalTaskResponse",
+				"Payload":   string(payload),
+				"Error":     err,
+			}).Error("failed to unmarshal task response")
+		return nil, err
+	}
+
+	if err := res.Validate(); err != nil {
+		debug.PrintStack()
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":       "UnmarshalTaskResponse",
+				"RequestID":       res.JobRequestID,
+				"JobType":         res.JobType,
+				"TaskType":        res.TaskType,
+				"TaskExecutionID": res.TaskExecutionID,
+				"Payload":         string(payload),
+				"Error":           err,
+			}).Error("failed to validate task response")
+		return nil, err
+	}
+	return res, nil
 }

@@ -24,7 +24,6 @@ type Registry struct {
 // AntConfig -- Defines the default ant config
 type AntConfig struct {
 	types.CommonConfig     `yaml:"common" mapstructure:"common"`
-	EncryptionKey          string             `json:"encryption_key" mapstructure:"encryption_key"`
 	Tags                   []string           `yaml:"tags" mapstructure:"tags"`
 	Methods                []types.TaskMethod `yaml:"methods" mapstructure:"methods"`
 	Docker                 DockerConfig       `yaml:"docker" mapstructure:"docker"`
@@ -128,8 +127,8 @@ func (c *AntConfig) Validate() error {
 }
 
 // NewAntRegistration constructor for ant registration
-func (c *AntConfig) NewAntRegistration() types.AntRegistration {
-	return types.AntRegistration{
+func (c *AntConfig) NewAntRegistration() *types.AntRegistration {
+	return &types.AntRegistration{
 		AntID:        c.ID,
 		MaxCapacity:  c.MaxCapacity,
 		Tags:         c.Tags,

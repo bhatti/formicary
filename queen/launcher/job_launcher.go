@@ -198,6 +198,7 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -240,6 +241,7 @@ func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

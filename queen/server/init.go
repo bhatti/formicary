@@ -5,6 +5,7 @@ import (
 	"plexobject.com/formicary/internal/auth"
 	"plexobject.com/formicary/internal/health"
 	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/internal/tasklet"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/controller"
@@ -15,6 +16,7 @@ import (
 	"plexobject.com/formicary/queen/resource"
 	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/stats"
+	"plexobject.com/formicary/queen/tasklet/wstask"
 	"plexobject.com/formicary/queen/webhook"
 	"strconv"
 )
@@ -28,6 +30,7 @@ func StartWebServer(
 	jobManager *manager.JobManager,
 	dashboardStats *manager.DashboardManager,
 	resourceManager resource.Manager,
+	requestRegistry tasklet.RequestRegistry,
 	artifactManager *manager.ArtifactManager,
 	statsRegistry *stats.JobStatsRegistry,
 	heathMonitor *health.Monitor,
@@ -44,7 +47,18 @@ func StartWebServer(
 		authProviders = append(authProviders, githubAuthProvider)
 	}
 
-	if err := startWebsocket(serverCfg, queueClient, repoFactory.LogEventRepository, webServer); err != nil {
+	if err := startWebsocketGateway(serverCfg, queueClient, repoFactory.LogEventRepository, webServer); err != nil {
+		return err
+	}
+
+	if err := startNewWebsocketProxyRegistry(
+		serverCfg,
+		resourceManager,
+		requestRegistry,
+		artifactManager,
+		queueClient,
+		serverCfg.GetWebsocketTaskletTopic(),
+		webServer); err != nil {
 		return err
 	}
 
@@ -89,7 +103,25 @@ func startWebhookProcessor(
 	return webhook.New(serverCfg, queueClient, http).Start(context.Background())
 }
 
-func startWebsocket(
+func startNewWebsocketProxyRegistry(
+	serverCfg *config.ServerConfig,
+	resourceManager resource.Manager,
+	requestRegistry tasklet.RequestRegistry,
+	artifactManager *manager.ArtifactManager,
+	queueClient queue.Client,
+	requestTopic string,
+	webServer web.Server) error {
+	return wstask.NewWebsocketProxyRegistry(
+		serverCfg,
+		resourceManager,
+		requestRegistry,
+		artifactManager,
+		queueClient,
+		requestTopic,
+		webServer).Start(context.Background())
+}
+
+func startWebsocketGateway(
 	serverCfg *config.ServerConfig,
 	queueClient queue.Client,
 	logsArchiver repository.LogEventRepository,

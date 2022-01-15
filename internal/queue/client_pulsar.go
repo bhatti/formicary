@@ -58,6 +58,7 @@ func (c *ClientPulsar) Subscribe(
 	topic string,
 	shared bool,
 	cb Callback,
+	filter Filter,
 	_ MessageHeaders,
 	) (id string, err error) {
 	id = uuid.NewV4().String()
@@ -92,7 +93,7 @@ func (c *ClientPulsar) Subscribe(
 		}
 
 		for {
-			if c.doReceive(ctx, topic, id, subscription, cb) {
+			if c.doReceive(ctx, topic, id, subscription, cb, filter) {
 				return
 			}
 		}
@@ -349,7 +350,8 @@ func (c *ClientPulsar) doReceive(
 	topic string,
 	id string,
 	subscription *pulsarSubscription,
-	cb Callback) bool {
+	cb Callback,
+	filter Filter) bool {
 	defer recoverNilMessage(topic, id)
 	select {
 	case <-ctx.Done():
@@ -385,14 +387,16 @@ func (c *ClientPulsar) doReceive(
 				subscription.consumer.Nack(msg)
 			},
 		}
-		if err := cb(ctx, &event); err != nil {
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientPulsar",
-					"Topic":     topic,
-					"ID":        id,
-					"Message":   string(msg.Payload())}).
-					Debug("failed to handle message")
+		if filter == nil || filter(ctx, &event) {
+			if err := cb(ctx, &event); err != nil {
+				if logrus.IsLevelEnabled(logrus.DebugLevel) {
+					logrus.WithFields(logrus.Fields{
+						"Component": "ClientPulsar",
+						"Topic":     topic,
+						"ID":        id,
+						"Message":   string(msg.Payload())}).
+						Debug("failed to handle message")
+				}
 			}
 		}
 	}

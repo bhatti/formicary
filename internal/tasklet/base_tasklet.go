@@ -2,7 +2,6 @@ package tasklet
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	cutils "plexobject.com/formicary/internal/utils"
 	"time"
@@ -37,10 +36,11 @@ type BaseTasklet struct {
 	ID                          string
 	Config                      *types.CommonConfig
 	QueueClient                 queue.Client
+	QueueFilter                 queue.Filter
 	RequestRegistry             RequestRegistry
 	RequestTopic                string
 	RegistrationTopic           string
-	registration                types.AntRegistration
+	registration                *types.AntRegistration
 	executor                    Executor
 	done                        chan bool
 	registrationTicker          *time.Ticker
@@ -55,16 +55,18 @@ func NewBaseTasklet(
 	idSuffix string,
 	cfg *types.CommonConfig,
 	queueClient queue.Client,
+	queueFilter queue.Filter,
 	requestRegistry RequestRegistry,
 	requestTopic string,
 	registrationTopic string,
-	registration types.AntRegistration,
+	registration *types.AntRegistration,
 	executor Executor,
 ) *BaseTasklet {
 	return &BaseTasklet{
 		ID:                cfg.ID + idSuffix,
 		Config:            cfg,
 		QueueClient:       queueClient,
+		QueueFilter:       queueFilter,
 		RequestRegistry:   requestRegistry,
 		RequestTopic:      requestTopic,
 		RegistrationTopic: registrationTopic,
@@ -94,6 +96,7 @@ func (t *BaseTasklet) Start(
 		logrus.Fields{
 			"Component":    "BaseTasklet",
 			"Tasklet":      t.ID,
+			"RequestTopic": t.RequestTopic,
 			"Registration": t.registration,
 		}).Info("added ticker for registration and subscribed to receive incoming requests/job/task events")
 	return nil
@@ -105,7 +108,7 @@ func (t *BaseTasklet) Stop(
 	err1 := t.QueueClient.UnSubscribe(
 		ctx,
 		t.RequestTopic,
-		t.reqSubscriptionID )
+		t.reqSubscriptionID)
 	err3 := t.QueueClient.UnSubscribe(
 		ctx,
 		t.Config.GetJobExecutionLifecycleTopic(),
@@ -130,12 +133,15 @@ func (t *BaseTasklet) handleRequest(
 		logrus.Fields{
 			"Component":       "BaseTasklet",
 			"Tasklet":         t.ID,
+			"RequestTopic":    t.RequestTopic,
+			"ResponseTopic":   replyTopic,
 			"RequestID":       req.JobRequestID,
+			"Action":          req.Action,
 			"JobType":         req.JobType,
 			"TaskType":        req.TaskType,
 			"TaskExecutionID": req.TaskExecutionID,
 			"CoRelationID":    req.CoRelationID,
-		}).Info("received request")
+		}).Info("<<<<received request>>>>")
 	ctx, cancel := context.WithCancel(ctx)
 	req.Cancel = cancel
 	defer cancel()
@@ -144,19 +150,27 @@ func (t *BaseTasklet) handleRequest(
 		if err := t.RequestRegistry.Cancel(req.Key()); err != nil {
 			logrus.WithFields(
 				logrus.Fields{
-					"Component":    "BaseTasklet",
-					"Tasklet":      t.ID,
-					"Request":      req,
-					"CoRelationID": req.CoRelationID,
-					"Error":        err,
+					"Component":     "BaseTasklet",
+					"Tasklet":       t.ID,
+					"RequestTopic":  t.RequestTopic,
+					"ResponseTopic": replyTopic,
+					"RequestID":     req.JobRequestID,
+					"Action":        req.Action,
+					"Request":       req,
+					"CoRelationID":  req.CoRelationID,
+					"Error":         err,
 				}).Error("failed to cancel request")
 		} else {
 			logrus.WithFields(
 				logrus.Fields{
-					"Component":    "BaseTasklet",
-					"Tasklet":      t.ID,
-					"Request":      req,
-					"CoRelationID": req.CoRelationID,
+					"Component":     "BaseTasklet",
+					"Tasklet":       t.ID,
+					"RequestTopic":  t.RequestTopic,
+					"ResponseTopic": replyTopic,
+					"RequestID":     req.JobRequestID,
+					"Action":        req.Action,
+					"Request":       req,
+					"CoRelationID":  req.CoRelationID,
 				}).Info("cancelled request")
 		}
 	} else if req.Action == types.EXECUTE {
@@ -169,11 +183,15 @@ func (t *BaseTasklet) handleRequest(
 					if logrus.IsLevelEnabled(logrus.DebugLevel) {
 						logrus.WithFields(
 							logrus.Fields{
-								"Component":    "BaseTasklet",
-								"Tasklet":      t.ID,
-								"Request":      req,
-								"CoRelationID": req.CoRelationID,
-								"Error":        err,
+								"Component":     "BaseTasklet",
+								"Tasklet":       t.ID,
+								"RequestTopic":  t.RequestTopic,
+								"ResponseTopic": replyTopic,
+								"RequestID":     req.JobRequestID,
+								"Action":        req.Action,
+								"Request":       req,
+								"CoRelationID":  req.CoRelationID,
+								"Error":         err,
 							}).Debug("failed to remove request")
 					}
 				}
@@ -182,11 +200,15 @@ func (t *BaseTasklet) handleRequest(
 			if taskResp, err = t.executor.Execute(ctx, req); err != nil {
 				logrus.WithFields(
 					logrus.Fields{
-						"Component":    "BaseTasklet",
-						"Tasklet":      t.ID,
-						"Request":      req,
-						"CoRelationID": req.CoRelationID,
-						"Error":        err,
+						"Component":     "BaseTasklet",
+						"Tasklet":       t.ID,
+						"RequestTopic":  t.RequestTopic,
+						"ResponseTopic": replyTopic,
+						"RequestID":     req.JobRequestID,
+						"Action":        req.Action,
+						"Request":       req,
+						"CoRelationID":  req.CoRelationID,
+						"Error":         err,
 					}).Warn("failed to execute request")
 				taskResp = types.NewTaskResponse(req)
 				taskResp.Status = types.FAILED
@@ -196,17 +218,34 @@ func (t *BaseTasklet) handleRequest(
 			} else {
 				err = t.sendResponse(ctx, taskResp, replyTopic, started)
 			}
+		} else {
+			logrus.WithFields(
+				logrus.Fields{
+					"Component":     "BaseTasklet",
+					"Tasklet":       t.ID,
+					"RequestTopic":  t.RequestTopic,
+					"ResponseTopic": replyTopic,
+					"RequestID":     req.JobRequestID,
+					"Action":        req.Action,
+					"Request":       req,
+					"CoRelationID":  req.CoRelationID,
+					"Error":         err,
+				}).Warn("failed to add request to registry")
 		}
 	} else if req.Action == types.TERMINATE {
 		var taskResp *types.TaskResponse
 		if taskResp, err = t.executor.TerminateContainer(ctx, req); err != nil {
 			logrus.WithFields(
 				logrus.Fields{
-					"Component":    "BaseTasklet",
-					"Tasklet":      t.ID,
-					"Request":      req,
-					"CoRelationID": req.CoRelationID,
-					"Error":        err,
+					"Component":     "BaseTasklet",
+					"Tasklet":       t.ID,
+					"RequestTopic":  t.RequestTopic,
+					"ResponseTopic": replyTopic,
+					"RequestID":     req.JobRequestID,
+					"Action":        req.Action,
+					"Request":       req,
+					"CoRelationID":  req.CoRelationID,
+					"Error":         err,
 				}).Warn("failed to terminate container")
 			taskResp = types.NewTaskResponse(req)
 			taskResp.Status = types.FAILED
@@ -214,6 +253,20 @@ func (t *BaseTasklet) handleRequest(
 			taskResp.ErrorMessage = err.Error()
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		} else {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(
+					logrus.Fields{
+						"Component":     "BaseTasklet",
+						"Tasklet":       t.ID,
+						"RequestTopic":  t.RequestTopic,
+						"ResponseTopic": replyTopic,
+						"RequestID":     req.JobRequestID,
+						"Action":        req.Action,
+						"Request":       req,
+						"Response":      taskResp,
+						"CoRelationID":  req.CoRelationID,
+					}).Debugf("sending response for terminate container")
+			}
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		}
 	} else if req.Action == types.LIST {
@@ -221,11 +274,15 @@ func (t *BaseTasklet) handleRequest(
 		if taskResp, err = t.executor.ListContainers(ctx, req); err != nil {
 			logrus.WithFields(
 				logrus.Fields{
-					"Component":    "BaseTasklet",
-					"Tasklet":      t.ID,
-					"Request":      req,
-					"CoRelationID": req.CoRelationID,
-					"Error":        err,
+					"Component":     "BaseTasklet",
+					"Tasklet":       t.ID,
+					"RequestTopic":  t.RequestTopic,
+					"ResponseTopic": replyTopic,
+					"RequestID":     req.JobRequestID,
+					"Action":        req.Action,
+					"Request":       req,
+					"CoRelationID":  req.CoRelationID,
+					"Error":         err,
 				}).Warn("failed to list containers")
 			taskResp = types.NewTaskResponse(req)
 			taskResp.Status = types.FAILED
@@ -233,16 +290,33 @@ func (t *BaseTasklet) handleRequest(
 			taskResp.ErrorMessage = err.Error()
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		} else {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(
+					logrus.Fields{
+						"Component":     "BaseTasklet",
+						"Tasklet":       t.ID,
+						"RequestTopic":  t.RequestTopic,
+						"ResponseTopic": replyTopic,
+						"RequestID":     req.JobRequestID,
+						"Action":        req.Action,
+						"Request":       req,
+						"Response":      taskResp,
+						"CoRelationID":  req.CoRelationID,
+					}).Debugf("sending response for list container")
+			}
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		}
 	} else {
 		logrus.WithFields(
 			logrus.Fields{
-				"Component":    "BaseTasklet",
-				"Tasklet":      t.ID,
-				"Action":       req.Action,
-				"CoRelationID": req.CoRelationID,
-				"Request":      req,
+				"Component":     "BaseTasklet",
+				"Tasklet":       t.ID,
+				"RequestTopic":  t.RequestTopic,
+				"ResponseTopic": replyTopic,
+				"RequestID":     req.JobRequestID,
+				"Action":        req.Action,
+				"CoRelationID":  req.CoRelationID,
+				"Request":       req,
 			}).Error("received unknown request")
 		taskResp := types.NewTaskResponse(req)
 		taskResp.Status = types.FAILED
@@ -258,7 +332,7 @@ func (t *BaseTasklet) sendResponse(
 	taskResp *types.TaskResponse,
 	responseTopic string,
 	started time.Time) error {
-	b, err := json.Marshal(taskResp)
+	b, err := taskResp.Marshal(t.registration.EncryptionKey)
 	fields := logrus.Fields{
 		"Component":       "BaseTasklet",
 		"Tasklet":         t.ID,
@@ -287,15 +361,12 @@ func (t *BaseTasklet) sendResponse(
 			queue.NewMessageHeaders(
 				queue.ReusableTopicKey, "false",
 				queue.CorrelationIDKey, taskResp.CoRelationID,
+				queue.Source, t.ID,
 				"RequestID", fmt.Sprintf("%d", taskResp.JobRequestID),
 				"TaskType", taskResp.TaskType,
 			))
 		if err == nil {
-			if taskResp.Status == types.COMPLETED {
-				logrus.WithFields(fields).Infof("sent response with COMPLETED to %s", responseTopic)
-			} else {
-				logrus.WithFields(fields).Warnf("sent response with FAILED to %s", responseTopic)
-			}
+			logrus.WithFields(fields).Warnf("sent response with %s to %s", taskResp.Status, responseTopic)
 		} else {
 			fields["Error"] = err
 			logrus.WithFields(fields).Errorf("failed to send response to %s", responseTopic)

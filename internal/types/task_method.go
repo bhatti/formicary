@@ -26,6 +26,8 @@ const (
 	HTTPPutJSON TaskMethod = "HTTP_PUT_JSON"
 	// HTTPDelete method sends HTTP DELETE request
 	HTTPDelete TaskMethod = "HTTP_DELETE"
+	// WebSocket method sends websocket request
+	WebSocket TaskMethod = "WEBSOCKET"
 	// Shell method runs ant using shell command
 	Shell TaskMethod = "SHELL"
 	// Docker method runs ant using docker container
@@ -66,6 +68,7 @@ func (m TaskMethod) IsValid() bool {
 		m == HTTPPostJSON ||
 		m == HTTPPutFORM ||
 		m == HTTPPutJSON ||
+		m == WebSocket ||
 		m == Shell ||
 		m == Docker ||
 		m == Kubernetes ||

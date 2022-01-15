@@ -21,8 +21,8 @@ func NormalizePrefix(prefix string) string {
 	return prefix
 }
 
-// HtmlToText converts html to text
-func HtmlToText(str string) (string, error) {
+// HTMLToText converts html to text
+func HTMLToText(str string) (string, error) {
 	return html2text.FromString(str, html2text.Options{PrettyTables: true})
 }
 

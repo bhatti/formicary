@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/math"
 	"sort"
+	"sync"
 	"time"
 
 	"plexobject.com/formicary/internal/utils"
@@ -21,6 +22,12 @@ import (
 // Manager interface defines methods for checking capacity and allocation of ants
 // Note: This code has high accounting/complexity so test it thoroughly
 type Manager interface {
+	Register(
+		ctx context.Context,
+		registration *common.AntRegistration) error
+	Unregister(
+		ctx context.Context,
+		id string) error
 	Registrations() []*common.AntRegistration
 	Registration(id string) *common.AntRegistration
 	HasAntsForJobTags(
@@ -50,6 +57,8 @@ type ManagerImpl struct {
 	registrationTopic string
 	state             *State
 	ticker            *time.Ticker
+	stopped           bool
+	lock              sync.RWMutex
 
 	registrationSubscriptionID           string
 	jobExecutionLifecycleSubscriptionID  string
@@ -115,6 +124,9 @@ func (rm *ManagerImpl) Stop(ctx context.Context) (err error) {
 		ctx,
 		rm.serverCfg.GetContainerLifecycleTopic(),
 		rm.containerLifecycleSubscriptionID)
+	rm.lock.Lock()
+	rm.stopped = true
+	rm.lock.Unlock()
 	return utils.ErrorsAny(err1, err2, err3, err4)
 }
 
@@ -229,7 +241,7 @@ func (rm *ManagerImpl) Release(reservation *common.AntReservation) (err error) {
 	}
 
 	if rm.state.getRegistrationByAnt(reservation.AntID) == nil {
-		return fmt.Errorf("failed to deallocate, ants=%s request=%d task=%s is no longer registered",
+		return fmt.Errorf("failed to deallocate, ant-id=%s request=%d task=%s is no longer registered",
 			reservation.AntID, reservation.JobRequestID, reservation.TaskType)
 	}
 
@@ -284,8 +296,8 @@ func (rm *ManagerImpl) GetContainerEvents(offset int, limit int, sortBy string) 
 	return
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
-func (rm *ManagerImpl) register(
+// Register adds registration
+func (rm *ManagerImpl) Register(
 	ctx context.Context,
 	registration *common.AntRegistration) error {
 	registration.ReceivedAt = time.Now()
@@ -297,12 +309,34 @@ func (rm *ManagerImpl) register(
 			"Load":      registration.CurrentLoad,
 			"Methods":   registration.Methods,
 			"Tags":      registration.Tags,
-		}).Debug("received ant registration")
+		}).Debug("register ant worker")
 	}
 	// update mapping of ant-id => registration
 	rm.state.addRegistration(ctx, registration)
 
 	return nil
+}
+
+// Unregister removes registration
+func (rm *ManagerImpl) Unregister(
+	_ context.Context,
+	id string) error {
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ResourceManager",
+			"AntID":     id,
+		}).Debug("unregister ant worker")
+	}
+	rm.state.removeRegistration(id)
+
+	return nil
+}
+
+/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func (rm *ManagerImpl) isStopped() bool {
+	rm.lock.RLock()
+	defer rm.lock.RUnlock()
+	return rm.stopped
 }
 
 func (rm *ManagerImpl) doReserve(

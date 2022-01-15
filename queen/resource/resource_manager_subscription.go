@@ -29,15 +29,16 @@ func (rm *ManagerImpl) subscribeToRegistration(
 					"Error":             err}).Error("failed to unmarshal registration by resource manager")
 				return err
 			}
-			if err := rm.register(ctx, registration); err != nil {
+			if err := rm.Register(ctx, registration); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":    "ResourceManager",
 					"Registration": registration,
 					"Target":       rm.id,
-					"Error":        err}).Error("failed to register ant")
+					"Error":        err}).Error("failed to Register ant")
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -75,12 +76,13 @@ func (rm *ManagerImpl) subscribeToJobLifecycleEvent(
 						"ID":                         jobExecutionLifecycleEvent.ID,
 						"Target":                     rm.id,
 						"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-						"Error": err}).Error("failed to release ant for job")
+						"Error":                      err}).Error("failed to release ant for job")
 					return err
 				}
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -99,7 +101,7 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 					"Component":                   "ResourceManager",
 					"Target":                      rm.id,
 					"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-					"Error": err,
+					"Error":                       err,
 				}).
 					Error("failed to unmarshal taskExecutionLifecycleEvent")
 				return err
@@ -125,14 +127,16 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 					logrus.WithFields(logrus.Fields{
 						"Component":                   "ResourceManager",
 						"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-						"ID":     taskExecutionLifecycleEvent.ID,
-						"Target": rm.id,
-						"Error":  err}).Error("failed to release ant for task")
+						"AntID":                       taskExecutionLifecycleEvent.AntID,
+						"ID":                          taskExecutionLifecycleEvent.ID,
+						"Target":                      rm.id,
+						"Error":                       err}).Error("failed to release ant for task")
 					return err
 				}
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -160,6 +164,7 @@ func (rm *ManagerImpl) subscribeToContainersLifecycleEvents(
 			rm.state.updateContainer(containerEvent)
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

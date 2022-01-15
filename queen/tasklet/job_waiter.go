@@ -17,6 +17,7 @@ import (
 type JobWaiter struct {
 	sync.Mutex
 	ctx          context.Context
+	antID        string
 	jobManager   *manager.JobManager
 	requestIDs   []uint64
 	requests     map[uint64]*types.JobRequest
@@ -29,6 +30,7 @@ type JobWaiter struct {
 // NewJobWaiter constructor
 func NewJobWaiter(
 	ctx context.Context,
+	antID string,
 	jobManager *manager.JobManager,
 	taskReq *common.TaskRequest) (*JobWaiter, error) {
 	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
@@ -39,6 +41,7 @@ func NewJobWaiter(
 	}
 	waiter := &JobWaiter{
 		ctx:          ctx,
+		antID:        antID,
 		queryContext: queryContext,
 		jobManager:   jobManager,
 		requestIDs:   requestIDs,
@@ -83,6 +86,8 @@ func (jw *JobWaiter) BuildTaskResponse(
 
 	taskResp = common.NewTaskResponse(taskReq)
 	taskResp.Status = common.COMPLETED
+	taskResp.AntID = jw.antID
+	taskResp.Host = "server"
 	for _, req := range jw.requests {
 		jobExecution, err := jw.jobManager.GetJobExecution(req.JobExecutionID)
 		if err != nil {

@@ -9,7 +9,6 @@ func Test_ShouldCreateTaskResponse(t *testing.T) {
 	req, res := newTestTaskResponse()
 	require.Equal(t, req.JobRequestID, res.JobRequestID)
 	require.NotEqual(t, "", res.String())
-	require.Error(t, res.Validate())
 	res.AntID = "103"
 	res.Host = "localhost"
 	require.NoError(t, res.Validate())

@@ -40,6 +40,7 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) (string, 
 			}()
 			return nil
 		},
+		t.QueueFilter,
 		make(map[string]string),
 	)
 }
@@ -81,6 +82,7 @@ func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 			}
 			return nil
 		},
+		t.QueueFilter,
 		make(map[string]string),
 	)
 }
@@ -117,6 +119,7 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 			}
 			return nil
 		},
+		t.QueueFilter,
 		make(map[string]string),
 	)
 }
@@ -191,7 +194,7 @@ func (t *BaseTasklet) sendRegisterAntRequest(
 		t.RegistrationTopic,
 		b,
 		make(map[string]string),
-		); err != nil {
+	); err != nil {
 		return err
 	}
 	return

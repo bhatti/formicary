@@ -264,6 +264,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		jobManager,
 		dashboardStats,
 		resourceManager,
+		requestRegistry,
 		artifactManager,
 		jobStatsRegistry,
 		healthMonitor,

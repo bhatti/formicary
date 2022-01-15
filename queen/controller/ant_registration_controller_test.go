@@ -28,7 +28,8 @@ func Test_ShouldQueryAntRegistration(t *testing.T) {
 	// GIVEN ant registration controller
 
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := buildTestQueueClient(cfg)
+
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendAntRegistration(cfg, queueClient, t)
 
@@ -51,7 +52,7 @@ func Test_ShouldGetAntRegistration(t *testing.T) {
 	// GIVEN ant registration controller
 
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := buildTestQueueClient(cfg)
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendAntRegistration(cfg, queueClient, t)
 
@@ -100,3 +101,23 @@ func sendAntRegistration(serverCfg *config.ServerConfig, queueClient queue.Clien
 		make(map[string]string),
 	)
 }
+
+func buildTestQueueClient(cfg *config.ServerConfig) *queue.StubClientImpl {
+	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient.SendReceivePayloadFunc = func(
+		_ queue.MessageHeaders,
+		payload []byte) ([]byte, error) {
+		var req common.TaskRequest
+		err := json.Unmarshal(payload, &req)
+		if err != nil {
+			return nil, err
+		}
+		res := common.NewTaskResponse(&req)
+		res.AntID = "query-ant-test"
+		res.Host = "query-ant-test"
+		res.Status = common.COMPLETED
+		return json.Marshal(res)
+	}
+	return queueClient
+}
+

@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -102,7 +101,9 @@ func (ts *TaskSupervisor) execute(
 	}
 
 	logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
-		Infof("starting task %s...", ts.taskStateMachine.TaskDefinition.TaskType)
+		Infof("starting task %s ...",
+			ts.taskStateMachine.TaskDefinition.TaskType,
+		)
 
 	// mark task as executing
 	if err = ts.taskStateMachine.SetTaskToExecuting(ctx); err == nil {
@@ -192,6 +193,21 @@ func (ts *TaskSupervisor) invoke(
 	}
 	var event *queue.MessageEvent
 
+	ts.taskStateMachine.TaskExecution.AntID = ts.taskStateMachine.Reservation.AntID
+	ts.taskStateMachine.TaskExecution.AddContext("AntTopic", ts.taskStateMachine.Reservation.AntTopic)
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "TaskSupervisor",
+			"Task":      ts.taskStateMachine.TaskDefinition,
+			"AntID":     ts.taskStateMachine.Reservation.AntTopic,
+			"Request":   taskReq,
+			"ReqTopic":  ts.taskStateMachine.Reservation.AntTopic,
+			"ResTopic":  ts.serverCfg.GetResponseTopicTaskReply(),
+			"RequestID": ts.taskStateMachine.Request.GetID(),
+			"Retried":   ts.taskStateMachine.Request.GetRetried(),
+		}).Debugf("sending request>>>>>>>>>")
+	}
 	if event, err = ts.taskStateMachine.QueueClient.SendReceive(
 		ctx,
 		ts.taskStateMachine.Reservation.AntTopic,
@@ -199,6 +215,7 @@ func (ts *TaskSupervisor) invoke(
 		ts.serverCfg.GetResponseTopicTaskReply(),
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
+			queue.Source, ts.taskStateMachine.Reservation.AntID,
 			"RequestID", fmt.Sprintf("%d", taskReq.JobRequestID),
 			"TaskType", taskReq.TaskType,
 			"UserID", taskReq.UserID,
@@ -209,14 +226,15 @@ func (ts *TaskSupervisor) invoke(
 	if event == nil {
 		return nil, fmt.Errorf("received nil response from request %v", taskReq)
 	}
-	taskResp = common.NewTaskResponse(taskReq)
-	if err = json.Unmarshal(event.Payload, taskResp); err != nil {
-		return nil, err
+	taskResp, err = common.UnmarshalTaskResponse(ts.taskStateMachine.Reservation.EncryptionKey, event.Payload)
+	if err != nil {
+		return taskReq.ErrorResponse(err), nil
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":         "TaskSupervisor",
 			"Task":              ts.taskStateMachine.TaskDefinition,
+			"AntID":             ts.taskStateMachine.Reservation.AntTopic,
 			"OriginalState":     taskResp.Status,
 			"OriginalErrorCode": taskResp.ErrorCode,
 			"ExitCode":          taskResp.ExitCode,

@@ -278,7 +278,7 @@ func (n *DefaultNotifier) NotifyJob(
 				if sender.SupportsLongReport() {
 					reportStdoutLen[k] = len(stdoutStr)
 					msg = report
-				} else if html, err := cutils.HtmlToText(report); err == nil {
+				} else if html, err := cutils.HTMLToText(report); err == nil {
 					opts[types.LongReport] = html
 				} else {
 					opts[types.LongReport] = report

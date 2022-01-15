@@ -52,10 +52,11 @@ func NewJobForkTasklet(
 		id,
 		&serverCfg.CommonConfig,
 		queueClient,
+		nil,
 		requestRegistry,
 		requestTopic,
 		serverCfg.GetRegistrationTopic(),
-		registration,
+		&registration,
 		t,
 	)
 	return t
@@ -73,6 +74,8 @@ func (t *JobForkTasklet) ListContainers(
 	_ context.Context,
 	req *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	taskResp = common.NewTaskResponse(req)
+	taskResp.AntID = t.ID
+	taskResp.Host = "server"
 	taskResp.Status = common.COMPLETED
 	taskResp.AddContext("containers", make([]*events.ContainerLifecycleEvent, 0))
 	return
@@ -90,6 +93,9 @@ func (t *JobForkTasklet) Execute(
 	_ context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
+	if taskReq.ExecutorOpts.ForkJobType == "" {
+		return taskReq.ErrorResponse(fmt.Errorf("fork_job_type is not specified for job %s and request %d", taskReq.JobType, taskReq.JobRequestID)), nil
+	}
 	jobDef, err := t.jobManager.GetJobDefinitionByType(
 		queryContext,
 		taskReq.ExecutorOpts.ForkJobType,
@@ -102,11 +108,11 @@ func (t *JobForkTasklet) Execute(
 			"ForkJobVersion": taskReq.ExecutorOpts.ForkJobVersion,
 			"Error":          err,
 		}).Warnf("failed to find plugin to fork")
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 	req, err := types.NewJobRequestFromDefinition(jobDef)
 	if err != nil {
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 	req.JobVersion = taskReq.ExecutorOpts.ForkJobVersion
 	for k, v := range taskReq.Variables {
@@ -122,23 +128,18 @@ func (t *JobForkTasklet) Execute(
 		common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID),
 		req)
 	if err != nil {
-		return buildTaskResponseWithError(taskReq, err)
+		return taskReq.ErrorResponse(err), nil
 	}
 
 	taskResp = common.NewTaskResponse(taskReq)
+	taskResp.AntID = t.ID
+	taskResp.Host = "server"
 	taskResp.Status = common.COMPLETED
 	taskResp.AddContext(taskReq.TaskType+forkedJobIDSuffix, saved.ID)
 	taskResp.AddContext(taskReq.TaskType+forkedJobTypeSuffix, saved.JobType)
 	taskResp.AddContext(taskReq.TaskType+forkedJobVersionSuffix, saved.JobVersion)
 	taskResp.AddJobContext(taskReq.TaskType+forkedJobIDSuffix, saved.ID)
 	return
-}
-
-func buildTaskResponseWithError(taskReq *common.TaskRequest, err error) (taskResp *common.TaskResponse, respErr error) {
-	taskResp = common.NewTaskResponse(taskReq)
-	taskResp.ErrorMessage = err.Error()
-	taskResp.Status = common.FAILED
-	return taskResp, nil
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////

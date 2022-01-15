@@ -47,6 +47,7 @@ type JobScheduler struct {
 	totalPendingJobs                 uint64
 	totalScheduledJobs               uint64
 	done                             chan bool
+	stopped                          bool
 	tickers                          []*time.Ticker
 	jobSchedulerLeaderSubscriptionID string
 }
@@ -76,10 +77,10 @@ func New(
 		metricsRegistry:               metricsRegistry,
 		jobSchedulerLeaderTopic:       serverCfg.GetJobSchedulerLeaderTopic(),
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
-		busy:        false,
-		noJobsTries: 0,
-		done:        make(chan bool, 1),
-		tickers:     make([]*time.Ticker, 0),
+		busy:                          false,
+		noJobsTries:                   0,
+		done:                          make(chan bool, 1),
+		tickers:                       make([]*time.Ticker, 0),
 	}
 }
 
@@ -104,10 +105,19 @@ func (js *JobScheduler) Stop(ctx context.Context) error {
 		ticker.Stop()
 		js.done <- true
 	}
+	js.lock.Lock()
+	js.stopped = true
+	js.lock.Unlock()
 	return nil
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func (js *JobScheduler) isStopped() bool {
+	js.lock.RLock()
+	defer js.lock.RUnlock()
+	return js.stopped
+}
+
 func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	js.lockWithBusy()
 	defer js.unlockWithBusy()

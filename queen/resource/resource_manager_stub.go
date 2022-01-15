@@ -34,6 +34,20 @@ func (rm *ManagerStub) Stop(_ context.Context) (err error) {
 	return nil
 }
 
+// Register stub
+func (rm *ManagerStub) Register(
+	_ context.Context,
+	_ *common.AntRegistration) error {
+	return nil
+}
+
+// Unregister stub
+func (rm *ManagerStub) Unregister(
+	_ context.Context,
+	_ string) error {
+	return nil
+}
+
 // Registrations returns all registered ants
 func (rm *ManagerStub) Registrations() (regs []*common.AntRegistration) {
 	regs = make([]*common.AntRegistration, 0)

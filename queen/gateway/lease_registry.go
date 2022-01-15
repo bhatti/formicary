@@ -77,14 +77,17 @@ func (r *LeaseRegistry) Add(lease *SubscriptionLease) (err error) {
 		keys[lease.Key()] = true
 		r.keysByAddresses[lease.Address()] = keys
 
-		logrus.WithFields(logrus.Fields{
-			"Component":  "LeaseRegistry",
-			"UserID":     lease.userID,
-			"EventType":  lease.EventType,
-			"EventScope": lease.EventScope,
-			"Address":    lease.Address(),
-			"Key":        lease.Key(),
-		}).Infof("added lease")
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":  "LeaseRegistry",
+				"UserID":     lease.userID,
+				"EventType":  lease.EventType,
+				"EventScope": lease.EventScope,
+				"Address":    lease.Address(),
+				"Key":        lease.Key(),
+			}).Debugf("added lease")
+		}
+
 	}
 	return
 }
@@ -100,12 +103,14 @@ func (r *LeaseRegistry) Remove(lease *SubscriptionLease) (err error) {
 		return err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Component":   "LeaseRegistry",
-		"UserID":      lease.userID,
-		"StateChange": lease.EventType,
-		"Key":         lease.Key(),
-	}).Info("removing lease!")
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":   "LeaseRegistry",
+			"UserID":      lease.userID,
+			"StateChange": lease.EventType,
+			"Key":         lease.Key(),
+		}).Debugf("removing lease!")
+	}
 
 	lease.Close()
 	delete(r.leasesByKey, lease.Key())
@@ -184,8 +189,8 @@ func (r *LeaseRegistry) Notify(userID string, eventType string, eventScope strin
 
 // getAllLeases
 func (r *LeaseRegistry) getAllLeases() (leases []*SubscriptionLease) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.lock.RLock()
+	defer r.lock.RUnlock()
 	leases = make([]*SubscriptionLease, 0)
 	for _, lease := range r.leasesByKey {
 		leases = append(leases, lease)
@@ -195,8 +200,8 @@ func (r *LeaseRegistry) getAllLeases() (leases []*SubscriptionLease) {
 
 // getLeasesByAddress
 func (r *LeaseRegistry) getLeasesByAddress(address string) (leases []*SubscriptionLease) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.lock.RLock()
+	defer r.lock.RUnlock()
 	leases = make([]*SubscriptionLease, 0)
 	keys := r.keysByAddresses[address]
 	if keys != nil {
@@ -220,8 +225,8 @@ func (r *LeaseRegistry) getLeasesByAddress(address string) (leases []*Subscripti
 // getLeasesByUserAndEventTypeScope accessor
 func (r *LeaseRegistry) getLeasesByUserAndEventTypeScope(userID string, eventType string, eventScope string) (leases []*SubscriptionLease) {
 	eventKey := EventKey("", userID, eventType, eventScope)
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.lock.RLock()
+	defer r.lock.RUnlock()
 	leases = make([]*SubscriptionLease, 0)
 	keys := r.keysByUserAndEventType[eventKey]
 	if keys != nil {

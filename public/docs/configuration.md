@@ -145,6 +145,7 @@ methods:
   - HTTP_PUT_FORM
   - HTTP_PUT_JSON
   - HTTP_DELETE
+  - WEBSOCKET
 docker:
     registry:
         registry: ""

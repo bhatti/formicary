@@ -100,7 +100,8 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		semVersion = jobTypeAndVersion[1]
 	}
 	if jobType == "" {
-		return nil, common.NewValidationError("job-type is not specified")
+		debug.PrintStack()
+		return nil, common.NewValidationError("cannot find job-definition because job-type is not specified")
 	}
 	job = &types.JobDefinition{}
 	tx := jdr.db.Preload("Tasks").

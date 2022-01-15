@@ -24,6 +24,7 @@ type ContainersReaper struct {
 	httpClient      web.HTTPClient
 	metricsRegistry *metrics.Registry
 	ticker          *time.Ticker
+	stopped         bool
 }
 
 // NewContainersReaper constructor
@@ -45,7 +46,7 @@ func NewContainersReaper(
 func (r *ContainersReaper) Start(ctx context.Context) {
 	r.ticker = time.NewTicker(r.antCfg.ContainerReaperInterval)
 	go func() {
-		for {
+		for !r.stopped {
 			select {
 			case <-r.ticker.C:
 				r.reap(ctx)
@@ -62,6 +63,7 @@ func (r *ContainersReaper) Stop() {
 	if r.ticker != nil {
 		r.ticker.Stop()
 	}
+	r.stopped = true
 }
 
 // TODO fetch dead ids from /jobs/requests/dead_ids

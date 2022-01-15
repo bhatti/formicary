@@ -9,9 +9,10 @@ import (
 	"strings"
 )
 
-// Service service definition
+// Service defines service definition
 type Service struct {
 	Name                    string             `yaml:"name" json:"name"`
+	Instances               int                `yaml:"instances" json:"instances"`
 	Alias                   string             `yaml:"alias,omitempty" json:"alias,omitempty"`
 	WorkingDirectory        string             `yaml:"working_directory,omitempty" json:"working_directory,omitempty"`
 	Image                   string             `yaml:"image,omitempty" json:"image,omitempty"`

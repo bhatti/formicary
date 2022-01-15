@@ -2,6 +2,7 @@ package tasklet
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/queue"
@@ -76,6 +77,7 @@ func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
 	res, err = messagingTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should not fail
+	require.Equal(t, "", res.ErrorMessage)
 	require.Equal(t, common.COMPLETED, res.Status)
 }
 
@@ -87,6 +89,20 @@ func newTestMessagingTasklet(t *testing.T) *MessagingTasklet {
 		&cfg.CommonConfig,
 		metrics.New(),
 	)
+	queueClient.SendReceivePayloadFunc = func(
+		_ queue.MessageHeaders,
+		payload []byte) ([]byte, error) {
+		var req common.TaskRequest
+		err := json.Unmarshal(payload, &req)
+		if err != nil {
+			return nil, err
+		}
+		res := common.NewTaskResponse(&req)
+		res.AntID = "test"
+		res.Host = "test"
+		res.Status = common.COMPLETED
+		return json.Marshal(res)
+	}
 
 	messagingTasklet := NewMessagingTasklet(
 		cfg,

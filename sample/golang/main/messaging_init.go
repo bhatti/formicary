@@ -51,6 +51,7 @@ func startAntWorker(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	ant := golang.NewMessagingHandler(
+		&serverConfig.CommonConfig,
 		id,
 		requestTopic,
 		responseTopic,

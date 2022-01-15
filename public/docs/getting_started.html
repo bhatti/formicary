@@ -49,7 +49,7 @@
 <div class="container-fluid">
 <h2 id="getting-started">Getting Started</h2>
 <h3 id="job-definition">Job Definition</h3>
-<p>The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the execution specifications are defined in a job configuration. A job defines directed acyclic graph (DAG) of tasks for the order of execution, which can also be considered as a workflow for the execution path of tasks. The task defines a unit of work, which can be executing using DOCKER, KUBERNETES, HTTP, SHELL, MESSAGING or other executors.</p>
+<p>The formicary can be used to execute batch jobs, workflows or CI/CD pipelines, where the execution specifications are defined in a job configuration. A job defines directed acyclic graph (DAG) of tasks for the order of execution, which can also be considered as a workflow for the execution path of tasks. The task defines a unit of work, which can be executing using DOCKER, KUBERNETES, HTTP, WEBSOCKET, SHELL, MESSAGING or other executors.</p>
 <p><b>Note:</b> The formicary uses a yaml based job-definition to specify the metadata and workflow of the job and an instance of job-definition called <code>job-execution</code> is created upon submitting job-request.</p>
 <h3 id="job-configuration">Job Configuration</h3>
 <p>Following is an example of <code>hello-world</code> job configuration that defines three tasks:</p>

@@ -225,6 +225,7 @@ func (r *AntContainersRegistry) subscribeToContainersLifecycleEvents(
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }
@@ -257,6 +258,7 @@ func (r *AntContainersRegistry) subscribeToRegistration(
 			}
 			return nil
 		},
+		nil,
 		make(map[string]string),
 	)
 }

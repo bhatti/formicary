@@ -26,7 +26,7 @@ func Test_InitializeSwaggerStructsForContainerExecution(t *testing.T) {
 func Test_ShouldQueryContainerExecutions(t *testing.T) {
 	// GIVEN container execution controller
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := buildTestQueueClient(cfg)
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendContainerExecution(cfg, queueClient, t)
 
@@ -48,7 +48,7 @@ func Test_ShouldQueryContainerExecutions(t *testing.T) {
 func Test_ShouldDeleteContainerExecution(t *testing.T) {
 	// GIVEN container execution controller
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := buildTestQueueClient(cfg)
 	mgr := newTestResourceManager(cfg, queueClient, t)
 	sendAntRegistration(cfg, queueClient, t)
 	sendContainerExecution(cfg, queueClient, t)
@@ -87,7 +87,9 @@ func sendContainerExecution(serverCfg *config.ServerConfig, queueClient queue.Cl
 		context.Background(),
 		serverCfg.GetContainerLifecycleTopic(),
 		bEvent,
-		make(map[string]string),
+		queue.NewMessageHeaders(
+			queue.ReusableTopicKey, "false",
+			queue.Source, "test",
+		),
 	)
 }
-

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -376,7 +377,7 @@ func (u *Utils) BuildPod(
 	}
 	// pod container specifications
 	serviceNames := make([]string, 0)
-	podServices := make([]api.Container, len(opts.Services))
+	podServices := make([]api.Container, 0)
 	volumes := u.config.Kubernetes.Volumes.GetVolumes()
 	hostAliases, err := domain.CreateHostAliases(opts.Services, u.config.Kubernetes.GetHostAliases())
 	if err != nil {
@@ -393,38 +394,55 @@ func (u *Utils) BuildPod(
 		if service.Name == "" {
 			service.Name = fmt.Sprintf("svc-%d", i)
 		}
-		serviceRequests, _, err := u.config.Kubernetes.CreateResourceList(
-			"service-request-"+service.Name,
-			service.CPURequest,
-			service.MemoryRequest,
-			service.EphemeralStorageRequest)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create service for %s due to %s", service.Name, err.Error())
+		if service.Instances > u.config.Kubernetes.MaxServicesPerPod {
+			service.Instances = u.config.Kubernetes.MaxServicesPerPod
 		}
-		serviceLimits, cost, err := u.config.Kubernetes.CreateResourceList(
-			"service-limit-"+service.Name,
-			service.CPULimit,
-			service.MemoryLimit,
-			service.EphemeralStorageLimit)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create service resource for %s due to %s",
-				service.Name, err.Error())
+		if service.Instances < 1 {
+			service.Instances = 1
 		}
-		totalCost += cost
-		volumes = service.GetKubernetesVolumes().AddVolumes(volumes)
-		volumeMounts := service.GetKubernetesVolumes().AddVolumeMounts(u.config.Kubernetes.Volumes.GetVolumeMounts())
-		podServices[i] = buildContainer(
-			&u.config.Kubernetes,
-			service.Name,
-			service.WorkingDirectory,
-			service.Image,
-			service.ToImageDefinition(),
-			serviceRequests,
-			serviceLimits,
-			volumeMounts,
-			buildVariables(&u.config.Kubernetes, opts, false),
-			privileged)
-		serviceNames = append(serviceNames, podServices[i].Name)
+		baseSvcName := service.Name
+		for j := 0; i < service.Instances; j++ {
+			svcName := baseSvcName
+			envMap := make(map[string]string)
+			if service.Instances > 1 {
+				svcName = fmt.Sprintf("%s-%d", baseSvcName, j)
+				envMap["SERVICE_INSTANCE"] = strconv.Itoa(j)
+				envMap[strings.ToUpper(baseSvcName)+"_SERVICE_INSTANCE"] = strconv.Itoa(j)
+			}
+			serviceRequests, _, err := u.config.Kubernetes.CreateResourceList(
+				"service-request-"+svcName,
+				service.CPURequest,
+				service.MemoryRequest,
+				service.EphemeralStorageRequest)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create service for %s due to %s", svcName, err.Error())
+			}
+			serviceLimits, cost, err := u.config.Kubernetes.CreateResourceList(
+				"service-limit-"+svcName,
+				service.CPULimit,
+				service.MemoryLimit,
+				service.EphemeralStorageLimit)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create service resource for %s due to %s",
+					svcName, err.Error())
+			}
+			totalCost += cost
+			volumes = service.GetKubernetesVolumes().AddVolumes(volumes)
+			volumeMounts := service.GetKubernetesVolumes().AddVolumeMounts(u.config.Kubernetes.Volumes.GetVolumeMounts())
+			podService := buildContainer(
+				&u.config.Kubernetes,
+				svcName,
+				service.WorkingDirectory,
+				service.Image,
+				service.ToImageDefinition(),
+				serviceRequests,
+				serviceLimits,
+				volumeMounts,
+				buildVariables(&u.config.Kubernetes, opts, false, envMap),
+				privileged)
+			podServices = append(podServices, podService)
+			serviceNames = append(serviceNames, podService.Name)
+		}
 	}
 
 	// Main Container
@@ -449,7 +467,7 @@ func (u *Utils) BuildPod(
 			return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %s", opts.Name, err.Error())
 		}
 		totalCost += cost
-		podServices = append(podServices, buildContainer(
+		mainContainer := buildContainer(
 			&u.config.Kubernetes,
 			opts.Name,
 			opts.WorkingDirectory,
@@ -458,8 +476,9 @@ func (u *Utils) BuildPod(
 			requests,
 			limits,
 			volumeMounts,
-			buildVariables(&u.config.Kubernetes, opts, false),
-			privileged))
+			buildVariables(&u.config.Kubernetes, opts, false, nil),
+			privileged)
+		podServices = append(podServices, mainContainer)
 		//serviceNames = append(serviceNames, opts.Name)
 	}
 
@@ -491,7 +510,7 @@ func (u *Utils) BuildPod(
 		volumeMounts := opts.HelperContainer.GetKubernetesVolumes().AddVolumeMounts(
 			u.config.Kubernetes.Volumes.GetVolumeMounts())
 
-		podServices = append(podServices, buildContainer(
+		helperContainer := buildContainer(
 			&u.config.Kubernetes,
 			helperName,
 			"",
@@ -500,8 +519,9 @@ func (u *Utils) BuildPod(
 			helperRequests,
 			helperLimits,
 			volumeMounts,
-			buildVariables(&u.config.Kubernetes, opts, true),
-			privileged))
+			buildVariables(&u.config.Kubernetes, opts, true, nil),
+			privileged)
+		podServices = append(podServices, helperContainer)
 		//serviceNames = append(serviceNames, helperName)
 	}
 
