@@ -91,7 +91,9 @@ func (t *BaseTasklet) Start(
 		_ = t.Stop(ctx)
 		return err
 	}
-	t.startTickerForRegistration(ctx)
+	if !t.registration.PersistentConnection {
+		t.startTickerForRegistration(ctx) // renew registration
+	}
 	logrus.WithFields(
 		logrus.Fields{
 			"Component":    "BaseTasklet",
@@ -269,6 +271,10 @@ func (t *BaseTasklet) handleRequest(
 			}
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
 		}
+	} else if req.Action == types.PING {
+		taskResp := types.NewTaskResponse(req)
+		taskResp.Status = types.COMPLETED
+		err = t.sendResponse(ctx, taskResp, replyTopic, started)
 	} else if req.Action == types.LIST {
 		var taskResp *types.TaskResponse
 		if taskResp, err = t.executor.ListContainers(ctx, req); err != nil {
@@ -361,7 +367,7 @@ func (t *BaseTasklet) sendResponse(
 			queue.NewMessageHeaders(
 				queue.ReusableTopicKey, "false",
 				queue.CorrelationIDKey, taskResp.CoRelationID,
-				queue.Source, t.ID,
+				queue.MessageTarget, t.ID,
 				"RequestID", fmt.Sprintf("%d", taskResp.JobRequestID),
 				"TaskType", taskResp.TaskType,
 			))

@@ -12,8 +12,8 @@ const (
 	DisableBatchingKey = "DisableBatching"
 	// ReusableTopicKey to cache producer
 	ReusableTopicKey = "ReusableTopic"
-	// Source to of message
-	Source = "Source"
+	// MessageTarget of message
+	MessageTarget = "MessageTarget"
 	// CorrelationIDKey for send/receive
 	CorrelationIDKey = "CorrelationID"
 	replyTopicKey    = "ReplyTopic"
@@ -87,4 +87,8 @@ func NewMessagingClient(config *types.CommonConfig) (Client, error) {
 	} else {
 		return nil, fmt.Errorf("unsupported messaging provider %s", config.MessagingProvider)
 	}
+}
+
+func buildKey(topic string, id string) string {
+	return topic + "::" + id
 }

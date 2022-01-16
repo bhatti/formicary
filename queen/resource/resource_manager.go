@@ -27,7 +27,7 @@ type Manager interface {
 		registration *common.AntRegistration) error
 	Unregister(
 		ctx context.Context,
-		id string) error
+		id string) (bool, error)
 	Registrations() []*common.AntRegistration
 	Registration(id string) *common.AntRegistration
 	HasAntsForJobTags(
@@ -320,16 +320,16 @@ func (rm *ManagerImpl) Register(
 // Unregister removes registration
 func (rm *ManagerImpl) Unregister(
 	_ context.Context,
-	id string) error {
+	id string) (bool, error) {
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ResourceManager",
 			"AntID":     id,
 		}).Debug("unregister ant worker")
 	}
-	rm.state.removeRegistration(id)
+	_, _, count := rm.state.removeRegistration(id)
 
-	return nil
+	return count > 0, nil
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////

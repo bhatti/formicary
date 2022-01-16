@@ -124,7 +124,7 @@ func (h *MessagingHandler) execute(
 		queue.NewMessageHeaders(
 			queue.ReusableTopicKey, "false",
 			queue.CorrelationIDKey, props.GetCorrelationID(),
-			queue.Source, h.id,
+			queue.MessageTarget, h.id,
 		),
 	)
 	logrus.WithFields(logrus.Fields{

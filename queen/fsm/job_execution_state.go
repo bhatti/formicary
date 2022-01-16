@@ -956,7 +956,7 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 		initiateEvent,
 		queue.NewMessageHeaders(
 			queue.ReusableTopicKey, "false",
-			queue.Source, jsm.id,
+			queue.MessageTarget, jsm.id,
 		),
 	); err != nil {
 		return fmt.Errorf("failed to send launch event due to %s", err.Error())

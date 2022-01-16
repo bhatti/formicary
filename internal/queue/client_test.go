@@ -70,6 +70,106 @@ func Test_ShouldNotReceiveWithoutSend(t *testing.T) {
 	}
 }
 
+func Test_ShouldSendReceiveWithFilter(t *testing.T) {
+	// GIVEN queue client
+	cli, err := newStub()
+	if err != nil {
+		t.Fatalf("unexpected error %s", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*40)
+	defer cancel()
+	started := time.Now()
+	max := 20
+
+	reqTopic, err := buildTopic(cli, "-request")
+	require.NoError(t, err)
+	replyTopic, err := buildTopic(cli, "-reply")
+	require.NoError(t, err)
+
+	// WHEN subscribing that expects to receive messages
+	targets := []string{"target1", "target2", "target3"}
+	ids := make([]string, 0)
+	for _, target := range targets {
+		id, err := subscribeWithFilter(t, cli, ctx, reqTopic, started, target)
+		if err != nil {
+			t.Fatalf("unexpected error %s", err)
+		}
+		ids = append(ids, id)
+	}
+	defer func() {
+		for _, id := range ids {
+			_ = cli.UnSubscribe(ctx, reqTopic, id)
+		}
+	}()
+
+	n := int64(0)
+	for _, target := range targets {
+		for j := 0; j < max; {
+			n++
+			event := newTestEvent(started.Unix() + n)
+			if _, err := cli.SendReceive(
+				ctx,
+				reqTopic,
+				marshalTestEvent(event),
+				replyTopic,
+				NewMessageHeaders(
+					"FILTER", target,
+				),
+			); err == nil {
+				j++
+			} else {
+				t.Fatalf(err.Error())
+			}
+		}
+	}
+	t.Logf("filtered messages %d", n)
+}
+
+func subscribeWithFilter(
+	t *testing.T, cli Client,
+	ctx context.Context,
+	reqTopic string,
+	started time.Time,
+	target string) (string, error) {
+	id, err := cli.Subscribe(
+		ctx,
+		reqTopic,
+		true,
+		func(ctx context.Context, event *MessageEvent) error {
+			defer event.Ack()
+			msg := unmarshalTestEvent(event.Payload)
+			if msg.ID < started.Unix() {
+				//t.Logf("send/receive receiving stale message id %d, elapsed %f corelID %s",
+				//	msg.ID-started.Unix(), time.Now().Sub(started).Seconds(), event.CoRelationID())
+			} else {
+				msg.Replied = true
+				payload := marshalTestEvent(msg)
+				_, _ = cli.Send(
+					ctx,
+					event.ReplyTopic(),
+					payload,
+					NewMessageHeaders(
+						CorrelationIDKey, event.CoRelationID(),
+						"FILTER", target,
+					),
+				)
+				t.Logf("send/receive receiving message id %d, elapsed %f corelID %s, target %s",
+					msg.ID-started.Unix(), time.Now().Sub(started).Seconds(), event.CoRelationID(), target)
+			}
+			return nil
+		},
+		func(ctx context.Context, event *MessageEvent) bool {
+			matched := event.Properties["FILTER"] == target
+			if !matched {
+				//t.Logf("rejecting message for unknown filter %s, local target %s", event.Properties, target)
+			}
+			return matched
+		},
+		make(map[string]string),
+	)
+	return id, err
+}
+
 func Test_ShouldSendReceive(t *testing.T) {
 	// GIVEN queue client
 	cli, err := newStub()
@@ -108,8 +208,7 @@ func Test_ShouldSendReceive(t *testing.T) {
 					payload,
 					NewMessageHeaders(CorrelationIDKey, event.CoRelationID()),
 				)
-				t.Logf("send/receive receiving message id %d, elapsed %f corelID %s",
-					msg.ID-started.Unix(), time.Now().Sub(started).Seconds(), event.CoRelationID())
+				//t.Logf("send/receive receiving message id %d, elapsed %f corelID %s", msg.ID-started.Unix(), time.Now().Sub(started).Seconds(), event.CoRelationID())
 			}
 			return nil
 		},
@@ -181,8 +280,7 @@ func Test_ShouldSubscribePubSub(t *testing.T) {
 					//t.Logf("pub/sub received stale id %d, message %s, offset %d, group %s, topic %s, corelID %s",
 					//	msg.ID-started.Unix(), msg.Message, event.Offset, group, topic, event.CoRelationID())
 				} else {
-					t.Logf("pub/sub received id %d, message %s, offset %d, group %s, topic %s, corelID %s",
-						msg.ID-started.Unix(), msg.Message, event.Offset, group, topic, event.CoRelationID())
+					//t.Logf("pub/sub received id %d, message %s, offset %d, group %s, topic %s, corelID %s", msg.ID-started.Unix(), msg.Message, event.Offset, group, topic, event.CoRelationID())
 					receiveCh <- 1
 				}
 				return nil
@@ -204,7 +302,7 @@ func Test_ShouldSubscribePubSub(t *testing.T) {
 			make(map[string]string),
 		); err == nil {
 			i++
-			t.Logf("published %d message to %s", i, topic)
+			//t.Logf("published %d message to %s", i, topic)
 		} else {
 			//t.Logf("failed to publish %v", err)
 			time.Sleep(10 * time.Millisecond)
@@ -242,7 +340,7 @@ func newConfig() (*types.CommonConfig, error) {
 		Pulsar: types.PulsarConfig{URL: "pulsar://localhost:6650", ConnectionTimeout: 1 * time.Second},
 		//Kafka:             types.KafkaConfig{Brokers: []string{"localhost:9092"}},
 		Kafka:             types.KafkaConfig{Brokers: []string{"192.168.1.102:19092", "192.168.1.102:29092", "192.168.1.102:39092"}},
-		Redis:             types.RedisConfig{Host: "localhost", Port: 6379},
+		Redis:             types.RedisConfig{Host: "192.168.1.102", Port: 6379},
 		MessagingProvider: types.KafkaMessagingProvider,
 		S3:                types.S3Config{AccessKeyID: "admin", SecretAccessKey: "password", Bucket: "test-bucket"},
 	}
@@ -257,9 +355,9 @@ func newStub() (Client, error) {
 	}
 	cfg.Kafka.Group = "test-dev-group"
 	return NewStubClient(cfg), nil
+	//return newClientRedis(&cfg.Redis)
 	//return newKafkaClient(cfg)
 	//return newPulsarClient(&cfg.Pulsar)
-	//return newClientRedis(&cfg.Redis)
 }
 
 type testEvent struct {

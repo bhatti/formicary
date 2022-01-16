@@ -27,15 +27,20 @@ type ClientRedis struct {
 // redisPubSubConnection structure
 type redisPubSubConnection struct {
 	topic     *redis.PubSub
-	consumers map[string]Callback
+	consumers map[string]redisPubSubSubscription
 	done      chan bool
+}
+
+// redisPubSubSubscription structure
+type redisPubSubSubscription struct {
+	callback Callback
+	filter   Filter
 }
 
 // redisQueueSubscription structure
 type redisQueueSubscription struct {
-	cb     Callback
-	filter Filter
-	done   chan bool
+	mx   *SendReceiveMultiplexer
+	done chan bool
 }
 
 // HeadersPayload structure
@@ -112,8 +117,20 @@ func (c *ClientRedis) UnSubscribe(
 			delete(c.pubsubConnections, topic)
 		}
 	}
-	key := buildKey(topic, id)
-	delete(c.queueSubscribers, key)
+	subscription := c.queueSubscribers[topic]
+	if subscription != nil {
+		count := subscription.mx.Remove(id)
+		if count == 0 {
+			delete(c.queueSubscribers, topic)
+		}
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientRedis",
+				"ID":        id,
+				"Topic":     topic}).
+				Debugf("unsubscribing redis topic")
+		}
+	}
 	return nil
 }
 
@@ -194,6 +211,9 @@ func (c *ClientRedis) Close() {
 		close(next.done)
 	}
 	for _, next := range c.queueSubscribers {
+		for _, id := range next.mx.SubscriberIDs() {
+			next.mx.Remove(id)
+		}
 		close(next.done)
 	}
 	c.closed = true
@@ -206,61 +226,25 @@ func (c *ClientRedis) addQueueSubscriber(
 	id string,
 	cb Callback,
 	filter Filter) (err error) {
-	started := time.Now()
-	key := buildKey(topic, id)
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	subscriber := c.queueSubscribers[key]
-	if subscriber != nil {
+	subscription := c.queueSubscribers[topic]
+	if subscription != nil {
+		_ = subscription.mx.Add(ctx, id, "", cb, filter, nil)
 		return nil
 	}
-	subscription := &redisQueueSubscription{
-		cb:   cb,
+	subscription = &redisQueueSubscription{
+		mx: NewSendReceiveMultiplexer(
+			ctx,
+			topic,
+			0),
 		done: make(chan bool),
 	}
-	c.queueSubscribers[key] = subscription
+	c.queueSubscribers[topic] = subscription
+	_ = subscription.mx.Add(ctx, id, "", cb, filter, nil)
 
 	go func() {
-		defer func() {
-			c.lock.Lock()
-			defer c.lock.Unlock()
-			delete(c.queueSubscribers, key)
-			close(subscription.done)
-		}()
-		for {
-			event, err := c.pollQueue(ctx, topic)
-			if err != nil {
-				if logrus.IsLevelEnabled(logrus.DebugLevel) {
-					logrus.WithFields(logrus.Fields{
-						"Component": "ClientRedis",
-						"Topic":     topic,
-						"Error":     err,
-						"ID":        id}).
-						Debugf("failed to receive event!")
-				}
-			} else {
-				if filter == nil || filter(ctx, event) {
-					_ = cb(ctx, event)
-				}
-			}
-			select {
-			case <-subscription.done:
-				return
-			case <-ctx.Done():
-				elapsed := time.Since(started)
-				err = ctx.Err()
-				logrus.WithFields(logrus.Fields{
-					"Component": "ClientRedis",
-					"Topic":     topic,
-					"Elapsed":   elapsed,
-					"Error":     err,
-					"ID":        id}).
-					Warn("context done while receiving event!")
-				return
-			case <-time.After(10 * time.Millisecond):
-				continue
-			}
-		}
+		c.doQueueReceive(ctx, subscription, topic, id)
 	}()
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -274,63 +258,85 @@ func (c *ClientRedis) addQueueSubscriber(
 	return
 }
 
+func (c *ClientRedis) doQueueReceive(
+	ctx context.Context,
+	subscription *redisQueueSubscription,
+	topic string,
+	id string,
+) {
+	started := time.Now()
+	defer func() {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+		delete(c.queueSubscribers, topic)
+		close(subscription.done)
+	}()
+	for {
+		event, err := c.pollQueue(ctx, topic)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientRedis",
+				"Topic":     topic,
+				"Error":     err,
+				"ID":        id}).
+				Warnf("failed to receive event!")
+		} else {
+			subscription.mx.Notify(ctx, event)
+		}
+		select {
+		case <-subscription.done:
+			return
+		case <-ctx.Done():
+			elapsed := time.Since(started)
+			err = ctx.Err()
+			logrus.WithFields(logrus.Fields{
+				"Component": "ClientRedis",
+				"Topic":     topic,
+				"Elapsed":   elapsed,
+				"Error":     err,
+				"ID":        id}).
+				Warn("context done while receiving event!")
+			return
+		case <-time.After(10 * time.Millisecond):
+			continue
+		}
+	}
+}
+
 func (c *ClientRedis) addPubSubscriber(
 	ctx context.Context,
 	topic string,
 	id string,
 	cb Callback,
 	filter Filter) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	sharedConn := c.pubsubConnections[topic]
+	var sharedConn *redisPubSubConnection
+	{
+		c.lock.Lock()
+		defer c.lock.Unlock()
+		sharedConn = c.pubsubConnections[topic]
 
-	if sharedConn != nil {
-		sharedConn.consumers[id] = cb
-		return nil
-	}
-
-	sharedConn = &redisPubSubConnection{
-		topic:     c.redisClient.Subscribe(ctx, topic),
-		consumers: make(map[string]Callback),
-		done:      make(chan bool),
-	}
-	sharedConn.consumers[id] = cb
-	c.pubsubConnections[topic] = sharedConn
-
-	maxWait := 30 * time.Second
-	minWait := 10 * time.Millisecond
-	curWait := minWait
-	subscribed := true
-	go func() {
-		defer func() {
-			_ = sharedConn.topic.Unsubscribe(ctx, topic)
-			_ = sharedConn.topic.Close()
-		}()
-		for {
-			if err := c.redisClient.Ping(ctx).Err(); err != nil {
-				if curWait < maxWait {
-					curWait *= 2
-				}
-				subscribed = false
+		if sharedConn != nil {
+			sharedConn.consumers[id] = redisPubSubSubscription{
+				callback: cb,
+				filter:   filter,
 			}
-			if !subscribed {
-				if err = sharedConn.topic.Subscribe(ctx, topic); err == nil {
-					subscribed = true
-				}
-			}
-			select {
-			case msg := <-sharedConn.topic.Channel():
-				hp := toHeadersPayload([]byte(msg.Payload))
-				c.notifyPubSubConsumers(ctx, topic, hp.Properties, hp.Payload)
-				curWait = minWait
-			case <-sharedConn.done:
-				return
-			case <-ctx.Done():
-				err = ctx.Err()
-				return
-			case <-time.After(math.MinDuration(maxWait, curWait)):
-			}
+			return nil
 		}
+
+		sharedConn = &redisPubSubConnection{
+			topic:     c.redisClient.Subscribe(ctx, topic),
+			consumers: make(map[string]redisPubSubSubscription),
+			done:      make(chan bool),
+		}
+		sharedConn.consumers[id] = redisPubSubSubscription{
+			callback: cb,
+			filter:   filter,
+		}
+		c.pubsubConnections[topic] = sharedConn
+	}
+
+	go func() {
+		c.doPubSubReceive(ctx, sharedConn, topic)
 	}()
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -342,6 +348,45 @@ func (c *ClientRedis) addPubSubscriber(
 	}
 
 	return
+}
+
+func (c *ClientRedis) doPubSubReceive(
+	ctx context.Context,
+	sharedConn *redisPubSubConnection,
+	topic string,
+) {
+	maxWait := 30 * time.Second
+	minWait := 10 * time.Millisecond
+	curWait := minWait
+	subscribed := true
+	defer func() {
+		_ = sharedConn.topic.Unsubscribe(ctx, topic)
+		_ = sharedConn.topic.Close()
+	}()
+	for {
+		if err := c.redisClient.Ping(ctx).Err(); err != nil {
+			if curWait < maxWait {
+				curWait *= 2
+			}
+			subscribed = false
+		}
+		if !subscribed {
+			if err := sharedConn.topic.Subscribe(ctx, topic); err == nil {
+				subscribed = true
+			}
+		}
+		select {
+		case msg := <-sharedConn.topic.Channel():
+			hp := toHeadersPayload([]byte(msg.Payload))
+			c.notifyPubSubConsumers(ctx, topic, hp.Properties, hp.Payload)
+			curWait = minWait
+		case <-sharedConn.done:
+			return
+		case <-ctx.Done():
+			return
+		case <-time.After(math.MinDuration(maxWait, curWait)):
+		}
+	}
 }
 
 func (c *ClientRedis) pollQueue(
@@ -357,7 +402,6 @@ func (c *ClientRedis) pollQueue(
 		Ack:          func() {},
 		Nack:         func() {},
 	}
-
 	minWait := 10 * time.Millisecond
 	started := time.Now()
 	handler := func(ctx context.Context, payload interface{}) (bool, interface{}, error) {
@@ -396,8 +440,7 @@ func (c *ClientRedis) notifyPubSubConsumers(
 	topic string,
 	props map[string]string,
 	data []byte) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	// build event
 	event := &MessageEvent{
 		Topic:        topic,
 		ProducerName: "",
@@ -409,10 +452,15 @@ func (c *ClientRedis) notifyPubSubConsumers(
 		Nack:         func() {},
 	}
 
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	connection := c.pubsubConnections[topic]
 	if connection != nil {
+		// notify subscribers
 		for _, next := range connection.consumers {
-			_ = next(ctx, event)
+			if next.filter == nil || next.filter(ctx, event) {
+				_ = next.callback(ctx, event)
+			}
 		}
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{

@@ -19,6 +19,8 @@ type TaskAction string
 const ForkedJob = "ForkedJob"
 
 const (
+	// PING action
+	PING TaskAction = "PING"
 	// EXECUTE action
 	EXECUTE TaskAction = "EXECUTE"
 	// CANCEL action

@@ -60,7 +60,7 @@ func (c *ClientPulsar) Subscribe(
 	cb Callback,
 	filter Filter,
 	_ MessageHeaders,
-	) (id string, err error) {
+) (id string, err error) {
 	id = uuid.NewV4().String()
 	if cb == nil {
 		return id, fmt.Errorf("callback function is not specified")
@@ -116,7 +116,7 @@ func (c *ClientPulsar) Send(
 	topic string,
 	payload []byte,
 	props MessageHeaders,
-	) (messageID []byte, err error) {
+) (messageID []byte, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -127,14 +127,14 @@ func (c *ClientPulsar) Send(
 			topic,
 			payload,
 			props,
-			)
+		)
 	}
 	return c.sendPulsarMessageWithoutReusableProducer(
 		ctx,
 		topic,
 		payload,
 		props,
-		)
+	)
 }
 
 // SendReceive - Send and receive message
@@ -205,7 +205,7 @@ func (c *ClientPulsar) Publish(
 	topic string,
 	payload []byte,
 	props MessageHeaders,
-	) (messageID []byte, err error) {
+) (messageID []byte, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -214,7 +214,7 @@ func (c *ClientPulsar) Publish(
 		topic,
 		payload,
 		props,
-		)
+	)
 }
 
 // Close - closes all producers and consumers
@@ -435,7 +435,7 @@ func (c *ClientPulsar) sendPulsarMessageWithReusableProducer(
 	topic string,
 	payload []byte,
 	props MessageHeaders,
-	) (b []byte, err error) {
+) (b []byte, err error) {
 	var producer pulsar.Producer
 	producer, err = c.getProducer(topic, props.IsDisableBatching())
 	if err != nil {
@@ -449,7 +449,7 @@ func (c *ClientPulsar) sendPulsarMessageWithoutReusableProducer(
 	topic string,
 	payload []byte,
 	props map[string]string,
-	) (b []byte, err error) {
+) (b []byte, err error) {
 	var producer pulsar.Producer
 	producer, err = c.createProducer(topic, true)
 	if err != nil {
@@ -457,8 +457,4 @@ func (c *ClientPulsar) sendPulsarMessageWithoutReusableProducer(
 	}
 	defer producer.Close()
 	return sendPulsarMessage(ctx, producer, props, payload)
-}
-
-func buildKey(topic string, id string) string {
-	return topic + "::" + id
 }

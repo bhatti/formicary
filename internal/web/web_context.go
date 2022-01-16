@@ -1,11 +1,15 @@
 package web
 
 import (
+	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"plexobject.com/formicary/internal/acl"
 	"strings"
 
 	common "plexobject.com/formicary/internal/types"
@@ -93,6 +97,64 @@ const DBUserOrg = "DBUserOrg"
 // AuthDisabled constant
 const AuthDisabled = "AuthDisabled"
 
+// AuthenticatedUser returns user
+func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *common.User, err error) {
+	sessionUser := c.Get(DBUser)
+	if sessionUser != nil {
+		return sessionUser.(*common.User), nil
+	}
+	sessionUser = c.Get(LoggedInUser)
+	if sessionUser != nil {
+		return sessionUser.(*common.User), nil
+	}
+	token, err := AuthenticatedToken(c, cookieName)
+	if err != nil {
+		return nil, err
+	}
+	claims, err := parseToken(token, secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find session claims %v", err)
+	}
+	user = common.NewUser(
+		claims.OrgID,
+		claims.UserName,
+		"",
+		"",
+		acl.NewRoles(""),
+	)
+
+	user.Name = claims.Name
+	user.BundleID = claims.BundleID
+	user.PictureURL = claims.PictureURL
+	user.AuthProvider = claims.AuthProvider
+	return user, nil
+}
+
+// AuthenticatedToken verifies token
+func AuthenticatedToken(c APIContext, cookieName string) (token string, err error) {
+	authCookie, err := c.Cookie(cookieName)
+	if err != nil {
+		tokenString := c.Request().Header.Get("Authorization")
+		if tokenString == "" {
+			tokenString = c.QueryParam("authorization")
+		}
+		if tokenString == "" {
+			return "", fmt.Errorf("could not find jwt token in request headers '%s' or parameters 'authorization", cookieName)
+		}
+		token, err = stripTokenPrefix(tokenString)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "AuthController",
+				"Error":     err,
+			}).Warnf("addSessionUser failed to strip token")
+			return "", err
+		}
+	} else {
+		token = authCookie.Value
+	}
+	return
+}
+
 // RenderDBUserFromSession initializes user/admin parameters
 func RenderDBUserFromSession(c APIContext, res map[string]interface{}) {
 	user := GetDBLoggedUserFromSession(c)
@@ -168,4 +230,70 @@ func IsWhiteListURL(path string, method string) bool {
 	}
 	return (whitelistGetURLs[path] && method == "GET") ||
 		(whitelistPostURLs[path] && method == "POST")
+}
+
+// parseToken parses a JWT and returns Claims object
+func parseToken(tokenString string, secret string) (*JwtClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if token.Valid {
+		if claims, ok := token.Claims.(*JwtClaims); ok {
+			return claims, nil
+		}
+		if claimsMap, ok := token.Claims.(jwt.MapClaims); ok {
+			if claimsMap["user_id"] == nil ||
+				claimsMap["username"] == nil ||
+				claimsMap["name"] == nil ||
+				claimsMap["org_id"] == nil ||
+				claimsMap["bundle_id"] == nil ||
+				claimsMap["picture_url"] == nil ||
+				claimsMap["admin"] == nil {
+				return nil, fmt.Errorf("invalid token %v", claimsMap)
+			}
+			claims := &JwtClaims{
+				UserID:       claimsMap["user_id"].(string),
+				UserName:     claimsMap["username"].(string),
+				Name:         claimsMap["name"].(string),
+				OrgID:        claimsMap["org_id"].(string),
+				BundleID:     claimsMap["bundle_id"].(string),
+				PictureURL:   claimsMap["picture_url"].(string),
+				AuthProvider: claimsMap["auth_provider"].(string),
+				Admin:        claimsMap["admin"].(bool),
+			}
+			return claims, nil
+		}
+		return nil, fmt.Errorf("unknown claims for token %v", token.Claims)
+	} else if ve, ok := err.(*jwt.ValidationError); ok {
+		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
+			return nil, err
+		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
+			// Token is either expired or not active yet
+			return nil, err
+		} else {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
+}
+
+// Strips 'Token' or 'Bearer' prefix from token string
+func stripTokenPrefix(tok string) (string, error) {
+	// split token to 2 parts
+	tokenParts := strings.Split(tok, " ")
+
+	if len(tokenParts) < 2 {
+		return tokenParts[0], nil
+	}
+
+	return tokenParts[1], nil
 }

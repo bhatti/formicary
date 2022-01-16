@@ -504,6 +504,7 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
+| disabled | query | disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
 | tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
@@ -777,6 +778,7 @@ Queries job definitions by criteria such as type, platform, etc.
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
 | platform | query | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No | string |
+| disabled | query | disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging. | No | boolean |
 | public_plugin | query | PublicPlugin means job is public plugin | No | boolean |
 | tags | query | Tags is aggregation of task tags, and it can be searched via `tags:in` | No | string |
 
@@ -1743,6 +1745,7 @@ Queries email-verifications within the organization that is allowed.
 | encryption_key | string |  | No |
 | max_capacity | long |  | No |
 | methods | [ [TaskMethod](#taskmethod) ] |  | No |
+| persistent_connection | boolean |  | No |
 | tags | [ string ] |  | No |
 
 #### Artifact

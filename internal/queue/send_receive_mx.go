@@ -45,20 +45,22 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 	// notifying subscribers
 	sent := 0
 	started := time.Now()
-	for _, cbRel := range subscribers {
-		if cbRel.correlationID == "" || cbRel.correlationID == event.CoRelationID() {
+	ids := make([]string, 0)
+	for id, next := range subscribers {
+		ids = append(ids, id)
+		if next.correlationID == "" || next.correlationID == event.CoRelationID() {
 			sent++
-			if cbRel.filter == nil || cbRel.filter(ctx, event) {
-				if err := cbRel.callback(ctx, event); err != nil {
+			if next.filter == nil || next.filter(ctx, event) {
+				if err := next.callback(ctx, event); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component": "SendReceiveMultiplexer",
 						"Event":     event,
 						"Topic":     mx.topic,
 					}).Warnf("failed to notify event")
 				}
-				if cbRel.consumerChannel != nil {
+				if next.consumerChannel != nil {
 					// this is mainly used by send/receive and could be blocked if buffer is full in other use cases
-					cbRel.consumerChannel <- event
+					next.consumerChannel <- event
 				}
 			}
 		} else {
@@ -69,9 +71,9 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
 					"Component":      "SendReceiveMultiplexer",
-					"Event":          event,
+					"Event":          string(event.Payload),
 					"AgeSecs":        age,
-					"CBCoRelationID": cbRel.correlationID,
+					"CBCoRelationID": next.correlationID,
 					"CoRelationID":   event.CoRelationID(),
 					"Topic":          mx.topic,
 				}).Debugf("skip notify event")

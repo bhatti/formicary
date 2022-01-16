@@ -9,6 +9,7 @@ import (
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/tasklet"
+	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
@@ -91,7 +92,19 @@ func (registry *WSProxyRegistry) Stop(ctx context.Context) error {
 }
 
 // Register websocket subscription
-func (registry *WSProxyRegistry) Register(c web.APIContext) error {
+func (registry *WSProxyRegistry) Register(c web.APIContext) (err error) {
+	var user *common.User
+	if registry.serverCfg.Auth.Enabled {
+		user, err = web.AuthenticatedUser(c, registry.serverCfg.Auth.CookieName, registry.serverCfg.Auth.JWTSecret)
+		if err != nil || user == nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "WSProxyRegistry",
+				"Error":     err,
+			}).Warnf("failed to get logged in user from websocket ant")
+			return
+		}
+	}
+
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -100,6 +113,7 @@ func (registry *WSProxyRegistry) Register(c web.APIContext) error {
 	t, err := NewWebsocketTasklet(
 		ctx,
 		registry.serverCfg,
+		user,
 		registry.resourceManager,
 		registry.requestRegistry,
 		registry.queueClient,

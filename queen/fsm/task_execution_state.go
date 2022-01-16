@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"plexobject.com/formicary/internal/queue"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/utils"
@@ -313,7 +314,11 @@ func (tsm *TaskExecutionStateMachine) BuildTaskResponseFromPreviousResult() (*co
 func (tsm *TaskExecutionStateMachine) SetFailed(err error) {
 	tsm.TaskExecution.TaskState = common.FAILED
 	if tsm.TaskExecution.ErrorCode == "" {
-		tsm.TaskExecution.ErrorCode = common.ErrorTaskExecute
+		if strings.Contains(err.Error(), "context deadline") {
+			tsm.TaskExecution.ErrorCode = common.ErrorTaskTimedOut
+		} else {
+			tsm.TaskExecution.ErrorCode = common.ErrorTaskExecute
+		}
 	}
 	tsm.TaskExecution.ErrorMessage = err.Error()
 }
@@ -366,7 +371,11 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 			taskResp.ErrorCode = tsm.errorCode.ErrorCode
 		}
 		if taskResp.ErrorCode == "" {
-			taskResp.ErrorCode = common.ErrorTaskExecute
+			if strings.Contains(taskResp.ErrorMessage, "context deadline") {
+				taskResp.ErrorCode = common.ErrorTaskTimedOut
+			} else {
+				taskResp.ErrorCode = common.ErrorTaskExecute
+			}
 		}
 		tsm.TaskExecution.ErrorCode = taskResp.ErrorCode
 		tsm.TaskExecution.ErrorMessage = taskResp.ErrorMessage

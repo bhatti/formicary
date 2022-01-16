@@ -18,11 +18,11 @@ const Connect = function () {
             'methods': ['WEBSOCKET']
         }
         ws.send(JSON.stringify(registration));
-        console.log(new Date() + ': sent ' + JSON.stringify(registration));
+        console.log({registration}, 'registering...');
     }
 
     ws.onmessage = function (evt) {
-        console.log(evt.data);
+        console.log({request: evt.data}, 'received request');
         const msg = JSON.parse(evt.data);
         if (msg.task_retry < 2) {
             msg.ant_id = 'sample-web';
@@ -34,6 +34,6 @@ const Connect = function () {
             msg.status = 'COMPLETED';
         }
         ws.send(JSON.stringify(msg));
-        console.log(msg);
+        console.log({response: msg}, 'sending response');
     }
 };

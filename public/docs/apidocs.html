@@ -1188,6 +1188,13 @@
 <td>string</td>
 </tr>
 <tr>
+<td>disabled</td>
+<td>query</td>
+<td>disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+<td>boolean</td>
+</tr>
+<tr>
 <td>public_plugin</td>
 <td>query</td>
 <td>PublicPlugin means job is public plugin</td>
@@ -1827,6 +1834,13 @@
 <td>Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering</td>
 <td>No</td>
 <td>string</td>
+</tr>
+<tr>
+<td>disabled</td>
+<td>query</td>
+<td>disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.</td>
+<td>No</td>
+<td>boolean</td>
 </tr>
 <tr>
 <td>public_plugin</td>
@@ -4081,6 +4095,12 @@
 <tr>
 <td>methods</td>
 <td>[ <a href="#taskmethod">TaskMethod</a> ]</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>persistent_connection</td>
+<td>boolean</td>
 <td></td>
 <td>No</td>
 </tr>

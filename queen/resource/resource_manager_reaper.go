@@ -42,11 +42,12 @@ func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 	}
 
 	for _, antID := range removeAntIDs {
-		removedTags, removedMethods := rm.state.removeRegistration(antID)
+		removedTags, removedMethods, unregistered := rm.state.removeRegistration(antID)
 		logrus.WithFields(logrus.Fields{
 			"Component":      "ResourceManager",
 			"RemovedTags":    removedTags,
 			"RemovedMethods": removedMethods,
+			"Unregistered":   unregistered,
 			"AntID":          antID,
 		}).Warnf("removing stale registration of ant %s", antID)
 	}

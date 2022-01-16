@@ -36,6 +36,9 @@ definitions:
           $ref: '#/definitions/TaskMethod'
         type: array
         x-go-name: Methods
+      persistent_connection:
+        type: boolean
+        x-go-name: PersistentConnection
       tags:
         items:
           type: string
@@ -2599,6 +2602,12 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
+      - description: disabled is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
+        in: query
+        name: disabled
+        type: boolean
+        x-go-name: Disabled
       - description: PublicPlugin means job is public plugin
         in: query
         name: public_plugin
@@ -2860,6 +2869,12 @@ paths:
         name: platform
         type: string
         x-go-name: Platform
+      - description: disabled is used to stop further processing of job, and it can
+          be used during maintenance, upgrade or debugging.
+        in: query
+        name: disabled
+        type: boolean
+        x-go-name: Disabled
       - description: PublicPlugin means job is public plugin
         in: query
         name: public_plugin

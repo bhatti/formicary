@@ -20,6 +20,7 @@ import (
 type WebsocketTasklet struct {
 	*tasklet.BaseTasklet
 	id              string
+	user            *types.User
 	resourceManager resource.Manager
 	registration    *types.AntRegistration
 	connection      *websocket.Conn
@@ -33,6 +34,7 @@ type WebsocketTasklet struct {
 func NewWebsocketTasklet(
 	ctx context.Context,
 	serverCfg *config.ServerConfig,
+	user *types.User,
 	resourceManager resource.Manager,
 	requestRegistry tasklet.RequestRegistry,
 	queueClient queue.Client,
@@ -40,6 +42,7 @@ func NewWebsocketTasklet(
 	connection *websocket.Conn,
 	errorHandler IOErrorHandler) (wc *WebsocketTasklet, err error) {
 	wc = &WebsocketTasklet{
+		user:            user,
 		resourceManager: resourceManager,
 		connection:      connection,
 		errorHandler:    errorHandler,
@@ -54,16 +57,18 @@ func NewWebsocketTasklet(
 		&serverCfg.CommonConfig,
 		queueClient,
 		func(ctx context.Context, event *queue.MessageEvent) bool {
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			matched := event.Properties[queue.MessageTarget] == wc.registration.AntID
+			if !matched && logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
 					"Component": "WebsocketTasklet",
 					"Address":   connection.RemoteAddr().String(),
 					"AntID":     wc.registration.AntID,
 					"Header":    event.Properties,
+					"User":      user,
 					"Body":      string(event.Payload),
 				}).Debugf("websocket-request-filtering")
 			}
-			return event.Properties[queue.Source] == wc.registration.AntID
+			return matched
 		},
 		requestRegistry,
 		requestTopic,
@@ -73,6 +78,7 @@ func NewWebsocketTasklet(
 	)
 	logrus.WithFields(logrus.Fields{
 		"Component": "WebsocketTasklet",
+		"User":      user,
 		"Address":   connection.RemoteAddr().String(),
 		"AntID":     wc.registration.AntID,
 	}).Infof("registered websocket ant worker")
@@ -111,18 +117,18 @@ func (t *WebsocketTasklet) Execute(
 	if err != nil {
 		return taskReq.ErrorResponse(err), nil
 	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "WebsocketTasklet",
-			"Address":   t.connection.RemoteAddr().String(),
-			"Request":   string(reqBody),
-		}).Debugf("writing to remote websocket ant worker")
-	}
+	logrus.WithFields(logrus.Fields{
+		"Component": "WebsocketTasklet",
+		"Address":   t.connection.RemoteAddr().String(),
+		"AntID":     t.registration.AntID,
+		"Request":   taskReq,
+	}).Infof("writing to remote websocket ant worker")
 	err = t.write(reqBody)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "WebsocketTasklet",
 			"Address":   t.connection.RemoteAddr().String(),
+			"AntID":     t.registration.AntID,
 			"Request":   string(reqBody),
 			"Error":     err,
 		}).Warnf("error writing to remote websocket ant worker")
@@ -140,6 +146,7 @@ func (t *WebsocketTasklet) Execute(
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "WebsocketTasklet",
+			"AntID":     t.registration.AntID,
 			"Address":   t.connection.RemoteAddr().String(),
 			"Response":  string(resBody),
 		}).Debugf("received response from remote websocket ant worker")
@@ -243,16 +250,20 @@ func (t *WebsocketTasklet) Close(ctx context.Context) {
 			}).Error("recovering from panic when closing channel")
 		}
 	}()
+	var unregistered bool
+	var antID string
 	if t.registration != nil {
-		_ = t.resourceManager.Unregister(context.Background(), t.registration.AntID)
+		antID = t.registration.AntID
+		unregistered, _ = t.resourceManager.Unregister(context.Background(), t.registration.AntID)
 	}
 	_ = t.connection.Close()
 	_ = t.Stop(ctx)
 	t.closed = true
 	logrus.WithFields(logrus.Fields{
 		"Component":    "WebsocketTasklet",
-		"registration": t.registration,
-		"t":            t,
+		"Registration": t.registration,
+		"AntID":        antID,
+		"Unregistered": unregistered,
 	}).Info("removing websocket ant worker and unsubscribing")
 }
 
@@ -263,7 +274,7 @@ func (t *WebsocketTasklet) isClosed() bool {
 }
 
 func (t *WebsocketTasklet) ping() (err error) {
-	err = t.connection.WriteControl(websocket.PingMessage, []byte("ping"), time.Time{})
+	err = t.connection.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(time.Millisecond*100))
 	if err != nil {
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
@@ -274,6 +285,8 @@ func (t *WebsocketTasklet) ping() (err error) {
 				"Error":        err,
 			}).Debugf("ping failed for websocket ant worker")
 		}
+	} else {
+		t.registration.ReceivedAt = time.Now()
 	}
 	return
 }

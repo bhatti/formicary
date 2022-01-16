@@ -89,7 +89,7 @@ func sendContainerExecution(serverCfg *config.ServerConfig, queueClient queue.Cl
 		bEvent,
 		queue.NewMessageHeaders(
 			queue.ReusableTopicKey, "false",
-			queue.Source, "test",
+			queue.MessageTarget, "test",
 		),
 	)
 }

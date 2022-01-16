@@ -28,7 +28,7 @@ tasks:
 ```
 
 ### Websockets
-Websockets method allows connecting browser based ant workers to execute the tasks, e.g.
+Websockets method allows connecting browser or python/go/java/etc ant workers to execute the tasks, e.g.
 ```
 job_type: web-job
 tasks:
@@ -39,7 +39,7 @@ tasks:
     - js
 ```
 
-The web client uses websocket to register with the server, e.g.
+The web or client uses websocket clients register with the server, e.g.
 ```
     const ws = new WebSocket(uri);
     ws.onopen = function () {
@@ -57,6 +57,51 @@ The web client uses websocket to register with the server, e.g.
         msg.status = 'COMPLETED';
         ws.send(JSON.stringify(msg));
     }
+```
+
+Following is an example of python ant worker:
+```
+import websocket
+import json
+import _thread as thread
+
+HOST = "localhost:7777"
+TOKEN = ""
+
+def on_message(ws, message):
+    req = json.loads(message)
+    # process message
+    req["status"] = "COMPLETED"
+    ws.send(json.dumps(req))
+
+def on_error(ws, error):
+    print(error)
+
+def on_close(ws):
+    print("### closed ###")
+
+def on_open(ws):
+    def run(*args):
+        registration = {
+            "ant_id": "sample-python",
+            "tags": ["python", "web"],
+            "methods": ["WEBSOCKET"]
+        }
+        ws.send(json.dumps(registration))
+
+    thread.start_new_thread(run, ())
+
+if __name__ == "__main__":
+    headers = {
+            "Authorization": TOKEN
+            }
+    ws = websocket.WebSocketApp("wss://" + HOST + "/ws/ants",
+                              header=headers,
+                              on_open = on_open,
+                              on_message = on_message,
+                              on_error = on_error,
+                              on_close = on_close)
+    ws.run_forever()
 ```
 
 

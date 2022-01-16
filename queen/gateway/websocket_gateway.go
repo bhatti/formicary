@@ -155,7 +155,7 @@ func (gw *Gateway) Register(c web.APIContext) (err error) {
 	if err != nil {
 		return err
 	}
-	go gw.handleRegistration(c, ws)
+	go gw.handleRegistration(c, ws) // will handle authentication from user session
 	return
 }
 
@@ -218,13 +218,14 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 		}
 
 		if gw.serverCfg.Auth.Enabled {
-			user := web.GetDBLoggedUserFromSession(c)
-			if user == nil {
+			user, err := web.AuthenticatedUser(c, gw.serverCfg.Auth.CookieName, gw.serverCfg.Auth.JWTSecret)
+			if err != nil || user == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "WebsocketGateway",
 					"Address":   ws.RemoteAddr().String(),
+					"Error":     err,
 					"Lease":     lease,
-				}).Errorf("failed to get logged in user from web client")
+				}).Warnf("failed to get logged in user from web client")
 				msg := events.NewErrorEvent("WebsocketGateway", "", "session token not found").Marshal()
 				_ = lease.connection.WriteMessage(websocket.TextMessage, msg)
 				return

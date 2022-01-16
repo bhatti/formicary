@@ -562,26 +562,46 @@ func (s *State) addRegistration(
 }
 
 // removeRegistration for ant
-func (s *State) removeRegistration(antID string) (removedTags []string, removedMethods []common.TaskMethod) {
+func (s *State) removeRegistration(antID string) (removedTags []string, removedMethods []common.TaskMethod, count int) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	beforeCount := len(s.antRegistrations)
 	delete(s.antRegistrations, antID)
+	afterCount := len(s.antRegistrations)
 	delete(s.allocationsByAnt, antID) // ant-id => [request-id: allocation]
+	count = beforeCount - afterCount
 	removedTags = make([]string, 0)
 	removedMethods = make([]common.TaskMethod, 0)
 	for tag, ants := range s.antByTag { // tag => [ant-id:true]
-		delete(ants, antID)
-		s.antByTag[tag] = ants
-		removedTags = append(removedTags, tag)
+		if ants[antID] {
+			delete(ants, antID)
+			s.antByTag[tag] = ants
+			removedTags = append(removedTags, tag)
+		}
 	}
 	for method, ants := range s.antByMethod { // method=> [ant-id:true]
-		delete(ants, antID)
-		s.antByMethod[method] = ants
-		removedMethods = append(removedMethods, method)
+		if ants[antID] {
+			delete(ants, antID)
+			s.antByMethod[method] = ants
+			removedMethods = append(removedMethods, method)
+		}
 	}
 	for requestID, ants := range s.antsByRequest { // method=> [ant-id:true]
-		delete(ants, antID)
-		s.antsByRequest[requestID] = ants
+		if ants[antID] {
+			delete(ants, antID)
+			s.antsByRequest[requestID] = ants
+		}
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":      "ResourceManager",
+			"AntID":          antID,
+			"Registrations":  s.antRegistrations,
+			"Allocations":    s.allocationsByAnt,
+			"AntsByTag":      s.antByTag,
+			"AntsByMethods":  s.antByMethod,
+			"AntsByRequests": s.antsByRequest,
+		}).Debugf("after removing ant-id from registration")
 	}
 	return
 }

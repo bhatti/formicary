@@ -55,7 +55,8 @@ const (
 	ErrorRestartJob = "ERR_RESTART_JOB"
 	// ErrorRestartTask error code
 	ErrorRestartTask = "ERR_RESTART_TASK"
-	//ErrTaskTimedOut         = "ERR_TASK_TIMED_OUT"
+	// ErrorTaskTimedOut  error code
+	ErrorTaskTimedOut = "ERR_TASK_TIMED_OUT"
 )
 
 // ErrorCode defines codes for tracking different types of errors.

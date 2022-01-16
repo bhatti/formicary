@@ -322,56 +322,18 @@ func (ac *AuthController) addSessionUser(c web.APIContext) (
 		c.Set(web.AuthDisabled, true)
 		return nil, nil, nil, nil
 	}
-	authCookie, err := c.Cookie(ac.commonCfg.Auth.CookieName)
-	var token string
-	if err != nil {
-		tokenString := c.Request().Header.Get("Authorization")
-		if tokenString == "" {
-			tokenString = c.QueryParam("authorization")
-		}
-		if tokenString == "" {
-			logrus.WithFields(logrus.Fields{
-				"Component": "AuthController",
-				"URL":       c.Request().URL,
-				"Error":     err,
-				"Headers":   c.Request().Header,
-			}).Warnf("failed to find authorization in header")
-			return nil, nil, nil, fmt.Errorf("could not find token")
-		}
-		token, err = stripTokenPrefix(tokenString)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "AuthController",
-				"Error":     err,
-			}).Warnf("addSessionUser failed to strip token")
-			return nil, nil, nil, err
-		}
-	} else {
-		token = authCookie.Value
-	}
 
-	claims, err = security.ParseToken(token, ac.commonCfg.Auth.JWTSecret)
+	user, err = web.AuthenticatedUser(c, ac.commonCfg.Auth.CookieName, ac.commonCfg.Auth.JWTSecret)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "AuthController",
-			"Token":     token,
+			"URL":       c.Request().URL,
 			"Error":     err,
-		}).Warnf("addSessionUser failed to parse token")
-		return nil, nil, nil, fmt.Errorf("failed to find session claims %v", err)
+			"Headers":   c.Request().Header,
+		}).Warnf("failed to find token")
+		return nil, nil, nil, err
 	}
 
-	user = common.NewUser(
-		claims.OrgID,
-		claims.UserName,
-		"",
-		"",
-		acl.NewRoles(""),
-	)
-
-	user.Name = claims.Name
-	user.BundleID = claims.BundleID
-	user.PictureURL = claims.PictureURL
-	user.AuthProvider = claims.AuthProvider
 	// not using query-context here because we just need to find user
 	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext(nil, ""), user.Username)
 	if err != nil {
@@ -417,16 +379,4 @@ func (ac *AuthController) addSessionUser(c web.APIContext) (
 		}).Debugf("added user to session")
 	}
 	return
-}
-
-// Strips 'Token' or 'Bearer' prefix from token string
-func stripTokenPrefix(tok string) (string, error) {
-	// split token to 2 parts
-	tokenParts := strings.Split(tok, " ")
-
-	if len(tokenParts) < 2 {
-		return tokenParts[0], nil
-	}
-
-	return tokenParts[1], nil
 }

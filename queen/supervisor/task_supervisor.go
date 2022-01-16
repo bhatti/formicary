@@ -200,14 +200,15 @@ func (ts *TaskSupervisor) invoke(
 		logrus.WithFields(logrus.Fields{
 			"Component": "TaskSupervisor",
 			"Task":      ts.taskStateMachine.TaskDefinition,
-			"AntID":     ts.taskStateMachine.Reservation.AntTopic,
+			"AntID":     ts.taskStateMachine.Reservation.AntID,
 			"Request":   taskReq,
 			"ReqTopic":  ts.taskStateMachine.Reservation.AntTopic,
 			"ResTopic":  ts.serverCfg.GetResponseTopicTaskReply(),
 			"RequestID": ts.taskStateMachine.Request.GetID(),
 			"Retried":   ts.taskStateMachine.Request.GetRetried(),
-		}).Debugf("sending request>>>>>>>>>")
+		}).Infof("sending request to remote ant worker")
 	}
+
 	if event, err = ts.taskStateMachine.QueueClient.SendReceive(
 		ctx,
 		ts.taskStateMachine.Reservation.AntTopic,
@@ -215,7 +216,7 @@ func (ts *TaskSupervisor) invoke(
 		ts.serverCfg.GetResponseTopicTaskReply(),
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			queue.Source, ts.taskStateMachine.Reservation.AntID,
+			queue.MessageTarget, ts.taskStateMachine.Reservation.AntID,
 			"RequestID", fmt.Sprintf("%d", taskReq.JobRequestID),
 			"TaskType", taskReq.TaskType,
 			"UserID", taskReq.UserID,

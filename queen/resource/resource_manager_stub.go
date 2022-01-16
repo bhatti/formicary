@@ -3,9 +3,10 @@ package resource
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/queen/types"
-	"sort"
 
 	common "plexobject.com/formicary/internal/types"
 )
@@ -37,15 +38,17 @@ func (rm *ManagerStub) Stop(_ context.Context) (err error) {
 // Register stub
 func (rm *ManagerStub) Register(
 	_ context.Context,
-	_ *common.AntRegistration) error {
+	reg *common.AntRegistration) error {
+	rm.Registry[reg.AntID] = reg
 	return nil
 }
 
 // Unregister stub
 func (rm *ManagerStub) Unregister(
 	_ context.Context,
-	_ string) error {
-	return nil
+	id string) (bool, error) {
+	delete(rm.Registry, id)
+	return true, nil
 }
 
 // Registrations returns all registered ants
