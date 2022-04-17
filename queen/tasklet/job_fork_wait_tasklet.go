@@ -35,6 +35,7 @@ func NewJobForkWaitTasklet(
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.AwaitForkedJob},
 		Allocations:  make(map[uint64]*common.AntAllocation),
+		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
 	}

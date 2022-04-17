@@ -32,12 +32,24 @@ func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 	removeAntIDs := make([]string, 0)
 	// ant-id => registration
 	for _, registration := range rm.state.getRegistrations() {
-		if !registration.PersistentConnection &&
-			time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
+		if time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
 			removeAntIDs = append(removeAntIDs, registration.AntID)
+			logrus.WithFields(logrus.Fields{
+				"Component":    "ResourceManager",
+				"Registration": registration,
+				"Received":     registration.ReceivedAt,
+			}).Warnf("adding stale registration of ant %s", registration.AntID)
 		}
-		if registration.ValidRegistration != nil && !registration.ValidRegistration(ctx) {
-			removeAntIDs = append(removeAntIDs, registration.AntID)
+		if registration.ValidRegistration != nil {
+			if err := registration.ValidRegistration(ctx); err != nil {
+				removeAntIDs = append(removeAntIDs, registration.AntID)
+				logrus.WithFields(logrus.Fields{
+					"Component":    "ResourceManager",
+					"Registration": registration,
+					"Received":     registration.ReceivedAt,
+					"Error":        err,
+				}).Warnf("adding invalid registration of ant %s", registration.AntID)
+			}
 		}
 	}
 

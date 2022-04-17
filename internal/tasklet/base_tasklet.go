@@ -91,7 +91,7 @@ func (t *BaseTasklet) Start(
 		_ = t.Stop(ctx)
 		return err
 	}
-	if !t.registration.PersistentConnection {
+	if t.registration.AutoRefresh {
 		t.startTickerForRegistration(ctx) // renew registration
 	}
 	logrus.WithFields(

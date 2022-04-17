@@ -41,6 +41,7 @@ func NewJobForkTasklet(
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.ForkJob},
 		Allocations:  make(map[uint64]*common.AntAllocation),
+		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
 	}

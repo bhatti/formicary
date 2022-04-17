@@ -37,6 +37,7 @@ func NewArtifactExpirationTasklet(
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.ExpireArtifacts},
 		Allocations:  make(map[uint64]*common.AntAllocation),
+		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
 	}

@@ -161,6 +161,8 @@ func (t *WebsocketTasklet) write(payload []byte) (err error) {
 	t.lock.Unlock()
 	if err != nil {
 		t.errorHandler(t.id)
+	} else if t.registration != nil {
+		t.registration.ReceivedAt = time.Now()
 	}
 	return
 }
@@ -172,6 +174,8 @@ func (t *WebsocketTasklet) read(tries int) (data []byte, err error) {
 	t.lock.Unlock()
 	if err != nil {
 		t.errorHandler(t.id)
+	} else if t.registration != nil {
+		t.registration.ReceivedAt = time.Now()
 	}
 	if tries < 10 && msgType != websocket.TextMessage && msgType != websocket.BinaryMessage {
 		return t.read(tries + 1)
@@ -217,11 +221,11 @@ func (t *WebsocketTasklet) receiveRegistration(
 	t.id = t.connection.RemoteAddr().String() + ":" + t.registration.Key()
 	t.registration.AntID = t.id
 	t.registration.AntTopic = requestTopic
-	t.registration.PersistentConnection = true
+	t.registration.AutoRefresh = false
 	t.registration.MaxCapacity = 1
 	t.registration.Methods = []types.TaskMethod{types.WebSocket}
-	t.registration.ValidRegistration = func(ctx context.Context) bool {
-		return t.ping() == nil
+	t.registration.ValidRegistration = func(ctx context.Context) error {
+		return t.ping()
 	}
 	if err = t.resourceManager.Register(ctx, t.registration); err != nil {
 		return err
@@ -273,9 +277,9 @@ func (t *WebsocketTasklet) isClosed() bool {
 	return t.closed
 }
 
-func (t *WebsocketTasklet) ping() (err error) {
-	err = t.connection.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(time.Millisecond*100))
-	if err != nil {
+func (t *WebsocketTasklet) ping() error {
+	expiration := time.Now().Add(time.Millisecond * 1000)
+	if err := t.connection.WriteControl(websocket.PingMessage, []byte("ping"), expiration); err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
 				"Component":    "WebsocketTasklet",
@@ -285,10 +289,11 @@ func (t *WebsocketTasklet) ping() (err error) {
 				"Error":        err,
 			}).Debugf("ping failed for websocket ant worker")
 		}
+		return err
 	} else {
 		t.registration.ReceivedAt = time.Now()
+		return nil
 	}
-	return
 }
 
 func (t *WebsocketTasklet) setupPingTicker(ctx context.Context) {

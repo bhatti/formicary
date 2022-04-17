@@ -34,6 +34,7 @@ func NewMessagingTasklet(
 	registration := common.AntRegistration{
 		AntID:         id,
 		AntTopic:      requestTopic,
+		AutoRefresh:   true,
 		MaxCapacity:   serverCfg.Jobs.MaxMessagingTaskletCapacity,
 		Tags:          []string{},
 		EncryptionKey: serverCfg.Jobs.MessagingEncryptionKey,

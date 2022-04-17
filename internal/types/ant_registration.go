@@ -16,21 +16,21 @@ const RegistrationTopic = "ant-registration"
 // ValidRegistration - for validating
 type ValidRegistration func(
 	ctx context.Context,
-) bool
+) error
 
 // AntRegistration is used to register remote ants with the resource manager so that tasks can be routed to them based on their capacity.
 type AntRegistration struct {
-	AntID                string                    `json:"ant_id" mapstructure:"ant_id"`
-	AntTopic             string                    `json:"ant_topic" mapstructure:"ant_topic"`
-	EncryptionKey        string                    `json:"encryption_key" mapstructure:"encryption_key"`
-	MaxCapacity          int                       `json:"max_capacity" mapstructure:"max_capacity"`
-	Tags                 []string                  `json:"tags" mapstructure:"tags"`
-	Methods              []TaskMethod              `json:"methods" mapstructure:"methods"`
-	CurrentLoad          int                       `json:"current_load" mapstructure:"current_load"`
-	Allocations          map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
-	CreatedAt            time.Time                 `json:"created_at" mapstructure:"created_at"`
-	AntStartedAt         time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
-	PersistentConnection bool                      `json:"persistent_connection" mapstructure:"persistent_connection"`
+	AntID         string                    `json:"ant_id" mapstructure:"ant_id"`
+	AntTopic      string                    `json:"ant_topic" mapstructure:"ant_topic"`
+	EncryptionKey string                    `json:"encryption_key" mapstructure:"encryption_key"`
+	MaxCapacity   int                       `json:"max_capacity" mapstructure:"max_capacity"`
+	Tags          []string                  `json:"tags" mapstructure:"tags"`
+	Methods       []TaskMethod              `json:"methods" mapstructure:"methods"`
+	CurrentLoad   int                       `json:"current_load" mapstructure:"current_load"`
+	Allocations   map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
+	CreatedAt     time.Time                 `json:"created_at" mapstructure:"created_at"`
+	AntStartedAt  time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
+	AutoRefresh   bool                      `json:"auto_refresh" mapstructure:"auto_refresh"`
 	// Transient property
 	ReceivedAt        time.Time         `json:"-" mapstructure:"-"`
 	ValidRegistration ValidRegistration `json:"-" mapstructure:"-"`
@@ -145,12 +145,13 @@ func (r *AntRegistration) Supports(
 	method TaskMethod,
 	tags []string,
 	timeout time.Duration) bool {
-	if !r.PersistentConnection &&
-		time.Duration(time.Now().Unix()-r.ReceivedAt.Unix())*time.Second > timeout {
+	if time.Duration(time.Now().Unix()-r.ReceivedAt.Unix())*time.Second > timeout {
 		return false
 	}
-	if r.ValidRegistration != nil && !r.ValidRegistration(context.Background()) {
-		return false
+	if r.ValidRegistration != nil {
+		if err := r.ValidRegistration(context.Background()); err != nil {
+			return false
+		}
 	}
 	matchedMethod := false
 	for _, m := range r.Methods {

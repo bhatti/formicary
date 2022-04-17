@@ -132,6 +132,7 @@ func (c *AntConfig) NewAntRegistration() *types.AntRegistration {
 		AntID:        c.ID,
 		MaxCapacity:  c.MaxCapacity,
 		Tags:         c.Tags,
+		AutoRefresh:  true,
 		Methods:      c.Methods,
 		CreatedAt:    time.Now(),
 		AntStartedAt: c.antStartedAt,
