@@ -16,6 +16,9 @@ definitions:
       ant_topic:
         type: string
         x-go-name: AntTopic
+      auto_refresh:
+        type: boolean
+        x-go-name: AutoRefresh
       created_at:
         format: date-time
         type: string
@@ -36,9 +39,6 @@ definitions:
           $ref: '#/definitions/TaskMethod'
         type: array
         x-go-name: Methods
-      persistent_connection:
-        type: boolean
-        x-go-name: PersistentConnection
       tags:
         items:
           type: string

@@ -42,10 +42,12 @@ type JobManager struct {
 	metricsRegistry         *metrics.Registry
 	queueClient             queue.Client
 	jobsNotifier            notify.Notifier
+	jobIdsTicker            *time.Ticker
 }
 
 // NewJobManager manages job request, definition and execution
 func NewJobManager(
+	ctx context.Context,
 	serverCfg *config.ServerConfig,
 	auditRecordRepository repository.AuditRecordRepository,
 	jobDefinitionRepository repository.JobDefinitionRepository,
@@ -94,7 +96,7 @@ func NewJobManager(
 	// initialize registry
 	initializeStatsRegistry(jobRequestRepository, jobStatsRegistry)
 
-	return &JobManager{
+	jm := &JobManager{
 		serverCfg:               serverCfg,
 		auditRecordRepository:   auditRecordRepository,
 		jobDefinitionRepository: jobDefinitionRepository,
@@ -107,7 +109,12 @@ func NewJobManager(
 		metricsRegistry:         metricsRegistry,
 		queueClient:             queueClient,
 		jobsNotifier:            jobsNotifier,
-	}, nil
+	}
+
+	if err := jm.startRecentlyCompletedJobIdsTicker(ctx); err != nil {
+		return nil, err
+	}
+	return jm, nil
 }
 
 // SaveAudit - save persists audit-record
@@ -270,8 +277,35 @@ func (jm *JobManager) SetJobDefinitionMaxConcurrency(
 
 // RecentDeadIDs returns recently completed job-ids
 func (jm *JobManager) RecentDeadIDs(
-	limit int) ([]uint64, error) {
-	return jm.jobRequestRepository.RecentDeadIDs(limit)
+	limit int,
+	fromOffset time.Duration,
+	toOffset time.Duration,
+) ([]uint64, error) {
+	return jm.jobRequestRepository.RecentDeadIDs(limit, fromOffset, toOffset)
+}
+
+// RecentDeadIDs returns recently completed job-ids
+func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
+	var ids []uint64
+	if ids, err = jm.RecentDeadIDs(10000, jm.serverCfg.MaxJobTimeout, 5*time.Second); err != nil {
+		return err
+	}
+	event := events.NewRecentlyCompletedJobsEvent("JobManager", ids)
+	var payload []byte
+	if payload, err = event.Marshal(); err != nil {
+		return fmt.Errorf("failed to marshal recently-completed-job-ids event due to %v", err)
+	}
+	if _, err = jm.queueClient.Publish(
+		ctx,
+		jm.serverCfg.GetRecentlyCompletedJobsTopic(),
+		payload,
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+		),
+	); err != nil {
+		return fmt.Errorf("failed to send recently-completed-job-ids event due to %v", err)
+	}
+	return nil
 }
 
 // GetWaitEstimate calculates wait time for the job
@@ -1130,6 +1164,29 @@ func (jm *JobManager) DeleteExecutionTask(
 }
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func (jm *JobManager) startRecentlyCompletedJobIdsTicker(ctx context.Context) error {
+	jm.jobIdsTicker = time.NewTicker(jm.serverCfg.DeadJobIDsEventsInterval)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				jm.jobIdsTicker.Stop()
+				return
+			case <-jm.jobIdsTicker.C:
+				if err := jm.publishDeadJobIds(ctx); err != nil {
+					if logrus.IsLevelEnabled(logrus.DebugLevel) {
+						logrus.WithFields(logrus.Fields{
+							"Component": "JobManager",
+							"Error":     err,
+						}).Debug("failed to publish job-manager")
+					}
+				}
+			}
+		}
+	}()
+	return nil
+}
+
 // Fire event to job-definition lifecycle event
 func (jm *JobManager) fireJobDefinitionChange(
 	username string,

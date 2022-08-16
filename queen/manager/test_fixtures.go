@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/artifacts"
 	"plexobject.com/formicary/internal/metrics"
@@ -198,6 +199,7 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 	queueClient := queue.NewStubClient(&serverCfg.CommonConfig)
 	resourceManager := resource.New(serverCfg, queueClient)
 	return NewJobManager(
+		context.Background(),
 		serverCfg,
 		auditRecordRepository,
 		jobDefinitionRepository,

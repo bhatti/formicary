@@ -1740,12 +1740,12 @@ Queries email-verifications within the organization that is allowed.
 | ant_id | string |  | No |
 | ant_started_at | dateTime |  | No |
 | ant_topic | string |  | No |
+| auto_refresh | boolean |  | No |
 | created_at | dateTime |  | No |
 | current_load | long |  | No |
 | encryption_key | string |  | No |
 | max_capacity | long |  | No |
 | methods | [ [TaskMethod](#taskmethod) ] |  | No |
-| persistent_connection | boolean |  | No |
 | tags | [ string ] |  | No |
 
 #### Artifact

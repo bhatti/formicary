@@ -69,9 +69,6 @@ notify:
   email: 
     recipients: 
       - shahbhat@gmail.com
-      - s.hugh.brooks@gmail.com
-      - brandon.pliska@gmail.com
-      - aaron@winklersauer.com
     when: always
   slack: 
     recipients: 

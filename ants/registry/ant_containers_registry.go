@@ -229,6 +229,7 @@ func (r *AntContainersRegistry) subscribeToContainersLifecycleEvents(
 		make(map[string]string),
 	)
 }
+
 func (r *AntContainersRegistry) subscribeToRegistration(
 	ctx context.Context,
 	registrationTopic string) (string, error) {

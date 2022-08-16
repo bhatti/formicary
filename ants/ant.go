@@ -76,13 +76,15 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 		return fmt.Errorf("failed to create request handler %v", err)
 	}
 
-	// start reaper to automatically terminate long running containers
+	// start reaper to terminate long-running containers
 	containerReaper := utils.NewContainersReaper(
 		antCfg,
 		queueClient,
 		webClient,
 		metricsRegistry)
-	containerReaper.Start(ctx)
+	if err = containerReaper.Start(ctx); err != nil {
+		return err
+	}
 
 	// listen for signal to cleanly shutdown by finishing the work first before exit
 	antCfg.AddSignalHandlerForShutdown(func() {
@@ -105,7 +107,7 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 				}
 				time.Sleep(antCfg.PollIntervalBeforeShutdown)
 			}
-			containerReaper.Stop()
+			_ = containerReaper.Stop(context.Background())
 			// in the end stop web server
 			webServer.Stop()
 			logrus.WithFields(logrus.Fields{

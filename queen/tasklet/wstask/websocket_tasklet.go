@@ -3,6 +3,10 @@ package wstask
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/events"
@@ -11,9 +15,6 @@ import (
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/resource"
-	"strings"
-	"sync"
-	"time"
 )
 
 // WebsocketTasklet  keeps track of subscriptions
@@ -290,10 +291,9 @@ func (t *WebsocketTasklet) ping() error {
 			}).Debugf("ping failed for websocket ant worker")
 		}
 		return err
-	} else {
-		t.registration.ReceivedAt = time.Now()
-		return nil
 	}
+	t.registration.ReceivedAt = time.Now()
+	return nil
 }
 
 func (t *WebsocketTasklet) setupPingTicker(ctx context.Context) {

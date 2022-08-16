@@ -530,7 +530,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	jobRequestRepository.Clear()
 	qcs := make([]*common.QueryContext, 5)
-	for i:=0; i<5; i++ {
+	for i := 0; i < 5; i++ {
 		qcs[i], err = NewTestQC()
 		require.NoError(t, err)
 	}
@@ -667,10 +667,22 @@ func Test_ShouldQueryDeadIDs(t *testing.T) {
 	require.Equal(t, 40, len(recs))
 
 	// WHEN searching recently completed jobs
-	ids, err := repo.RecentDeadIDs(10)
+	ids, err := repo.RecentDeadIDs(10, time.Minute, 0)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(ids))
+
+	// WHEN searching recently running jobs
+	ids, err = repo.RecentLiveIDs(10)
+	// THEN it should match expected count
+	require.NoError(t, err)
+	require.Equal(t, 10, len(ids))
+
+	// WHEN searching recently jobs
+	idsState, err := repo.RecentIDs(10)
+	// THEN it should match expected count
+	require.NoError(t, err)
+	require.Equal(t, 10, len(idsState))
 }
 
 // Test Query by aggregate states

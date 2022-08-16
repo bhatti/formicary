@@ -51,8 +51,19 @@ The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. Yo
  - Install Docker-Compose from https://docs.docker.com/compose/install/.
 
 #### Install Kubernetes
- - You can use Minikube for Kubernetes by installing it from https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/,
- MicroK8s from https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview or other implementation.
+ - You can use Kubernetes by installing:
+   - (Preferred locally) MicroK8s from https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview
+   - Minikube from https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/
+   - AWS Fargate - https://aws.amazon.com/fargate/
+   - Google Kubernetes Engine  (GKE) https://cloud.google.com/kubernetes-engine/
+   - Azure Kubernetes Service (AKS) https://azure.microsoft.com/en-us/services/kubernetes-service/
+
+
+##### Starting Microk8 on Ubuntu
+ - microk8s.status
+ - microk8s.kubectl
+ - microk8s.kubectl config view --raw > $HOME/.kube/config
+ - copy above config to your local ~/.kube/config
 
 ##### Starting Kubernetes/Docker env
  - minikube start --driver=docker
@@ -62,12 +73,6 @@ The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. Yo
  - minikube stop
  - minikube delete
  - minikube addons list
-
-##### Starting Microk8 on Ubuntu
- - microk8s.status
- - microk8s.kubectl
- - microk8s.kubectl config view --raw > $HOME/.kube/config
- - copy above config to your local ~/.kube/config
 
 #### Starting K3 on Ubuntu
  - See https://k3s.io/ for installing k3, e.g.

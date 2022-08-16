@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,12 +20,14 @@ import (
 
 // ContainersReaper struct
 type ContainersReaper struct {
-	antCfg          *config.AntConfig
-	queueClient     queue.Client
-	httpClient      web.HTTPClient
-	metricsRegistry *metrics.Registry
-	ticker          *time.Ticker
-	stopped         bool
+	antCfg                              *config.AntConfig
+	queueClient                         queue.Client
+	httpClient                          web.HTTPClient
+	metricsRegistry                     *metrics.Registry
+	recentlyCompletedJobIDs             *cutils.LRU
+	reaperTicker                        *time.Ticker
+	recentlyCompletedJobIDsSubscriberID string
+	stopped                             bool
 }
 
 // NewContainersReaper constructor
@@ -35,35 +38,69 @@ func NewContainersReaper(
 	metricsRegistry *metrics.Registry,
 ) *ContainersReaper {
 	return &ContainersReaper{
-		antCfg:          antCfg,
-		queueClient:     queueClient,
-		httpClient:      httpClient,
-		metricsRegistry: metricsRegistry,
+		antCfg:                  antCfg,
+		recentlyCompletedJobIDs: cutils.NewLRU(10000, nil),
+		queueClient:             queueClient,
+		httpClient:              httpClient,
+		metricsRegistry:         metricsRegistry,
 	}
 }
 
-// Start ticker for reaping
-func (r *ContainersReaper) Start(ctx context.Context) {
-	r.ticker = time.NewTicker(r.antCfg.ContainerReaperInterval)
+// Start reaperTicker for reaping
+func (r *ContainersReaper) Start(ctx context.Context) (err error) {
+	r.reaperTicker = time.NewTicker(r.antCfg.ContainerReaperInterval)
 	go func() {
 		for !r.stopped {
 			select {
-			case <-r.ticker.C:
+			case <-r.reaperTicker.C:
 				r.reap(ctx)
 			case <-ctx.Done():
-				r.ticker.Stop()
+				r.reaperTicker.Stop()
 				return
 			}
 		}
 	}()
+	if r.recentlyCompletedJobIDsSubscriberID, err = r.subscribeToRecentlyCompletedJobIDs(ctx, r.antCfg.GetRecentlyCompletedJobsTopic()); err != nil {
+		_ = r.Stop(ctx)
+		return err
+	}
+	log.WithFields(
+		log.Fields{
+			"Component": "ContainersReaper",
+			"Timeout":   r.antCfg.ContainerReaperInterval,
+			"Memory":    cutils.MemUsageMiBString(),
+			"Error":     err,
+		}).Infof("started reap container")
+	return
 }
 
-// Stop ticker for reaping
-func (r *ContainersReaper) Stop() {
-	if r.ticker != nil {
-		r.ticker.Stop()
+// Stop reaperTicker for reaping
+func (r *ContainersReaper) Stop(ctx context.Context) (err error) {
+	if r.reaperTicker != nil {
+		r.reaperTicker.Stop()
 	}
+	err = r.queueClient.UnSubscribe(
+		ctx,
+		r.antCfg.GetRecentlyCompletedJobsTopic(),
+		r.recentlyCompletedJobIDsSubscriberID)
 	r.stopped = true
+	return
+}
+
+func (r *ContainersReaper) canReap(container executor.Info) bool {
+	if strings.Contains(container.GetName(), "frm-") {
+		if container.ElapsedSecs() > r.antCfg.MaxJobTimeout {
+			return true
+		}
+		parts := strings.Split(container.GetName(), "-")
+		if len(parts) > 3 {
+			exists, ok := r.recentlyCompletedJobIDs.Get(parts[1])
+			if ok {
+				return exists == true
+			}
+		}
+	}
+	return false
 }
 
 // TODO fetch dead ids from /jobs/requests/dead_ids
@@ -75,8 +112,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 	for method, containers := range containersByMethods {
 		for _, container := range containers {
 			total++
-			if strings.Contains(container.GetName(), "formicary-") &&
-				container.ElapsedSecs() > r.antCfg.MaxJobTimeout {
+			if r.canReap(container) {
 				opts := types.NewExecutorOptions(container.GetName(), method)
 				err := StopContainer(
 					ctx,
@@ -117,15 +153,16 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 				}
 			}
 		}
-		if total > 0 && log.IsLevelEnabled(log.DebugLevel) {
-			log.WithFields(
-				log.Fields{
-					"Component":       "ContainersReaper",
-					"TotalContainers": total,
-					"Reaped":          reaped,
-					"ReapedFailed":    reapedFailed,
-				}).Debug("checking stale container")
-		}
+	}
+	if total > 0 || log.IsLevelEnabled(log.DebugLevel) {
+		log.WithFields(
+			log.Fields{
+				"Component":       "ContainersReaper",
+				"TotalContainers": total,
+				"Timeout":         r.antCfg.MaxJobTimeout,
+				"Reaped":          reaped,
+				"ReapedFailed":    reapedFailed,
+			}).Infof("checking stale container")
 	}
 }
 
@@ -167,4 +204,31 @@ func (r *ContainersReaper) sendContainerEvent(
 		}
 	}
 	return
+}
+
+func (r *ContainersReaper) subscribeToRecentlyCompletedJobIDs(
+	ctx context.Context,
+	containerTopic string) (string, error) {
+	return r.queueClient.Subscribe(
+		ctx,
+		containerTopic,
+		false, // shared subscription
+		func(ctx context.Context, event *queue.MessageEvent) error {
+			defer event.Ack()
+			jobIDsEvent, err := events.UnmarshalRecentlyCompletedJobsEvent(event.Payload)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"Component": "ContainersReaper",
+					"Payload":   string(event.Payload),
+					"Error":     err}).Error("failed to unmarshal registration by recently completed job-ids")
+				return err
+			}
+			for _, id := range jobIDsEvent.JobIDs {
+				r.recentlyCompletedJobIDs.Add(strconv.FormatUint(id, 10), true)
+			}
+			return nil
+		},
+		nil,
+		make(map[string]string),
+	)
 }

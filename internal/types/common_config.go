@@ -51,6 +51,7 @@ type CommonConfig struct {
 	MonitorInterval            time.Duration      `yaml:"monitor_interval" mapstructure:"monitor_interval"`
 	MonitoringURLs             map[string]string  `yaml:"monitoring_urls" mapstructure:"monitoring_urls"`
 	RegistrationInterval       time.Duration      `yaml:"registration_interval" mapstructure:"registration_interval"`
+	DeadJobIDsEventsInterval   time.Duration      `yaml:"dead_job_ids_events_interval" mapstructure:"dead_job_ids_events_interval"`
 	MaxStreamingLogMessageSize int                `yaml:"max_streaming_log_message_size" mapstructure:"max_streaming_log_message_size" json:"max_streaming_log_message_size"`
 	MaxJobTimeout              time.Duration      `yaml:"max_job_timeout" mapstructure:"max_job_timeout"`
 	MaxTaskTimeout             time.Duration      `yaml:"max_task_timeout" mapstructure:"max_task_timeout"`
@@ -199,6 +200,15 @@ func (c *CommonConfig) GetContainerLifecycleTopic() string {
 		c.Pulsar.TopicTenant,
 		c.Pulsar.TopicNamespace,
 		"container-lifecycle")
+}
+
+// GetRecentlyCompletedJobsTopic topic
+func (c *CommonConfig) GetRecentlyCompletedJobsTopic() string {
+	return NonPersistentTopic(
+		c.MessagingProvider,
+		c.Pulsar.TopicTenant,
+		c.Pulsar.TopicNamespace,
+		"recently-completed-job-ids")
 }
 
 // GetJobDefinitionLifecycleTopic topic
@@ -361,6 +371,9 @@ func (c *CommonConfig) Validate(_ []string) error {
 	}
 	if c.RegistrationInterval == 0 {
 		c.RegistrationInterval = 5 * time.Second
+	}
+	if c.DeadJobIDsEventsInterval == 0 {
+		c.DeadJobIDsEventsInterval = 1 * time.Minute
 	}
 
 	if c.MaxStreamingLogMessageSize == 0 {

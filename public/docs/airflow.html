@@ -74,6 +74,16 @@
 <td style="text-align:left"><a href="https://airflow.apache.org/docs/apache-airflow/stable/executor/index.html">Airflow</a> supports local and remote executors run tasks and Formicary uses similar executors to run various types of tasks.</td>
 </tr>
 <tr>
+<td style="text-align:left">files (shared)</td>
+<td style="text-align:left">database for quick access</td>
+<td style="text-align:left">Airflow continuously scans and parses DAG files, which is not scalable and requires shared access to the file system.</td>
+</tr>
+<tr>
+<td style="text-align:left">no user/groups</td>
+<td style="text-align:left">built-in support for users/groups</td>
+<td style="text-align:left">Airflow does not support users, teams and groups so DAGs are difficult to audit.</td>
+</tr>
+<tr>
 <td style="text-align:left">pools</td>
 <td style="text-align:left"><a href="definition_options.html#tags">tags</a></td>
 <td style="text-align:left"><a href="https://airflow.apache.org/docs/apache-airflow/stable/_modules/airflow/models/pool.html#Pool">Airflow</a> supports worker pools to run specific tasks and Formicary uses tags to annotate workers that can run specific tasks.</td>

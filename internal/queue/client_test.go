@@ -90,7 +90,7 @@ func Test_ShouldSendReceiveWithFilter(t *testing.T) {
 	targets := []string{"target1", "target2", "target3"}
 	ids := make([]string, 0)
 	for _, target := range targets {
-		id, err := subscribeWithFilter(t, cli, ctx, reqTopic, started, target)
+		id, err := subscribeWithFilter(ctx, t, cli, reqTopic, started, target)
 		if err != nil {
 			t.Fatalf("unexpected error %s", err)
 		}
@@ -126,8 +126,8 @@ func Test_ShouldSendReceiveWithFilter(t *testing.T) {
 }
 
 func subscribeWithFilter(
-	t *testing.T, cli Client,
 	ctx context.Context,
+	t *testing.T, cli Client,
 	reqTopic string,
 	started time.Time,
 	target string) (string, error) {

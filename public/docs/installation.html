@@ -93,7 +93,21 @@
 </ul>
 <h4 id="install-kubernetes">Install Kubernetes</h4>
 <ul>
-<li>You can use Minikube for Kubernetes by installing it from <a href="https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/">https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/</a>, MicroK8s from <a href="https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview">https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview</a> or other implementation.</li>
+<li>You can use Kubernetes by installing:<ul>
+<li>(Preferred locally) MicroK8s from <a href="https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview">https://ubuntu.com/tutorials/install-a-local-kubernetes-with-microk8s#1-overview</a></li>
+<li>Minikube from <a href="https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/">https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-minikube/</a></li>
+<li>AWS Fargate - <a href="https://aws.amazon.com/fargate/">https://aws.amazon.com/fargate/</a></li>
+<li>Google Kubernetes Engine  (GKE) <a href="https://cloud.google.com/kubernetes-engine/">https://cloud.google.com/kubernetes-engine/</a></li>
+<li>Azure Kubernetes Service (AKS) <a href="https://azure.microsoft.com/en-us/services/kubernetes-service/">https://azure.microsoft.com/en-us/services/kubernetes-service/</a></li>
+</ul>
+</li>
+</ul>
+<h5 id="starting-microk8-on-ubuntu">Starting Microk8 on Ubuntu</h5>
+<ul>
+<li>microk8s.status</li>
+<li>microk8s.kubectl</li>
+<li>microk8s.kubectl config view --raw &gt; $HOME/.kube/config</li>
+<li>copy above config to your local ~/.kube/config</li>
 </ul>
 <h5 id="starting-kubernetes-docker-env">Starting Kubernetes/Docker env</h5>
 <ul>
@@ -104,13 +118,6 @@
 <li>minikube stop</li>
 <li>minikube delete</li>
 <li>minikube addons list</li>
-</ul>
-<h5 id="starting-microk8-on-ubuntu">Starting Microk8 on Ubuntu</h5>
-<ul>
-<li>microk8s.status</li>
-<li>microk8s.kubectl</li>
-<li>microk8s.kubectl config view --raw &gt; $HOME/.kube/config</li>
-<li>copy above config to your local ~/.kube/config</li>
 </ul>
 <h4 id="starting-k3-on-ubuntu">Starting K3 on Ubuntu</h4>
 <ul>

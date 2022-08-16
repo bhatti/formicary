@@ -56,6 +56,7 @@
 <h1 id="formicary-api">Formicary API</h1>
 <p>The formicary is a distributed orchestration engine based on <code>Leader-Follower</code>, <code>Pipes-Filter</code>, <code>Fork-Join</code> and <code>SEDA</code> design principles for executing a directed acyclic graph of tasks, which is also referred as a job workflow. A task represents a unit of work and a job definition is used to specify the task dependencies in the graph/workflow including configuration parameters and conditional logic.</p>
 <h2 id="version-0-0-1">Version: 0.0.1</h2>
+<p><strong>Contact information:</strong> Support <a href="https://formicary.io">https://formicary.io</a> <a href="mailto:support@formicary.io">support@formicary.io</a>  </p>
 <h3 id="security">Security</h3>
 <p><strong>api_key</strong>  </p>
 <table class='table table-sm'>
@@ -4069,6 +4070,12 @@
 <td>No</td>
 </tr>
 <tr>
+<td>auto_refresh</td>
+<td>boolean</td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
 <td>created_at</td>
 <td>dateTime</td>
 <td></td>
@@ -4095,12 +4102,6 @@
 <tr>
 <td>methods</td>
 <td>[ <a href="#taskmethod">TaskMethod</a> ]</td>
-<td></td>
-<td>No</td>
-</tr>
-<tr>
-<td>persistent_connection</td>
-<td>boolean</td>
 <td></td>
 <td>No</td>
 </tr>

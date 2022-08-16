@@ -132,6 +132,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 
 	jobManager, err := manager.NewJobManager(
+		ctx,
 		serverCfg,
 		repoFactory.AuditRecordRepository,
 		repoFactory.JobDefinitionRepository,

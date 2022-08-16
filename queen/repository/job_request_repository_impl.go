@@ -478,12 +478,72 @@ type jobRequestID struct {
 	ID uint64
 }
 
-// RecentDeadIDs returns recently completed job-ids
-func (jrr *JobRequestRepositoryImpl) RecentDeadIDs(
+type jobRequestIDState struct {
+	ID       uint64
+	JobState common.RequestState
+}
+
+// RecentIDs returns job -ids
+func (jrr *JobRequestRepositoryImpl) RecentIDs(
+	limit int) (res map[uint64]common.RequestState, err error) {
+	sql := "SELECT id, job_state FROM formicary_job_requests ORDER BY updated_at DESC limit ?"
+	args := []interface{}{limit}
+	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	res = make(map[uint64]common.RequestState)
+
+	for rows.Next() {
+		var id jobRequestIDState
+		if err = jrr.db.ScanRows(rows, &id); err != nil {
+			return nil, err
+		}
+		res[id.ID] = id.JobState
+	}
+
+	return res, nil
+}
+
+// RecentLiveIDs returns recently alive - executing/pending/starting job-ids
+func (jrr *JobRequestRepositoryImpl) RecentLiveIDs(
 	limit int) ([]uint64, error) {
-	sql := "SELECT id FROM formicary_job_requests WHERE job_state IN (?) ORDER BY updated_at DESC limit ?"
+	sql := "SELECT id FROM formicary_job_requests WHERE job_state NOT IN (?) ORDER BY updated_at DESC limit ?"
 	jobStates := []common.RequestState{common.FAILED, common.COMPLETED, common.CANCELLED}
 	args := []interface{}{jobStates, limit}
+	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	ids := make([]uint64, 0)
+
+	for rows.Next() {
+		var id jobRequestID
+		if err = jrr.db.ScanRows(rows, &id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id.ID)
+	}
+
+	return ids, nil
+}
+
+// RecentDeadIDs returns recently completed job-ids
+func (jrr *JobRequestRepositoryImpl) RecentDeadIDs(
+	limit int,
+	fromOffset time.Duration,
+	toOffset time.Duration,
+) ([]uint64, error) {
+	sql := "SELECT id FROM formicary_job_requests WHERE job_state IN (?) AND updated_at > ? AND updated_at < ? ORDER BY updated_at DESC limit ?"
+	jobStates := []common.RequestState{common.FAILED, common.COMPLETED, common.CANCELLED}
+	now := time.Now()
+	args := []interface{}{jobStates, now.Add(fromOffset * -1), now.Add(toOffset * -1), limit}
 	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
 	if err != nil {
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
 	"strconv"
+	"time"
 
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/types"
@@ -142,7 +143,7 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 }
 
 // swagger:route POST /api/jobs/requests/{id}/restart job-requests restartJobRequest
-// Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
+// Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only
 // failed tasks are executed or hard-restart where all tasks are executed.
 // responses:
 //   200: emptyResponse
@@ -225,7 +226,7 @@ func (jobReqCtrl *JobRequestController) getDeadIDs(c web.APIContext) error {
 	} else if limit > 10000 {
 		limit = 10000
 	}
-	ids, err := jobReqCtrl.jobManager.RecentDeadIDs(limit)
+	ids, err := jobReqCtrl.jobManager.RecentDeadIDs(limit, 10*60*time.Minute, time.Second)
 	if err != nil {
 		return err
 	}

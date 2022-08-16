@@ -117,7 +117,16 @@ type JobRequestRepository interface {
 	DeletePendingCronByJobType(
 		qc *common.QueryContext,
 		jobType string) error
+	// RecentIDs returns job ids
+	RecentIDs(
+		limit int) (map[uint64]common.RequestState, error)
+	// RecentLiveIDs returns recently alive - executing/pending/starting job-ids
+	RecentLiveIDs(
+		limit int) ([]uint64, error)
 	// RecentDeadIDs returns recently completed job-ids
 	RecentDeadIDs(
-		limit int) ([]uint64, error)
+		limit int,
+		fromOffset time.Duration,
+		toOffset time.Duration,
+		) ([]uint64, error)
 }
