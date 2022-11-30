@@ -124,7 +124,7 @@ func (am *ArtifactManager) UploadArtifact(
 	params map[string]string) (*common.Artifact, error) {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), uuid.NewV4().String())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file due to %s", err.Error())
+		return nil, fmt.Errorf("failed to create temp file due to %w", err)
 	}
 	if body == nil {
 		return nil, fmt.Errorf("artifact body is nil")
@@ -136,12 +136,12 @@ func (am *ArtifactManager) UploadArtifact(
 
 	dst, err := os.Create(tmpFile.Name())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file due to %s", err.Error())
+		return nil, fmt.Errorf("failed to create temp file due to %w", err)
 	}
 	_, err = io.Copy(dst, body)
 	ioutil.NopCloser(dst)
 	if err != nil {
-		return nil, fmt.Errorf("failed to copy file due to %s", err.Error())
+		return nil, fmt.Errorf("failed to copy file due to %w", err)
 	}
 
 	artifact := &common.Artifact{
@@ -159,11 +159,11 @@ func (am *ArtifactManager) UploadArtifact(
 		artifact.UserID,
 		artifact,
 		tmpFile.Name()); err != nil {
-		return nil, fmt.Errorf("failed to upload file due to '%s'", err.Error())
+		return nil, fmt.Errorf("failed to upload file due to %w", err)
 	}
 
 	if _, err = am.artifactRepository.Save(artifact); err != nil {
-		return nil, fmt.Errorf("failed to save file due to %s", err.Error())
+		return nil, fmt.Errorf("failed to save file due to %w", err)
 	}
 	return artifact, nil
 }

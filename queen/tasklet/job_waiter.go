@@ -184,7 +184,7 @@ func (jw *JobWaiter) UpdateFromJobLifecycleEvent(
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jw *JobWaiter) matchesJobIDs(jobExecutionLifecycleEvent *events.JobExecutionLifecycleEvent) bool {
 	if !jobExecutionLifecycleEvent.JobState.IsTerminal() {
 		return false
@@ -215,7 +215,7 @@ func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []uint64, err error) {
 		default:
 			jobIDs[i], err = strconv.ParseUint(fmt.Sprintf("%v", v.Value), 0, 64)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse job-id %v k due to %v", v, err)
+				return nil, fmt.Errorf("failed to parse job-id %v k due to %w", v, err)
 			}
 		}
 	}

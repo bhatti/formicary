@@ -87,18 +87,32 @@ func New(
 // Start - creates periodic ticker for scheduling pending jobs
 func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	if js.jobSchedulerLeaderSubscriptionID, err = js.subscribeToJobSchedulerLeader(ctx); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobScheduler",
+			"ID":        js.serverCfg.ID,
+			"Error":     err,
+		}).Errorf("failed to start")
 		return err
 	}
 	js.tickers = append(js.tickers, js.startTickerToSendJobSchedulerLeaderEvents(ctx))
 	js.tickers = append(js.tickers, js.startTickerToSchedulePendingJobs(ctx))
 	js.tickers = append(js.tickers, js.startTickerToCheckOrphanJobs(ctx))
 	js.tickers = append(js.tickers, js.startTickerToCheckMissingCronJobs(ctx))
+	logrus.WithFields(logrus.Fields{
+		"Component": "JobScheduler",
+		"ID":        js.serverCfg.ID,
+	}).Infof("started")
 	return nil
 }
 
 // Stop - stops background subscription and ticker routine
 func (js *JobScheduler) Stop(ctx context.Context) error {
 	if err := js.unsubscribeToJobSchedulerLeader(ctx); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobScheduler",
+			"ID":        js.serverCfg.ID,
+			"Error":     err,
+		}).Errorf("failed to stop")
 		return err
 	}
 	for _, ticker := range js.tickers {
@@ -108,10 +122,14 @@ func (js *JobScheduler) Stop(ctx context.Context) error {
 	js.lock.Lock()
 	js.stopped = true
 	js.lock.Unlock()
+	logrus.WithFields(logrus.Fields{
+		"Component": "JobScheduler",
+		"ID":        js.serverCfg.ID,
+	}).Infof("stopped")
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (js *JobScheduler) isStopped() bool {
 	js.lock.RLock()
 	defer js.lock.RUnlock()
@@ -168,6 +186,12 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 
 	if len(requests) == 0 {
 		js.noJobsTries += 3 // TODO better backoff policy here
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobScheduler",
+				"ID":        js.serverCfg.ID,
+			}).Debugf("no pending jobs")
+		}
 		return fmt.Errorf("no pending jobs")
 	}
 
@@ -225,7 +249,7 @@ func (js *JobScheduler) scheduleJob(
 		// change status from READY to FAILED
 		return jobStateMachine.ScheduleFailed(
 			ctx,
-			fmt.Errorf("failed to validate job-state due to %s", err.Error()),
+			fmt.Errorf("failed to validate job-state due to %w", err),
 			common.ErrorValidation,
 		)
 	}
@@ -267,8 +291,7 @@ func (js *JobScheduler) scheduleJob(
 			// changing state from PENDING to FAILED
 			return jobStateMachine.ScheduleFailed(
 				ctx,
-				fmt.Errorf("allocation failed due to %s, max schedule attempts exceeded %d",
-					err.Error(), request.ScheduleAttempts),
+				fmt.Errorf("allocation failed due to %w, max schedule attempts exceeded %d", err, request.ScheduleAttempts),
 				common.ErrorAntResources)
 		}
 		decrPriority := 0

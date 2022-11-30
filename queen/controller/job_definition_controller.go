@@ -57,7 +57,8 @@ func NewJobDefinitionController(
 // swagger:route GET /api/jobs/definitions job-definitions queryJobDefinitions
 // Queries job definitions by criteria such as type, platform, etc.
 // responses:
-//   200: jobDefinitionQueryResponse
+//
+//	200: jobDefinitionQueryResponse
 func (jobDefCtrl *JobDefinitionController) queryJobDefinitions(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	if params["public_plugin"] == nil {
@@ -79,7 +80,8 @@ func (jobDefCtrl *JobDefinitionController) queryJobDefinitions(c web.APIContext)
 // swagger:route GET /api/jobs/plugins job-definitions queryPlugins
 // Queries job definitions by criteria such as type, platform, etc.
 // responses:
-//   200: jobDefinitionQueryResponse
+//
+//	200: jobDefinitionQueryResponse
 func (jobDefCtrl *JobDefinitionController) queryPlugins(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	params["public_plugin"] = true
@@ -98,7 +100,8 @@ func (jobDefCtrl *JobDefinitionController) queryPlugins(c web.APIContext) error 
 // swagger:route POST /api/jobs/definitions job-definitions postJobDefinition
 // Uploads job definitions using JSON or YAML body based on content-type header.
 // responses:
-//   200: jobDefinition
+//
+//	200: jobDefinition
 func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	job := types.NewJobDefinition("")
@@ -108,7 +111,7 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (
 	b, err = ioutil.ReadAll(c.Request().Body)
 	if err != nil {
 		return common.NewValidationError(
-			fmt.Errorf("failed to load yaml job due to %s", err.Error()))
+			fmt.Errorf("failed to load yaml job due to %w", err))
 	}
 	// checking yaml format
 	if yamlFormat {
@@ -126,7 +129,7 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (
 			"Error":      err,
 		}).Warnf("failed to unmarshal")
 		return common.NewValidationError(
-			fmt.Errorf("unable to unmarshal due to '%s'", err.Error()))
+			fmt.Errorf("unable to unmarshal due to %w", err))
 	}
 	job.UserID = qc.GetUserID()
 	job.OrganizationID = qc.GetOrganizationID()
@@ -155,7 +158,8 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (
 // swagger:route POST /api/jobs/definitions/{id}/disable job-definitions disableJobDefinition
 // disables job-definition so that no new requests are executed while in-progress jobs are allowed to complete.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobDefCtrl *JobDefinitionController) disableJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobDefCtrl.jobManager.DisableJobDefinition(qc, c.Param("id"))
@@ -168,7 +172,8 @@ func (jobDefCtrl *JobDefinitionController) disableJobDefinition(c web.APIContext
 // swagger:route POST /api/jobs/definitions/{id}/enable job-definitions enableJobDefinition
 // Enables job-definition so that new requests can start processing.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobDefCtrl *JobDefinitionController) enableJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobDefCtrl.jobManager.EnableJobDefinition(qc, c.Param("id"))
@@ -181,7 +186,8 @@ func (jobDefCtrl *JobDefinitionController) enableJobDefinition(c web.APIContext)
 // swagger:route GET /api/jobs/definitions/{id} job-definitions getJobDefinition
 // Finds the job-definition by id.
 // responses:
-//   200: jobDefinition
+//
+//	200: jobDefinition
 func (jobDefCtrl *JobDefinitionController) getJobDefinition(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
@@ -210,7 +216,8 @@ func (jobDefCtrl *JobDefinitionController) getJobDefinition(c web.APIContext) (e
 // swagger:route GET /api/jobs/definitions/{type}/yaml job-definitions getYamlJobDefinition
 // Finds job-definition by type and returns response YAML format.
 // responses:
-//   200: jobDefinition
+//
+//	200: jobDefinition
 func (jobDefCtrl *JobDefinitionController) getYamlJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	b, err := jobDefCtrl.jobManager.GetYamlJobDefinitionByType(qc, c.Param("type"))
@@ -223,13 +230,14 @@ func (jobDefCtrl *JobDefinitionController) getYamlJobDefinition(c web.APIContext
 // swagger:route PUT /api/jobs/definitions/{id}/concurrency job-definitions updateConcurrencyJobDefinition
 // Updates the concurrency for job-definition by id to limit the maximum jobs that can be executed at the same time.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobDefCtrl *JobDefinitionController) updateConcurrencyJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	concurrency, err := strconv.Atoi(c.FormValue("concurrency"))
 	if err != nil {
 		return common.NewValidationError(
-			fmt.Errorf("failed to parse concurrent value due to %s", err))
+			fmt.Errorf("failed to parse concurrent value due to %w", err))
 	}
 	err = jobDefCtrl.jobManager.SetJobDefinitionMaxConcurrency(qc, c.Param("id"), concurrency)
 	if err != nil {
@@ -241,7 +249,8 @@ func (jobDefCtrl *JobDefinitionController) updateConcurrencyJobDefinition(c web.
 // swagger:route DELETE /api/jobs/definitions/{id} job-definitions deleteJobDefinition
 // Deletes the job-definition by id.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobDefCtrl *JobDefinitionController) deleteJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobDefCtrl.jobManager.DeleteJobDefinition(qc, c.Param("id"))
@@ -254,7 +263,8 @@ func (jobDefCtrl *JobDefinitionController) deleteJobDefinition(c web.APIContext)
 // swagger:route GET /api/jobs/definitions/{id}/dot job-definitions dotJobDefinition
 // Returns Graphviz DOT definition for the graph of tasks defined in the job.
 // responses:
-//   200: stringResponse
+//
+//	200: stringResponse
 func (jobDefCtrl *JobDefinitionController) dotJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	d, err := jobDefCtrl.jobManager.GetDotConfigForJobDefinition(qc, c.Param("id"))
@@ -268,7 +278,8 @@ func (jobDefCtrl *JobDefinitionController) dotJobDefinition(c web.APIContext) er
 // swagger:route GET /api/jobs/definitions/{id}/dot.png job-definitions dotImageJobDefinition
 // Returns Graphviz DOT image for the graph of tasks defined in the job.
 // responses:
-//   200: byteResponse
+//
+//	200: byteResponse
 func (jobDefCtrl *JobDefinitionController) dotImageJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	d, err := jobDefCtrl.jobManager.GetDotImageForJobDefinition(qc, c.Param("id"))
@@ -281,7 +292,9 @@ func (jobDefCtrl *JobDefinitionController) dotImageJobDefinition(c web.APIContex
 // swagger:route GET /api/jobs/definitions/{id}/dot.png job-definitions statsJobDefinition
 // Returns Real-time statistics of jobs running.
 // responses:
-//   200: jobDefinitionStatsResponse
+//
+//	200: jobDefinitionStatsResponse
+//
 // statsJobDefinition - stats of job-definition
 func (jobDefCtrl *JobDefinitionController) statsJobDefinition(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)

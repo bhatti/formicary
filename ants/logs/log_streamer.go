@@ -64,7 +64,7 @@ func NewLogStreamer(
 		antCfg.OutputLimit,
 		masks)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create job trace due to %v", err)
+		return nil, fmt.Errorf("failed to create job trace due to %w", err)
 	}
 	return streamer, nil
 }

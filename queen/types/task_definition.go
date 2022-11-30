@@ -473,7 +473,7 @@ func (td *TaskDefinition) ValidateBeforeSave() error {
 func (td *TaskDefinition) addVariablesFromNameValueVariables() error {
 	nameValueVariables, err := utils.ParseNameValueConfigs(td.NameValueVariables)
 	if err != nil {
-		return fmt.Errorf("failed to parse variables %v due to %v", td.NameValueVariables, err)
+		return fmt.Errorf("failed to parse variables %v due to %w", td.NameValueVariables, err)
 	}
 	td.NameValueVariables = nameValueVariables
 	for n, v := range nameValueVariables {

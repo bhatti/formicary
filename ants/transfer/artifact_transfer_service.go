@@ -147,7 +147,7 @@ func (t *ArtifactTransferService) DownloadArtifact(
 	}
 	_ = tmpFile.Close()
 	if err = os.MkdirAll(extractedDir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create extracted-dir %s due to %v", extractedDir, err)
+		return fmt.Errorf("failed to create extracted-dir %s due to %w", extractedDir, err)
 	}
 
 	return artifacts.UnzipFile(tmpFile.Name(), extractedDir)

@@ -288,14 +288,12 @@ func (a *Adapter) checkBucket(ctx context.Context) error {
 	}
 	exists, err := a.minioClient.BucketExists(ctx, a.conf.Bucket)
 	if err != nil {
-		return fmt.Errorf("failed to check bucket '%s' due to %s",
-			a.conf.Bucket, err.Error())
+		return fmt.Errorf("failed to check bucket '%s' due to %w", a.conf.Bucket, err)
 	}
 	if !exists {
 		err = a.minioClient.MakeBucket(ctx, a.conf.Bucket, minio.MakeBucketOptions{Region: a.conf.Region})
 		if err != nil {
-			return fmt.Errorf("failed to create bucket '%s' due to %s (%s)",
-				a.conf.Bucket, err.Error(), a.conf.Endpoint)
+			return fmt.Errorf("failed to create bucket '%s' due to %w (%s)", a.conf.Bucket, err, a.conf.Endpoint)
 		}
 	}
 	a.verifiedBucket = true

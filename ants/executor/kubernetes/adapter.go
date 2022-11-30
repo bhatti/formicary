@@ -119,7 +119,7 @@ func (u *Utils) List(
 	ctx context.Context) ([]executor.Info, error) {
 	pods, err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list containers due to %s", err.Error())
+		return nil, fmt.Errorf("failed to list containers due to %w", err)
 	}
 	execs := make([]executor.Info, 0)
 
@@ -168,8 +168,7 @@ func (u *Utils) GetPodPhase(
 	}
 	pod, err := u.GetPod(ctx, name)
 	if err != nil {
-		return PodPhaseResponse{}, fmt.Errorf("failed to get pod-phase for '%s' due to %s",
-			name, err.Error())
+		return PodPhaseResponse{}, fmt.Errorf("failed to get pod-phase for '%s' due to %w", name, err)
 	}
 	return PodPhaseResponse{
 		phase:             pod.Status.Phase,
@@ -381,7 +380,7 @@ func (u *Utils) BuildPod(
 	volumes := u.config.Kubernetes.Volumes.GetVolumes()
 	hostAliases, err := domain.CreateHostAliases(opts.Services, u.config.Kubernetes.GetHostAliases())
 	if err != nil {
-		return nil, nil, nil, 0, fmt.Errorf("failed to create host aliases due to %s", err.Error())
+		return nil, nil, nil, 0, fmt.Errorf("failed to create host aliases due to %w", err)
 	}
 	aliasNames := make([]string, len(hostAliases))
 	for i, a := range hostAliases {
@@ -415,7 +414,7 @@ func (u *Utils) BuildPod(
 				service.MemoryRequest,
 				service.EphemeralStorageRequest)
 			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create service for %s due to %s", svcName, err.Error())
+				return nil, nil, nil, 0, fmt.Errorf("failed to create service for %s due to %w", svcName, err)
 			}
 			serviceLimits, cost, err := u.config.Kubernetes.CreateResourceList(
 				"service-limit-"+svcName,
@@ -423,8 +422,7 @@ func (u *Utils) BuildPod(
 				service.MemoryLimit,
 				service.EphemeralStorageLimit)
 			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create service resource for %s due to %s",
-					svcName, err.Error())
+				return nil, nil, nil, 0, fmt.Errorf("failed to create service resource for %s due to %w", svcName, err)
 			}
 			totalCost += cost
 			volumes = service.GetKubernetesVolumes().AddVolumes(volumes)
@@ -456,7 +454,7 @@ func (u *Utils) BuildPod(
 			opts.MainContainer.MemoryRequest,
 			opts.MainContainer.EphemeralStorageRequest)
 		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create resource for %s due to %s", opts.Name, err.Error())
+			return nil, nil, nil, 0, fmt.Errorf("failed to create resource for %s due to %w", opts.Name, err)
 		}
 		limits, cost, err := u.config.Kubernetes.CreateResourceList(
 			"limit",
@@ -464,7 +462,7 @@ func (u *Utils) BuildPod(
 			opts.MainContainer.MemoryLimit,
 			opts.MainContainer.EphemeralStorageLimit)
 		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %s", opts.Name, err.Error())
+			return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %w", opts.Name, err)
 		}
 		totalCost += cost
 		mainContainer := buildContainer(
@@ -490,8 +488,7 @@ func (u *Utils) BuildPod(
 			opts.HelperContainer.MemoryRequest,
 			opts.HelperContainer.EphemeralStorageRequest)
 		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create helper resource for %s due to %s",
-				helperName, err.Error())
+			return nil, nil, nil, 0, fmt.Errorf("failed to create helper resource for %s due to %w", helperName, err)
 		}
 
 		helperLimits, cost, err := u.config.Kubernetes.CreateResourceList(
@@ -500,8 +497,7 @@ func (u *Utils) BuildPod(
 			opts.HelperContainer.MemoryLimit,
 			opts.HelperContainer.EphemeralStorageLimit)
 		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create helper CPU resource for %s, cost %f due to %s",
-				helperName, cost, err.Error())
+			return nil, nil, nil, 0, fmt.Errorf("failed to create helper CPU resource for %s, cost %f due to %w", helperName, cost, err)
 		}
 
 		// totalCost += cost // not needed for helper
@@ -559,7 +555,7 @@ func (u *Utils) BuildPod(
 		opts.HostNetwork,
 		initContainers)
 	if err != nil {
-		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %s", opts.Name, err.Error())
+		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %w", opts.Name, err)
 	}
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -643,7 +639,7 @@ func (u *Utils) Execute(
 	pod, err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).
 		Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get pod details: %w", err)
+		return nil, fmt.Errorf("couldn't get pod details due to %w", err)
 	}
 
 	if pod.Status.Phase != api.PodRunning {
@@ -712,8 +708,7 @@ func (u *Utils) Execute(
 
 	exec, err := remotecommand.NewSPDYExecutor(u.restConfig, http.MethodPost, req.URL())
 	if err != nil {
-		return pod, fmt.Errorf("failed to create create spdy executor for %s due to %s",
-			pod.Name, err.Error())
+		return pod, fmt.Errorf("failed to create create spdy executor for %s due to %w", pod.Name, err)
 	}
 
 	return pod, exec.Stream(remotecommand.StreamOptions{
@@ -793,7 +788,7 @@ func (u *Utils) GetLogs(
 		&api.PodLogOptions{Follow: true, LimitBytes: &maxBytes}).Stream(ctx)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ///////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ///////////////////////////////////////////
 func (u *Utils) createKubernetesService(
 	ctx context.Context,
 	service *api.Service) (*api.Service, error) {
@@ -810,13 +805,13 @@ func (u *Utils) cleanupResources(
 	if credentials != nil {
 		if err := u.cli.CoreV1().Secrets(namespace).
 			Delete(ctx, credentials.Name, metav1.DeleteOptions{}); err != nil {
-			errors = append(errors, fmt.Errorf("error cleaning up secrets: %s", err.Error()))
+			errors = append(errors, fmt.Errorf("error cleaning up secrets due to %w", err))
 		}
 	}
 	if configMap != nil {
 		if err := u.cli.CoreV1().ConfigMaps(namespace).
 			Delete(ctx, configMap.Name, metav1.DeleteOptions{}); err != nil {
-			errors = append(errors, fmt.Errorf("error cleaning up configmap: %s", err.Error()))
+			errors = append(errors, fmt.Errorf("error cleaning up configmap due to %w", err))
 		}
 	}
 	return errors

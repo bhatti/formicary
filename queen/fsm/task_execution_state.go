@@ -55,7 +55,7 @@ func NewTaskExecutionStateMachine(
 		tsm.JobExecution.DeleteTask(tsm.TaskExecution.ID)
 		// otherwise, let's remove last incomplete or failed task
 		if err = tsm.JobManager.DeleteExecutionTask(tsm.TaskExecution.ID); err != nil {
-			return nil, fmt.Errorf("failed to delete old task due to %v", err)
+			return nil, fmt.Errorf("failed to delete old task due to %w", err)
 		}
 	}
 
@@ -450,7 +450,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 	tsm.publishTaskWebhook(ctx, event)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal task-execution event due to %v", err)
+		return fmt.Errorf("failed to marshal task-execution event due to %w", err)
 	}
 	if _, err = tsm.QueueClient.Publish(ctx,
 		tsm.serverCfg.GetTaskExecutionLifecycleTopic(),
@@ -462,7 +462,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 			"UserID", tsm.Request.GetUserID(),
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send task-execution event due to %v", err)
+		return fmt.Errorf("failed to send task-execution event due to %w", err)
 	}
 	return nil
 }

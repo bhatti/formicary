@@ -789,7 +789,8 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
-		" (SELECT job_type FROM formicary_job_definitions where disabled is false and active is true)" +
+		" (SELECT job_type FROM formicary_job_definitions WHERE disabled is false AND active is true AND " +
+		" (user_id = formicary_job_requests.user_id OR organization_id = formicary_job_requests.organization_id)) " +
 		" AND job_state = ? AND scheduled_at <= ? "
 
 	args := []interface{}{state, time.Now()}

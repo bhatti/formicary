@@ -55,7 +55,7 @@ func (js *JobSupervisor) AsyncExecute(
 	return async.Execute(ctx, handler, async.NoAbort, nil)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 // executing job and all tasks within it
 func (js *JobSupervisor) tryExecuteJob(
 	ctx context.Context) (err error) {
@@ -67,7 +67,7 @@ func (js *JobSupervisor) tryExecuteJob(
 	if err = js.jobStateMachine.SetJobStatusToExecuting(ctx); err != nil {
 		return js.jobStateMachine.LaunchFailed(
 			ctx,
-			fmt.Errorf("failed to set job-execution state to EXECUTING due to %s", err.Error()))
+			fmt.Errorf("failed to set job-execution state to EXECUTING due to %w", err))
 	}
 
 	timeout := js.jobStateMachine.JobDefinition.Timeout
@@ -89,7 +89,7 @@ func (js *JobSupervisor) tryExecuteJob(
 		js.UpdateFromJobLifecycleEvent,
 		false,
 	); err != nil {
-		return fmt.Errorf("failed to subscribe to event bus %v", err)
+		return fmt.Errorf("failed to subscribe to event bus due to %w", err)
 	}
 
 	ticker := js.startTickerToUpdateRequestTimestamp(ctx)
@@ -333,7 +333,7 @@ func (js *JobSupervisor) submitTask(
 	if err != nil && !taskStateMachine.TaskDefinition.AllowFailure {
 		// changing state from EXECUTING to FAILED
 		return taskStateMachine,
-			fmt.Errorf("failed to execute task for '%s' due to %v", taskType, err)
+			fmt.Errorf("failed to execute task for '%s' due to %w", taskType, err)
 	}
 	return taskStateMachine, nil
 }

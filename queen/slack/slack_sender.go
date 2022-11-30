@@ -97,7 +97,7 @@ func (d *DefaultSlackSender) SendMessage(
 				qc,
 				user,
 				err)
-			return fmt.Errorf("failed to send message to slack: %s", err)
+			return fmt.Errorf("failed to send message to slack due to %w", err)
 		}
 	}
 	logrus.WithFields(logrus.Fields{

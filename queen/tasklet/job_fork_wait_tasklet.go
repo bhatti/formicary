@@ -99,7 +99,7 @@ func (t *JobForkWaitTasklet) Execute(
 	if err = t.EventBus.Subscribe(
 		t.Config.GetJobExecutionLifecycleTopic(),
 		waiter.UpdateFromJobLifecycleEvent); err != nil {
-		return taskReq.ErrorResponse(fmt.Errorf("failed to subscribe to event bus %v", err)), nil
+		return taskReq.ErrorResponse(fmt.Errorf("failed to subscribe to event bus %w", err)), nil
 	}
 
 	defer func() {
@@ -111,7 +111,7 @@ func (t *JobForkWaitTasklet) Execute(
 	for {
 		done, err := waiter.Poll()
 		if err != nil {
-			return taskReq.ErrorResponse(fmt.Errorf("failed to poll job due to %v", err)), nil
+			return taskReq.ErrorResponse(fmt.Errorf("failed to poll job due to %w", err)), nil
 		}
 		if done {
 			break

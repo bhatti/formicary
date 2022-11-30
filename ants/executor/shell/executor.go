@@ -86,9 +86,8 @@ func (se *Executor) doAsyncExecute(ctx context.Context, cmd string, helper bool)
 	se.lock.Lock()
 	defer se.lock.Unlock()
 	if se.State == executor.Removing {
-		err := fmt.Sprintf("failed to execute Command='%s' because executor is already stopped", cmd)
-		_ = se.WriteTraceError(ctx, err)
-		return nil, fmt.Errorf(err)
+		_ = se.WriteTraceError(ctx, fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd))
+		return nil, fmt.Errorf("failed to execute '%s' because container is already stopped", cmd)
 	}
 	se.State = executor.Running
 	r, err := NewCommandRunner(&se.BaseExecutor, cmd, helper)
@@ -104,7 +103,7 @@ func (se *Executor) doAsyncExecute(ctx context.Context, cmd string, helper bool)
 
 // Stop stopping execution by shell executor
 func (se *Executor) Stop(ctx context.Context,
-	) error {
+) error {
 	se.lock.Lock()
 	defer se.lock.Unlock()
 	if se.State == executor.Removing {

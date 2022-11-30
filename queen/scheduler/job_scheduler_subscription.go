@@ -219,7 +219,7 @@ const cronTriggeredJobChunkSize = 100
 func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error) {
 	jobTypes, err := js.jobManager.GetCronTriggeredJobTypes()
 	if err != nil {
-		return fmt.Errorf("failed to load jobtypes that can be triggered via cron due to %s", err)
+		return fmt.Errorf("failed to load jobtypes that can be triggered via cron due to %w", err)
 	}
 
 	for i := 0; i < len(jobTypes); i += cronTriggeredJobChunkSize {
@@ -227,8 +227,7 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 		missingJobTypes, err := js.jobManager.FindMissingCronScheduledJobsByType(batchedJobTypesAndTrigger)
 
 		if err != nil {
-			return fmt.Errorf("failed to find job types that needs to be scheduled via cron due to %s",
-				err)
+			return fmt.Errorf("failed to find job types that needs to be scheduled via cron due to %w", err)
 		}
 		for _, missingJobType := range missingJobTypes {
 			// by passing query context for internal use

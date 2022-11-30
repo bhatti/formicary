@@ -59,11 +59,12 @@ The formicary supports executors based on Docker, Kubernetes, HTTP and Shell. Yo
    - Azure Kubernetes Service (AKS) https://azure.microsoft.com/en-us/services/kubernetes-service/
 
 
-##### Starting Microk8 on Ubuntu
+##### Starting Microk8 on Ubuntu (preferred for local testing)
  - microk8s.status
  - microk8s.kubectl
  - microk8s.kubectl config view --raw > $HOME/.kube/config
  - copy above config to your local ~/.kube/config
+ - microk8s.enable dns
 
 ##### Starting Kubernetes/Docker env
  - minikube start --driver=docker

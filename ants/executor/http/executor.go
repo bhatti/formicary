@@ -122,9 +122,8 @@ func (h *Executor) doAsyncExecute(
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if h.State == executor.Removing {
-		err := fmt.Sprintf("failed to execute Command='%s' because executor is already stopped", cmd)
-		_ = h.WriteTraceError(ctx, err)
-		return nil, fmt.Errorf(err)
+		_ = h.WriteTraceError(ctx, fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd))
+		return nil, fmt.Errorf("failed to execute '%s' because container is already stopped", cmd)
 	}
 	h.State = executor.Running
 	r, err := NewCommandRunner(ctx, h.client, &h.BaseExecutor, cmd, helper, variables)
@@ -134,4 +133,3 @@ func (h *Executor) doAsyncExecute(
 	h.runners[r.ID] = r
 	return r, nil
 }
-

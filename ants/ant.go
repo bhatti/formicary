@@ -34,18 +34,18 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 
 	webServer, err := web.NewDefaultWebServer(&antCfg.CommonConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create web server %v", err)
+		return fmt.Errorf("failed to create web server due to %w", err)
 	}
 
 	// Create messaging client
 	queueClient, err := queue.NewMessagingClient(&antCfg.CommonConfig)
 	if err != nil {
-		return fmt.Errorf("failed to connect to pulsar %v", err)
+		return fmt.Errorf("failed to connect to pulsar due to %w", err)
 	}
 
 	artifactService, err := artifacts.New(&antCfg.S3)
 	if err != nil {
-		return fmt.Errorf("failed to connect to minio %v", err)
+		return fmt.Errorf("failed to connect to minio due to %w", err)
 	}
 
 	executor := handler.NewRequestExecutor(
@@ -60,7 +60,7 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 		queueClient,
 		metricsRegistry)
 	if err = antContainersRegistry.Start(ctx); err != nil {
-		return fmt.Errorf("failed to create containers registry %v", err)
+		return fmt.Errorf("failed to create containers registry due to %w", err)
 	}
 
 	// starts subscriber to listen for incoming requests
@@ -73,7 +73,7 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 		metricsRegistry,
 		executor,
 		requestTopic).Start(ctx); err != nil {
-		return fmt.Errorf("failed to create request handler %v", err)
+		return fmt.Errorf("failed to create request handler due to %w", err)
 	}
 
 	// start reaper to terminate long-running containers

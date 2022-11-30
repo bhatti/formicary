@@ -181,7 +181,7 @@ func uploadArtifacts(
 
 	artifact.Kind = types.ArtifactKindTask
 	if err = artifact.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate artifact %v due to %v", artifact, err)
+		return nil, fmt.Errorf("failed to validate artifact %v due to %w", artifact, err)
 	}
 
 	taskResp.AddArtifact(artifact)

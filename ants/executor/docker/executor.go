@@ -158,7 +158,7 @@ func (de *Executor) Stop(ctx context.Context) error {
 	return err
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 // doAsyncExecute - executing command by docker executor
 func (de *Executor) doAsyncExecute(
 	ctx context.Context,
@@ -170,9 +170,8 @@ func (de *Executor) doAsyncExecute(
 	de.lock.Lock()
 	defer de.lock.Unlock()
 	if de.State == executor.Removing {
-		err := fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd)
-		_ = de.WriteTraceError(ctx, err)
-		return nil, fmt.Errorf(err)
+		_ = de.WriteTraceError(ctx, fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd))
+		return nil, fmt.Errorf("failed to execute '%s' because container is already stopped", cmd)
 	}
 	de.State = executor.Running
 	runner, err := NewCommandRunner(de, de.adapter, containerName, cmd, helper)

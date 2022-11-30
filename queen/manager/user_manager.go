@@ -523,8 +523,7 @@ func (m *UserManager) BuildOrgWithInvitation(
 		if inv, err := m.invRepository.Accept(user.Email, user.InvitationCode); err == nil {
 			org, err = m.orgRepository.Get(qc, inv.OrganizationID)
 			if err != nil {
-				return nil, fmt.Errorf("failed to find organization in invitation %s due to %s",
-					inv.OrganizationID, err.Error())
+				return nil, fmt.Errorf("failed to find organization in invitation %s due to %w", inv.OrganizationID, err)
 			}
 			user.OrganizationID = org.ID
 			user.BundleID = org.BundleID

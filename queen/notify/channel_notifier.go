@@ -358,7 +358,7 @@ func loadTemplate(name string, dir string) ([]byte, error) {
 		b, err = ioutil.ReadFile(dir + name)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error loading template: '%s' due to %s", name, err)
+		return nil, fmt.Errorf("error loading template: '%s' due to %w", name, err)
 	}
 	return b, nil
 }

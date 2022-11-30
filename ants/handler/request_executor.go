@@ -164,7 +164,7 @@ func (re *RequestExecutorImpl) Execute(
 	return
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 // execute each command in script
 func (re *RequestExecutorImpl) execute(
 	ctx context.Context,
@@ -284,7 +284,7 @@ func addArtifactToPath(taskReq *types.TaskRequest, i int, cmd string, stdout []b
 		return "", err
 	}
 	if _, err = tmpFile.Write(stdout); err != nil {
-		return "", fmt.Errorf("failed to write output for %s due to %v", cmd, err)
+		return "", fmt.Errorf("failed to write output for %s due to %w", cmd, err)
 	}
 	ioutil.NopCloser(tmpFile)
 	return tmpFile.Name(), nil
@@ -372,7 +372,7 @@ func (re *RequestExecutorImpl) preProcess(
 		taskReq.ExecutorOpts.HelperContainer.Image = re.antCfg.Docker.HelperImage
 		//artDir, err := ioutil.TempDir(os.TempDir(), tmpArtifacts)
 		//if err != nil {
-		//	return nil, fmt.Errorf("failed to create artDir directory due to %s", err.Error())
+		//	return nil, fmt.Errorf("failed to create artDir directory due to %w", err)
 		//}
 		//if _, err := os.Stat(artDir); os.IsNotExist(err) {
 		//	_ = os.MkdirAll(artDir, os.ModePerm)

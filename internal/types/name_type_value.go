@@ -52,8 +52,8 @@ func NewNameTypeValue(
 		}
 		b, err := json.Marshal(value)
 		if err != nil {
-			return nv, fmt.Errorf("failed to parse value for '%s' due to '%s' -- %v",
-				name, err.Error(), value)
+			return nv, fmt.Errorf("failed to parse value for '%s' = '%v' due to %w",
+				name, value, err)
 		}
 		nv.Value = string(b)
 	}
@@ -195,4 +195,3 @@ func MaskVariables(all []NameTypeValue) (res []NameTypeValue) {
 	}
 	return
 }
-

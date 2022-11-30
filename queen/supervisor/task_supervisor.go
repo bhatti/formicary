@@ -37,7 +37,7 @@ func (ts *TaskSupervisor) Execute(
 	return ts.execute(ctx)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 // executing job
 func (ts *TaskSupervisor) execute(
 	ctx context.Context) (err error) {
@@ -97,7 +97,7 @@ func (ts *TaskSupervisor) execute(
 	if err = ts.taskStateMachine.PrepareExecution(ctx); err != nil {
 		// task is updated with FAILED
 		// changing job state from EXECUTING to FAILED
-		return fmt.Errorf("failed to prepare task for execution due to %v", err)
+		return fmt.Errorf("failed to prepare task for execution due to %w", err)
 	}
 
 	logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
@@ -189,7 +189,7 @@ func (ts *TaskSupervisor) invoke(
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	var b []byte
 	if b, err = taskReq.Marshal(ts.taskStateMachine.Reservation.EncryptionKey); err != nil {
-		return nil, fmt.Errorf("failed to marshal %s due to %v", taskReq, err)
+		return nil, fmt.Errorf("failed to marshal %s due to %w", taskReq, err)
 	}
 	var event *queue.MessageEvent
 

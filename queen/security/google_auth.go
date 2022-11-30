@@ -97,24 +97,24 @@ func getUserInfoFromGoogle(
 	}
 	token, err := googleOauthConfig.Exchange(ctx, code)
 	if err != nil {
-		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+		return nil, fmt.Errorf("code exchange failed due to %w", err)
 	}
 	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
+		return nil, fmt.Errorf("failed getting user info due to %w", err)
 	}
 	defer func() {
 		_ = response.Body.Close()
 	}()
 	contents, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
+		return nil, fmt.Errorf("failed reading response body due to %w", err)
 	}
 
 	mUser := make(map[string]interface{})
 	err = json.Unmarshal(contents, &mUser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal %s due to %s", string(contents), err.Error())
+		return nil, fmt.Errorf("failed to unmarshal %s due to %w", string(contents), err)
 	}
 	if mUser["email"] == nil || reflect.TypeOf(mUser["email"]).String() != "string" {
 		return nil, fmt.Errorf("failed to find email in  %s", string(contents))

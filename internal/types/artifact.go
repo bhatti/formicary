@@ -200,13 +200,13 @@ func (a *Artifact) AfterLoad() error {
 	if len(a.MetadataSerialized) > 0 {
 		err := json.Unmarshal([]byte(a.MetadataSerialized), &a.Metadata)
 		if err != nil {
-			return fmt.Errorf("failed to parse '%v' due to %v", a.MetadataSerialized, err)
+			return fmt.Errorf("failed to parse '%v' due to %w", a.MetadataSerialized, err)
 		}
 	}
 	if len(a.TagsSerialized) > 0 {
 		err := json.Unmarshal([]byte(a.TagsSerialized), &a.Tags)
 		if err != nil {
-			return fmt.Errorf("failed to parse '%v' due to %v", a.TagsSerialized, err)
+			return fmt.Errorf("failed to parse '%v' due to %w", a.TagsSerialized, err)
 		}
 	}
 	return nil

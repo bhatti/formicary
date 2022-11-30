@@ -55,7 +55,7 @@ func (jraCtr *JobRequestAdminController) getWaitTimeJobRequest(c web.APIContext)
 	qc := web.BuildQueryContext(c)
 	estimate, err := jraCtr.jobManager.GetWaitEstimate(qc, id)
 	if err != nil {
-		return fmt.Errorf("failed to estimate wait time for %d due to %v", id, err)
+		return fmt.Errorf("failed to estimate wait time for %d due to %w", id, err)
 	}
 	res := map[string]interface{}{"Estimate": estimate}
 	web.RenderDBUserFromSession(c, res)

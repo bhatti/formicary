@@ -310,7 +310,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		if parsed, err := v.GetParsedValue(); err == nil {
 			data[v.Name] = parsed
 		} else {
-			return nil, nil, fmt.Errorf("failed to parse value for %v due to %v", v, err)
+			return nil, nil, fmt.Errorf("failed to parse value for %v due to %w", v, err)
 		}
 	}
 
@@ -332,9 +332,8 @@ func (jd *JobDefinition) GetDynamicTask(
 				"Error":     err,
 			}).Error("failed to parse yaml task")
 			fmt.Printf("%s\n", serData)
-			debug.PrintStack()
-			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %s",
-				taskType, err.Error())
+			//debug.PrintStack()
+			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %w", taskType, err)
 		}
 	}
 
@@ -352,7 +351,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		}).Errorf("failed to unmarshal yaml task '%s", taskType)
 		fmt.Printf("%s\n", serData)
 		debug.PrintStack()
-		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to: '%v'", taskType, jd.JobType, err)
+		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to %w", taskType, jd.JobType, err)
 	}
 	_ = task.addVariablesFromNameValueVariables()
 
@@ -425,7 +424,7 @@ func (jd *JobDefinition) getDynamicVariables(
 	}
 	serVariablesAfterTemplate, err := utils.ParseTemplate(serVariables, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Yaml for job variables due to %s", err.Error())
+		return nil, fmt.Errorf("failed to parse Yaml for job variables due to %w", err)
 	}
 	err = yaml.Unmarshal([]byte(serVariablesAfterTemplate), &out)
 	if err != nil {
@@ -1113,7 +1112,7 @@ func (jd *JobDefinition) addVariablesFromNameValueVariables() error {
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jd *JobDefinition) tasksString() string {
 	var b strings.Builder
 	for _, t := range jd.Tasks {

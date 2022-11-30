@@ -102,7 +102,7 @@ func (t *MessagingTasklet) Execute(
 
 	var b []byte
 	if b, err = taskReq.Marshal(""); err != nil {
-		return nil, fmt.Errorf("failed to marshal %s due to %v", taskReq, err)
+		return nil, fmt.Errorf("failed to marshal %s due to %w", taskReq, err)
 	}
 	var event *queue.MessageEvent
 	logrus.WithFields(logrus.Fields{

@@ -73,15 +73,15 @@ func CreateResourceList(
 	}
 
 	if rCPU, err = parse(cpu); err != nil {
-		return api.ResourceList{}, fmt.Errorf("failed to parse cpu %s due to %s", cpu, err)
+		return api.ResourceList{}, fmt.Errorf("failed to parse cpu %s due to %w", cpu, err)
 	}
 
 	if rMem, err = parse(memory); err != nil {
-		return api.ResourceList{}, fmt.Errorf("failed to parse memory %s due to %s", memory, err)
+		return api.ResourceList{}, fmt.Errorf("failed to parse memory %s due to %w", memory, err)
 	}
 
 	if rStore, err = parse(ephemeralStorage); err != nil {
-		return api.ResourceList{}, fmt.Errorf("failed to parse ephemeral-storage %s due to %s", ephemeralStorage, err)
+		return api.ResourceList{}, fmt.Errorf("failed to parse ephemeral-storage %s due to %w", ephemeralStorage, err)
 	}
 
 	l := make(api.ResourceList)

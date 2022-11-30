@@ -102,8 +102,8 @@ func (kep *ExecutorProvider) NewExecutor(
 
 	kep.registryCredentials, err = kep.adapter.BuildRegistryCredentials(ctx)
 	if err != nil {
-		_, _ = trace.Writeln(fmt.Sprintf("📌  failed to setup registry credentials due to %s", err), types.ExecTags)
-		return nil, fmt.Errorf("setting up registryCredentials: %w", err)
+		_, _ = trace.Writeln(fmt.Sprintf("📌 failed to setup registry credentials due to %s", err), types.ExecTags)
+		return nil, fmt.Errorf("setting up registryCredentials due to %w", err)
 	}
 	exec, err := NewKubernetesExecutor(ctx, kep.AntConfig, trace, kep.adapter, kep.registryCredentials, opts)
 	if err != nil {

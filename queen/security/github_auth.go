@@ -22,8 +22,8 @@ import (
 // GithubAuth struct for oauth by GitHub
 type GithubAuth struct {
 	commonConfig *common.CommonConfig
-	oauthConfig *oauth2.Config
-	callback    GithubPostWebhookHandler
+	oauthConfig  *oauth2.Config
+	callback     GithubPostWebhookHandler
 }
 
 // NewGithubAuth constructor
@@ -145,14 +145,14 @@ func getUserInfoFromGithub(
 	}
 	token, err := githubOauthConfig.Exchange(ctx, code)
 	if err != nil {
-		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+		return nil, fmt.Errorf("code exchange failed due to %w", err)
 	}
 	client := githubOauthConfig.Client(ctx, token)
 
 	//response, err := client.Get("https://api.github.com/user/repos?page=0&per_page=100")
 	response, err := client.Get("https://api.github.com/user?page=0&per_page=100")
 	if err != nil {
-		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
+		return nil, fmt.Errorf("failed getting user info due to %w", err)
 	}
 
 	defer func() {
@@ -160,13 +160,13 @@ func getUserInfoFromGithub(
 	}()
 	contents, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
+		return nil, fmt.Errorf("failed reading response body due to %w", err)
 	}
 
 	mUser := make(map[string]interface{})
 	err = json.Unmarshal(contents, &mUser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal %s due to %s", string(contents), err.Error())
+		return nil, fmt.Errorf("failed to unmarshal %s due to %w", string(contents), err)
 	}
 	user := &common.User{
 		Username:  mUser["login"].(string),

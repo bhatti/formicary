@@ -183,7 +183,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		serverCfg.GetExpireArtifactsTaskletTopic(),
 	).Start(ctx); err != nil {
-		return fmt.Errorf("failed to create artifact expiration tasklet %v", err)
+		return fmt.Errorf("failed to create artifact expiration tasklet due to %w", err)
 	}
 
 	// starts messaging tasklet
@@ -194,7 +194,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		serverCfg.GetMessagingTaskletTopic(),
 	).Start(ctx); err != nil {
-		return fmt.Errorf("failed to create messaging tasklet %v", err)
+		return fmt.Errorf("failed to create messaging tasklet due to %w", err)
 	}
 
 	// starts job-fork tasklet that runs on the server side to fork jobs
@@ -205,7 +205,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		serverCfg.GetForkJobTaskletTopic(),
 	).Start(ctx); err != nil {
-		return fmt.Errorf("failed to create fork-job tasklet %v", err)
+		return fmt.Errorf("failed to create fork-job tasklet due to %w", err)
 	}
 
 	// starts job-fork-await tasklet that runs on the server side to wait for forked jobs
@@ -216,7 +216,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		serverCfg.GetWaitForkJobTaskletTopic(),
 	).Start(ctx); err != nil {
-		return fmt.Errorf("failed to create fork-job tasklet %v", err)
+		return fmt.Errorf("failed to create fork-job tasklet due to %w", err)
 	}
 
 	// Register job launcher that listen to event topic and starts executing job in goroutine
@@ -277,7 +277,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func buildHealthMonitor(
 	ctx context.Context,
 	serverCfg *config.ServerConfig,

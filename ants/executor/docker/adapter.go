@@ -111,13 +111,13 @@ func (u *Utils) Execute(
 	}
 	containerInfo, err := u.cli.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return info, fmt.Errorf("failed to inspect container for execution %s due to %s", cmd, err.Error())
+		return info, fmt.Errorf("failed to inspect container for execution %s due to %w", cmd, err)
 	}
 
 	// Creating execution
 	resp, err := u.cli.ContainerExecCreate(ctx, containerID, execConfig)
 	if err != nil {
-		return info, fmt.Errorf("failed to create execution %s due to %s", cmd, err.Error())
+		return info, fmt.Errorf("failed to create execution %s due to %w", cmd, err)
 	}
 
 	execStartCheck := types.ExecStartCheck{
@@ -129,13 +129,13 @@ func (u *Utils) Execute(
 	hijack, err := u.cli.ContainerExecAttach(ctx, resp.ID, execStartCheck)
 	//hijack, err := u.cli.ContainerAttach(ctx, containerID, attachOptions())
 	if err != nil {
-		return info, fmt.Errorf("failed to attach to container %s due to %s", cmd, err.Error())
+		return info, fmt.Errorf("failed to attach to container %s due to %w", cmd, err)
 	}
 	if err := u.cli.ContainerExecStart(ctx, resp.ID, execStartCheck); err != nil {
-		return info, fmt.Errorf("failed to start execution %s due to %s", cmd, err.Error())
+		return info, fmt.Errorf("failed to start execution %s due to %w", cmd, err)
 	}
 	//if err := u.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
-	//  return "", hijack, fmt.Errorf("failed to execute (ContainerStart) %s due to %s", cmd, err.Error())
+	//  return "", hijack, fmt.Errorf("failed to execute (ContainerStart) %s due to %w", cmd, err)
 	//}
 
 	info.ID = resp.ID
@@ -161,7 +161,7 @@ func (u *Utils) Build(
 	if u.config.PullPolicy.Always() || u.config.PullPolicy.IfNotPresent() {
 		_, err := u.Pull(ctx, image)
 		if err != nil {
-			return "", fmt.Errorf("failed to pull image %s due to %s", image, err.Error())
+			return "", fmt.Errorf("failed to pull image %s due to %w", image, err)
 		}
 	}
 
@@ -216,8 +216,8 @@ func (u *Utils) Build(
 		nil,
 		name)
 	if err != nil {
-		return "", fmt.Errorf("failed to create container %s due to %s, elapsed %s",
-			name, err.Error(), time.Since(started))
+		return "", fmt.Errorf("failed to create container %s due to %w, elapsed %s",
+			name, err, time.Since(started))
 	}
 
 	_, err = u.cli.ContainerInspect(ctx, resp.ID)
@@ -226,7 +226,7 @@ func (u *Utils) Build(
 			ctx,
 			resp.ID,
 			types.ContainerRemoveOptions{})
-		return "", fmt.Errorf("failed to inspect container %s due to %s", name, err.Error())
+		return "", fmt.Errorf("failed to inspect container %s due to %w", name, err)
 	}
 
 	//
@@ -243,7 +243,7 @@ func (u *Utils) Build(
 			ctx,
 			resp.ID,
 			types.ContainerRemoveOptions{})
-		return "", fmt.Errorf("failed to start container %s due to %s", name, err.Error())
+		return "", fmt.Errorf("failed to start container %s due to %w", name, err)
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -330,8 +330,8 @@ func (u *Utils) Stop(
 	}).Info("✋ stopping docker container...")
 	err := u.cli.ContainerStop(ctx, id, &timeout)
 	if err != nil {
-		return fmt.Errorf("failed to stop docker container %s due to %s, timeout=%s",
-			id, err.Error(), timeout)
+		return fmt.Errorf("failed to stop docker container %s due to %w, timeout=%s",
+			id, err, timeout)
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -368,7 +368,7 @@ func (u *Utils) Stop(
 func (u *Utils) List(ctx context.Context) ([]executor.Info, error) {
 	result, err := u.cli.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list containers due to %s", err.Error())
+		return nil, fmt.Errorf("failed to list containers due to %w", err)
 	}
 
 	arr := make([]executor.Info, 0)

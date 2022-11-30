@@ -75,7 +75,7 @@ func NewTestJobDefinition(user *common.User, name string) *types.JobDefinition {
 func SaveTestJobDefinition(qc *common.QueryContext, name string, cronTrigger string) (*types.JobDefinition, error) {
 	repo, err := NewTestJobDefinitionRepository()
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error %v while creating a job repository", err)
+		return nil, fmt.Errorf("unexpected error %w while creating a job repository", err)
 	}
 	job := NewTestJobDefinition(qc.User, name)
 	job.CronTrigger = cronTrigger

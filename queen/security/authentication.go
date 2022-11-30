@@ -73,7 +73,7 @@ func getKey(ctx context.Context, token *jwt.Token) (interface{}, error) {
 
 	var pkey interface{}
 	if err := key.Raw(&pkey); err != nil {
-		return nil, fmt.Errorf("unable to get the public key. Error: %s", err.Error())
+		return nil, fmt.Errorf("unable to get the public key due to %w", err)
 	}
 
 	return pkey, nil

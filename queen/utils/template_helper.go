@@ -23,14 +23,13 @@ func ParseTemplate(body string, data interface{}) (res string, err error) {
 	}
 	t, err := template.New("").Funcs(TemplateFuncs()).Parse(body)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template due to %s", err)
+		return "", fmt.Errorf("failed to parse template due to %w", err)
 	}
 	var out bytes.Buffer
 	err = t.Execute(&out, data)
 	//err = t.ExecuteTemplate(&out, body, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template due to '%s', data=%v",
-			err, data)
+		return "", fmt.Errorf("failed to execute template due to %w, data=%v", err, data)
 	}
 	res = emptyLineRegex.ReplaceAllString(out.String(), "")
 	switch data.(type) {

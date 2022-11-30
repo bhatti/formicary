@@ -191,8 +191,8 @@ func (ke *Executor) Elapsed() string {
 
 const maxBuildPodTries = 10
 
-/////////////////////////////////////////// PRIVATE METHODS ///////////////////////////////////////////
-//fmt.Sprintf("%s 2>&1 | tee -a %s", cmd, logFile)
+// ///////////////////////////////////////// PRIVATE METHODS ///////////////////////////////////////////
+// fmt.Sprintf("%s 2>&1 | tee -a %s", cmd, logFile)
 func (ke *Executor) ensurePodsConfigured() (err error) {
 	if ke.pod != nil {
 		return nil
@@ -223,7 +223,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 			break
 		}
 		if i == maxBuildPodTries-1 || !strings.Contains(err.Error(), "try again") {
-			return fmt.Errorf("setting up failed for pod: %w (%s), tries %d", err, ke.ExecutorOptions.Name, i+1)
+			return fmt.Errorf("setting up failed for pod due to %w (%s), tries %d", err, ke.ExecutorOptions.Name, i+1)
 		}
 		time.Sleep(time.Duration(i+1) * time.Second)
 	}
@@ -276,9 +276,8 @@ func (ke *Executor) doAsyncExecute(
 	defer ke.lock.Unlock()
 
 	if ke.State == executor.Removing {
-		err := fmt.Sprintf("failed to execute '%s' because container is already stopped", cmd)
-		_ = ke.WriteTraceError(ctx, err)
-		return nil, fmt.Errorf(err)
+		_ = ke.WriteTraceError(ctx, fmt.Sprintf("❌ failed to execute '%s' because container is already stopped", cmd))
+		return nil, fmt.Errorf("failed to execute '%s' because container is already stopped", cmd)
 	}
 
 	if len(ke.ExecutorOptions.MainContainer.ImageDefinition.Entrypoint) == 0 {

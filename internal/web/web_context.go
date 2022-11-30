@@ -113,7 +113,7 @@ func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *co
 	}
 	claims, err := parseToken(token, secret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find session claims %v", err)
+		return nil, fmt.Errorf("failed to find session claims due to %w", err)
 	}
 	user = common.NewUser(
 		claims.OrgID,

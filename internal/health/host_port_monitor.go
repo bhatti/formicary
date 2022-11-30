@@ -55,14 +55,14 @@ func IsNetworkHostPortAlive(hostPort string, name string) error {
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func parseURL(strURL string) (host string, port int, err error) {
 	r := regexp.MustCompile(`([A-Za-z0-9\.\-]+):(\d+)`)
 	tokens := r.FindStringSubmatch(strURL)
 	if len(tokens) != 3 {
 		var u *url.URL
 		if u, err = url.Parse(strURL); err != nil {
-			return "", 0, fmt.Errorf("failed to parse %s due to %v", strURL, err)
+			return "", 0, fmt.Errorf("failed to parse %s due to %w", strURL, err)
 		}
 		port := 80
 		if u.Port() != "" {

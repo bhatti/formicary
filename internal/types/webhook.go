@@ -23,7 +23,7 @@ func NewWebhookFromString(val string) (*Webhook, error) {
 	var wh Webhook
 	err := yaml.Unmarshal([]byte(val), &wh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse webhook from '%s' due to %s", val, err)
+		return nil, fmt.Errorf("failed to parse webhook from '%s' due to %w", val, err)
 	}
 	return &wh, nil
 }

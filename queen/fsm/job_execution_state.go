@@ -684,7 +684,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 	return fields
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jsm *JobExecutionStateMachine) failed(
 	oldState common.RequestState,
 	cancelled bool,
@@ -863,7 +863,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 	jsm.publishJobWebhook(ctx, event)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal job-execution event due to %v", err)
+		return fmt.Errorf("failed to marshal job-execution event due to %w", err)
 	}
 	if _, err = jsm.QueueClient.Publish(ctx,
 		jsm.serverCfg.GetJobExecutionLifecycleTopic(),
@@ -874,7 +874,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 			"UserID", jsm.Request.GetUserID(),
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send job-execution event due to %v", err)
+		return fmt.Errorf("failed to send job-execution event due to %w", err)
 	}
 	return nil
 }
@@ -946,7 +946,7 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 		// change status from READY to FAILED
 		return jsm.LaunchFailed(
 			ctx,
-			fmt.Errorf("failed to marshal launch event for job due to %s", err.Error()))
+			fmt.Errorf("failed to marshal launch event for job due to %w", err))
 	}
 
 	// Sends launch event to one of job launchers (using load balance via shared queue)
@@ -959,7 +959,7 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 			queue.MessageTarget, jsm.id,
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send launch event due to %s", err.Error())
+		return fmt.Errorf("failed to send launch event due to %w", err)
 	}
 	return nil
 }

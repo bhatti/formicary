@@ -31,7 +31,7 @@ func NewTestLocator() (*Locator, error) {
 			return nil, err
 		}
 		if testLocator.db == nil {
-			return nil, fmt.Errorf("failed to find test database %v", err)
+			return nil, fmt.Errorf("failed to find test database due to %w", err)
 		}
 	}
 	return testLocator, nil
@@ -172,7 +172,7 @@ func NewTestOrgConfigRepository() (*OrganizationConfigRepositoryImpl, error) {
 	return f.OrgConfigRepository, nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 // clearDB - for testing purpose clear data before each test
 func clearDB(db *gorm.DB) {
 	db.Where("id != ''").Delete(common.Artifact{})

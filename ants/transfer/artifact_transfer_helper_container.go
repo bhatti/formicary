@@ -62,7 +62,7 @@ func (t *ArtifactTransferHelperContainer) CalculateDigest(ctx context.Context, p
 	joinedPaths := strings.Join(paths, " ")
 	cmd := fmt.Sprintf("cp %s %s", joinedPaths, t.taskReq.ExecutorOpts.CacheDirectory)
 	if _, stderr, _, _, err := t.execute(ctx, cmd, false); err != nil {
-		return "", fmt.Errorf("failed to copy key files for calculating cache key due to %v, stderr=%s",
+		return "", fmt.Errorf("failed to copy key files for calculating cache key due to %w, stderr=%s",
 			err, string(stderr))
 	}
 
@@ -76,7 +76,7 @@ func (t *ArtifactTransferHelperContainer) CalculateDigest(ctx context.Context, p
 		actualDigest = strings.TrimSpace(string(stdout))
 		return actualDigest, nil
 	}
-	return "", fmt.Errorf("failed to calculate cache key due to %v, stderr=%s",
+	return "", fmt.Errorf("failed to calculate cache key due to %w, stderr=%s",
 		err, string(stderr))
 }
 
@@ -127,7 +127,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		ctx,
 		zipCmd,
 		true); err != nil {
-		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %v, stderr=%s",
+		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %w, stderr=%s",
 			zipFile, zipCmd, err, string(stderr))
 	}
 
@@ -138,7 +138,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		ctx,
 		shaCmd,
 		true); err != nil {
-		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %v, stderr=%s",
+		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %w, stderr=%s",
 			zipFile, shaCmd, err, string(stderr))
 	}
 
@@ -154,8 +154,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	if len(parts) > 6 {
 		size, err = strconv.Atoi(parts[6])
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse parts %v due to %s",
-				parts, err.Error())
+			return nil, fmt.Errorf("failed to parse parts %v due to %w", parts, err)
 		}
 	}
 
@@ -175,8 +174,8 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		ctx,
 		uploadCmd,
 		true); err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("failed to upload %s due to %v, stderr=%s",
-			id, err, string(stderr)))
+		return nil, fmt.Errorf("failed to upload %s due to %w, stderr=%s",
+			id, err, string(stderr))
 	}
 
 	// Add artifacts to response
@@ -213,7 +212,7 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 			ctx,
 			cmd,
 			true); err != nil {
-			return fmt.Errorf("failed to download dependent artifact '%s' due to %v, stderr=%s",
+			return fmt.Errorf("failed to download dependent artifact '%s' due to %w, stderr=%s",
 				id, err, string(stderr))
 		}
 	}

@@ -293,7 +293,7 @@ func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
 	event := events.NewRecentlyCompletedJobsEvent("JobManager", ids)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal recently-completed-job-ids event due to %v", err)
+		return fmt.Errorf("failed to marshal recently-completed-job-ids event due to %w", err)
 	}
 	if _, err = jm.queueClient.Publish(
 		ctx,
@@ -303,7 +303,7 @@ func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
 			queue.DisableBatchingKey, "true",
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send recently-completed-job-ids event due to %v", err)
+		return fmt.Errorf("failed to send recently-completed-job-ids event due to %w", err)
 	}
 	return nil
 }
@@ -700,6 +700,14 @@ func (jm *JobManager) CancelJobRequest(
 			return err
 		}
 	}
+	logrus.WithFields(logrus.Fields{
+		"Component":    "JobManager",
+		"RequestID":    req.ID,
+		"User":         req.UserID,
+		"Organization": req.OrganizationID,
+		"JobType":      req.JobType,
+		"UserKey":      req.UserKey,
+	}).Infof("canceled request")
 	_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestCancelled, qc))
 	return nil
 }
@@ -866,6 +874,14 @@ func (jm *JobManager) TriggerJobRequest(
 	id uint64) (err error) {
 	if err = jm.jobRequestRepository.Trigger(qc, id); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":    "JobManager",
+				"RequestID":    req.ID,
+				"User":         req.UserID,
+				"Organization": req.OrganizationID,
+				"JobType":      req.JobType,
+				"UserKey":      req.UserKey,
+			}).Infof("triggered job request")
 			jm.metricsRegistry.Incr("job_trigger_total", map[string]string{"JobType": req.JobType})
 			_ = jm.fireJobRequestChange(req)
 			_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestTriggered, qc))
@@ -883,6 +899,14 @@ func (jm *JobManager) RestartJobRequest(
 			jm.metricsRegistry.Incr("job_restarted_total", map[string]string{"JobType": req.JobType})
 			_ = jm.fireJobRequestChange(req)
 			_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestRestarted, qc))
+			logrus.WithFields(logrus.Fields{
+				"Component":    "JobManager",
+				"RequestID":    req.ID,
+				"User":         req.UserID,
+				"Organization": req.OrganizationID,
+				"JobType":      req.JobType,
+				"UserKey":      req.UserKey,
+			}).Infof("restarted job request")
 		}
 	}
 	return
@@ -1163,7 +1187,7 @@ func (jm *JobManager) DeleteExecutionTask(
 	return jm.jobExecutionRepository.DeleteTask(id)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jm *JobManager) startRecentlyCompletedJobIdsTicker(ctx context.Context) error {
 	jm.jobIdsTicker = time.NewTicker(jm.serverCfg.DeadJobIDsEventsInterval)
 	go func() {
@@ -1201,7 +1225,7 @@ func (jm *JobManager) fireJobDefinitionChange(
 		eventType)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal job-definition event due to %v", err)
+		return fmt.Errorf("failed to marshal job-definition event due to %w", err)
 	}
 	if _, err = jm.queueClient.Publish(
 		context.Background(),
@@ -1214,7 +1238,7 @@ func (jm *JobManager) fireJobDefinitionChange(
 			"UserID", username,
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send job-definition event due to %v", err)
+		return fmt.Errorf("failed to send job-definition event due to %w", err)
 	}
 	return nil
 }
@@ -1231,7 +1255,17 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 	)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal job-request event due to %v", err)
+		logrus.WithFields(logrus.Fields{
+			"Component":    "JobManager",
+			"RequestID":    req.ID,
+			"User":         req.UserID,
+			"Organization": req.OrganizationID,
+			"JobType":      req.JobType,
+			"JobState":     req.JobState,
+			"UserKey":      req.UserKey,
+			"Error":        err,
+		}).Warnf("failed to marshal publish event")
+		return fmt.Errorf("failed to marshal job-request event due to %w", err)
 	}
 	if _, err = jm.queueClient.Publish(context.Background(),
 		jm.serverCfg.GetJobRequestLifecycleTopic(),
@@ -1242,7 +1276,17 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 			"UserID", req.UserID,
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send job-request event due to %v", err)
+		logrus.WithFields(logrus.Fields{
+			"Component":    "JobManager",
+			"RequestID":    req.ID,
+			"User":         req.UserID,
+			"Organization": req.OrganizationID,
+			"JobType":      req.JobType,
+			"JobState":     req.JobState,
+			"UserKey":      req.UserKey,
+			"Error":        err,
+		}).Warnf("failed to publish event")
+		return fmt.Errorf("failed to send job-request event due to %w", err)
 	}
 	return nil
 }
@@ -1263,7 +1307,7 @@ func (jm *JobManager) cancelJob(
 	)
 	var payload []byte
 	if payload, err = jobExecutionLifecycleEvent.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal job-execution jobExecutionLifecycleEvent due to %v", err)
+		return fmt.Errorf("failed to marshal job-execution jobExecutionLifecycleEvent due to %w", err)
 	}
 	// TODO add better reliability for this pub/sub
 	if _, err = jm.queueClient.Publish(context.Background(),
@@ -1275,7 +1319,7 @@ func (jm *JobManager) cancelJob(
 			"UserID", req.UserID,
 		),
 	); err != nil {
-		return fmt.Errorf("failed to send job-execution jobExecutionLifecycleEvent due to %v", err)
+		return fmt.Errorf("failed to send job-execution jobExecutionLifecycleEvent due to %w", err)
 	}
 
 	go func() {

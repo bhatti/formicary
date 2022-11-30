@@ -125,7 +125,7 @@ func (m *Monitor) Stop(context.Context) {
 	}
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (m *Monitor) startTicker(ctx context.Context) error {
 	// use registration as a form of heart-beat along with current load so that server can load balance
 	m.ticker = time.NewTicker(m.conf.MonitorInterval)
@@ -159,15 +159,15 @@ func (m *Monitor) fireHealthError(err error) error {
 		err.Error())
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {
-		return fmt.Errorf("failed to marshal health error event due to %v", err)
+		return fmt.Errorf("failed to marshal health error event due to %w", err)
 	}
 	if _, err = m.queueClient.Publish(
 		context.Background(),
 		m.conf.GetHealthErrorTopic(),
 		payload,
 		queue.NewMessageHeaders(),
-		); err != nil {
-		return fmt.Errorf("failed to send health error event due to %v", err)
+	); err != nil {
+		return fmt.Errorf("failed to send health error event due to %w", err)
 	}
 	return nil
 }
