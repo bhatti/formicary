@@ -163,7 +163,7 @@ func (rm *ManagerStub) GetContainerEvents(
 	return rm.Events, len(rm.Events)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (rm *ManagerStub) doReserve(
 	requestID uint64,
 	taskType string,
@@ -181,7 +181,8 @@ func (rm *ManagerStub) doReserve(
 		requestID,
 		taskType,
 		reg.EncryptionKey,
-		reg.CurrentLoad)
+		reg.CurrentLoad,
+		reg.TotalExecuted)
 	if !dryRun {
 		reg.Allocations[requestID] = common.NewAntAllocation(
 			reg.AntID,

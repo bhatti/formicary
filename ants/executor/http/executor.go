@@ -41,7 +41,7 @@ func NewHTTPExecutor(
 
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
-		"🔥 running with formicary %s on %s", cfg.ID, hostName))
+		"🔥 running with formicary %s on %s", cfg.Common.ID, hostName))
 	_ = base.WriteTraceInfo(ctx, fmt.Sprintf("🌅 preparing http executor"))
 
 	return &Executor{

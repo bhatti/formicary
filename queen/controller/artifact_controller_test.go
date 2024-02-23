@@ -101,7 +101,7 @@ func Test_ShouldUploadAndDeleteArtifact(t *testing.T) {
 }
 
 func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manager.ArtifactManager {
-	artifactService, err := artifacts.NewStub(&serverCfg.S3)
+	artifactService, err := artifacts.NewStub(&serverCfg.Common.S3)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
 	}

@@ -91,7 +91,10 @@ type IJobRequest interface {
 	Editable(userID string, organizationID string) bool
 }
 
-// JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
+// JobRequest outlines a user's request to execute a job as per its job-definition. Upon submission, a job-request
+// is marked as PENDING in the database and later, it is asynchronously scheduled for execution by the job scheduler,
+// depending on resource availability. Besides user-initiated requests, a job request might also be issued by a
+// parent job to execute a child job in a fork/join manner.
 type JobRequest struct {
 	//gorm.Model
 	// ID defines UUID for primary key

@@ -65,7 +65,7 @@ func New(
 	metricsRegistry *metrics.Registry,
 ) *JobScheduler {
 	return &JobScheduler{
-		id:                            serverCfg.ID + "-job-scheduler",
+		id:                            serverCfg.Common.ID + "-job-scheduler",
 		serverCfg:                     serverCfg,
 		queueClient:                   queueClient,
 		jobManager:                    jobManager,
@@ -75,7 +75,7 @@ func New(
 		resourceManager:               resourceManager,
 		monitor:                       monitor,
 		metricsRegistry:               metricsRegistry,
-		jobSchedulerLeaderTopic:       serverCfg.GetJobSchedulerLeaderTopic(),
+		jobSchedulerLeaderTopic:       serverCfg.Common.GetJobSchedulerLeaderTopic(),
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
 		busy:                          false,
 		noJobsTries:                   0,
@@ -89,7 +89,7 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	if js.jobSchedulerLeaderSubscriptionID, err = js.subscribeToJobSchedulerLeader(ctx); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 			"Error":     err,
 		}).Errorf("failed to start")
 		return err
@@ -100,7 +100,7 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	js.tickers = append(js.tickers, js.startTickerToCheckMissingCronJobs(ctx))
 	logrus.WithFields(logrus.Fields{
 		"Component": "JobScheduler",
-		"ID":        js.serverCfg.ID,
+		"ID":        js.serverCfg.Common.ID,
 	}).Infof("started")
 	return nil
 }
@@ -110,7 +110,7 @@ func (js *JobScheduler) Stop(ctx context.Context) error {
 	if err := js.unsubscribeToJobSchedulerLeader(ctx); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 			"Error":     err,
 		}).Errorf("failed to stop")
 		return err
@@ -124,7 +124,7 @@ func (js *JobScheduler) Stop(ctx context.Context) error {
 	js.lock.Unlock()
 	logrus.WithFields(logrus.Fields{
 		"Component": "JobScheduler",
-		"ID":        js.serverCfg.ID,
+		"ID":        js.serverCfg.Common.ID,
 	}).Infof("stopped")
 	return nil
 }
@@ -144,10 +144,10 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 		return
 	}
 
-	if js.serverCfg.ShuttingDown {
+	if js.serverCfg.Common.ShuttingDown {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 		}).Error("server shutting down so stopping scheduling")
 		_ = js.Stop(ctx)
 		js.metricsRegistry.Incr("scheduler_shutting_down_total", nil)
@@ -157,7 +157,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	if err = js.monitor.HealthStatus(ctx); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 			"Error":     err,
 		}).Error("failed to schedule jobs because health monitor failed")
 		js.metricsRegistry.Incr("scheduler_bad_health", nil)
@@ -173,7 +173,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 			"Error":     err,
 		}).
 			Error("failed to find pending jobs")
@@ -189,7 +189,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
 				"Component": "JobScheduler",
-				"ID":        js.serverCfg.ID,
+				"ID":        js.serverCfg.Common.ID,
 			}).Debugf("no pending jobs")
 		}
 		return fmt.Errorf("no pending jobs")
@@ -202,7 +202,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
 					"Component":        "JobScheduler",
-					"ID":               js.serverCfg.ID,
+					"ID":               js.serverCfg.Common.ID,
 					"RequestID":        req.ID,
 					"JobType":          req.JobType,
 					"RequestRetry":     req.GetRetried(),
@@ -262,7 +262,7 @@ func (js *JobScheduler) scheduleJob(
 		)
 	}
 
-	if err = jobStateMachine.ShouldFilter(); err != nil {
+	if err = jobStateMachine.ShouldSkip(); err != nil {
 		// change status from READY to FAILED
 		err = jobStateMachine.ScheduleFailed(
 			ctx,
@@ -275,7 +275,7 @@ func (js *JobScheduler) scheduleJob(
 			_ = js.jobManager.DeleteJobRequest(common.NewQueryContext(nil, ""), request.ID)
 			logrus.WithFields(logrus.Fields{
 				"Component":        "JobScheduler",
-				"ID":               js.serverCfg.ID,
+				"ID":               js.serverCfg.Common.ID,
 				"RequestID":        request.ID,
 				"JobType":          request.JobType,
 				"ScheduleAttempts": request.ScheduleAttempts,
@@ -311,7 +311,7 @@ func (js *JobScheduler) scheduleJob(
 		// will try again
 		logrus.WithFields(logrus.Fields{
 			"Component":        "JobScheduler",
-			"ID":               js.serverCfg.ID,
+			"ID":               js.serverCfg.Common.ID,
 			"RequestID":        request.ID,
 			"JobType":          request.JobType,
 			"Organization":     request.OrganizationID,
@@ -343,7 +343,7 @@ func (js *JobScheduler) scheduleJob(
 	if dbError, eventError = jobStateMachine.CreateJobExecution(ctx); dbError != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":        "JobScheduler",
-			"ID":               js.serverCfg.ID,
+			"ID":               js.serverCfg.Common.ID,
 			"RequestID":        request.ID,
 			"JobType":          request.JobType,
 			"ScheduleAttempts": request.ScheduleAttempts,
@@ -362,7 +362,7 @@ func (js *JobScheduler) scheduleJob(
 	}
 	logrus.WithFields(logrus.Fields{
 		"Component":        "JobScheduler",
-		"ID":               js.serverCfg.ID,
+		"ID":               js.serverCfg.Common.ID,
 		"RequestID":        request.ID,
 		"UserID":           request.UserID,
 		"Organization":     request.OrganizationID,

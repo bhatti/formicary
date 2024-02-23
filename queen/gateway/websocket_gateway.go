@@ -44,7 +44,7 @@ func New(
 	logsArchiver repository.LogEventRepository,
 	webserver web.Server) *Gateway {
 	gw := &Gateway{
-		id:           serverCfg.ID + "-websocket-gateway",
+		id:           serverCfg.Common.ID + "-websocket-gateway",
 		serverCfg:    serverCfg,
 		queueClient:  queueClient,
 		logsArchiver: logsArchiver,
@@ -59,14 +59,14 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["JobDefinitionLifecycleEvent"] {
 		if gw.jobDefinitionLifecycleSubscriptionID, err = gw.subscribeToJobDefinitionLifecycleEvent(
 			ctx,
-			gw.serverCfg.GetJobDefinitionLifecycleTopic()); err != nil {
+			gw.serverCfg.Common.GetJobDefinitionLifecycleTopic()); err != nil {
 			return err
 		}
 	}
 	if gw.serverCfg.GatewaySubscriptions["JobRequestLifecycleEvent"] {
 		if gw.jobRequestLifecycleSubscriptionID, err = gw.subscribeToJobRequestLifecycleEvent(
 			ctx,
-			gw.serverCfg.GetJobRequestLifecycleTopic()); err != nil {
+			gw.serverCfg.Common.GetJobRequestLifecycleTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -74,7 +74,7 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["JobExecutionLifecycleEvent"] {
 		if gw.jobExecutionLifecycleSubscriptionID, err = gw.subscribeToJobExecutionLifecycleEvent(
 			ctx,
-			gw.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
+			gw.serverCfg.Common.GetJobExecutionLifecycleTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -82,7 +82,7 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["TaskExecutionLifecycleEvent"] {
 		if gw.taskExecutionLifecycleSubscriptionID, err = gw.subscribeToTaskExecutionLifecycleEvent(
 			ctx,
-			gw.serverCfg.GetTaskExecutionLifecycleTopic()); err != nil {
+			gw.serverCfg.Common.GetTaskExecutionLifecycleTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -90,7 +90,7 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["ContainersLifecycleEvents"] {
 		if gw.containersLifecycleSubscriptionID, err = gw.subscribeToContainersLifecycleEvents(
 			ctx,
-			gw.serverCfg.GetContainerLifecycleTopic()); err != nil {
+			gw.serverCfg.Common.GetContainerLifecycleTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -98,7 +98,7 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["LogEvent"] {
 		if gw.logsSubscriptionID, err = gw.subscribeToLogEvent(
 			ctx,
-			gw.serverCfg.GetLogTopic()); err != nil {
+			gw.serverCfg.Common.GetLogTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -106,7 +106,7 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 	if gw.serverCfg.GatewaySubscriptions["HealthErrorEvent"] {
 		if gw.healthErrorSubscriptionID, err = gw.subscribeToHealthErrorEvent(
 			ctx,
-			gw.serverCfg.GetHealthErrorTopic()); err != nil {
+			gw.serverCfg.Common.GetHealthErrorTopic()); err != nil {
 			_ = gw.Stop(ctx)
 			return err
 		}
@@ -119,31 +119,31 @@ func (gw *Gateway) Start(ctx context.Context) (err error) {
 func (gw *Gateway) Stop(ctx context.Context) error {
 	err1 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetJobDefinitionLifecycleTopic(),
+		gw.serverCfg.Common.GetJobDefinitionLifecycleTopic(),
 		gw.jobDefinitionLifecycleSubscriptionID)
 	err2 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetJobRequestLifecycleTopic(),
+		gw.serverCfg.Common.GetJobRequestLifecycleTopic(),
 		gw.jobRequestLifecycleSubscriptionID)
 	err3 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetJobExecutionLifecycleTopic(),
+		gw.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		gw.jobExecutionLifecycleSubscriptionID)
 	err4 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetTaskExecutionLifecycleTopic(),
+		gw.serverCfg.Common.GetTaskExecutionLifecycleTopic(),
 		gw.taskExecutionLifecycleSubscriptionID)
 	err5 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetContainerLifecycleTopic(),
+		gw.serverCfg.Common.GetContainerLifecycleTopic(),
 		gw.containersLifecycleSubscriptionID)
 	err6 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetLogTopic(),
+		gw.serverCfg.Common.GetLogTopic(),
 		gw.logsSubscriptionID)
 	err7 := gw.queueClient.UnSubscribe(
 		ctx,
-		gw.serverCfg.GetHealthErrorTopic(),
+		gw.serverCfg.Common.GetHealthErrorTopic(),
 		gw.healthErrorSubscriptionID)
 	gw.ticker.Stop()
 	return utils.ErrorsAny(err1, err2, err3, err4, err5, err6, err7)
@@ -217,8 +217,8 @@ func (gw *Gateway) handleRegistration(c web.APIContext, ws *websocket.Conn) {
 			return
 		}
 
-		if gw.serverCfg.Auth.Enabled {
-			user, err := web.AuthenticatedUser(c, gw.serverCfg.Auth.CookieName, gw.serverCfg.Auth.JWTSecret)
+		if gw.serverCfg.Common.Auth.Enabled {
+			user, err := web.AuthenticatedUser(c, gw.serverCfg.Common.Auth.CookieName, gw.serverCfg.Common.Auth.JWTSecret)
 			if err != nil || user == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "WebsocketGateway",

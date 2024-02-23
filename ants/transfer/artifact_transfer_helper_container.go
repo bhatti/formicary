@@ -87,7 +87,7 @@ func (t *ArtifactTransferHelperContainer) UploadArtifacts(
 	expiration time.Time) (artifact *types.Artifact, err error) {
 	artifactsDir := t.taskReq.ExecutorOpts.ArtifactsDirectory
 	id := fmt.Sprintf("%s%s.zip",
-		utils.NormalizePrefix(t.antCfg.S3.Prefix), t.taskReq.KeyPath())
+		utils.NormalizePrefix(t.antCfg.Common.S3.Prefix), t.taskReq.KeyPath())
 	name := fmt.Sprintf("%s.zip", t.taskReq.TaskType)
 	return t.uploadArtifacts(ctx, id, name, paths, expiration, artifactsDir)
 }
@@ -164,7 +164,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	}
 
 	uploadCmd := fmt.Sprintf("ls -l %s && aws s3 --endpoint-url $AWS_URL cp %s s3://%s/%s",
-		zipFile, zipFile, t.antCfg.S3.Bucket, id)
+		zipFile, zipFile, t.antCfg.Common.S3.Bucket, id)
 	if expiration.Unix() > time.Now().Unix() {
 		uploadCmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
 	}
@@ -181,7 +181,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	// Add artifacts to response
 	artifact = &types.Artifact{
 		Name:          name,
-		Bucket:        t.antCfg.S3.Bucket,
+		Bucket:        t.antCfg.Common.S3.Bucket,
 		ID:            id,
 		SHA256:        sha256,
 		ContentLength: int64(size),
@@ -202,7 +202,7 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	// TODO verify download/upload
 	cmds := []string{
 		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url $AWS_URL cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
-			extractedDir, t.antCfg.S3.Bucket, id),
+			extractedDir, t.antCfg.Common.S3.Bucket, id),
 		fmt.Sprintf("python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
 		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),
 	}

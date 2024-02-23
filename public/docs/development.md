@@ -140,6 +140,3 @@ to complete while not receiving new jobs/tasks. In order to reduce any shutdown,
 #### Installation
 See [Installation](installation.md)
 
-#### Running
-See [Get it running](running.md)
-

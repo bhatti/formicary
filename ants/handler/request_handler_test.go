@@ -21,10 +21,10 @@ func Test_ShouldStartAndStopRequestHandler(t *testing.T) {
 	metricsRegistry := metrics.New()
 	antCfg := newTestAntConfig()
 	require.NoError(t, antCfg.Validate())
-	queueClient := queue.NewStubClient(&antCfg.CommonConfig)
+	queueClient := queue.NewStubClient(&antCfg.Common)
 
-	requestRegistry := tasklet.NewRequestRegistry(&antCfg.CommonConfig, metricsRegistry)
-	artifactService, err := artifacts.NewStub(&antCfg.S3)
+	requestRegistry := tasklet.NewRequestRegistry(&antCfg.Common, metricsRegistry)
+	artifactService, err := artifacts.NewStub(&antCfg.Common.S3)
 	require.NoError(t, err)
 	antContainersRegistry := registry.NewAntContainersRegistry(antCfg, queueClient, metricsRegistry)
 	err = antContainersRegistry.Start(context.Background())
@@ -54,7 +54,7 @@ func Test_ShouldStartAndStopRequestHandler(t *testing.T) {
 
 func newTestAntConfig() *config.AntConfig {
 	antCfg := &config.AntConfig{
-		CommonConfig: types.CommonConfig{
+		Common: types.CommonConfig{
 			Pulsar: types.PulsarConfig{
 				URL: "pulsar",
 			},

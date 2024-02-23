@@ -49,7 +49,8 @@ func NewJobRequestController(
 // swagger:route GET /api/jobs/requests job-requests queryJobRequests
 // Queries job requests by criteria such as type, platform, etc.
 // responses:
-//   200: jobRequestQueryResponse
+//
+//	200: jobRequestQueryResponse
 func (jobReqCtrl *JobRequestController) queryJobRequests(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
@@ -68,7 +69,8 @@ func (jobReqCtrl *JobRequestController) queryJobRequests(c web.APIContext) error
 // swagger:route GET /api/jobs/requests/{id} job-requests getJobRequest
 // Finds the job-request by id.
 // responses:
-//   200: jobRequest
+//
+//	200: jobRequest
 func (jobReqCtrl *JobRequestController) getJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
@@ -82,7 +84,8 @@ func (jobReqCtrl *JobRequestController) getJobRequest(c web.APIContext) error {
 // swagger:route POST /api/jobs/requests job-requests submitJobRequest
 // Submits a job-request for processing, which is saved in the database and is then scheduled for execution.
 // responses:
-//   200: jobRequest
+//
+//	200: jobRequest
 func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	request, err := types.NewJobRequestFromDefinition(types.NewJobDefinition(""))
@@ -118,7 +121,8 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error
 // swagger:route POST /api/jobs/requests/{id}/cancel job-requests cancelJobRequest
 // Cancels a job-request that is pending for execution or already executing.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
@@ -129,9 +133,10 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 }
 
 // swagger:route POST /api/jobs/requests/{id}/trigger job-requests triggerJobRequest
-// Triggers a scheduled job
+// Triggers a scheduled job.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -143,10 +148,10 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 }
 
 // swagger:route POST /api/jobs/requests/{id}/restart job-requests restartJobRequest
-// Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only
-// failed tasks are executed or hard-restart where all tasks are executed.
+// Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -160,7 +165,8 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) erro
 // swagger:route GET /api/jobs/requests/{id}/dot job-requests dotJobRequest
 // Returns Graphviz DOT request for the graph of tasks defined in the job request.
 // responses:
-//   200: stringResponse
+//
+//	200: stringResponse
 func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
@@ -174,7 +180,8 @@ func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
 // swagger:route GET /api/jobs/requests/{id}/dot.png job-requests dotImageJobRequest
 // Returns Graphviz DOT image for the graph of tasks defined in the job.
 // responses:
-//   200: byteResponse
+//
+//	200: byteResponse
 func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
@@ -188,7 +195,8 @@ func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) err
 // swagger:route GET /api/jobs/requests/{id}/wait_time job-requests getWaitTimeJobRequest
 // Returns wait time for the job-request.
 // responses:
-//   200: jobRequestWaitTimes
+//
+//	200: jobRequestWaitTimes
 func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.APIContext) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
@@ -203,7 +211,8 @@ func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.APIContext) 
 // Returns statistics for the job-request such as success rate, latency, etc.
 // `This requires admin access`
 // responses:
-//   200: jobRequestStats
+//
+//	200: jobRequestStats
 func (jobReqCtrl *JobRequestController) statsJobRequests(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	start := utils.ParseStartDateTime(c.QueryParam("from"))
@@ -218,7 +227,8 @@ func (jobReqCtrl *JobRequestController) statsJobRequests(c web.APIContext) error
 // swagger:route GET /api/jobs/requests/dead_ids job-requests getDeadIDs
 // Returns job-request ids for recently completed jobs.
 // responses:
-//   200: jobRequestIDs
+//
+//	200: jobRequestIDs
 func (jobReqCtrl *JobRequestController) getDeadIDs(c web.APIContext) error {
 	limit, _ := strconv.Atoi(c.Param("limit"))
 	if limit == 0 {

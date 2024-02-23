@@ -229,7 +229,7 @@ func (am *ArtifactManager) DeleteArtifact(
 func (am *ArtifactManager) UpdateURL(
 	ctx context.Context,
 	art *common.Artifact) {
-	if am.serverCfg.ExternalBaseURL == "" {
+	if am.serverCfg.Common.ExternalBaseURL == "" {
 		if url, err := am.artifactService.PresignedGetURL(
 			ctx,
 			art.ID,
@@ -238,7 +238,7 @@ func (am *ArtifactManager) UpdateURL(
 			art.URL = url.String()
 		}
 	} else {
-		art.URL = am.serverCfg.ExternalBaseURL + "/api/artifacts/" + art.SHA256 + "/download"
+		art.URL = am.serverCfg.Common.ExternalBaseURL + "/api/artifacts/" + art.SHA256 + "/download"
 	}
 }
 

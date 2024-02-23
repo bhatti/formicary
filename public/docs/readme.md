@@ -19,44 +19,57 @@ based on tags executor protocols such as Kubernetes, Docker, Shell, HTTP, etc.
 The formicary uses an object-store for persisting or staging intermediate or final artifacts from the tasks, 
 which can be used by other tasks as input for their work. This allows building stages of tasks using
 *Pipes and Filter* and *SEDA* patterns, where artifacts and variables can be passed from one task to another so that output of a task 
-can be used as input of another task. The *Fork/Join* pattern allows executing work in parallel and then joining the results at the end. The main use-cases for formicary include:
-- Processing directed acyclic graphs of tasks
-- Batch jobs such as ETL, data imports and other offline processing
-- Scheduled batch processing such as clearing, settlement, etc
-- Data Pipelines such as processing a large size data in background
-- CI/CD Pipelines for building, testing and deploying code
-- Automation for repetitive tasks
-- Building workflows of tasks that have complex dependencies and can interact with a variety of protocols
+can be used as input of another task. The *Fork/Join* pattern allows executing work in parallel and then joining the results at the end. 
+The following is a list of its significant features:
 
-## Features:
+ -   **Declarative Task/Job Definitions**: Tasks and Jobs are defined as DAGs using simple YAML configuration files, with support for GO-based templates for customization.
+ -   **Authentication & Authorization:** The access to Formicary is secured using OAuth and OIDC standards.
+ -   **Persistence of Artifacts**: Artifacts and outputs from tasks can be stored and used by subsequent tasks or as job inputs.
+ -   **Extensible Execution Methods**: Supports a variety of execution protocols, including Docker, Kubernetes, HTTP, and custom protocols.
+ -   **Quota:** Limit maximum allowed CPU, memory, and disk quota usage for each task.
+ -   **Caching**: Supports caching for dependencies such as npm, maven, gradle, and python.
+ -   **Encryption**: Secures confidential configurations in databases and during network communication.
+ -   **Scheduling**: Cron-based scheduling for periodic job execution.
+ -   **Optional and Finalized Tasks**: Supports optional tasks that may fail and finalized tasks that run regardless of job success or failure.
+ -   **Child Jobs:** Supports spawning of child jobs based on Fork/Join patterns.
+ -   **Retry Mechanisms**: Supports retrying of tasks or jobs based on error/exit codes.
+ -   **Job Filtering and Priority**: Allows job/task execution filtering and prioritization.
+ -   Job prioritization, job/task retries, and cancellation.
+ -   **Resource based Routing**: Supports constraint-based routing of workloads for computing resources based on tags, labels, execution protocols, etc.
+ -   **Monitoring, Alarms and Notifications**: Offers job execution reports, real-time log streaming, and email notifications.
+ -   **Other:** Graceful and abrupt shutdown capabilities. Reporting and statistics on job outcomes and resource usage.
+ - GO based templates for job-definitions so that you can define customized variables and actions.
+ - Cron based scheduled processing where jobs can be executed at specific times or run periodically.
+ - Optional tasks that can fail without failing entire job.
+ - Finalized or always-run task that are executed regardless if the job fails or succeeds.
+ - Child jobs using fork/await so that a job can spawn other jobs that are executed asynchronously and then joins the results later in the job workflow.
+ - Job/Task retries where a failed job or task can be rerun for a specified number of times or based on error/exit codes. The job rety supports partial restart so that only failed tasks are rerun upon retries.
+ - Filtering of jobs/task execution based on user-defined conditions or parameters.
+ - Job priority, where higher priority jobs are executed before the low priority jobs.
+ - Job cancellation that can cleanly stop job and task execution.
+ - Applies CPU/Memory/Disk quota to tasks for managing available computing resources.
+ - Provides reports and statistics on job outcomes and resource usage such as CPU, memory and storage.
+ - Ant executors support multiple protocols that ants can register with queen node such as queue, http, websocket, docker, kubernetes, etc.
+ - Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.
+ - Streaming of real-time Logs to the UI as job/tasks are processed.
+ - Provides email notifications on job completion or failures.
+ - Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes
+   stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work
+   is handled by the ant worker, no work is lost.
+ - Metrics/auditing/usage of jobs and user actions.
 
-- Declarative definition of a job consisting of directed acyclic graph (DAG) of tasks using a simple yaml configuration file.
-- GO based templates for job-definitions so that you can define customized variables and actions. 
-- Persistence of artifacts from tasks that can be used by other tasks or used as output of jobs.
-- Extensible Method abstraction for supporting a variety of execution protocols such as Docker, Kubernetes HTTP, Websocket, Messaging or other customized protocols.
-- Caching of dependencies such as npm, maven, gradle, python, etc.
-- Encryption for storing secured configuration in the database or while in network communication.
-- Cron based scheduled processing where jobs can be executed at specific times or run periodically.
-- Optional tasks that can fail without failing entire job.
-- Finalized or always-run task that are executed regardless if the job fails or succeeds.
-- Child jobs using fork/await so that a job can spawn other jobs that are executed asynchronously and then joins the results later in the job workflow.
-- Job/Task retries where a failed job or task can be rerun for a specified number of times or based on error/exit codes. The job rety supports partial restart so that only failed tasks are rerun upon retries.
-- Filtering of jobs/task execution based on user-defined conditions or parameters.
-- Job priority, where higher priority jobs are executed before the low priority jobs.
-- Job cancellation that can cleanly stop job and task execution.
-- Applies CPU/Memory/Disk quota to tasks for managing available computing resources.
-- Provides reports and statistics on job outcomes and resource usage such as CPU, memory and storage.
-- Resource constraints based scheduling and routing where ants register with tags that support special annotations and tasks
-  are routed based on tags defined in the job definition.
-- Ant executors support multiple protocols that ants can register with queen node such as queue, http, websocket, docker, kubernetes, etc.
-- Pub/sub based events are used to propagate real-time updates of job/task executions to UI or other parts of the system other parts of the system.
-- Streaming of real-time Logs to the UI as job/tasks are processed. 
-- Provides email notifications on job completion or failures.
-- Authentication and authorization using OAuth, JWT and RBAC standards.
-- Graceful shutdown of queen server and ant workers that can receive a shutdown signal and the server/worker processes
-  stop accepting new work but waits until completion of in-progress work. Also, supports abrupt shutdown of queen server so that jobs can be resumed from the task that was in the progress. As the task work
-  is handled by the ant worker, no work is lost.
-- Metrics/auditing/usage of jobs and user actions.
+## Use-Cases
+-------------
+
+The [Formicary](https://github.com/bhatti/formicary) is designed for efficient and flexible job and task execution, adaptable to various complex scenarios, and capable of scaling according to the user base and task demands. Following is a list of its major use cases:
+
+ -   **Complex Workflow Orchestration**: [Formicary](https://github.com/bhatti/formicary) is specially designed to run a series of integration tests, code analysis, and deployment tasks that depend on various conditions and outputs of previous tasks. [Formicary](https://github.com/bhatti/formicary) can orchestrate this complex workflow across multiple environments, such as staging and production, with tasks running in parallel or sequence based on conditions.
+ -   **Image Processing Pipeline**: [Formicary](https://github.com/bhatti/formicary) supports artifacts management for uploading images to [S3](https://aws.amazon.com/s3/) compatible storage including [Minio](https://min.io/). It allows orchestrating a series of tasks for image resizing, watermarking, and metadata extraction, with the final output stored in an object store.
+ -   **Automate Build, Test and Release Workflows**: A DevOps team can use [Formicary](https://github.com/bhatti/formicary) to trigger a workflow that builds the project, runs tests, creates a Release, uploads build artifacts to the release, and publishes the package to a registry like npm or PyPI.
+ -   **Scheduled Data ETL Job**: A data engineering team can use [Formicary](https://github.com/bhatti/formicary) to manage scheduled ETL jobs that extract data from multiple sources, transform it, and load it into a data warehouse, with tasks to validate and clean the data at each step.
+ -   **Machine Learning Pipeline**: A data science team can use [Formicary](https://github.com/bhatti/formicary) pipeline to preprocess datasets, train machine learning models, evaluate their performance, and, based on certain metrics, decide whether to retrain the models or adjust preprocessing steps.
+
+
 
 ## Requirements:
 
@@ -84,11 +97,8 @@ can be used as input of another task. The *Fork/Join* pattern allows executing w
 
 ### Operations
 
-#### Installation
+#### Installation and Startup
 [Installing formicary](docs/installation.md)
-
-#### Running
-[Running formicary](docs/running.md)
 
 #### Queen/Ants Configuration
 [Configuration for Queen (server) and Ants (workers)](docs/configuration.md)

@@ -42,6 +42,7 @@ type BaseTasklet struct {
 	RegistrationTopic           string
 	registration                *types.AntRegistration
 	executor                    Executor
+	totalExecuted               int
 	done                        chan bool
 	registrationTicker          *time.Ticker
 	EventBus                    evbus.Bus
@@ -125,7 +126,7 @@ func (t *BaseTasklet) Stop(
 	return cutils.ErrorsAny(err1, err2, err3)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (t *BaseTasklet) handleRequest(
 	ctx context.Context,
 	req *types.TaskRequest,
@@ -199,6 +200,7 @@ func (t *BaseTasklet) handleRequest(
 				}
 			}()
 			var taskResp *types.TaskResponse
+			t.totalExecuted++
 			if taskResp, err = t.executor.Execute(ctx, req); err != nil {
 				logrus.WithFields(
 					logrus.Fields{
@@ -342,6 +344,7 @@ func (t *BaseTasklet) sendResponse(
 	fields := logrus.Fields{
 		"Component":       "BaseTasklet",
 		"Tasklet":         t.ID,
+		"TotalExecuted":   t.totalExecuted,
 		"RequestID":       taskResp.JobRequestID,
 		"JobType":         taskResp.JobType,
 		"TaskType":        taskResp.TaskType,

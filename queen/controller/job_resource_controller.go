@@ -48,7 +48,8 @@ func NewJobResourceController(
 // swagger:route GET /api/jobs/resources job-resources queryJobResources
 // Queries job resources by criteria such as type, platform, etc.
 // responses:
-//   200: jobResourceQueryResponse
+//
+//	200: jobResourceQueryResponse
 func (jobResCtrl *JobResourceController) queryJobResources(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
@@ -67,7 +68,8 @@ func (jobResCtrl *JobResourceController) queryJobResources(c web.APIContext) err
 // swagger:route GET /api/jobs/resources/{id} job-resources getJobResource
 // Finds the job-resource by id.
 // responses:
-//   200: jobResource
+//
+//	200: jobResource
 func (jobResCtrl *JobResourceController) getJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	resource, err := jobResCtrl.jobResourceRepository.Get(qc, c.Param("id"))
@@ -80,7 +82,8 @@ func (jobResCtrl *JobResourceController) getJobResource(c web.APIContext) error 
 // swagger:route POST /api/jobs/resources job-resources postJobResource
 // Adds a job-resource that can be used for managing internal or external constraints.
 // responses:
-//   200: jobResource
+//
+//	200: jobResource
 func (jobResCtrl *JobResourceController) postJobResource(c web.APIContext) error {
 	now := time.Now()
 	resource := types.NewJobResource("", 0)
@@ -108,7 +111,8 @@ func (jobResCtrl *JobResourceController) postJobResource(c web.APIContext) error
 // swagger:route PUT /api/jobs/resources/{id} job-resources putJobResource
 // Updates a job-resource that can be used for managing internal or external constraints.
 // responses:
-//   200: jobResource
+//
+//	200: jobResource
 func (jobResCtrl *JobResourceController) putJobResource(c web.APIContext) error {
 	resource := types.NewJobResource("", 0)
 	err := json.NewDecoder(c.Request().Body).Decode(resource)
@@ -129,7 +133,8 @@ func (jobResCtrl *JobResourceController) putJobResource(c web.APIContext) error 
 // swagger:route POST /api/jobs/resources/{id}/disable job-resources disableJobResource
 // disables the job-resource so that any jobs requiring it will not be able to execute.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobResCtrl *JobResourceController) disableJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobResCtrl.jobResourceRepository.SetDisabled(qc, c.Param("id"), true)
@@ -142,7 +147,8 @@ func (jobResCtrl *JobResourceController) disableJobResource(c web.APIContext) er
 // swagger:route POST /api/jobs/resources/{id}/disable job-resources enableJobResource
 // disables the job-resource so that any jobs requiring it will not be able to execute.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobResCtrl *JobResourceController) enableJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobResCtrl.jobResourceRepository.SetDisabled(qc, c.Param("id"), false)
@@ -153,9 +159,10 @@ func (jobResCtrl *JobResourceController) enableJobResource(c web.APIContext) err
 }
 
 // swagger:route POST /api/jobs/resources/{id}/disable job-resources deleteJobResource
-// Deletes the job-resource by id
+// Deletes the job-resource by id.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobResCtrl *JobResourceController) deleteJobResource(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := jobResCtrl.jobResourceRepository.Delete(qc, c.Param("id"))
@@ -166,9 +173,10 @@ func (jobResCtrl *JobResourceController) deleteJobResource(c web.APIContext) err
 }
 
 // swagger:route DELETE /api/jobs/resources/{id}/configs/{configId} job-resources deleteJobResourceConfig
-// Deletes the job-resource config by id of job-resource and config-id
+// Deletes the job-resource config by id of job-resource and config-id.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (jobResCtrl *JobResourceController) deleteJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	cfgID := c.Param("config")
@@ -190,9 +198,10 @@ func (jobResCtrl *JobResourceController) deleteJobResourceConfig(c web.APIContex
 }
 
 // swagger:route POST /api/jobs/resources/{id}/configs job-resources saveJobResourceConfig
-// Save the job-resource config
+// Save the job-resource config.
 // responses:
-//   200: jobResourceConfig
+//
+//	200: jobResourceConfig
 func (jobResCtrl *JobResourceController) saveJobResourceConfig(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)

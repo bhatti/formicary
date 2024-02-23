@@ -44,6 +44,10 @@ definitions:
           type: string
         type: array
         x-go-name: Tags
+      total_executed:
+        format: int64
+        type: integer
+        x-go-name: TotalExecuted
     title: AntRegistration is used to register remote ants with the resource manager
       so that tasks can be routed to them based on their capacity.
     type: object
@@ -51,7 +55,7 @@ definitions:
   Artifact:
     description: |-
       The metadata defines properties to associate artifact with a task or job and can be used to query artifacts
-      related for a job or an organization.
+      related for a job and an organization.
     properties:
       artifact_order:
         description: ArtifactOrder of artifact in group
@@ -521,9 +525,9 @@ definitions:
     x-go-package: plexobject.com/formicary/queen/types
   JobDefinition:
     description: |-
-      The workflow of job uses task exit codes to define next task to execute. The task definition
-      represents definition of a job and instance of the job is created using JobExecution when a new job request is
-      submitted.
+      The workflow progresses based on the exit codes of tasks, determining the subsequent task to execute.
+      Each task definition encapsulates a job's specifics, and upon receiving a new job request, an instance of
+      this job is initiated through JobExecution.
     properties:
       created_at:
         description: CreatedAt job creation time
@@ -639,8 +643,8 @@ definitions:
         description: UserID defines user who updated the job
         type: string
         x-go-name: UserID
-    title: JobDefinition defines a DAG (directed acyclic graph) of tasks, which are
-      executed by the ant followers.
+    title: JobDefinition outlines a set of tasks arranged in a Directed Acyclic Graph
+      (DAG), executed by worker entities.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   JobDefinitionConfig:
@@ -684,6 +688,12 @@ definitions:
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   JobExecution:
+    description: |-
+      JobExecution refers to a specific instance of a job-definition that gets activated upon the submission of a
+      job-request. For every task outlined within the task-definition associated with the JobExecution, a
+      corresponding TaskExecution instance is generated. This setup tracks the progress and state of both job and
+      task executions within a database, and any outputs generated during the job execution process are preserved in
+      object storage.
     properties:
       contexts:
         description: Contexts defines context variables of job
@@ -763,8 +773,6 @@ definitions:
         description: UserID defines user who submitted the job
         type: string
         x-go-name: UserID
-    title: JobExecution represents instance of job-definition and captures state of
-      job-execution when a job-request is processed.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   JobExecutionContext:
@@ -817,6 +825,11 @@ definitions:
     type: object
     x-go-package: plexobject.com/formicary/internal/types
   JobRequest:
+    description: |-
+      JobRequest outlines a user's request to execute a job as per its job-definition. Upon submission, a job-request
+      is marked as PENDING in the database and later, it is asynchronously scheduled for execution by the job scheduler,
+      depending on resource availability. Besides user-initiated requests, a job request might also be issued by a
+      parent job to execute a child job in a fork/join manner.
     properties:
       created_at:
         description: CreatedAt job creation time
@@ -942,8 +955,6 @@ definitions:
           jobs
         type: string
         x-go-name: UserKey
-    title: JobRequest defines user request to process a job, which is saved in the
-      database as PENDING and is then scheduled for job execution.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   JobRequestInfo:
@@ -1572,10 +1583,9 @@ definitions:
     x-go-package: plexobject.com/formicary/queen/types
   TaskDefinition:
     description: |-
-      The task definition represents definition of the task and instance of the task uses TaskExecution when a new
-      job is submitted and executed. Based on the definition, a task request is sent to remote ant follower
-      that supports method and tags of the task. A task response is then received and results are saved in
-      the database.
+      upon a new job request, a TaskExecution instance is initiated to carry out the task. The task details,
+      including its method and tags, guide the dispatch of task requests to a compatible remote worker.
+      Upon task completion, the outcomes are recorded in the database for reference.
     properties:
       after_script:
         description: AfterScript defines list of commands that are executed after
@@ -1638,7 +1648,8 @@ definitions:
         type: string
         x-go-name: Description
       except:
-        description: Except is used to filter task execution based on certain condition
+        description: Except is used to shouldSkip task execution based on certain
+          condition
         type: string
         x-go-name: Except
       fork_job_type:
@@ -1739,10 +1750,15 @@ definitions:
         x-go-name: NameValueVariables
       webhook:
         $ref: '#/definitions/Webhook'
-    title: TaskDefinition defines a unit of work that is processed by the ant followers.
+    title: TaskDefinition outlines the work performed by worker entities. It specifies
+      the task's parameters and,
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   TaskExecution:
+    description: |-
+      TaskExecution records the execution of a task or a unit of work, carried out by ant-workers in accordance
+      with the specifications of the task-definition. It captures the status and the outputs produced by the
+      task execution, storing them in the database and the object-store.
     properties:
       allow_failure:
         description: AllowFailure means the task is optional and can fail without
@@ -1850,8 +1866,6 @@ definitions:
         format: date-time
         type: string
         x-go-name: UpdatedAt
-    title: TaskExecution defines specification of a task that will be processed by
-      followers.
     type: object
     x-go-package: plexobject.com/formicary/queen/types
   TaskExecutionContext:
@@ -2388,7 +2402,7 @@ paths:
   /api/configs/{id}:
     delete:
       description: '`This requires admin access`'
-      operationId: getSystemConfig
+      operationId: deleteSystemConfig
       parameters:
       - in: path
         name: id
@@ -2412,8 +2426,8 @@ paths:
         x-go-name: ID
       responses:
         "200":
-          $ref: '#/responses/emptyResponse'
-      summary: Deletes an existing system config based on id.
+          $ref: '#/responses/sysConfigResponse'
+      summary: Finds an existing system config based on id.
       tags:
       - system-configs
     put:
@@ -2723,11 +2737,17 @@ paths:
       - job-definitions
   /api/jobs/definitions/{id}/dot.png:
     get:
-      operationId: statsJobDefinition
+      operationId: dotImageJobDefinition
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
       responses:
         "200":
-          $ref: '#/responses/jobDefinitionStatsResponse'
-      summary: Returns Real-time statistics of jobs running.
+          $ref: '#/responses/byteResponse'
+      summary: Returns Graphviz DOT image for the graph of tasks defined in the job.
       tags:
       - job-definitions
   /api/jobs/definitions/{id}/enable:
@@ -2743,6 +2763,15 @@ paths:
         "200":
           $ref: '#/responses/emptyResponse'
       summary: Enables job-definition so that new requests can start processing.
+      tags:
+      - job-definitions
+  /api/jobs/definitions/{id}/stats:
+    get:
+      operationId: statsJobDefinition
+      responses:
+        "200":
+          $ref: '#/responses/jobDefinitionStatsResponse'
+      summary: Returns Real-time statistics of jobs running.
       tags:
       - job-definitions
   /api/jobs/definitions/{jobId}/configs:
@@ -3011,9 +3040,6 @@ paths:
       - job-requests
   /api/jobs/requests/{id}/restart:
     post:
-      description: |-
-        Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
-        failed tasks are executed or hard-restart where all tasks are executed.
       operationId: restartJobRequest
       parameters:
       - in: path
@@ -3024,11 +3050,13 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emptyResponse'
+      summary: Restarts a previously failed job so that it can re-execute, the restart
+        may perform soft-restart where only failed tasks are executed or hard-restart
+        where all tasks are executed.
       tags:
       - job-requests
   /api/jobs/requests/{id}/trigger:
     post:
-      description: Triggers a scheduled job
       operationId: triggerJobRequest
       parameters:
       - in: path
@@ -3039,6 +3067,7 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emptyResponse'
+      summary: Triggers a scheduled job.
       tags:
       - job-requests
   /api/jobs/requests/{id}/wait_time:
@@ -3155,16 +3184,15 @@ paths:
       - job-resources
   /api/jobs/resources/{id}/configs:
     post:
-      description: Save the job-resource config
       operationId: saveJobResourceConfig
       responses:
         "200":
           $ref: '#/responses/jobResourceConfig'
+      summary: Save the job-resource config.
       tags:
       - job-resources
   /api/jobs/resources/{id}/configs/{configId}:
     delete:
-      description: Deletes the job-resource config by id of job-resource and config-id
       operationId: deleteJobResourceConfig
       parameters:
       - in: path
@@ -3180,11 +3208,11 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emptyResponse'
+      summary: Deletes the job-resource config by id of job-resource and config-id.
       tags:
       - job-resources
   /api/jobs/resources/{id}/disable:
     post:
-      description: Deletes the job-resource by id
       operationId: deleteJobResource
       parameters:
       - in: path
@@ -3195,6 +3223,7 @@ paths:
       responses:
         "200":
           $ref: '#/responses/emptyResponse'
+      summary: Deletes the job-resource by id.
       tags:
       - job-resources
   /api/logs:
@@ -3297,7 +3326,6 @@ paths:
       - organizations
   /api/orgs/{id}/invite:
     post:
-      description: Invite user to the organization
       operationId: inviteUser
       parameters:
       - in: path
@@ -3308,6 +3336,7 @@ paths:
       responses:
         "200":
           $ref: '#/responses/userInvitationResponse'
+      summary: Invite a user to the organization.
       tags:
       - organizations
   /api/orgs/{orgId}/configs:
@@ -3413,13 +3442,12 @@ paths:
       responses:
         "200":
           $ref: '#/responses/usageReportResponse'
+      summary: Generates usage report for the organization.
       tags:
       - organizations
   /api/subscriptions:
     get:
-      description: |-
-        Queries system subscriptions
-        `This requires admin access`
+      description: '`This requires admin access`'
       operationId: querySubscriptions
       parameters:
       - format: int64
@@ -3450,6 +3478,7 @@ paths:
       responses:
         "200":
           $ref: '#/responses/subscriptionQueryResponse'
+      summary: Queries system subscriptions.
       tags:
       - subscriptions
     post:
@@ -3469,7 +3498,7 @@ paths:
   /api/subscriptions/{id}:
     delete:
       description: '`This requires admin access`'
-      operationId: getSubscription
+      operationId: deleteSubscription
       parameters:
       - in: path
         name: id
@@ -3493,8 +3522,8 @@ paths:
         x-go-name: ID
       responses:
         "200":
-          $ref: '#/responses/emptyResponse'
-      summary: Deletes an existing system subscription based on id.
+          $ref: '#/responses/subscriptionResponse'
+      summary: Finds an existing system subscription based on id.
       tags:
       - subscriptions
     put:

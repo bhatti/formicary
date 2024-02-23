@@ -2,8 +2,11 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"github.com/twinj/uuid"
+	"gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/crypto"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/types"
@@ -23,7 +26,7 @@ type Registry struct {
 
 // AntConfig -- Defines the default ant config
 type AntConfig struct {
-	types.CommonConfig     `yaml:"common" mapstructure:"common"`
+	Common                 types.CommonConfig `yaml:"common" mapstructure:"common"`
 	Tags                   []string           `yaml:"tags" mapstructure:"tags"`
 	Methods                []types.TaskMethod `yaml:"methods" mapstructure:"methods"`
 	Docker                 DockerConfig       `yaml:"docker" mapstructure:"docker"`
@@ -51,6 +54,35 @@ func NewAntConfig(id string) (*AntConfig, error) {
 		"-c",
 		"if [ -x /usr/local/bin/bash ]; then\n\texec /usr/local/bin/bash \nelif [ -x /usr/bin/bash ]; then\n\texec /usr/bin/bash \nelif [ -x /bin/bash ]; then\n\texec /bin/bash \nelif [ -x /usr/local/bin/   sh ]; then\n\texec /usr/local/bin/sh \nelif [ -x /usr/bin/sh ]; then\n\texec /usr/bin/sh \nelif [ -x /bin/sh ]; then\n\texec /bin/sh \nelif [ -x /busybox/sh ]; then\n\texec /busybox/sh \nelse\n\techo shell  not found\n\texit 1\nfi\n\n",
 	})
+
+	viper.SetDefault("common.user_agent", "")
+	viper.SetDefault("common.proxy_url", "")
+	viper.SetDefault("common.external_base_url", "")
+	viper.SetDefault("common.public_dir", "")
+	viper.SetDefault("common.http_port", "7777")
+	viper.SetDefault("common.debug", "false")
+
+	viper.SetDefault("common.auth.enabled", "false")
+	viper.SetDefault("common.auth.session_key", "")
+	viper.SetDefault("common.auth.google_client_id", "")
+	viper.SetDefault("common.auth.google_client_secret", "")
+	viper.SetDefault("common.auth.google_callback_host", "")
+	viper.SetDefault("common.auth.github_client_id", "")
+	viper.SetDefault("common.auth.github_client_secret", "")
+	viper.SetDefault("common.auth.github_callback_host", "")
+	viper.SetDefault("common.s3.endpoint", "")
+	viper.SetDefault("common.s3.access_key_id", "")
+	viper.SetDefault("common.s3.secret_access_key", "")
+	viper.SetDefault("common.s3.password", "")
+	viper.SetDefault("common.s3.token", "")
+	viper.SetDefault("common.s3.region", "")
+	viper.SetDefault("common.s3.prefix", "")
+	viper.SetDefault("common.s3.bucket", "")
+	viper.SetDefault("common.redis.host", "")
+	viper.SetDefault("common.redis.port", "")
+	viper.SetDefault("common.redis.password", "")
+	viper.SetDefault("common.pulsar.url", "")
+
 	viper.SetDefault("output_limit", 64*1024*1024)
 	viper.SetDefault("termination_grace_period_seconds", "10")
 	viper.SetDefault("poll_interval", "3")
@@ -69,6 +101,10 @@ func NewAntConfig(id string) (*AntConfig, error) {
 	viper.SetDefault("kubernetes.registry.server", "")
 	viper.SetDefault("kubernetes.registry.username", "")
 	viper.SetDefault("kubernetes.registry.password", "")
+
+	viper.SetEnvPrefix("")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err == nil {
 		log.WithFields(log.Fields{
@@ -90,8 +126,12 @@ func NewAntConfig(id string) (*AntConfig, error) {
 		log.Fatalf("unable to decode into struct, %v", err)
 		return nil, err
 	}
+	if config.Common.Debug {
+		out, _ := yaml.Marshal(config)
+		fmt.Printf("%s\n", out)
+	}
 
-	config.ID = id
+	config.Common.ID = id
 	config.antStartedAt = time.Now()
 	return config, nil
 }
@@ -116,20 +156,20 @@ func (c *AntConfig) Validate() error {
 	if c.PollAttemptsBeforeShutdown == 0 {
 		c.PollAttemptsBeforeShutdown = 5
 	}
-	if c.EncryptionKey == "" {
+	if c.Common.EncryptionKey == "" {
 		if b, err := crypto.GenerateKey(32); err == nil {
-			c.EncryptionKey = string(b)
+			c.Common.EncryptionKey = string(b)
 		} else {
-			c.EncryptionKey = uuid.NewV4().String()
+			c.Common.EncryptionKey = uuid.NewV4().String()
 		}
 	}
-	return c.CommonConfig.Validate(c.Tags)
+	return c.Common.Validate(c.Tags)
 }
 
 // NewAntRegistration constructor for ant registration
 func (c *AntConfig) NewAntRegistration() *types.AntRegistration {
 	return &types.AntRegistration{
-		AntID:        c.ID,
+		AntID:        c.Common.ID,
 		MaxCapacity:  c.MaxCapacity,
 		Tags:         c.Tags,
 		AutoRefresh:  true,

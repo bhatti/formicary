@@ -9,9 +9,9 @@ import (
 
 // RedisConfig redis config
 type RedisConfig struct {
-	Host       string        `yaml:"host" mapstructure:"host"`
-	Port       int           `yaml:"port" mapstructure:"port"`
-	Password   string        `yaml:"password" mapstructure:"password"`
+	Host       string        `yaml:"host" mapstructure:"host" env:"HOST"`
+	Port       int           `yaml:"port" mapstructure:"port" env:"PORT"`
+	Password   string        `yaml:"password" mapstructure:"password" env:"PASSWORD"`
 	TTLMinutes time.Duration `yaml:"ttl_minutes" mapstructure:"ttl_minutes"`
 	PoolSize   int           `yaml:"pool_size" mapstructure:"pool_size"`
 	MaxPopWait time.Duration `yaml:"max_subscription_wait" mapstructure:"max_subscription_wait"`

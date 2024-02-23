@@ -14,6 +14,7 @@ func Test_ShouldMarshalAntReservation(t *testing.T) {
 		"task",
 		"",
 		1,
+		1,
 	)
 	require.NotEqual(t, "", reservation.AllocatedAtString())
 	require.NotEqual(t, "", reservation.String())

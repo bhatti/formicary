@@ -40,7 +40,8 @@ func NewSystemConfigController(
 // Queries system configs
 // `This requires admin access`
 // responses:
-//   200: sysConfigQueryResponse
+//
+//	200: sysConfigQueryResponse
 func (cc *SystemConfigController) querySystemConfigs(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	recs, total, err := cc.systemConfigRepository.Query(params, page, pageSize, order)
@@ -54,7 +55,8 @@ func (cc *SystemConfigController) querySystemConfigs(c web.APIContext) error {
 // Creates new system config based on request body.
 // `This requires admin access`
 // responses:
-//   200: sysConfigResponse
+//
+//	200: sysConfigResponse
 func (cc *SystemConfigController) postSystemConfig(c web.APIContext) error {
 	now := time.Now()
 	cfg := types.NewSystemConfig("", "", "", "")
@@ -79,7 +81,8 @@ func (cc *SystemConfigController) postSystemConfig(c web.APIContext) error {
 // Updates an existing system config based on request body.
 // `This requires admin access`
 // responses:
-//   200: sysConfigResponse
+//
+//	200: sysConfigResponse
 func (cc *SystemConfigController) putSystemConfig(c web.APIContext) error {
 	cfg := types.NewSystemConfig("", "", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(cfg)
@@ -97,7 +100,8 @@ func (cc *SystemConfigController) putSystemConfig(c web.APIContext) error {
 // Finds an existing system config based on id.
 // `This requires admin access`
 // responses:
-//   200: sysConfigResponse
+//
+//	200: sysConfigResponse
 func (cc *SystemConfigController) getSystemConfig(c web.APIContext) error {
 	cfg, err := cc.systemConfigRepository.Get(c.Param("id"))
 	if err != nil {
@@ -106,11 +110,12 @@ func (cc *SystemConfigController) getSystemConfig(c web.APIContext) error {
 	return c.JSON(http.StatusOK, cfg)
 }
 
-// swagger:route DELETE /api/configs/{id} system-configs getSystemConfig
+// swagger:route DELETE /api/configs/{id} system-configs deleteSystemConfig
 // Deletes an existing system config based on id.
 // `This requires admin access`
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (cc *SystemConfigController) deleteSystemConfig(c web.APIContext) error {
 	err := cc.systemConfigRepository.Delete(c.Param("id"))
 	if err != nil {

@@ -48,7 +48,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	maskRegex := regexp.MustCompile(`.*@`)
 	log.WithFields(log.Fields{
 		"Component":      "RepositoryLocator",
-		"DbType":         serverCfg.DB.DBType,
+		"Type":           serverCfg.DB.Type,
 		"DataSourceName": maskRegex.ReplaceAllString(serverCfg.DB.DataSource, "*****"),
 	}).Infof("Connecting...")
 	var db *gorm.DB
@@ -58,19 +58,20 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		//	TablePrefix: "formicary_",
 		//},
 	}
-	if serverCfg.DB.DBType == "mysql" {
+	if serverCfg.DB.Type == "mysql" {
 		db, err = gorm.Open(mysql.Open(serverCfg.DB.DataSource), opts)
-	} else if serverCfg.DB.DBType == "postgres" {
+	} else if serverCfg.DB.Type == "postgres" {
 		db, err = gorm.Open(postgres.Open(serverCfg.DB.DataSource), opts)
-	} else if serverCfg.DB.DBType == "sqlserver" {
+	} else if serverCfg.DB.Type == "sqlserver" {
 		db, err = gorm.Open(sqlserver.Open(serverCfg.DB.DataSource), opts)
-	} else if serverCfg.DB.DBType == "sqlite" {
+	} else if serverCfg.DB.Type == "sqlite" {
 		db, err = gorm.Open(sqlite.Open(serverCfg.DB.DataSource), opts)
 	} else {
-		return nil, fmt.Errorf("unsupported database type=%s source=%s", serverCfg.DB.DBType, serverCfg.DB.DataSource)
+		return nil, fmt.Errorf("unsupported database type=%s source=%s", serverCfg.DB.Type, serverCfg.DB.DataSource)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to database type=%s source=%s due to %w",
+			serverCfg.DB.Type, serverCfg.DB.DataSource, err)
 	}
 
 	sqlDB, err := db.DB()
@@ -117,11 +118,11 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	if err != nil {
 		return nil, err
 	}
-	jobRequestRepository, err := NewJobRequestRepositoryImpl(db, serverCfg.DB.DBType)
+	jobRequestRepository, err := NewJobRequestRepositoryImpl(db, serverCfg.DB.Type)
 	if err != nil {
 		return nil, err
 	}
-	jobExecutionRepository, err := NewJobExecutionRepositoryImpl(db, serverCfg.DB.DBType)
+	jobExecutionRepository, err := NewJobExecutionRepositoryImpl(db, serverCfg.DB.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +213,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	}
 
 	// tests use sqlite
-	if serverCfg.DB.DBType == "sqlite" {
+	if serverCfg.DB.Type == "sqlite" {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}
@@ -288,7 +289,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	return f, nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func migrate(db *gorm.DB) error {
 	db.DisableForeignKeyConstraintWhenMigrating = true
 	if err := db.AutoMigrate(&types.JobDefinition{}); err != nil {
@@ -395,7 +396,8 @@ func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 			if strings.HasPrefix(keyParts[1], "like") || strings.HasPrefix(keyParts[1], "contain") {
 				tx = tx.Where(fmt.Sprintf("%v LIKE ?", keyParts[0]), fmt.Sprintf("%%%v%%", v))
 			} else if strings.HasPrefix(keyParts[1], "in") {
-				tx = tx.Where(fmt.Sprintf("%v IN (?)", keyParts[0]), strings.Split(v.(string), ","))
+				// check in-clause
+				tx = tx.Where(fmt.Sprintf("%v IN ?", keyParts[0]), strings.Split(v.(string), ","))
 			} else if strings.HasPrefix(keyParts[1], "!") || strings.HasPrefix(keyParts[1], "<>") {
 				tx = tx.Where(fmt.Sprintf("%v <> ?", keyParts[0]), strings.Split(v.(string), ","))
 			} else if strings.HasPrefix(keyParts[1], "<") {

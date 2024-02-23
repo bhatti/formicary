@@ -12,6 +12,7 @@ tasks defined in the job-definitions.
             <th>Tags</th>
             <th>Capacity</th>
             <th>Load</th>
+            <th>Total Executed</th>
             <th>Updated</th>
         </tr>
         </thead>
@@ -24,6 +25,7 @@ tasks defined in the job-definitions.
             <td>{{.Tags}}</td>
             <td>{{.MaxCapacity}}</td>
             <td>{{.CurrentLoad}}</td>
+            <td>{{.TotalExecuted}}</td>
             <td>{{.UpdatedAtString}}</td>
         </tr>
         {{end}}

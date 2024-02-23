@@ -20,7 +20,7 @@ func NewTestLocator() (*Locator, error) {
 	if testLocator == nil {
 		var err error
 		serverCfg := config.TestServerConfig()
-		serverCfg.DB.DBType = testDB
+		serverCfg.DB.Type = testDB
 		serverCfg.DB.DataSource = fmt.Sprintf("%s_%d", testDBSource, rand.Int())
 		if err = serverCfg.Validate(); err != nil {
 			return nil, err

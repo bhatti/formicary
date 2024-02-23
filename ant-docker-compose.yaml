@@ -1,0 +1,24 @@
+version: '3.7'
+services:
+  formicary-ant:
+    image: plexobject/formicary
+    network_mode: "host"
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+    environment:
+      COMMON_DEBUG: '${DEBUG:-false}'
+      COMMON_REDIS_HOST: '${QUEEN_SERVER:-192.168.1.102}'
+      COMMON_REDIS_PORT: '${COMMON_REDIS_PORT:-6379}'
+      COMMON_S3_ENDPOINT: '${QUEEN_SERVER:-192.168.1.102}:9000'
+      COMMON_S3_ACCESS_KEY_ID: 'admin'
+      COMMON_S3_SECRET_ACCESS_KEY: 'password'
+      COMMON_S3_REGION: '${AWS_DEFAULT_REGION:-us-west-2}'
+      COMMON_S3_BUCKET: '${BUCKET:-formicary-artifacts}'
+      COMMON_S3_PREFIX: '${PREFIX:-formicary}'
+      COMMON_HTTP_PORT: ${HTTP_PORT:-5555}
+      CONFIG_FILE: ${CONFIG_FILE:-/config/formicary-ant.yaml}
+    volumes:
+      - ./config:/config
+      - ./.kube:/home/formicary-user/.kube
+    entrypoint: ["/bin/sh", "-c", "/formicary ant --config=/config/formicary-ant.yaml --id=formicary-ant-id1 --tags \"builder pulsar redis kotlin aws-lambda\""]

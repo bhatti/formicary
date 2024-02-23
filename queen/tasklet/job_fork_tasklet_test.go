@@ -15,12 +15,12 @@ import (
 )
 
 func Test_ShouldTerminateForkTasklet(t *testing.T) {
-	// GIVEN tasklet
+	// GIVEN forkTasklet
 	jobManager := manager.AssertTestJobManager(nil, t)
-	tasklet := newTestForkTasklet(jobManager)
+	forkTasklet := newTestForkTasklet(jobManager)
 
 	// WHEN terminating container
-	_, err := tasklet.TerminateContainer(context.Background(), nil)
+	_, err := forkTasklet.TerminateContainer(context.Background(), nil)
 
 	// THEN it should not fail
 	require.Error(t, err)
@@ -90,9 +90,9 @@ func Test_ShouldExecuteForkTasklet(t *testing.T) {
 
 func newTestForkTasklet(jobManager *manager.JobManager) *JobForkTasklet {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	requestRegistry := tasklet.NewRequestRegistry(
-		&cfg.CommonConfig,
+		&cfg.Common,
 		metrics.New(),
 	)
 

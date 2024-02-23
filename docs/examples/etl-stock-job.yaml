@@ -25,7 +25,7 @@ tasks:
   before_script:
     - apk --update add jq && rm -rf /var/lib/apt/lists/* && rm /var/cache/apk/*
   script:
-    - jq '.ask,.bid' > askbid.txt
+    - cat stock.json | jq '.ask,.bid' > askbid.txt
   artifacts:
     paths:
       - askbid.txt

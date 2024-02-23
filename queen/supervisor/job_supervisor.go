@@ -71,8 +71,8 @@ func (js *JobSupervisor) tryExecuteJob(
 	}
 
 	timeout := js.jobStateMachine.JobDefinition.Timeout
-	if js.jobStateMachine.JobDefinition.Timeout == 0 && js.serverCfg.MaxJobTimeout > 0 {
-		timeout = js.serverCfg.MaxJobTimeout
+	if js.jobStateMachine.JobDefinition.Timeout == 0 && js.serverCfg.Common.MaxJobTimeout > 0 {
+		timeout = js.serverCfg.Common.MaxJobTimeout
 	}
 	if timeout > 0 {
 		ctx, js.cancel = context.WithTimeout(
@@ -85,7 +85,7 @@ func (js *JobSupervisor) tryExecuteJob(
 	defer js.cancel()
 
 	if err = js.eventBus.SubscribeAsync(
-		js.serverCfg.GetJobExecutionLifecycleTopic(),
+		js.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		js.UpdateFromJobLifecycleEvent,
 		false,
 	); err != nil {
@@ -96,7 +96,7 @@ func (js *JobSupervisor) tryExecuteJob(
 
 	defer func() {
 		_ = js.eventBus.Unsubscribe(
-			js.serverCfg.GetJobExecutionLifecycleTopic(), js.UpdateFromJobLifecycleEvent)
+			js.serverCfg.Common.GetJobExecutionLifecycleTopic(), js.UpdateFromJobLifecycleEvent)
 		ticker.Stop()
 	}()
 
@@ -279,7 +279,7 @@ func (js *JobSupervisor) executeNextTask(
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":    "JobSupervisor",
-			"ID":           js.serverCfg.ID,
+			"ID":           js.serverCfg.Common.ID,
 			"Task":         taskStateMachine.TaskDefinition.TaskType,
 			"ExitCode":     taskStateMachine.TaskExecution.ExitCode,
 			"Status":       taskStateMachine.TaskExecution.TaskState,

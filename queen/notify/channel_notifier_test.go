@@ -39,7 +39,7 @@ func (m *mockSender) JobNotifyTemplateFile() string {
 
 func Test_ShouldNotifyGoodJob(t *testing.T) {
 	serverCfg := config.TestServerConfig()
-	if err := serverCfg.Email.Validate(); err != nil {
+	if err := serverCfg.SMTP.Validate(); err != nil {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
@@ -66,7 +66,7 @@ func Test_ShouldNotifyGoodJob(t *testing.T) {
 
 func Test_ShouldNotifyFixedJob(t *testing.T) {
 	serverCfg := config.TestServerConfig()
-	if err := serverCfg.Email.Validate(); err != nil {
+	if err := serverCfg.SMTP.Validate(); err != nil {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
@@ -92,7 +92,7 @@ func Test_ShouldNotifyFixedJob(t *testing.T) {
 
 func Test_ShouldNotifyFailedJob(t *testing.T) {
 	serverCfg := config.TestServerConfig()
-	if err := serverCfg.Email.Validate(); err != nil {
+	if err := serverCfg.SMTP.Validate(); err != nil {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}
@@ -119,7 +119,7 @@ func Test_ShouldNotifyFailedJob(t *testing.T) {
 
 func Test_ShouldNotifyFailedJobWithoutUser(t *testing.T) {
 	serverCfg := config.TestServerConfig()
-	if err := serverCfg.Email.Validate(); err != nil {
+	if err := serverCfg.SMTP.Validate(); err != nil {
 		t.Logf("skip sending email because smtp is not setup - %s", err)
 		return
 	}

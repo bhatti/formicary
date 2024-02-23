@@ -37,15 +37,15 @@ func NewLogStreamer(
 	streamer = &LogStreamer{
 		ctx:             ctx,
 		queueClient:     queueClient,
-		logTopic:        antCfg.GetLogTopic(),
+		logTopic:        antCfg.Common.GetLogTopic(),
 		userID:          taskReq.UserID,
 		requestID:       taskReq.JobRequestID,
 		jobType:         taskReq.JobType,
 		taskType:        taskReq.TaskType,
 		jobExecutionID:  taskReq.JobExecutionID,
 		taskExecutionID: taskReq.TaskExecutionID,
-		antID:           antCfg.ID,
-		maxMessageSize:  antCfg.MaxStreamingLogMessageSize,
+		antID:           antCfg.Common.ID,
+		maxMessageSize:  antCfg.Common.MaxStreamingLogMessageSize,
 	}
 	masks := []string{
 		"AWS_ENDPOINT",
@@ -53,10 +53,10 @@ func NewLogStreamer(
 		"AWS_URL",
 		"AWS_SECRET_ACCESS_KEY",
 		"AWS_DEFAULT_REGION",
-		antCfg.S3.Endpoint,
-		antCfg.S3.AccessKeyID,
-		antCfg.S3.SecretAccessKey,
-		antCfg.S3.Region,
+		antCfg.Common.S3.Endpoint,
+		antCfg.Common.S3.AccessKeyID,
+		antCfg.Common.S3.SecretAccessKey,
+		antCfg.Common.S3.Region,
 	}
 	masks = append(masks, taskReq.GetMaskFields()...)
 	streamer.jobTrace, err = trace.NewJobTrace(

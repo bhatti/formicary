@@ -46,12 +46,12 @@ func startAntWorker(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	queueClient, err := queue.NewMessagingClient(&serverConfig.CommonConfig)
+	queueClient, err := queue.NewMessagingClient(&serverConfig.Common)
 	if err != nil {
 		return err
 	}
 	ant := golang.NewMessagingHandler(
-		&serverConfig.CommonConfig,
+		&serverConfig.Common,
 		id,
 		requestTopic,
 		responseTopic,

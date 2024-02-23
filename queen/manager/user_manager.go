@@ -223,8 +223,8 @@ func (m *UserManager) CreateUserToken(
 	tok := types.NewUserToken(qc.User, token)
 	strTok, expiration, err := security.BuildToken(
 		qc.User,
-		m.serverCfg.Auth.JWTSecret,
-		m.serverCfg.Auth.TokenMaxAge)
+		m.serverCfg.Common.Auth.JWTSecret,
+		m.serverCfg.Common.Auth.TokenMaxAge)
 	if err != nil {
 		return nil, err
 	}

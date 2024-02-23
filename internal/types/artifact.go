@@ -23,7 +23,7 @@ const ArtifactKindCache = "CACHE"
 
 // Artifact defines metadata of artifact that is uploaded by a job such as task logs, task results, etc.
 // The metadata defines properties to associate artifact with a task or job and can be used to query artifacts
-// related for a job or an organization.
+// related for a job and an organization.
 type Artifact struct {
 	//gorm.Model
 	// ID defines UUID for primary key

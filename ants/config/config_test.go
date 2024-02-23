@@ -23,7 +23,7 @@ func Test_ShouldCreateValidAntConfigFromPath(t *testing.T) {
 
 	// THEN it should create valid config
 	require.NoError(t, err)
-	require.Equal(t, "id", cfg.ID)
+	require.Equal(t, "id", cfg.Common.ID)
 }
 
 func Test_ShouldCreateValidateAntConfig(t *testing.T) {
@@ -41,7 +41,7 @@ func Test_IDForNewAntRegistration(t *testing.T) {
 	cfg := newTestConfig()
 	// WHEN new ant registration is created
 	// THEN its ant-id should match config-id
-	require.Equal(t, cfg.ID, cfg.NewAntRegistration().AntID)
+	require.Equal(t, cfg.Common.ID, cfg.NewAntRegistration().AntID)
 }
 
 func Test_HaveNonZeroShutdownTimeout(t *testing.T) {
@@ -92,11 +92,11 @@ func Test_ShouldFailValidateAntConfigWithoutMethods(t *testing.T) {
 
 func newTestConfig() AntConfig {
 	cfg := AntConfig{}
-	cfg.ID = "test-id"
-	cfg.S3.AccessKeyID = "admin"
-	cfg.S3.SecretAccessKey = "password"
-	cfg.S3.Bucket = "test-bucket"
-	cfg.Pulsar.URL = "test"
-	cfg.Redis.Host = "test"
+	cfg.Common.ID = "test-id"
+	cfg.Common.S3.AccessKeyID = "admin"
+	cfg.Common.S3.SecretAccessKey = "password"
+	cfg.Common.S3.Bucket = "test-bucket"
+	cfg.Common.Pulsar.URL = "test"
+	cfg.Common.Redis.Host = "test"
 	return cfg
 }

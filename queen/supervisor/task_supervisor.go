@@ -44,8 +44,8 @@ func (ts *TaskSupervisor) execute(
 	started := time.Now()
 
 	timeout := ts.taskStateMachine.TaskDefinition.Timeout
-	if timeout == 0 && ts.serverCfg.MaxTaskTimeout > 0 {
-		timeout = ts.serverCfg.MaxTaskTimeout
+	if timeout == 0 && ts.serverCfg.Common.MaxTaskTimeout > 0 {
+		timeout = ts.serverCfg.Common.MaxTaskTimeout
 	}
 
 	if timeout > 0 {
@@ -194,7 +194,9 @@ func (ts *TaskSupervisor) invoke(
 	var event *queue.MessageEvent
 
 	ts.taskStateMachine.TaskExecution.AntID = ts.taskStateMachine.Reservation.AntID
-	ts.taskStateMachine.TaskExecution.AddContext("AntTopic", ts.taskStateMachine.Reservation.AntTopic)
+	if _, err = ts.taskStateMachine.TaskExecution.AddContext("AntTopic", ts.taskStateMachine.Reservation.AntTopic); err != nil {
+		return nil, fmt.Errorf("failed to add context for %s due to %w", taskReq, err)
+	}
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{

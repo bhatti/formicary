@@ -83,10 +83,10 @@ delay_between_retries: 10s
 <pre><code class="lang-yaml">job_type: test-job
 description: A test job for building a node application.
 </code></pre>
-<h4 id="filter">filter</h4>
-<p>The <code>filter</code> allows job to skip execution based on a conditional logic using GO template and variables, e.g.</p>
+<h4 id="filter">Skip</h4>
+<p>The <code>skip_if</code> allows job to skip execution based on a conditional logic using GO template and variables, e.g.</p>
 <pre><code class="lang-yaml">job_type: test-job
-filter: {{if eq .Target &quot;charlie&quot;}} true {{end}}
+skip_if: {{if eq .Target &quot;charlie&quot;}} true {{end}}
 </code></pre>
 <p>In above example, the job will not run if <code>Target</code> variable is &quot;charlie&quot;, e.g., you can pass these parameters when you submit jobs:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
@@ -95,7 +95,7 @@ filter: {{if eq .Target &quot;charlie&quot;}} true {{end}}
 </code></pre>
 <p>Following example shows how you can limit execution on a branch, e.g.,</p>
 <pre><code class="lang-yaml">job_type: node_build
-filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+skip_if: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
 </code></pre>
 <p>In above example, the scheduled job will not run if <code>Branch</code> is not &quot;main&quot;, e.g., you can pass these parameters when you submit jobs:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \

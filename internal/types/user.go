@@ -62,9 +62,9 @@ type User struct {
 	// BundleID defines package or bundle
 	BundleID string `json:"bundle_id"`
 	// SerializedPerms defines permissions
-	SerializedPerms string `json:"-"`
+	SerializedPerms string `json:"-" gorm:"serialized_perms"`
 	// SerializedRoles defines roles
-	SerializedRoles string `json:"-"`
+	SerializedRoles string `json:"-" gorm:"serialized_roles"`
 	// Salt for password
 	Salt string `json:"salt"`
 	// Subscription defines quota limits and usage period

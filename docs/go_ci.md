@@ -8,7 +8,7 @@ Following is an example of job configuration for a simple GO project:
 job_type: go-build-ci
 max_concurrency: 1
 # only run on main branch
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 tasks:
   - task_type: lint
     method: KUBERNETES
@@ -74,12 +74,12 @@ The `job_type` defines type of the job, e.g.
 job_type: go-build-ci
 ```
 
-#### Filtering
+#### Skip
 
-The `filter` will not execute the ci/cd job if branch is not main, e.g.,
+The `skip_if` will not execute the ci/cd job if branch is not main, e.g.,
 
 ```yaml
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 ```
 
 #### Tasks

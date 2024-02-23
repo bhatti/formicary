@@ -76,7 +76,7 @@ func NewJobExecutionStateMachine(
 	request types.IJobRequest,
 	reservations map[string]*common.AntReservation) *JobExecutionStateMachine {
 	return &JobExecutionStateMachine{
-		id:                  fmt.Sprintf("%s-job-execution-fsm-%d", serverCfg.ID, request.GetID()),
+		id:                  fmt.Sprintf("%s-job-execution-fsm-%d", serverCfg.Common.ID, request.GetID()),
 		serverCfg:           serverCfg,
 		QueueClient:         queueClient,
 		JobManager:          jobManager,
@@ -186,14 +186,14 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	return
 }
 
-// ShouldFilter checks if job should be filtered
-func (jsm *JobExecutionStateMachine) ShouldFilter() error {
-	if jsm.JobDefinition == nil || jsm.JobDefinition.Filter() == "" {
+// ShouldSkip checks if job should be filtered
+func (jsm *JobExecutionStateMachine) ShouldSkip() error {
+	if jsm.JobDefinition == nil || jsm.JobDefinition.SkipIf() == "" {
 		return nil
 	}
 
 	data := jsm.buildDynamicParams(nil)
-	if jsm.JobDefinition.Filtered(data) {
+	if jsm.JobDefinition.ShouldSkip(data) {
 		logrus.WithFields(logrus.Fields{
 			"Component":         "JobExecutionStateMachine",
 			"RequestID":         jsm.Request.GetID(),
@@ -206,11 +206,11 @@ func (jsm *JobExecutionStateMachine) ShouldFilter() error {
 			"JobDefinitionID":   jsm.JobDefinition.ID,
 			"JobDefinitionUser": jsm.JobDefinition.UserID,
 			"JobDefinitionOrg":  jsm.JobDefinition.OrganizationID,
-			"Filter":            jsm.JobDefinition.Filter(),
+			"SkipIf":            jsm.JobDefinition.SkipIf(),
 			"Data":              common.MaskVariableValues(data),
 		}).Warnf("filtered job from schedule")
 
-		return fmt.Errorf("job filtered due to %s", jsm.JobDefinition.Filter())
+		return fmt.Errorf("job filtered due to %s", jsm.JobDefinition.SkipIf())
 	}
 	return nil
 }
@@ -327,7 +327,7 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 
 // UpdateJobRequestTimestampAndCheckQuota updates timestamp so that job scheduler doesn't consider it as orphan
 func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ context.Context) (err error) {
-	if jsm.serverCfg.SubscriptionQuotaEnabled {
+	if jsm.serverCfg.SubscriptionQuotaEnabled && jsm.serverCfg.Common.Auth.Enabled {
 		if jsm.User == nil {
 			err = fmt.Errorf("quota-error: user not found for execution")
 			return common.NewQuotaExceededError(err)
@@ -664,7 +664,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		fields["JobDefinitionID"] = jsm.JobDefinition.ID
 		fields["JobTimeout"] = jsm.JobDefinition.Timeout
 		fields["ReportStdout"] = jsm.JobDefinition.ReportStdoutTask()
-		fields["DefaultJobTimeout"] = jsm.serverCfg.MaxJobTimeout
+		fields["DefaultJobTimeout"] = jsm.serverCfg.Common.MaxJobTimeout
 	}
 
 	if jsm.JobExecution != nil {
@@ -866,7 +866,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		return fmt.Errorf("failed to marshal job-execution event due to %w", err)
 	}
 	if _, err = jsm.QueueClient.Publish(ctx,
-		jsm.serverCfg.GetJobExecutionLifecycleTopic(),
+		jsm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -884,7 +884,7 @@ func (jsm *JobExecutionStateMachine) publishJobWebhook(ctx context.Context, even
 		hookEvent := events.NewWebhookJobEvent(event, hook)
 		if hookPayload, err := hookEvent.Marshal(); err == nil {
 			if _, err = jsm.QueueClient.Publish(ctx,
-				jsm.serverCfg.GetJobWebhookTopic(),
+				jsm.serverCfg.Common.GetJobWebhookTopic(),
 				hookPayload,
 				queue.NewMessageHeaders(
 					queue.DisableBatchingKey, "true",

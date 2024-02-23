@@ -60,12 +60,12 @@ func New(
 		emailRepository:    emailRepository,
 		jobsTemplates:      make(map[string]string),
 	}
-	if b, err := loadTemplate(cfg.Notify.VerifyEmailTemplateFile, cfg.PublicDir); err == nil {
+	if b, err := loadTemplate(cfg.Notify.VerifyEmailTemplateFile, cfg.Common.PublicDir); err == nil {
 		n.verifyEmailTemplate = string(b)
 	} else {
 		return nil, err
 	}
-	if b, err := loadTemplate(cfg.Notify.UserInvitationTemplateFile, cfg.PublicDir); err == nil {
+	if b, err := loadTemplate(cfg.Notify.UserInvitationTemplateFile, cfg.Common.PublicDir); err == nil {
 		n.userInvitationTemplate = string(b)
 	} else {
 		return nil, err
@@ -91,7 +91,7 @@ func (n *DefaultNotifier) SendEmailVerification(
 		"UserID":    ev.UserID,
 		"Name":      user.Name,
 		"User":      user,
-		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
+		"URLPrefix": n.cfg.Common.ExternalBaseURL,
 		"Email":     ev.Email,
 		"EmailCode": ev.EmailCode,
 		"VerifyID":  ev.ID,
@@ -145,7 +145,7 @@ func (n *DefaultNotifier) EmailUserInvitation(
 		"UserID":         user.ID,
 		"Name":           user.Name,
 		"User":           user,
-		"URLPrefix":      n.cfg.CommonConfig.ExternalBaseURL,
+		"URLPrefix":      n.cfg.Common.ExternalBaseURL,
 		"Email":          inv.Email,
 		"InvitationCode": inv.InvitationCode,
 		"ID":             inv.ID,
@@ -206,10 +206,10 @@ func (n *DefaultNotifier) NotifyJob(
 	}
 	subject := fmt.Sprintf("%sJob %s - %d %s", prefix, job.JobType, request.GetID(), request.GetJobState())
 
-	link := fmt.Sprintf("%s/dashboard/jobs/requests/%d", n.cfg.CommonConfig.ExternalBaseURL, request.GetID())
+	link := fmt.Sprintf("%s/dashboard/jobs/requests/%d", n.cfg.Common.ExternalBaseURL, request.GetID())
 	params := map[string]interface{}{
 		"Job":       request,
-		"URLPrefix": n.cfg.CommonConfig.ExternalBaseURL,
+		"URLPrefix": n.cfg.Common.ExternalBaseURL,
 		"Title":     subject,
 		"Link":      link,
 	}
@@ -342,7 +342,7 @@ func (n *DefaultNotifier) loadJobsTemplate(sender types.Sender) (string, error) 
 	defer n.lock.Unlock()
 	body := n.jobsTemplates[sender.JobNotifyTemplateFile()]
 	if body == "" {
-		if b, err := loadTemplate(sender.JobNotifyTemplateFile(), n.cfg.PublicDir); err == nil {
+		if b, err := loadTemplate(sender.JobNotifyTemplateFile(), n.cfg.Common.PublicDir); err == nil {
 			body = string(b)
 			n.jobsTemplates[sender.JobNotifyTemplateFile()] = body
 		} else {

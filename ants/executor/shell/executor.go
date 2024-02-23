@@ -39,7 +39,7 @@ func NewShellExecutor(
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"[%s SHELL %s] 🔥 running with formicary %s on %s",
-		time.Now().Format(time.RFC3339), opts.Name, cfg.ID, hostName))
+		time.Now().Format(time.RFC3339), opts.Name, cfg.Common.ID, hostName))
 	_ = base.WriteTraceInfo(ctx, fmt.Sprintf("[%s SHELL %s] 🌱 preparing shell executor",
 		time.Now().Format(time.RFC3339), opts.Name))
 

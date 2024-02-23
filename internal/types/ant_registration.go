@@ -27,6 +27,7 @@ type AntRegistration struct {
 	Tags          []string                  `json:"tags" mapstructure:"tags"`
 	Methods       []TaskMethod              `json:"methods" mapstructure:"methods"`
 	CurrentLoad   int                       `json:"current_load" mapstructure:"current_load"`
+	TotalExecuted int                       `json:"total_executed" mapstructure:"total_executed"`
 	Allocations   map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
 	CreatedAt     time.Time                 `json:"created_at" mapstructure:"created_at"`
 	AntStartedAt  time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
@@ -131,8 +132,8 @@ func (r *AntRegistration) Marshal() ([]byte, error) {
 
 // String defines description of registration
 func (r *AntRegistration) String() string {
-	return fmt.Sprintf("ID=%s Tags=%s Max=%d Load=%d\n",
-		r.AntID, r.Tags, r.MaxCapacity, r.CurrentLoad)
+	return fmt.Sprintf("ID=%s Tags=%s Max=%d Load=%d Executed=%d\n",
+		r.AntID, r.Tags, r.MaxCapacity, r.CurrentLoad, r.TotalExecuted)
 }
 
 // UpdatedAtString defines formatted date

@@ -34,9 +34,9 @@ var antCmd = &cobra.Command{
 				Errorf("failed to parse config...")
 			os.Exit(5)
 		}
-		antCfg.Version = buildversion.New(Version, Commit, Date, id)
+		antCfg.Common.Version = buildversion.New(Version, Commit, Date, id)
 		if port > 0 {
-			antCfg.HTTPPort = port
+			antCfg.Common.HTTPPort = port
 		}
 		for _, next := range utils.SplitTags(tags) {
 			antCfg.Tags = append(antCfg.Tags, next)

@@ -1,0 +1,26 @@
+job_type: docker-job
+tasks:
+- task_type: init
+  container:
+    image: alpine
+  method: DOCKER
+  script:
+    - ls -l / > ls.txt
+    - env > env.txt
+  after_script:
+    - ls -l
+  artifacts:
+    paths:
+      - env.txt
+      - ls.txt
+  on_completed: cleanup
+- task_type: cleanup
+  method: DOCKER
+  always_run: true
+  retry: 2
+  container:
+    image: alpine
+  dependencies:
+    - init
+  script:
+    - ls -l

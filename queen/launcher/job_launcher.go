@@ -50,7 +50,7 @@ func New(
 	metricsRegistry *metrics.Registry,
 ) *JobLauncher {
 	return &JobLauncher{
-		id:                  serverCfg.ID + "-job-launcher",
+		id:                  serverCfg.Common.ID + "-job-launcher",
 		serverCfg:           serverCfg,
 		queueClient:         queueClient,
 		jobManager:          jobManager,
@@ -70,9 +70,9 @@ func (jl *JobLauncher) Start(ctx context.Context) (err error) {
 		_ = jl.Stop(ctx)
 		return err
 	}
-	if jl.jobLifecycleSubscriptionID,err = jl.subscribeToJobLifecycleEvent(
+	if jl.jobLifecycleSubscriptionID, err = jl.subscribeToJobLifecycleEvent(
 		ctx,
-		jl.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
+		jl.serverCfg.Common.GetJobExecutionLifecycleTopic()); err != nil {
 		_ = jl.Stop(ctx)
 		return err
 	}
@@ -92,7 +92,7 @@ func (jl *JobLauncher) Stop(ctx context.Context) error {
 		jl.jobLaunchSubscriptionID)
 	err2 := jl.queueClient.UnSubscribe(
 		ctx,
-		jl.serverCfg.GetJobExecutionLifecycleTopic(),
+		jl.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		jl.jobLifecycleSubscriptionID)
 	return utils.ErrorsAny(err1, err2)
 }
@@ -171,7 +171,7 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "JobLauncher",
-					"ID":        jl.serverCfg.ID,
+					"ID":        jl.serverCfg.Common.ID,
 					"Data":      string(event.Payload),
 					"Error":     err,
 				}).Error("failed to parse launch event")
@@ -188,7 +188,7 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 			); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":      "JobLauncher",
-					"ID":             jl.serverCfg.ID,
+					"ID":             jl.serverCfg.Common.ID,
 					"Request":        jobLaunchEvent.JobRequestID,
 					"JobType":        jobLaunchEvent.JobType,
 					"JobExecutionID": jobLaunchEvent.JobExecutionID,
@@ -233,7 +233,7 @@ func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 			// job-launcher just subscribes to messaging queue once and then uses messaging bus to propagate events
 			// to all job-supervisors so that each job-supervisor doesn't need to consume queue resources
 			jl.eventBus.Publish(
-				jl.serverCfg.GetJobExecutionLifecycleTopic(),
+				jl.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 				ctx,
 				jobExecutionLifecycleEvent)
 			if jobExecutionLifecycleEvent.JobState.IsTerminal() {

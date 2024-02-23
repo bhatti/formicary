@@ -37,13 +37,13 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 
 	// Create web server
-	webServer, err := web.NewDefaultWebServer(&serverCfg.CommonConfig)
+	webServer, err := web.NewDefaultWebServer(&serverCfg.Common)
 	if err != nil {
 		return err
 	}
 
 	// Create messaging client
-	queueClient, err := queue.NewMessagingClient(&serverCfg.CommonConfig)
+	queueClient, err := queue.NewMessagingClient(&serverCfg.Common)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	artifactService, err := artifacts.New(&serverCfg.S3)
+	artifactService, err := artifacts.New(&serverCfg.Common.S3)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Queen",
-			"ID":        serverCfg.ID,
+			"ID":        serverCfg.Common.ID,
 			"Error":     err,
 		}).Warnf("failed to create email-sender")
 	} else {
@@ -124,7 +124,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Queen",
-			"ID":        serverCfg.ID,
+			"ID":        serverCfg.Common.ID,
 			"Error":     err,
 		}).Warnf("failed to create slack-sender")
 	} else {
@@ -173,7 +173,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 
 	// request registry keeps track of requests and is used by tasklet
-	requestRegistry := ctasklet.NewRequestRegistry(&serverCfg.CommonConfig, metricsRegistry)
+	requestRegistry := ctasklet.NewRequestRegistry(&serverCfg.Common, metricsRegistry)
 
 	// starts artifact-expiration tasklet
 	if err = tasklet.NewArtifactExpirationTasklet(
@@ -181,7 +181,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		requestRegistry,
 		artifactManager,
 		queueClient,
-		serverCfg.GetExpireArtifactsTaskletTopic(),
+		serverCfg.Common.GetExpireArtifactsTaskletTopic(),
 	).Start(ctx); err != nil {
 		return fmt.Errorf("failed to create artifact expiration tasklet due to %w", err)
 	}
@@ -192,7 +192,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		requestRegistry,
 		jobManager,
 		queueClient,
-		serverCfg.GetMessagingTaskletTopic(),
+		serverCfg.Common.GetMessagingTaskletTopic(),
 	).Start(ctx); err != nil {
 		return fmt.Errorf("failed to create messaging tasklet due to %w", err)
 	}
@@ -203,7 +203,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		requestRegistry,
 		jobManager,
 		queueClient,
-		serverCfg.GetForkJobTaskletTopic(),
+		serverCfg.Common.GetForkJobTaskletTopic(),
 	).Start(ctx); err != nil {
 		return fmt.Errorf("failed to create fork-job tasklet due to %w", err)
 	}
@@ -214,7 +214,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		requestRegistry,
 		jobManager,
 		queueClient,
-		serverCfg.GetWaitForkJobTaskletTopic(),
+		serverCfg.Common.GetWaitForkJobTaskletTopic(),
 	).Start(ctx); err != nil {
 		return fmt.Errorf("failed to create fork-job tasklet due to %w", err)
 	}
@@ -234,7 +234,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 
 	// listen for signal to cleanly shutdown by finishing the work first before exit
-	serverCfg.AddSignalHandlerForShutdown(func() {
+	serverCfg.Common.AddSignalHandlerForShutdown(func() {
 		go func() {
 			// stop job scheduler from processing more jobs
 			_ = jobScheduler.Stop(ctx)
@@ -242,7 +242,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			for jobLauncher.CountProcessingJobs() > 0 {
 				logrus.WithFields(logrus.Fields{
 					"Component":      "Queen",
-					"ID":             serverCfg.ID,
+					"ID":             serverCfg.Common.ID,
 					"InProgressJobs": jobLauncher.CountProcessingJobs(),
 				}).Warnf("shutting down, waiting for job launcher to finish jobs...")
 				time.Sleep(1 * time.Second)
@@ -251,7 +251,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			webServer.Stop()
 			logrus.WithFields(logrus.Fields{
 				"Component": "Queen",
-				"ID":        serverCfg.ID,
+				"ID":        serverCfg.Common.ID,
 			}).Warnf("shutting down, finished waiting for job launcher to finish jobs, exiting...")
 		}()
 	})
@@ -271,7 +271,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		healthMonitor,
 		queueClient,
 		webServer,
-		web.New(&serverCfg.CommonConfig)); err != nil {
+		web.New(&serverCfg.Common)); err != nil {
 		return err
 	}
 	return nil
@@ -283,19 +283,19 @@ func buildHealthMonitor(
 	serverCfg *config.ServerConfig,
 	queueClient queue.Client) (healthMonitor *health.Monitor, err error) {
 	// Create resource manager for keeping track of ants
-	healthMonitor, err = health.New(&serverCfg.CommonConfig, queueClient)
+	healthMonitor, err = health.New(&serverCfg.Common, queueClient)
 	if err != nil {
 		return nil, err
 	}
 
-	if serverCfg.MessagingProvider == common.PulsarMessagingProvider {
+	if serverCfg.Common.MessagingProvider == common.PulsarMessagingProvider {
 		var pulsarMonitor health.Monitorable
-		if pulsarMonitor, err = health.NewHostPortMonitor("pulsar", serverCfg.Pulsar.URL); err != nil {
+		if pulsarMonitor, err = health.NewHostPortMonitor("pulsar", serverCfg.Common.Pulsar.URL); err != nil {
 			return nil, err
 		}
 		healthMonitor.Register(ctx, pulsarMonitor)
-	} else if serverCfg.MessagingProvider == common.KafkaMessagingProvider {
-		for i, broker := range serverCfg.Kafka.Brokers {
+	} else if serverCfg.Common.MessagingProvider == common.KafkaMessagingProvider {
+		for i, broker := range serverCfg.Common.Kafka.Brokers {
 			var kafkaMonitor health.Monitorable
 			if kafkaMonitor, err = health.NewHostPortMonitor(fmt.Sprintf("kafka-%d", i), broker); err != nil {
 				return nil, err
@@ -303,16 +303,16 @@ func buildHealthMonitor(
 			healthMonitor.Register(ctx, kafkaMonitor)
 		}
 	}
-	if serverCfg.Redis.Host != "" {
+	if serverCfg.Common.Redis.Host != "" {
 		var redisMonitor health.Monitorable
 		if redisMonitor, err = health.NewHostPortMonitor("redis",
-			fmt.Sprintf("%s:%d", serverCfg.Redis.Host, serverCfg.Redis.Port)); err != nil {
+			fmt.Sprintf("%s:%d", serverCfg.Common.Redis.Host, serverCfg.Common.Redis.Port)); err != nil {
 			return nil, err
 		}
 		healthMonitor.Register(ctx, redisMonitor)
 	}
 
-	if serverCfg.DB.DBType != "sqlite" {
+	if serverCfg.DB.Type != "sqlite" {
 		var dbMonitor health.Monitorable
 		if dbMonitor, err = health.NewHostPortMonitor("database", serverCfg.DB.DataSource); err != nil {
 			return nil, err
@@ -320,7 +320,7 @@ func buildHealthMonitor(
 		healthMonitor.Register(ctx, dbMonitor)
 	}
 	var s3Monitor health.Monitorable
-	if s3Monitor, err = health.NewHostPortMonitor("S3", serverCfg.S3.Endpoint); err != nil {
+	if s3Monitor, err = health.NewHostPortMonitor("S3", serverCfg.Common.S3.Endpoint); err != nil {
 		return nil, err
 	}
 	healthMonitor.Register(ctx, s3Monitor)

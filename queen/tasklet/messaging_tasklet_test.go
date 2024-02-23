@@ -83,10 +83,10 @@ func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
 
 func newTestMessagingTasklet(t *testing.T) *MessagingTasklet {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	jobManager := manager.AssertTestJobManager(nil, t)
 	requestRegistry := tasklet.NewRequestRegistry(
-		&cfg.CommonConfig,
+		&cfg.Common,
 		metrics.New(),
 	)
 	queueClient.SendReceivePayloadFunc = func(

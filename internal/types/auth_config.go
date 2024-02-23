@@ -43,7 +43,7 @@ func (c *AuthConfig) HasGoogleOAuth() bool {
 	return c.GoogleCallbackHost != "" && c.GoogleClientID != "" && c.GoogleClientSecret != ""
 }
 
-// HasGithubOAuth if github oauth is initialized
+// HasGithubOAuth if GitHub oauth is initialized
 func (c *AuthConfig) HasGithubOAuth() bool {
 	return c.GithubCallbackHost != "" && c.GithubClientID != "" && c.GithubClientSecret != ""
 }

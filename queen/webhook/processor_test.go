@@ -18,7 +18,7 @@ func Test_ShouldCreateJobWebhook(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	// GIVEN webhook processor
-	queueClient := queue.NewStubClient(&serverCfg.CommonConfig)
+	queueClient := queue.NewStubClient(&serverCfg.Common)
 	http := web.NewStubHTTPClient()
 	http.PostMapping["https://formicary.io/webhook/jobs"] = web.NewStubHTTPResponse(200, "test-body")
 
@@ -39,7 +39,7 @@ func Test_ShouldCreateJobWebhook(t *testing.T) {
 		})
 	payload, err := json.Marshal(event)
 	require.NoError(t, err)
-	_, err = queueClient.Publish(ctx, serverCfg.GetJobWebhookTopic(), payload, make(queue.MessageHeaders))
+	_, err = queueClient.Publish(ctx, serverCfg.Common.GetJobWebhookTopic(), payload, make(queue.MessageHeaders))
 	// THEN it should not fail
 	require.NoError(t, err)
 	require.Equal(t, int64(1), processor.jobsProcessed)
@@ -51,7 +51,7 @@ func Test_ShouldCreateTaskWebhook(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	// GIVEN webhook processor
-	queueClient := queue.NewStubClient(&serverCfg.CommonConfig)
+	queueClient := queue.NewStubClient(&serverCfg.Common)
 	http := web.NewStubHTTPClient()
 	http.PostMapping["https://formicary.io/webhook/tasks"] = web.NewStubHTTPResponse(200, "test-body")
 
@@ -73,7 +73,7 @@ func Test_ShouldCreateTaskWebhook(t *testing.T) {
 		})
 	payload, err := json.Marshal(event)
 	require.NoError(t, err)
-	_, err = queueClient.Publish(ctx, serverCfg.GetTaskWebhookTopic(), payload, make(queue.MessageHeaders))
+	_, err = queueClient.Publish(ctx, serverCfg.Common.GetTaskWebhookTopic(), payload, make(queue.MessageHeaders))
 	// THEN it should not fail
 	require.NoError(t, err)
 	require.Equal(t, int64(1), processor.tasksProcessed)

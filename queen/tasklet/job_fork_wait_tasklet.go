@@ -27,7 +27,7 @@ func NewJobForkWaitTasklet(
 	jobManager *manager.JobManager,
 	queueClient queue.Client,
 	requestTopic string) *JobForkWaitTasklet {
-	id := serverCfg.ID + "-job-fork-await-tasklet"
+	id := serverCfg.Common.ID + "-job-fork-await-tasklet"
 	registration := common.AntRegistration{
 		AntID:        id,
 		AntTopic:     requestTopic,
@@ -45,12 +45,12 @@ func NewJobForkWaitTasklet(
 
 	t.BaseTasklet = tasklet.NewBaseTasklet(
 		id,
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		queueClient,
 		nil,
 		requestRegistry,
 		requestTopic,
-		serverCfg.GetRegistrationTopic(),
+		serverCfg.Common.GetRegistrationTopic(),
 		&registration,
 		t,
 	)

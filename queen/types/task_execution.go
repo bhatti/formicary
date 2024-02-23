@@ -10,7 +10,9 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-// TaskExecution defines specification of a task that will be processed by followers.
+// TaskExecution records the execution of a task or a unit of work, carried out by ant-workers in accordance
+// with the specifications of the task-definition. It captures the status and the outputs produced by the
+// task execution, storing them in the database and the object-store.
 type TaskExecution struct {
 	//gorm.Model
 	// ID defines UUID for primary key
@@ -85,7 +87,7 @@ func NewTaskExecution(task *TaskDefinition) *TaskExecution {
 
 // String provides short summary of task
 func (te *TaskExecution) String() string {
-	return fmt.Sprintf("ID=%s TaskType=%s Contexts=%s JobState=%s ExitCode=%s ErrorCode=%s",
+	return fmt.Sprintf("ID=%s TaskType=%s Contexts=%s TaskState=%s ExitCode=%s ErrorCode=%s",
 		te.ID, te.TaskType, te.ContextString(), te.TaskState, te.ExitCode, te.ErrorCode)
 }
 

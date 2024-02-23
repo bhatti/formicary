@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/utils/trace"
 	"strings"
 	"sync"
@@ -47,7 +48,7 @@ func NewKubernetesExecutor(
 	base.Name = opts.Name
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
-		"🔥 running with formicary %s on %s", cfg.ID, hostName))
+		"🔥 running with formicary %s on %s", cfg.Common.ID, hostName))
 	_ = base.WriteTraceInfo(ctx, fmt.Sprintf(
 		"🐳 preparing kubernetes container '%s' with image '%s'",
 		opts.Name, opts.MainContainer.Image))
@@ -216,13 +217,23 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 				logrus.WithFields(logrus.Fields{
 					"Component":    "KubernetesExecutor",
 					"Elapsed":      time.Since(started),
+					"Name":         ke.ExecutorOptions.Name,
 					"I":            i,
+					"Memory":       cutils.MemUsageMiBString(),
 					"ExecutorOpts": ke.ExecutorOptions}).
 					Infof("succeeded to create pod after failure '%s'", ke.ExecutorOptions.Name)
 			}
 			break
 		}
 		if i == maxBuildPodTries-1 || !strings.Contains(err.Error(), "try again") {
+			logrus.WithFields(logrus.Fields{
+				"Component":    "KubernetesExecutor",
+				"Elapsed":      time.Since(started),
+				"Name":         ke.ExecutorOptions.Name,
+				"I":            i,
+				"Memory":       cutils.MemUsageMiBString(),
+				"ExecutorOpts": ke.ExecutorOptions}).
+				Warnf("setting up failed for pod due to %s tries %d", err, i+1)
 			return fmt.Errorf("setting up failed for pod due to %w (%s), tries %d", err, ke.ExecutorOptions.Name, i+1)
 		}
 		time.Sleep(time.Duration(i+1) * time.Second)

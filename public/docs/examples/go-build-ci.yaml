@@ -1,7 +1,7 @@
 job_type: go-build-ci
 max_concurrency: 1
 # only run on main branch
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 tasks:
 - task_type: lint
   method: KUBERNETES

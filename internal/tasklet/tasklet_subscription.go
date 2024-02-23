@@ -141,23 +141,25 @@ func (t *BaseTasklet) startTickerForRegistration(
 			case <-t.registrationTicker.C:
 				if err := t.sendRegisterAntRequest(ctx); err != nil {
 					logrus.WithFields(logrus.Fields{
-						"Component":    "BaseTasklet",
-						"RequestTopic": t.RequestTopic,
-						"CurrentLoad":  t.RequestRegistry.Count(),
-						"Allocations":  t.RequestRegistry.GetAllocations(),
-						"Tasklet":      t.ID,
-						"Registration": t.registration,
-						"Error":        err}).
+						"Component":     "BaseTasklet",
+						"RequestTopic":  t.RequestTopic,
+						"CurrentLoad":   t.RequestRegistry.Count(),
+						"TotalExecuted": t.totalExecuted,
+						"Allocations":   t.RequestRegistry.GetAllocations(),
+						"Tasklet":       t.ID,
+						"Registration":  t.registration,
+						"Error":         err}).
 						Error("failed to send registration")
 				} else {
 					if logrus.IsLevelEnabled(logrus.DebugLevel) {
 						logrus.WithFields(logrus.Fields{
-							"Component":    "RegistrationHandler",
-							"RequestTopic": t.RequestTopic,
-							"CurrentLoad":  t.RequestRegistry.Count(),
-							"Allocations":  t.RequestRegistry.GetAllocations(),
-							"Tasklet":      t.ID,
-							"Registration": t.registration,
+							"Component":     "RegistrationHandler",
+							"RequestTopic":  t.RequestTopic,
+							"CurrentLoad":   t.RequestRegistry.Count(),
+							"TotalExecuted": t.totalExecuted,
+							"Allocations":   t.RequestRegistry.GetAllocations(),
+							"Tasklet":       t.ID,
+							"Registration":  t.registration,
 						}).Debug("sent registration")
 					}
 				}
@@ -165,13 +167,14 @@ func (t *BaseTasklet) startTickerForRegistration(
 		}
 
 		logrus.WithFields(logrus.Fields{
-			"Component":    "BaseTasklet",
-			"RequestTopic": t.RequestTopic,
-			"CurrentLoad":  t.RequestRegistry.Count(),
-			"Allocations":  t.RequestRegistry.GetAllocations(),
-			"Tasklet":      t.ID,
-			"Registration": t.registration,
-			"ShuttingDown": t.Config.ShuttingDown}).
+			"Component":     "BaseTasklet",
+			"RequestTopic":  t.RequestTopic,
+			"CurrentLoad":   t.RequestRegistry.Count(),
+			"TotalExecuted": t.totalExecuted,
+			"Allocations":   t.RequestRegistry.GetAllocations(),
+			"Tasklet":       t.ID,
+			"Registration":  t.registration,
+			"ShuttingDown":  t.Config.ShuttingDown}).
 			Error("exiting registration loop")
 	}()
 }
@@ -182,6 +185,7 @@ func (t *BaseTasklet) sendRegisterAntRequest(
 	ctx context.Context) (err error) {
 	t.registration.AntTopic = t.RequestTopic
 	t.registration.CurrentLoad = t.RequestRegistry.Count()
+	t.registration.TotalExecuted = t.totalExecuted
 	t.registration.Allocations = t.RequestRegistry.GetAllocations() // get allocations based on current requests
 
 	var b []byte

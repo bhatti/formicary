@@ -55,7 +55,7 @@ func NewWebsocketTasklet(
 	wc.setupPingTicker(ctx)
 	wc.BaseTasklet = tasklet.NewBaseTasklet(
 		wc.registration.AntID,
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		queueClient,
 		func(ctx context.Context, event *queue.MessageEvent) bool {
 			matched := event.Properties[queue.MessageTarget] == wc.registration.AntID
@@ -73,7 +73,7 @@ func NewWebsocketTasklet(
 		},
 		requestRegistry,
 		requestTopic,
-		serverCfg.GetRegistrationTopic(),
+		serverCfg.Common.GetRegistrationTopic(),
 		wc.registration,
 		wc,
 	)
@@ -155,7 +155,7 @@ func (t *WebsocketTasklet) Execute(
 	return
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (t *WebsocketTasklet) write(payload []byte) (err error) {
 	t.lock.Lock()
 	err = t.connection.WriteMessage(websocket.TextMessage, payload)

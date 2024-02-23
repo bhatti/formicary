@@ -70,9 +70,9 @@ type ManagerImpl struct {
 func New(
 	serverCfg *config.ServerConfig,
 	queueClient queue.Client) *ManagerImpl {
-	registrationTopic := serverCfg.GetRegistrationTopic()
+	registrationTopic := serverCfg.Common.GetRegistrationTopic()
 	return &ManagerImpl{
-		id:                serverCfg.ID + "-resource-manager",
+		id:                serverCfg.Common.ID + "-resource-manager",
 		serverCfg:         serverCfg,
 		queueClient:       queueClient,
 		registrationTopic: registrationTopic,
@@ -83,18 +83,18 @@ func New(
 // Start subscription for monitoring antRegistrations
 // TODO Start() -- subscribe to lifecycle events to release resources
 func (rm *ManagerImpl) Start(ctx context.Context) (err error) {
-	if rm.registrationSubscriptionID, err = rm.subscribeToRegistration(ctx, rm.serverCfg.GetRegistrationTopic()); err != nil {
+	if rm.registrationSubscriptionID, err = rm.subscribeToRegistration(ctx, rm.serverCfg.Common.GetRegistrationTopic()); err != nil {
 		return err
 	}
-	if rm.jobExecutionLifecycleSubscriptionID, err = rm.subscribeToJobLifecycleEvent(ctx, rm.serverCfg.GetJobExecutionLifecycleTopic()); err != nil {
+	if rm.jobExecutionLifecycleSubscriptionID, err = rm.subscribeToJobLifecycleEvent(ctx, rm.serverCfg.Common.GetJobExecutionLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
-	if rm.taskExecutionLifecycleSubscriptionID, err = rm.subscribeToTaskLifecycleEvent(ctx, rm.serverCfg.GetTaskExecutionLifecycleTopic()); err != nil {
+	if rm.taskExecutionLifecycleSubscriptionID, err = rm.subscribeToTaskLifecycleEvent(ctx, rm.serverCfg.Common.GetTaskExecutionLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
-	if rm.containerLifecycleSubscriptionID, err = rm.subscribeToContainersLifecycleEvents(ctx, rm.serverCfg.GetContainerLifecycleTopic()); err != nil {
+	if rm.containerLifecycleSubscriptionID, err = rm.subscribeToContainersLifecycleEvents(ctx, rm.serverCfg.Common.GetContainerLifecycleTopic()); err != nil {
 		_ = rm.Stop(ctx)
 		return err
 	}
@@ -110,19 +110,19 @@ func (rm *ManagerImpl) Stop(ctx context.Context) (err error) {
 	}
 	err1 := rm.queueClient.UnSubscribe(
 		ctx,
-		rm.serverCfg.GetRegistrationTopic(),
+		rm.serverCfg.Common.GetRegistrationTopic(),
 		rm.registrationSubscriptionID)
 	err2 := rm.queueClient.UnSubscribe(
 		ctx,
-		rm.serverCfg.GetJobExecutionLifecycleTopic(),
+		rm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		rm.jobExecutionLifecycleSubscriptionID)
 	err3 := rm.queueClient.UnSubscribe(
 		ctx,
-		rm.serverCfg.GetTaskExecutionLifecycleTopic(),
+		rm.serverCfg.Common.GetTaskExecutionLifecycleTopic(),
 		rm.taskExecutionLifecycleSubscriptionID)
 	err4 := rm.queueClient.UnSubscribe(
 		ctx,
-		rm.serverCfg.GetContainerLifecycleTopic(),
+		rm.serverCfg.Common.GetContainerLifecycleTopic(),
 		rm.containerLifecycleSubscriptionID)
 	rm.lock.Lock()
 	rm.stopped = true
@@ -303,12 +303,13 @@ func (rm *ManagerImpl) Register(
 	registration.ReceivedAt = time.Now()
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component": "ResourceManager",
-			"AntID":     registration.AntID,
-			"Capacity":  registration.MaxCapacity,
-			"Load":      registration.CurrentLoad,
-			"Methods":   registration.Methods,
-			"Tags":      registration.Tags,
+			"Component":     "ResourceManager",
+			"AntID":         registration.AntID,
+			"Capacity":      registration.MaxCapacity,
+			"Load":          registration.CurrentLoad,
+			"TotalExecuted": registration.TotalExecuted,
+			"Methods":       registration.Methods,
+			"Tags":          registration.Tags,
 		}).Debug("register ant worker")
 	}
 	// update mapping of ant-id => registration
@@ -332,7 +333,7 @@ func (rm *ManagerImpl) Unregister(
 	return count > 0, nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (rm *ManagerImpl) isStopped() bool {
 	rm.lock.RLock()
 	defer rm.lock.RUnlock()

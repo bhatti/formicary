@@ -30,7 +30,7 @@ func NewMessagingTasklet(
 	queueClient queue.Client,
 	requestTopic string,
 ) *MessagingTasklet {
-	id := serverCfg.ID + "-job-messaging-tasklet"
+	id := serverCfg.Common.ID + "-job-messaging-tasklet"
 	registration := common.AntRegistration{
 		AntID:         id,
 		AntTopic:      requestTopic,
@@ -51,12 +51,12 @@ func NewMessagingTasklet(
 
 	t.BaseTasklet = tasklet.NewBaseTasklet(
 		id,
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		queueClient,
 		nil,
 		requestRegistry,
 		requestTopic,
-		serverCfg.GetRegistrationTopic(),
+		serverCfg.Common.GetRegistrationTopic(),
 		&registration,
 		t,
 	)

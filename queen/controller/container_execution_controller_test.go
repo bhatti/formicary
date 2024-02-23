@@ -85,7 +85,7 @@ func sendContainerExecution(serverCfg *config.ServerConfig, queueClient queue.Cl
 	}
 	_, _ = queueClient.Send(
 		context.Background(),
-		serverCfg.GetContainerLifecycleTopic(),
+		serverCfg.Common.GetContainerLifecycleTopic(),
 		bEvent,
 		queue.NewMessageHeaders(
 			queue.ReusableTopicKey, "false",

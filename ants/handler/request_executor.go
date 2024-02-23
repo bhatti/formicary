@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -138,7 +138,7 @@ func (re *RequestExecutorImpl) Execute(
 	if len(taskReq.AfterScript) > 0 {
 		_ = container.WriteTraceInfo(
 			ctx,
-			fmt.Sprintf("🗳️ executing post-script for task '%s' of job '%s' with request-id '%d' ...",
+			fmt.Sprintf("📯 executing post-script for task '%s' of job '%s' with request-id '%d' ...",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 	}
 	// Executing post-script regardless the task fails or succeeds
@@ -187,7 +187,7 @@ func (re *RequestExecutorImpl) execute(
 		if ctx.Value(types.HelperContainerKey) == nil && taskReq.ExecutorOpts.Debug && taskReq.ExecutorOpts.Privileged {
 			_ = container.WriteTraceInfo(
 				ctx,
-				fmt.Sprintf("⛰️ executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
+				fmt.Sprintf("🏃 executing command '%s' of task '%s' of job '%s' and request-id '%d'...",
 					cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID))
 		}
 		// executing...
@@ -207,7 +207,7 @@ func (re *RequestExecutorImpl) execute(
 			} else {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("😡️ executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d, error=%s stderr-len=%d",
+					fmt.Sprintf("😞 executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d', exit=%d, error=%s stderr-len=%d",
 						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, exitCode, err, len(stderr)))
 			}
 		}
@@ -241,7 +241,7 @@ func (re *RequestExecutorImpl) execute(
 				logrus.WithFields(
 					logrus.Fields{
 						"Component": "RequestExecutorImpl",
-						"AntID":     re.antCfg.ID,
+						"AntID":     re.antCfg.Common.ID,
 						"Container": container,
 						"CMD":       cmd,
 						"Len":       len(stdout),
@@ -262,7 +262,7 @@ func (re *RequestExecutorImpl) execute(
 			if path != "" {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("Adding output to artifact path %s with size %d\n", path, len(stdout)))
+					fmt.Sprintf("📂 Adding output to artifact path %s with size %d\n", path, len(stdout)))
 				taskReq.ExecutorOpts.Artifacts.Paths = append(taskReq.ExecutorOpts.Artifacts.Paths, path)
 			}
 		}
@@ -286,7 +286,7 @@ func addArtifactToPath(taskReq *types.TaskRequest, i int, cmd string, stdout []b
 	if _, err = tmpFile.Write(stdout); err != nil {
 		return "", fmt.Errorf("failed to write output for %s due to %w", cmd, err)
 	}
-	ioutil.NopCloser(tmpFile)
+	io.NopCloser(tmpFile)
 	return tmpFile.Name(), nil
 }
 
@@ -334,7 +334,7 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 	// Add helper container if artifacts needed
 
-	taskReq.ExecutorOpts.PodLabels[types.AntID] = re.antCfg.ID
+	taskReq.ExecutorOpts.PodLabels[types.AntID] = re.antCfg.Common.ID
 
 	// Add variables as environment variables
 	for k, v := range taskReq.Variables {
@@ -342,15 +342,17 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 
 	// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-	if re.antCfg.S3.UseSSL {
-		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpsPrefix, re.antCfg.S3.Endpoint)
+	if re.antCfg.Common.S3.UseSSL {
+		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpsPrefix,
+			re.antCfg.Common.S3.Endpoint)
 	} else {
-		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpPrefix, re.antCfg.S3.Endpoint)
+		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpPrefix,
+			re.antCfg.Common.S3.Endpoint)
 	}
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = re.antCfg.S3.Endpoint
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_ACCESS_KEY_ID"] = re.antCfg.S3.AccessKeyID
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.S3.SecretAccessKey
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_DEFAULT_REGION"] = re.antCfg.S3.Region
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = re.antCfg.Common.S3.Endpoint
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_ACCESS_KEY_ID"] = re.antCfg.Common.S3.AccessKeyID
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.Common.S3.SecretAccessKey
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_DEFAULT_REGION"] = re.antCfg.Common.S3.Region
 
 	if taskReq.ExecutorOpts.Method == types.Kubernetes {
 		taskReq.ExecutorOpts.HelperContainer.Image = re.antCfg.Kubernetes.HelperImage
@@ -404,7 +406,7 @@ func (re *RequestExecutorImpl) preProcess(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutorImpl",
-				"AntID":     re.antCfg.ID,
+				"AntID":     re.antCfg.Common.ID,
 				"Container": container,
 				"Error":     sendErr,
 			}).Warnf("failed to send lifecycle event container")
@@ -462,8 +464,8 @@ func (re *RequestExecutorImpl) postProcess(
 			for _, artifact := range uploadedArtifacts {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("🌟 uploaded artifact Bucket=%s ID=%s SHA256=%s Size=%d",
-						re.antCfg.S3.Bucket, artifact.ID, artifact.SHA256, artifact.ContentLength))
+					fmt.Sprintf("🗄️ uploaded artifact Bucket=%s ID=%s SHA256=%s Size=%d",
+						re.antCfg.Common.S3.Bucket, artifact.ID, artifact.SHA256, artifact.ContentLength))
 			}
 		}
 	} else {
@@ -479,7 +481,7 @@ func (re *RequestExecutorImpl) postProcess(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutorImpl",
-				"AntID":     re.antCfg.ID,
+				"AntID":     re.antCfg.Common.ID,
 				"Request":   taskReq,
 				"Response":  taskResp,
 				"UserID":    taskReq.UserID,
@@ -491,7 +493,7 @@ func (re *RequestExecutorImpl) postProcess(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutorImpl",
-				"AntID":     re.antCfg.ID,
+				"AntID":     re.antCfg.Common.ID,
 				"Request":   taskReq,
 				"Response":  taskResp,
 				"UserID":    taskReq.UserID,
@@ -507,12 +509,12 @@ func (re *RequestExecutorImpl) postProcess(
 	if taskResp.Status.Failed() {
 		_ = container.WriteTraceError(
 			ctx,
-			fmt.Sprintf("🌋 task '%s' of job '%s' with request-id '%d' failed Error=%s Exit=%s Duration=%s",
+			fmt.Sprintf("⛔ task '%s' of job '%s' with request-id '%d' failed Error=%s Exit=%s Duration=%s",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskResp.ErrorMessage, taskResp.ExitCode, elapsed))
 	} else {
 		_ = container.WriteTraceSuccess(
 			ctx,
-			fmt.Sprintf("🏄 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
+			fmt.Sprintf("🙌 task '%s' of job '%s' with request-id '%d' completed Duration=%s",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, elapsed))
 	}
 
@@ -532,7 +534,7 @@ func (re *RequestExecutorImpl) postProcess(
 			logrus.WithFields(
 				logrus.Fields{
 					"Component": "RequestExecutorImpl",
-					"AntID":     re.antCfg.ID,
+					"AntID":     re.antCfg.Common.ID,
 					"Request":   taskReq,
 					"Response":  taskResp,
 					"UserID":    taskReq.UserID,
@@ -555,7 +557,7 @@ func (re *RequestExecutorImpl) postProcess(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutor",
-				"AntID":     re.antCfg.ID,
+				"AntID":     re.antCfg.Common.ID,
 				"Container": container,
 				"Error":     sendErr,
 			}).Warnf("failed to send stop lifecycle event container by request-executor")
@@ -600,7 +602,7 @@ func (re *RequestExecutorImpl) updateResponseContext(
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	container executor.Executor) {
-	taskResp.AntID = re.antCfg.ID
+	taskResp.AntID = re.antCfg.Common.ID
 	taskResp.Host, _ = os.Hostname()
 	taskResp.AddContext("Image", taskReq.ExecutorOpts.MainContainer.Image)
 	taskResp.AddContext("HelperImage", taskReq.ExecutorOpts.HelperContainer.Image)
@@ -638,7 +640,7 @@ func (re *RequestExecutorImpl) additionalError(
 	logrus.WithFields(
 		logrus.Fields{
 			"Component":    "RequestExecutorImpl",
-			"AntID":        re.antCfg.ID,
+			"AntID":        re.antCfg.Common.ID,
 			"Error":        err,
 			"Request":      taskReq,
 			"RequestID":    taskResp.JobRequestID,
@@ -664,7 +666,7 @@ func sendContainerEvent(
 	if b, err = events.NewContainerLifecycleEvent(
 		"RequestExecutorImpl",
 		userID,
-		antCfg.ID,
+		antCfg.Common.ID,
 		method,
 		container.GetName(),
 		container.GetID(),
@@ -674,7 +676,7 @@ func sendContainerEvent(
 		container.GetEndedAt()).Marshal(); err == nil {
 		if _, err = queueClient.Publish(
 			ctx,
-			antCfg.GetContainerLifecycleTopic(),
+			antCfg.Common.GetContainerLifecycleTopic(),
 			b,
 			queue.NewMessageHeaders(
 				queue.DisableBatchingKey, "true",
@@ -685,7 +687,7 @@ func sendContainerEvent(
 			logrus.WithFields(
 				logrus.Fields{
 					"Component": "RequestExecutorImpl",
-					"AntID":     antCfg.ID,
+					"AntID":     antCfg.Common.ID,
 					"Container": container,
 					"Error":     err,
 				}).Warnf("failed to send lifecycle event container")

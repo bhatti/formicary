@@ -22,9 +22,9 @@ func Test_InitializeSwaggerStructsForHealth(t *testing.T) {
 func Test_ShouldQueryHealth(t *testing.T) {
 	// GIVEN health controller
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	webServer := web.NewStubWebServer()
-	heathMonitor, err := health.New(&cfg.CommonConfig, queueClient)
+	heathMonitor, err := health.New(&cfg.Common, queueClient)
 	require.NoError(t, err)
 	ctrl := NewHealthController(heathMonitor, webServer)
 

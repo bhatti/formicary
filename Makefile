@@ -16,10 +16,11 @@ all: test vendor build
 
 build: vendor
 	mkdir -p out/bin
-	GO111MODULE=on $(GOCMD) build -mod vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION)" -o out/bin/$(BINARY_NAME) .
+	$(GOCMD) build -mod vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION)" -o out/bin/$(BINARY_NAME) .
 
 build-linux: vendor
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOCMD) build -mod=vendor -o "out/bin/$(BINARY_NAME)_{{.OS}}_{{.Arch}}" -v
+	CGO_CFLAGS="-D_LARGEFILE64_SOURCE" GO111MODULE=on CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GOCMD) build -mod=vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION) -linkmode external -extldflags "-static"" -o "out/bin/$(BINARY_NAME)" -v
+
 
 clean:
 	rm -fr ./bin

@@ -48,7 +48,7 @@ func NewContainersReaper(
 
 // Start reaperTicker for reaping
 func (r *ContainersReaper) Start(ctx context.Context) (err error) {
-	r.reaperTicker = time.NewTicker(r.antCfg.ContainerReaperInterval)
+	r.reaperTicker = time.NewTicker(r.antCfg.Common.ContainerReaperInterval)
 	go func() {
 		for !r.stopped {
 			select {
@@ -60,14 +60,15 @@ func (r *ContainersReaper) Start(ctx context.Context) (err error) {
 			}
 		}
 	}()
-	if r.recentlyCompletedJobIDsSubscriberID, err = r.subscribeToRecentlyCompletedJobIDs(ctx, r.antCfg.GetRecentlyCompletedJobsTopic()); err != nil {
+	if r.recentlyCompletedJobIDsSubscriberID, err = r.subscribeToRecentlyCompletedJobIDs(ctx,
+		r.antCfg.Common.GetRecentlyCompletedJobsTopic()); err != nil {
 		_ = r.Stop(ctx)
 		return err
 	}
 	log.WithFields(
 		log.Fields{
 			"Component": "ContainersReaper",
-			"Timeout":   r.antCfg.ContainerReaperInterval,
+			"Timeout":   r.antCfg.Common.ContainerReaperInterval,
 			"Memory":    cutils.MemUsageMiBString(),
 			"Error":     err,
 		}).Infof("started reap container")
@@ -81,7 +82,7 @@ func (r *ContainersReaper) Stop(ctx context.Context) (err error) {
 	}
 	err = r.queueClient.UnSubscribe(
 		ctx,
-		r.antCfg.GetRecentlyCompletedJobsTopic(),
+		r.antCfg.Common.GetRecentlyCompletedJobsTopic(),
 		r.recentlyCompletedJobIDsSubscriberID)
 	r.stopped = true
 	return
@@ -89,7 +90,7 @@ func (r *ContainersReaper) Stop(ctx context.Context) (err error) {
 
 func (r *ContainersReaper) canReap(container executor.Info) bool {
 	if strings.Contains(container.GetName(), "frm-") {
-		if container.ElapsedSecs() > r.antCfg.MaxJobTimeout {
+		if container.ElapsedSecs() > r.antCfg.Common.MaxJobTimeout {
 			return true
 		}
 		parts := strings.Split(container.GetName(), "-")
@@ -159,7 +160,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 			log.Fields{
 				"Component":       "ContainersReaper",
 				"TotalContainers": total,
-				"Timeout":         r.antCfg.MaxJobTimeout,
+				"Timeout":         r.antCfg.Common.MaxJobTimeout,
 				"Reaped":          reaped,
 				"ReapedFailed":    reapedFailed,
 			}).Infof("checking stale container")
@@ -175,7 +176,7 @@ func (r *ContainersReaper) sendContainerEvent(
 	if b, err = events.NewContainerLifecycleEvent(
 		"ContainersReaper",
 		userID,
-		r.antCfg.ID,
+		r.antCfg.Common.ID,
 		method,
 		container.GetName(),
 		container.GetID(),
@@ -185,7 +186,7 @@ func (r *ContainersReaper) sendContainerEvent(
 		container.GetEndedAt()).Marshal(); err == nil {
 		if _, err = r.queueClient.Publish(
 			ctx,
-			r.antCfg.GetContainerLifecycleTopic(),
+			r.antCfg.Common.GetContainerLifecycleTopic(),
 			b,
 			queue.NewMessageHeaders(
 				queue.DisableBatchingKey, "true",
@@ -196,7 +197,7 @@ func (r *ContainersReaper) sendContainerEvent(
 			log.WithFields(
 				log.Fields{
 					"Component": "ContainersReaper",
-					"AntID":     r.antCfg.ID,
+					"AntID":     r.antCfg.Common.ID,
 					"Container": container,
 					"Error":     err,
 					"Memory":    cutils.MemUsageMiBString(),

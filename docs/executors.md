@@ -135,7 +135,7 @@ docker:
 
 Above configuration applies to all jobs, but a docker task can define following properties for each job-definition:
 
-- name - the name of task that is used for pod-name
+- name - the name of task that is used for container-name
 - environment - environment variables to set within the container
 - working_directory - for script execution
 - container - main container to execute, which defines:

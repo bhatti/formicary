@@ -1,57 +1,90 @@
 version: '3.7'
-# see https://docs.min.io/docs/deploy-minio-on-docker-compose
 services:
-  pulsar:
-    image: apachepulsar/pulsar:2.7.0
+  redis:
+    image: "redis:alpine"
     ports:
-      - 8080:8080
-      - 6650:6650
-    environment:
-      PULSAR_MEM: " -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"    
-    command: bin/pulsar standalone
-  minio1:
-    image: minio/minio:RELEASE.2021-03-12T00-00-47Z
+      - "6379:6379"
     volumes:
-      - data1-1:/data1
-      - data1-2:/data2
-    expose:
-      - "9000"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    command: server http://minio{1...2}/data{1...2}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-  minio2:
-    image: minio/minio:RELEASE.2021-03-12T00-00-47Z
+      - redis-data:/data
+  minio:
+    image: minio/minio:RELEASE.2024-02-09T21-25-16Z
     volumes:
-      - data2-1:/data1
-      - data2-2:/data2
-    expose:
-      - "9000"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    command: server http://minio{1...2}/data{1...2}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-  nginx:
-    image: nginx:1.19.2-alpine
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - minio-data:/data
     ports:
       - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+  mysql:
+    image: "mysql:8"
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      DB_NAME: ${DB_NAME:-formicary_db}
+      DB_USER: ${DB_USER:-formicary_user}
+      DB_PASSWORD: ${DB_PASSWORD:-formicary_pass}
+      DB_ROOT_USER: ${DB_ROOT_USER:-root}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootroot}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootroot}
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    volumes:
+      - mysql-data:/var/lib/mysql
+#      - ./mysql-initdb:/docker-entrypoint-initdb.d
+  formicary-server:
+    image: plexobject/formicary
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
     depends_on:
-      - minio1
-      - minio2
+      - redis
+      - mysql
+      - minio
+    environment:
+      COMMON_DEBUG: '${DEBUG:-false}'
+      COMMON_REDIS_HOST: 'redis'
+      COMMON_REDIS_PORT: '${COMMON_REDIS_PORT:-6379}'
+      COMMON_S3_ENDPOINT: 'minio:9000'
+      COMMON_S3_ACCESS_KEY_ID: 'admin'
+      COMMON_S3_SECRET_ACCESS_KEY: 'password'
+      COMMON_S3_REGION: '${AWS_DEFAULT_REGION:-us-west-2}'
+      COMMON_S3_BUCKET: '${BUCKET:-formicary-artifacts}'
+      COMMON_S3_PREFIX: '${PREFIX:-formicary}'
+      COMMON_AUTH_GITHUB_CLIENT_ID: '${COMMON_AUTH_GITHUB_CLIENT_ID}'
+      COMMON_AUTH_GITHUB_CLIENT_SECRET: '${COMMON_AUTH_GITHUB_CLIENT_SECRET}'
+      COMMON_AUTH_GOOGLE_CLIENT_ID: '${COMMON_AUTH_GOOGLE_CLIENT_ID}'
+      COMMON_AUTH_GOOGLE_CLIENT_SECRET: '${COMMON_AUTH_GOOGLE_CLIENT_SECRET}'
+      CONFIG_FILE: ${CONFIG_FILE:-/config/formicary-queen.yaml}
+      COMMON_HTTP_PORT: ${HTTP_PORT:-7777}
+      DB_USER: ${DB_USER:-formicary_user}
+      DB_PASSWORD: ${DB_PASSWORD:-formicary_pass}
+      POSTGRES_USER: ${DB_USER:-formicary_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-formicary_pass}
+      DB_HOST: 'mysql'
+      DB_TYPE: "mysql"
+      DB_DATA_SOURCE: "${DB_USER:-formicary_user}:${DB_PASSWORD:-formicary_pass}@tcp(mysql:3306)/${DB_NAME:-formicary_db}?charset=utf8mb4&parseTime=true&loc=Local"
+    ports:
+      - 7777:7777
+    volumes:
+      - ./config:/config
+    entrypoint: ["/bin/sh", "-c", "/migrations/mysql_setup_db.sh migrate-only && exec /formicary --config=/config/formicary-queen.yaml --id=formicary-server-id1"]
 volumes:
-  data1-1:
-  data1-2:
-  data2-1:
-  data2-2:
+  minio-data:
+  redis-data:
+  mysql-data:
+  mysql-initdb:

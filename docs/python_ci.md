@@ -7,7 +7,7 @@ Following is an example of job configuration for a simple Python project:
 job_type: python-ci
 max_concurrency: 1
 # only run on main branch
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 tasks:
 - task_type: test
   method: KUBERNETES
@@ -55,10 +55,10 @@ The `job_type` defines type of the job, e.g.
 job_type: python-ci
 ```
 
-#### Filtering
-The `filter` will not execute the ci/cd job if branch is not main, e.g.,
+#### Skip
+The `skip_if` will not execute the ci/cd job if branch is not main, e.g.,
 ```yaml
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 ```
 
 #### Tasks

@@ -4,14 +4,14 @@ import "fmt"
 
 // S3Config S3 config
 type S3Config struct {
-	Endpoint           string `yaml:"endpoint" mapstructure:"endpoint"`
-	AccessKeyID        string `yaml:"accessKeyID" mapstructure:"accessKeyID"`
-	SecretAccessKey    string `yaml:"secretAccessKey" mapstructure:"secretAccessKey"`
+	Endpoint           string `yaml:"endpoint" mapstructure:"endpoint" env:"ENDPOINT"`
+	AccessKeyID        string `yaml:"access_key_id" mapstructure:"access_key_id" env:"ACCESS_KEY_ID"`
+	SecretAccessKey    string `yaml:"secret_access_key" mapstructure:"secret_access_key" env:"SECRET_ACCESS_KEY"`
 	Token              string `yaml:"token" mapstructure:"token"`
-	Region             string `yaml:"region" mapstructure:"region"`
-	Prefix             string `yaml:"prefix" mapstructure:"prefix"`
-	Bucket             string `yaml:"bucket" mapstructure:"bucket"`
-	EncryptionPassword string `yaml:"encryptionPassword" mapstructure:"encryptionPassword"`
+	Region             string `yaml:"region" mapstructure:"region" env:"REGION"`
+	Prefix             string `yaml:"prefix" mapstructure:"prefix" env:"PREFIX"`
+	Bucket             string `yaml:"bucket" mapstructure:"bucket" env:"BUCKET"`
+	EncryptionPassword string `yaml:"encryption_password" mapstructure:"password" env:"PASSWORD"`
 	UseSSL             bool   `yaml:"useSSL" mapstructure:"useSSL"`
 }
 

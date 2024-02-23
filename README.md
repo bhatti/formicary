@@ -60,9 +60,9 @@ can be used as input of another task. The *Fork/Join* pattern allows executing w
 
 ## Requirements:
 
-- GO 1.16+
+- GO 1.22+
 - Install Docker https://hub.docker.com/search?type=edition&offering=community
-- Kubernetes, e.g. Install minikube - https://minikube.sigs.k8s.io/docs/start/
+- Kubernetes, e.g. Install microk8s - https://microk8s.io/docs
 - Uses Redis https://redis.io/ or Apache pulsar https://pulsar.apache.org for messaging
 - Install Minio that is used for object-store and artifacts storage - https://min.io/download
 

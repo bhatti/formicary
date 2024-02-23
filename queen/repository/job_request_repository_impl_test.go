@@ -170,7 +170,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.Error(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, "PENDING", "READY", "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, "PENDING", "EXECUTING", "", "", 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -178,7 +178,25 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	loaded, err := repo.Get(qc, req.ID)
 	// THEN it should not fail
 	require.NoError(t, err)
-	require.Equal(t, common.READY, loaded.JobState)
+	require.Equal(t, common.EXECUTING, loaded.JobState)
+
+	// Should succeed in updating timestamp
+	err = repo.UpdateRunningTimestamp(req.ID)
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, "EXECUTING", "COMPLETED", "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// Should not succeed in updating timestamp
+	err = repo.UpdateRunningTimestamp(req.ID)
+	require.Error(t, err)
+
+	// WHEN restarting completed requests
+	err = repo.Restart(common.NewQueryContextFromIDs(loaded.UserID, ""), loaded.ID)
+	// THEN it should fail
+	require.Error(t, err)
 }
 
 // SetReadyToExecute should update state of job to READY
@@ -832,7 +850,11 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 	for _, rec := range recs {
 		// WHEN restarting orphan requests
 		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID)
-		require.NoError(t, err)
+		if rec.JobState == common.READY {
+			require.Error(t, err, rec.String())
+		} else {
+			require.NoError(t, err, rec.String())
+		}
 		// AND incrementing schedule attempts
 		err = repo.IncrementScheduleAttempts(
 			rec.ID, time.Duration(rand.Intn(100))*time.Second, rand.Intn(100), "blah")

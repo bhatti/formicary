@@ -79,16 +79,16 @@ func Test_ShouldExecuteArtifactExpirationTasklet(t *testing.T) {
 	require.Equal(t, 50, res.JobContext["TotalExpired"])
 }
 
-func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *ArtifactExpirationTasklet{
+func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *ArtifactExpirationTasklet {
 	cfg := config.TestServerConfig()
 	cfg.DefaultArtifactExpiration = time.Hour * 24 * 50
 	cfg.DefaultArtifactLimit = 10000
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	requestRegistry := tasklet.NewRequestRegistry(
-		&cfg.CommonConfig,
+		&cfg.Common,
 		metrics.New(),
 	)
-	artifactService, err := artifacts.NewStub(&cfg.S3)
+	artifactService, err := artifacts.NewStub(&cfg.Common.S3)
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)
@@ -102,12 +102,12 @@ func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *Artifact
 		artifactService)
 	require.NoError(t, err)
 
-	for i:=0; i<100; i++ {
+	for i := 0; i < 100; i++ {
 		art := common.NewArtifact("bucket", uuid.NewV4().String(), "group", "kind", 101, "sha", 100)
 		art.ID = uuid.NewV4().String()
 		art.UserID = user.ID
 		art.OrganizationID = user.OrganizationID
-		art.ExpiresAt = time.Now().Add(time.Hour*-24*time.Duration(i))
+		art.ExpiresAt = time.Now().Add(time.Hour * -24 * time.Duration(i))
 		_, _ = artifactRepository.Save(art)
 	}
 

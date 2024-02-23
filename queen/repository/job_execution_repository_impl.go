@@ -58,8 +58,9 @@ func (jer *JobExecutionRepositoryImpl) Get(
 func (jer *JobExecutionRepositoryImpl) ResetStateToReady(id string) error {
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{"job_state": common.READY, "updated_at": time.Now()}
+		// check in-clause
 		res := tx.Model(&types.JobExecution{}).Where("id = ?", id).
-			Where("job_state NOT IN (?)", []common.RequestState{common.COMPLETED, common.FAILED, common.CANCELLED}).
+			Where("job_state NOT IN ?", common.TerminalStates).
 			Updates(updates)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
@@ -201,9 +202,10 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 					oldState, newState, req.JobState))
 		}
 
+		// check in-clause
 		res = tx.Model(&types.JobExecution{}).Where("id = ?", id).
 			Where("job_state = ?", oldState).
-			Where("job_state NOT IN (?)", []common.RequestState{common.COMPLETED, common.FAILED, common.CANCELLED}).
+			Where("job_state NOT IN ?", common.TerminalStates).
 			Updates(map[string]interface{}{
 				"job_state":     newState,
 				"error_message": errorMessage,
@@ -251,9 +253,10 @@ func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 				fmt.Errorf("failed to update job request state with job_execution_id %s from %s to %s because it has %s state", id, oldState, newState, req.JobState))
 		}
 
+		// check in-clause
 		res = tx.Model(&types.JobExecution{}).Where("id = ?", id).
 			Where("job_state = ?", oldState).
-			Where("job_state NOT IN (?)", []common.RequestState{common.COMPLETED, common.FAILED, common.CANCELLED}).
+			Where("job_state NOT IN ?", common.TerminalStates).
 			Updates(updates)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
@@ -289,9 +292,10 @@ func (jer *JobExecutionRepositoryImpl) UpdateTaskState(
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		var task types.TaskExecution
 		updates := map[string]interface{}{"task_state": newState, "updated_at": time.Now()}
+		// check in-clause
 		res := tx.Model(&task).Where("id = ?", id).
 			Where("task_state = ?", oldState).
-			Where("task_state NOT IN (?)", []common.RequestState{common.COMPLETED, common.FAILED, common.CANCELLED}).
+			Where("task_state NOT IN ?", common.TerminalStates).
 			Updates(updates)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
@@ -338,11 +342,13 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 			res = tx.Omit("Contexts").Create(task)
 		} else {
 			// Cannot change terminal state
-			tx.Where("task_execution_id = ? AND id NOT in (?)", task.ID, contextIDS).
+			// check in-clause and omit
+			tx.Where("task_execution_id = ? AND id NOT IN ?", task.ID, contextIDS).
 				Delete(types.TaskExecutionContext{})
-			res = tx.Where("task_state NOT IN (?)",
-				[]common.RequestState{common.COMPLETED, common.FAILED, common.CANCELLED}).
-				Omit("Contexts").Save(task)
+			res = tx.
+				Where("id = ? AND task_state NOT IN ?", task.ID, common.TerminalStates).
+				Omit("Contexts").
+				Save(task)
 		}
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
@@ -532,7 +538,7 @@ func (jer *JobExecutionRepositoryImpl) Delete(
 	})
 }
 
-////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////a
+// //////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////a
 // loadTaskIDsByJobID - loads tasks by job-id
 func (jer *JobExecutionRepositoryImpl) loadTasksIDByJobID(
 	tx *gorm.DB,
@@ -574,17 +580,20 @@ func (jer *JobExecutionRepositoryImpl) clearOrphanJobTasks(
 	}
 
 	// delete all task contexts that are deleted
-	tx.Where("task_execution_id IN (?)", deletedTaskIDs).Delete(types.TaskExecutionContext{})
+	// check in-clause
+	tx.Where("task_execution_id IN ?", deletedTaskIDs).Delete(types.TaskExecutionContext{})
 
 	// Delete all tasks that are not in the list
-	tx.Where("id IN (?) AND job_execution_id = ?", deletedTaskIDs, job.ID).Delete(types.TaskExecution{})
+	// check in-clause
+	tx.Where("id IN ? AND job_execution_id = ?", deletedTaskIDs, job.ID).Delete(types.TaskExecution{})
 
 	for _, t := range job.Tasks {
 		contextIDs := make([]string, len(t.Contexts))
 		for i, c := range t.Contexts {
 			contextIDs[i] = c.ID
 		}
-		tx.Where("id NOT IN (?) AND task_execution_id = ?", contextIDs, t.ID).Delete(types.TaskExecutionContext{})
+		// check in-clause
+		tx.Where("id NOT IN ? AND task_execution_id = ?", contextIDs, t.ID).Delete(types.TaskExecutionContext{})
 	}
 }
 
@@ -597,7 +606,8 @@ func (jer *JobExecutionRepositoryImpl) clearOrphanJobContexts(
 	for i, c := range newContexts {
 		contextIDs[i] = c.ID
 	}
-	tx.Where("id NOT IN (?) AND job_execution_id = ?", contextIDs, id).Delete(types.JobExecutionContext{})
+	// check in-clause
+	tx.Where("id NOT IN ? AND job_execution_id = ?", contextIDs, id).Delete(types.JobExecutionContext{})
 }
 
 func (jer *JobExecutionRepositoryImpl) createJobContexts(

@@ -7,7 +7,7 @@ dependencies in the graph/workflow including configuration parameters and condit
 
 **Contact information:**  
 Support  
-<https://formicary.io>  
+https://formicary.io  
 support@formicary.io  
 
 **License:** [AGPL](https://opensource.org/licenses/AGPL-3.0)
@@ -15,11 +15,14 @@ support@formicary.io
 ### Security
 **api_key**  
 
-|apiKey|*API Key*|
-|---|---|
-|In|header|
-|Name|Authorization|
+| apiKey | *API Key* |
+| ------ | --------- |
+| In | header |
+| Name | Authorization |
 
+**Schemes:** http, https
+
+---
 ### /api/ants
 
 #### GET
@@ -35,7 +38,7 @@ Queries ant registration.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of ant-registrations matching query | object |
+| 200 | Paginated results of ant-registrations matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [AntRegistration](#antregistration) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 ### /api/ants/{id}
 
@@ -51,7 +54,7 @@ Retrieves ant-registration by its id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -60,6 +63,7 @@ Retrieves ant-registration by its id.
 | ---- | ----------- | ------ |
 | 200 | Ant Registration body | [AntRegistration](#antregistration) |
 
+---
 ### /api/artifacts
 
 #### GET
@@ -70,7 +74,7 @@ Queries artifacts by name, task-type, etc.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | order | query |  | No | string |
@@ -87,7 +91,7 @@ Queries artifacts by name, task-type, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of artifacts matching query | object |
+| 200 | Paginated results of artifacts matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [Artifact](#artifact) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -97,7 +101,7 @@ Uploads artifact data from the request body and returns metadata for the uploade
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [ integer (uint8) ] |
 
 ##### Responses
@@ -116,7 +120,7 @@ Deletes artifact by its id
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -133,7 +137,7 @@ Retrieves artifact by its id
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -152,7 +156,7 @@ Download artifact by its id
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -171,7 +175,7 @@ Download artifact by its id
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -180,6 +184,7 @@ Download artifact by its id
 | ---- | ----------- | ------ |
 | 200 | Byte Array response body | [ integer (uint8) ] |
 
+---
 ### /api/audits
 
 #### GET
@@ -190,7 +195,7 @@ Queries audits within the organization that is allowed.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | target_id | query | TargetID defines target id | No | string |
@@ -204,8 +209,9 @@ Queries audits within the organization that is allowed.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of audits matching query | object |
+| 200 | Paginated results of audits matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [AuditRecord](#auditrecord) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
+---
 ### /api/configs
 
 #### GET
@@ -217,7 +223,7 @@ Queries system configs
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | scope | query | Scope defines scope such as default or org-unit | No | string |
@@ -228,7 +234,7 @@ Queries system configs
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Query results of system-configs | object |
+| 200 | Query results of system-configs | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [SystemConfig](#systemconfig) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -242,7 +248,7 @@ Creates new system config based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [SystemConfig](#systemconfig) |
 
 ##### Responses
@@ -265,7 +271,7 @@ Deletes an existing system config based on id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -277,7 +283,7 @@ Deletes an existing system config based on id.
 #### GET
 ##### Summary
 
-Deletes an existing system config based on id.
+Finds an existing system config based on id.
 
 ##### Description
 
@@ -286,14 +292,14 @@ Deletes an existing system config based on id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
 
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | SystemConfig body for update | [SystemConfig](#systemconfig) |
 
 #### PUT
 ##### Summary
@@ -307,7 +313,7 @@ Updates an existing system config based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | Body | body |  | No | [SystemConfig](#systemconfig) |
 
@@ -317,6 +323,7 @@ Updates an existing system config based on request body.
 | ---- | ----------- | ------ |
 | 200 | SystemConfig body for update | [SystemConfig](#systemconfig) |
 
+---
 ### /api/errors
 
 #### GET
@@ -331,7 +338,7 @@ Queries error-codes by type, regex.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | regex | query |  | No | string |
 | exit_code | query | ExitCode defines exit-code for error | No | long |
 | error_code | query | ErrorCode defines error code | No | string |
@@ -344,7 +351,7 @@ Queries error-codes by type, regex.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Query results of error-codes | object |
+| 200 | Query results of error-codes | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [ErrorCode](#errorcode) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -358,7 +365,7 @@ Creates new error code based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [ErrorCode](#errorcode) |
 
 ##### Responses
@@ -379,7 +386,7 @@ Updates new error code based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [ErrorCode](#errorcode) |
 
 ##### Responses
@@ -402,7 +409,7 @@ Deletes error code by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -423,7 +430,7 @@ Finds error code by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -432,6 +439,7 @@ Finds error code by id.
 | ---- | ----------- | ------ |
 | 200 | ErrorCode body for update | [ErrorCode](#errorcode) |
 
+---
 ### /api/executors
 
 #### GET
@@ -447,7 +455,7 @@ Queries container executions.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of container-executions matching query | object |
+| 200 | Paginated results of container-executions matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [ContainerLifecycleEvent](#containerlifecycleevent) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 ### /api/executors/{id}
 
@@ -463,7 +471,7 @@ Deletes container-executor by its id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -472,6 +480,7 @@ Deletes container-executor by its id.
 | ---- | ----------- |
 | 200 | Empty response body |
 
+---
 ### /api/health
 
 #### GET
@@ -489,6 +498,24 @@ Returns health status.
 | ---- | ----------- | ------ |
 | 200 |  | [HealthQueryResponse](#healthqueryresponse) |
 
+### /api/metrics
+
+#### GET
+##### Summary
+
+Returns prometheus health metrics.
+
+##### Description
+
+`This requires admin access`
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Results of prometheus-metrics | [ string ] |
+
+---
 ### /api/jobs/definitions
 
 #### GET
@@ -499,7 +526,7 @@ Queries job definitions by criteria such as type, platform, etc.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
@@ -512,7 +539,7 @@ Queries job definitions by criteria such as type, platform, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of jobDefinitions matching query | object |
+| 200 | Paginated results of jobDefinitions matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [JobDefinition](#jobdefinition) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -522,7 +549,7 @@ Uploads job definitions using JSON or YAML body based on content-type header.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [JobDefinition](#jobdefinition) |
 
 ##### Responses
@@ -541,7 +568,7 @@ Deletes the job-definition by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -558,7 +585,7 @@ Finds the job-definition by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -577,7 +604,7 @@ Updates the concurrency for job-definition by id to limit the maximum jobs that 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | concurrency | formData |  | No | long |
 
@@ -597,7 +624,7 @@ disables job-definition so that no new requests are executed while in-progress j
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -616,7 +643,7 @@ Returns Graphviz DOT definition for the graph of tasks defined in the job.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -630,13 +657,19 @@ Returns Graphviz DOT definition for the graph of tasks defined in the job.
 #### GET
 ##### Summary
 
-Returns Real-time statistics of jobs running.
+Returns Graphviz DOT image for the graph of tasks defined in the job.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
 
 ##### Responses
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 |  | [ [JobStats](#jobstats) ] |
+| 200 | Byte Array response body | [ integer (uint8) ] |
 
 ### /api/jobs/definitions/{id}/enable
 
@@ -648,7 +681,7 @@ Enables job-definition so that new requests can start processing.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -657,92 +690,18 @@ Enables job-definition so that new requests can start processing.
 | ---- | ----------- |
 | 200 | Empty response body |
 
-### /api/jobs/definitions/{jobId}/configs
+### /api/jobs/definitions/{id}/stats
 
 #### GET
 ##### Summary
 
-Queries job configs by criteria such as name, type, etc.
+Returns Real-time statistics of jobs running.
 
 ##### Responses
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of jobConfigs matching query | object |
-
-#### POST
-##### Summary
-
-Adds a config for the job.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| Body | body |  | No | [JobDefinitionConfig](#jobdefinitionconfig) |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
-
-### /api/jobs/definitions/{jobId}/configs/{id}
-
-#### DELETE
-##### Summary
-
-Deletes a config for the job by id.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| jobId | path |  | Yes | string |
-| id | path |  | Yes | string |
-
-##### Responses
-
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
-
-#### GET
-##### Summary
-
-Finds a config for the job by id.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| jobId | path |  | Yes | string |
-| id | path |  | Yes | string |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
-
-#### PUT
-##### Summary
-
-Updates a config for the job.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| jobId | path |  | Yes | string |
-| id | path |  | Yes | string |
-| Body | body |  | No | [JobDefinitionConfig](#jobdefinitionconfig) |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
+| 200 |  | [ [JobStats](#jobstats) ] |
 
 ### /api/jobs/definitions/{type}/yaml
 
@@ -754,7 +713,7 @@ Finds job-definition by type and returns response YAML format.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | type | path |  | Yes | string |
 
 ##### Responses
@@ -773,7 +732,7 @@ Queries job definitions by criteria such as type, platform, etc.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
@@ -786,8 +745,97 @@ Queries job definitions by criteria such as type, platform, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of jobDefinitions matching query | object |
+| 200 | Paginated results of jobDefinitions matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [JobDefinition](#jobdefinition) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
+---
+### /api/jobs/definitions/{jobId}/configs
+
+#### GET
+##### Summary
+
+Queries job configs by criteria such as name, type, etc.
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Paginated results of jobConfigs matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [JobDefinitionConfig](#jobdefinitionconfig) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
+
+#### POST
+##### Summary
+
+Adds a config for the job.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| Body | body |  | No | [JobDefinitionConfig](#jobdefinitionconfig) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
+
+### /api/jobs/definitions/{jobId}/configs/{id}
+
+#### DELETE
+##### Summary
+
+Deletes a config for the job by id.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| jobId | path |  | Yes | string |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
+#### GET
+##### Summary
+
+Finds a config for the job by id.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| jobId | path |  | Yes | string |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
+
+#### PUT
+##### Summary
+
+Updates a config for the job.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| jobId | path |  | Yes | string |
+| id | path |  | Yes | string |
+| Body | body |  | No | [JobDefinitionConfig](#jobdefinitionconfig) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [JobDefinitionConfig](#jobdefinitionconfig) |
+
+---
 ### /api/jobs/requests
 
 #### GET
@@ -798,7 +846,7 @@ Queries job requests by criteria such as type, platform, etc.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | job_type | query | JobType defines a unique type of job | No | string |
@@ -810,7 +858,7 @@ Queries job requests by criteria such as type, platform, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of jobRequests matching query | object |
+| 200 | Paginated results of jobRequests matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [JobRequest](#jobrequest) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -820,7 +868,7 @@ Submits a job-request for processing, which is saved in the database and is then
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [JobRequest](#jobrequest) |
 
 ##### Responses
@@ -839,7 +887,7 @@ Finds the job-request by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -858,7 +906,7 @@ Cancels a job-request that is pending for execution or already executing.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -877,7 +925,7 @@ Returns Graphviz DOT request for the graph of tasks defined in the job request.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -896,7 +944,7 @@ Returns Graphviz DOT image for the graph of tasks defined in the job.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -908,15 +956,14 @@ Returns Graphviz DOT image for the graph of tasks defined in the job.
 ### /api/jobs/requests/{id}/restart
 
 #### POST
-##### Description
+##### Summary
 
-Restarts a previously failed job so that it can re-executed, the restart may perform soft-restart where only
-failed tasks are executed or hard-restart where all tasks are executed.
+Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -928,14 +975,14 @@ failed tasks are executed or hard-restart where all tasks are executed.
 ### /api/jobs/requests/{id}/trigger
 
 #### POST
-##### Description
+##### Summary
 
-Triggers a scheduled job
+Triggers a scheduled job.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -987,6 +1034,7 @@ Returns statistics for the job-request such as success rate, latency, etc.
 | ---- | ----------- | ------ |
 | 200 | The job-request statistics about success-rate, latency, etc. | [ [JobCounts](#jobcounts) ] |
 
+---
 ### /api/jobs/resources
 
 #### GET
@@ -997,7 +1045,7 @@ Queries job resources by criteria such as type, platform, etc.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | resource_type | query | ResourceType defines type of resource such as Device, CPU, Memory | No | string |
@@ -1008,7 +1056,7 @@ Queries job resources by criteria such as type, platform, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of jobResources matching query | object |
+| 200 | Paginated results of jobResources matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [JobResource](#jobresource) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -1018,7 +1066,7 @@ Adds a job-resource that can be used for managing internal or external constrain
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [JobResource](#jobresource) |
 
 ##### Responses
@@ -1037,7 +1085,7 @@ Finds the job-resource by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1054,7 +1102,7 @@ Updates a job-resource that can be used for managing internal or external constr
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | Body | body |  | No | [JobResource](#jobresource) |
 
@@ -1067,9 +1115,9 @@ Updates a job-resource that can be used for managing internal or external constr
 ### /api/jobs/resources/{id}/configs
 
 #### POST
-##### Description
+##### Summary
 
-Save the job-resource config
+Save the job-resource config.
 
 ##### Responses
 
@@ -1080,14 +1128,14 @@ Save the job-resource config
 ### /api/jobs/resources/{id}/configs/{configId}
 
 #### DELETE
-##### Description
+##### Summary
 
-Deletes the job-resource config by id of job-resource and config-id
+Deletes the job-resource config by id of job-resource and config-id.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | config_id | path |  | Yes | string |
 
@@ -1100,14 +1148,14 @@ Deletes the job-resource config by id of job-resource and config-id
 ### /api/jobs/resources/{id}/disable
 
 #### POST
-##### Description
+##### Summary
 
-Deletes the job-resource by id
+Deletes the job-resource by id.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1116,6 +1164,7 @@ Deletes the job-resource by id
 | ---- | ----------- |
 | 200 | Empty response body |
 
+---
 ### /api/logs
 
 #### POST
@@ -1126,7 +1175,7 @@ Post log event
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [ integer (uint8) ] |
 
 ##### Responses
@@ -1135,23 +1184,7 @@ Post log event
 | ---- | ----------- |
 | 200 | logResponse defines response of log event |
 
-### /api/metrics
-
-#### GET
-##### Summary
-
-Returns prometheus health metrics.
-
-##### Description
-
-`This requires admin access`
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | Results of prometheus-metrics | [ string ] |
-
+---
 ### /api/orgs
 
 #### GET
@@ -1167,7 +1200,7 @@ Queries organizations by criteria such as org-unit, bundle, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of orgs matching query | object |
+| 200 | Paginated results of orgs matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [Organization](#organization) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -1181,7 +1214,7 @@ Creates new organization.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [Organization](#organization) |
 
 ##### Responses
@@ -1200,7 +1233,7 @@ Deletes the organization by its id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1217,7 +1250,7 @@ Finds the organization by its id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1234,7 +1267,7 @@ Updates the organization profile.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | Body | body |  | No | [Organization](#organization) |
 
@@ -1247,14 +1280,14 @@ Updates the organization profile.
 ### /api/orgs/{id}/invite
 
 #### POST
-##### Description
+##### Summary
 
-Invite user to the organization
+Invite a user to the organization.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1263,6 +1296,32 @@ Invite user to the organization
 | ---- | ----------- | ------ |
 | 200 | User invitation | [UserInvitation](#userinvitation) |
 
+### /api/orgs/usage_report
+
+#### POST
+##### Summary
+
+Generates usage report for the organization.
+
+##### Description
+
+`This requires admin access`
+Shows usage report by organization and user
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| from | query |  | No | string |
+| to | query | TO ISO date | No | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Usage Report | [ [CombinedResourceUsage](#combinedresourceusage) ] |
+
+---
 ### /api/orgs/{orgId}/configs
 
 #### GET
@@ -1274,7 +1333,7 @@ Queries organization configs by criteria such as name, type, etc.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of orgConfigs matching query | object |
+| 200 | Paginated results of orgConfigs matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [OrganizationConfig](#organizationconfig) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -1284,7 +1343,7 @@ Adds a config for the organization.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [OrganizationConfig](#organizationconfig) |
 
 ##### Responses
@@ -1303,7 +1362,7 @@ Deletes a config for the organization by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | orgId | path |  | Yes | string |
 | id | path |  | Yes | string |
 
@@ -1321,7 +1380,7 @@ Finds a config for the organization by id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | orgId | path |  | Yes | string |
 | id | path |  | Yes | string |
 
@@ -1339,7 +1398,7 @@ Updates a config for the organization.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | orgId | path |  | Yes | string |
 | id | path |  | Yes | string |
 | Body | body |  | No | [OrganizationConfig](#organizationconfig) |
@@ -1350,39 +1409,22 @@ Updates a config for the organization.
 | ---- | ----------- | ------ |
 | 200 | OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution. | [OrganizationConfig](#organizationconfig) |
 
-### /api/orgs/usage_report
-
-#### POST
-##### Description
-
-`This requires admin access`
-Shows usage report by organization and user
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| from | query |  | No | string |
-| to | query | TO ISO date | No | string |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | Usage Report | [ [CombinedResourceUsage](#combinedresourceusage) ] |
-
+---
 ### /api/subscriptions
 
 #### GET
+##### Summary
+
+Queries system subscriptions.
+
 ##### Description
 
-Queries system subscriptions
 `This requires admin access`
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | scope | query | Scope defines scope such as default or org-unit | No | string |
@@ -1393,7 +1435,7 @@ Queries system subscriptions
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Query results of subscriptions | object |
+| 200 | Query results of subscriptions | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [Subscription](#subscription) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -1407,7 +1449,7 @@ Creates new system subscription based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [Subscription](#subscription) |
 
 ##### Responses
@@ -1430,7 +1472,7 @@ Deletes an existing system subscription based on id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
@@ -1442,7 +1484,7 @@ Deletes an existing system subscription based on id.
 #### GET
 ##### Summary
 
-Deletes an existing system subscription based on id.
+Finds an existing system subscription based on id.
 
 ##### Description
 
@@ -1451,14 +1493,14 @@ Deletes an existing system subscription based on id.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 
 ##### Responses
 
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Subscription body for update | [Subscription](#subscription) |
 
 #### PUT
 ##### Summary
@@ -1472,7 +1514,7 @@ Updates an existing system subscription based on request body.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | Body | body |  | No | [Subscription](#subscription) |
 
@@ -1482,6 +1524,7 @@ Updates an existing system subscription based on request body.
 | ---- | ----------- | ------ |
 | 200 | Subscription body for update | [Subscription](#subscription) |
 
+---
 ### /api/users
 
 #### GET
@@ -1492,7 +1535,7 @@ Queries users within the organization that is allowed.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | page | query |  | No | long |
 | page_size | query |  | No | long |
 | name | query | Name of user | No | string |
@@ -1503,7 +1546,7 @@ Queries users within the organization that is allowed.
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | Paginated results of users matching query | object |
+| 200 | Paginated results of users matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [User](#user) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
 #### POST
 ##### Summary
@@ -1517,7 +1560,7 @@ Creates new user.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | Body | body |  | No | [User](#user) |
 
 ##### Responses
@@ -1526,6 +1569,84 @@ Creates new user.
 | ---- | ----------- | ------ |
 | 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
 
+### /api/users/{id}
+
+#### DELETE
+##### Summary
+
+Deletes the user profile by its id.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
+#### GET
+##### Summary
+
+Finds user profile by its id.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+
+#### PUT
+##### Summary
+
+Updates user profile.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
+| Body | body |  | No | [User](#user) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+
+### /api/users/{id}/notify
+
+#### PUT
+##### Summary
+
+Updates user notification.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
+| email | formData |  | No | string |
+| slackChannel | query |  | No | string |
+| when | query |  | No | string |
+| Body | body |  | No | [User](#user) |
+
+##### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+
+---
 ### /api/users/:id/verify_email
 
 #### POST
@@ -1540,7 +1661,7 @@ Creates new emailVerification.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | code | path |  | Yes | string |
 
@@ -1564,7 +1685,7 @@ Creates new emailVerification.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | id | path |  | Yes | string |
 | code | path |  | Yes | string |
 
@@ -1574,83 +1695,30 @@ Creates new emailVerification.
 | ---- | ----------- | ------ |
 | 200 | EmailVerification is used for email verification | [EmailVerification](#emailverification) |
 
-### /api/users/{id}
-
-#### DELETE
-##### Summary
-
-Deletes the user profile by its id.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| id | path |  | Yes | string |
-
-##### Responses
-
-| Code | Description |
-| ---- | ----------- |
-| 200 | Empty response body |
+### /api/users/email_verifications
 
 #### GET
 ##### Summary
 
-Finds user profile by its id.
+Queries email-verifications within the organization that is allowed.
 
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| id | path |  | Yes | string |
+| ---- | ---------- | ----------- | -------- | ------ |
+| page | query |  | No | long |
+| page_size | query |  | No | long |
+| name | query | Name of emailVerification | No | string |
+| email_code | query | EmailCode defines email code | No | string |
+| email | query | Email defines email | No | string |
 
 ##### Responses
 
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
-| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
+| 200 | Paginated results of email-verifications matching query | { **"Page"**: long, **"PageSize"**: long, **"Records"**: [ [EmailVerification](#emailverification) ], **"TotalPages"**: long, **"TotalRecords"**: long } |
 
-#### PUT
-##### Summary
-
-Updates user profile.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| id | path |  | Yes | string |
-| Body | body |  | No | [User](#user) |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
-
-### /api/users/{id}/notify
-
-#### PUT
-##### Summary
-
-Updates user notification.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| id | path |  | Yes | string |
-| email | formData |  | No | string |
-| slackChannel | query |  | No | string |
-| when | query |  | No | string |
-| Body | body |  | No | [User](#user) |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | User of the system who can create job-definitions, submit and execute jobs. | [User](#user) |
-
+---
 ### /api/users/{userId}/tokens
 
 #### GET
@@ -1661,7 +1729,7 @@ Queries user-tokens for the API access.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | userId | path |  | Yes | string |
 
 ##### Responses
@@ -1678,7 +1746,7 @@ Creates new user-token for the API access.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | userId | path |  | Yes | string |
 
 ##### Responses
@@ -1697,7 +1765,7 @@ Deletes user-token by its id so that it cannot be used for the API access.
 ##### Parameters
 
 | Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
+| ---- | ---------- | ----------- | -------- | ------ |
 | userId | path |  | Yes | string |
 | id | path |  | Yes | string |
 
@@ -1707,29 +1775,7 @@ Deletes user-token by its id so that it cannot be used for the API access.
 | ---- | ----------- |
 | 200 | Empty response body |
 
-### /api/users/email_verifications
-
-#### GET
-##### Summary
-
-Queries email-verifications within the organization that is allowed.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| page | query |  | No | long |
-| page_size | query |  | No | long |
-| name | query | Name of emailVerification | No | string |
-| email_code | query | EmailCode defines email code | No | string |
-| email | query | Email defines email | No | string |
-
-##### Responses
-
-| Code | Description | Schema |
-| ---- | ----------- | ------ |
-| 200 | Paginated results of email-verifications matching query | object |
-
+---
 ### Models
 
 #### AntRegistration
@@ -1747,11 +1793,12 @@ Queries email-verifications within the organization that is allowed.
 | max_capacity | long |  | No |
 | methods | [ [TaskMethod](#taskmethod) ] |  | No |
 | tags | [ string ] |  | No |
+| total_executed | long |  | No |
 
 #### Artifact
 
 The metadata defines properties to associate artifact with a task or job and can be used to query artifacts
-related for a job or an organization.
+related for a job and an organization.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
@@ -1928,9 +1975,9 @@ EmailVerification represents verified email
 
 #### JobDefinition
 
-The workflow of job uses task exit codes to define next task to execute. The task definition
-represents definition of a job and instance of the job is created using JobExecution when a new job request is
-submitted.
+The workflow progresses based on the exit codes of tasks, determining the subsequent task to execute.
+Each task definition encapsulates a job's specifics, and upon receiving a new job request, an instance of
+this job is initiated through JobExecution.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
@@ -1977,6 +2024,12 @@ JobDefinitionConfig defines variables for job definition
 
 #### JobExecution
 
+JobExecution refers to a specific instance of a job-definition that gets activated upon the submission of a
+job-request. For every task outlined within the task-definition associated with the JobExecution, a
+corresponding TaskExecution instance is generated. This setup tracks the progress and state of both job and
+task executions within a database, and any outputs generated during the job execution process are preserved in
+object storage.
+
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | contexts | [ [JobExecutionContext](#jobexecutioncontext) ] | Contexts defines context variables of job | No |
@@ -2019,6 +2072,11 @@ JobNotifyConfig structure for notification config
 | when | [NotifyWhen](#notifywhen) |  | No |
 
 #### JobRequest
+
+JobRequest outlines a user's request to execute a job as per its job-definition. Upon submission, a job-request
+is marked as PENDING in the database and later, it is asynchronously scheduled for execution by the job scheduler,
+depending on resource availability. Besides user-initiated requests, a job request might also be issued by a
+parent job to execute a child job in a fork/join manner.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
@@ -2304,10 +2362,9 @@ Subscription defines subscription
 
 #### TaskDefinition
 
-The task definition represents definition of the task and instance of the task uses TaskExecution when a new
-job is submitted and executed. Based on the definition, a task request is sent to remote ant follower
-that supports method and tags of the task. A task response is then received and results are saved in
-the database.
+upon a new job request, a TaskExecution instance is initiated to carry out the task. The task details,
+including its method and tags, guide the dispatch of task requests to a compatible remote worker.
+Upon task completion, the outcomes are recorded in the database for reference.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
@@ -2322,7 +2379,7 @@ the database.
 | delay_between_retries | [Duration](#duration) |  | No |
 | dependencies | [ string ] | Dependencies defines dependent tasks for downloading artifacts | No |
 | description | string | Description of task | No |
-| except | string | Except is used to filter task execution based on certain condition | No |
+| except | string | Except is used to shouldSkip task execution based on certain condition | No |
 | fork_job_type | string | ForkJobType defines type of job to work | No |
 | headers | object | Header defines HTTP headers | No |
 | host_network | string | HostNetwork defines kubernetes/docker config for host_network | No |
@@ -2348,6 +2405,10 @@ the database.
 | webhook | [Webhook](#webhook) |  | No |
 
 #### TaskExecution
+
+TaskExecution records the execution of a task or a unit of work, carried out by ant-workers in accordance
+with the specifications of the task-definition. It captures the status and the outputs produced by the
+task execution, storing them in the database and the object-store.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |

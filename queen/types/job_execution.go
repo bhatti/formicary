@@ -13,7 +13,11 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
-// JobExecution represents instance of job-definition and captures state of job-execution when a job-request is processed.
+// JobExecution refers to a specific instance of a job-definition that gets activated upon the submission of a
+// job-request. For every task outlined within the task-definition associated with the JobExecution, a
+// corresponding TaskExecution instance is generated. This setup tracks the progress and state of both job and
+// task executions within a database, and any outputs generated during the job execution process are preserved in
+// object storage.
 type JobExecution struct {
 	//gorm.Model
 	// ID defines UUID for primary key

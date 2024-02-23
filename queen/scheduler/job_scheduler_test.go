@@ -30,11 +30,11 @@ func Test_ShouldStartAndStopJobScheduler(t *testing.T) {
 func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobScheduler {
 	errorRepo, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
-	healthMonitor, err := health.New(&serverCfg.CommonConfig, queue.NewStubClient(&serverCfg.CommonConfig))
+	healthMonitor, err := health.New(&serverCfg.Common, queue.NewStubClient(&serverCfg.Common))
 	require.NoError(t, err)
 	scheduler := New(
 		serverCfg,
-		queue.NewStubClient(&serverCfg.CommonConfig),
+		queue.NewStubClient(&serverCfg.Common),
 		manager.AssertTestJobManager(serverCfg, t),
 		manager.AssertTestArtifactManager(serverCfg, t),
 		manager.AssertTestUserManager(serverCfg, t),

@@ -282,7 +282,8 @@ func (jrr *JobResourceRepositoryImpl) clearOrphanJobConfigs(
 		configIDs[i] = c.ID
 	}
 
-	tx.Where("id NOT IN (?) AND job_resource_id = ?", configIDs, resource.ID).Delete(types.JobResourceConfig{})
+	// check in-clause
+	tx.Where("id NOT IN ? AND job_resource_id = ?", configIDs, resource.ID).Delete(types.JobResourceConfig{})
 }
 
 func (jrr *JobResourceRepositoryImpl) usedQuota(

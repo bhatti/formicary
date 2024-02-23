@@ -32,7 +32,7 @@ func (js *JobScheduler) startTickerToSendJobSchedulerLeaderEvents(ctx context.Co
 				if err := js.sendJobSchedulerLeaderEvent(ctx); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component": "JobScheduler",
-						"ID":        js.serverCfg.ID,
+						"ID":        js.serverCfg.Common.ID,
 						"Error":     err,
 					}).
 						Warn("failed to send job scheduler leader event")
@@ -62,7 +62,7 @@ func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *t
 					if logrus.IsLevelEnabled(logrus.DebugLevel) {
 						logrus.WithFields(logrus.Fields{
 							"Component": "JobScheduler",
-							"ID":        js.serverCfg.ID,
+							"ID":        js.serverCfg.Common.ID,
 							"Error":     err,
 						}).Debug("failed to schedule pending jobs")
 					}
@@ -204,7 +204,7 @@ func (js *JobScheduler) scheduleOrphanJobs(_ context.Context) (err error) {
 	if total > 0 {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobScheduler",
-			"ID":        js.serverCfg.ID,
+			"ID":        js.serverCfg.Common.ID,
 			"Total":     total,
 		}).Warn("requeued orphan jobs")
 	}
@@ -247,7 +247,7 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":             "JobScheduler",
-					"ID":                    js.serverCfg.ID,
+					"ID":                    js.serverCfg.Common.ID,
 					"MissingJobType":        missingJobType.JobType,
 					"MissingJobTypeUserKey": missingJobType.UserKey,
 					"MissingJobTypeUserID":  missingJobType.UserID,
@@ -257,7 +257,7 @@ func (js *JobScheduler) scheduleCronTriggeredJobs(_ context.Context) (err error)
 			} else {
 				logrus.WithFields(logrus.Fields{
 					"Component": "JobScheduler",
-					"ID":        js.serverCfg.ID,
+					"ID":        js.serverCfg.Common.ID,
 					"JobType":   missingJobType,
 					"Request":   request,
 				}).Warn("scheduling missing job request")

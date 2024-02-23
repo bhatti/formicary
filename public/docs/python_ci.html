@@ -53,7 +53,7 @@
 <pre><code class="lang-yaml">job_type: python-ci
 max_concurrency: 1
 # only run on main branch
-filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+skip_if: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
 tasks:
 - task_type: test
   method: KUBERNETES
@@ -98,9 +98,9 @@ tasks:
 <p>The <code>job_type</code> defines type of the job, e.g.</p>
 <pre><code class="lang-yaml">job_type: python-ci
 </code></pre>
-<h4 id="filtering">Filtering</h4>
-<p>The <code>filter</code> will not execute the ci/cd job if branch is not main, e.g.,</p>
-<pre><code class="lang-yaml">filter: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
+<h4 id="filtering">Skip</h4>
+<p>The <code>skip_if</code> will not execute the ci/cd job if branch is not main, e.g.,</p>
+<pre><code class="lang-yaml">skip_if: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
 </code></pre>
 <h4 id="tasks">Tasks</h4>
 <p>The tasks section define the DAG or workflow of the build job where each specifies details for each build step such as:</p>

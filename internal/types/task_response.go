@@ -23,7 +23,7 @@ type TaskResponseTimings struct {
 }
 
 func (t TaskResponseTimings) String() string {
-	return fmt.Sprintf("POD-Startup: %s, PreScript: %s, Artifacts-Download: %s, Script: %s, Post-Script: %s, Artifacts-Upload: %s, POD-Shutdown: %s",
+	return fmt.Sprintf("Container-Startup: %s, PreScript: %s, Artifacts-Download: %s, Script: %s, Post-Script: %s, Artifacts-Upload: %s, Container-Shutdown: %s",
 		t.PodStartupDuration(),
 		t.PreScriptDuration(),
 		t.DependentArtifactsDownloadedDuration(),
@@ -68,7 +68,8 @@ func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
 	return t.PodShutdownAt.Sub(t.ArtifactsUploadedAt)
 }
 
-// TaskResponse defines structure for response from ant
+// TaskResponse outlines the outcome of a task execution, encompassing its status, context, generated artifacts,
+// and additional outputs.
 // swagger:ignore
 type TaskResponse struct {
 	JobRequestID    uint64                 `json:"job_request_id"`

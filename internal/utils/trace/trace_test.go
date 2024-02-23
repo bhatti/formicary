@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -26,7 +27,8 @@ func Test_ShouldWriteWithTrace(t *testing.T) {
 
 	out, err := jobTrace.Finish()
 	require.NoError(t, err)
-	require.Equal(t, 74, len(out))
-	require.Equal(t, 74, count)
+	require.Contains(t, fmt.Sprintf("%s", out), "[****]")
+	require.Equal(t, 68, len(out))
+	require.Equal(t, 68, count)
 	jobTrace.Close()
 }

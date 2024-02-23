@@ -4,15 +4,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 )
 
 // KafkaConfig kakfa config
 type KafkaConfig struct {
-	Brokers       []string      `yaml:"brokers"`
-	Username      string        `yaml:"username"`
-	Password      string        `yaml:"password"`
+	Brokers       []string      `yaml:"brokers" env:"BROKERS"`
+	Username      string        `yaml:"username" env:"USERNAME"`
+	Password      string        `yaml:"password" env:"PASSWORD"`
 	CertFile      string        `yaml:"certificate"`
 	KeyFile       string        `yaml:"key"`
 	CAFile        string        `yaml:"ca"`
@@ -37,7 +37,7 @@ func (c *KafkaConfig) BuildTLSConfiguration() (t *tls.Config, err error) {
 			return nil, err
 		}
 
-		caCert, err := ioutil.ReadFile(c.CAFile)
+		caCert, err := os.ReadFile(c.CAFile)
 		if err != nil {
 			return nil, err
 		}

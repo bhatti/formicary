@@ -87,7 +87,9 @@ func (em EnvironmentMap) AddFromEnvCommand(cmd string) bool {
 // HelperContainerKey key for context
 const HelperContainerKey = "HelperContainer"
 
-// ExecutorOptions options for executor
+// ExecutorOptions specify the settings for the underlying executor, including Docker, Kubernetes,
+// Shell, HTTP, etc., ensuring tasks are carried out using the suitable computational resources.
+// swagger:ignore
 type ExecutorOptions struct {
 	Name                       string                  `json:"name" yaml:"name"`
 	Method                     TaskMethod              `json:"method" yaml:"method"`

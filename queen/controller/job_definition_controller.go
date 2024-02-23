@@ -289,7 +289,7 @@ func (jobDefCtrl *JobDefinitionController) dotImageJobDefinition(c web.APIContex
 	return c.Blob(http.StatusOK, "image/png", d)
 }
 
-// swagger:route GET /api/jobs/definitions/{id}/dot.png job-definitions statsJobDefinition
+// swagger:route GET /api/jobs/definitions/{id}/stats job-definitions statsJobDefinition
 // Returns Real-time statistics of jobs running.
 // responses:
 //

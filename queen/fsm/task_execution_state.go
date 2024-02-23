@@ -259,7 +259,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	taskReq.ExecutorOpts.PodLabels[common.RequestID] = fmt.Sprintf("%d", tsm.Request.GetID())
 	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
-	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.ID
+	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.Common.ID
 
 	if taskReq.Variables["debug"].Value == "true" || taskReq.Variables["debug"].Value == true {
 		taskReq.ExecutorOpts.Debug = true
@@ -436,7 +436,7 @@ func (tsm *TaskExecutionStateMachine) buildDynamicParams() map[string]common.Var
 func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 	ctx context.Context) (err error) {
 	event := events.NewTaskExecutionLifecycleEvent(
-		tsm.serverCfg.ID,
+		tsm.serverCfg.Common.ID,
 		tsm.Request.GetUserID(),
 		tsm.Request.GetID(),
 		tsm.Request.GetJobType(),
@@ -453,7 +453,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		return fmt.Errorf("failed to marshal task-execution event due to %w", err)
 	}
 	if _, err = tsm.QueueClient.Publish(ctx,
-		tsm.serverCfg.GetTaskExecutionLifecycleTopic(),
+		tsm.serverCfg.Common.GetTaskExecutionLifecycleTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -472,7 +472,7 @@ func (tsm *TaskExecutionStateMachine) publishTaskWebhook(ctx context.Context, ev
 		hookEvent := events.NewWebhookTaskEvent(event, tsm.TaskDefinition.Webhook)
 		if hookPayload, err := hookEvent.Marshal(); err == nil {
 			if _, err = tsm.QueueClient.Publish(ctx,
-				tsm.serverCfg.GetTaskWebhookTopic(),
+				tsm.serverCfg.Common.GetTaskWebhookTopic(),
 				hookPayload,
 				queue.NewMessageHeaders(
 					queue.DisableBatchingKey, "true",

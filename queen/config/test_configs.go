@@ -10,22 +10,22 @@ import (
 // TestServerConfig for testing
 func TestServerConfig() *ServerConfig {
 	serverCfg := &ServerConfig{}
-	serverCfg.S3.AccessKeyID = "admin"
-	serverCfg.S3.SecretAccessKey = "password"
-	serverCfg.S3.Bucket = "bucket"
-	serverCfg.Pulsar.URL = "test"
-	serverCfg.Redis.Host = "localhost"
-	serverCfg.ExternalBaseURL = "http://localhost:7070"
-	serverCfg.Email.FromName = "Formicary Support"
-	serverCfg.Email.FromEmail = "support@formicary.io"
-	serverCfg.Email.Username = os.Getenv("SMTP_USERNAME")
-	serverCfg.Email.Password = os.Getenv("SMTP_PASSWORD")
-	serverCfg.Email.Host = os.Getenv("SMTP_HOST")
+	serverCfg.Common.S3.AccessKeyID = "admin"
+	serverCfg.Common.S3.SecretAccessKey = "password"
+	serverCfg.Common.S3.Bucket = "bucket"
+	serverCfg.Common.Pulsar.URL = "test"
+	serverCfg.Common.Redis.Host = "localhost"
+	serverCfg.Common.ExternalBaseURL = "http://localhost:7070"
+	serverCfg.SMTP.FromName = "Formicary Support"
+	serverCfg.SMTP.FromEmail = "support@formicary.io"
+	serverCfg.SMTP.Username = os.Getenv("SMTP_USERNAME")
+	serverCfg.SMTP.Password = os.Getenv("SMTP_PASSWORD")
+	serverCfg.SMTP.Host = os.Getenv("SMTP_HOST")
 	port := os.Getenv("SMTP_PORT")
 	if port == "" {
 		port = "587"
 	}
-	serverCfg.Email.Port, _ = strconv.Atoi(port)
+	serverCfg.SMTP.Port, _ = strconv.Atoi(port)
 	serverCfg.DB.MaxIdleConns = 10
 	serverCfg.DB.MaxOpenConns = 20
 	serverCfg.DB.MaxOpenConns = 20

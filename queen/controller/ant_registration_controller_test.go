@@ -96,14 +96,14 @@ func sendAntRegistration(serverCfg *config.ServerConfig, queueClient queue.Clien
 	}
 	_, _ = queueClient.Send(
 		context.Background(),
-		serverCfg.GetRegistrationTopic(),
+		serverCfg.Common.GetRegistrationTopic(),
 		b,
 		make(map[string]string),
 	)
 }
 
 func buildTestQueueClient(cfg *config.ServerConfig) *queue.StubClientImpl {
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	queueClient.SendReceivePayloadFunc = func(
 		_ queue.MessageHeaders,
 		payload []byte) ([]byte, error) {
@@ -120,4 +120,3 @@ func buildTestQueueClient(cfg *config.ServerConfig) *queue.StubClientImpl {
 	}
 	return queueClient
 }
-

@@ -35,16 +35,16 @@ var listeningForStackTraceDumps = false
 // CommonConfig -- common config between ant and server
 type CommonConfig struct {
 	ID                         string             `yaml:"id" mapstructure:"id"`
-	UserAgent                  string             `yaml:"user_agent" mapstructure:"user_agent"`
-	ProxyURL                   string             `yaml:"proxy_url" mapstructure:"proxy_url"`
+	UserAgent                  string             `yaml:"user_agent" mapstructure:"user_agent" env:"USER_AGENT"`
+	ProxyURL                   string             `yaml:"proxy_url" mapstructure:"proxy_url" env:"PROXY_URL"`
 	ExternalBaseURL            string             `yaml:"external_base_url" mapstructure:"external_base_url"`
 	BlockUserAgents            []string           `yaml:"block_user_agents" mapstructure:"block_user_agents"`
-	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir"`
-	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port"`
+	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir" env:"PUBLIC_DIR"`
+	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port" env:"HTTP_PORT"`
 	Pulsar                     PulsarConfig       `yaml:"pulsar" mapstructure:"pulsar"`
 	Kafka                      KafkaConfig        `yaml:"kafka" mapstructure:"kafka"`
-	S3                         S3Config           `yaml:"s3" mapstructure:"s3"`
-	Redis                      RedisConfig        `yaml:"redis" mapstructure:"redis"`
+	S3                         S3Config           `yaml:"s3" mapstructure:"s3" env:"S3"`
+	Redis                      RedisConfig        `yaml:"redis" mapstructure:"redis" env:"REDIS"`
 	Auth                       AuthConfig         `yaml:"auth" mapstructure:"auth" env:"AUTH"`
 	MessagingProvider          MessagingProvider  `yaml:"messaging_provider" mapstructure:"messaging_provider"`
 	ContainerReaperInterval    time.Duration      `yaml:"container_reaper_interval" mapstructure:"container_reaper_interval"`
@@ -60,7 +60,7 @@ type CommonConfig struct {
 	Development                bool               `yaml:"development" mapstructure:"development" json:"development"`
 	Version                    *buildversion.Info `yaml:"-" mapstructure:"-" json:"-"`
 	EncryptionKey              string             `json:"encryption_key" mapstructure:"encryption_key"`
-	Debug                      bool               `yaml:"debug"`
+	Debug                      bool               `yaml:"debug" env:"DEBUG"`
 	blockUserAgentsMap         map[string]bool    `yaml:"-" mapstructure:"-"`
 }
 

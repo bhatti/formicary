@@ -123,7 +123,9 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 					taskExecutionLifecycleEvent.JobRequestID,
 					taskExecutionLifecycleEvent.TaskType,
 					"", // enc-key
-					0)); err != nil {
+					0,
+					0,
+				)); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component":                   "ResourceManager",
 						"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,

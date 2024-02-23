@@ -122,7 +122,7 @@ func uploadCache(
 		_ = traceWriter.WriteTraceInfo(ctx, "skipping uploading cache because key not found")
 		return nil
 	}
-	artifactID := taskReq.CacheArtifactID(antCfg.S3.Prefix, taskReq.ExecutorOpts.Cache.NewKeyDigest)
+	artifactID := taskReq.CacheArtifactID(antCfg.Common.S3.Prefix, taskReq.ExecutorOpts.Cache.NewKeyDigest)
 	var err error
 	if artifact, err = transferService.UploadCache(ctx, artifactID, paths, expiration); err != nil {
 		taskResp.AdditionalError(err.Error(), false)
@@ -148,8 +148,8 @@ func uploadCache(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component":    "RequestExecutor",
-				"AntID":        antCfg.ID,
-				"Bucket":       antCfg.S3.Bucket,
+				"AntID":        antCfg.Common.ID,
+				"Bucket":       antCfg.Common.S3.Bucket,
 				"ID":           artifact.ID,
 				"Sha256":       artifact.SHA256,
 				"Sha256Len":    len(artifact.SHA256),
@@ -191,8 +191,8 @@ func uploadArtifacts(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestExecutor",
-				"AntID":     antCfg.ID,
-				"Bucket":    antCfg.S3.Bucket,
+				"AntID":     antCfg.Common.ID,
+				"Bucket":    antCfg.Common.S3.Bucket,
 				"ID":        artifact.ID,
 				"Sha256":    artifact.SHA256,
 				"Sha256Len": len(artifact.SHA256),
@@ -287,7 +287,7 @@ func downloadCache(
 	}
 
 	taskReq.ExecutorOpts.Cache.NewKeyDigest = actualDigest
-	artifactID := taskReq.CacheArtifactID(antCfg.S3.Prefix, actualDigest)
+	artifactID := taskReq.CacheArtifactID(antCfg.Common.S3.Prefix, actualDigest)
 
 	// downloading cache zip file
 	if err = transferService.DownloadArtifact(ctx, taskReq.ExecutorOpts.CacheDirectory, artifactID); err != nil {

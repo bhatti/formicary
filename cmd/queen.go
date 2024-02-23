@@ -26,9 +26,9 @@ func RunServer(_ *cobra.Command, args []string) {
 			Errorf("Failed to parse config...")
 		os.Exit(5)
 	}
-	serverConfig.Version = buildversion.New(Version, Commit, Date, id)
+	serverConfig.Common.Version = buildversion.New(Version, Commit, Date, id)
 	if port > 0 {
-		serverConfig.HTTPPort = port
+		serverConfig.Common.HTTPPort = port
 	}
 	err = queen.Start(context.Background(), serverConfig)
 	if err != nil {

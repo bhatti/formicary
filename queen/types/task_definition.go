@@ -30,11 +30,10 @@ const keyJobVersion = "job_version"
 const keyDeps = "dependencies"
 const keyArtifacts = "artifact_ids"
 
-// TaskDefinition defines a unit of work that is processed by the ant followers.
-// The task definition represents definition of the task and instance of the task uses TaskExecution when a new
-// job is submitted and executed. Based on the definition, a task request is sent to remote ant follower
-// that supports method and tags of the task. A task response is then received and results are saved in
-// the database.
+// TaskDefinition outlines the work performed by worker entities. It specifies the task's parameters and,
+// upon a new job request, a TaskExecution instance is initiated to carry out the task. The task details,
+// including its method and tags, guide the dispatch of task requests to a compatible remote worker.
+// Upon task completion, the outcomes are recorded in the database for reference.
 type TaskDefinition struct {
 	//gorm.Model
 	// ID defines UUID for primary key
@@ -96,7 +95,7 @@ type TaskDefinition struct {
 	// Tags are used to use specific followers that support the tags defined by ants.
 	// For example, you may start a follower that processes payments and the task will be routed to that follower
 	Tags []string `yaml:"tags,omitempty" json:"tags" gorm:"-"`
-	// Except is used to filter task execution based on certain condition
+	// Except is used to shouldSkip task execution based on certain condition
 	Except string `yaml:"except,omitempty" json:"except" gorm:"-"`
 	// JobVersion defines job version
 	JobVersion string `yaml:"job_version,omitempty" json:"job_version" gorm:"-"`

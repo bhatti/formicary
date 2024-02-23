@@ -30,8 +30,8 @@ func New(
 		cfg:         cfg,
 		userManager: userManager,
 	}
-	if cfg.Email.APIKey == "" {
-		d.auth = smtp.PlainAuth("", cfg.Email.FromEmail, cfg.Email.Password, cfg.Email.Host)
+	if cfg.SMTP.APIKey == "" {
+		d.auth = smtp.PlainAuth("", cfg.SMTP.FromEmail, cfg.SMTP.Password, cfg.SMTP.Host)
 	} else {
 		return nil, fmt.Errorf("api not supported")
 	}
@@ -56,8 +56,8 @@ func (d *DefaultEmailSender) SendMessage(
 	subject string,
 	body string,
 	_ map[string]interface{}) error {
-	hostPort := fmt.Sprintf("%s:%d", d.cfg.Email.Host, d.cfg.Email.Port)
-	from := d.cfg.Email.FromName + "<" + d.cfg.Email.FromEmail + ">"
+	hostPort := fmt.Sprintf("%s:%d", d.cfg.SMTP.Host, d.cfg.SMTP.Port)
+	from := d.cfg.SMTP.FromName + "<" + d.cfg.SMTP.FromEmail + ">"
 	logrus.WithFields(logrus.Fields{
 		"Component":             "DefaultEmailSender",
 		"Host":                  hostPort,
@@ -87,7 +87,7 @@ func (d *DefaultEmailSender) SendMessage(
 	msg.WriteString("\r\n")
 	msg.WriteString(body + "\r\n")
 
-	err := smtp.SendMail(hostPort, d.auth, d.cfg.Email.FromEmail, to, []byte(msg.String()))
+	err := smtp.SendMail(hostPort, d.auth, d.cfg.SMTP.FromEmail, to, []byte(msg.String()))
 	if err != nil {
 		_ = d.userManager.AddStickyMessageForEmail(
 			qc,

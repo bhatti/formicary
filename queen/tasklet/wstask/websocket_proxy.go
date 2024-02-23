@@ -62,7 +62,7 @@ func NewWebsocketProxyRegistry(
 	requestTopic string,
 	webserver web.Server) *WSProxyRegistry {
 	registry := &WSProxyRegistry{
-		id:              serverCfg.ID + "-websocket-proxy-registry",
+		id:              serverCfg.Common.ID + "-websocket-proxy-registry",
 		serverCfg:       serverCfg,
 		resourceManager: resourceManager,
 		requestRegistry: requestRegistry,
@@ -94,8 +94,9 @@ func (registry *WSProxyRegistry) Stop(ctx context.Context) error {
 // Register websocket subscription
 func (registry *WSProxyRegistry) Register(c web.APIContext) (err error) {
 	var user *common.User
-	if registry.serverCfg.Auth.Enabled {
-		user, err = web.AuthenticatedUser(c, registry.serverCfg.Auth.CookieName, registry.serverCfg.Auth.JWTSecret)
+	if registry.serverCfg.Common.Auth.Enabled {
+		user, err = web.AuthenticatedUser(c, registry.serverCfg.Common.Auth.CookieName,
+			registry.serverCfg.Common.Auth.JWTSecret)
 		if err != nil || user == nil {
 			logrus.WithFields(logrus.Fields{
 				"Component": "WSProxyRegistry",

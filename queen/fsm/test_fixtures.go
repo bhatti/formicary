@@ -38,7 +38,7 @@ func NewTestTaskStateMachine() (*TaskExecutionStateMachine, error) {
 func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 	// Initializing dependent objects
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	jobManager, err := manager.TestJobManager(cfg)
 	if err != nil {
 		return nil, err

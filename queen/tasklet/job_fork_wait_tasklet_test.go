@@ -78,7 +78,7 @@ func Test_ShouldExecuteForkWaitTasklet(t *testing.T) {
 	}
 	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
 	req.AddVariable("log_interval", "1s", false)
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	// WHEN executing without AwaitForkedTasks
 	res, err := waitTasklet.Execute(ctx, req)
@@ -112,9 +112,9 @@ func newTestForkWaitTasklet(
 	jobManager *manager.JobManager,
 ) (waitTasklet *JobForkWaitTasklet, req *types.JobRequest, exec *types.JobExecution) {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.CommonConfig)
+	queueClient := queue.NewStubClient(&cfg.Common)
 	requestRegistry := tasklet.NewRequestRegistry(
-		&cfg.CommonConfig,
+		&cfg.Common,
 		metrics.New(),
 	)
 	jobExecRepo, err := repository.NewTestJobExecutionRepository()

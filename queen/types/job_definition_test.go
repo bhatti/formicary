@@ -244,30 +244,30 @@ func Test_ShouldJobDefinitionValidateWithoutMethods(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Test evaluation of filter property
-func Test_ShouldEvaluateFilter(t *testing.T) {
+// Test evaluation of shouldSkip property
+func Test_ShouldEvaluateSkipIf(t *testing.T) {
 	// GIVEN - job definition is created
 	job := newTestJobDefinition("name")
 	data := map[string]common.VariableValue{
 		"Count": common.NewVariableValue(10, false),
 		"Flag":  common.NewVariableValue(true, false),
 	}
-	require.False(t, job.Filtered(data))
-	job.filter = "{{if and (gt .Count 5) .Flag}}true{{end}}"
-	require.True(t, job.Filtered(data))
-	job.filter = "{{if and (gt .Count 5) (eq .Flag true)}}true{{end}}"
-	require.True(t, job.Filtered(data))
+	require.False(t, job.ShouldSkip(data))
+	job.shouldSkip = "{{if and (gt .Count 5) .Flag}}true{{end}}"
+	require.True(t, job.ShouldSkip(data))
+	job.shouldSkip = "{{if and (gt .Count 5) (eq .Flag true)}}true{{end}}"
+	require.True(t, job.ShouldSkip(data))
 
 	data = map[string]common.VariableValue{
 		"Count": common.NewVariableValue(1, false),
 		"Flag":  common.NewVariableValue(true, false),
 	}
-	require.False(t, job.Filtered(data))
+	require.False(t, job.ShouldSkip(data))
 	data = map[string]common.VariableValue{
 		"Count": common.NewVariableValue(10, false),
 		"Flag":  common.NewVariableValue(false, false),
 	}
-	require.False(t, job.Filtered(data))
+	require.False(t, job.ShouldSkip(data))
 }
 
 // Test properties after serialization using YAML
@@ -737,7 +737,7 @@ func Test_ShouldParseLoopJobDefinition(t *testing.T) {
 	require.Equal(t, 17, len(task.Script))
 }
 
-// Test build job config with filter and cron
+// Test build job config with shouldSkip and cron
 func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	// GIVEN a job loaded from YAML file
 	b, err := ioutil.ReadFile("../../fixtures/hello_world_scheduled.yaml")
@@ -745,15 +745,15 @@ func Test_ShouldParseFilterCronJobDefinition(t *testing.T) {
 	job, err := NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
 	require.NotNil(t, job)
-	require.NotEqual(t, "", job.Filter())
+	require.NotEqual(t, "", job.SkipIf())
 	params := map[string]common.VariableValue{
 		"Target": common.NewVariableValue("charlie", false),
 	}
-	require.True(t, job.Filtered(params))
+	require.True(t, job.ShouldSkip(params))
 	params = map[string]common.VariableValue{
 		"Target": common.NewVariableValue("bob", false),
 	}
-	require.False(t, job.Filtered(params))
+	require.False(t, job.ShouldSkip(params))
 	require.NotEqual(t, "", job.CronAndScheduleTime())
 	date, userKey := job.GetCronScheduleTimeAndUserKey()
 	require.NotNil(t, date)

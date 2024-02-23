@@ -287,7 +287,7 @@ func (jm *JobManager) RecentDeadIDs(
 // RecentDeadIDs returns recently completed job-ids
 func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
 	var ids []uint64
-	if ids, err = jm.RecentDeadIDs(10000, jm.serverCfg.MaxJobTimeout, 5*time.Second); err != nil {
+	if ids, err = jm.RecentDeadIDs(10000, jm.serverCfg.Common.MaxJobTimeout, 5*time.Second); err != nil {
 		return err
 	}
 	event := events.NewRecentlyCompletedJobsEvent("JobManager", ids)
@@ -297,7 +297,7 @@ func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
 	}
 	if _, err = jm.queueClient.Publish(
 		ctx,
-		jm.serverCfg.GetRecentlyCompletedJobsTopic(),
+		jm.serverCfg.Common.GetRecentlyCompletedJobsTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -1189,7 +1189,7 @@ func (jm *JobManager) DeleteExecutionTask(
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (jm *JobManager) startRecentlyCompletedJobIdsTicker(ctx context.Context) error {
-	jm.jobIdsTicker = time.NewTicker(jm.serverCfg.DeadJobIDsEventsInterval)
+	jm.jobIdsTicker = time.NewTicker(jm.serverCfg.Common.DeadJobIDsEventsInterval)
 	go func() {
 		for {
 			select {
@@ -1218,7 +1218,7 @@ func (jm *JobManager) fireJobDefinitionChange(
 	jobType string,
 	eventType events.JobDefinitionStateChange) (err error) {
 	event := events.NewJobDefinitionLifecycleEvent(
-		jm.serverCfg.ID,
+		jm.serverCfg.Common.ID,
 		username,
 		id,
 		jobType,
@@ -1229,7 +1229,7 @@ func (jm *JobManager) fireJobDefinitionChange(
 	}
 	if _, err = jm.queueClient.Publish(
 		context.Background(),
-		jm.serverCfg.GetJobDefinitionLifecycleTopic(),
+		jm.serverCfg.Common.GetJobDefinitionLifecycleTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -1246,7 +1246,7 @@ func (jm *JobManager) fireJobDefinitionChange(
 // Fire event to job-request lifecycle event
 func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 	event := events.NewJobRequestLifecycleEvent(
-		jm.serverCfg.ID,
+		jm.serverCfg.Common.ID,
 		req.UserID,
 		req.ID,
 		req.JobType,
@@ -1268,7 +1268,7 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 		return fmt.Errorf("failed to marshal job-request event due to %w", err)
 	}
 	if _, err = jm.queueClient.Publish(context.Background(),
-		jm.serverCfg.GetJobRequestLifecycleTopic(),
+		jm.serverCfg.Common.GetJobRequestLifecycleTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -1296,7 +1296,7 @@ func (jm *JobManager) cancelJob(
 	qc *common.QueryContext,
 	req *types.JobRequest) (err error) {
 	jobExecutionLifecycleEvent := events.NewJobExecutionLifecycleEvent(
-		jm.serverCfg.ID,
+		jm.serverCfg.Common.ID,
 		req.UserID,
 		req.ID,
 		req.JobType,
@@ -1311,7 +1311,7 @@ func (jm *JobManager) cancelJob(
 	}
 	// TODO add better reliability for this pub/sub
 	if _, err = jm.queueClient.Publish(context.Background(),
-		jm.serverCfg.GetJobExecutionLifecycleTopic(),
+		jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
@@ -1329,7 +1329,7 @@ func (jm *JobManager) cancelJob(
 	logrus.WithFields(logrus.Fields{
 		"Component":                  "JobManager",
 		"ID":                         jobExecutionLifecycleEvent.ID,
-		"Topic":                      jm.serverCfg.GetJobExecutionLifecycleTopic(),
+		"Topic":                      jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 		"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 		"EventState":                 jobExecutionLifecycleEvent.JobState,
 		"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
@@ -1346,7 +1346,7 @@ func (jm *JobManager) overrideCancelRequest(
 			logrus.WithFields(logrus.Fields{
 				"Component":                  "JobManager",
 				"ID":                         jobExecutionLifecycleEvent.ID,
-				"Topic":                      jm.serverCfg.GetJobExecutionLifecycleTopic(),
+				"Topic":                      jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
@@ -1355,7 +1355,7 @@ func (jm *JobManager) overrideCancelRequest(
 			logrus.WithFields(logrus.Fields{
 				"Component":                  "JobManager",
 				"ID":                         jobExecutionLifecycleEvent.ID,
-				"Topic":                      jm.serverCfg.GetJobExecutionLifecycleTopic(),
+				"Topic":                      jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 				"EventState":                 jobExecutionLifecycleEvent.JobState,
 				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
@@ -1366,7 +1366,7 @@ func (jm *JobManager) overrideCancelRequest(
 		logrus.WithFields(logrus.Fields{
 			"Component":                  "JobManager",
 			"ID":                         jobExecutionLifecycleEvent.ID,
-			"Topic":                      jm.serverCfg.GetJobExecutionLifecycleTopic(),
+			"Topic":                      jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
 			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
 			"EventState":                 jobExecutionLifecycleEvent.JobState,
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
@@ -1380,7 +1380,7 @@ func (jm *JobManager) CheckSubscriptionQuota(
 	qc *common.QueryContext,
 	user *common.User,
 ) (cpuUsage types.ResourceUsage, diskUsage types.ResourceUsage, err error) {
-	if jm.serverCfg.SubscriptionQuotaEnabled {
+	if jm.serverCfg.SubscriptionQuotaEnabled && jm.serverCfg.Common.Auth.Enabled {
 		cpuUsage, diskUsage, err = jm.doCheckSubscriptionQuota(qc, user)
 		dirty := false
 		if err != nil {

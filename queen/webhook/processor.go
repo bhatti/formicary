@@ -36,13 +36,13 @@ func New(
 func (p *Processor) Start(ctx context.Context) (err error) {
 	if p.jobWebhookLifecycleSubscriptionID, err = p.subscribeToJobWebhookLifecycleEvent(
 		ctx,
-		p.serverCfg.GetJobWebhookTopic()); err != nil {
+		p.serverCfg.Common.GetJobWebhookTopic()); err != nil {
 		_ = p.Stop(ctx)
 		return err
 	}
 	if p.taskWebhookLifecycleSubscriptionID, err = p.subscribeToTaskWebhookLifecycleEvent(
 		ctx,
-		p.serverCfg.GetTaskWebhookTopic()); err != nil {
+		p.serverCfg.Common.GetTaskWebhookTopic()); err != nil {
 		_ = p.Stop(ctx)
 		return err
 	}
@@ -53,11 +53,11 @@ func (p *Processor) Start(ctx context.Context) (err error) {
 func (p *Processor) Stop(ctx context.Context) error {
 	err1 := p.queueClient.UnSubscribe(
 		ctx,
-		p.serverCfg.GetJobWebhookTopic(),
+		p.serverCfg.Common.GetJobWebhookTopic(),
 		p.jobWebhookLifecycleSubscriptionID)
 	err2 := p.queueClient.UnSubscribe(
 		ctx,
-		p.serverCfg.GetTaskWebhookTopic(),
+		p.serverCfg.Common.GetTaskWebhookTopic(),
 		p.taskWebhookLifecycleSubscriptionID)
 	return utils.ErrorsAny(err1, err2)
 }

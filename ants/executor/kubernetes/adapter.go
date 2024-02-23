@@ -653,7 +653,7 @@ func (u *Utils) Execute(
 		containerName = pod.Spec.Containers[0].Name
 	}
 
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+	if base.Debug || logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":                  "KubernetesAdapter",
 			"POD":                        pod.Name,
@@ -662,8 +662,9 @@ func (u *Utils) Execute(
 			"Command":                    cmd,
 			"Container":                  containerName,
 			"Status":                     pod.Status.Phase,
+			"Memory":                     utils.MemUsageMiBString(),
 			"ExecuteCommandWithoutShell": executeCommandWithoutShell,
-		}).Debug("executing...")
+		}).Info("executing...")
 	}
 
 	var req *restclient.Request
@@ -743,11 +744,14 @@ func (u *Utils) GetRuntimeInfo(
 		sb.WriteString(fmt.Sprintf("pod message=%s reason=%s condition=%s\n", pod.Status.Message, pod.Status.Reason, c))
 	}
 
-	//if reader, err := u.GetLogs(ctx, pod.Namespace, pod.Name, 1024*1024); err == nil {
-	//	if data, err := ioutil.ReadAll(reader); err == nil {
-	//		sb.Write(data)
-	//	}
-	//}
+	if u.config.Common.Debug {
+		if reader, err := u.GetLogs(ctx, pod.Namespace, pod.Name, 1024*1024); err == nil {
+			if data, err := io.ReadAll(reader); err == nil {
+				sb.Write(data)
+			}
+		}
+	}
+
 	if data, err := yaml.Marshal(result); err == nil {
 		sb.Write(data)
 	}

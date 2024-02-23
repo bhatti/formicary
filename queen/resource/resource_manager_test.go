@@ -21,7 +21,7 @@ func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -36,14 +36,14 @@ func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 	// WHEN ants are registered with required methods and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES"},
 		[]string{"client-2", "aws", "azure"},
 		1)
@@ -65,7 +65,7 @@ func Test_ShouldNotFindAntsWithoutRequiredMethods(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
@@ -75,14 +75,14 @@ func Test_ShouldNotFindAntsWithoutRequiredMethods(t *testing.T) {
 	// WHEN ants are registered with required methods and partially supported tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES"},
 		[]string{"client-2", "aws", "azure"},
 		1)
@@ -105,7 +105,7 @@ func Test_ShouldNotFindAntsWithoutRequiredTags(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -114,14 +114,14 @@ func Test_ShouldNotFindAntsWithoutRequiredTags(t *testing.T) {
 	//
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES", "SHELL"},
 		[]string{"client-2", "aws", "azure"},
 		1)
@@ -143,7 +143,7 @@ func Test_ShouldReturnErrorWhenReleasingWithoutReservingFirst(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
@@ -231,7 +231,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 
 	err = mgr.Start(context.Background())
@@ -240,7 +240,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
@@ -256,7 +256,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 		allocs = append(allocs, reservations)
 	}
 
-	// WHEN allocating for nonexisting tags
+	// WHEN allocating for non-existing tags
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
@@ -273,7 +273,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 		allocs = append(allocs, reservations)
 	}
 
-	// WHEN allocating for nonexisting tags
+	// WHEN allocating for non-existing tags
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
@@ -305,7 +305,7 @@ func Test_ShouldFailReservationWithoutMethod(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -313,7 +313,7 @@ func Test_ShouldFailReservationWithoutMethod(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
@@ -331,7 +331,7 @@ func Test_ShouldFailReservationWithoutTag(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
@@ -340,14 +340,14 @@ func Test_ShouldFailReservationWithoutTag(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES"},
 		[]string{"client-2", "aws", "google"},
 		1)
@@ -368,7 +368,7 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -376,14 +376,14 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER", "SHELL"},
 		[]string{"client-1", "aws", "azure", "local"},
 		1)
@@ -398,7 +398,7 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 	require.Equal(t, 2, len(mgr.state.allocationsByAnt))
 
 	// AND reaping allocations should fail because AllocatedAt is recent
-	require.Equal(t, 0, mgr.reapStaleAllocations(context.Background()) )
+	require.Equal(t, 0, mgr.reapStaleAllocations(context.Background()))
 	conf.Jobs.AntReservationTimeout = 10 * time.Second
 
 	// BUT after changing AllocatedAt to old date
@@ -422,7 +422,7 @@ func Test_ShouldReapStaleAnts(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -430,28 +430,28 @@ func Test_ShouldReapStaleAnts(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER", "SHELL"},
 		[]string{"client-1", "aws", "azure", "local"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES", "DOCKER"},
 		[]string{"client-1", "aws", "google"},
 		6)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES", "DOCKER"},
 		[]string{"client-2", "aws", "google"},
 		6)
@@ -490,7 +490,7 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -498,28 +498,28 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER", "SHELL"},
 		[]string{"client-1", "aws", "azure", "local"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES", "DOCKER"},
 		[]string{"client-1", "aws", "google"},
 		6)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES", "DOCKER"},
 		[]string{"client-2", "aws", "google"},
 		6)
@@ -549,7 +549,7 @@ func Test_ShouldIncrementLoadAfterAReservation(t *testing.T) {
 	conf := config.TestServerConfig()
 	err := conf.Validate()
 	require.NoError(t, err)
-	client := queue.NewStubClient(&conf.CommonConfig)
+	client := queue.NewStubClient(&conf.Common)
 	mgr := New(conf, client)
 	err = mgr.Start(context.Background())
 	require.NoError(t, err)
@@ -557,21 +557,21 @@ func Test_ShouldIncrementLoadAfterAReservation(t *testing.T) {
 	// WHEN registering with method and tags
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws", "azure"},
 		1)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES"},
 		[]string{"client-2", "aws", "google"},
 		3)
 	require.NoError(t, err)
 	err = registerAnt(
 		client,
-		conf.GetRegistrationTopic(),
+		conf.Common.GetRegistrationTopic(),
 		[]common.TaskMethod{"KUBERNETES"},
 		[]string{"client-2", "aws", "google"},
 		7)
@@ -623,7 +623,7 @@ func registerAnt(
 			registrationTopic,
 			b,
 			make(map[string]string),
-			)
+		)
 	}
 	return
 }

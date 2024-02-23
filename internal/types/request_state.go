@@ -50,6 +50,21 @@ const (
 	UNKNOWN RequestState = "UNKNOWN"
 )
 
+// TerminalStates defines immutable states
+var TerminalStates = []string{string(COMPLETED), string(FAILED), string(CANCELLED)}
+
+// RunningStates defines executing or starting state
+var RunningStates = []string{string(EXECUTING), string(STARTED)}
+
+// WaitingStates defines pending or ready state
+var WaitingStates = []string{string(PENDING), string(READY)}
+
+// NotRestartableStates defines pending or completed state
+var NotRestartableStates = []string{string(PENDING), string(READY), string(COMPLETED)}
+
+// OrphanStates defines started, ready and executing state
+var OrphanStates = []string{string(STARTED), string(READY), string(EXECUTING)}
+
 // NewRequestState constructor
 func NewRequestState(state string) RequestState {
 	return RequestState(strings.ToUpper(state))

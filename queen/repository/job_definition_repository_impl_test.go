@@ -101,7 +101,7 @@ func Test_ShouldDeleteByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 }
 
 // Pausing non-existing job-definition should fail
-func Test_ShoulddisableByTypeJobDefinitionWithNonExistingType(t *testing.T) {
+func Test_ShouldDisableByTypeJobDefinitionWithNonExistingType(t *testing.T) {
 	// GIVEN a job-definition repository
 	repo, err := NewTestJobDefinitionRepository()
 	require.NoError(t, err)
@@ -512,6 +512,15 @@ func Test_ShouldJobDefinitionQueryByJobType(t *testing.T) {
 	// WHEN querying jobs by job-type
 	params["job_type"] = jobs[0].JobType
 	res, total, err := repo.Query(qc, params, 0, 100, []string{"job_type desc"})
+	// THEN it should match expected count
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+	require.Equal(t, 1, len(res))
+	require.NoError(t, res[0].Equals(jobs[0]))
+
+	// WHEN querying jobs by job-type with in
+	params["job_type:in"] = jobs[0].JobType + ",Blah"
+	res, total, err = repo.Query(qc, params, 0, 100, []string{"job_type desc"})
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)

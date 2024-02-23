@@ -6,16 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/docker/docker/api/types/registry"
 	"io"
-	"io/ioutil"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/volume"
-	yaml "gopkg.in/yaml.v3"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/ants/config"
@@ -61,8 +59,9 @@ type Adapter interface {
 
 // Utils defines helper methods using docker API
 type Utils struct {
-	config *config.DockerConfig
-	cli    *client.Client
+	config       *config.DockerConfig
+	cli          *client.Client
+	attachOption bool
 }
 
 // NewDockerUtils creates new adapter for docker
@@ -126,20 +125,29 @@ func (u *Utils) Execute(
 	}
 
 	//
-	hijack, err := u.cli.ContainerExecAttach(ctx, resp.ID, execStartCheck)
-	//hijack, err := u.cli.ContainerAttach(ctx, containerID, attachOptions())
-	if err != nil {
-		return info, fmt.Errorf("failed to attach to container %s due to %w", cmd, err)
+	var hijack types.HijackedResponse
+	if u.attachOption {
+		if hijack, err = u.cli.ContainerAttach(ctx, containerID, attachOptions()); err != nil {
+			return info, fmt.Errorf("failed to attach to container %s due to %w", cmd, err)
+		}
+		if err := u.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+			return info, fmt.Errorf("failed to execute (ContainerStart) %s due to %w", cmd, err)
+		}
+	} else {
+		if hijack, err = u.cli.ContainerExecAttach(ctx, resp.ID, execStartCheck); err != nil {
+			return info, fmt.Errorf("failed to attach to container %s due to %w", cmd, err)
+		}
+		if err := u.cli.ContainerExecStart(ctx, resp.ID, execStartCheck); err != nil {
+			return info, fmt.Errorf("failed to start execution %s due to %w", cmd, err)
+		}
 	}
-	if err := u.cli.ContainerExecStart(ctx, resp.ID, execStartCheck); err != nil {
-		return info, fmt.Errorf("failed to start execution %s due to %w", cmd, err)
-	}
-	//if err := u.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
-	//  return "", hijack, fmt.Errorf("failed to execute (ContainerStart) %s due to %w", cmd, err)
+	//defer hijack.Close()
+	//var stdout, stderr bytes.Buffer
+	//if _, err := stdcopy.StdCopy(&stdout, &stderr, out.Reader); err != nil {
+	//return info, err
 	//}
-
-	info.ID = resp.ID
 	info.Hijack = hijack
+	info.ID = resp.ID
 	if containerInfo.Node != nil {
 		info.HostName = containerInfo.Node.Addr
 		info.IPAddress = containerInfo.Node.IPAddress
@@ -156,7 +164,7 @@ func (u *Utils) Build(
 	entrypoint []string,
 	helper bool) (string, error) {
 	started := time.Now()
-	// using fresh context so that it doesn't timeout
+	// using fresh context so that it doesn't time out
 	ctx = context.Background()
 	if u.config.PullPolicy.Always() || u.config.PullPolicy.IfNotPresent() {
 		_, err := u.Pull(ctx, image)
@@ -179,6 +187,9 @@ func (u *Utils) Build(
 		containerConfig.Env = opts.HelperEnvironment.AsArray()
 	} else {
 		containerConfig.Env = opts.Environment.AsArray()
+	}
+	if opts.WorkingDirectory != "" {
+		containerConfig.WorkingDir = opts.WorkingDirectory
 	}
 
 	containerConfig.Entrypoint = entrypoint
@@ -225,7 +236,7 @@ func (u *Utils) Build(
 		_ = u.cli.ContainerRemove(
 			ctx,
 			resp.ID,
-			types.ContainerRemoveOptions{})
+			container.RemoveOptions{})
 		return "", fmt.Errorf("failed to inspect container %s due to %w", name, err)
 	}
 
@@ -233,16 +244,16 @@ func (u *Utils) Build(
 	err = u.cli.ContainerStart(
 		ctx,
 		resp.ID,
-		types.ContainerStartOptions{})
+		container.StartOptions{})
 	if err != nil {
 		_ = u.cli.ContainerStop(
 			ctx,
 			resp.ID,
-			nil)
+			container.StopOptions{})
 		_ = u.cli.ContainerRemove(
 			ctx,
 			resp.ID,
-			types.ContainerRemoveOptions{})
+			container.RemoveOptions{})
 		return "", fmt.Errorf("failed to start container %s due to %w", name, err)
 	}
 
@@ -261,7 +272,7 @@ func (u *Utils) Build(
 func (u *Utils) createDockerVolumes(ctx context.Context, opts *domain.ExecutorOptions) error {
 	volNames := opts.MainContainer.GetDockerVolumeNames()
 	for vol := range volNames {
-		vBody := volume.VolumeCreateBody{
+		vBody := volume.CreateOptions{
 			Name:   vol,
 			Labels: map[string]string{"type": "shared"},
 		}
@@ -295,7 +306,7 @@ func (u *Utils) removeDockerVolumes(ctx context.Context, opts *domain.ExecutorOp
 
 // Pull method fetches images from docker registry
 func (u *Utils) Pull(ctx context.Context, image string) (io.ReadCloser, error) {
-	authConfig := types.AuthConfig{
+	authConfig := registry.AuthConfig{
 		Username:      u.config.Username,
 		Password:      u.config.Password,
 		ServerAddress: u.config.Server,
@@ -328,7 +339,8 @@ func (u *Utils) Stop(
 		"Component": "DockerAdapter",
 		"ID":        id,
 	}).Info("✋ stopping docker container...")
-	err := u.cli.ContainerStop(ctx, id, &timeout)
+	timeoutSecs := int(timeout.Seconds())
+	err := u.cli.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeoutSecs})
 	if err != nil {
 		return fmt.Errorf("failed to stop docker container %s due to %w, timeout=%s",
 			id, err, timeout)
@@ -339,7 +351,7 @@ func (u *Utils) Stop(
 		"ID":        id,
 	}).Info("removing docker container...")
 
-	rmOptions := types.ContainerRemoveOptions{
+	rmOptions := container.RemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	}
@@ -366,7 +378,7 @@ func (u *Utils) Stop(
 
 // List containers
 func (u *Utils) List(ctx context.Context) ([]executor.Info, error) {
-	result, err := u.cli.ContainerList(ctx, types.ContainerListOptions{})
+	result, err := u.cli.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers due to %w", err)
 	}
@@ -401,7 +413,7 @@ func (u *Utils) IsExecuteRunning(ctx context.Context, id string) (bool, int, err
 
 // GetLogs returns logs
 func (u *Utils) GetLogs(ctx context.Context, name string, waitForNotRunning bool) (io.ReadCloser, error) {
-	logsOut, err := u.cli.ContainerLogs(ctx, name, types.ContainerLogsOptions{ShowStdout: true})
+	logsOut, err := u.cli.ContainerLogs(ctx, name, container.LogsOptions{ShowStdout: true})
 	if err != nil {
 		return nil, err
 	}
@@ -427,18 +439,18 @@ func (u *Utils) GetRuntimeInfo(ctx context.Context, container string) string {
 
 	var sb strings.Builder
 	if reader, err := u.GetLogs(ctx, container, false); err == nil {
-		if data, err := ioutil.ReadAll(reader); err == nil {
+		if data, err := io.ReadAll(reader); err == nil {
 			sb.Write(data)
 		}
 	}
-	if data, err := yaml.Marshal(info); err == nil {
+	if data, err := json.Marshal(info); err == nil {
 		sb.Write(data)
 	}
 	return sb.String()
 }
 
-func attachOptions() types.ContainerAttachOptions {
-	return types.ContainerAttachOptions{
+func attachOptions() container.AttachOptions {
+	return container.AttachOptions{
 		Stream: true,
 		Stdin:  true,
 		Stdout: true,

@@ -12,10 +12,7 @@ func Test_ShouldSendEmail(t *testing.T) {
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	serverCfg := config.TestServerConfig()
 	userMgr := manager.AssertTestUserManager(serverCfg, t)
-	if err := serverCfg.Email.Validate(); err != nil {
-		t.Logf("skip sending email because smtp is not setup - %s", err)
-		return
-	}
+	require.NoError(t, serverCfg.SMTP.Validate())
 	sender, err := New(serverCfg, userMgr)
 	require.NoError(t, err)
 	err = sender.SendMessage(
@@ -25,5 +22,5 @@ func Test_ShouldSendEmail(t *testing.T) {
 		"my email",
 		"Test email",
 		make(map[string]interface{}))
-	require.NoError(t, err)
+	require.Error(t, err) // Should fail due to missing setup
 }

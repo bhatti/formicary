@@ -52,7 +52,7 @@ func NewAntContainersRegistry(
 	metricsRegistry *metrics.Registry,
 ) *AntContainersRegistry {
 	return &AntContainersRegistry{
-		id:               antCfg.ID + "-container-registry",
+		id:               antCfg.Common.ID + "-container-registry",
 		antCfg:           antCfg,
 		queueClient:      queueClient,
 		metricsRegistry:  metricsRegistry,
@@ -63,10 +63,12 @@ func NewAntContainersRegistry(
 
 // Start subscription for monitoring registrations
 func (r *AntContainersRegistry) Start(ctx context.Context) (err error) {
-	if r.registrationSubscriberID, err = r.subscribeToRegistration(ctx, r.antCfg.GetRegistrationTopic()); err != nil {
+	if r.registrationSubscriberID, err = r.subscribeToRegistration(
+		ctx, r.antCfg.Common.GetRegistrationTopic()); err != nil {
 		return err
 	}
-	if r.containersLifecycleSubscriberID, err = r.subscribeToContainersLifecycleEvents(ctx, r.antCfg.GetContainerLifecycleTopic()); err != nil {
+	if r.containersLifecycleSubscriberID, err = r.subscribeToContainersLifecycleEvents(
+		ctx, r.antCfg.Common.GetContainerLifecycleTopic()); err != nil {
 		_ = r.Stop(ctx)
 		return err
 	}
@@ -78,11 +80,11 @@ func (r *AntContainersRegistry) Start(ctx context.Context) (err error) {
 func (r *AntContainersRegistry) Stop(ctx context.Context) (err error) {
 	err1 := r.queueClient.UnSubscribe(
 		ctx,
-		r.antCfg.GetRegistrationTopic(),
+		r.antCfg.Common.GetRegistrationTopic(),
 		r.registrationSubscriberID)
 	err2 := r.queueClient.UnSubscribe(
 		ctx,
-		r.antCfg.GetContainerLifecycleTopic(),
+		r.antCfg.Common.GetContainerLifecycleTopic(),
 		r.containersLifecycleSubscriberID)
 	return cutils.ErrorsAny(err1, err2)
 }
@@ -173,7 +175,7 @@ func (r *AntContainersRegistry) CheckIfAlreadyRunning(
 			method, containerName, containerEvent.AntID, containerEvent.ContainerState, containerEvent.CreatedAt)
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (r *AntContainersRegistry) registerAnt(
 	_ context.Context,
 	registration *types.AntRegistration) error {
@@ -184,6 +186,7 @@ func (r *AntContainersRegistry) registerAnt(
 			"AntID":     registration.AntID,
 			"Capacity":  registration.MaxCapacity,
 			"Load":      registration.CurrentLoad,
+			"Executed":  registration.TotalExecuted,
 			"Methods":   registration.Methods,
 			"Tags":      registration.Tags,
 		}).Debug("received ant registration")

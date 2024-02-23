@@ -127,7 +127,9 @@ func (s *State) reserve(
 					requestID,
 					taskType,
 					registration.EncryptionKey,
-					calculateLoad(allocationsByAnt)))
+					calculateLoad(allocationsByAnt),
+					registration.TotalExecuted,
+				))
 		}
 	}
 
@@ -151,7 +153,9 @@ func (s *State) reserve(
 		reservations[0].JobRequestID,
 		reservations[0].TaskType,
 		reservations[0].EncryptionKey,
-		reservations[0].CurrentLoad)
+		reservations[0].CurrentLoad,
+		reservations[0].TotalExecuted,
+	)
 	reservation.TotalReservations = len(reservations)
 	if !dryRun {
 		s.addAllocationsByAnt(requestID, taskType, reservation)
@@ -653,7 +657,9 @@ func (s *State) reapStaleAllocations(timeout time.Duration) (removed []*common.A
 						requestID,
 						taskType,
 						"",
-						0))
+						0,
+						0,
+					))
 				}
 			}
 		}

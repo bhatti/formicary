@@ -1,22 +1,21 @@
 job_type: go-build-ci
 max_concurrency: 1
 # only run on main branch
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 tasks:
-- task_type: lint
-  method: KUBERNETES
+- task_type: build
+  method: DOCKER
   working_dir: /sample
   container:
     image: golang:1.16-buster
   before_script:
     - git clone https://{{.GithubToken}}@github.com/bhatti/go-cicd.git .
     - git checkout -t origin/{{.GitBranch}} || git checkout {{.GitBranch}}
-    - go get -u golang.org/x/lint/golint 
     - go mod download
     - go mod vendor
   script:
     - echo branch {{.GitBranch}}, Commit {{.GitCommitID}}
-    - make lint
+    - make build
   after_script:
     - ls -l
   cache:
@@ -26,7 +25,7 @@ tasks:
       - vendor
   on_completed: test
 - task_type: test
-  method: KUBERNETES
+  method: DOCKER
   container:
     image: golang:1.16-buster
   working_dir: /sample
@@ -41,10 +40,10 @@ tasks:
   after_script:
     - ls -l
   dependencies:
-    - lint
-  on_completed: build
-- task_type: build
-  method: KUBERNETES
+    - build
+  on_completed: deploy
+- task_type: deploy
+  method: DOCKER
   container:
     image: golang:1.16-buster
   working_dir: /sample

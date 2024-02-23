@@ -10,5 +10,5 @@ import (
 // StartWebServer starts controllers for health metrics
 func StartWebServer(antCfg *config.AntConfig, webServer web.Server) {
 	NewDefaultController(webServer)
-	webServer.Start(":" + strconv.Itoa(antCfg.CommonConfig.HTTPPort))
+	webServer.Start(":" + strconv.Itoa(antCfg.Common.HTTPPort))
 }

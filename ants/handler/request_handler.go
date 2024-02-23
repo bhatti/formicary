@@ -47,13 +47,13 @@ func NewRequestHandler(
 	}
 
 	t.BaseTasklet = tasklet.NewBaseTasklet(
-		antCfg.ID+"-request-handler",
-		&antCfg.CommonConfig,
+		antCfg.Common.ID+"-request-handler",
+		&antCfg.Common,
 		queueClient,
 		nil,
 		requestRegistry,
 		requestTopic,
-		antCfg.GetRegistrationTopic(),
+		antCfg.Common.GetRegistrationTopic(),
 		antCfg.NewAntRegistration(),
 		t,
 	)
@@ -133,7 +133,7 @@ func (rh *RequestHandler) TerminateContainer(
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestHandler",
-				"AntID":     rh.antCfg.ID,
+				"AntID":     rh.antCfg.Common.ID,
 				"Container": container,
 				"Error":     sendErr,
 			}).Warnf("failed to send stop lifecycle event container by request-handler")

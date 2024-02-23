@@ -7,7 +7,7 @@ import (
 
 // PulsarConfig pulsar config
 type PulsarConfig struct {
-	URL                  string            `yaml:"url" mapstructure:"url"`
+	URL                  string            `yaml:"url" mapstructure:"url" env:"URL"`
 	ConnectionTimeout    time.Duration     `yaml:"connection_timeout" mapstructure:"connection_timeout"`
 	ChannelBuffer        int               `yaml:"channel_buffer" mapstructure:"channel_buffer"`
 	OAuth2               map[string]string `yaml:"oauth" mapstructure:"oauth"`

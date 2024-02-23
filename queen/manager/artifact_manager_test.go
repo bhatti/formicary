@@ -24,7 +24,7 @@ func Test_ShouldExpireArtifacts(t *testing.T) {
 	qc, err := repository.NewTestQC()
 	require.NoError(t, err)
 	serverCfg.DefaultArtifactExpiration = time.Millisecond
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		in := io.NopCloser(strings.NewReader("test"))
 		_, err := mgr.UploadArtifact(
 			context.Background(),
@@ -105,7 +105,7 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 }
 
 func newTestArtifactManager(t *testing.T, err error, serverCfg *config.ServerConfig) *ArtifactManager {
-	artifactService, err := artifacts.NewStub(&serverCfg.S3)
+	artifactService, err := artifacts.NewStub(&serverCfg.Common.S3)
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)

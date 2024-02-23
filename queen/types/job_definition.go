@@ -69,10 +69,10 @@ func (jtc JobTypeCronTrigger) OrganizationOrUserID() string {
 	return jtc.UserID
 }
 
-// JobDefinition defines a DAG (directed acyclic graph) of tasks, which are executed by the ant followers.
-// The workflow of job uses task exit codes to define next task to execute. The task definition
-// represents definition of a job and instance of the job is created using JobExecution when a new job request is
-// submitted.
+// JobDefinition outlines a set of tasks arranged in a Directed Acyclic Graph (DAG), executed by worker entities.
+// The workflow progresses based on the exit codes of tasks, determining the subsequent task to execute.
+// Each task definition encapsulates a job's specifics, and upon receiving a new job request, an instance of
+// this job is initiated through JobExecution.
 type JobDefinition struct {
 	//gorm.Model
 	// ID defines UUID for primary key
@@ -148,7 +148,7 @@ type JobDefinition struct {
 	Notify             map[common.NotifyChannel]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 	Resources          BasicResource                                   `yaml:"resources,omitempty" json:"resources" gorm:"-"`
 	Errors             map[string]string                               `yaml:"-" json:"-" gorm:"-"`
-	filter             string
+	shouldSkip         string
 	lookupTasks        *cutils.SafeMap
 	lock               sync.RWMutex
 }
@@ -235,17 +235,17 @@ func (jd *JobDefinition) GetNextTask(
 	return nil, false, nil
 }
 
-// Filter returns filter tag
-func (jd *JobDefinition) Filter() string {
-	if !jd.UsesTemplate || jd.filter != "" {
-		return jd.filter
+// SkipIf returns skip_if tag
+func (jd *JobDefinition) SkipIf() string {
+	if !jd.UsesTemplate || jd.shouldSkip != "" {
+		return jd.shouldSkip
 	}
-	// parse job filter
-	jd.filter = utils.ParseYamlTag(jd.RawYaml, "filter:")
-	if jd.filter == "" {
-		jd.filter = "none"
+	// parse job shouldSkip
+	jd.shouldSkip = utils.ParseYamlTag(jd.RawYaml, "skip_if:")
+	if jd.shouldSkip == "" {
+		jd.shouldSkip = "none"
 	}
-	return jd.filter
+	return jd.shouldSkip
 }
 
 // Webhook returns webhook config
@@ -268,16 +268,16 @@ func (jd *JobDefinition) Webhook(vars map[string]common.VariableValue) (wh *comm
 	return common.NewWebhookFromString(webhookVal)
 }
 
-// Filtered checks filter condition
-func (jd *JobDefinition) Filtered(vars map[string]common.VariableValue) bool {
-	if jd.Filter() == "" {
+// ShouldSkip checks shouldSkip condition
+func (jd *JobDefinition) ShouldSkip(vars map[string]common.VariableValue) bool {
+	if jd.SkipIf() == "" {
 		return false
 	}
 	data := make(map[string]interface{})
 	for k, v := range vars {
 		data[k] = v.Value
 	}
-	resData, err := utils.ParseTemplate(jd.Filter(), data)
+	resData, err := utils.ParseTemplate(jd.SkipIf(), data)
 	if err != nil {
 		return false
 	}
@@ -476,7 +476,7 @@ func (jd *JobDefinition) Yaml() string {
 func (jd *JobDefinition) UpdateRawYaml() {
 	b, _ := yaml.Marshal(jd)
 	jd.RawYaml = string(b)
-	jd.filter = ""
+	jd.shouldSkip = ""
 }
 
 // TaskNames returns task names
@@ -751,7 +751,7 @@ func (jd *JobDefinition) Equals(other *JobDefinition) error {
 func (jd *JobDefinition) AfterLoad(key []byte) (err error) {
 	nameValueVariables := make(map[string]interface{})
 	jd.lookupTasks = cutils.NewSafeMap()
-	jd.filter = ""
+	jd.shouldSkip = ""
 	for _, c := range jd.Variables {
 		v, err := c.GetParsedValue()
 		if err != nil {
@@ -930,7 +930,7 @@ func (jd *JobDefinition) Validate() (err error) {
 	}
 	jd.Tags = jd.buildTags()
 	jd.Methods = jd.buildMethods()
-	jd.filter = ""
+	jd.shouldSkip = ""
 	if jd.Methods == "" {
 		err = fmt.Errorf("methods not specified for job-definition")
 		jd.Errors["Methods"] = err.Error()

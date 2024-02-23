@@ -34,7 +34,7 @@ func newTestLauncher(serverCfg *config.ServerConfig, t *testing.T) *JobLauncher 
 	errorRepo, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
 	return New(serverCfg,
-		queue.NewStubClient(&serverCfg.CommonConfig),
+		queue.NewStubClient(&serverCfg.Common),
 		manager.AssertTestJobManager(serverCfg, t),
 		manager.AssertTestArtifactManager(serverCfg, t),
 		manager.AssertTestUserManager(serverCfg, t),

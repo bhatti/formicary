@@ -31,7 +31,9 @@ const (
 	LIST TaskAction = "LIST_CONTAINERS"
 )
 
-// TaskRequest defines structure for incoming requests for task
+// TaskRequest specifies the parameters for a task that is dispatched to a remote ant-worker for execution.
+// This request is transmitted through a messaging middleware to the most appropriate ant-worker, selected
+// based on its resource availability and capacity to handle the task efficiently.
 // swagger:ignore
 type TaskRequest struct {
 	UserID          string                   `json:"user_id" yaml:"user_id"`
@@ -135,6 +137,8 @@ func (req *TaskRequest) GetMaskFields() (res []string) {
 	return
 }
 
+const maskedText = "[****]"
+
 // Mask string to hide sensitive data
 func (req *TaskRequest) Mask(s string) string {
 	if s == "" {
@@ -145,7 +149,7 @@ func (req *TaskRequest) Mask(s string) string {
 		return s
 	}
 	for _, next := range maskVars {
-		s = strings.ReplaceAll(s, next, "[MASKED]")
+		s = strings.ReplaceAll(s, next, maskedText)
 	}
 	return s
 }

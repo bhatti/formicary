@@ -13,7 +13,7 @@ import (
 // KubernetesConfig -- Default Kubernetes Config
 type KubernetesConfig struct {
 	Registry                 `yaml:"registry"`
-	Host                     string                             `yaml:"host"`
+	Host                     string                             `yaml:"host" env:"HOST"`
 	BearerToken              string                             `yaml:"bearer_token,omitempty" json:"bearer_token" mapstructure:"bearer_token"`
 	CertFile                 string                             `yaml:"cert_file,omitempty" json:"cert_file" mapstructure:"cert_file"`
 	KeyFile                  string                             `yaml:"key_file,omitempty" json:"key_file" mapstructure:"key_file"`

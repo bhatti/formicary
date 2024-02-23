@@ -33,7 +33,7 @@ func NewJobForkTasklet(
 	queueClient queue.Client,
 	requestTopic string,
 ) *JobForkTasklet {
-	id := serverCfg.ID + "-job-fork-tasklet"
+	id := serverCfg.Common.ID + "-job-fork-tasklet"
 	registration := common.AntRegistration{
 		AntID:        id,
 		AntTopic:     requestTopic,
@@ -51,12 +51,12 @@ func NewJobForkTasklet(
 
 	t.BaseTasklet = tasklet.NewBaseTasklet(
 		id,
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		queueClient,
 		nil,
 		requestRegistry,
 		requestTopic,
-		serverCfg.GetRegistrationTopic(),
+		serverCfg.Common.GetRegistrationTopic(),
 		&registration,
 		t,
 	)

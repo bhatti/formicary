@@ -15,6 +15,7 @@ type AntReservation struct {
 	EncryptionKey string    `json:"encryption_key" mapstructure:"encryption_key"`
 	AllocatedAt   time.Time `json:"allocated_at" mapstructure:"allocated_at"`
 	CurrentLoad   int       `json:"current_load" mapstructure:"current_load"`
+	TotalExecuted int       `json:"total_executed" mapstructure:"total_executed"`
 	// TotalReservations is set by resource-manager when reserving resources to show total reservations
 	TotalReservations int `json:"total_reservations" mapstructure:"total_reservations"`
 }
@@ -26,7 +27,8 @@ func NewAntReservation(
 	requestID uint64,
 	taskType string,
 	encryptionKey string,
-	currentLoad int) *AntReservation {
+	currentLoad int,
+	totalExecuted int) *AntReservation {
 	return &AntReservation{
 		JobRequestID:  requestID,
 		TaskType:      taskType,
@@ -35,6 +37,7 @@ func NewAntReservation(
 		EncryptionKey: encryptionKey,
 		AllocatedAt:   time.Now(),
 		CurrentLoad:   currentLoad,
+		TotalExecuted: totalExecuted,
 	}
 }
 
@@ -52,8 +55,8 @@ func (r *AntReservation) Validate() error {
 
 // String defines description of reservation
 func (r *AntReservation) String() string {
-	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v Load=%d",
-		r.AntID, r.AntTopic, r.JobRequestID, r.TaskType, r.CurrentLoad)
+	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v Load=%d Executed=%d",
+		r.AntID, r.AntTopic, r.JobRequestID, r.TaskType, r.CurrentLoad, r.TotalExecuted)
 }
 
 // AllocatedAtString formatted

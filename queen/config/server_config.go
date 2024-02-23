@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,16 +16,16 @@ import (
 
 // ServerConfig -- Defines the Server Config
 type ServerConfig struct {
-	types.CommonConfig            `yaml:"common" mapstructure:"common"`
-	DB                            DBConfig        `yaml:"db" mapstructure:"db" env:"DB"`
-	Jobs                          JobsConfig      `yaml:"jobs" mapstructure:"jobs"`
-	Email                         SMTPConfig      `yaml:"smtp" mapstructure:"smtp"`
-	Notify                        NotifyConfig    `yaml:"notify" mapstructure:"notify"`
-	GatewaySubscriptions          map[string]bool `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
-	URLPresignedExpirationMinutes time.Duration   `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
-	DefaultArtifactExpiration     time.Duration   `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
-	DefaultArtifactLimit          int             `yaml:"default_artifact_limit" mapstructure:"default_artifact_limit"`
-	SubscriptionQuotaEnabled      bool            `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
+	Common                        types.CommonConfig `yaml:"common" mapstructure:"common"`
+	DB                            DBConfig           `yaml:"db" mapstructure:"db"`
+	Jobs                          JobsConfig         `yaml:"jobs" mapstructure:"jobs"`
+	SMTP                          SMTPConfig         `yaml:"smtp" mapstructure:"smtp" env:"SMTP"`
+	Notify                        NotifyConfig       `yaml:"notify" mapstructure:"notify"`
+	GatewaySubscriptions          map[string]bool    `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
+	URLPresignedExpirationMinutes time.Duration      `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
+	DefaultArtifactExpiration     time.Duration      `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
+	DefaultArtifactLimit          int                `yaml:"default_artifact_limit" mapstructure:"default_artifact_limit"`
+	SubscriptionQuotaEnabled      bool               `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
 // NotifyConfig -- Defines notification config
@@ -36,21 +38,21 @@ type NotifyConfig struct {
 
 // SMTPConfig -- Defines email config
 type SMTPConfig struct {
-	FromEmail string `yaml:"from_email" mapstructure:"from_email"`
-	FromName  string `yaml:"from_name" mapstructure:"from_name"`
-	Provider  string `yaml:"provider" mapstructure:"provider"`
-	APIKey    string `yaml:"api_key" mapstructure:"api_key"`
-	Username  string `yaml:"username" mapstructure:"username"`
-	Password  string `yaml:"password" mapstructure:"password"`
-	Host      string `yaml:"host" mapstructure:"host"`
-	Port      int    `yaml:"port" mapstructure:"port"`
+	FromEmail string `yaml:"from_email" mapstructure:"from_email" env:"FROM_EMAIL"`
+	FromName  string `yaml:"from_name" mapstructure:"from_name" env:"FROM_NAME"`
+	Provider  string `yaml:"provider" mapstructure:"provider" env:"PROVIDER"`
+	APIKey    string `yaml:"api_key" mapstructure:"api_key" env:"API_KEY"`
+	Username  string `yaml:"username" mapstructure:"username" env:"USERNAME"`
+	Password  string `yaml:"password" mapstructure:"password" env:"PASSWORD"`
+	Host      string `yaml:"host" mapstructure:"host" env:"HOST"`
+	Port      int    `yaml:"port" mapstructure:"port" env:"PORT"`
 }
 
 // DBConfig -- Defines db config
 type DBConfig struct {
-	DataSource      string        `yaml:"data_source" mapstructure:"data_source"`
-	DBType          string        `yaml:"db_type" mapstructure:"db_type"`
-	EncryptionKey   string        `yaml:"encryption_key" mapstructure:"encryption_key"`
+	DataSource      string        `yaml:"data_source" mapstructure:"data_source" env:"DATA_SOURCE"`
+	Type            string        `yaml:"type" mapstructure:"type" env:"TYPE"`
+	EncryptionKey   string        `yaml:"encryption_key" mapstructure:"encryption_key" env:"ENCRYPTION_KEY"`
 	MaxIdleConns    int           `yaml:"max_idle_connections" mapstructure:"max_idle_connections"`
 	MaxOpenConns    int           `yaml:"max_open_connections" mapstructure:"max_open_connections"`
 	MaxConcurrency  int           `yaml:"max_concurrency" mapstructure:"max_concurrency"`
@@ -84,9 +86,24 @@ type JobsConfig struct {
 func NewServerConfig(id string) (*ServerConfig, error) {
 	var config ServerConfig
 	viper.SetDefault("log_level", "info")
-	viper.SetDefault("http_port", "7000")
-	viper.SetDefault("db.db_type", "")
+	viper.SetDefault("http_port", "7777")
+	viper.SetDefault("db.type", "")
 	viper.SetDefault("db.data_source", "")
+	viper.SetDefault("smtp.from_email", "")
+	viper.SetDefault("smtp.from_name", "")
+	viper.SetDefault("smtp.provider", "")
+	viper.SetDefault("smtp.api_key", "")
+	viper.SetDefault("smtp.username", "")
+	viper.SetDefault("smtp.password", "")
+	viper.SetDefault("smtp.host", "")
+	viper.SetDefault("smtp.port", "587")
+
+	viper.SetDefault("common.user_agent", "")
+	viper.SetDefault("common.proxy_url", "")
+	viper.SetDefault("common.external_base_url", "")
+	viper.SetDefault("common.public_dir", "")
+	viper.SetDefault("common.http_port", "7777")
+	viper.SetDefault("common.debug", "false")
 
 	viper.SetDefault("common.auth.enabled", "false")
 	viper.SetDefault("common.auth.session_key", "")
@@ -96,6 +113,18 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	viper.SetDefault("common.auth.github_client_id", "")
 	viper.SetDefault("common.auth.github_client_secret", "")
 	viper.SetDefault("common.auth.github_callback_host", "")
+	viper.SetDefault("common.s3.endpoint", "")
+	viper.SetDefault("common.s3.access_key_id", "")
+	viper.SetDefault("common.s3.secret_access_key", "")
+	viper.SetDefault("common.s3.password", "")
+	viper.SetDefault("common.s3.token", "")
+	viper.SetDefault("common.s3.region", "")
+	viper.SetDefault("common.s3.prefix", "")
+	viper.SetDefault("common.s3.bucket", "")
+	viper.SetDefault("common.redis.host", "")
+	viper.SetDefault("common.redis.port", "")
+	viper.SetDefault("common.redis.password", "")
+	viper.SetDefault("common.pulsar.url", "")
 
 	viper.SetEnvPrefix("")
 	viper.AutomaticEnv()
@@ -118,15 +147,19 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	log.WithFields(log.Fields{
 		"Component":  "ServerConfig",
 		"ID":         id,
-		"DB":         config.DB.DBType,
-		"Port":       config.HTTPPort,
+		"DB":         config.DB.Type,
+		"Port":       config.Common.HTTPPort,
 		"UsedConfig": viper.ConfigFileUsed(),
 	}).Infof("loaded config file...")
 
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	config.ID = id
+	config.Common.ID = id
+	if config.Common.Debug {
+		out, _ := yaml.Marshal(config)
+		fmt.Printf("%s\n", out)
+	}
 	return &config, nil
 }
 
@@ -205,7 +238,7 @@ func (c *DBConfig) Validate() error {
 
 // Validate validates
 func (c *ServerConfig) Validate() error {
-	if err := c.Notify.Validate(); err != nil {
+	if err := c.Notify.Validate(c.Common.PublicDir); err != nil {
 		return err
 	}
 	if err := c.Jobs.Validate(); err != nil {
@@ -214,7 +247,7 @@ func (c *ServerConfig) Validate() error {
 	if err := c.DB.Validate(); err != nil {
 		return err
 	}
-	if err := c.Auth.Validate(); err != nil {
+	if err := c.Common.Auth.Validate(); err != nil {
 		return err
 	}
 	if c.URLPresignedExpirationMinutes == 0 {
@@ -234,14 +267,14 @@ func (c *ServerConfig) Validate() error {
 			"LogEvent":                    true,
 		}
 	}
-	return c.CommonConfig.Validate(make([]string, 0))
+	return c.Common.Validate(make([]string, 0))
 }
 
 // NewJobSchedulerLeaderEvent constructor
 func (c *ServerConfig) NewJobSchedulerLeaderEvent() events.JobSchedulerLeaderEvent {
 	return events.JobSchedulerLeaderEvent{
 		BaseEvent: events.BaseEvent{
-			Source:    c.GetSource(),
+			Source:    c.Common.GetSource(),
 			CreatedAt: time.Now(),
 		},
 	}
@@ -260,39 +293,40 @@ func (c *ServerConfig) GetResponseTopicTaskReply() string {
 // BuildResponseTopic response topic
 func (c *ServerConfig) BuildResponseTopic(suffix string) string {
 	return types.PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Common.MessagingProvider,
+		c.Common.Pulsar.TopicTenant,
+		c.Common.Pulsar.TopicNamespace,
 		"task-"+suffix)
 }
 
 // GetJobExecutionLaunchTopic launch topic
 func (c *ServerConfig) GetJobExecutionLaunchTopic() string {
 	return types.PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Common.MessagingProvider,
+		c.Common.Pulsar.TopicTenant,
+		c.Common.Pulsar.TopicNamespace,
 		"job-execution-launch"+c.Jobs.LaunchTopicSuffix)
 }
 
 // Validate validates smtp config
 func (s *SMTPConfig) Validate() error {
 	if s.FromEmail == "" {
-		return types.NewValidationError(fmt.Errorf("smtp from-email not specified"))
+		s.FromEmail = "formicary@plexobjects.com"
+	}
+	if s.FromName == "" {
+		s.FromName = "Formicary Notifications"
 	}
 	if s.APIKey == "" {
 		if s.Username == "" {
-			return types.NewValidationError(fmt.Errorf("smtp username not specified"))
-		}
-		if s.Password == "" {
-			return types.NewValidationError(fmt.Errorf("smtp password not specified"))
+			s.Username = "formicary@plexobjects.com"
 		}
 		if s.Host == "" {
-			return types.NewValidationError(fmt.Errorf("smtp host not specified"))
+			s.Host = "localhost"
 		}
 		if s.Port == 0 {
-			return types.NewValidationError(fmt.Errorf("smtp port not specified"))
+			s.Port = 587
 		}
+		// TODO check other params
 	} else {
 		if s.Provider == "" {
 			return types.NewValidationError(fmt.Errorf("smtp-provider not specified"))
@@ -302,18 +336,18 @@ func (s *SMTPConfig) Validate() error {
 }
 
 // Validate validates notify config
-func (s *NotifyConfig) Validate() error {
+func (s *NotifyConfig) Validate(pubDir string) error {
 	if s.EmailJobsTemplateFile == "" {
-		return types.NewValidationError(fmt.Errorf("email jobs-template not specified"))
+		s.EmailJobsTemplateFile = filepath.Join(pubDir, "views/notify/email_notify_job.html")
 	}
 	if s.SlackJobsTemplateFile == "" {
-		return types.NewValidationError(fmt.Errorf("slack jobs-template not specified"))
+		s.SlackJobsTemplateFile = filepath.Join(pubDir, "views/notify/slack_notify_job.txt")
 	}
 	if s.VerifyEmailTemplateFile == "" {
-		return types.NewValidationError(fmt.Errorf("email-notification template not specified"))
+		s.VerifyEmailTemplateFile = filepath.Join(pubDir, "views/notify/verify_email.html")
 	}
 	if s.UserInvitationTemplateFile == "" {
-		return types.NewValidationError(fmt.Errorf("user-invitation template not specified"))
+		s.UserInvitationTemplateFile = filepath.Join(pubDir, "views/notify/user_invitation.html")
 	}
 	return nil
 }

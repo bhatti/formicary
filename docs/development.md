@@ -77,6 +77,7 @@ go vet ./... 2> go-vet-report.out
 
 - Adding vendor dependencies
 ```
+go mod tidy
 go mod vendor
 ```
 
@@ -139,7 +140,4 @@ to complete while not receiving new jobs/tasks. In order to reduce any shutdown,
 
 #### Installation
 See [Installation](installation.md)
-
-#### Running
-See [Get it running](running.md)
 

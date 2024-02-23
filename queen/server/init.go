@@ -39,11 +39,11 @@ func StartWebServer(
 	http web.HTTPClient,
 ) error {
 	authProviders := make([]auth.Provider, 0)
-	if googleAuthProvider, err := security.NewGoogleAuth(&serverCfg.CommonConfig); err == nil {
+	if googleAuthProvider, err := security.NewGoogleAuth(&serverCfg.Common); err == nil {
 		authProviders = append(authProviders, googleAuthProvider)
 	}
 
-	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.CommonConfig, jobManager.BuildGithubPostWebhookHandler()); err == nil {
+	if githubAuthProvider, err := security.NewGithubAuth(&serverCfg.Common, jobManager.BuildGithubPostWebhookHandler()); err == nil {
 		authProviders = append(authProviders, githubAuthProvider)
 	}
 
@@ -57,7 +57,7 @@ func StartWebServer(
 		requestRegistry,
 		artifactManager,
 		queueClient,
-		serverCfg.GetWebsocketTaskletTopic(),
+		serverCfg.Common.GetWebsocketTaskletTopic(),
 		webServer); err != nil {
 		return err
 	}
@@ -90,11 +90,11 @@ func StartWebServer(
 		authProviders,
 		webServer)
 
-	webServer.Start(":" + strconv.Itoa(serverCfg.CommonConfig.HTTPPort))
+	webServer.Start(":" + strconv.Itoa(serverCfg.Common.HTTPPort))
 	return nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func startWebhookProcessor(
 	serverCfg *config.ServerConfig,
 	queueClient queue.Client,
@@ -210,14 +210,14 @@ func startAdminControllers(
 	webServer web.Server) {
 	admin.NewAuditAdminController(repoFactory.AuditRecordRepository, webServer)
 	admin.NewAuthController(
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		authProviders,
 		repoFactory.AuditRecordRepository,
 		repoFactory.UserRepository,
 		repoFactory.OrgRepository,
 		webServer)
 	admin.NewUserAdminController(
-		&serverCfg.CommonConfig,
+		&serverCfg.Common,
 		userManager,
 		repoFactory.JobExecutionRepository,
 		repoFactory.ArtifactRepository,

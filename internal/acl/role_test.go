@@ -11,6 +11,8 @@ func Test_ShouldMatchRole(t *testing.T) {
 	roles.AddRole(Admin)
 	require.True(t, roles.IsAdmin())
 	require.True(t, roles.IsReadAdmin())
+	ser := roles.MarshalRoles()
+	require.Equal(t, "Admin[]", ser)
 }
 
 // Verify scope
@@ -29,6 +31,7 @@ func Test_ShouldMarshalRolesRoles(t *testing.T) {
 		NewRole("supervisor", "ops"),
 		NewRole("engineer", "product"),
 	})
+	require.Equal(t, "manager[product];supervisor[ops];engineer[product]", ser)
 	roles := UnmarshalRoles(ser)
 	require.Equal(t, 3, len(roles))
 }

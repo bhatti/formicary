@@ -44,7 +44,8 @@ func NewOrganizationController(
 // Queries organizations by criteria such as org-unit, bundle, etc.
 // `This requires admin access`
 // responses:
-//   200: orgQueryResponse
+//
+//	200: orgQueryResponse
 func (oc *OrganizationController) queryOrganizations(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	params, order, page, pageSize, _, _ := ParseParams(c)
@@ -59,7 +60,8 @@ func (oc *OrganizationController) queryOrganizations(c web.APIContext) error {
 // Creates new organization.
 // `This requires admin access`
 // responses:
-//   200: orgResponse
+//
+//	200: orgResponse
 func (oc *OrganizationController) postOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	now := time.Now()
@@ -84,7 +86,8 @@ func (oc *OrganizationController) postOrganization(c web.APIContext) error {
 // swagger:route PUT /api/orgs/{id} organizations putOrganization
 // Updates the organization profile.
 // responses:
-//   200: orgResponse
+//
+//	200: orgResponse
 func (oc *OrganizationController) putOrganization(c web.APIContext) error {
 	org := common.NewOrganization("", "", "")
 	err := json.NewDecoder(c.Request().Body).Decode(org)
@@ -103,7 +106,8 @@ func (oc *OrganizationController) putOrganization(c web.APIContext) error {
 // swagger:route GET /api/orgs/{id} organizations getOrganization
 // Finds the organization by its id.
 // responses:
-//   200: orgResponse
+//
+//	200: orgResponse
 func (oc *OrganizationController) getOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	org, err := oc.userManager.GetOrganization(qc, c.Param("id"))
@@ -116,7 +120,8 @@ func (oc *OrganizationController) getOrganization(c web.APIContext) error {
 // swagger:route DELETE /api/orgs/{id} organizations deleteOrganization
 // Deletes the organization by its id.
 // responses:
-//   200: emptyResponse
+//
+//	200: emptyResponse
 func (oc *OrganizationController) deleteOrganization(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	err := oc.userManager.DeleteOrganization(qc, c.Param("id"))
@@ -127,9 +132,10 @@ func (oc *OrganizationController) deleteOrganization(c web.APIContext) error {
 }
 
 // swagger:route POST /api/orgs/{id}/invite organizations inviteUser
-// Invite user to the organization
+// Invite a user to the organization.
 // responses:
-//   200: userInvitationResponse
+//
+//	200: userInvitationResponse
 func (oc *OrganizationController) inviteUser(c web.APIContext) (err error) {
 	qc := web.BuildQueryContext(c)
 	user := web.GetDBLoggedUserFromSession(c)
@@ -148,10 +154,12 @@ func (oc *OrganizationController) inviteUser(c web.APIContext) (err error) {
 }
 
 // swagger:route POST /api/orgs/usage_report organizations usageReport
+// Generates usage report for the organization.
 // `This requires admin access`
 // Shows usage report by organization and user
 // responses:
-//   200: usageReportResponse
+//
+//	200: usageReportResponse
 func (oc *OrganizationController) usageReport(c web.APIContext) error {
 	from := utils.ParseStartDateTime(c.QueryParam("from"))
 	to := utils.ParseEndDateTime(c.QueryParam("to"))

@@ -149,9 +149,10 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 func (jrr *JobRequestRepositoryImpl) UpdateRunningTimestamp(
 	id uint64) error {
 	var job types.JobRequest
+	// check in-clause
 	tx := jrr.db.Model(&job).
 		Where("id = ?", id).
-		Where("job_state IN (?)", []common.RequestState{common.EXECUTING, common.STARTED})
+		Where("job_state IN ?", common.RunningStates)
 	res := tx.Updates(map[string]interface{}{"updated_at": time.Now()})
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
@@ -390,11 +391,11 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 		return nil
 	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
-		res := jrr.db.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id IN (?)", ids)
+		res := jrr.db.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id IN ?", ids)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
 		}
-		res = jrr.db.Exec("DELETE FROM formicary_job_requests WHERE id IN (?) AND job_state = ?", ids, common.PENDING)
+		res = jrr.db.Exec("DELETE FROM formicary_job_requests WHERE id IN ? AND job_state = ?", ids, common.PENDING)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
 		}
@@ -432,8 +433,8 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	// TODO check for cron schedule
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
-		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN (?)"
-	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, []common.RequestState{common.COMPLETED, common.PENDING}}
+		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
+	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, common.NotRestartableStates}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
@@ -511,8 +512,8 @@ func (jrr *JobRequestRepositoryImpl) RecentIDs(
 // RecentLiveIDs returns recently alive - executing/pending/starting job-ids
 func (jrr *JobRequestRepositoryImpl) RecentLiveIDs(
 	limit int) ([]uint64, error) {
-	sql := "SELECT id FROM formicary_job_requests WHERE job_state NOT IN (?) ORDER BY updated_at DESC limit ?"
-	jobStates := []common.RequestState{common.FAILED, common.COMPLETED, common.CANCELLED}
+	sql := "SELECT id FROM formicary_job_requests WHERE job_state NOT IN ? ORDER BY updated_at DESC limit ?"
+	jobStates := common.TerminalStates
 	args := []interface{}{jobStates, limit}
 	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
 	if err != nil {
@@ -540,8 +541,8 @@ func (jrr *JobRequestRepositoryImpl) RecentDeadIDs(
 	fromOffset time.Duration,
 	toOffset time.Duration,
 ) ([]uint64, error) {
-	sql := "SELECT id FROM formicary_job_requests WHERE job_state IN (?) AND updated_at > ? AND updated_at < ? ORDER BY updated_at DESC limit ?"
-	jobStates := []common.RequestState{common.FAILED, common.COMPLETED, common.CANCELLED}
+	sql := "SELECT id FROM formicary_job_requests WHERE job_state IN ? AND updated_at > ? AND updated_at < ? ORDER BY updated_at DESC limit ?"
+	jobStates := common.TerminalStates
 	now := time.Now()
 	args := []interface{}{jobStates, now.Add(fromOffset * -1), now.Add(toOffset * -1), limit}
 	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
@@ -725,12 +726,12 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE " +
-		" cron_triggered = ? AND ((job_type IN (?) AND job_state IN (?)"
+		" cron_triggered = ? AND ((job_type IN ? AND job_state IN ?"
 	if len(userIDs) > 0 {
-		sql += " AND user_id IN (?)"
+		sql += " AND user_id IN ?"
 		args = append(args, userIDs)
 	}
-	sql += ") OR user_key IN (?)) order by updated_at desc"
+	sql += ") OR user_key IN ?) order by updated_at desc"
 	args = append(args, userKeys)
 
 	rows, err := jrr.db.Raw(sql, args...).Rows()
@@ -796,7 +797,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
 	args := []interface{}{state, time.Now()}
 
 	if len(jobTypes) > 0 {
-		sql += " AND job_type in (?)"
+		sql += " AND job_type in ?"
 		args = append(args, jobTypes)
 	}
 	sql += " ORDER BY job_priority DESC, created_at LIMIT ?"
@@ -827,7 +828,7 @@ func (jrr *JobRequestRepositoryImpl) RequeueOrphanRequests(
 	date := time.Now().Add(-staleInterval)
 	res := jrr.db.Exec(
 		"UPDATE formicary_job_requests SET job_state = ?, scheduled_at = ?, updated_at = ? "+
-			" WHERE job_state IN (?) AND updated_at < ?",
+			" WHERE job_state IN ? AND updated_at < ?",
 		common.PENDING,
 		time.Now(),
 		time.Now(),
@@ -853,8 +854,8 @@ func (jrr *JobRequestRepositoryImpl) QueryOrphanRequests(
 	jobRequests = make([]*types.JobRequest, 0)
 	date := time.Now().Add(-staleInterval * time.Second)
 	tx := jrr.db.Preload("Params").Limit(limit).Offset(offset).
-		Where("job_state IN (?)", []common.RequestState{common.STARTED, common.READY, common.EXECUTING}).
-		Where("updated_at < ?", date).Order("updated_at")
+		Where("job_state IN ? AND updated_at < ?", common.OrphanStates, date).
+		Order("updated_at")
 	res := tx.Find(&jobRequests)
 	if res.Error != nil {
 		err = res.Error
@@ -879,7 +880,7 @@ func (jrr *JobRequestRepositoryImpl) clearOrphanJobParams(tx *gorm.DB, req *type
 		paramIDs[i] = c.ID
 	}
 
-	tx.Where("id NOT IN (?) AND job_request_id = ?", paramIDs, req.ID).Delete(types.JobRequestParam{})
+	tx.Where("id NOT IN ? AND job_request_id = ?", paramIDs, req.ID).Delete(types.JobRequestParam{})
 }
 
 // Query finds matching job-request by parameters
@@ -951,12 +952,11 @@ func (jrr *JobRequestRepositoryImpl) addQuery(params map[string]interface{}, tx 
 	if jobState != nil {
 		delete(params, "job_state")
 		if jobState == "RUNNING" {
-			tx = tx.Where("job_state IN (?)", []common.RequestState{common.STARTED, common.EXECUTING})
+			tx = tx.Where("job_state IN ?", common.RunningStates)
 		} else if jobState == "WAITING" {
-			tx = tx.Where("job_state IN (?)", []common.RequestState{common.PENDING, common.READY})
+			tx = tx.Where("job_state IN ?", common.WaitingStates)
 		} else if jobState == "DONE" {
-			tx = tx.Where("job_state IN (?)",
-				[]common.RequestState{common.FAILED, common.COMPLETED, common.CANCELLED})
+			tx = tx.Where("job_state IN ?", common.TerminalStates)
 		} else {
 			tx = tx.Where("job_state = ?", jobState)
 		}

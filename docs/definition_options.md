@@ -67,13 +67,13 @@ job_type: test-job
 description: A test job for building a node application.
 ```
 
-#### filter
+#### skip
 
-The `filter` allows job to skip execution based on a conditional logic using GO template and variables, e.g.
+The `skip` allows job to skip execution based on a conditional logic using GO template and variables, e.g.
 
 ```yaml
 job_type: test-job
-filter: {{if eq .Target "charlie"}} true {{end}}
+skip_if: {{if eq .Target "charlie"}} true {{end}}
 ```
 
 In above example, the job will not run if `Target` variable is "charlie", e.g., you can pass these parameters when you
@@ -89,7 +89,7 @@ Following example shows how you can limit execution on a branch, e.g.,
 
 ```yaml
 job_type: node_build
-filter: {{if ne .GitBranch "main"}} true {{end}}
+skip_if: {{if ne .GitBranch "main"}} true {{end}}
 ```
 
 In above example, the scheduled job will not run if `Branch` is not "main", e.g., you can pass these parameters when you

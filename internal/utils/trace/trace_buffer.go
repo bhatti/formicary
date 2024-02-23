@@ -15,7 +15,7 @@ import (
 	"github.com/markelog/trie"
 )
 
-const maskedText = "[MASKED]"
+const maskedText = "[****]"
 const defaultBytesLimit = 4 * 1024 * 1024 // 4MB
 
 // LineFeeder - callback function when new-line is reached
@@ -136,7 +136,7 @@ func (b *Buffer) Checksum() string {
 	return fmt.Sprintf("crc32:%08x", b.checksum.Sum32())
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (b *Buffer) advanceAllUnsafe() error {
 	b.lineBuffer.Write(b.advanceBuffer.Bytes())
 	tags := b.getTags()
