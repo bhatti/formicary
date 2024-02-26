@@ -168,7 +168,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	js.metricsRegistry.Incr("scheduler_checked_pending_total", nil)
 	requests, err := js.jobManager.NextSchedulableJobRequestsByType(
 		[]string{},
-		common.PENDING,
+		[]common.RequestState{common.PENDING, common.PAUSED},
 		1000)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -246,7 +246,7 @@ func (js *JobScheduler) scheduleJob(
 	)
 
 	if err = jobStateMachine.Validate(); err != nil {
-		// change status from READY to FAILED
+		// change status from PENDING to FAILED
 		return jobStateMachine.ScheduleFailed(
 			ctx,
 			fmt.Errorf("failed to validate job-state due to %w", err),
@@ -358,7 +358,7 @@ func (js *JobScheduler) scheduleJob(
 
 	if eventError != nil {
 		// change status from READY to PENDING so that we can try to send it again (retryable error)
-		return jobStateMachine.RevertRequestToPending(eventError)
+		return jobStateMachine.RevertRequestToPendingPaused(eventError)
 	}
 	logrus.WithFields(logrus.Fields{
 		"Component":        "JobScheduler",

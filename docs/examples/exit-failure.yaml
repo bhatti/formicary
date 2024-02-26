@@ -7,8 +7,7 @@ tasks:
     image: alpine
   retry: 2
   script:
-    - echo exit {{.ExitCode}}
-    - exit {{.ExitCode}}
+    - exit {{ Random 1 3 }}
   on_completed: last
   on_exit_code:
     1: FATAL

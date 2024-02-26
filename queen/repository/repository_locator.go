@@ -254,6 +254,8 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "restart job", "", "ERR_RESTART_JOB"))
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "pause job", "", "ERR_PAUSE_JOB"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "restart task", "", "ERR_RESTART_TASK"))
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "filtered scheduled job", "", "ERR_FILTERED_JOB"))

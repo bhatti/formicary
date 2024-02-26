@@ -18,6 +18,8 @@ const (
 	JobRequestCreated AuditKind = "JOB_REQUEST_CREATED"
 	// JobRequestCompleted completed
 	JobRequestCompleted AuditKind = "JOB_REQUEST_COMPLETED"
+	// JobRequestPaused completed
+	JobRequestPaused AuditKind = "JOB_REQUEST_PAUSED"
 	// JobRequestFailed failed
 	JobRequestFailed AuditKind = "JOB_REQUEST_FAILED"
 	// JobRequestCancelled cancelled

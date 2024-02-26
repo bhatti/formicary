@@ -128,7 +128,7 @@ func (se *Executor) Stop(ctx context.Context,
 		}
 	}
 	_ = se.BaseExecutor.WriteTraceInfo(ctx,
-		fmt.Sprintf("🛑 stopped container: Error=%v Elapsed=%v, StopWait=%v",
+		fmt.Sprintf("🛑 stopped shell-container: Error=%v Elapsed=%v, StopWait=%v",
 			err, time.Since(started).String(), se.AntConfig.GetShutdownTimeout()))
 	se.runners = make(map[string]*CommandRunner)
 	return err

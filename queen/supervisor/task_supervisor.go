@@ -86,6 +86,10 @@ func (ts *TaskSupervisor) execute(
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
 				Warnf("failed to run task '%s', exit=%s!",
 					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
+		} else if ts.taskStateMachine.TaskExecution.Paused() {
+			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
+				Warnf("pausing job from task '%s', exit=%s!",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
 		} else {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
 				Infof("completed task successfully '%s', exit=%s!",
@@ -146,7 +150,6 @@ func (ts *TaskSupervisor) tryExecuteTask(
 
 	// Try running the task with retry loop - by default it will run once if no retry is set
 	for executing := true; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
-		taskReq.TaskRetry = ts.taskStateMachine.TaskExecution.Retried
 		// send request and wait synchronously for response
 		taskResp, err := ts.invoke(ctx, taskReq)
 		if err == nil {
@@ -187,6 +190,11 @@ func (ts *TaskSupervisor) tryExecuteTask(
 func (ts *TaskSupervisor) invoke(
 	ctx context.Context,
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
+	// setup retry parameters and container name
+	taskReq.JobRetry = ts.taskStateMachine.Request.GetRetried()
+	taskReq.TaskRetry = ts.taskStateMachine.TaskExecution.Retried
+	ts.taskStateMachine.BuildExecutorOptsName()
+
 	var b []byte
 	if b, err = taskReq.Marshal(ts.taskStateMachine.Reservation.EncryptionKey); err != nil {
 		return nil, fmt.Errorf("failed to marshal %s due to %w", taskReq, err)
@@ -200,14 +208,15 @@ func (ts *TaskSupervisor) invoke(
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component": "TaskSupervisor",
-			"Task":      ts.taskStateMachine.TaskDefinition,
-			"AntID":     ts.taskStateMachine.Reservation.AntID,
-			"Request":   taskReq,
-			"ReqTopic":  ts.taskStateMachine.Reservation.AntTopic,
-			"ResTopic":  ts.serverCfg.GetResponseTopicTaskReply(),
-			"RequestID": ts.taskStateMachine.Request.GetID(),
-			"Retried":   ts.taskStateMachine.Request.GetRetried(),
+			"Component":     "TaskSupervisor",
+			"Task":          ts.taskStateMachine.TaskDefinition,
+			"AntID":         ts.taskStateMachine.Reservation.AntID,
+			"ContainerName": taskReq.ContainerName(),
+			"Request":       taskReq,
+			"ReqTopic":      ts.taskStateMachine.Reservation.AntTopic,
+			"ResTopic":      ts.serverCfg.GetResponseTopicTaskReply(),
+			"RequestID":     ts.taskStateMachine.Request.GetID(),
+			"Retried":       ts.taskStateMachine.Request.GetRetried(),
 		}).Infof("sending request to remote ant worker")
 	}
 
@@ -233,36 +242,41 @@ func (ts *TaskSupervisor) invoke(
 	if err != nil {
 		return taskReq.ErrorResponse(err), nil
 	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component":         "TaskSupervisor",
-			"Task":              ts.taskStateMachine.TaskDefinition,
-			"AntID":             ts.taskStateMachine.Reservation.AntTopic,
-			"OriginalState":     taskResp.Status,
-			"OriginalErrorCode": taskResp.ErrorCode,
-			"ExitCode":          taskResp.ExitCode,
-			"TaskResp":          taskResp,
-			"Event":             event.Properties,
-			"ReqTopic":          ts.taskStateMachine.Reservation.AntTopic,
-			"ResTopic":          ts.serverCfg.GetResponseTopicTaskReply(),
-			"RequestID":         ts.taskStateMachine.Request.GetID(),
-			"Retried":           ts.taskStateMachine.Request.GetRetried(),
-		}).Debugf("received reply")
-	}
+
 	newState, newErrorCode := ts.taskStateMachine.TaskDefinition.OverrideStatusAndErrorCode(taskResp.ExitCode)
+
+	logrus.WithFields(logrus.Fields{
+		"Component":         "TaskSupervisor",
+		"Task":              ts.taskStateMachine.TaskDefinition,
+		"AntID":             ts.taskStateMachine.Reservation.AntTopic,
+		"ReqTopic":          ts.taskStateMachine.Reservation.AntTopic,
+		"ResTopic":          ts.serverCfg.GetResponseTopicTaskReply(),
+		"RequestID":         ts.taskStateMachine.Request.GetID(),
+		"Retried":           ts.taskStateMachine.Request.GetRetried(),
+		"OriginalState":     taskResp.Status,
+		"OriginalErrorCode": taskResp.ErrorCode,
+		"ExitCode":          taskResp.ExitCode,
+		"TaskResp":          taskResp,
+		"Event":             event.Properties,
+		"NewState":          newState,
+		"NewErrorCode":      newErrorCode,
+	}).Infof("received reply")
+
 	if newState != "" {
-		logrus.WithFields(logrus.Fields{
-			"Component":         "TaskSupervisor",
-			"Task":              ts.taskStateMachine.TaskDefinition,
-			"OriginalState":     taskResp.Status,
-			"OriginalErrorCode": taskResp.ErrorCode,
-			"ExitCode":          taskResp.ExitCode,
-			"NewState":          newState,
-			"NewErrorCode":      newErrorCode,
-			"TaskResp":          taskResp,
-			"RequestID":         ts.taskStateMachine.Request.GetID(),
-			"Retried":           ts.taskStateMachine.Request.GetRetried(),
-		}).Warnf("overriding state and error code")
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":         "TaskSupervisor",
+				"Task":              ts.taskStateMachine.TaskDefinition,
+				"OriginalState":     taskResp.Status,
+				"OriginalErrorCode": taskResp.ErrorCode,
+				"ExitCode":          taskResp.ExitCode,
+				"NewState":          newState,
+				"NewErrorCode":      newErrorCode,
+				"TaskResp":          taskResp,
+				"RequestID":         ts.taskStateMachine.Request.GetID(),
+				"Retried":           ts.taskStateMachine.Request.GetRetried(),
+			}).Debugf("overriding state and error code")
+		}
 		taskResp.Status = newState
 		if taskResp.ErrorCode != "" {
 			taskResp.AddContext("OriginalErrorCode", taskResp.ErrorCode)

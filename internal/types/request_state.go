@@ -23,13 +23,15 @@ const (
 	STARTED RequestState = "STARTED"
 	// CANCELLED request
 	CANCELLED RequestState = "CANCELLED"
+	// PAUSED request
+	PAUSED RequestState = "PAUSED"
 
 	// HISTORY request -- collection of FAILED/COMPLETED/CANCELLED
 	// Grouping use for queries
 	HISTORY RequestState = "HISTORY"
 	// RUNNING request -- collection of STARTED/EXECUTING
 	RUNNING RequestState = "RUNNING"
-	// WAITING request -- collection of PENDING/READY
+	// WAITING request -- collection of PENDING/PAUSED/READY
 	WAITING RequestState = "WAITING"
 
 	// FATAL request
@@ -37,6 +39,9 @@ const (
 
 	// RESTART_JOB request
 	RESTART_JOB RequestState = "RESTART_JOB"
+
+	// PAUSE_JOB request
+	PAUSE_JOB RequestState = "PAUSE_JOB"
 
 	// RESTART_TASK request
 	RESTART_TASK RequestState = "RESTART_TASK"
@@ -57,7 +62,7 @@ var TerminalStates = []string{string(COMPLETED), string(FAILED), string(CANCELLE
 var RunningStates = []string{string(EXECUTING), string(STARTED)}
 
 // WaitingStates defines pending or ready state
-var WaitingStates = []string{string(PENDING), string(READY)}
+var WaitingStates = []string{string(PENDING), string(PAUSED), string(READY)}
 
 // NotRestartableStates defines pending or completed state
 var NotRestartableStates = []string{string(PENDING), string(READY), string(COMPLETED)}
@@ -75,14 +80,19 @@ func (rs RequestState) IsTerminal() bool {
 	return rs == COMPLETED || rs == FAILED || rs == CANCELLED
 }
 
+// CanFinalize returns true if state is terminal or be finalized
+func (rs RequestState) CanFinalize() bool {
+	return rs.IsTerminal() || rs == PAUSED
+}
+
 // Processing returns true if state is still processing
 func (rs RequestState) Processing() bool {
-	return rs == WAITING || rs == PENDING || rs == READY || rs == EXECUTING || rs == STARTED
+	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY || rs == EXECUTING || rs == STARTED
 }
 
 // CanRestart checks if request can be restarted
 func (rs RequestState) CanRestart() bool {
-	return rs == FAILED || rs == CANCELLED
+	return rs == FAILED || rs == CANCELLED || rs == PAUSED
 }
 
 // CanCancel checks if request can be cancelled
@@ -90,9 +100,14 @@ func (rs RequestState) CanCancel() bool {
 	return !rs.IsTerminal()
 }
 
-// Completed returns true if state is completed
+// Completed returns true if state is completed.
 func (rs RequestState) Completed() bool {
 	return rs == COMPLETED
+}
+
+// Paused returns true if state is paused.
+func (rs RequestState) Paused() bool {
+	return rs == PAUSED
 }
 
 // Failed returns failed status
@@ -127,7 +142,7 @@ func (rs RequestState) Started() bool {
 
 // Waiting returns true if state is waiting to run
 func (rs RequestState) Waiting() bool {
-	return rs == WAITING || rs == PENDING || rs == READY
+	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY
 }
 
 // Running returns true if state is running
@@ -145,13 +160,31 @@ func (rs RequestState) Unknown() bool {
 	return rs != FAILED &&
 		rs != CANCELLED &&
 		rs != PENDING &&
+		rs != PAUSED &&
 		rs != READY &&
 		rs != COMPLETED &&
 		rs != EXECUTING &&
 		rs != STARTED &&
 		rs != HISTORY &&
 		rs != RESTART_JOB &&
+		rs != PAUSE_JOB &&
 		rs != RESTART_TASK
+}
+
+// CanTransitionTo enforces state transition validation
+func (rs RequestState) CanTransitionTo(newState RequestState) bool {
+	if rs == FAILED || rs == CANCELLED {
+		return newState == PENDING
+	} else if rs == PENDING || rs == PAUSED {
+		return newState == READY || newState == FAILED
+	} else if rs == READY {
+		return newState == STARTED || newState == FAILED || newState == PENDING || newState == PAUSED
+	} else if rs == STARTED {
+		return newState == EXECUTING
+	} else if rs == EXECUTING {
+		return newState == FAILED || newState == COMPLETED || newState == PAUSED
+	}
+	return false
 }
 
 const (

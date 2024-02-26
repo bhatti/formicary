@@ -130,6 +130,7 @@ func (js *JobSupervisor) tryExecuteJob(
 
 		// quit retrying upon success, fatal error or if job needs to be restarted and rescheduled later
 		if err == nil || errorCode == common.ErrorFatal || errorCode == common.ErrorRestartJob ||
+			errorCode == common.ErrorPauseJob ||
 			js.jobStateMachine.Request.GetRetried() == js.jobStateMachine.JobDefinition.Retry {
 			break
 		}
@@ -177,7 +178,9 @@ func (js *JobSupervisor) tryExecuteJob(
 		if err == nil {
 			err = fmt.Errorf("forcing job to restarted state")
 		}
-		return js.jobStateMachine.RestartJobBackToPending(err)
+		return js.jobStateMachine.RestartJobBackToPendingPaused(err)
+	} else if errorCode == common.ErrorPauseJob {
+		return js.jobStateMachine.PauseJob()
 	}
 
 	// job failed
@@ -301,10 +304,14 @@ func (js *JobSupervisor) executeNextTask(
 			!taskStateMachine.TaskDefinition.AllowFailure {
 			return taskStateMachine.TaskExecution.ErrorCode,
 				fmt.Errorf(taskStateMachine.TaskExecution.ErrorMessage)
+		} else if taskStateMachine.TaskExecution.TaskState == common.PAUSED {
+			return taskStateMachine.TaskExecution.ErrorCode,
+				fmt.Errorf(taskStateMachine.TaskExecution.ErrorMessage)
 		} else if len(taskStateMachine.TaskDefinition.OnExitCode) > 0 {
 			return common.ErrorInvalidNextTask,
-				fmt.Errorf("cannot find next task after %s, unexpected task status=%s, multiple exits=%v",
-					taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskDefinition.OnExitCode)
+				fmt.Errorf("cannot find next task after %s, unexpected task status=%s, exit-code: %s, error-code: %s, multiple exits=%v",
+					taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode,
+					taskStateMachine.TaskExecution.ErrorCode, taskStateMachine.TaskDefinition.OnExitCode)
 		} else if taskStateMachine.TaskExecution.TaskState == common.COMPLETED ||
 			taskStateMachine.TaskDefinition.AllowFailure {
 			return "", nil

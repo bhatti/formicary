@@ -98,6 +98,14 @@ func TaskKey(requestID uint64, taskType string) string {
 	return fmt.Sprintf("%d-%s", requestID, taskType)
 }
 
+// ContainerName return container name if exists
+func (req *TaskRequest) ContainerName() string {
+	if req.ExecutorOpts == nil {
+		return "undefined"
+	}
+	return req.ExecutorOpts.Name
+}
+
 // String defines description of task request
 func (req *TaskRequest) String() string {
 	return fmt.Sprintf("ID=%d CORelID=%s JobType=%s TaskType=%s Action=%s",

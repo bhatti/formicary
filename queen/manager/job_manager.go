@@ -689,7 +689,7 @@ func (jm *JobManager) CancelJobRequest(
 		return err
 	}
 	jm.jobStatsRegistry.Cancelled(req)
-	if req.JobState == common.PENDING {
+	if req.JobState == common.PENDING || req.JobState == common.PAUSED {
 		if err = jm.jobRequestRepository.Cancel(qc, id); err != nil {
 			return err
 		}
@@ -712,7 +712,7 @@ func (jm *JobManager) CancelJobRequest(
 	return nil
 }
 
-// RequeueOrphanJobRequests queries jobs with EXECUTING/STARTED status and puts them back to PENDING
+// RequeueOrphanJobRequests queries jobs with EXECUTING/STARTED status and puts them back to PENDING/PAUSED
 func (jm *JobManager) RequeueOrphanJobRequests(
 	staleInterval time.Duration) (total int64, err error) {
 	return jm.jobRequestRepository.RequeueOrphanRequests(staleInterval)
@@ -728,11 +728,11 @@ func (jm *JobManager) DeleteJobRequest(
 // NextSchedulableJobRequestsByType queries basic job id/state for pending/ready state from parameter
 func (jm *JobManager) NextSchedulableJobRequestsByType(
 	jobTypes []string,
-	state common.RequestState,
+	states []common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
-	return jm.jobRequestRepository.NextSchedulableJobsByType(
+	return jm.jobRequestRepository.NextSchedulableJobsByTypes(
 		jobTypes,
-		state,
+		states,
 		limit)
 }
 
@@ -1085,6 +1085,7 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 	req types.IJobRequest,
 	jobExec *types.JobExecution,
 	oldState common.RequestState,
+	scheduleDelay time.Duration,
 	retried int,
 ) (err error) {
 	lastRequestState := jm.jobStatsRegistry.LastJobStatus(req)
@@ -1095,9 +1096,12 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		jobExec.ErrorMessage,
 		jobExec.ErrorCode,
 		jobExec.ExecutionCostSecs(),
+		scheduleDelay,
 		retried)
 	if req.GetJobState().Failed() {
 		jm.jobStatsRegistry.Failed(jobExec, jobExec.ElapsedMillis())
+	} else if req.GetJobState().Paused() {
+		jm.jobStatsRegistry.Paused(jobExec, jobExec.ElapsedMillis())
 	} else {
 		jm.jobStatsRegistry.Succeeded(jobExec, jobExec.ElapsedMillis())
 	}

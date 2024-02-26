@@ -117,15 +117,16 @@ send excessive work. Note: You can spawn any number of ant workers that can load
 An executor abstracts the runtime environment for execution a task. The formicary uses method to define the type 
 of executor. Following executor methods are supported:
 
-|     Executor |   Method |
-| :----------: | :-----------: |
-| Kubernetes Pods | KUBERNETES |
-| Docker containers | DOCKER |
-| Shell | SHELL |
+|           Executor           |                                          Method                                          |
+|:----------------------------:|:----------------------------------------------------------------------------------------:|
+|       Kubernetes Pods        |                                        KUBERNETES                                        |
+|      Docker containers       |                                          DOCKER                                          |
+|            Shell             |                                          SHELL                                           |
 | HTTP (GET POST, PUT, DELETE) | HTTP_GET HTTP_POST_FORM HTTP_POST_JSON HTTP_PUT_FORM HTTP_PUT_JSON HTTP_DELETE WEBSOCKET |
-| Fork/Await | JOB_FORK, JOB_FORK_AWAIT |
-| Artifact/Expiration | EXPIRE_ARTIFACTS |
-| Messaging | MESSAGING |
+|          Fork/Await          |                                 JOB_FORK, JOB_FORK_AWAIT                                 |
+|     Artifact/Expiration      |                                     EXPIRE_ARTIFACTS                                     |
+|          Messaging           |                                        MESSAGING                                         |
+|           Custom             |                                        WEBSOCKET                                         |
 
 #### Processing Pipeline (Pipes & Filters)
 The formicary applies pipes & filters pattern where tasks takes parameters or artifacts as input and produce other sets of artifacts and response variables, which in turn 
@@ -179,6 +180,7 @@ A job can be in following states:
 - EXECUTING
 - STARTED
 - CANCELLED
+- PAUSED
 
 #### Task State:
 A task can be in following states:

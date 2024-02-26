@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	yaml "gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/utils"
 
 	"plexobject.com/formicary/internal/utils/trace"
@@ -712,7 +711,7 @@ func (u *Utils) Execute(
 		return pod, fmt.Errorf("failed to create create spdy executor for %s due to %w", pod.Name, err)
 	}
 
-	return pod, exec.Stream(remotecommand.StreamOptions{
+	return pod, exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: &base.Stdout, // base.Trace
 		Stderr: &base.Stderr,
@@ -752,7 +751,7 @@ func (u *Utils) GetRuntimeInfo(
 		}
 	}
 
-	if data, err := yaml.Marshal(result); err == nil {
+	if data, err := json.Marshal(result); err == nil {
 		sb.Write(data)
 	}
 	return sb.String()

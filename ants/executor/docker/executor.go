@@ -152,7 +152,7 @@ func (de *Executor) Stop(ctx context.Context) error {
 		_ = de.WriteTraceError(ctx, fmt.Sprintf("⛔ failed to stop container: Error=%v Elapsed=%v, StopWait=%v",
 			err, de.Elapsed(), de.AntConfig.GetShutdownTimeout()))
 	} else {
-		_ = de.WriteTraceInfo(ctx, fmt.Sprintf("🛑 stopped container: Elapsed=%v, StopWait=%v",
+		_ = de.WriteTraceInfo(ctx, fmt.Sprintf("🛑 stopped docker-container: Elapsed=%v, StopWait=%v",
 			de.Elapsed(), de.AntConfig.GetShutdownTimeout()))
 	}
 	return err

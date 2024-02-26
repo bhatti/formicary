@@ -823,7 +823,7 @@ func Test_ShouldGetDynamicConfigForJobDefinition(t *testing.T) {
 	}
 	cfg := job.GetDynamicConfigAndVariables(params)
 	// THEN it should not fail and match expected values
-	require.Equal(t, 3, len(cfg))
+	require.Equal(t, 7, len(cfg))
 	require.Equal(t, "jv1", cfg["jk1"].Value)
 	require.Equal(t, "License", job.Resources.ResourceType)
 	require.Equal(t, "my-job", job.Resources.ExtractConfig.ContextPrefix)

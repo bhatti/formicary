@@ -4,11 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"plexobject.com/formicary/internal/math"
+	"strconv"
 	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/types"
 )
+
+const previousTaskExecutionCostSecs = "PreviousTaskExecutionCostSecs"
+const previousTaskExecutionID = "PreviousTaskExecutionID"
 
 // TaskExecution records the execution of a task or a unit of work, carried out by ant-workers in accordance
 // with the specifications of the task-definition. It captures the status and the outputs produced by the
@@ -96,6 +100,9 @@ func (te *TaskExecution) ElapsedDuration() string {
 	if te.EndedAt == nil || te.TaskState == types.EXECUTING {
 		return time.Now().Sub(te.StartedAt).String()
 	}
+	if te.EndedAt.Sub(te.StartedAt).Milliseconds() < 0 {
+		return ""
+	}
 	return te.EndedAt.Sub(te.StartedAt).String()
 }
 
@@ -108,10 +115,11 @@ func (te *TaskExecution) ExecutionCostSecs() int64 {
 	}
 	cost := math.Max64(int64(ended.Sub(te.StartedAt).Seconds()*te.CostFactor),
 		int64(ended.Sub(te.StartedAt).Seconds()))
+	cost += te.GetPreviousExecutionCostSecs()
 	if te.CostFactor == 0 {
 		return cost + int64(te.CountServices)*cost
 	}
-	return cost
+	return math.Max64(cost, 0)
 }
 
 // CanRestart checks if task can be restarted
@@ -127,6 +135,11 @@ func (te *TaskExecution) CanCancel() bool {
 // Completed task
 func (te *TaskExecution) Completed() bool {
 	return te.TaskState.Completed()
+}
+
+// Paused task
+func (te *TaskExecution) Paused() bool {
+	return te.TaskState.Paused()
 }
 
 // Failed task
@@ -184,6 +197,25 @@ func (te *TaskExecution) LogArtifact() *types.Artifact {
 		}
 	}
 	return nil
+}
+
+// AddPreviousExecutionCostSecs adds previous task execution
+func (te *TaskExecution) AddPreviousExecutionCostSecs(previousTaskExecutionID string, secs int64) {
+	if secs > 0 {
+		_, _ = te.AddContext(previousTaskExecutionCostSecs, secs)
+		_, _ = te.AddContext(previousTaskExecutionID, previousTaskExecutionID)
+	}
+}
+
+// GetPreviousExecutionCostSecs finds previous task execution
+func (te *TaskExecution) GetPreviousExecutionCostSecs() int64 {
+	for _, c := range te.Contexts {
+		if c.Name == previousTaskExecutionCostSecs {
+			n, _ := strconv.ParseInt(c.Value, 10, 64)
+			return n
+		}
+	}
+	return 0
 }
 
 // AddContext adds task context

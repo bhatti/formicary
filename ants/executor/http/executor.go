@@ -108,7 +108,7 @@ func (h *Executor) Stop(ctx context.Context) error {
 		}
 	}
 	_ = h.BaseExecutor.WriteTraceInfo(ctx,
-		fmt.Sprintf("🛑 stopped container: Error=%v Elapsed=%v, StopWait=%v",
+		fmt.Sprintf("🛑 stopped http-container: Error=%v Elapsed=%v, StopWait=%v",
 			err, time.Since(started).String(), h.AntConfig.GetShutdownTimeout()))
 	h.runners = make(map[string]*CommandRunner)
 	return err

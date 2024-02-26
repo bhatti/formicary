@@ -100,6 +100,8 @@ type JobDefinition struct {
 	CronTrigger string `yaml:"cron_trigger,omitempty" json:"cron_trigger"`
 	// Timeout defines max time a job should take, otherwise the job is aborted
 	Timeout time.Duration `yaml:"timeout,omitempty" json:"timeout"`
+	// PauseTime defines pause time when a job is paused.
+	PauseTime time.Duration `yaml:"pause_time,omitempty" json:"pause_time"`
 	// Retry defines max number of tries a job can be retried where it re-runs failed job
 	Retry int `yaml:"retry,omitempty" json:"retry"`
 	// HardResetAfterRetries defines retry config when job is rerun and as opposed to re-running only failed tasks, all tasks are executed.
@@ -195,6 +197,18 @@ func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
 	return jd.DelayBetweenRetries
 }
 
+// GetPauseTime delay between resume
+func (jd *JobDefinition) GetPauseTime() time.Duration {
+	if jd.PauseTime <= 0 {
+		if n, err := rand.Int(rand.Reader, big.NewInt(10)); err == nil {
+			jd.PauseTime = time.Second * time.Duration(n.Int64()+30)
+		} else {
+			jd.PauseTime = time.Second * 30
+		}
+	}
+	return jd.PauseTime
+}
+
 // GetNextTask next task to run
 func (jd *JobDefinition) GetNextTask(
 	task *TaskDefinition,
@@ -209,6 +223,9 @@ func (jd *JobDefinition) GetNextTask(
 	// EXECUTING keep running same task
 	if common.NewRequestState(nextTaskName) == common.EXECUTING {
 		return task, false, nil
+	} else if common.NewRequestState(nextTaskName) == common.PAUSE_JOB ||
+		common.NewRequestState(nextTaskName) == common.PAUSED {
+		nextTaskName = task.OnExitCode[common.PAUSE_JOB]
 	} else if common.NewRequestState(nextTaskName) == common.COMPLETED {
 		nextTaskName = task.OnExitCode[common.COMPLETED]
 	} else if common.NewRequestState(nextTaskName) == common.FAILED ||
@@ -224,12 +241,26 @@ func (jd *JobDefinition) GetNextTask(
 
 	// find by status
 	nextTaskDef = jd.GetTask(task.OnExitCode[common.NewRequestState(string(taskStatus))])
+
 	if nextTaskDef != nil {
 		return nextTaskDef, false, nil
 	}
 
 	if task.AllowFailure {
 		return jd.GetTask(task.OnExitCode[common.COMPLETED]), false, nil
+	}
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":        "JobDefinition",
+			"JobDefinitionID":  jd.ID,
+			"TaskDefinitionID": task.ID,
+			"Status":           taskStatus,
+			"ExitCode":         exitCode,
+			"Error":            err,
+			"Next":             nextTaskDef,
+			"OnExitCode":       task.OnExitCode,
+		}).Debugf("could not find next task from GetNextTask")
 	}
 
 	return nil, false, nil
@@ -392,6 +423,10 @@ func (jd *JobDefinition) GetDynamicTask(
 // GetDynamicConfigAndVariables builds config and variables
 func (jd *JobDefinition) GetDynamicConfigAndVariables(data interface{}) map[string]common.VariableValue {
 	res := make(map[string]common.VariableValue)
+	res["JobID"] = common.NewVariableValue("0", false)
+	res["JobType"] = common.NewVariableValue(jd.JobType, false)
+	res["JobRetry"] = common.NewVariableValue(0, false)
+	res["JobElapsedSecs"] = common.NewVariableValue(0, false)
 	for _, next := range jd.Variables {
 		if vv, err := next.GetVariableValue(); err == nil {
 			res[next.Name] = vv
@@ -1144,6 +1179,7 @@ func (jd *JobDefinition) validateReachableTasks() (map[string]bool, error) {
 	reservedExitCodes := map[string]bool{
 		string(common.FATAL):        true,
 		string(common.RESTART_JOB):  true,
+		string(common.PAUSE_JOB):    true,
 		string(common.RESTART_TASK): true,
 		string(common.EXECUTING):    true,
 		string(common.FAILED):       true,

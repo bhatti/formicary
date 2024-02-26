@@ -48,10 +48,14 @@ func NewTaskExecutionStateMachine(
 	}
 
 	// If this is continuation from previous job execution and task is already completed, then simply return it
+	var previousTaskExecution *types.TaskExecution
+	var previousExecutionCostSecs int64
 	if tsm.TaskExecution != nil {
 		if tsm.TaskExecution.TaskState.Completed() {
 			return
 		}
+		previousExecutionCostSecs = tsm.TaskExecution.ExecutionCostSecs()
+		previousTaskExecution = tsm.TaskExecution
 		tsm.JobExecution.DeleteTask(tsm.TaskExecution.ID)
 		// otherwise, let's remove last incomplete or failed task
 		if err = tsm.JobManager.DeleteExecutionTask(tsm.TaskExecution.ID); err != nil {
@@ -61,6 +65,22 @@ func NewTaskExecutionStateMachine(
 
 	// create new task execution
 	tsm.TaskExecution = tsm.JobExecution.AddTask(tsm.TaskDefinition)
+	if previousExecutionCostSecs > 0 {
+		tsm.TaskExecution.AddPreviousExecutionCostSecs(previousTaskExecution.ID, previousExecutionCostSecs)
+		logrus.WithFields(logrus.Fields{
+			"Component":                            "TaskExecutionStateMachine",
+			"RequestID":                            tsm.Request.GetID(),
+			"UserID":                               tsm.Request.GetUserID(),
+			"Organization":                         tsm.Request.GetOrganizationID(),
+			"JobDefinitionID":                      tsm.JobDefinition.ID,
+			"JobType":                              tsm.JobDefinition.JobType,
+			"PreviousExecutionCostSecs":            previousTaskExecution.GetPreviousExecutionCostSecs(),
+			"PreviousExecutionCostSecsWithCurrent": previousExecutionCostSecs,
+			"CurrentExecutionCostSecs":             tsm.TaskExecution.ExecutionCostSecs(),
+			"PreviousExecutionID":                  previousTaskExecution.ID,
+		}).Infof("adding cost from previous execution")
+	}
+
 	if _, err = tsm.JobManager.SaveExecutionTask(tsm.TaskExecution); err != nil {
 		tsm.TaskExecution.TaskState = common.FAILED
 		tsm.TaskExecution.ErrorMessage = err.Error()
@@ -189,6 +209,17 @@ func (tsm *TaskExecutionStateMachine) CanReusePreviousResult() bool {
 		tsm.LastTaskExecution.TaskState.Completed()
 }
 
+// BuildExecutorOptsName sets container name
+func (tsm *TaskExecutionStateMachine) BuildExecutorOptsName() {
+	tsm.ExecutorOptions.Name = utils.MakeDNS1123Compatible(
+		fmt.Sprintf("frm-%d-%s-%d-%d-%d",
+			tsm.Request.GetID(),
+			tsm.TaskDefinition.ShortTaskType(),
+			tsm.Request.GetRetried(),
+			tsm.TaskExecution.Retried,
+			rand.Intn(10000)))
+}
+
 // BuildTaskRequest - create a new task request
 func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, error) {
 	// Add dependent artifacts if exist
@@ -249,13 +280,10 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	//	tsm.ExecutorOptions.HostNetwork = true
 	//}
 	// override name of main container in executor options
-	taskReq.ExecutorOpts.Name = utils.MakeDNS1123Compatible(
-		fmt.Sprintf("FRM-%d-%s-%d-%d-%d",
-			tsm.Request.GetID(),
-			tsm.TaskDefinition.ShortTaskType(),
-			tsm.Request.GetRetried(),
-			tsm.TaskExecution.Retried,
-			rand.Intn(10000)))
+
+	// Setup container name
+	tsm.BuildExecutorOptsName()
+
 	taskReq.ExecutorOpts.PodLabels[common.RequestID] = fmt.Sprintf("%d", tsm.Request.GetID())
 	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()

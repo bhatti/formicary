@@ -99,6 +99,9 @@ func (je *JobExecution) ElapsedDuration() string {
 	if je.EndedAt == nil || je.JobState == types.EXECUTING {
 		return time.Now().Sub(je.StartedAt).String()
 	}
+	if je.EndedAt.Sub(je.StartedAt).Milliseconds() < 0 {
+		return ""
+	}
 	return je.EndedAt.Sub(je.StartedAt).String()
 }
 
@@ -107,7 +110,11 @@ func (je *JobExecution) ElapsedMillis() int64 {
 	if je.EndedAt == nil || je.JobState == types.EXECUTING {
 		return time.Now().Sub(je.StartedAt).Milliseconds()
 	}
-	return je.EndedAt.Sub(je.StartedAt).Milliseconds()
+	elapsed := je.EndedAt.Sub(je.StartedAt).Milliseconds()
+	if elapsed < 0 {
+		return 0
+	}
+	return elapsed
 }
 
 // CostFactor - factor multiplier
@@ -126,14 +133,15 @@ func (je *JobExecution) ExecutionCostSecs() int64 {
 		now := time.Now()
 		ended = &now
 	}
+	secs := int64(ended.Sub(je.StartedAt).Seconds())
 	if je.CPUSecs > 0 {
-		return math.Max64(int64(ended.Sub(je.StartedAt).Seconds()), je.CPUSecs)
+		return math.Max64(secs, je.CPUSecs)
 	}
 	var total int64
 	for _, t := range je.Tasks {
 		total += t.ExecutionCostSecs()
 	}
-	return math.Max64(int64(ended.Sub(je.StartedAt).Seconds()), total)
+	return math.Max64(secs, total)
 }
 
 // CanRestart checks if job can be restarted

@@ -56,6 +56,7 @@ type JobExecutionStateMachine struct {
 	User                *common.User
 	Reservations        map[string]*common.AntReservation
 	StartedAt           time.Time
+	revertState         common.RequestState
 	id                  string
 	serverCfg           *config.ServerConfig
 	errorCode           *common.ErrorCode
@@ -111,6 +112,11 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 	if jsm.Reservations == nil {
 		return fmt.Errorf("job-allocations is not specified")
+	}
+
+	jsm.revertState = jsm.Request.GetJobState()
+	if jsm.revertState != common.PAUSED {
+		jsm.revertState = common.PENDING
 	}
 
 	// checking params
@@ -267,13 +273,13 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 	return
 }
 
-// CreateJobExecution moves the state from PENDING to READY for request and creates a new
+// CreateJobExecution moves the state from PENDING|PAUSED to READY for request and creates a new
 // job-execution with READY state, but it moves states to FAILED for both in case of failure
 func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (dbError error, eventError error) {
 	if jsm.JobExecution != nil {
 		return fmt.Errorf("job-execution already exists"), nil
 	}
-	if jsm.Request.GetJobState() != common.PENDING {
+	if jsm.Request.GetJobState() != common.PENDING && jsm.Request.GetJobState() != common.PAUSED {
 		return fmt.Errorf("invalid job-state %s", jsm.Request.GetJobState()), nil
 	}
 
@@ -385,8 +391,8 @@ func (jsm *JobExecutionStateMachine) ScheduleFailed(
 	_ context.Context,
 	err error,
 	errorCode string) error {
-	// No need to send any lifecycle event because job hasn't started
-	return jsm.failed(common.PENDING, false, err, errorCode)
+	// No need to send any lifecycle event because job hasn't started - from PENDING | PAUSED
+	return jsm.failed(jsm.revertState, false, err, errorCode)
 }
 
 // LaunchFailed is called when job-launcher fails to launch job and request and execution is marked as failed.
@@ -466,6 +472,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCompleted(
 		jsm.Request,
 		jsm.JobExecution,
 		common.EXECUTING,
+		0,
 		jsm.Request.GetRetried(),
 	)
 
@@ -550,12 +557,66 @@ func (jsm *JobExecutionStateMachine) ReserveJobResources() (err error) {
 	return
 }
 
-// RestartJobBackToPending puts back the job in PENDING state from executing
-func (jsm *JobExecutionStateMachine) RestartJobBackToPending(err error) (saveError error) {
+// PauseJob puts back the job in PAUSED state from executing
+func (jsm *JobExecutionStateMachine) PauseJob() (saveError error) {
+	// release ant resources for the job
+	jsm.forceReleaseJobResources()
+	now := time.Now()
+	jsm.Request.SetJobState(common.PAUSED)
+	jsm.JobExecution.EndedAt = &now
+	jsm.JobExecution.JobState = common.PAUSED
+	jsm.JobExecution.ErrorCode = common.ErrorPauseJob
+	jsm.JobExecution.EndedAt = &now
+
+	fields := jsm.LogFields("JobExecutionStateMachine", nil)
+
+	// Mark job request and execution to PAUSED
+	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
+		jsm.QueryContext(),
+		jsm.User,
+		jsm.JobDefinition,
+		jsm.Request,
+		jsm.JobExecution,
+		common.EXECUTING,
+		jsm.JobDefinition.GetPauseTime(),
+		jsm.Request.IncrRetried(),
+	)
+
+	_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
+		jsm.Request,
+		types.JobRequestPaused,
+		jsm.QueryContext()))
+
+	jsm.MetricsRegistry.Incr(
+		"job_paused_total",
+		map[string]string{
+			"Org": jsm.Request.GetOrganizationID(),
+			"Job": jsm.Request.GetJobType()})
+
+	// treating error sending lifecycle event as non-fatal error
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
+		fields["LifecycleNotificationsError"] = eventError
+	}
+	fields["JobExecutionState"] = jsm.JobExecution.JobState
+	fields["JobExecutionErrorCode"] = jsm.JobExecution.ErrorCode
+	fields["PauseTime"] = jsm.JobDefinition.GetPauseTime().String()
+	if saveError == nil {
+		logrus.WithFields(fields).Infof("paused job successfully.")
+	} else {
+		fields["saveErr"] = saveError
+		logrus.WithFields(fields).Warnf("paused job failed to persist state.")
+	}
+	return
+}
+
+// RestartJobBackToPendingPaused puts back the job in PENDING|PAUSED state from executing
+func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (saveError error) {
 	// release ant resources for the job
 	jsm.forceReleaseJobResources()
 	fields := jsm.LogFields("JobExecutionStateMachine",
-		fmt.Errorf("setting job back to PENDING due to %s after %s secs - %s",
+		fmt.Errorf("setting job back to %s due to %s after %s secs - %s",
+			jsm.revertState,
 			err,
 			jsm.JobDefinition.GetDelayBetweenRetries().String(),
 			reflect.TypeOf(jsm.Request)))
@@ -566,12 +627,12 @@ func (jsm *JobExecutionStateMachine) RestartJobBackToPending(err error) (saveErr
 			"Org": jsm.Request.GetOrganizationID(),
 			"Job": jsm.Request.GetJobType()})
 
-	// setting job request back to PENDING
+	// setting job request back to PENDING|PAUSED
 	if saveRequestErr := jsm.JobManager.UpdateJobRequestState(
 		jsm.QueryContext(),
 		jsm.Request,
 		common.EXECUTING,
-		common.PENDING,
+		jsm.revertState,
 		err.Error(),
 		"",
 		jsm.JobDefinition.GetDelayBetweenRetries(),
@@ -581,13 +642,13 @@ func (jsm *JobExecutionStateMachine) RestartJobBackToPending(err error) (saveErr
 		fields["saveRequestErr"] = saveRequestErr
 	}
 
-	jsm.Request.SetJobState(common.PENDING)
+	jsm.Request.SetJobState(jsm.revertState)
 	logrus.WithFields(fields).Warn(err)
 	return
 }
 
-// RevertRequestToPending puts back the job in PENDING state
-func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveError error) {
+// RevertRequestToPendingPaused puts back the job in PENDING|PAUSED state
+func (jsm *JobExecutionStateMachine) RevertRequestToPendingPaused(err error) (saveError error) {
 	// release ant resources for the job
 	jsm.forceReleaseJobResources()
 	now := time.Now()
@@ -599,12 +660,12 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveErro
 			"Org": jsm.Request.GetOrganizationID(),
 			"Job": jsm.Request.GetJobType()})
 
-	// setting job request back to PENDING
+	// setting job request back to PENDING|PAUSED
 	if saveRequestErr := jsm.JobManager.UpdateJobRequestState(
 		jsm.QueryContext(),
 		jsm.Request,
 		common.READY,
-		common.PENDING,
+		jsm.revertState,
 		err.Error(),
 		"",
 		jsm.JobDefinition.GetDelayBetweenRetries(),
@@ -613,7 +674,7 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPending(err error) (saveErro
 		saveError = saveRequestErr
 		fields["saveRequestErr"] = saveRequestErr
 	}
-	jsm.Request.SetJobState(common.PENDING)
+	jsm.Request.SetJobState(jsm.revertState)
 
 	if jsm.JobExecution != nil {
 		jsm.JobExecution.JobState = common.DELETED
@@ -727,6 +788,7 @@ func (jsm *JobExecutionStateMachine) failed(
 			jsm.Request,
 			jsm.JobExecution,
 			oldState,
+			jsm.JobDefinition.GetDelayBetweenRetries(),
 			jsm.Request.GetRetried(),
 		)
 		_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(

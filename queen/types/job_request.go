@@ -226,7 +226,10 @@ func (jr *JobRequest) ElapsedDuration() string {
 		}
 		return time.Now().Sub(jr.ScheduledAt).String()
 	}
-	return jr.UpdatedAt.Sub(jr.ScheduledAt).String()
+	if jr.ScheduledAt.Unix() < jr.UpdatedAt.Unix() {
+		return jr.UpdatedAt.Sub(jr.ScheduledAt).String()
+	}
+	return jr.UpdatedAt.Sub(jr.CreatedAt).String()
 }
 
 // ShortUserID short user id

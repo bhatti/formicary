@@ -79,7 +79,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 	// WHEN changing context again and setting status to finalized
 	_, _ = jobExec.AddContext("jk9", 99)
 	err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
-		savedJobExec.ID, common.EXECUTING, common.FAILED, "failed", "", 10, 1)
+		savedJobExec.ID, common.EXECUTING, common.FAILED, "failed", "", 10, 100, 1)
 	require.NoError(t, err)
 	err = jobExecutionRepository.UpdateJobContext(savedJobExec.ID, jobExec.Contexts)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 
 	// Cannot change state from terminal
 	err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
-		savedJobExec.ID, common.FAILED, common.PENDING, "failed", "", 10, 0)
+		savedJobExec.ID, common.FAILED, common.PENDING, "failed", "", 10, 0, 0)
 	// should fail to change state from terminal
 	require.Error(t, err)
 
@@ -155,6 +155,7 @@ func Test_ShouldSaveValidJobExecutionWithoutContext(t *testing.T) {
 		"",
 		"",
 		10,
+		100,
 		0)
 	require.Error(t, err)
 }
@@ -232,6 +233,64 @@ func Test_ShouldSaveTaskExecutionConcurrently(t *testing.T) {
 	}
 }
 
+// Saving task execution with retries
+func Test_ShouldAddTaskExecutionToJobExecutionWithRetries(t *testing.T) {
+	// GIVEN repositories
+	repo, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := SaveTestJobDefinition(qc, "valid-job-with-config", "")
+	require.NoError(t, err)
+
+	// WHEN creating a job-execution
+	now := time.Now()
+	_, jobExec, err := NewTestJobExecution(qc, job.JobType)
+	jobExec.StartedAt = now
+	jobExec.EndedAt = &now
+	require.NoError(t, err)
+
+	for _, task := range jobExec.Tasks {
+		task.StartedAt = time.Now().Add(-10 * time.Second)
+		task.EndedAt = &now
+		task.TaskState = common.COMPLETED
+		require.Equal(t, int64(9), task.ExecutionCostSecs())
+	}
+
+	// THEN saving job-execution should succeed
+	savedExec, err := repo.Save(jobExec)
+	require.NoError(t, err)
+	// Retrieving job-execution by id
+	loaded, err := repo.Get(savedExec.ID)
+	require.NoError(t, err)
+	require.NoError(t, loaded.Equals(jobExec))
+	require.Equal(t, len(jobExec.Tasks), len(loaded.Tasks))
+	require.Equal(t, int64(81), loaded.ExecutionCostSecs())
+	{
+		_, oldTask := jobExec.GetTask("", job.Tasks[0].TaskType)
+		previousExecutionCostSecs := oldTask.ExecutionCostSecs()
+		loaded.DeleteTask(oldTask.ID)
+		require.NoError(t, repo.DeleteTask(oldTask.ID))
+		newTask := loaded.AddTask(job.Tasks[0])
+		newTask.AddPreviousExecutionCostSecs(oldTask.ID, previousExecutionCostSecs)
+		newTask.StartedAt = time.Now().Add(-15 * time.Second)
+		newTask.EndedAt = &now
+		newTask.TaskState = common.COMPLETED
+		require.Equal(t, int64(9), newTask.GetPreviousExecutionCostSecs())
+		_, err = repo.SaveTask(newTask)
+		require.NoError(t, err)
+	}
+
+	loaded, err = repo.Get(savedExec.ID)
+	require.NoError(t, err)
+	_, loadedTask := loaded.GetTask("", job.Tasks[0].TaskType)
+	require.NotNil(t, loadedTask)
+	require.Equal(t, int64(9), loadedTask.GetPreviousExecutionCostSecs())
+	require.Equal(t, int64(9), loadedTask.ExecutionCostSecs())
+	require.Equal(t, int64(81), loaded.ExecutionCostSecs())
+}
+
 // Saving task execution separately after creating job execution
 func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	// GIVEN repositories
@@ -301,7 +360,15 @@ func Test_ShouldAddTaskExecutionToJobExecution(t *testing.T) {
 	require.Equal(t, "final", loadedTask.GetContext("nk3").Value)
 
 	// WHEN changing state from terminal state
-	loadedTask.TaskState = common.PENDING
+	loadedTask.TaskState = common.PAUSED
+
+	_, err = repo.SaveTask(loadedTask)
+
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN changing state from terminal state
+	loadedTask.TaskState = common.PAUSED
 
 	_, err = repo.SaveTask(loadedTask)
 
@@ -415,6 +482,7 @@ func Test_ShouldJobExecutionAccountingByOrgUser(t *testing.T) {
 			"",
 			"",
 			10,
+			100,
 			0)
 		require.NoError(t, err)
 	}
@@ -464,6 +532,7 @@ func Test_ShouldJobExecutionAccounting(t *testing.T) {
 			"",
 			"",
 			10,
+			100,
 			0)
 		require.NoError(t, err)
 	}

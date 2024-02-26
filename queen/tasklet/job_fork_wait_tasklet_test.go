@@ -139,7 +139,7 @@ func newTestForkWaitTasklet(
 	require.NoError(t, err)
 
 	exec.JobState = common.COMPLETED
-	err = jobManager.FinalizeJobRequestAndExecutionState(qc, qc.User, &types.JobDefinition{}, req, exec, common.READY, 0)
+	err = jobManager.FinalizeJobRequestAndExecutionState(qc, qc.User, &types.JobDefinition{}, req, exec, common.READY, 0, 0)
 	require.NoError(t, err)
 	//_ = jobManager.UpdateJobRequestState(qc, req, common.READY, common.COMPLETED, "", "", 0, 0, false)
 

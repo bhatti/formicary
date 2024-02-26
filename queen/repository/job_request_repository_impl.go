@@ -104,6 +104,9 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 	var job types.JobRequest
 	tx := jrr.db.Model(&job).Where("id = ?", id)
 	if oldState != "" {
+		if !oldState.CanTransitionTo(newState) {
+			return fmt.Errorf("job %d cannot transition from %s to %s", id, oldState, newState)
+		}
 		tx = tx.Where("job_state = ?", oldState)
 	}
 	updates := map[string]interface{}{"job_state": newState, "updated_at": time.Now()}
@@ -111,7 +114,7 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 		updates["error_message"] = errorMessage
 		updates["error_code"] = errorCode
 	}
-	if newState == common.PENDING {
+	if newState == common.PENDING || newState == common.PAUSED {
 		if scheduleDelay > 0 {
 			updates["scheduled_at"] = time.Now().Add(scheduleDelay)
 		}
@@ -255,7 +258,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 	var job types.JobRequest
 	tx := jrr.db.Model(&job).
 		Where("id = ?", id).
-		Where("job_state = ?", common.PENDING)
+		Where("job_state IN ?", []string{string(common.PENDING), string(common.PAUSED)})
 
 	res = tx.Updates(map[string]interface{}{
 		"job_state":             common.READY,
@@ -434,6 +437,7 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
 		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
+	// TODO check PAUSED
 	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, common.NotRestartableStates}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
@@ -721,7 +725,7 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 		}
 		_, userKeys[i] = types.GetCronScheduleTimeAndUserKey(typeAndTrigger.OrganizationOrUserID(), typeAndTrigger.JobType, typeAndTrigger.CronTrigger)
 	}
-	jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED, common.EXECUTING}
+	jobStates := []common.RequestState{common.PENDING, common.PAUSED, common.READY, common.STARTED, common.EXECUTING}
 	args := []interface{}{true, jobTypes, jobStates}
 
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
@@ -783,21 +787,21 @@ func (jrr *JobRequestRepositoryImpl) GetJobTimes(
 	return times, nil
 }
 
-// NextSchedulableJobsByType queries basic job id/state for pending/ready state from parameter
-func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByType(
+// NextSchedulableJobsByTypes queries basic job id/state for pending/ready state from parameter
+func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByTypes(
 	jobTypes []string,
-	state common.RequestState,
+	state []common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
 		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions WHERE disabled is false AND active is true AND " +
 		" (user_id = formicary_job_requests.user_id OR organization_id = formicary_job_requests.organization_id)) " +
-		" AND job_state = ? AND scheduled_at <= ? "
+		" AND job_state IN ? AND scheduled_at <= ? "
 
 	args := []interface{}{state, time.Now()}
 
 	if len(jobTypes) > 0 {
-		sql += " AND job_type in ?"
+		sql += " AND job_type IN ?"
 		args = append(args, jobTypes)
 	}
 	sql += " ORDER BY job_priority DESC, created_at LIMIT ?"
@@ -895,7 +899,7 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	tx := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Params").Limit(pageSize).Offset(page * pageSize)
 	tx = jrr.addQuery(params, tx)
 	if len(order) == 0 {
-		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING {
+		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING || jobState == common.PAUSED {
 			tx = tx.Order("job_priority DESC").Order("created_at")
 		} else {
 			tx = tx.Order("updated_at DESC")

@@ -173,33 +173,40 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 	errorMessage string,
 	errorCode string,
 	cpuSecs int64,
+	scheduleDelay time.Duration,
 	retried int,
 ) error {
-	if !newState.IsTerminal() {
+	if !newState.CanFinalize() {
 		return common.NewValidationError(
 			fmt.Errorf("new state %s is not terminal", newState))
 	}
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		// saving job request along with job-execution in a same transaction
+		updates := map[string]interface{}{
+			"job_state":     newState,
+			"error_message": errorMessage,
+			"error_code":    errorCode,
+			"retried":       retried,
+			"updated_at":    time.Now(),
+		}
+		if newState == common.PAUSED {
+			if scheduleDelay > 0 {
+				updates["scheduled_at"] = time.Now().Add(scheduleDelay)
+			}
+		}
 		res := tx.Model(&types.JobRequest{}).
 			Where("job_execution_id = ?", id).
-			Where("job_state = ?", oldState).Updates(
-			map[string]interface{}{
-				"job_state":     newState,
-				"error_message": errorMessage,
-				"error_code":    errorCode,
-				"retried":       retried,
-				"updated_at":    time.Now(),
-			})
+			Where("job_state = ?", oldState).Updates(updates)
 		if res.Error != nil {
 			return common.NewNotFoundError(res.Error)
 		}
 		if res.RowsAffected != 1 {
+			rows := res.RowsAffected
 			var req types.JobRequest
 			res = tx.Where("job_execution_id = ?", id).First(&req)
 			return common.NewNotFoundError(
-				fmt.Errorf("failed to update job request state from %s to %s -- db-state '%s'",
-					oldState, newState, req.JobState))
+				fmt.Errorf("failed to update job request state from %s to %s -- db-state '%s', rows %d",
+					oldState, newState, req.JobState, rows))
 		}
 
 		// check in-clause
@@ -232,7 +239,7 @@ func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 	id string,
 	oldState common.RequestState,
 	newState common.RequestState) error {
-	if newState.IsTerminal() {
+	if newState.CanFinalize() {
 		return common.NewValidationError(
 			fmt.Errorf("new state %s cannot be terminal", newState))
 	}
@@ -322,7 +329,7 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 		newTask := false
 		if task.ID != "" {
 			task.UpdatedAt = time.Now()
-			if task.TaskState.IsTerminal() {
+			if task.TaskState.CanFinalize() {
 				task.EndedAt = &now
 			}
 		} else {
@@ -427,7 +434,7 @@ func (jer *JobExecutionRepositoryImpl) Save(
 			t.JobExecutionID = jobExec.ID
 			t.Active = true
 		}
-		if jobExec.JobState.IsTerminal() {
+		if jobExec.JobState.CanFinalize() {
 			jobExec.CPUSecs = jobExec.ExecutionCostSecs()
 			if !newJob {
 				cpuSecs := jer.calcCost(jobExec.ID)

@@ -76,10 +76,10 @@ type JobRequestRepository interface {
 	FindActiveCronScheduledJobsByJobType(
 		jobTypes []types.JobTypeCronTrigger,
 	) ([]*types.JobRequestInfo, error)
-	// NextSchedulableJobsByType returns next ready to schedule job types and state
-	NextSchedulableJobsByType(
+	// NextSchedulableJobsByTypes returns next ready to schedule job types and state
+	NextSchedulableJobsByTypes(
 		jobTypes []string,
-		state common.RequestState,
+		state []common.RequestState,
 		limit int) ([]*types.JobRequestInfo, error)
 	// GetJobTimes finds job times
 	GetJobTimes(
@@ -128,5 +128,5 @@ type JobRequestRepository interface {
 		limit int,
 		fromOffset time.Duration,
 		toOffset time.Duration,
-		) ([]uint64, error)
+	) ([]uint64, error)
 }

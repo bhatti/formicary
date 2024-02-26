@@ -165,12 +165,27 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND Updating state with non-matching old state should fail
-	err = repo.UpdateJobState(req.ID, "BLAH", "READY", "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, "BLAH", common.READY, "", "", 0, 0)
+	// THEN it should fail
+	require.Error(t, err)
+
+	// WHEN Updating state with valid old state but bad transition
+	err = repo.UpdateJobState(req.ID, common.PENDING, common.EXECUTING, "", "", 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, "PENDING", "EXECUTING", "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.PENDING, common.READY, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -185,7 +200,27 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, "EXECUTING", "COMPLETED", "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.PAUSED, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.PAUSED, common.READY, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
+	// THEN it should not fail
+	require.NoError(t, err)
+
+	// WHEN Updating state with valid old state
+	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.COMPLETED, "", "", 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -448,7 +483,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 		job, err := SaveTestJobDefinition(qc, jobType, "")
 		require.NoError(t, err)
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
-			common.EXECUTING, common.COMPLETED, common.FAILED}
+			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED}
 		// See https://github.com/hashicorp/cronexpr
 
 		for j, jobState := range jobStates {
@@ -471,7 +506,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 
 	// THEN it should not fail
 	require.NoError(t, err)
-	require.Equal(t, 120, len(recs))
+	require.Equal(t, 140, len(recs))
 }
 
 // Test query for triggered jobs that are active
@@ -494,7 +529,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 		require.NoError(t, err)
 		jobTypes = append(jobTypes, types.NewJobTypeCronTrigger(job))
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
-			common.EXECUTING, common.COMPLETED, common.FAILED}
+			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED}
 		// See https://github.com/hashicorp/cronexpr
 
 		for j, jobState := range jobStates {
@@ -523,7 +558,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 	total, err := repo.Count(qc, params)
 	// THEN it should match expected count
 	require.NoError(t, err)
-	require.Equal(t, int64(120), total)
+	require.Equal(t, int64(140), total)
 
 	// WHEN finding active requests by jobTypes
 	infos, err := repo.FindActiveCronScheduledJobsByJobType(jobTypes)
@@ -555,7 +590,8 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	start := time.Now()
 
 	// WHEN scheduling jobs with empty database
-	infos, err := jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 100)
+	infos, err := jobRequestRepository.NextSchedulableJobsByTypes(make([]string, 0),
+		[]common.RequestState{common.PENDING, common.PAUSED}, 100)
 	// THEN it should match 0 count
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
@@ -612,7 +648,8 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.Equal(t, 20, len(jobs))
 
 	// WHEN scheduling jobs (top pending jobs)
-	infos, err = jobRequestRepository.NextSchedulableJobsByType(make([]string, 0), common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(make([]string, 0),
+		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
@@ -622,7 +659,8 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = jobRequestRepository.NextSchedulableJobsByType(jobTypes, common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(jobTypes,
+		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
@@ -632,7 +670,8 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	}
 
 	// WHEN scheduling next top pending jobs
-	infos, err = jobRequestRepository.NextSchedulableJobsByType(jobTypes, common.PENDING, 10)
+	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(jobTypes,
+		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
 	// THEN it should return 0 records
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))

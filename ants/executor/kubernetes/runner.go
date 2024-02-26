@@ -125,11 +125,12 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"StderrLen": len(kcr.Stderr.Bytes()),
 			"Host":      kcr.Host,
 			"IP":        kcr.ContainerIP,
-			"Message":   kcr.ExitCode,
+			"ExitCode":  kcr.ExitCode,
+			"Message":   kcr.ExitMessage,
 			"Error":     err,
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
-		}).Warn("failed to execute command")
+		}).Warn("failed to execute command in kubernetes")
 		if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
 			_ = kcr.BaseExecutor.WriteTraceError(ctx,
 				fmt.Sprintf("❌ %s failed to execute Host=%s Exitcode=%d Error=%s Duration=%v",
@@ -164,7 +165,7 @@ func (kcr *CommandRunner) IsRunning(context.Context) (bool, error) {
 	return kcr.future.IsRunning(), nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (kcr *CommandRunner) run(
 	ctx context.Context) error {
 	handler := func(ctx context.Context, payload interface{}) (interface{}, error) {

@@ -3,6 +3,7 @@ package repository
 import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
+	"time"
 )
 
 // JobExecutionRepository defines data access methods for job-definition
@@ -35,6 +36,7 @@ type JobExecutionRepository interface {
 		errorMessage string,
 		errorCode string,
 		elapsed int64,
+		scheduleDelay time.Duration,
 		retried int,
 	) error
 	// UpdateJobRequestAndExecutionState updates intermediate state of job-execution and job-request

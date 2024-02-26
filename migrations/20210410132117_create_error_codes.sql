@@ -54,16 +54,18 @@ VALUES ('00000000-0000-0000-0000-000000000012', '*', 'failed to marshal object',
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000013', '*', 'restart job', 'ERR_RESTART_JOB');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000014', '*', 'restart task', 'ERR_RESTART_TASK');
+VALUES ('00000000-0000-0000-0000-000000000014', '*', 'restart job', 'ERR_PAUSE_JOB');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000015', '*', 'filtered scheduled job', 'ERR_FILTERED_JOB');
+VALUES ('00000000-0000-0000-0000-000000000015', '*', 'restart task', 'ERR_RESTART_TASK');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000016', '*', 'validation error', 'ERR_VALIDATION');
+VALUES ('00000000-0000-0000-0000-000000000016', '*', 'filtered scheduled job', 'ERR_FILTERED_JOB');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000017', '*', 'ant resources not avaialble', 'ERR_ANT_RESOURCES');
+VALUES ('00000000-0000-0000-0000-000000000017', '*', 'validation error', 'ERR_VALIDATION');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000018', '*', 'fatal error', 'ERR_FATAL');
+VALUES ('00000000-0000-0000-0000-000000000018', '*', 'ant resources not avaialble', 'ERR_ANT_RESOURCES');
 INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000019', '*', 'resource quota exceeded', 'ERR_QUOTA_EXCEEDED');
+VALUES ('00000000-0000-0000-0000-000000000019', '*', 'fatal error', 'ERR_FATAL');
+INSERT INTO `formicary_error_codes` (id, job_type, regex, error_code)
+VALUES ('00000000-0000-0000-0000-000000000020', '*', 'resource quota exceeded', 'ERR_QUOTA_EXCEEDED');
 -- +goose Down
 DROP TABLE IF EXISTS formicary_error_codes;

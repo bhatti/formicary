@@ -29,6 +29,8 @@ type JobStats struct {
 	// SucceededJobsMax max
 	SucceededJobsMax int64 `json:"succeeded_jobs_max_latency"`
 
+	// PausedJobs count
+	PausedJobs int64 `json:"paused_jobs"`
 	// FailedJobs count
 	FailedJobs int64 `json:"failed_jobs"`
 	// FailedJobsAverage average
@@ -58,6 +60,9 @@ type JobStats struct {
 
 	// failedJobsMinMax average latency
 	failedJobsMinMax *math.RollingMinMax
+
+	// pausedJobsMinMax average latency
+	pausedJobsMinMax *math.RollingMinMax
 }
 
 // NewJobStats creates new instance of job-execution
@@ -66,6 +71,7 @@ func NewJobStats(jobKey types.UserJobTypeKey) *JobStats {
 		JobKey:              jobKey,
 		succeededJobsMinMax: math.NewRollingMinMax(20),
 		failedJobsMinMax:    math.NewRollingMinMax(20),
+		pausedJobsMinMax:    math.NewRollingMinMax(20),
 	}
 }
 
@@ -98,6 +104,13 @@ func (j *JobStats) Failed(latency int64) {
 	atomic.AddInt64(&j.FailedJobs, 1)
 	atomic.AddInt32(&j.ExecutingJobs, -1)
 	j.failedJobsMinMax.Add(latency)
+}
+
+// Paused when job is paused
+func (j *JobStats) Paused(latency int64) {
+	atomic.AddInt64(&j.PausedJobs, 1)
+	atomic.AddInt32(&j.ExecutingJobs, -1)
+	j.pausedJobsMinMax.Add(latency)
 }
 
 // RevertedPending when job is reverted back to pending

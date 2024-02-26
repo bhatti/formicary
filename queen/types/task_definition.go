@@ -576,6 +576,8 @@ func (td *TaskDefinition) OverrideStatusAndErrorCode(
 		return common.EXECUTING, ""
 	} else if targetState == common.RESTART_JOB {
 		return common.FAILED, common.ErrorRestartJob
+	} else if targetState == common.PAUSE_JOB {
+		return common.PAUSED, common.ErrorPauseJob
 	} else if targetState == common.RESTART_TASK {
 		return common.FAILED, common.ErrorRestartTask
 	} else if strings.HasPrefix(target, "ERR_") {

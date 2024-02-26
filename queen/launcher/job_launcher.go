@@ -141,7 +141,7 @@ func (jl *JobLauncher) launchJob(
 		case *common.JobRequeueError:
 			jl.metricsRegistry.Incr("launcher_requeued_total", nil)
 			// changing state from READY to PENDING
-			return jobStateMachine.RevertRequestToPending(err)
+			return jobStateMachine.RevertRequestToPendingPaused(err)
 		default:
 			jl.metricsRegistry.Incr("launcher_failed_total", nil)
 			// changing state from READY to FAILED

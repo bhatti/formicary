@@ -31,7 +31,7 @@ tasks:
     1: FAILED
     2: RESTART_JOB
     3: COMPLETED
-    4: ERR_BLAH
+    4: PAUSE_JOB
     5: RESTART_TASK
   on_completed: third
 - task_type: third

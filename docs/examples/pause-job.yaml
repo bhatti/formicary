@@ -1,6 +1,5 @@
-job_type: retry-job
+job_type: pause-job
 delay_between_retries: 6s
-retry: 2
 tasks:
 - task_type: first
   method: HTTP_GET
@@ -8,19 +7,23 @@ tasks:
   delay_between_retries: 5s
   url: https://jsonplaceholder.typicode.com/todos/1
   on_exit_code:
-    10: PAUSE_JOB
+    10: RESTART_JOB
     200: second
   on_completed: second
 - task_type: second
   container:
     image: alpine
-  retry: 2
   script:
-    - exit {{ Random 0 3 }}
+    - date
+    {{ if lt .JobRetry 4 }}
+    - echo bad job retry {{ .JobRetry }}
+    - exit 1
+    {{ else }}
+    - echo good job retry {{ .JobRetry }}
+    - exit 0
+    {{ end }}
   on_exit_code:
-    1: FATAL
-    2: RESTART_TASK
-    3: ERR_XYZ
+    1: PAUSE_JOB
   on_completed: third
 - task_type: third
   container:

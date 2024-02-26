@@ -129,6 +129,17 @@ func (r *JobStatsRegistry) Failed(req types.IJobRequestSummary, latency int64) {
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
 }
 
+// Paused when job is paused
+func (r *JobStatsRegistry) Paused(req types.IJobRequestSummary, latency int64) {
+	r.lock.Lock()
+	r.lock.Unlock()
+	stats := r.createOrFindStat(req)
+	stats.Paused(latency)
+	r.removePendingJob(req)
+	r.decrUserOrgCount(req)
+	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
+}
+
 // SetAntsAvailable marks job as available
 func (r *JobStatsRegistry) SetAntsAvailable(key types.UserJobTypeKey, available bool, unavailableError string) {
 	r.lock.Lock()
@@ -210,17 +221,17 @@ func (r *JobStatsRegistry) GetStats(qc *common.QueryContext, offset int, max int
 				LastJobAt:            stat.LastJobAt,
 				SucceededJobs:        stat.SucceededJobs,
 				SucceededJobsAverage: stat.SucceededJobsAverage,
-				SucceededJobsMin:    stat.SucceededJobsMin,
-				SucceededJobsMax:    stat.SucceededJobsMax,
-				FailedJobs:          stat.FailedJobs,
-				FailedJobsAverage:   stat.FailedJobsAverage,
-				FailedJobsMin:       stat.FailedJobsMin,
-				FailedJobsMax:       stat.FailedJobsMax,
-				ExecutingJobs:       stat.ExecutingJobs,
-				AntsAvailable:       stat.AntsAvailable,
-				AntsCapacity:        stat.AntsCapacity,
-				AntUnavailableError: stat.AntUnavailableError,
-				JobDisabled:         stat.JobDisabled,
+				SucceededJobsMin:     stat.SucceededJobsMin,
+				SucceededJobsMax:     stat.SucceededJobsMax,
+				FailedJobs:           stat.FailedJobs,
+				FailedJobsAverage:    stat.FailedJobsAverage,
+				FailedJobsMin:        stat.FailedJobsMin,
+				FailedJobsMax:        stat.FailedJobsMax,
+				ExecutingJobs:        stat.ExecutingJobs,
+				AntsAvailable:        stat.AntsAvailable,
+				AntsCapacity:         stat.AntsCapacity,
+				AntUnavailableError:  stat.AntUnavailableError,
+				JobDisabled:          stat.JobDisabled,
 			})
 		}
 	}

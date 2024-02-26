@@ -152,7 +152,7 @@ func (ke *Executor) Stop(
 				err, time.Since(started).String(), ke.AntConfig.GetShutdownTimeout()))
 	} else {
 		_ = ke.BaseExecutor.WriteTraceInfo(ctx,
-			fmt.Sprintf("🛑 stopped container: Errors=%v Elapsed=%v, StopWait=%v",
+			fmt.Sprintf("🛑 stopped kubernetes-container: Errors=%v Elapsed=%v, StopWait=%v",
 				len(errors), time.Since(started).String(), ke.AntConfig.GetShutdownTimeout()))
 	}
 

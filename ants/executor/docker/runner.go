@@ -106,11 +106,12 @@ func (dcr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"Name":      dcr.Name,
 			"Host":      dcr.Host,
 			"IP":        dcr.ContainerIP,
-			"Message":   dcr.ExitCode,
+			"ExitCode":  dcr.ExitCode,
+			"Message":   dcr.ExitMessage,
 			"Error":     err,
 			"Elapsed":   dcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
-		}).Warn("failed to execute command")
+		}).Warn("failed to execute command in docker")
 		if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
 			_ = dcr.BaseExecutor.WriteTraceError(ctx,
 				fmt.Sprintf("❌ %s failed to execute Message=%s ExitCode=%d Host=%s Error=%v Duration=%v",
@@ -161,7 +162,7 @@ func (dcr *CommandRunner) IsRunning(ctx context.Context) (bool, error) {
 	return running, nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (dcr *CommandRunner) run(ctx context.Context, helper bool) error {
 	if dcr.ExecutorOptions.Debug || !dcr.IsHelper(ctx) {
 		_ = dcr.WriteTrace(ctx, fmt.Sprintf("🔄 $ %s",

@@ -144,6 +144,7 @@ func (t *BaseTasklet) handleRequest(
 			"TaskType":        req.TaskType,
 			"TaskExecutionID": req.TaskExecutionID,
 			"CoRelationID":    req.CoRelationID,
+			"Name":            req.ContainerName(),
 		}).Info("<<<<received request>>>>")
 	ctx, cancel := context.WithCancel(ctx)
 	req.Cancel = cancel
@@ -161,6 +162,7 @@ func (t *BaseTasklet) handleRequest(
 					"Action":        req.Action,
 					"Request":       req,
 					"CoRelationID":  req.CoRelationID,
+					"Name":          req.ContainerName(),
 					"Error":         err,
 				}).Error("failed to cancel request")
 		} else {
@@ -173,6 +175,7 @@ func (t *BaseTasklet) handleRequest(
 					"RequestID":     req.JobRequestID,
 					"Action":        req.Action,
 					"Request":       req,
+					"Name":          req.ContainerName(),
 					"CoRelationID":  req.CoRelationID,
 				}).Info("cancelled request")
 		}
@@ -194,6 +197,7 @@ func (t *BaseTasklet) handleRequest(
 								"Action":        req.Action,
 								"Request":       req,
 								"CoRelationID":  req.CoRelationID,
+								"Name":          req.ContainerName(),
 								"Error":         err,
 							}).Debug("failed to remove request")
 					}
@@ -212,6 +216,7 @@ func (t *BaseTasklet) handleRequest(
 						"Action":        req.Action,
 						"Request":       req,
 						"CoRelationID":  req.CoRelationID,
+						"Name":          req.ContainerName(),
 						"Error":         err,
 					}).Warn("failed to execute request")
 				taskResp = types.NewTaskResponse(req)
@@ -233,6 +238,7 @@ func (t *BaseTasklet) handleRequest(
 					"Action":        req.Action,
 					"Request":       req,
 					"CoRelationID":  req.CoRelationID,
+					"Name":          req.ContainerName(),
 					"Error":         err,
 				}).Warn("failed to add request to registry")
 		}
@@ -249,6 +255,7 @@ func (t *BaseTasklet) handleRequest(
 					"Action":        req.Action,
 					"Request":       req,
 					"CoRelationID":  req.CoRelationID,
+					"Name":          req.ContainerName(),
 					"Error":         err,
 				}).Warn("failed to terminate container")
 			taskResp = types.NewTaskResponse(req)
@@ -269,6 +276,7 @@ func (t *BaseTasklet) handleRequest(
 						"Request":       req,
 						"Response":      taskResp,
 						"CoRelationID":  req.CoRelationID,
+						"Name":          req.ContainerName(),
 					}).Debugf("sending response for terminate container")
 			}
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
@@ -290,6 +298,7 @@ func (t *BaseTasklet) handleRequest(
 					"Action":        req.Action,
 					"Request":       req,
 					"CoRelationID":  req.CoRelationID,
+					"Name":          req.ContainerName(),
 					"Error":         err,
 				}).Warn("failed to list containers")
 			taskResp = types.NewTaskResponse(req)
@@ -309,7 +318,10 @@ func (t *BaseTasklet) handleRequest(
 						"Action":        req.Action,
 						"Request":       req,
 						"Response":      taskResp,
+						"ExitCode":      taskResp.ExitCode,
+						"ErrorCode":     taskResp.ErrorCode,
 						"CoRelationID":  req.CoRelationID,
+						"Name":          req.ContainerName(),
 					}).Debugf("sending response for list container")
 			}
 			err = t.sendResponse(ctx, taskResp, replyTopic, started)
@@ -324,6 +336,7 @@ func (t *BaseTasklet) handleRequest(
 				"RequestID":     req.JobRequestID,
 				"Action":        req.Action,
 				"CoRelationID":  req.CoRelationID,
+				"Name":          req.ContainerName(),
 				"Request":       req,
 			}).Error("received unknown request")
 		taskResp := types.NewTaskResponse(req)
@@ -351,6 +364,8 @@ func (t *BaseTasklet) sendResponse(
 		"TaskExecutionID": taskResp.TaskExecutionID,
 		"CoRelationID":    taskResp.CoRelationID,
 		"Status":          taskResp.Status,
+		"ExitCode":        taskResp.ExitCode,
+		"ErrorCode":       taskResp.ErrorCode,
 		"ErrorMessage":    taskResp.ErrorMessage,
 		"Message":         taskResp.ExitCode,
 		//"TaskContext":     taskResp.TaskContext,
@@ -375,10 +390,10 @@ func (t *BaseTasklet) sendResponse(
 				"TaskType", taskResp.TaskType,
 			))
 		if err == nil {
-			logrus.WithFields(fields).Warnf("sent response with %s to %s", taskResp.Status, responseTopic)
+			logrus.WithFields(fields).Infof("sent response with %s to %s", taskResp.Status, responseTopic)
 		} else {
 			fields["Error"] = err
-			logrus.WithFields(fields).Errorf("failed to send response to %s", responseTopic)
+			logrus.WithFields(fields).Warnf("failed to send response to %s", responseTopic)
 		}
 	}
 	return err
