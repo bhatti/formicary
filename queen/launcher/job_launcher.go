@@ -260,7 +260,9 @@ func (jl *JobLauncher) removeSupervisor(
 	delete(jl.supervisors, jobExecutionLifecycleEvent.JobRequestID)
 	jl.lock.Unlock()
 	// cancel explicitly to make sure we don't miss it
-	if jobSupervisor != nil && jobExecutionLifecycleEvent.JobState == common.CANCELLED {
+	if jobSupervisor != nil &&
+		(jobExecutionLifecycleEvent.JobState == common.CANCELLED ||
+			jobExecutionLifecycleEvent.JobState == common.PAUSED) {
 		logrus.WithFields(logrus.Fields{
 			"Component":                  "JobLauncher",
 			"ID":                         jobExecutionLifecycleEvent.ID,

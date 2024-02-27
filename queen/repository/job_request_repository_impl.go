@@ -312,7 +312,8 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 			req.ID, req.JobState))
 	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
-		tx := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).Where("id = ?", id)
+		tx := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).
+			Where("id = ? AND job_state NOT IN ?", id, common.TerminalStates)
 		res := tx.Updates(map[string]interface{}{
 			"job_state":     common.CANCELLED,
 			"error_code":    common.ErrorJobCancelled,

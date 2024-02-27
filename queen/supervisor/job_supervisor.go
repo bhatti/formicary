@@ -239,6 +239,41 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 			"RequestState":               js.jobStateMachine.Request.GetJobState(),
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
 		}).Infof("cancelled job as a result of job lifecycle event")
+	} else if jobExecutionLifecycleEvent.JobRequestID == js.jobStateMachine.Request.GetID() &&
+		jobExecutionLifecycleEvent.JobState.Paused() {
+		defer js.cancel()
+		errorCode := common.ErrorPauseJob
+		errorMessage := "job paused by user"
+		if js.jobStateMachine.JobExecution.ErrorCode != "" {
+			errorCode = js.jobStateMachine.JobExecution.ErrorCode
+		}
+		if js.jobStateMachine.JobExecution.ErrorMessage != "" {
+			errorMessage = js.jobStateMachine.JobExecution.ErrorMessage
+		}
+		if err := js.jobStateMachine.PauseJob(); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "JobSupervisor",
+				"ID":                         jobExecutionLifecycleEvent.ID,
+				"Target":                     js.id,
+				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+				"RequestState":               js.jobStateMachine.Request.GetJobState(),
+				"ErrorCode":                  errorCode,
+				"ErrorMessage":               errorMessage,
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+				"Error":                      err}).Warnf("failed to pause job from lifecycle job event")
+			return err
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"Component":                  "JobSupervisor",
+			"ID":                         jobExecutionLifecycleEvent.ID,
+			"Target":                     js.id,
+			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+			"RequestState":               js.jobStateMachine.Request.GetJobState(),
+			"ErrorCode":                  errorCode,
+			"ErrorMessage":               errorMessage,
+			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+		}).Infof("paused job as a result of job lifecycle event")
 	}
 
 	return nil

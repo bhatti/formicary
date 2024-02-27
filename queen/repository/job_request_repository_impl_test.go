@@ -285,6 +285,38 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 	require.Equal(t, jobExec.ID, loaded.JobExecutionID)
 }
 
+// Cancellation should succeed.
+func Test_ShouldCancelRequest(t *testing.T) {
+	// GIVEN a job-resource repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	// AND a job-definition
+	job, err := SaveTestJobDefinition(qc, "test-job-for-cancel", "")
+	require.NoError(t, err)
+
+	// GIVE a saved a job-request
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	_, err = repo.Save(qc, req)
+	require.NoError(t, err)
+
+	err = repo.Cancel(qc, req.ID)
+	require.NoError(t, err)
+
+	// cancelling again should fail
+	err = repo.Cancel(qc, req.ID)
+	require.Error(t, err)
+
+	// WHEN loading request
+	loaded, err := repo.Get(qc, req.ID)
+	require.NoError(t, err)
+	require.Equal(t, common.CANCELLED, loaded.JobState)
+}
+
 // Updating priority of job-request should succeed
 func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 	// GIVEN a job-resource repository
@@ -671,7 +703,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 
 	// WHEN scheduling next top pending jobs
 	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(jobTypes,
-		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
+		[]common.RequestState{common.PENDING}, 10)
 	// THEN it should return 0 records
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))

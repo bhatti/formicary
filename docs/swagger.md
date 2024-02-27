@@ -953,6 +953,25 @@ Returns Graphviz DOT image for the graph of tasks defined in the job.
 | ---- | ----------- | ------ |
 | 200 | Byte Array response body | [ integer (uint8) ] |
 
+### /api/jobs/requests/{id}/pause
+
+#### POST
+##### Summary
+
+Pauses a job-request that is already executing.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| id | path |  | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Empty response body |
+
 ### /api/jobs/requests/{id}/restart
 
 #### POST
@@ -1994,6 +2013,7 @@ this job is initiated through JobExecution.
 | methods | string | Methods is aggregation of task methods | No |
 | notify | object |  | No |
 | organization_id | string | OrganizationID defines org who submitted the job | No |
+| pause_time | [Duration](#duration) |  | No |
 | platform | string | Platform can be OS platform or target runtime and a job can be targeted for specific platform that can be used for filtering | No |
 | public_plugin | boolean | PublicPlugin means job is public plugin | No |
 | required_params | [ string ] | RequiredParams from job request (and plugin) | No |
@@ -2188,6 +2208,7 @@ JobResourceConfig defines configuration for job resource
 | job_disabled | boolean | JobDisabled disabled flag | No |
 | job_key | [UserJobTypeKey](#userjobtypekey) |  | No |
 | last_job_at | dateTime | LastJobAt update time of last job | No |
+| paused_jobs | long | PausedJobs count | No |
 | succeeded_jobs | long | SucceededJobs count | No |
 | succeeded_jobs_average_latency | double | SucceededJobsAverage average | No |
 | succeeded_jobs_max_latency | long | SucceededJobsMax max | No |

@@ -1,0 +1,7 @@
+job_type: sleep-job
+tasks:
+- task_type: delay
+  container:
+    image: python:3.8-buster
+  script:
+    - sleep 10000

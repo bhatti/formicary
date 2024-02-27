@@ -83,6 +83,8 @@ const (
 	Submit = 64
 	// Cancel action
 	Cancel = 128
+	// Pause action
+	Pause = 128
 	// Restart action
 	Restart = 256
 	// Trigger action

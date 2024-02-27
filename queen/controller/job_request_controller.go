@@ -36,6 +36,7 @@ func NewJobRequestController(
 	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
 	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_job_request"
 	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
+	webserver.POST("/api/jobs/requests/:id/pause", jobReqCtrl.pauseJobRequest, acl.NewPermission(acl.JobRequest, acl.Pause)).Name = "pause_job_request"
 	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
 	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
 	webserver.GET("/api/jobs/requests/:id/wait_time", jobReqCtrl.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_job_requests"
@@ -127,6 +128,20 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.CancelJobRequest(qc, id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+// swagger:route POST /api/jobs/requests/{id}/pause job-requests pauseJobRequest
+// Pauses a job-request that is already executing.
+// responses:
+//
+//	200: emptyResponse
+func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	qc := web.BuildQueryContext(c)
+	if err := jobReqCtrl.jobManager.PauseJobRequest(qc, id); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
@@ -274,7 +289,7 @@ type jobRequestQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters jobRequestIDParams getJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
+// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
 // The parameters for finding job-request by id
 type jobRequestIDParams struct {
 	// in:path

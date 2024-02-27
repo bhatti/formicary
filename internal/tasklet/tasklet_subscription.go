@@ -69,7 +69,8 @@ func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 			// propagate via event bus to all request-executors that work on each request so each request doesn't
 			// need to consume any queuing resources.
 			t.EventBus.Publish(t.Config.GetJobExecutionLifecycleTopic(), jobExecutionLifecycleEvent)
-			if jobExecutionLifecycleEvent.JobState == types.CANCELLED {
+			if jobExecutionLifecycleEvent.JobState == types.CANCELLED ||
+				jobExecutionLifecycleEvent.JobState == types.PAUSED {
 				if err := t.RequestRegistry.CancelJob(jobExecutionLifecycleEvent.JobRequestID); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component":                  "BaseTasklet",
@@ -106,7 +107,8 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 				return err
 			}
 			t.EventBus.Publish(t.Config.GetTaskExecutionLifecycleTopic(), taskExecutionLifecycleEvent)
-			if taskExecutionLifecycleEvent.TaskState == types.CANCELLED {
+			if taskExecutionLifecycleEvent.TaskState == types.CANCELLED ||
+				taskExecutionLifecycleEvent.TaskState == types.PAUSED {
 				if err = t.RequestRegistry.Cancel(taskExecutionLifecycleEvent.Key()); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component":                   "BaseTasklet",

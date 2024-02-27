@@ -586,6 +586,8 @@ definitions:
         description: OrganizationID defines org who submitted the job
         type: string
         x-go-name: OrganizationID
+      pause_time:
+        $ref: '#/definitions/Duration'
       platform:
         description: Platform can be OS platform or target runtime and a job can be
           targeted for specific platform that can be used for filtering
@@ -1212,6 +1214,11 @@ definitions:
         format: date-time
         type: string
         x-go-name: LastJobAt
+      paused_jobs:
+        description: PausedJobs count
+        format: int64
+        type: integer
+        x-go-name: PausedJobs
       succeeded_jobs:
         description: SucceededJobs count
         format: int64
@@ -3036,6 +3043,21 @@ paths:
         "200":
           $ref: '#/responses/byteResponse'
       summary: Returns Graphviz DOT image for the graph of tasks defined in the job.
+      tags:
+      - job-requests
+  /api/jobs/requests/{id}/pause:
+    post:
+      operationId: pauseJobRequest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyResponse'
+      summary: Pauses a job-request that is already executing.
       tags:
       - job-requests
   /api/jobs/requests/{id}/restart:

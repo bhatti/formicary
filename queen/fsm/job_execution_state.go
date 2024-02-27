@@ -424,7 +424,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCancelled(
 
 	// Note: we won't fire any lifecycle event because that is fired upon cancellation
 
-	return jsm.failed(common.EXECUTING, true, fmt.Errorf(errorMsg), common.ErrorJobCancelled)
+	return jsm.failed(common.EXECUTING, true, fmt.Errorf(errorMsg), errorCode)
 }
 
 // ExecutionFailed is called when job fails to execute
@@ -559,6 +559,9 @@ func (jsm *JobExecutionStateMachine) ReserveJobResources() (err error) {
 
 // PauseJob puts back the job in PAUSED state from executing
 func (jsm *JobExecutionStateMachine) PauseJob() (saveError error) {
+	if jsm.JobExecution.JobState != common.EXECUTING {
+		return fmt.Errorf("job cannot be paused because it's not executing")
+	}
 	// release ant resources for the job
 	jsm.forceReleaseJobResources()
 	now := time.Now()

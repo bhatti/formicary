@@ -680,6 +680,34 @@ func (jm *JobManager) GetJobRequest(
 	return request, nil
 }
 
+// PauseJobRequest - pauses job-request
+func (jm *JobManager) PauseJobRequest(
+	qc *common.QueryContext,
+	id uint64) error {
+	req, err := jm.jobRequestRepository.Get(qc, id)
+	if err != nil {
+		return err
+	}
+	if req.JobState != common.EXECUTING {
+		return fmt.Errorf("job %s with id %d is in %s state and cannot be paused", req.JobType, req.ID, req.JobState)
+	}
+	jm.jobStatsRegistry.Cancelled(req)
+	// _ = jm.fireJobRequestChange(req)
+	if err = jm.pauseJob(qc, req); err != nil {
+		return err
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component":    "JobManager",
+		"RequestID":    req.ID,
+		"User":         req.UserID,
+		"Organization": req.OrganizationID,
+		"JobType":      req.JobType,
+		"UserKey":      req.UserKey,
+	}).Infof("paused request from job-manager.")
+	_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestPaused, qc))
+	return nil
+}
+
 // CancelJobRequest - cancels/stops job-request
 func (jm *JobManager) CancelJobRequest(
 	qc *common.QueryContext,
@@ -1292,6 +1320,48 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 		}).Warnf("failed to publish event")
 		return fmt.Errorf("failed to send job-request event due to %w", err)
 	}
+	return nil
+}
+
+// Fire event to pause job
+func (jm *JobManager) pauseJob(
+	qc *common.QueryContext,
+	req *types.JobRequest) (err error) {
+	jobExecutionLifecycleEvent := events.NewJobExecutionLifecycleEvent(
+		jm.serverCfg.Common.ID,
+		req.UserID,
+		req.ID,
+		req.JobType,
+		req.JobExecutionID,
+		common.PAUSED,
+		req.JobPriority,
+		make(map[string]interface{}),
+	)
+	var payload []byte
+	if payload, err = jobExecutionLifecycleEvent.Marshal(); err != nil {
+		return fmt.Errorf("failed to marshal job-execution jobExecutionLifecycleEvent due to %w", err)
+	}
+	// TODO add better reliability for this pub/sub
+	if _, err = jm.queueClient.Publish(context.Background(),
+		jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
+		payload,
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"UserID", req.UserID,
+		),
+	); err != nil {
+		return fmt.Errorf("failed to send job-execution jobExecutionLifecycleEvent due to %w", err)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"Component":                  "JobManager",
+		"ID":                         jobExecutionLifecycleEvent.ID,
+		"Topic":                      jm.serverCfg.Common.GetJobExecutionLifecycleTopic(),
+		"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+		"EventState":                 jobExecutionLifecycleEvent.JobState,
+		"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+	}).Info("paused request from job-manager and jobExecutionLifecycleEvent")
 	return nil
 }
 

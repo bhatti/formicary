@@ -2,7 +2,7 @@ package manager
 
 import (
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	common "plexobject.com/formicary/internal/types"
@@ -14,12 +14,12 @@ import (
 func Test_ShouldSaveJobDefinition(t *testing.T) {
 	// GIVEN job-definition loaded from pipeline yaml
 	qc, err := repository.NewTestQC()
-	b, err := ioutil.ReadFile("../../docs/examples/io.formicary.tokens.yaml")
+	b, err := os.ReadFile("../../docs/examples/io.formicary.tokens.yaml")
 	require.NoError(t, err)
 	job, err := types.NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
 	serverCfg := config.TestServerConfig()
-	jobManager, _ , err := newTestJobManager(serverCfg)
+	jobManager, _, err := newTestJobManager(serverCfg)
 	require.NoError(t, err)
 
 	// WHEN: the job definition is saved, which will automatically create job-request
