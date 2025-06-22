@@ -32,7 +32,7 @@ type JobLauncher struct {
 	errorCodeRepository        repository.ErrorCodeRepository
 	metricsRegistry            *metrics.Registry
 	eventBus                   evbus.Bus
-	supervisors                map[uint64]*supervisor.JobSupervisor
+	supervisors                map[string]*supervisor.JobSupervisor
 	jobLaunchSubscriptionID    string
 	jobLifecycleSubscriptionID string
 	lock                       sync.RWMutex
@@ -60,7 +60,7 @@ func New(
 		resourceManager:     resourceManager,
 		metricsRegistry:     metricsRegistry,
 		eventBus:            evbus.New(),
-		supervisors:         make(map[uint64]*supervisor.JobSupervisor),
+		supervisors:         make(map[string]*supervisor.JobSupervisor),
 	}
 }
 
@@ -102,7 +102,7 @@ func (jl *JobLauncher) Stop(ctx context.Context) error {
 // launching job for execution
 func (jl *JobLauncher) launchJob(
 	ctx context.Context,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	jobExecutionID string,
 	allocationsByTaskType map[string]*common.AntReservation) (err error) {
@@ -246,7 +246,7 @@ func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 	)
 }
 
-func (jl *JobLauncher) addSupervisor(requestID uint64, jobSupervisor *supervisor.JobSupervisor) {
+func (jl *JobLauncher) addSupervisor(requestID string, jobSupervisor *supervisor.JobSupervisor) {
 	jl.lock.Lock()
 	defer jl.lock.Unlock()
 	jl.supervisors[requestID] = jobSupervisor

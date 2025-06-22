@@ -36,8 +36,8 @@ type Artifact struct {
 	OrganizationID string `json:"organization_id"`
 	// UserID defines user who submitted the job
 	UserID string `json:"user_id"`
-	// Group of artifact
-	Group string `json:"group"`
+	// ArtifactGroup of artifact
+	ArtifactGroup string `json:"artifact_group"`
 	// Kind of artifact
 	Kind string `json:"kind"`
 	// ETag stores ETag from underlying storage such as Minio/S3
@@ -45,7 +45,7 @@ type Artifact struct {
 	// ArtifactOrder of artifact in group
 	ArtifactOrder int `json:"artifact_order"`
 	// JobRequestID refers to request-id being processed
-	JobRequestID uint64 `json:"job_request_id"`
+	JobRequestID string `json:"job_request_id"`
 	// JobExecutionID refers to job-execution-id being processed
 	JobExecutionID string `json:"job_execution_id"`
 	// TaskExecutionID refers to task-execution-id being processed
@@ -89,13 +89,13 @@ func NewArtifact(
 	name string,
 	group string,
 	kind string,
-	reqID uint64,
+	reqID string,
 	sha256 string,
 	length int64) *Artifact {
 	return &Artifact{
 		Bucket:        bucket,
 		Name:          name,
-		Group:         group,
+		ArtifactGroup: group,
 		Kind:          kind,
 		JobRequestID:  reqID,
 		SHA256:        sha256,
@@ -117,7 +117,7 @@ func (a *Artifact) AddMetadata(name string, value string) {
 	} else if lowerName == "name" {
 		a.Name = value
 	} else if lowerName == "group" {
-		a.Group = value
+		a.ArtifactGroup = value
 	} else if lowerName == "user_id" {
 		a.UserID = value
 	} else if lowerName == "organization_id" || lowerName == "org" || lowerName == "org_id" {
@@ -145,8 +145,8 @@ func (a *Artifact) AddTag(name string, value string) {
 
 // String
 func (a *Artifact) String() string {
-	return fmt.Sprintf("Name=%s Kind=%s Group=%s Task=%s, Metadata=%v",
-		a.Name, a.Kind, a.Group, a.TaskExecutionID, a.Metadata)
+	return fmt.Sprintf("Name=%s Kind=%s ArtifactGroup=%s Task=%s, Metadata=%v",
+		a.Name, a.Kind, a.ArtifactGroup, a.TaskExecutionID, a.Metadata)
 }
 
 // Validate validates artifact

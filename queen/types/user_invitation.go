@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"math/big"
 	common "plexobject.com/formicary/internal/types"
 	"regexp"
@@ -100,7 +100,7 @@ func (u *UserInvitation) ValidateBeforeSave() (err error) {
 	if err = u.Validate(); err != nil {
 		return err
 	}
-	u.ID = uuid.NewV4().String()
+	u.ID = ulid.Make().String()
 	u.CreatedAt = time.Now()
 	u.AcceptedAt = nil
 	u.InvitationCode = randomString(12)

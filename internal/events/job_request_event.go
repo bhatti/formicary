@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/types"
 )
 
@@ -14,7 +14,7 @@ type JobRequestLifecycleEvent struct {
 	BaseEvent
 	UserID string `json:"user_id"`
 	// JobRequestID defines key for job request
-	JobRequestID uint64 `json:"job_request_id"`
+	JobRequestID string `json:"job_request_id"`
 	// JobType defines type of job
 	JobType string `json:"job_type"`
 	// JobState defines state of job that is maintained throughout the lifecycle of a job
@@ -27,13 +27,13 @@ type JobRequestLifecycleEvent struct {
 func NewJobRequestLifecycleEvent(
 	source string,
 	userID string,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	jobState types.RequestState,
 	params map[string]interface{}) *JobRequestLifecycleEvent {
 	return &JobRequestLifecycleEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "JobRequestLifecycleEvent",
 			CreatedAt: time.Now(),
@@ -48,7 +48,7 @@ func NewJobRequestLifecycleEvent(
 
 // String format
 func (jelc *JobRequestLifecycleEvent) String() string {
-	return fmt.Sprintf("JobRequestID=%d JobType=%s JobState=%s",
+	return fmt.Sprintf("JobRequestID=%s JobType=%s JobState=%s",
 		jelc.JobRequestID, jelc.JobType, jelc.JobState)
 }
 
@@ -66,7 +66,7 @@ func UnmarshalJobRequestLifecycleEvent(b []byte) (*JobRequestLifecycleEvent, err
 
 // Validate validates event for lifecycle job
 func (jelc *JobRequestLifecycleEvent) Validate() error {
-	if jelc.JobRequestID == 0 {
+	if jelc.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if jelc.JobType == "" {

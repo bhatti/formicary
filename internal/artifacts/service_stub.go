@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -67,7 +67,7 @@ func (s *stub) SaveFile(
 	artifact.SHA256 = hex256
 	artifact.ContentLength = int64(len(data))
 	if artifact.ID == "" {
-		artifact.ID = utils.NormalizePrefix(prefix) + uuid.NewV4().String()
+		artifact.ID = utils.NormalizePrefix(prefix) + ulid.Make().String()
 	}
 	if err := artifact.Validate(); err != nil {
 		return err

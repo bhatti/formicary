@@ -157,7 +157,7 @@ func NewAuditRecordFromJobRequest(job IJobRequest, kind AuditKind, qc *common.Qu
 		OrganizationID: qc.GetOrganizationID(),
 		RemoteIP:       qc.IPAddress,
 		JobType:        job.GetJobType(),
-		TargetID:       fmt.Sprintf("%d", job.GetID()),
+		TargetID:       fmt.Sprintf("%s", job.GetID()),
 		CreatedAt:      time.Now(),
 	}
 }

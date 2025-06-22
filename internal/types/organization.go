@@ -24,9 +24,9 @@ type Organization struct {
 	// Salt for password
 	Salt string `json:"salt"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently by org
-	MaxConcurrency int    `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
 	// StickyMessage defines an error message that needs user attention
-	StickyMessage  string `json:"sticky_message" gorm:"sticky_message"`
+	StickyMessage string `json:"sticky_message" gorm:"sticky_message"`
 	// LicensePolicy defines license policy
 	LicensePolicy string `yaml:"external_id" json:"license_policy"`
 	// Configs defines config properties of org
@@ -82,7 +82,7 @@ func (o *Organization) AddConfig(
 	for _, next := range o.Configs {
 		if next.Name == name {
 			next.Value = config.Value
-			next.Type = config.Type
+			next.Kind = config.Kind
 			next.Secret = config.Secret
 			config = next
 			matched = true

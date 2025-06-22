@@ -2,7 +2,7 @@ package repository
 
 import (
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 	"sort"
@@ -35,7 +35,7 @@ func (arr *AuditRecordRepositoryImpl) Save(
 	}
 	err = arr.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
-		record.ID = uuid.NewV4().String()
+		record.ID = ulid.Make().String()
 		record.CreatedAt = time.Now()
 		res = tx.Create(record)
 		if res.Error != nil {

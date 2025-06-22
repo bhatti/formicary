@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/artifacts"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
@@ -122,7 +122,7 @@ func (am *ArtifactManager) UploadArtifact(
 	qc *common.QueryContext,
 	body io.ReadCloser,
 	params map[string]string) (*common.Artifact, error) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), uuid.NewV4().String())
+	tmpFile, err := ioutil.TempFile(os.TempDir(), ulid.Make().String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file due to %w", err)
 	}
@@ -145,7 +145,7 @@ func (am *ArtifactManager) UploadArtifact(
 	}
 
 	artifact := &common.Artifact{
-		Name:           uuid.NewV4().String(),
+		Name:           ulid.Make().String(),
 		Metadata:       params,
 		Kind:           common.ArtifactKindUser,
 		Tags:           make(map[string]string),

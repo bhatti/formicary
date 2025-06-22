@@ -15,7 +15,7 @@ import (
 	api "k8s.io/api/core/v1"
 	"plexobject.com/formicary/internal/async"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/ants/executor"
 )
 
@@ -66,7 +66,7 @@ func NewCommandRunner(
 		return nil, fmt.Errorf("container-name not specified")
 	}
 	base := executor.NewBaseCommandRunner(&exec.BaseExecutor, cmd, helper)
-	base.ID = uuid.NewV4().String()
+	base.ID = ulid.Make().String()
 	return &CommandRunner{
 		BaseCommandRunner: base,
 		exec:              exec,

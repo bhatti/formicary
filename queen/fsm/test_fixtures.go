@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/queue"
@@ -78,11 +78,11 @@ func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 		MaxCapacity: 100,
 		Tags:        make([]string, 0),
 		Methods:     []common.TaskMethod{common.Kubernetes},
-		Allocations: make(map[uint64]*common.AntAllocation),
+		Allocations: make(map[string]*common.AntAllocation),
 	}
 
 	// Creating user
-	user := common.NewUser("", uuid.NewV4().String()+"@formicary.io", "name", "", acl.NewRoles(""))
+	user := common.NewUser("", ulid.Make().String()+"@formicary.io", "name", "", acl.NewRoles(""))
 	user, err = userManager.CreateUser(common.NewQueryContextFromIDs("", ""), user)
 	if err != nil {
 		return nil, err

@@ -46,7 +46,7 @@ type CommonConfig struct {
 	S3                         S3Config           `yaml:"s3" mapstructure:"s3" env:"S3"`
 	Redis                      RedisConfig        `yaml:"redis" mapstructure:"redis" env:"REDIS"`
 	Auth                       AuthConfig         `yaml:"auth" mapstructure:"auth" env:"AUTH"`
-	MessagingProvider          MessagingProvider  `yaml:"messaging_provider" mapstructure:"messaging_provider"`
+	MessagingProvider          MessagingProvider  `yaml:"messaging_provider" mapstructure:"messaging_provider" env:"MESSAGING_PROVIDER"`
 	ContainerReaperInterval    time.Duration      `yaml:"container_reaper_interval" mapstructure:"container_reaper_interval"`
 	MonitorInterval            time.Duration      `yaml:"monitor_interval" mapstructure:"monitor_interval"`
 	MonitoringURLs             map[string]string  `yaml:"monitoring_urls" mapstructure:"monitoring_urls"`

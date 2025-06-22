@@ -9,8 +9,8 @@ import (
 
 // JobRequestInfo defines basic id/state of the job request.
 type JobRequestInfo struct {
-	// ID defines UUID for primary key
-	ID uint64 `json:"id"`
+	// ID defines id for primary key
+	ID string `json:"id"`
 	// JobDefinitionID points to the job-definition version
 	JobDefinitionID string `json:"job_definition_id"`
 	// JobExecutionID
@@ -75,7 +75,7 @@ func getUserJobTypeKey(organizationID string, userID string, jobType string, job
 }
 
 // GetID defines UUID for primary key
-func (jri *JobRequestInfo) GetID() uint64 {
+func (jri *JobRequestInfo) GetID() string {
 	return jri.ID
 }
 

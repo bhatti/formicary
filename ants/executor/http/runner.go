@@ -13,7 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/async"
 )
@@ -46,7 +46,7 @@ func NewCommandRunner(
 		cancel:            func() {},
 	}
 	runner.Host, _ = os.Hostname()
-	runner.ID = uuid.NewV4().String()
+	runner.ID = ulid.Make().String()
 
 	handler := func(ctx context.Context, _ interface{}) (interface{}, error) {
 		return runner.run(ctx)

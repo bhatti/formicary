@@ -1,15 +1,15 @@
 -- +goose Up
     CREATE TABLE IF NOT EXISTS formicary_audit_records (
-        id CHAR(36) NOT NULL PRIMARY KEY,
-        user_id CHAR(36),
+        id VARCHAR(36) NOT NULL PRIMARY KEY,
+        user_id VARCHAR(36),
         organization_id VARCHAR(36),
-        kind CHAR(50) NOT NULL,
+        kind VARCHAR(50) NOT NULL,
         target_id VARCHAR(36),
-        job_type CHAR(100),
-        remote_ip CHAR(100) NOT NULL,
+        job_type VARCHAR(100),
+        remote_ip VARCHAR(100) NOT NULL,
         url TEXT,
         error TEXT,
-        message LONGTEXT,
+        message TEXT,
 
         created_at TIMESTAMP NOT NULL DEFAULT now()
     ) ;

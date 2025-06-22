@@ -36,7 +36,7 @@ func newTestTaskResponse() (*TaskRequest, *TaskResponse) {
 		UserID:          "user",
 		OrganizationID:  "org",
 		JobDefinitionID: "job-id",
-		JobRequestID:    102,
+		JobRequestID:    "102",
 		TaskExecutionID: "101",
 		JobType:         "job-type",
 		TaskType:        "task",
@@ -47,4 +47,3 @@ func newTestTaskResponse() (*TaskRequest, *TaskResponse) {
 	res.Status = COMPLETED
 	return req, res
 }
-

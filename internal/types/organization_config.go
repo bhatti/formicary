@@ -45,9 +45,9 @@ func (u *OrganizationConfig) Validate() (err error) {
 		err = errors.New("name is not specified")
 		u.Errors["Name"] = err.Error()
 	}
-	if u.Type == "" {
+	if u.Kind == "" {
 		err = errors.New("type is not specified")
-		u.Errors["Type"] = err.Error()
+		u.Errors["Kind"] = err.Error()
 	}
 	if u.Value == "" {
 		err = errors.New("value is not specified")

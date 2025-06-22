@@ -3,7 +3,6 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
@@ -61,7 +60,7 @@ func Test_ShouldGetJobRequests(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
-	ctx.Params["id"] = fmt.Sprintf("%d", jobReq.ID)
+	ctx.Params["id"] = jobReq.ID
 	err = ctrl.getJobRequest(ctx)
 	// THEN it should return job request
 	require.NoError(t, err)
@@ -112,7 +111,7 @@ func Test_ShouldSubmitJobRequest(t *testing.T) {
 	require.NotNil(t, savedJob)
 
 	// WHEN getting job-request
-	ctx.Params["id"] = fmt.Sprintf("%d", savedJob.ID)
+	ctx.Params["id"] = savedJob.ID
 	err = ctrl.getJobRequest(ctx)
 	loadedJob := ctx.Result.(*types.JobRequest)
 
@@ -132,7 +131,7 @@ func Test_ShouldGetWaitTimes(t *testing.T) {
 	// WHEN getting wait-time of job-request
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Params["id"] = fmt.Sprintf("%d", jobDef.ID)
+	ctx.Params["id"] = jobDef.ID
 	err = ctrl.getWaitTimeJobRequest(ctx)
 
 	// THEN it should return wait-time job-request
@@ -152,7 +151,7 @@ func Test_ShouldCancelJobRequest(t *testing.T) {
 	// WHEN canceling job-request
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Params["id"] = fmt.Sprintf("%d", jobDef.ID)
+	ctx.Params["id"] = jobDef.ID
 	err = ctrl.cancelJobRequest(ctx)
 
 	// THEN it should not fail
@@ -173,7 +172,7 @@ func Test_ShouldRestartJobRequest(t *testing.T) {
 	// WHEN restarting job-request
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
-	ctx.Params["id"] = fmt.Sprintf("%d", jobDef.ID)
+	ctx.Params["id"] = jobDef.ID
 	err = ctrl.restartJobRequest(ctx)
 
 	// THEN it should not fail
@@ -196,7 +195,7 @@ func Test_ShouldGetRecentDeadIDs(t *testing.T) {
 
 	// THEN it should not fail
 	require.NoError(t, err)
-	ids := ctx.Result.([]uint64)
+	ids := ctx.Result.([]string)
 	require.NotNil(t, ids)
 }
 
@@ -228,7 +227,7 @@ func addJobRequest(mgr *manager.JobManager) (*types.JobRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	jobReq, err = mgr.SaveJobRequest(common.NewQueryContext(nil, ""),  jobReq)
+	jobReq, err = mgr.SaveJobRequest(common.NewQueryContext(nil, ""), jobReq)
 	if err != nil {
 		return nil, err
 	}

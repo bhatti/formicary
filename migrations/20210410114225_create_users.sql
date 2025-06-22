@@ -17,15 +17,15 @@
     CREATE UNIQUE INDEX formicary_orgs_org_ndx ON formicary_orgs(org_unit);
     CREATE UNIQUE INDEX formicary_orgs_bundle_ndx ON formicary_orgs(bundle_id);
     CREATE INDEX formicary_orgs_active ON formicary_orgs(active);
-    INSERT INTO `formicary_orgs` (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000000', 'formicary', 'io.formicary');
-    INSERT INTO `formicary_orgs` (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000001', 'plexobject', 'com.plexobject');
+    INSERT INTO formicary_orgs (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000000', 'formicary', 'io.formicary');
+    INSERT INTO formicary_orgs (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000001', 'plexobject', 'com.plexobject');
 
     CREATE TABLE IF NOT EXISTS formicary_org_configs (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       organization_id VARCHAR(36) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      `type` VARCHAR(50) NOT NULL,
-      value LONGTEXT NOT NULL,
+      kind VARCHAR(50) NOT NULL,
+      value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW(),
@@ -48,7 +48,7 @@
       salt VARCHAR(64) NOT NULL DEFAULT '',
       name VARCHAR(100) ,
       email VARCHAR(150),
-      notify_serialized LONGTEXT,
+      notify_serialized TEXT,
       serialized_perms TEXT NOT NULL,
       serialized_roles TEXT NOT NULL,
       picture_url VARCHAR(150),
@@ -64,8 +64,8 @@
     CREATE INDEX formicary_users_provider_ndx ON formicary_users(auth_provider);
     CREATE INDEX formicary_users_org_ndx ON formicary_users(organization_id);
     CREATE INDEX formicary_users_active_ndx ON formicary_users(active);
-    INSERT INTO `formicary_users` (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', 'Admin[]');
-    INSERT INTO `formicary_users` (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'bhatti', '*=-1', '');
+    INSERT INTO formicary_users (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', 'Admin[]');
+    INSERT INTO formicary_users (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'bhatti', '*=-1', '');
 
     CREATE TABLE IF NOT EXISTS formicary_user_sessions (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -76,7 +76,7 @@
       ip_address VARCHAR(40) NOT NULL,
       picture_url TEXT,
       auth_provider VARCHAR(50),
-      data LONGTEXT NOT NULL,
+      data TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_user_sessions_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)

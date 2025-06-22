@@ -7,38 +7,29 @@ import (
 	"github.com/sirupsen/logrus"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 // LogEvent is used to publish console logs
 type LogEvent struct {
 	BaseEvent
-	UserID string `json:"user_id"`
-	// JobRequestID defines key for job request
-	JobRequestID uint64 `json:"job_request_id"`
-	// JobType defines type of job
-	JobType string `json:"job_type"`
-	// TaskType defines type of job
-	TaskType string `json:"task_type"`
-	// JobExecutionID defines foreign key for JobExecution
-	JobExecutionID string `json:"job_execution_id"`
-	// TaskExecutionID defines foreign key for TaskExecution
-	TaskExecutionID string `json:"task_execution_id"`
-	// AntID
-	AntID string `json:"ant_id"`
-	// Tags
-	Tags string `json:"tags"`
-	// Message
-	Message string `json:"message" gorm:"-"`
-	// EncodedMessage
-	EncodedMessage string `json:"-" gorm:"encoded_message"`
+	UserID          string `json:"user_id"`
+	JobRequestID    string `json:"job_request_id"`           // JobRequestID defines key for job request
+	JobType         string `json:"job_type"`                 // JobType defines type of job
+	TaskType        string `json:"task_type"`                // TaskType defines type of job
+	JobExecutionID  string `json:"job_execution_id"`         // JobExecutionID defines foreign key for JobExecution
+	TaskExecutionID string `json:"task_execution_id"`        // TaskExecutionID defines foreign key for TaskExecution
+	AntID           string `json:"ant_id"`                   // AntID
+	Tags            string `json:"tags"`                     // Tags
+	Message         string `json:"message" gorm:"-"`         // Message
+	EncodedMessage  string `json:"-" gorm:"encoded_message"` // EncodedMessage
 }
 
 // NewLogEvent constructor
 func NewLogEvent(
 	source string,
 	userID string,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	taskType string,
 	jobExecutionID string,
@@ -48,7 +39,7 @@ func NewLogEvent(
 	antID string) *LogEvent {
 	return &LogEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "LogEvent",
 			CreatedAt: time.Now(),
@@ -72,13 +63,13 @@ func (LogEvent) TableName() string {
 
 // String format
 func (l *LogEvent) String() string {
-	return fmt.Sprintf("RequestID=%d JobType=%s TaskType=%s AntID=%s Message=%s",
+	return fmt.Sprintf("RequestID=%s JobType=%s TaskType=%s AntID=%s Message=%s",
 		l.JobRequestID, l.JobType, l.TaskType, l.AntID, l.Message)
 }
 
 // Validate validates event for message event
 func (l *LogEvent) Validate() error {
-	if l.JobRequestID == 0 {
+	if l.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if l.TaskType == "" {

@@ -212,7 +212,7 @@ func (tsm *TaskExecutionStateMachine) CanReusePreviousResult() bool {
 // BuildExecutorOptsName sets container name
 func (tsm *TaskExecutionStateMachine) BuildExecutorOptsName() {
 	tsm.ExecutorOptions.Name = utils.MakeDNS1123Compatible(
-		fmt.Sprintf("frm-%d-%s-%d-%d-%d",
+		fmt.Sprintf("frm-%s-%s-%d-%d-%d",
 			tsm.Request.GetID(),
 			tsm.TaskDefinition.ShortTaskType(),
 			tsm.Request.GetRetried(),
@@ -284,7 +284,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	// Setup container name
 	tsm.BuildExecutorOptsName()
 
-	taskReq.ExecutorOpts.PodLabels[common.RequestID] = fmt.Sprintf("%d", tsm.Request.GetID())
+	taskReq.ExecutorOpts.PodLabels[common.RequestID] = tsm.Request.GetID()
 	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
 	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.Common.ID
@@ -485,7 +485,7 @@ func (tsm *TaskExecutionStateMachine) sendTaskExecutionLifecycleEvent(
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			"RequestID", fmt.Sprintf("%d", tsm.Request.GetID()),
+			"RequestID", tsm.Request.GetID(),
 			"TaskType", tsm.taskType,
 			"UserID", tsm.Request.GetUserID(),
 		),
@@ -504,7 +504,7 @@ func (tsm *TaskExecutionStateMachine) publishTaskWebhook(ctx context.Context, ev
 				hookPayload,
 				queue.NewMessageHeaders(
 					queue.DisableBatchingKey, "true",
-					"RequestID", fmt.Sprintf("%d", tsm.Request.GetID()),
+					"RequestID", tsm.Request.GetID(),
 					"UserID", tsm.Request.GetUserID(),
 				),
 			); err != nil {
@@ -537,7 +537,7 @@ func (tsm *TaskExecutionStateMachine) publishTaskWebhook(ctx context.Context, ev
 func (tsm *TaskExecutionStateMachine) updateArtifactsFromResponse(taskResp *common.TaskResponse) {
 	for i, artifact := range taskResp.Artifacts {
 		if tsm.ExecutorOptions.Method == common.ForkJob {
-			artifact.TaskType = fmt.Sprintf("%d::%s", artifact.JobRequestID, artifact.TaskType)
+			artifact.TaskType = fmt.Sprintf("%s::%s", artifact.JobRequestID, artifact.TaskType)
 		} else {
 			artifact.TaskType = tsm.TaskExecution.TaskType
 		}
@@ -546,7 +546,7 @@ func (tsm *TaskExecutionStateMachine) updateArtifactsFromResponse(taskResp *comm
 		artifact.JobRequestID = tsm.Request.GetID()
 		artifact.JobExecutionID = tsm.JobExecution.ID
 		artifact.TaskExecutionID = tsm.TaskExecution.ID
-		artifact.Group = tsm.Request.GetGroup()
+		artifact.ArtifactGroup = tsm.Request.GetGroup()
 		artifact.AddMetadata("status", string(taskResp.Status))
 
 		if _, saveErr := tsm.ArtifactManager.UpdateArtifact(

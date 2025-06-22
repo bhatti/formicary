@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"plexobject.com/formicary/ants/executor"
-	"strconv"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 
 	"plexobject.com/formicary/internal/types"
 )
@@ -86,7 +85,7 @@ func NewContainerLifecycleEvent(
 	endedAt *time.Time) *ContainerLifecycleEvent {
 	return &ContainerLifecycleEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "ContainerLifecycleEvent",
 			CreatedAt: time.Now(),
@@ -186,11 +185,6 @@ func (cle *ContainerLifecycleEvent) StartedAtString() string {
 }
 
 // RequestID from labels
-func (cle *ContainerLifecycleEvent) RequestID() uint64 {
-	strID := cle.Labels["RequestID"]
-	if strID == "" {
-		return 0
-	}
-	id, _ := strconv.ParseUint(strID, 10, 64)
-	return id
+func (cle *ContainerLifecycleEvent) RequestID() string {
+	return cle.Labels["RequestID"]
 }

@@ -28,7 +28,7 @@ type AntRegistration struct {
 	Methods       []TaskMethod              `json:"methods" mapstructure:"methods"`
 	CurrentLoad   int                       `json:"current_load" mapstructure:"current_load"`
 	TotalExecuted int                       `json:"total_executed" mapstructure:"total_executed"`
-	Allocations   map[uint64]*AntAllocation `json:"allocations" mapstructure:"allocations"`
+	Allocations   map[string]*AntAllocation `json:"allocations" mapstructure:"allocations"`
 	CreatedAt     time.Time                 `json:"created_at" mapstructure:"created_at"`
 	AntStartedAt  time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
 	AutoRefresh   bool                      `json:"auto_refresh" mapstructure:"auto_refresh"`
@@ -40,7 +40,7 @@ type AntRegistration struct {
 // AntAllocation is used for keeping track of allocation capacity of the ant worker so that resource manager can throttle
 // tasks that are sent to the ant follower.
 type AntAllocation struct {
-	JobRequestID uint64                  `json:"job_request_id" mapstructure:"job_request_id"`
+	JobRequestID string                  `json:"job_request_id" mapstructure:"job_request_id"`
 	TaskTypes    map[string]RequestState // [task-type:state]
 	AntID        string                  `json:"ant_id" mapstructure:"ant_id"`
 	AntTopic     string                  `json:"ant_topic" mapstructure:"ant_topic"`
@@ -52,7 +52,7 @@ type AntAllocation struct {
 func NewAntAllocation(
 	antID string,
 	antTopic string,
-	requestID uint64,
+	requestID string,
 	taskType string) *AntAllocation {
 	return &AntAllocation{
 		JobRequestID: requestID,
@@ -66,7 +66,7 @@ func NewAntAllocation(
 
 // String defines description of allocation
 func (wa *AntAllocation) String() string {
-	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v",
+	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%s TaskType=%v",
 		wa.AntID, wa.AntTopic, wa.JobRequestID, wa.TaskTypes)
 }
 

@@ -6,10 +6,12 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/internal/events"
 )
+
+var _ LogEventRepository = &LogEventRepositoryImpl{}
 
 // LogEventRepositoryImpl implements LogEventRepository using gorm O/R mapping
 type LogEventRepositoryImpl struct {
@@ -35,7 +37,7 @@ func (l *LogEventRepositoryImpl) Save(
 	}
 	err = l.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
-		record.ID = uuid.NewV4().String()
+		record.ID = ulid.Make().String()
 		record.CreatedAt = time.Now()
 		res = tx.Create(record)
 		if res.Error != nil {
@@ -47,7 +49,7 @@ func (l *LogEventRepositoryImpl) Save(
 }
 
 // DeleteByRequestID delete all logs by request-id
-func (l *LogEventRepositoryImpl) DeleteByRequestID(requestID uint64) (int64, error) {
+func (l *LogEventRepositoryImpl) DeleteByRequestID(requestID string) (int64, error) {
 	res := l.db.Where("job_request_id = ?", requestID).Delete(&events.LogEvent{})
 	if res.Error != nil {
 		return 0, res.Error

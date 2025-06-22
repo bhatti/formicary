@@ -8,7 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -335,7 +335,7 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 		} else {
 			task.StartedAt = now
 			task.UpdatedAt = now
-			task.ID = uuid.NewV4().String()
+			task.ID = ulid.Make().String()
 			newTask = true
 		}
 		task.Active = true
@@ -369,7 +369,7 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 		for _, c := range task.Contexts {
 			c.TaskExecutionID = task.ID
 			if c.ID == "" {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 				res = tx.Create(c)
 			} else {
 				res = tx.Save(c)
@@ -413,7 +413,7 @@ func (jer *JobExecutionRepositoryImpl) Save(
 			}
 		} else {
 			jobExec.UpdatedAt = now
-			jobExec.ID = uuid.NewV4().String()
+			jobExec.ID = ulid.Make().String()
 			if log.IsLevelEnabled(log.DebugLevel) {
 				log.WithFields(log.Fields{
 					"Component":    "JobExecutionRepositoryImpl",
@@ -426,7 +426,7 @@ func (jer *JobExecutionRepositoryImpl) Save(
 		jobExec.Active = true
 		for _, c := range jobExec.Contexts {
 			if c.ID == "" {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 			}
 			c.JobExecutionID = jobExec.ID
 		}
@@ -459,12 +459,12 @@ func (jer *JobExecutionRepositoryImpl) Save(
 		for _, t := range jobExec.Tasks {
 			newTask := false
 			if t.ID == "" {
-				t.ID = uuid.NewV4().String()
+				t.ID = ulid.Make().String()
 				newTask = true
 			}
 			for _, c := range t.Contexts {
 				if c.ID == "" {
-					c.ID = uuid.NewV4().String()
+					c.ID = ulid.Make().String()
 				}
 				c.TaskExecutionID = t.ID
 			}
@@ -626,7 +626,7 @@ func (jer *JobExecutionRepositoryImpl) createJobContexts(
 		c.JobExecutionID = id
 		var res *gorm.DB
 		if c.ID == "" {
-			c.ID = uuid.NewV4().String()
+			c.ID = ulid.Make().String()
 			res = tx.Create(c) // TODO check deadlock
 		} else {
 			res = tx.Save(c)

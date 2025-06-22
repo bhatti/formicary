@@ -34,8 +34,8 @@
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       task_execution_id VARCHAR(36) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      `type` VARCHAR(50) NOT NULL,
-      value LONGTEXT NOT NULL,
+      kind VARCHAR(50) NOT NULL,
+      value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_task_execution_context_task_fk FOREIGN KEY (task_execution_id) REFERENCES formicary_task_executions(id)

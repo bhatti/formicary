@@ -319,7 +319,7 @@ func (js *JobScheduler) scheduleJob(
 			"ScheduleAttempts": request.ScheduleAttempts,
 			"Error":            err,
 		}).Warnf("failed to schedule job")
-		return fmt.Errorf("ant resources are not available for id=%d, type=%s attempts=%d priority=%d due to %v",
+		return fmt.Errorf("ant resources are not available for id=%s, type=%s attempts=%d priority=%d due to %v",
 			request.ID, request.JobType, scheduleAttempts, request.JobPriority-decrPriority, err)
 	}
 
@@ -334,7 +334,7 @@ func (js *JobScheduler) scheduleJob(
 			)
 		}
 		// will try again
-		return fmt.Errorf("ant resources cannot be allocated for ID=%d, Type=%s State=%s due to %v",
+		return fmt.Errorf("ant resources cannot be allocated for ID=%s, Kind=%s State=%s due to %v",
 			request.ID, request.JobType, request.JobState, err)
 	}
 

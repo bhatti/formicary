@@ -10,7 +10,7 @@ func Test_ShouldMarshalAntReservation(t *testing.T) {
 	reservation := NewAntReservation(
 		"ant",
 		"topic",
-		12,
+		"12",
 		"task",
 		"",
 		1,

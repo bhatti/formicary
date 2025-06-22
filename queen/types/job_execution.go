@@ -23,7 +23,7 @@ type JobExecution struct {
 	// ID defines UUID for primary key
 	ID string `json:"id" gorm:"primary_key"`
 	// JobRequestID defines foreign key for job request
-	JobRequestID uint64 `json:"job_request_id"`
+	JobRequestID string `json:"job_request_id"`
 	// JobType defines type for the job
 	JobType    string `json:"job_type"`
 	JobVersion string `json:"job_version"`
@@ -447,7 +447,7 @@ func (je *JobExecution) ValidateBeforeSave() error {
 // IMPLEMENTING JobRequestInfoSummary
 
 // GetID request id
-func (je JobExecution) GetID() uint64 {
+func (je JobExecution) GetID() string {
 	return je.JobRequestID
 }
 

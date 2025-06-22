@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -225,7 +224,7 @@ func (r *ContainersReaper) subscribeToRecentlyCompletedJobIDs(
 				return err
 			}
 			for _, id := range jobIDsEvent.JobIDs {
-				r.recentlyCompletedJobIDs.Add(strconv.FormatUint(id, 10), true)
+				r.recentlyCompletedJobIDs.Add(id, true)
 			}
 			return nil
 		},

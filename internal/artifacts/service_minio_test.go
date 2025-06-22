@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"io/ioutil"
 	"os"
 	"plexobject.com/formicary/internal/types"
@@ -44,7 +44,7 @@ func Test_ShouldUploadZipFile(t *testing.T) {
 	require.NoError(t, err)
 	expiration := time.Now().Add(1 * time.Hour)
 	artifact := &types.Artifact{
-		ID:            uuid.NewV4().String(),
+		ID:            ulid.Make().String(),
 		Bucket:        "test-bucket",
 		Name:          "name",
 		SHA256:        "sha256",
@@ -80,7 +80,7 @@ func Test_ShouldUploadAndDownloadFile(t *testing.T) {
 	require.NoError(t, err)
 
 	artifact := &types.Artifact{
-		ID:            uuid.NewV4().String(),
+		ID:            ulid.Make().String(),
 		Bucket:        "test-bucket",
 		Name:          "name",
 		SHA256:        hash,

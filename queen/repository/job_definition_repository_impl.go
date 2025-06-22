@@ -13,7 +13,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -261,7 +261,7 @@ func (jdr *JobDefinitionRepositoryImpl) SaveConfig(
 			return common.NewValidationError(err)
 		}
 		if config.ID == "" {
-			config.ID = uuid.NewV4().String()
+			config.ID = ulid.Make().String()
 		}
 		res := tx.Save(config)
 		return res.Error
@@ -370,23 +370,23 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 			}
 		}
 
-		job.ID = uuid.NewV4().String() //old.ID
+		job.ID = ulid.Make().String() //old.ID
 		job.Active = true
 		for _, c := range job.Configs {
 			if c.ID == "" {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 			}
 			c.JobDefinitionID = job.ID
 		}
 		for _, c := range job.Variables {
-			c.ID = uuid.NewV4().String()
+			c.ID = ulid.Make().String()
 			c.JobDefinitionID = job.ID
 		}
 		for _, t := range job.Tasks {
 			t.JobDefinitionID = job.ID
-			t.ID = uuid.NewV4().String()
+			t.ID = ulid.Make().String()
 			for _, c := range t.Variables {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 				c.TaskDefinitionID = t.ID
 			}
 		}

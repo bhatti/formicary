@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 
 	"plexobject.com/formicary/internal/types"
 )
@@ -13,28 +13,24 @@ import (
 // JobExecutionLaunchEvent is used to launch execution of a job
 type JobExecutionLaunchEvent struct {
 	BaseEvent
-	UserID string `json:"user_id"`
-	// JobRequestID defines key for job request
-	JobRequestID uint64 `json:"job_request_id"`
-	// JobType defines type of job
-	JobType string `json:"job_type"`
-	// JobExecutionID
-	JobExecutionID string `json:"job_execution_id"`
-	// Reservations by task-types
-	Reservations map[string]*types.AntReservation `json:"reservations"`
+	UserID         string                           `json:"user_id"`
+	JobRequestID   string                           `json:"job_request_id"`   // JobRequestID defines key for job request
+	JobType        string                           `json:"job_type"`         // JobType defines type of job
+	JobExecutionID string                           `json:"job_execution_id"` // JobExecutionID
+	Reservations   map[string]*types.AntReservation `json:"reservations"`     // Reservations by task-types
 }
 
 // NewJobExecutionLaunchEvent constructor
 func NewJobExecutionLaunchEvent(
 	source string,
 	userID string,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	jobExecutionID string,
 	reservations map[string]*types.AntReservation) *JobExecutionLaunchEvent {
 	return &JobExecutionLaunchEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			CreatedAt: time.Now(),
 		},
@@ -60,7 +56,7 @@ func UnmarshalJobExecutionLaunchEvent(b []byte) (*JobExecutionLaunchEvent, error
 
 // String format
 func (jie *JobExecutionLaunchEvent) String() string {
-	return fmt.Sprintf("RequestID=%d JobType=%s JobExecution=%s",
+	return fmt.Sprintf("RequestID=%s JobType=%s JobExecution=%s",
 		jie.JobRequestID, jie.JobType, jie.JobExecutionID)
 }
 
@@ -69,7 +65,7 @@ func (jie *JobExecutionLaunchEvent) Validate() error {
 	if jie.JobExecutionID == "" {
 		return fmt.Errorf("jobExecutionID is not specified")
 	}
-	if jie.JobRequestID == 0 {
+	if jie.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if jie.JobType == "" {
@@ -91,7 +87,7 @@ type JobExecutionLifecycleEvent struct {
 	BaseEvent
 	UserID string `json:"user_id"`
 	// JobRequestID defines key for job request
-	JobRequestID uint64 `json:"job_request_id"`
+	JobRequestID string `json:"job_request_id"`
 	// JobType defines type of job
 	JobType string `json:"job_type"`
 	// JobExecutionID
@@ -108,7 +104,7 @@ type JobExecutionLifecycleEvent struct {
 func NewJobExecutionLifecycleEvent(
 	source string,
 	userID string,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	jobExecutionID string,
 	jobState types.RequestState,
@@ -116,7 +112,7 @@ func NewJobExecutionLifecycleEvent(
 	contexts map[string]interface{}) *JobExecutionLifecycleEvent {
 	return &JobExecutionLifecycleEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "JobExecutionLifecycleEvent",
 			CreatedAt: time.Now(),
@@ -133,7 +129,7 @@ func NewJobExecutionLifecycleEvent(
 
 // String format
 func (jelc *JobExecutionLifecycleEvent) String() string {
-	return fmt.Sprintf("JobRequestID=%d JobType=%s JobExecution=%s JobState=%s",
+	return fmt.Sprintf("JobRequestID=%s JobType=%s JobExecution=%s JobState=%s",
 		jelc.JobRequestID, jelc.JobType, jelc.JobExecutionID, jelc.JobState)
 }
 
@@ -154,7 +150,7 @@ func (jelc *JobExecutionLifecycleEvent) Validate() error {
 	if jelc.JobExecutionID == "" {
 		return fmt.Errorf("jobExecutionID is not specified")
 	}
-	if jelc.JobRequestID == 0 {
+	if jelc.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if jelc.JobType == "" {

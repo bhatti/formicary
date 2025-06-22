@@ -2,7 +2,7 @@ package queue
 
 import (
 	"context"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/types"
 	"sync"
 )
@@ -32,7 +32,7 @@ func (c *StubClientImpl) Subscribe(
 	_ Filter,
 	_ MessageHeaders,
 ) (id string, err error) {
-	id = uuid.NewV4().String()
+	id = ulid.Make().String()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	cbs := c.SubscribersByTopic[topic]

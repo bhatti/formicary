@@ -2,8 +2,8 @@ package tasklet
 
 import (
 	"context"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
-	"github.com/twinj/uuid"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/artifacts"
 	"plexobject.com/formicary/internal/metrics"
@@ -57,7 +57,7 @@ func Test_ShouldExecuteArtifactExpirationTasklet(t *testing.T) {
 	req := &common.TaskRequest{
 		JobType:         "my-job",
 		TaskType:        "my-task",
-		JobRequestID:    101,
+		JobRequestID:    "101",
 		JobExecutionID:  "201",
 		TaskExecutionID: "301",
 		UserID:          user.ID,
@@ -103,8 +103,8 @@ func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *Artifact
 	require.NoError(t, err)
 
 	for i := 0; i < 100; i++ {
-		art := common.NewArtifact("bucket", uuid.NewV4().String(), "group", "kind", 101, "sha", 100)
-		art.ID = uuid.NewV4().String()
+		art := common.NewArtifact("bucket", ulid.Make().String(), "group", "kind", "101", "sha", 100)
+		art.ID = ulid.Make().String()
 		art.UserID = user.ID
 		art.OrganizationID = user.OrganizationID
 		art.ExpiresAt = time.Now().Add(time.Hour * -24 * time.Duration(i))

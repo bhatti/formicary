@@ -11,7 +11,7 @@ import (
 
 // RequestIDAndStatus stores job request-id with state
 type RequestIDAndStatus struct {
-	requestID uint64
+	requestID string
 	state     common.RequestState
 }
 
@@ -19,9 +19,9 @@ type RequestIDAndStatus struct {
 type JobStatsRegistry struct {
 	// TODO move stats to redis
 	statsByJobType    map[string]*JobStats
-	countByUser       map[string]map[uint64]bool
-	countByOrg        map[string]map[uint64]bool
-	pendingJobsByType map[string]map[uint64]types.IJobRequestSummary
+	countByUser       map[string]map[string]bool
+	countByOrg        map[string]map[string]bool
+	pendingJobsByType map[string]map[string]types.IJobRequestSummary
 	lastJobStatus     map[string]*RequestIDAndStatus
 	lock              sync.RWMutex
 }
@@ -30,9 +30,9 @@ type JobStatsRegistry struct {
 func NewJobStatsRegistry() *JobStatsRegistry {
 	return &JobStatsRegistry{
 		statsByJobType:    make(map[string]*JobStats),
-		countByUser:       make(map[string]map[uint64]bool),
-		countByOrg:        make(map[string]map[uint64]bool),
-		pendingJobsByType: make(map[string]map[uint64]types.IJobRequestSummary),
+		countByUser:       make(map[string]map[string]bool),
+		countByOrg:        make(map[string]map[string]bool),
+		pendingJobsByType: make(map[string]map[string]types.IJobRequestSummary),
 		lastJobStatus:     make(map[string]*RequestIDAndStatus),
 	}
 }
@@ -43,7 +43,7 @@ func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary, reverted bool) 
 	r.lock.Unlock()
 	pendingJobs := r.pendingJobsByType[req.GetUserJobTypeKey()]
 	if pendingJobs == nil {
-		pendingJobs = make(map[uint64]types.IJobRequestSummary)
+		pendingJobs = make(map[string]types.IJobRequestSummary)
 	}
 	pendingJobs[req.GetID()] = req
 	r.pendingJobsByType[req.GetUserJobTypeKey()] = pendingJobs
@@ -82,7 +82,7 @@ func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	if req.GetUserID() != "" {
 		m := r.countByUser[req.GetUserID()]
 		if m == nil {
-			m = make(map[uint64]bool)
+			m = make(map[string]bool)
 		}
 		m[req.GetID()] = true
 		r.countByUser[req.GetUserID()] = m
@@ -90,7 +90,7 @@ func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	if req.GetOrganizationID() != "" {
 		m := r.countByOrg[req.GetOrganizationID()]
 		if m == nil {
-			m = make(map[uint64]bool)
+			m = make(map[string]bool)
 		}
 		m[req.GetID()] = true
 		r.countByOrg[req.GetOrganizationID()] = m
@@ -159,7 +159,7 @@ func (r *JobStatsRegistry) SetDisabled(key types.UserJobTypeKey, disabled bool) 
 
 // BuildWaitEstimate return estimated time for job
 func (r *JobStatsRegistry) BuildWaitEstimate(key types.UserJobTypeKey) (q JobWaitEstimate) {
-	q.PendingJobIDs = make([]uint64, 0)
+	q.PendingJobIDs = make([]string, 0)
 	r.lock.RLock()
 	r.lock.RUnlock()
 	stat := r.statsByJobType[key.GetUserJobTypeKey()]
@@ -171,11 +171,11 @@ func (r *JobStatsRegistry) BuildWaitEstimate(key types.UserJobTypeKey) (q JobWai
 	pendingJobs := r.pendingJobsByType[key.GetUserJobTypeKey()]
 	if pendingJobs != nil {
 		maxTime := time.Now().Add(60 * time.Second)
-		for k, job := range pendingJobs {
+		for _, job := range pendingJobs {
 			if job.GetScheduledAt().After(maxTime) {
 				continue // ignore future job
 			}
-			q.PendingJobIDs = append(q.PendingJobIDs, k)
+			q.PendingJobIDs = append(q.PendingJobIDs, job.GetID())
 		}
 		sort.Slice(q.PendingJobIDs, func(i, j int) bool {
 			t1 := pendingJobs[q.PendingJobIDs[i]]

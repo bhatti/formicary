@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	kafka "github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
 	"io"
 	"net"
 	"plexobject.com/formicary/internal/types"
@@ -148,7 +148,7 @@ func (c *ClientKafka) SendReceive(
 		return nil, ctx.Err()
 	}
 	props.SetReplyTopic(inTopic)
-	props.SetCorrelationID(uuid.NewV4().String())
+	props.SetCorrelationID(ulid.Make().String())
 	//props.SetLastOffset("0")
 	props.SetDisableBatching(true)
 	id, subscription, consumerChannel, err := c.getOrCreateConsumer(
@@ -252,7 +252,7 @@ func (c *ClientKafka) Close() {
 	c.closed = true
 }
 
-//////////////////////////// PRIVATE METHODS /////////////////////////////
+// ////////////////////////// PRIVATE METHODS /////////////////////////////
 func (c *ClientKafka) closeConsumer(
 	topic string,
 	id string,
@@ -299,7 +299,7 @@ func (c *ClientKafka) getOrCreateConsumer(
 	filter Filter,
 	props MessageHeaders,
 ) (id string, subscription *kafkaSubscription, consumerChannel chan *MessageEvent, err error) {
-	id = uuid.NewV4().String()
+	id = ulid.Make().String()
 	var offset int64
 	if props.GetLastOffset() != "" {
 		offset = kafka.LastOffset
@@ -424,12 +424,12 @@ func (c *ClientKafka) createConsumer(
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
-			"Component": "ClientKafka",
-			"Group":     subscription.group,
-			"Topic":     topic,
-			"ID":        id,
-			"Offset":    offset,
-			"Shared":    shared,
+			"Component":     "ClientKafka",
+			"ArtifactGroup": subscription.group,
+			"Topic":         topic,
+			"ID":            id,
+			"Offset":        offset,
+			"Shared":        shared,
 		}).
 			Debugf("subscribed successfully!")
 	}
@@ -474,13 +474,13 @@ func (c *ClientKafka) receiveMessages(
 		if err != nil {
 			if !errors.Is(err, io.EOF) && subscription.ctx.Err() == nil {
 				logrus.WithFields(logrus.Fields{
-					"Component": "ClientKafka",
-					"Group":     subscription.group,
-					"Topic":     topic,
-					"ID":        id,
-					"Message":   msg,
-					"Error":     err,
-					"ErrorType": reflect.TypeOf(err),
+					"Component":     "ClientKafka",
+					"ArtifactGroup": subscription.group,
+					"Topic":         topic,
+					"ID":            id,
+					"Message":       msg,
+					"Error":         err,
+					"ErrorType":     reflect.TypeOf(err),
 				}).Errorf("failed to fetch message from kafka")
 			}
 			if errors.Is(err, io.EOF) {
@@ -502,13 +502,13 @@ func (c *ClientKafka) receiveMessages(
 		event := kafkaMessageToEvent(msg, ack, nack)
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
-				"Component": "ClientKafka",
-				"Group":     subscription.group,
-				"ID":        id,
-				"Received":  subscription.received,
-				"Partition": msg.Partition,
-				"Offset":    msg.Offset,
-				"Event":     string(event.ID),
+				"Component":     "ClientKafka",
+				"ArtifactGroup": subscription.group,
+				"ID":            id,
+				"Received":      subscription.received,
+				"Partition":     msg.Partition,
+				"Offset":        msg.Offset,
+				"Event":         string(event.ID),
 			}).Debugf("received")
 		}
 		go func() {

@@ -2,7 +2,7 @@ package repository
 
 import (
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"math/rand"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -18,13 +18,13 @@ func NewTestQC() (*common.QueryContext, error) {
 	}
 	userRepository, err := NewTestUserRepository()
 
-	org := common.NewOrganization("", uuid.NewV4().String(), uuid.NewV4().String())
+	org := common.NewOrganization("", ulid.Make().String(), ulid.Make().String())
 	org, err = orgRepository.Create(common.NewQueryContext(nil, ""), org)
 	if err != nil {
 		return nil, err
 	}
 
-	user := common.NewUser(org.ID, uuid.NewV4().String(), uuid.NewV4().String(), uuid.NewV4().String()+"@formicary.io", acl.NewRoles(""))
+	user := common.NewUser(org.ID, ulid.Make().String(), ulid.Make().String(), ulid.Make().String()+"@formicary.io", acl.NewRoles(""))
 	saved, err := userRepository.Create(user)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func SaveTestJobRequests(qc *common.QueryContext, jobName string) error {
 func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobRequest, *types.JobExecution, error) {
 	job, err := SaveTestJobDefinition(qc, name, "")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to save job-def: %w", err)
 	}
 	jobRequestRepo, err := NewTestJobRequestRepository()
 	if err != nil {
@@ -162,7 +162,7 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobReques
 	}
 	req, err := types.NewJobRequestFromDefinition(job)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to save request-def: %w", err)
 	}
 	_, _ = req.AddParam("jk1", "jv1")
 	_, _ = req.AddParam("jk2", map[string]int{"a": 1, "b": 2})
@@ -170,7 +170,7 @@ func NewTestJobExecution(qc *common.QueryContext, name string) (*types.JobReques
 	_, _ = req.AddParam("jk4", 50.10)
 	_, err = jobRequestRepo.Save(qc, req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to save request: %w", err)
 	}
 	now := time.Now()
 	jobExec := types.NewJobExecution(req.ToInfo())
@@ -194,10 +194,10 @@ func newTestArtifact(user *common.User, expire time.Time) *common.Artifact {
 		"name",
 		"group",
 		"kind",
-		123,
+		ulid.Make().String(),
 		"sha",
 		54)
-	art.ID = uuid.NewV4().String()
+	art.ID = ulid.Make().String()
 	art.AddMetadata("n1", "v1")
 	art.AddMetadata("n2", "v2")
 	art.AddMetadata("n3", "1")

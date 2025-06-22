@@ -27,13 +27,13 @@ func Test_ShouldTerminateForkTasklet(t *testing.T) {
 }
 
 func Test_ShouldPreExecuteForkTasklet(t *testing.T) {
-	// GIVEN tasklet
+	// GIVEN forkTasklet
 	jobManager := manager.AssertTestJobManager(nil, t)
-	tasklet := newTestForkTasklet(jobManager)
+	forkTasklet := newTestForkTasklet(jobManager)
 
 	// WHEN pre-executing
 	// THEN it should return true
-	require.True(t, tasklet.PreExecute(context.Background(), nil))
+	require.True(t, forkTasklet.PreExecute(context.Background(), nil))
 }
 
 func Test_ShouldListForkTasklet(t *testing.T) {
@@ -58,7 +58,7 @@ func Test_ShouldExecuteForkTasklet(t *testing.T) {
 	req := &common.TaskRequest{
 		JobType:         "my-job",
 		TaskType:        "my-task",
-		JobRequestID:    101,
+		JobRequestID:    "101",
 		JobExecutionID:  "201",
 		TaskExecutionID: "301",
 		UserID:          user.ID,

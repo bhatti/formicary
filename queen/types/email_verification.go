@@ -3,7 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	common "plexobject.com/formicary/internal/types"
 	"regexp"
 	"time"
@@ -82,7 +82,7 @@ func (u *EmailVerification) ValidateBeforeSave() (err error) {
 		return err
 	}
 	u.EmailCode = randomString(12)
-	u.ID = uuid.NewV4().String()
+	u.ID = ulid.Make().String()
 	u.CreatedAt = time.Now()
 	u.VerifiedAt = nil
 	return nil

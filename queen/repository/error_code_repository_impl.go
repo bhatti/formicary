@@ -8,7 +8,7 @@ import (
 
 	common "plexobject.com/formicary/internal/types"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 )
 
@@ -75,7 +75,7 @@ func (ecr *ErrorCodeRepositoryImpl) Save(
 	err = ecr.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
 		if errorCode.ID == "" {
-			errorCode.ID = uuid.NewV4().String()
+			errorCode.ID = ulid.Make().String()
 			errorCode.CreatedAt = time.Now()
 			errorCode.UpdatedAt = time.Now()
 			res = tx.Create(errorCode)

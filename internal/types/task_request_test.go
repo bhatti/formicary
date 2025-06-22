@@ -35,7 +35,7 @@ func Test_ShouldVerifyCacheArtifactID(t *testing.T) {
 func Test_ShouldSanitizeIllegalCharactersInTaskKey(t *testing.T) {
 	req := newTestTaskRequest()
 	req.TaskType = "my-test:&*#+-first-123*%^"
-	key := utils.MakeDNS1123Compatible(fmt.Sprintf("formicary-%d-%s", req.JobRequestID, req.TaskType))
+	key := utils.MakeDNS1123Compatible(fmt.Sprintf("formicary-%s-%s", req.JobRequestID, req.TaskType))
 	require.Equal(t, "formicary-102-my-test-first-123", key)
 }
 
@@ -53,7 +53,7 @@ func newTestTaskRequest() *TaskRequest {
 		UserID:          "user",
 		OrganizationID:  "org",
 		JobDefinitionID: "job-id",
-		JobRequestID:    102,
+		JobRequestID:    "102",
 		JobExecutionID:  "202",
 		TaskExecutionID: "101",
 		JobType:         "job-type",

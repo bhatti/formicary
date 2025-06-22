@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/types"
 	"testing"
@@ -11,7 +12,7 @@ func Test_ShouldCreateJobRequestLifecycleEvent(t *testing.T) {
 	e := NewJobRequestLifecycleEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		types.EXECUTING,
 		make(map[string]interface{}),
@@ -28,7 +29,7 @@ func Test_ShouldMarshalJobRequestLifecycleEvent(t *testing.T) {
 	e := NewJobRequestLifecycleEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		types.EXECUTING,
 		make(map[string]interface{}),

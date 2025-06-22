@@ -33,7 +33,7 @@ type UserJobTypeKey interface {
 // IJobRequestSummary defines interface for job request summary
 type IJobRequestSummary interface {
 	// GetID defines UUID for primary key
-	GetID() uint64
+	GetID() string
 	// GetJobType defines the type of job
 	GetJobType() string
 	// GetJobVersion defines the version of job
@@ -57,7 +57,7 @@ type IJobRequestSummary interface {
 // IJobRequest defines interface for basic job request properties
 type IJobRequest interface {
 	// GetID defines UUID for primary key
-	GetID() uint64
+	GetID() string
 	GetJobDefinitionID() string
 	GetJobExecutionID() string
 	GetLastJobExecutionID() string
@@ -97,10 +97,10 @@ type IJobRequest interface {
 // parent job to execute a child job in a fork/join manner.
 type JobRequest struct {
 	//gorm.Model
-	// ID defines UUID for primary key
-	ID uint64 `json:"id" gorm:"primary_key"`
+	// ID defines id for primary key
+	ID string `json:"id" gorm:"primary_key"`
 	// ParentID defines id for parent job
-	ParentID uint64 `json:"parent_id"`
+	ParentID string `json:"parent_id"`
 	// UserKey defines user-defined UUID and can be used to detect duplicate jobs
 	UserKey string `json:"user_key"`
 	// JobDefinitionID points to the job-definition version
@@ -300,7 +300,7 @@ func (jr *JobRequest) ToInfo() *JobRequestInfo {
 }
 
 // GetID defines UUID for primary key
-func (jr *JobRequest) GetID() uint64 {
+func (jr *JobRequest) GetID() string {
 	return jr.ID
 }
 
@@ -476,7 +476,7 @@ func (jr *JobRequest) AddParam(
 
 // String defines description of request from properties
 func (jr *JobRequest) String() string {
-	return fmt.Sprintf("ID=%d JobDefinitionID=%s JobType=%s JobState=%s Param=%s",
+	return fmt.Sprintf("ID=%s JobDefinitionID=%s JobType=%s JobState=%s Param=%s",
 		jr.ID, jr.JobDefinitionID, jr.JobType, jr.JobState, jr.ParamString())
 }
 
@@ -685,7 +685,7 @@ type JobRequestParam struct {
 	// ID defines UUID for primary key
 	ID string `json:"id" gorm:"primary_key"`
 	// JobRequestID defines foreign key for job request
-	JobRequestID uint64 `json:"job_request_id"`
+	JobRequestID string `json:"job_request_id"`
 	// CreatedAt job creation time
 	CreatedAt time.Time `json:"created_at"`
 	// UpdatedAt job update time

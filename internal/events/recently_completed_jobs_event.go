@@ -3,24 +3,24 @@ package events
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"time"
 )
 
 // RecentlyCompletedJobsEvent for notifying job ids of completed jobs
 type RecentlyCompletedJobsEvent struct {
 	BaseEvent
-	JobIDs []uint64 `json:"job_ids"`
+	JobIDs []string `json:"job_ids"`
 }
 
 // NewRecentlyCompletedJobsEvent constructor
 func NewRecentlyCompletedJobsEvent(
 	source string,
-	jobIDs []uint64,
+	jobIDs []string,
 ) *RecentlyCompletedJobsEvent {
 	return &RecentlyCompletedJobsEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "RecentlyCompletedJobsEvent",
 			CreatedAt: time.Now(),

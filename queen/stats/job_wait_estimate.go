@@ -8,7 +8,7 @@ import (
 // JobWaitEstimate stores estimated wait times for given job-request.
 type JobWaitEstimate struct {
 	// JobStats defines statistics that are used for calculating wait-time
-	JobStats   *JobStats
+	JobStats *JobStats
 	// JobRequest defines request to estimate
 	JobRequest *types.JobRequestInfo
 	// QueueNumber number in queue
@@ -20,7 +20,7 @@ type JobWaitEstimate struct {
 	// ErrorMessage
 	ErrorMessage string `json:"error_message"`
 	// PendingJobIDs
-	PendingJobIDs []uint64 `json:"pending_job_ids"`
+	PendingJobIDs []string `json:"pending_job_ids"`
 }
 
 // PendingJobs returns number of pending jobs

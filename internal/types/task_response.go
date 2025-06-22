@@ -72,7 +72,7 @@ func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
 // and additional outputs.
 // swagger:ignore
 type TaskResponse struct {
-	JobRequestID    uint64                 `json:"job_request_id"`
+	JobRequestID    string                 `json:"job_request_id"`
 	TaskExecutionID string                 `json:"task_execution_id"`
 	JobType         string                 `json:"job_type"`
 	JobTypeVersion  string                 `json:"job_type_version"`
@@ -117,7 +117,7 @@ func NewTaskResponse(req *TaskRequest) *TaskResponse {
 
 // String defines description of task response
 func (res *TaskResponse) String() string {
-	return fmt.Sprintf("ID=%d CoRelID=%s TaskType=%s Status=%s Exit=%s TaskContext=%d Artifacts=%d Error=%s %s",
+	return fmt.Sprintf("ID=%s CoRelID=%s TaskType=%s Status=%s Exit=%s TaskContext=%d Artifacts=%d Error=%s %s",
 		res.JobRequestID, res.CoRelationID, res.TaskType, res.Status, res.ExitCode, len(res.TaskContext),
 		len(res.Artifacts), res.ErrorCode, res.ErrorMessage)
 }

@@ -9,7 +9,7 @@ methods:
   - HTTP_PUT_JSON
   - HTTP_DELETE
 docker:
-  host: "tcp://192.168.1.102:2375"
+  host: "tcp://192.168.1.100:2375"
 kube: "https://localhost:55000"
 common:
   id: ant-worker-id
@@ -17,8 +17,8 @@ common:
   development: true
   public_dir: "./public/"
   proxy_url: ""
-  xmessaging_provider: REDIS_MESSAGING
-  messaging_provider: KAFKA_MESSAGING
+  messaging_provider: REDIS_MESSAGING
+  xmessaging_provider: KAFKA_MESSAGING
   max_job_timeout: 0s
   max_task_timeout: 0s
   http_port: 0

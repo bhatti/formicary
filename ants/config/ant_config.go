@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/crypto"
 	"strings"
@@ -78,6 +78,7 @@ func NewAntConfig(id string) (*AntConfig, error) {
 	viper.SetDefault("common.s3.region", "")
 	viper.SetDefault("common.s3.prefix", "")
 	viper.SetDefault("common.s3.bucket", "")
+	viper.SetDefault("common.messaging_provider", "REDIS_MESSAGING")
 	viper.SetDefault("common.redis.host", "")
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")
@@ -160,7 +161,7 @@ func (c *AntConfig) Validate() error {
 		if b, err := crypto.GenerateKey(32); err == nil {
 			c.Common.EncryptionKey = string(b)
 		} else {
-			c.Common.EncryptionKey = uuid.NewV4().String()
+			c.Common.EncryptionKey = ulid.Make().String()
 		}
 	}
 	return c.Common.Validate(c.Tags)

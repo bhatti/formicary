@@ -166,7 +166,7 @@ func Test_ShouldSaveAndQueryArtifacts(t *testing.T) {
 		for j := 0; j < 5; j++ {
 			art := newTestArtifact(qc.User, time.Now())
 			art.Kind = kind
-			art.Group = group
+			art.ArtifactGroup = group
 			_, err = repo.Save(art)
 			require.NoError(t, err)
 		}

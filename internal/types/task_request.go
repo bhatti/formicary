@@ -39,7 +39,7 @@ type TaskRequest struct {
 	UserID          string                   `json:"user_id" yaml:"user_id"`
 	OrganizationID  string                   `json:"organization_id" yaml:"organization_id"`
 	JobDefinitionID string                   `json:"job_definition_id" yaml:"job_definition_id"`
-	JobRequestID    uint64                   `json:"job_request_id" yaml:"job_request_id"`
+	JobRequestID    string                   `json:"job_request_id" yaml:"job_request_id"`
 	JobType         string                   `json:"job_type" yaml:"job_type"`
 	JobTypeVersion  string                   `json:"job_type_version" yaml:"job_type_version"`
 	JobExecutionID  string                   `json:"job_execution_id" yaml:"job_execution_id"`
@@ -88,14 +88,14 @@ func (req *TaskRequest) KeyPath() string {
 	}
 	prefix := req.ExecutorOpts.ArtifactKeyPrefix
 	if prefix == "" {
-		prefix = fmt.Sprintf("job-%d/%s", req.JobRequestID, req.TaskType)
+		prefix = fmt.Sprintf("job-%s/%s", req.JobRequestID, req.TaskType)
 	}
 	return utils.NormalizePrefix(userOrg) + prefix
 }
 
 // TaskKey builds task key
-func TaskKey(requestID uint64, taskType string) string {
-	return fmt.Sprintf("%d-%s", requestID, taskType)
+func TaskKey(requestID string, taskType string) string {
+	return fmt.Sprintf("%s-%s", requestID, taskType)
 }
 
 // ContainerName return container name if exists
@@ -108,7 +108,7 @@ func (req *TaskRequest) ContainerName() string {
 
 // String defines description of task request
 func (req *TaskRequest) String() string {
-	return fmt.Sprintf("ID=%d CORelID=%s JobType=%s TaskType=%s Action=%s",
+	return fmt.Sprintf("ID=%s CORelID=%s JobType=%s TaskType=%s Action=%s",
 		req.JobRequestID, req.CoRelationID, req.JobType, req.TaskType, req.Action)
 }
 
@@ -168,7 +168,7 @@ func (req *TaskRequest) Validate() error {
 		return fmt.Errorf("action is not specified in task-request")
 	}
 	if req.Action == EXECUTE || req.Action == CANCEL {
-		if req.JobRequestID == 0 {
+		if req.JobRequestID == "" {
 			return fmt.Errorf("requestID is not specified in task-request")
 		}
 		if req.JobExecutionID == "" {

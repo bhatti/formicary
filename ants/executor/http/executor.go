@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/types"
@@ -36,7 +36,7 @@ func NewHTTPExecutor(
 	if err != nil {
 		return nil, err
 	}
-	base.ID = uuid.NewV4().String()
+	base.ID = ulid.Make().String()
 	base.Name = opts.Name
 
 	hostName, _ := os.Hostname()

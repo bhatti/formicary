@@ -618,7 +618,7 @@ func (jd *JobDefinition) AddVariable(
 	for _, next := range jd.Variables {
 		if next.Name == name {
 			next.Value = variable.Value
-			next.Type = variable.Type
+			next.Kind = variable.Kind
 			found = true
 		}
 	}
@@ -665,7 +665,7 @@ func (jd *JobDefinition) AddConfig(
 	for _, next := range jd.Configs {
 		if next.Name == name {
 			next.Value = config.Value
-			next.Type = config.Type
+			next.Kind = config.Kind
 			next.Secret = config.Secret
 			config = next
 			matched = true

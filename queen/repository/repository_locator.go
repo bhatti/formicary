@@ -48,7 +48,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	maskRegex := regexp.MustCompile(`.*@`)
 	log.WithFields(log.Fields{
 		"Component":      "RepositoryLocator",
-		"Type":           serverCfg.DB.Type,
+		"Kind":           serverCfg.DB.Type,
 		"DataSourceName": maskRegex.ReplaceAllString(serverCfg.DB.DataSource, "*****"),
 	}).Infof("Connecting...")
 	var db *gorm.DB

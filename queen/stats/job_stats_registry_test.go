@@ -2,6 +2,7 @@ package stats
 
 import (
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
@@ -19,7 +20,7 @@ func Test_ShouldCountJobsAndGetStats(t *testing.T) {
 		orgID := fmt.Sprintf("org-%d", i)
 		for j := 0; j < 5; j++ {
 			req := &types.JobRequestInfo{
-				ID:             uint64(j),
+				ID:             ulid.Make().String(),
 				JobType:        jobType,
 				UserID:         userID,
 				OrganizationID: orgID,
@@ -29,7 +30,7 @@ func Test_ShouldCountJobsAndGetStats(t *testing.T) {
 		}
 		for j := 0; j < 5; j++ {
 			req := &types.JobRequestInfo{
-				ID:             uint64(j),
+				ID:             ulid.Make().String(),
 				JobType:        jobType,
 				UserID:         userID,
 				OrganizationID: orgID,
@@ -40,7 +41,7 @@ func Test_ShouldCountJobsAndGetStats(t *testing.T) {
 		}
 		for j := 0; j < 5; j++ {
 			req := &types.JobRequestInfo{
-				ID:             uint64(j),
+				ID:             ulid.Make().String(),
 				JobType:        jobType,
 				UserID:         userID,
 				OrganizationID: orgID,

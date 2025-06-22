@@ -170,7 +170,7 @@ func (jr *JobResource) AddConfig(
 	for _, next := range jr.Configs {
 		if next.Name == name {
 			next.Value = config.Value
-			next.Type = config.Type
+			next.Kind = config.Kind
 			next.Secret = config.Secret
 			config = next
 			matched = true
@@ -336,9 +336,9 @@ func (u *JobResourceConfig) Validate() (err error) {
 		err = errors.New("name is not specified")
 		u.Errors["Name"] = err.Error()
 	}
-	if u.Type == "" {
+	if u.Kind == "" {
 		err = errors.New("type is not specified")
-		u.Errors["Type"] = err.Error()
+		u.Errors["Kind"] = err.Error()
 	}
 	if u.Value == "" {
 		err = errors.New("value is not specified")

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/async"
 	"plexobject.com/formicary/internal/math"
 	"plexobject.com/formicary/internal/types"
@@ -81,7 +81,7 @@ func (c *ClientRedis) Subscribe(
 	filter Filter,
 	_ MessageHeaders,
 ) (id string, err error) {
-	id = uuid.NewV4().String()
+	id = ulid.Make().String()
 	if cb == nil {
 		return id, fmt.Errorf("callback function is not specified")
 	}
@@ -172,8 +172,8 @@ func (c *ClientRedis) SendReceive(
 		return nil, ctx.Err()
 	}
 	// redis doesn't support consumer groups so only one subscriber can consume it so making reply-topic unique
-	inTopic = inTopic + "-" + uuid.NewV4().String() // make it unique
-	props.SetCorrelationID(uuid.NewV4().String())
+	inTopic = inTopic + "-" + ulid.Make().String() // make it unique
+	props.SetCorrelationID(ulid.Make().String())
 	props.SetReplyTopic(inTopic)
 
 	_, err = c.Send(ctx, outTopic, payload, props)

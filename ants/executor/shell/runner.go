@@ -14,7 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/async"
 )
@@ -50,7 +50,7 @@ func NewCommandRunner(
 		Setpgid: true,
 	}
 	runner.Host, _ = os.Hostname()
-	runner.ID = uuid.NewV4().String()
+	runner.ID = ulid.Make().String()
 	runner.cmd.Stdin = runner.Stdin
 	runner.cmd.Stdout = &runner.Stdout
 	runner.cmd.Stderr = &runner.Stderr

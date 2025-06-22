@@ -18,7 +18,7 @@ type LogStreamer struct {
 	queueClient     queue.Client
 	logTopic        string
 	userID          string
-	requestID       uint64
+	requestID       string
 	jobType         string
 	taskType        string
 	jobExecutionID  string
@@ -117,7 +117,7 @@ func (s *LogStreamer) publish(data []byte, tags string) {
 			b,
 			queue.NewMessageHeaders(
 				queue.DisableBatchingKey, "true",
-				"RequestID", fmt.Sprintf("%d", s.requestID),
+				"RequestID", s.requestID,
 				"UserID", s.userID,
 			),
 		); pubErr != nil {

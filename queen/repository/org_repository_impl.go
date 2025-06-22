@@ -9,7 +9,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -190,7 +190,7 @@ func (orc *OrganizationRepositoryImpl) Create(
 	err = orc.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
 		org.Active = true
-		org.ID = uuid.NewV4().String()
+		org.ID = ulid.Make().String()
 		org.CreatedAt = time.Now()
 		org.UpdatedAt = time.Now()
 		for _, cfg := range org.Configs {

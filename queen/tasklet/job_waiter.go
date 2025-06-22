@@ -8,7 +8,6 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/types"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -19,8 +18,8 @@ type JobWaiter struct {
 	ctx          context.Context
 	antID        string
 	jobManager   *manager.JobManager
-	requestIDs   []uint64
-	requests     map[uint64]*types.JobRequest
+	requestIDs   []string
+	requests     map[string]*types.JobRequest
 	queryContext *common.QueryContext
 	done         chan struct{}
 	logTimestamp time.Time
@@ -45,7 +44,7 @@ func NewJobWaiter(
 		queryContext: queryContext,
 		jobManager:   jobManager,
 		requestIDs:   requestIDs,
-		requests:     make(map[uint64]*types.JobRequest),
+		requests:     make(map[string]*types.JobRequest),
 		done:         make(chan struct{}),
 		logTimestamp: time.Unix(0, 0),
 	}
@@ -91,7 +90,7 @@ func (jw *JobWaiter) BuildTaskResponse(
 	for _, req := range jw.requests {
 		jobExecution, err := jw.jobManager.GetJobExecution(req.JobExecutionID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find job-execution for '%d', state '%s', type '%s', execution-id '%s' due to %v",
+			return nil, fmt.Errorf("failed to find job-execution for '%s', state '%s', type '%s', execution-id '%s' due to %v",
 				req.ID, req.JobState, req.JobType, req.JobExecutionID, err)
 		}
 
@@ -104,11 +103,11 @@ func (jw *JobWaiter) BuildTaskResponse(
 		taskResp.ExitCode = jobExecution.ExitCode
 		taskResp.ExitMessage = jobExecution.ExitMessage
 
-		taskResp.AddContext(fmt.Sprintf("Request_%d_ErrorMessage", req.ID), jobExecution.ErrorMessage)
-		taskResp.AddContext(fmt.Sprintf("Request_%d_ErrorCode", req.ID), jobExecution.ErrorCode)
-		taskResp.AddContext(fmt.Sprintf("Request_%d_ExitCode", req.ID), jobExecution.ExitCode)
-		taskResp.AddContext(fmt.Sprintf("Request_%d_ExitMessage", req.ID), jobExecution.ExitMessage)
-		taskResp.AddContext(fmt.Sprintf("Request_%d_JobExecutionID", req.ID), jobExecution.ID)
+		taskResp.AddContext(fmt.Sprintf("Request_%s_ErrorMessage", req.ID), jobExecution.ErrorMessage)
+		taskResp.AddContext(fmt.Sprintf("Request_%s_ErrorCode", req.ID), jobExecution.ErrorCode)
+		taskResp.AddContext(fmt.Sprintf("Request_%s_ExitCode", req.ID), jobExecution.ExitCode)
+		taskResp.AddContext(fmt.Sprintf("Request_%s_ExitMessage", req.ID), jobExecution.ExitMessage)
+		taskResp.AddContext(fmt.Sprintf("Request_%s_JobExecutionID", req.ID), jobExecution.ID)
 
 		for _, c := range jobExecution.Contexts {
 			v, err := c.GetParsedValue()
@@ -133,7 +132,7 @@ func (jw *JobWaiter) Poll() (completed bool, err error) {
 	}
 	jw.Lock()
 	defer jw.Unlock()
-	statuses := make(map[uint64]common.RequestState)
+	statuses := make(map[string]common.RequestState)
 	for _, id := range jw.requestIDs {
 		if jw.requests[id] == nil {
 			req, err := jw.jobManager.GetJobRequest(jw.queryContext, id)
@@ -197,12 +196,12 @@ func (jw *JobWaiter) matchesJobIDs(jobExecutionLifecycleEvent *events.JobExecuti
 	return false
 }
 
-func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []uint64, err error) {
+func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []string, err error) {
 	waitingTaskTypes := taskReq.ExecutorOpts.AwaitForkedTasks
 	if len(waitingTaskTypes) == 0 {
 		return nil, fmt.Errorf("no task types defined for await_forked_tasks")
 	}
-	jobIDs = make([]uint64, len(waitingTaskTypes))
+	jobIDs = make([]string, len(waitingTaskTypes))
 	for i, taskType := range waitingTaskTypes {
 		reqKey := taskType + forkedJobIDSuffix
 		v := taskReq.Variables[reqKey]
@@ -210,13 +209,10 @@ func buildJobIDs(taskReq *common.TaskRequest) (jobIDs []uint64, err error) {
 			return nil, fmt.Errorf("failed to find job-id for %s", reqKey)
 		}
 		switch v.Value.(type) {
-		case uint64:
-			jobIDs[i] = v.Value.(uint64)
+		case string:
+			jobIDs[i] = v.Value.(string)
 		default:
-			jobIDs[i], err = strconv.ParseUint(fmt.Sprintf("%v", v.Value), 0, 64)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse job-id %v k due to %w", v, err)
-			}
+			jobIDs[i] = fmt.Sprintf("%v", v.Value)
 		}
 	}
 	return

@@ -75,10 +75,10 @@ func (d *DefaultEmailSender) SendMessage(
 	// parameter but not including it in the msg headers.
 	var msg strings.Builder
 	if strings.HasPrefix(body, "<") {
-		msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+		msg.WriteString("Content-Kind: text/html; charset=\"UTF-8\"\r\n")
 		msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	} else {
-		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+		msg.WriteString("Content-Kind: text/plain; charset=UTF-8\r\n")
 		msg.WriteString("Content-Transfer-Encoding: 7bit\r\n")
 	}
 	msg.WriteString("From: " + from + "\r\n")

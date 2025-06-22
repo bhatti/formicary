@@ -9,7 +9,7 @@ import (
 // JobTime defines job times
 type JobTime struct {
 	// ID defines UUID for primary key
-	ID uint64 `json:"id"`
+	ID string `json:"id"`
 	// OrganizationID defines org who submitted the job
 	OrganizationID string `json:"organization_id"`
 	// UserID defines user who submitted the job
@@ -112,7 +112,7 @@ func (je *JobTime) GetUserID() string {
 // IMPLEMENTING JobRequestInfoSummary
 
 // GetID request id
-func (je *JobTime) GetID() uint64 {
+func (je *JobTime) GetID() string {
 	return je.ID
 }
 

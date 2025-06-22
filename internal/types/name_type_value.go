@@ -18,8 +18,8 @@ const encryptedPrefix = "_ENCRYPTED_"
 type NameTypeValue struct {
 	// Name defines name of property
 	Name string `yaml:"name" json:"name"`
-	// Type defines type of property value
-	Type string `yaml:"type" json:"type"`
+	// Kind defines type of property value
+	Kind string `yaml:"kind" json:"kind"`
 	// Value defines value of property that can be string, number, boolean or JSON structure
 	Value string `yaml:"value" json:"value"`
 	// Secret for encryption
@@ -38,8 +38,8 @@ func NewNameTypeValue(
 		return nv, fmt.Errorf("property for %v cannot be nil", name)
 	}
 	nv.ParsedValue = value
-	nv.Type = reflect.TypeOf(value).String()
-	if nv.Type == "string" {
+	nv.Kind = reflect.TypeOf(value).String()
+	if nv.Kind == "string" {
 		nv.Value = value.(string)
 	} else {
 		// JSON won't serialize map of interface to interface
@@ -105,23 +105,23 @@ func (nv NameTypeValue) GetVariableValue() (val VariableValue, err error) {
 
 // GetParsedValue parses value
 func (nv NameTypeValue) GetParsedValue() (val interface{}, err error) {
-	if nv.Type == "string" {
+	if nv.Kind == "string" {
 		nv.ParsedValue = nv.Value
-	} else if nv.Type == "bool" {
+	} else if nv.Kind == "bool" {
 		nv.ParsedValue = nv.Value == "true"
-	} else if strings.HasPrefix(nv.Type, "int") {
+	} else if strings.HasPrefix(nv.Kind, "int") {
 		var i int64
 		if i, err = strconv.ParseInt(nv.Value, 10, 64); err != nil {
 			return nil, err
 		}
 		nv.ParsedValue = i
-	} else if strings.HasPrefix(nv.Type, "float") {
+	} else if strings.HasPrefix(nv.Kind, "float") {
 		var f float64
 		if f, err = strconv.ParseFloat(nv.Value, 64); err != nil {
 			return nil, err
 		}
 		nv.ParsedValue = f
-	} else if strings.HasPrefix(nv.Type, "complex") {
+	} else if strings.HasPrefix(nv.Kind, "complex") {
 		var c complex128
 		if c, err = strconv.ParseComplex(nv.Value, 128); err != nil {
 			return nil, err
@@ -144,7 +144,7 @@ func (nv NameTypeValue) GetParsedValue() (val interface{}, err error) {
 	} else {
 		return nil, fmt.Errorf(
 			"failed to parse value for unsupported type '%v' for property '%v' with value '%v'",
-			nv.Type,
+			nv.Kind,
 			nv.Name,
 			nv.Value)
 	}
@@ -168,21 +168,21 @@ func (nv NameTypeValue) IsForkedJobID() bool {
 
 // IsPrimitiveType checks if type is builtin
 func (nv NameTypeValue) IsPrimitiveType() bool {
-	return nv.Type == "bool" ||
-		nv.Type == "string" ||
-		nv.Type == "uint8" ||
-		nv.Type == "uint16" ||
-		nv.Type == "uint32" ||
-		nv.Type == "uint64" ||
-		nv.Type == "int8" ||
-		nv.Type == "int16" ||
-		nv.Type == "int32" ||
-		nv.Type == "int64" ||
-		nv.Type == "float32" ||
-		nv.Type == "float64" ||
-		nv.Type == "complex64" ||
-		nv.Type == "complex128" ||
-		nv.Type == "byte"
+	return nv.Kind == "bool" ||
+		nv.Kind == "string" ||
+		nv.Kind == "uint8" ||
+		nv.Kind == "uint16" ||
+		nv.Kind == "uint32" ||
+		nv.Kind == "uint64" ||
+		nv.Kind == "int8" ||
+		nv.Kind == "int16" ||
+		nv.Kind == "int32" ||
+		nv.Kind == "int64" ||
+		nv.Kind == "float32" ||
+		nv.Kind == "float64" ||
+		nv.Kind == "complex64" ||
+		nv.Kind == "complex128" ||
+		nv.Kind == "byte"
 }
 
 // MaskVariables filers sensitive values

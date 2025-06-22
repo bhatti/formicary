@@ -2,7 +2,7 @@ package types
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -21,7 +21,7 @@ func Test_ShouldJobRequestTableNames(t *testing.T) {
 // Verify params for job-request
 func Test_ShouldAddParamsForJobRequest(t *testing.T) {
 	job := NewRequest()
-	job.SetParamsJSON("")
+	_ = job.SetParamsJSON("")
 	_, _ = job.AddParam("k", "v")
 	require.Equal(t, `{"k":"v"}`, job.GetParamsJSON())
 	require.Equal(t, "v", job.GetParam("k").Value)
@@ -156,7 +156,7 @@ func Test_ShouldGetCronTriggeredForJobRequest(t *testing.T) {
 // Test adding user/cron key
 func Test_ShouldAddUpdateUserKeyFromScheduleIfCronJobForJobRequest(t *testing.T) {
 	// Given job definition and request info
-	b, err := ioutil.ReadFile("../../fixtures/hello_world_scheduled.yaml")
+	b, err := os.ReadFile("../../fixtures/hello_world_scheduled.yaml")
 	require.NoError(t, err)
 	jobDef, err := NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
@@ -211,7 +211,7 @@ func Test_ShouldSerializeJSONJobRequest(t *testing.T) {
 
 	j := `
 {
-  "id": 101,
+  "id": "101",
   "user_key": "ukey",
   "job_definition_id": "job-def-id",
   "organization_id": "123",

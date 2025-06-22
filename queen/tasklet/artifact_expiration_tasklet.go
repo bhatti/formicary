@@ -36,7 +36,7 @@ func NewArtifactExpirationTasklet(
 		MaxCapacity:  serverCfg.Jobs.ExpireArtifactsTaskletCapacity,
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.ExpireArtifacts},
-		Allocations:  make(map[uint64]*common.AntAllocation),
+		Allocations:  make(map[string]*common.AntAllocation),
 		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),

@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"github.com/oklog/ulid/v2"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -151,7 +152,7 @@ func newUserJobRequest(
 	job = repository.NewTestJobDefinition(qc.User, name)
 	request, _ = types.NewJobRequestFromDefinition(job)
 	request.UserID = qc.GetUserID()
-	request.ID = 1001
+	request.ID = ulid.Make().String()
 	request.JobState = state
 
 	qc.User.Email = "support@formicary.io"

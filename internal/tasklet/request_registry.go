@@ -15,11 +15,11 @@ type RequestRegistry interface {
 	Cancel(
 		key string) error
 	CancelJob(
-		requestID uint64) error
+		requestID string) error
 	Remove(
 		req *types.TaskRequest) error
 	Count() int
-	GetAllocations() (allocations map[uint64]*types.AntAllocation)
+	GetAllocations() (allocations map[string]*types.AntAllocation)
 }
 
 // RequestRegistryImpl keeps track of in-progress jobs
@@ -84,7 +84,7 @@ func (r *RequestRegistryImpl) Cancel(
 
 // CancelJob cancels the request by job ID
 func (r *RequestRegistryImpl) CancelJob(
-	requestID uint64) error {
+	requestID string) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	for _, req := range r.requests {
@@ -125,10 +125,10 @@ func (r *RequestRegistryImpl) Count() int {
 }
 
 // GetAllocations - returns allocations of requests
-func (r *RequestRegistryImpl) GetAllocations() (allocations map[uint64]*types.AntAllocation) {
+func (r *RequestRegistryImpl) GetAllocations() (allocations map[string]*types.AntAllocation) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
-	allocations = make(map[uint64]*types.AntAllocation)
+	allocations = make(map[string]*types.AntAllocation)
 	for _, req := range r.requests {
 		allocations[req.JobRequestID] = types.NewAntAllocation(
 			r.commonConfig.ID,

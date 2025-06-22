@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 // ErrorEvent is used to publish console logs
@@ -23,7 +23,7 @@ func NewErrorEvent(
 	msg string) *ErrorEvent {
 	return &ErrorEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "ErrorEvent",
 			CreatedAt: time.Now(),

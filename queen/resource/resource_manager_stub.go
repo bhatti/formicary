@@ -86,7 +86,7 @@ func (rm *ManagerStub) CheckJobResources(
 	job *types.JobDefinition) (reservations []*common.AntReservation, err error) {
 	reservations = make([]*common.AntReservation, 0)
 	var reservationsByTask map[string]*common.AntReservation
-	if reservationsByTask, err = rm.doReserveJobResources(0, job, true); err != nil {
+	if reservationsByTask, err = rm.doReserveJobResources("", job, true); err != nil {
 		return nil, err
 	}
 	for _, reservation := range reservationsByTask {
@@ -98,13 +98,13 @@ func (rm *ManagerStub) CheckJobResources(
 
 // ReserveJobResources reserves resources for all tasks within the job
 func (rm *ManagerStub) ReserveJobResources(
-	requestID uint64,
+	requestID string,
 	def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error) {
 	return rm.doReserveJobResources(requestID, def, false)
 }
 
 // ReleaseJobResources release resources for all tasks within the job
-func (rm *ManagerStub) ReleaseJobResources(requestID uint64) (err error) {
+func (rm *ManagerStub) ReleaseJobResources(requestID string) (err error) {
 	for _, reg := range rm.Registry {
 		delete(reg.Allocations, requestID)
 	}
@@ -115,7 +115,7 @@ func (rm *ManagerStub) ReleaseJobResources(requestID uint64) (err error) {
 // Note: This is used for a task request to route request to a particular ant, and we must
 // match an ant that supports all tags (as opposed to HasAntsForJobTags)
 func (rm *ManagerStub) Reserve(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	method common.TaskMethod,
 	tags []string) (*common.AntReservation, error) {
@@ -135,7 +135,7 @@ func (rm *ManagerStub) Release(reservation *common.AntReservation) (err error) {
 
 	reg := rm.Registry[reservation.AntID]
 	if reg == nil {
-		return fmt.Errorf("failed to deallocate, ants=%s request=%d task=%s is no longer registered",
+		return fmt.Errorf("failed to deallocate, ants=%s request=%s task=%s is no longer registered",
 			reservation.AntID, reservation.JobRequestID, reservation.TaskType)
 	}
 	delete(reg.Allocations, reservation.JobRequestID)
@@ -165,7 +165,7 @@ func (rm *ManagerStub) GetContainerEvents(
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (rm *ManagerStub) doReserve(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	method common.TaskMethod,
 	tags []string,
@@ -195,7 +195,7 @@ func (rm *ManagerStub) doReserve(
 
 // Reserve resources for the job
 func (rm *ManagerStub) doReserveJobResources(
-	requestID uint64,
+	requestID string,
 	def *types.JobDefinition,
 	dryRun bool) (reservations map[string]*common.AntReservation, err error) {
 	reservations = make(map[string]*common.AntReservation)

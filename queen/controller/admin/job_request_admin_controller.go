@@ -51,11 +51,11 @@ func NewJobRequestAdminController(
 // ********************************* HTTP Handlers ***********************************
 // getWaitTimeJobRequest - wait time info of job-request
 func (jraCtr *JobRequestAdminController) getWaitTimeJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	estimate, err := jraCtr.jobManager.GetWaitEstimate(qc, id)
 	if err != nil {
-		return fmt.Errorf("failed to estimate wait time for %d due to %w", id, err)
+		return fmt.Errorf("failed to estimate wait time for %s due to %w", id, err)
 	}
 	res := map[string]interface{}{"Estimate": estimate}
 	web.RenderDBUserFromSession(c, res)
@@ -124,7 +124,7 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.APIContext) erro
 
 // cancelJobRequests - cancel job-request
 func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	if err := jraCtr.jobManager.CancelJobRequest(qc, id); err != nil {
 		return err
@@ -134,24 +134,24 @@ func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) erro
 
 // triggerJobRequest - triggers a scheduled job-request
 func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.jobManager.TriggerJobRequest(qc, id)
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%d", id))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
 }
 
 // restartJobRequests - restart job-request
 func (jraCtr *JobRequestAdminController) restartJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	err := jraCtr.jobManager.RestartJobRequest(qc, id)
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%d", id))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
 }
 
 // newJobRequest - creates a new job request
@@ -207,12 +207,12 @@ func (jraCtr *JobRequestAdminController) createJobRequest(c web.APIContext) (err
 		return c.Render(http.StatusOK, "jobs/req/new", res)
 	}
 	_, _ = jraCtr.jobManager.SaveAudit(types.NewAuditRecordFromJobRequest(saved, types.JobRequestCreated, qc))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%d", request.ID))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", request.ID))
 }
 
 // getJobRequest - finds job-request by id
 func (jraCtr *JobRequestAdminController) getJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	request, err := jraCtr.jobManager.GetJobRequest(qc, id)
 	if err != nil {
@@ -226,7 +226,7 @@ func (jraCtr *JobRequestAdminController) getJobRequest(c web.APIContext) error {
 }
 
 func (jraCtr *JobRequestAdminController) dotJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	d, err := jraCtr.jobManager.GetDotConfigForJobRequest(qc, id)
 	if err != nil {
@@ -236,7 +236,7 @@ func (jraCtr *JobRequestAdminController) dotJobRequest(c web.APIContext) error {
 }
 
 func (jraCtr *JobRequestAdminController) dotImageJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	d, err := jraCtr.jobManager.GetDotImageForJobRequest(qc, id)
 	if err != nil {

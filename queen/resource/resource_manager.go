@@ -34,15 +34,15 @@ type Manager interface {
 		methods []common.TaskMethod,
 		tags []string) error
 	Reserve(
-		requestID uint64,
+		requestID string,
 		taskType string,
 		method common.TaskMethod,
 		tags []string) (*common.AntReservation, error)
 	ReserveJobResources(
-		requestID uint64,
+		requestID string,
 		def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error)
 	Release(reservation *common.AntReservation) (err error)
-	ReleaseJobResources(requestID uint64) (err error)
+	ReleaseJobResources(requestID string) (err error)
 	CheckJobResources(job *types.JobDefinition) ([]*common.AntReservation, error)
 	GetContainerEvents(offset int, limit int, sortBy string) (all []*events.ContainerLifecycleEvent, total int)
 	TerminateContainer(ctx context.Context, id string, antID string, method common.TaskMethod) (err error)
@@ -196,7 +196,7 @@ func (rm *ManagerImpl) CheckJobResources(
 	job *types.JobDefinition) (reservations []*common.AntReservation, err error) {
 	reservations = make([]*common.AntReservation, 0)
 	var reservationsByTask map[string]*common.AntReservation
-	if reservationsByTask, err = rm.doReserveJobResources(0, job, true); err != nil {
+	if reservationsByTask, err = rm.doReserveJobResources("", job, true); err != nil {
 		return nil, err
 	}
 	for _, reservation := range reservationsByTask {
@@ -208,13 +208,13 @@ func (rm *ManagerImpl) CheckJobResources(
 
 // ReserveJobResources reserves resources for all tasks within the job
 func (rm *ManagerImpl) ReserveJobResources(
-	requestID uint64,
+	requestID string,
 	def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error) {
 	return rm.doReserveJobResources(requestID, def, false)
 }
 
 // ReleaseJobResources release resources for all tasks within the job
-func (rm *ManagerImpl) ReleaseJobResources(requestID uint64) (err error) {
+func (rm *ManagerImpl) ReleaseJobResources(requestID string) (err error) {
 	return rm.state.releaseJob(requestID)
 }
 
@@ -222,7 +222,7 @@ func (rm *ManagerImpl) ReleaseJobResources(requestID uint64) (err error) {
 // Note: This is used for a task request to route request to a particular ant, and we must
 // match an ant that supports all tags (as opposed to HasAntsForJobTags)
 func (rm *ManagerImpl) Reserve(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	method common.TaskMethod,
 	tags []string) (*common.AntReservation, error) {
@@ -241,7 +241,7 @@ func (rm *ManagerImpl) Release(reservation *common.AntReservation) (err error) {
 	}
 
 	if rm.state.getRegistrationByAnt(reservation.AntID) == nil {
-		return fmt.Errorf("failed to deallocate, ant-id=%s request=%d task=%s is no longer registered",
+		return fmt.Errorf("failed to deallocate, ant-id=%s request=%s task=%s is no longer registered",
 			reservation.AntID, reservation.JobRequestID, reservation.TaskType)
 	}
 
@@ -341,7 +341,7 @@ func (rm *ManagerImpl) isStopped() bool {
 }
 
 func (rm *ManagerImpl) doReserve(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	method common.TaskMethod,
 	tags []string,
@@ -354,7 +354,7 @@ func (rm *ManagerImpl) doReserve(
 
 // Reserve resources for the job
 func (rm *ManagerImpl) doReserveJobResources(
-	requestID uint64,
+	requestID string,
 	def *types.JobDefinition,
 	dryRun bool) (reservations map[string]*common.AntReservation, err error) {
 	reservations = make(map[string]*common.AntReservation)

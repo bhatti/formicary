@@ -77,7 +77,7 @@ func NewJobExecutionStateMachine(
 	request types.IJobRequest,
 	reservations map[string]*common.AntReservation) *JobExecutionStateMachine {
 	return &JobExecutionStateMachine{
-		id:                  fmt.Sprintf("%s-job-execution-fsm-%d", serverCfg.Common.ID, request.GetID()),
+		id:                  fmt.Sprintf("%s-job-execution-fsm-%s", serverCfg.Common.ID, request.GetID()),
 		serverCfg:           serverCfg,
 		QueueClient:         queueClient,
 		JobManager:          jobManager,
@@ -935,7 +935,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			"RequestID", fmt.Sprintf("%d", jsm.Request.GetID()),
+			"RequestID", jsm.Request.GetID(),
 			"UserID", jsm.Request.GetUserID(),
 		),
 	); err != nil {
@@ -953,7 +953,7 @@ func (jsm *JobExecutionStateMachine) publishJobWebhook(ctx context.Context, even
 				hookPayload,
 				queue.NewMessageHeaders(
 					queue.DisableBatchingKey, "true",
-					"RequestID", fmt.Sprintf("%d", jsm.Request.GetID()),
+					"RequestID", jsm.Request.GetID(),
 					"UserID", jsm.Request.GetUserID(),
 				),
 			); err != nil {

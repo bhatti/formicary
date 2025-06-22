@@ -141,7 +141,7 @@ func (oc *OrganizationAdminController) getOrganization(c web.APIContext) error {
 	if cpuUsage, err := oc.userManager.GetCPUResourceUsage(
 		orgQC, ranges); err == nil {
 		m := map[string]interface{}{
-			"Type":  "CPU",
+			"Kind":  "CPU",
 			"Today": cpuUsage[0],
 			"Week":  cpuUsage[1],
 		}
@@ -158,7 +158,7 @@ func (oc *OrganizationAdminController) getOrganization(c web.APIContext) error {
 	if storageUsage, err := oc.userManager.GetStorageResourceUsage(
 		orgQC, ranges); err == nil {
 		m := map[string]interface{}{
-			"Type":  "Storage",
+			"Kind":  "Storage",
 			"Today": storageUsage[0],
 			"Week":  storageUsage[1],
 		}

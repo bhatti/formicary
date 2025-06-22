@@ -8,7 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 )
 
@@ -85,7 +85,7 @@ func (scr *OrganizationConfigRepositoryImpl) Save(
 			config.CreatedAt = old.CreatedAt
 		}
 		if config.ID == "" {
-			config.ID = uuid.NewV4().String()
+			config.ID = ulid.Make().String()
 			config.CreatedAt = time.Now()
 			config.UpdatedAt = time.Now()
 			res = tx.Create(config)

@@ -94,7 +94,7 @@ func (re *RequestExecutorImpl) Execute(
 
 	if len(taskReq.BeforeScript) > 0 {
 		_ = container.WriteTraceInfo(ctx,
-			fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%d' name '%s'...",
+			fmt.Sprintf("\U0001F9F0 executing pre-script for task '%s' of job '%s' with request-id '%s' name '%s'...",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName()))
 	}
 	// prescript
@@ -138,7 +138,7 @@ func (re *RequestExecutorImpl) Execute(
 	if len(taskReq.AfterScript) > 0 {
 		_ = container.WriteTraceInfo(
 			ctx,
-			fmt.Sprintf("📯 executing post-script for task '%s' of job '%s' with request-id '%d', name: '%s' ...",
+			fmt.Sprintf("📯 executing post-script for task '%s' of job '%s' with request-id '%s', name: '%s' ...",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName()))
 	}
 	// Executing post-script regardless the task fails or succeeds
@@ -187,7 +187,7 @@ func (re *RequestExecutorImpl) execute(
 		if ctx.Value(types.HelperContainerKey) == nil && taskReq.ExecutorOpts.Debug && taskReq.ExecutorOpts.Privileged {
 			_ = container.WriteTraceInfo(
 				ctx,
-				fmt.Sprintf("🏃 executing command '%s' of task '%s' of job '%s' and request-id '%d', name '%s' ...",
+				fmt.Sprintf("🏃 executing command '%s' of task '%s' of job '%s' and request-id '%s', name '%s' ...",
 					cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName()))
 		}
 		// executing...
@@ -202,12 +202,12 @@ func (re *RequestExecutorImpl) execute(
 			if err == nil {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%d' name '%s', exit=%d stdout-len=%d",
+					fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d stdout-len=%d",
 						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), exitCode, len(stdout)))
 			} else {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("😞 executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%d' name '%s', exit=%d, error=%s stderr-len=%d",
+					fmt.Sprintf("😞 executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d, error=%s stderr-len=%d",
 						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), exitCode, err, len(stderr)))
 			}
 		}
@@ -278,7 +278,7 @@ func addArtifactToPath(taskReq *types.TaskRequest, i int, cmd string, stdout []b
 	if len(stdout) == 0 {
 		return "", nil
 	}
-	fileName := fmt.Sprintf("%d_%s_%d.stdout",
+	fileName := fmt.Sprintf("%s_%s_%d.stdout",
 		taskReq.JobRequestID, cutils.MakeDNS1123Compatible(taskReq.TaskType), i)
 	tmpFile, err := os.Create(fileName)
 	if err != nil {
@@ -417,7 +417,7 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 	_ = container.WriteTraceInfo(
 		ctx,
-		fmt.Sprintf("🚀 starting task '%s' of job '%s' with request-id '%d' name: '%s' ...",
+		fmt.Sprintf("🚀 starting task '%s' of job '%s' with request-id '%s' name: '%s' ...",
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName()))
 	if taskReq.ExecutorOpts.Debug {
 		_ = container.WriteTraceInfo(
@@ -517,18 +517,18 @@ func (re *RequestExecutorImpl) postProcess(
 	if taskResp.Status.Failed() {
 		_ = container.WriteTraceError(
 			ctx,
-			fmt.Sprintf("⛔ task '%s' of job '%s' with request-id '%d' name '%s' failed Error=%s Exit=%s Duration=%s",
+			fmt.Sprintf("⛔ task '%s' of job '%s' with request-id '%s' name '%s' failed Error=%s Exit=%s Duration=%s",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), taskResp.ErrorMessage, taskResp.ExitCode, elapsed))
 	} else {
 		_ = container.WriteTraceSuccess(
 			ctx,
-			fmt.Sprintf("🙌 task '%s' of job '%s' with request-id '%d' name '%s' completed Duration=%s",
+			fmt.Sprintf("🙌 task '%s' of job '%s' with request-id '%s' name '%s' completed Duration=%s",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), elapsed))
 	}
 
 	_ = container.WriteTraceSuccess(
 		ctx,
-		fmt.Sprintf("⏱ task '%s' of job '%s' with request-id '%d' name '%s' exit: %s error-code: %s stats: %s",
+		fmt.Sprintf("⏱ task '%s' of job '%s' with request-id '%s' name '%s' exit: %s error-code: %s stats: %s",
 			taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), taskResp.ExitCode,
 			taskResp.ErrorCode, taskResp.Timings.String()))
 
@@ -599,7 +599,7 @@ func removeTemporaryFiles(taskReq *types.TaskRequest) {
 		}
 	}
 	// remove any other files with job-request prefix
-	if files, err := filepath.Glob(fmt.Sprintf("%d_*", taskReq.JobRequestID)); err == nil {
+	if files, err := filepath.Glob(fmt.Sprintf("%s_*", taskReq.JobRequestID)); err == nil {
 		for _, f := range files {
 			_ = os.Remove(f)
 		}

@@ -271,7 +271,7 @@ func (ar *ArtifactRepositoryImpl) Update(
 		oldArtifact.JobRequestID = art.JobRequestID
 		oldArtifact.JobExecutionID = art.JobExecutionID
 		oldArtifact.TaskExecutionID = art.TaskExecutionID
-		oldArtifact.Group = art.Group
+		oldArtifact.ArtifactGroup = art.ArtifactGroup
 		art = oldArtifact
 	}
 	art.Active = true

@@ -39,7 +39,7 @@ func NewMessagingTasklet(
 		Tags:          []string{},
 		EncryptionKey: serverCfg.Jobs.MessagingEncryptionKey,
 		Methods:       []common.TaskMethod{common.Messaging},
-		Allocations:   make(map[uint64]*common.AntAllocation),
+		Allocations:   make(map[string]*common.AntAllocation),
 		CreatedAt:     time.Now(),
 		AntStartedAt:  time.Now(),
 	}

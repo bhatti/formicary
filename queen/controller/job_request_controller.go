@@ -73,7 +73,7 @@ func (jobReqCtrl *JobRequestController) queryJobRequests(c web.APIContext) error
 //
 //	200: jobRequest
 func (jobReqCtrl *JobRequestController) getJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	request, err := jobReqCtrl.jobManager.GetJobRequest(qc, id)
 	if err != nil {
@@ -125,7 +125,7 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error
 //
 //	200: emptyResponse
 func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.CancelJobRequest(qc, id); err != nil {
 		return err
@@ -139,7 +139,7 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 //
 //	200: emptyResponse
 func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.PauseJobRequest(qc, id); err != nil {
 		return err
@@ -154,7 +154,7 @@ func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error 
 //	200: emptyResponse
 func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id)
 	if err != nil {
 		return err
@@ -169,7 +169,7 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 //	200: emptyResponse
 func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id)
 	if err != nil {
 		return err
@@ -183,8 +183,8 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) erro
 //
 //	200: stringResponse
 func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	qc := web.BuildQueryContext(c)
+	id := c.Param("id")
 	d, err := jobReqCtrl.jobManager.GetDotConfigForJobRequest(qc, id)
 	if err != nil {
 		return err
@@ -198,7 +198,7 @@ func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
 //
 //	200: byteResponse
 func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	d, err := jobReqCtrl.jobManager.GetDotImageForJobRequest(qc, id)
 	if err != nil {
@@ -213,7 +213,7 @@ func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) err
 //
 //	200: jobRequestWaitTimes
 func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.APIContext) error {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	estimate, err := jobReqCtrl.jobManager.GetWaitEstimate(qc, id)
 	if err != nil {

@@ -194,36 +194,35 @@ func Test_ShouldSaveTaskExecutionConcurrently(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	var lock sync.Mutex
+	var lock sync.RWMutex
 	errors := make([]string, 0)
 	// WHEN creating a job-execution in different go-routines concurrently
 	for i := 0; i < 10; i++ {
-		_, jobExec, _ := NewTestJobExecution(qc, "valid-job-with-config")
+		var jobExec *types.JobExecution
 		lock.Lock()
+		_, jobExec, err = NewTestJobExecution(qc, "valid-job-with-config")
 		jobExec, err = repo.Save(jobExec)
 		lock.Unlock()
 		require.NoError(t, err)
 		for j := 0; j < len(jobExec.Tasks); j++ {
 			wg.Add(1)
-			go func(k int) {
+			go func(task *types.TaskExecution) {
 				lock.Lock()
 				defer lock.Unlock()
 				defer wg.Done()
-				_, _ = jobExec.Tasks[k].AddContext("nk1", rand.Int())
-				jobExec.Tasks[k].TaskState = common.EXECUTING
-				_, err = repo.SaveTask(jobExec.Tasks[k])
+				_, _ = task.AddContext("nk1", rand.Int())
+				task.TaskState = common.EXECUTING
+				_, err := repo.SaveTask(task)
 				if err != nil {
-					errors = append(errors, fmt.Sprintf("unexpected error %v while saving %v",
-						err, jobExec.Tasks[k].String()))
+					errors = append(errors, fmt.Sprintf("unexpected error %v while saving %v", err, task.String()))
 				}
-				_, _ = jobExec.Tasks[k].AddContext("nk2", rand.Int())
-				jobExec.Tasks[k].TaskState = common.FAILED
-				_, err = repo.SaveTask(jobExec.Tasks[k])
+				_, _ = task.AddContext("nk2", rand.Int())
+				task.TaskState = common.FAILED
+				_, err = repo.SaveTask(task)
 				if err != nil {
-					errors = append(errors, fmt.Sprintf("unexpected error %v while saving %v",
-						err, jobExec.Tasks[k].String()))
+					errors = append(errors, fmt.Sprintf("unexpected error %v while saving %v", err, task.String()))
 				}
-			}(j)
+			}(jobExec.Tasks[j])
 		}
 	}
 	wg.Wait()
@@ -247,9 +246,9 @@ func Test_ShouldAddTaskExecutionToJobExecutionWithRetries(t *testing.T) {
 	// WHEN creating a job-execution
 	now := time.Now()
 	_, jobExec, err := NewTestJobExecution(qc, job.JobType)
+	require.NoError(t, err)
 	jobExec.StartedAt = now
 	jobExec.EndedAt = &now
-	require.NoError(t, err)
 
 	for _, task := range jobExec.Tasks {
 		task.StartedAt = time.Now().Add(-10 * time.Second)

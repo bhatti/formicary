@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -171,7 +172,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN Reserving without registration
-	alloc, err := mgr.Reserve(1, "task", "DOCKER", []string{"client-1", "aws"})
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-1", "aws"})
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -186,7 +187,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 
 	allocs := make([]*common.AntReservation, 0)
 	for i := 0; i < 10; i++ {
-		alloc, err = mgr.Reserve(uint64(i+10), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
 		require.NoError(t, err)
 		allocs = append(allocs, alloc)
 	}
@@ -251,7 +252,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		job := newTestJobDefinition(fmt.Sprintf("job-%d", i))
 		job.ID = fmt.Sprintf("job-%d", i)
-		reservations, err := mgr.ReserveJobResources(uint64(i+1), job)
+		reservations, err := mgr.ReserveJobResources(job.ID, job)
 		require.NoError(t, err)
 		allocs = append(allocs, reservations)
 	}
@@ -265,12 +266,14 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	require.Error(t, err)
 
 	// reserving resources
+	var ids []string
 	for i := 0; i < 10; i++ {
 		job := newTestJobDefinition(fmt.Sprintf("job-%d", i))
 		job.ID = fmt.Sprintf("job-%d", i)
-		reservations, err := mgr.ReserveJobResources(uint64(i+1), job)
+		reservations, err := mgr.ReserveJobResources(job.ID, job)
 		require.NoError(t, err)
 		allocs = append(allocs, reservations)
+		ids = append(ids, job.ID)
 	}
 
 	// WHEN allocating for non-existing tags
@@ -282,8 +285,8 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	require.Error(t, err)
 
 	// releasing
-	for i := 0; i < 10; i++ {
-		err := mgr.ReleaseJobResources(uint64(i + 1))
+	for _, id := range ids {
+		err := mgr.ReleaseJobResources(id)
 		if err != nil {
 			t.Fatalf("expected allocation %v", err)
 		}
@@ -320,7 +323,7 @@ func Test_ShouldFailReservationWithoutMethod(t *testing.T) {
 	require.NoError(t, err)
 
 	// THEN reservation should fail because `KUBERNETES` method is not available
-	_, err = mgr.Reserve(1, "task", "KUBERNETES", []string{"client-1", "aws"})
+	_, err = mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-1", "aws"})
 	require.Error(t, err)
 }
 
@@ -354,7 +357,7 @@ func Test_ShouldFailReservationWithoutTag(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN reservation by tags `DOCKER` and `client-2` is not available
-	_, err = mgr.Reserve(1, "task", "DOCKER", []string{"client-2", "aws"})
+	_, err = mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-2", "aws"})
 	// THEN reservation should fail because `DOCKER` and `client-2` is not available
 	require.Error(t, err)
 	err = mgr.Stop(context.Background())
@@ -391,7 +394,7 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 
 	// THEN reservation should succeed up to max-capacity 10
 	for i := 0; i < 10; i++ {
-		alloc, err := mgr.Reserve(uint64(i), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
 	}
@@ -459,7 +462,7 @@ func Test_ShouldReapStaleAnts(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		// WHEN making reservation
-		alloc, err := mgr.Reserve(uint64(i), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
 		// THEN reservation should succeed
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
@@ -527,14 +530,14 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		// WHEN making reservation
-		alloc, err := mgr.Reserve(uint64(i), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
 		// THEN reservation should succeed
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
 	}
 
 	for i := 0; i < 20; i++ {
-		_, err = mgr.Reserve(uint64(i), "my-task", "DOCKER", []string{"client-1", "aws"})
+		_, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
 		require.NoError(t, err)
 	}
 
@@ -578,7 +581,7 @@ func Test_ShouldIncrementLoadAfterAReservation(t *testing.T) {
 	require.NoError(t, err)
 
 	// THEN reservation add load
-	alloc, err := mgr.Reserve(101, "task", "KUBERNETES", []string{"client-2", "aws"})
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-2", "aws"})
 	require.NoError(t, err)
 	require.Equal(t, 4, alloc.CurrentLoad)
 
@@ -595,16 +598,16 @@ func registerAnt(
 	tags []string,
 	load int) (err error) {
 	testAntID++
-	allocations := make(map[uint64]*common.AntAllocation)
+	allocations := make(map[string]*common.AntAllocation)
 	antID := fmt.Sprintf("ant-id-%d", testAntID)
 	for i := 0; i < load; i++ {
 		alloc := &common.AntAllocation{
-			JobRequestID: uint64(i),
+			JobRequestID: ulid.Make().String(),
 			TaskTypes:    map[string]common.RequestState{"task": common.EXECUTING},
 			AntID:        antID,
 			AllocatedAt:  time.Now(),
 		}
-		allocations[uint64(i)] = alloc
+		allocations[alloc.JobRequestID] = alloc
 	}
 	registration := common.AntRegistration{
 		AntID:       antID,

@@ -11,7 +11,7 @@ func Test_ShouldCreateAntAllocation(t *testing.T) {
 	alloc := NewAntAllocation(
 		"ant",
 		"topic",
-		12,
+		"12",
 		"task",
 	)
 
@@ -32,7 +32,7 @@ func Test_ShouldMarshalAntRegistration(t *testing.T) {
 		Methods:       []TaskMethod{Kubernetes},
 		CurrentLoad:   0,
 		TotalExecuted: 0,
-		Allocations:   make(map[uint64]*AntAllocation),
+		Allocations:   make(map[string]*AntAllocation),
 		ReceivedAt:    time.Now(),
 		CreatedAt:     time.Now(),
 		AntStartedAt:  time.Now(),

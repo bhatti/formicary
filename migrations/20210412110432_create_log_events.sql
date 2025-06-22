@@ -1,17 +1,17 @@
 -- +goose Up
     CREATE TABLE IF NOT EXISTS formicary_log_events (
-        id CHAR(36) NOT NULL PRIMARY KEY,
-        source CHAR(50),
-        event_type CHAR(50),
-        user_id CHAR(36),
-        job_request_id INT(20),
+        id VARCHAR(36) NOT NULL PRIMARY KEY,
+        source VARCHAR(50),
+        event_type VARCHAR(50),
+        user_id VARCHAR(36),
+        job_request_id VARCHAR(36),
         job_type VARCHAR(100) ,
         task_type VARCHAR(100),
         tags VARCHAR(100),
         job_execution_id VARCHAR(36),
         task_execution_id VARCHAR(36),
         ant_id VARCHAR(100),
-        encoded_message LONGTEXT,
+        encoded_message TEXT,
 
         created_at TIMESTAMP NOT NULL DEFAULT now()
     ) ;

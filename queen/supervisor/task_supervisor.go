@@ -228,7 +228,7 @@ func (ts *TaskSupervisor) invoke(
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
 			queue.MessageTarget, ts.taskStateMachine.Reservation.AntID,
-			"RequestID", fmt.Sprintf("%d", taskReq.JobRequestID),
+			"RequestID", taskReq.JobRequestID,
 			"TaskType", taskReq.TaskType,
 			"UserID", taskReq.UserID,
 		),

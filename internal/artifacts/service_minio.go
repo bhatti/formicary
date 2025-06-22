@@ -7,18 +7,17 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/oklog/ulid/v2"
 	"io"
 	"net/url"
 	"os"
+	"plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/utils"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/minio/minio-go/v7/pkg/encrypt"
-	"github.com/twinj/uuid"
-	"plexobject.com/formicary/internal/types"
-	"plexobject.com/formicary/internal/utils"
 )
 
 // Adapter captures client for Minio
@@ -98,7 +97,7 @@ func (a *Adapter) SaveFile(
 	hex256 := hex.EncodeToString(sum256[:])
 	defaultPrefix := utils.NormalizePrefix(a.prefix)
 	if artifact.ID == "" {
-		artifact.ID = defaultPrefix + uuid.NewV4().String()
+		artifact.ID = defaultPrefix + ulid.Make().String()
 	} else if defaultPrefix != "" && !strings.HasPrefix(artifact.ID, defaultPrefix) {
 		artifact.ID = defaultPrefix + artifact.ID
 	}

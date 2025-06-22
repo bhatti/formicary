@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 // JobDefinitionStateChange defines enum for state of definition
@@ -44,7 +44,7 @@ func NewJobDefinitionLifecycleEvent(
 	stateChange JobDefinitionStateChange) *JobDefinitionLifecycleEvent {
 	return &JobDefinitionLifecycleEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "JobDefinitionLifecycleEvent",
 			CreatedAt: time.Now(),

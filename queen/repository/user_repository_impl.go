@@ -7,7 +7,7 @@ import (
 
 	common "plexobject.com/formicary/internal/types"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -127,7 +127,7 @@ func (ur *UserRepositoryImpl) Create(
 	err = ur.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
 		user.Active = true
-		user.ID = uuid.NewV4().String()
+		user.ID = ulid.Make().String()
 		user.CreatedAt = time.Now()
 		user.UpdatedAt = time.Now()
 		res = tx.Create(user)
@@ -221,7 +221,7 @@ func (ur *UserRepositoryImpl) AddSession(
 	}
 	return ur.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
-		session.ID = uuid.NewV4().String()
+		session.ID = ulid.Make().String()
 		session.CreatedAt = time.Now()
 		session.UpdatedAt = time.Now()
 		res = tx.Create(session)
@@ -297,7 +297,7 @@ func (ur *UserRepositoryImpl) AddToken(
 	return ur.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
 		token.Active = true
-		token.ID = uuid.NewV4().String()
+		token.ID = ulid.Make().String()
 		token.CreatedAt = time.Now()
 		res = tx.Create(token)
 		if res.Error != nil {

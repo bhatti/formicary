@@ -5,39 +5,30 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/types"
 )
 
 // TaskExecutionLifecycleEvent is used to update lifecycle events of task execution
 type TaskExecutionLifecycleEvent struct {
 	BaseEvent
-	UserID string `json:"user_id"`
-	// JobRequestID defines key for job request
-	JobRequestID uint64 `json:"job_request_id"`
-	// JobType defines type of job
-	JobType string `json:"job_type"`
-	// JobExecutionID
-	JobExecutionID string `json:"job_execution_id"`
-	// TaskExecutionID
-	TaskExecutionID string `json:"task_execution_id"`
-	// TaskType defines type of job
-	TaskType string `json:"task_type"`
-	// TaskState
-	TaskState types.RequestState `json:"task_state"`
-	// ExitCode
-	ExitCode string `json:"exit_code"`
-	// AntID
-	AntID string `json:"ant_id"`
-	// Contexts defines context variables of job
-	Contexts map[string]interface{} `json:"contexts"`
+	UserID          string                 `json:"user_id"`
+	JobRequestID    string                 `json:"job_request_id"`    // JobRequestID defines key for job request
+	JobType         string                 `json:"job_type"`          // JobType defines type of job
+	JobExecutionID  string                 `json:"job_execution_id"`  // JobExecutionID
+	TaskExecutionID string                 `json:"task_execution_id"` // TaskExecutionID
+	TaskType        string                 `json:"task_type"`         // TaskType defines type of job
+	TaskState       types.RequestState     `json:"task_state"`        // TaskState
+	ExitCode        string                 `json:"exit_code"`         // ExitCode
+	AntID           string                 `json:"ant_id"`            // AntID
+	Contexts        map[string]interface{} `json:"contexts"`          // Contexts defines context variables of job
 }
 
 // NewTaskExecutionLifecycleEvent constructor
 func NewTaskExecutionLifecycleEvent(
 	source string,
 	userID string,
-	requestID uint64,
+	requestID string,
 	jobType string,
 	jobExecutionID string,
 	taskType string,
@@ -47,7 +38,7 @@ func NewTaskExecutionLifecycleEvent(
 	contexts map[string]interface{}) *TaskExecutionLifecycleEvent {
 	return &TaskExecutionLifecycleEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "TaskExecutionLifecycleEvent",
 			CreatedAt: time.Now(),
@@ -66,7 +57,7 @@ func NewTaskExecutionLifecycleEvent(
 
 // String format
 func (telc *TaskExecutionLifecycleEvent) String() string {
-	return fmt.Sprintf("RequestID=%d JobType=%s JobExecution=%s TaskType=%s TaskState=%s AntID=%s",
+	return fmt.Sprintf("RequestID=%s JobType=%s JobExecution=%s TaskType=%s TaskState=%s AntID=%s",
 		telc.JobRequestID, telc.JobType, telc.JobExecutionID, telc.TaskType, telc.TaskState, telc.AntID)
 }
 
@@ -75,7 +66,7 @@ func (telc *TaskExecutionLifecycleEvent) Validate() error {
 	if telc.JobExecutionID == "" {
 		return fmt.Errorf("jobExecutionID is not specified")
 	}
-	if telc.JobRequestID == 0 {
+	if telc.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if telc.TaskType == "" {

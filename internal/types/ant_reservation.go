@@ -8,7 +8,7 @@ import (
 
 // AntReservation is used for keeping track of reservation
 type AntReservation struct {
-	JobRequestID  uint64    `json:"job_request_id" mapstructure:"job_request_id"`
+	JobRequestID  string    `json:"job_request_id" mapstructure:"job_request_id"`
 	TaskType      string    `json:"task_type" mapstructure:"task_type"`
 	AntID         string    `json:"ant_id" mapstructure:"ant_id"`
 	AntTopic      string    `json:"ant_topic" mapstructure:"ant_topic"`
@@ -24,7 +24,7 @@ type AntReservation struct {
 func NewAntReservation(
 	antID string,
 	antTopic string,
-	requestID uint64,
+	requestID string,
 	taskType string,
 	encryptionKey string,
 	currentLoad int,
@@ -55,7 +55,7 @@ func (r *AntReservation) Validate() error {
 
 // String defines description of reservation
 func (r *AntReservation) String() string {
-	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%d TaskType=%v Load=%d Executed=%d",
+	return fmt.Sprintf("AntID=%s Topic=%s RequestID=%s TaskType=%v Load=%d Executed=%d",
 		r.AntID, r.AntTopic, r.JobRequestID, r.TaskType, r.CurrentLoad, r.TotalExecuted)
 }
 

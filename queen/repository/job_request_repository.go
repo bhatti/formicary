@@ -13,17 +13,17 @@ type JobRequestRepository interface {
 	// Get JobRequest by id
 	Get(
 		qc *common.QueryContext,
-		id uint64) (*types.JobRequest, error)
+		id string) (*types.JobRequest, error)
 	// GetParams by id
 	GetParams(
-		id uint64) ([]*types.JobRequestParam, error)
+		id string) ([]*types.JobRequestParam, error)
 	// GetByUserKey JobRequest by user-key
 	GetByUserKey(
 		qc *common.QueryContext,
 		userKey string) (*types.JobRequest, error)
 	// UpdateJobState sets state of job-request
 	UpdateJobState(
-		id uint64,
+		id string,
 		oldState common.RequestState,
 		newState common.RequestState,
 		errorMessage string,
@@ -49,16 +49,16 @@ type JobRequestRepository interface {
 	// UpdatePriority update priority
 	UpdatePriority(
 		qc *common.QueryContext,
-		id uint64,
+		id string,
 		priority int32) error
 	// SetReadyToExecute marks job as ready to execute
 	SetReadyToExecute(
-		id uint64,
+		id string,
 		jobExecutionID string,
 		lastJobExecutionID string) error
 	// IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready
 	IncrementScheduleAttempts(
-		id uint64,
+		id string,
 		scheduleSecs time.Duration,
 		decrPriority int,
 		errorMessage string) error
@@ -93,40 +93,40 @@ type JobRequestRepository interface {
 		offset int,
 		staleInterval time.Duration) (jobRequests []*types.JobRequest, err error)
 	// UpdateRunningTimestamp updates running timestamp of STARTED and EXECUTING jobs
-	UpdateRunningTimestamp(id uint64) error
+	UpdateRunningTimestamp(id string) error
 	CountByOrgAndState(
 		org string,
 		state common.RequestState) (totalRecords int64, err error)
 	// Cancel - cancel a job
 	Cancel(
 		qc *common.QueryContext,
-		id uint64) error
+		id string) error
 	// Trigger triggers a scheduled job
 	Trigger(
 		qc *common.QueryContext,
-		id uint64) error
+		id string) error
 	// Restart restarts a job
 	Restart(
 		qc *common.QueryContext,
-		id uint64) error
+		id string) error
 	// Delete removes a job
 	Delete(
 		qc *common.QueryContext,
-		id uint64) error
+		id string) error
 	// DeletePendingCronByJobType - delete pending cron job
 	DeletePendingCronByJobType(
 		qc *common.QueryContext,
 		jobType string) error
 	// RecentIDs returns job ids
 	RecentIDs(
-		limit int) (map[uint64]common.RequestState, error)
+		limit int) (map[string]common.RequestState, error)
 	// RecentLiveIDs returns recently alive - executing/pending/starting job-ids
 	RecentLiveIDs(
-		limit int) ([]uint64, error)
+		limit int) ([]string, error)
 	// RecentDeadIDs returns recently completed job-ids
 	RecentDeadIDs(
 		limit int,
 		fromOffset time.Duration,
 		toOffset time.Duration,
-	) ([]uint64, error)
+	) ([]string, error)
 }

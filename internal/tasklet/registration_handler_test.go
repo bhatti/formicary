@@ -28,7 +28,7 @@ func Test_ShouldStartAndStopRegistration(t *testing.T) {
 		MaxCapacity:  100,
 		Tags:         make([]string, 0),
 		Methods:      []types.TaskMethod{types.ForkJob},
-		Allocations:  make(map[uint64]*types.AntAllocation),
+		Allocations:  make(map[string]*types.AntAllocation),
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
 	}

@@ -51,7 +51,7 @@ func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
 	req := &common.TaskRequest{
 		JobType:         "job",
 		TaskType:        "task",
-		JobRequestID:    101,
+		JobRequestID:    "101",
 		JobExecutionID:  "201",
 		TaskExecutionID: "301",
 		Action:          common.EXECUTE,

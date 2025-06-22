@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 var randomTopic = false
@@ -376,7 +376,7 @@ func newTestEvent(id int64) (e *testEvent) {
 	e = &testEvent{}
 	e.Version = "V1.0.0"
 	e.ID = id
-	e.Message = uuid.NewV4().String()
+	e.Message = ulid.Make().String()
 	return
 }
 
@@ -388,7 +388,7 @@ func unmarshalTestEvent(b []byte) (e *testEvent) {
 
 func buildTopic(cli Client, suffix string) (topic string, err error) {
 	if randomTopic {
-		topic = uuid.NewV4().String() + suffix
+		topic = ulid.Make().String() + suffix
 	} else {
 		topic = "dev-test-topic" + suffix
 	}

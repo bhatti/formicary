@@ -386,7 +386,7 @@ func (t *BaseTasklet) sendResponse(
 				queue.ReusableTopicKey, "false",
 				queue.CorrelationIDKey, taskResp.CoRelationID,
 				queue.MessageTarget, t.ID,
-				"RequestID", fmt.Sprintf("%d", taskResp.JobRequestID),
+				"RequestID", taskResp.JobRequestID,
 				"TaskType", taskResp.TaskType,
 			))
 		if err == nil {

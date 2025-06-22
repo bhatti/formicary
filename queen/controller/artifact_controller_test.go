@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
-	"github.com/twinj/uuid"
 	"io"
 	"net/http"
 	"net/url"
@@ -115,8 +115,8 @@ func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manag
 		t.Fatalf("unexpected error %s", err)
 	}
 
-	art := types.NewArtifact("bucket", uuid.NewV4().String(), "group", "kind", 101, "sha", 100)
-	art.ID = uuid.NewV4().String()
+	art := types.NewArtifact("bucket", ulid.Make().String(), "group", "kind", "101", "sha", 100)
+	art.ID = ulid.Make().String()
 	_, _ = artifactRepository.Save(art)
 	mgr, err := manager.NewArtifactManager(
 		serverCfg,

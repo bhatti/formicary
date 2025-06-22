@@ -102,7 +102,7 @@ func Test_ShouldExecuteForkWaitTasklet(t *testing.T) {
 	// THEN it should not fail
 	require.Equal(t, "", res.ErrorMessage)
 	require.Equal(t, common.COMPLETED, res.Status)
-	require.Equal(t, []uint64{jobReq.ID}, res.TaskContext["RequestIDs"])
+	require.Equal(t, []string{jobReq.ID}, res.TaskContext["RequestIDs"])
 	require.Equal(t, 1, res.TaskContext["TotalRequests"])
 }
 

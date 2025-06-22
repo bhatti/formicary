@@ -9,7 +9,7 @@ import (
 
 	"plexobject.com/formicary/queen/notify"
 
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/stats"
@@ -280,13 +280,13 @@ func (jm *JobManager) RecentDeadIDs(
 	limit int,
 	fromOffset time.Duration,
 	toOffset time.Duration,
-) ([]uint64, error) {
+) ([]string, error) {
 	return jm.jobRequestRepository.RecentDeadIDs(limit, fromOffset, toOffset)
 }
 
 // RecentDeadIDs returns recently completed job-ids
 func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
-	var ids []uint64
+	var ids []string
 	if ids, err = jm.RecentDeadIDs(10000, jm.serverCfg.Common.MaxJobTimeout, 5*time.Second); err != nil {
 		return err
 	}
@@ -311,7 +311,7 @@ func (jm *JobManager) publishDeadJobIds(ctx context.Context) (err error) {
 // GetWaitEstimate calculates wait time for the job
 func (jm *JobManager) GetWaitEstimate(
 	qc *common.QueryContext,
-	requestID uint64) (q stats.JobWaitEstimate, err error) {
+	requestID string) (q stats.JobWaitEstimate, err error) {
 	var request *types.JobRequest
 	request, err = jm.GetJobRequest(qc, requestID)
 	if err != nil {
@@ -354,7 +354,7 @@ func (jm *JobManager) GetWaitEstimate(
 
 	// if job is not pending then return
 	if !request.JobState.Pending() {
-		q.ErrorMessage = fmt.Sprintf("job %d is not pending but is %s", requestID, request.JobState)
+		q.ErrorMessage = fmt.Sprintf("job %s is not pending but is %s", requestID, request.JobState)
 		return
 	}
 
@@ -376,7 +376,7 @@ func (jm *JobManager) GetWaitEstimate(
 	// check if job was scheduled in future
 	scheduledDiff := time.Now().Sub(request.ScheduledAt)
 	if !matched {
-		q.ErrorMessage = fmt.Sprintf("could not calculate estimated queue time for request %d and job %s",
+		q.ErrorMessage = fmt.Sprintf("could not calculate estimated queue time for request %s and job %s",
 			request.ID, request.JobType)
 	} else if scheduledDiff > q.EstimatedWait {
 		q.EstimatedWait = scheduledDiff
@@ -648,14 +648,14 @@ func (jm *JobManager) QueryJobRequests(
 
 // GetJobRequestParams - finds job-request-params by id
 func (jm *JobManager) GetJobRequestParams(
-	id uint64) ([]*types.JobRequestParam, error) {
+	id string) ([]*types.JobRequestParam, error) {
 	return jm.jobRequestRepository.GetParams(id)
 }
 
 // GetJobRequest - finds job-request by id
 func (jm *JobManager) GetJobRequest(
 	qc *common.QueryContext,
-	id uint64) (*types.JobRequest, error) {
+	id string) (*types.JobRequest, error) {
 	request, err := jm.jobRequestRepository.Get(qc, id)
 	if err != nil {
 		return nil, err
@@ -683,13 +683,13 @@ func (jm *JobManager) GetJobRequest(
 // PauseJobRequest - pauses job-request
 func (jm *JobManager) PauseJobRequest(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	req, err := jm.jobRequestRepository.Get(qc, id)
 	if err != nil {
 		return err
 	}
 	if req.JobState != common.EXECUTING {
-		return fmt.Errorf("job %s with id %d is in %s state and cannot be paused", req.JobType, req.ID, req.JobState)
+		return fmt.Errorf("job %s with id %s is in %s state and cannot be paused", req.JobType, req.ID, req.JobState)
 	}
 	jm.jobStatsRegistry.Cancelled(req)
 	// _ = jm.fireJobRequestChange(req)
@@ -711,7 +711,7 @@ func (jm *JobManager) PauseJobRequest(
 // CancelJobRequest - cancels/stops job-request
 func (jm *JobManager) CancelJobRequest(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	req, err := jm.jobRequestRepository.Get(qc, id)
 	if err != nil {
 		return err
@@ -749,7 +749,7 @@ func (jm *JobManager) RequeueOrphanJobRequests(
 // DeleteJobRequest deletes job request
 func (jm *JobManager) DeleteJobRequest(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	return jm.jobRequestRepository.Delete(qc, id)
 }
 
@@ -890,7 +890,7 @@ func (jm *JobManager) UserOrgExecuting(req types.IJobRequestSummary) (int, int) 
 
 // SetJobRequestReadyToExecute marks job as ready to execute so that job can be picked up by job launcher
 func (jm *JobManager) SetJobRequestReadyToExecute(
-	id uint64,
+	id string,
 	jobExecutionID string,
 	lastJobExecutionID string) error {
 	return jm.jobRequestRepository.SetReadyToExecute(id, jobExecutionID, lastJobExecutionID)
@@ -899,7 +899,7 @@ func (jm *JobManager) SetJobRequestReadyToExecute(
 // TriggerJobRequest - triggers job
 func (jm *JobManager) TriggerJobRequest(
 	qc *common.QueryContext,
-	id uint64) (err error) {
+	id string) (err error) {
 	if err = jm.jobRequestRepository.Trigger(qc, id); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			logrus.WithFields(logrus.Fields{
@@ -921,7 +921,7 @@ func (jm *JobManager) TriggerJobRequest(
 // RestartJobRequest - restarts job
 func (jm *JobManager) RestartJobRequest(
 	qc *common.QueryContext,
-	id uint64) (err error) {
+	id string) (err error) {
 	if err = jm.jobRequestRepository.Restart(qc, id); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			jm.metricsRegistry.Incr("job_restarted_total", map[string]string{"JobType": req.JobType})
@@ -948,14 +948,14 @@ func (jm *JobManager) GetResourceUsage(
 }
 
 // UpdateJobRequestTimestamp updates timestamp so that job scheduler doesn't consider it as orphan
-func (jm *JobManager) UpdateJobRequestTimestamp(requestID uint64) (err error) {
+func (jm *JobManager) UpdateJobRequestTimestamp(requestID string) (err error) {
 	return jm.jobRequestRepository.UpdateRunningTimestamp(requestID)
 }
 
 // GetDotConfigForJobRequest - creates graphviz dot file
 func (jm *JobManager) GetDotConfigForJobRequest(
 	qc *common.QueryContext,
-	id uint64) (string, error) {
+	id string) (string, error) {
 	request, err := jm.jobRequestRepository.Get(qc, id)
 	if err != nil {
 		return "", err
@@ -978,7 +978,7 @@ func (jm *JobManager) GetDotConfigForJobRequest(
 // GetDotImageForJobRequest - creates graphviz png image file
 func (jm *JobManager) GetDotImageForJobRequest(
 	qc *common.QueryContext,
-	id uint64) ([]byte, error) {
+	id string) ([]byte, error) {
 	request, err := jm.jobRequestRepository.Get(qc, id)
 	if err != nil {
 		return nil, err
@@ -1304,7 +1304,7 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"RequestID", req.GetID(),
 			"UserID", req.UserID,
 		),
 	); err != nil {
@@ -1325,7 +1325,7 @@ func (jm *JobManager) fireJobRequestChange(req *types.JobRequest) (err error) {
 
 // Fire event to pause job
 func (jm *JobManager) pauseJob(
-	qc *common.QueryContext,
+	_ *common.QueryContext,
 	req *types.JobRequest) (err error) {
 	jobExecutionLifecycleEvent := events.NewJobExecutionLifecycleEvent(
 		jm.serverCfg.Common.ID,
@@ -1347,7 +1347,7 @@ func (jm *JobManager) pauseJob(
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"RequestID", req.GetID(),
 			"UserID", req.UserID,
 		),
 	); err != nil {
@@ -1389,7 +1389,7 @@ func (jm *JobManager) cancelJob(
 		payload,
 		queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
-			"RequestID", fmt.Sprintf("%d", req.GetID()),
+			"RequestID", req.GetID(),
 			"UserID", req.UserID,
 		),
 	); err != nil {

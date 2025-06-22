@@ -2,7 +2,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"net/http"
 	"time"
 )
@@ -69,7 +69,7 @@ func (c *AuthConfig) LoginStateCookieName() string {
 func (c *AuthConfig) LoginStateCookie() *http.Cookie {
 	cookie := new(http.Cookie)
 	cookie.Name = c.LoginStateCookieName()
-	cookie.Value = uuid.NewV4().String()
+	cookie.Value = ulid.Make().String()
 	cookie.Expires = time.Now().Add(15 * time.Minute)
 	cookie.Path = "/"
 	cookie.HttpOnly = true

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/types"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func Test_ShouldCreateJobTime(t *testing.T) {
 	jt := &JobTime{
-		ID:             100,
+		ID:             ulid.Make().String(),
 		JobType:        "job",
 		UserID:         "user",
 		OrganizationID: "org",
@@ -23,7 +24,7 @@ func Test_ShouldCreateJobTime(t *testing.T) {
 	require.Equal(t, "v1.0", jt.GetJobVersion())
 	require.Equal(t, "org", jt.GetOrganizationID())
 	require.Equal(t, "user", jt.GetUserID())
-	require.Equal(t, uint64(100), jt.GetID())
+	require.NotEmpty(t, jt.GetID())
 	require.Equal(t, -1, jt.GetJobPriority())
 	require.Equal(t, types.PENDING, jt.GetJobState())
 	require.False(t, jt.GetScheduledAt().IsZero())
@@ -32,7 +33,7 @@ func Test_ShouldCreateJobTime(t *testing.T) {
 
 func Test_ShouldConvertJobTimeToInfo(t *testing.T) {
 	jt := &JobTime{
-		ID:          100,
+		ID:          ulid.Make().String(),
 		JobType:     "job",
 		JobState:    types.PENDING,
 		ScheduledAt: time.Now(),
@@ -47,7 +48,7 @@ func Test_ShouldConvertJobTimeToInfo(t *testing.T) {
 
 func Test_ShouldCalculateElapsedDurationForJobTime(t *testing.T) {
 	jt := &JobTime{
-		ID:          100,
+		ID:          ulid.Make().String(),
 		JobType:     "job",
 		JobState:    types.PENDING,
 		ScheduledAt: time.Now(),

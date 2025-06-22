@@ -1,6 +1,6 @@
 -- +goose Up
     CREATE TABLE IF NOT EXISTS formicary_job_requests (
-      id INT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
       job_definition_id VARCHAR(36) NOT NULL,
       user_key VARCHAR(100),
       parent_id VARCHAR(36),
@@ -20,9 +20,9 @@
       job_priority INTEGER NOT NULL DEFAULT 1,
       timeout BIGINT NOT NULL DEFAULT 0,
       retried INTEGER NOT NULL DEFAULT 0,
-      quick_search LONGTEXT,
+      quick_search TEXT,
       error_code VARCHAR(100),
-      error_message LONGTEXT,
+      error_message TEXT,
       scheduled_at TIMESTAMP DEFAULT NOW(),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP NULL,
@@ -40,16 +40,16 @@
     CREATE INDEX formicary_job_requests_state_pri_ndx ON formicary_job_requests(job_state, job_priority);
     CREATE UNIQUE INDEX formicary_job_user_key_ndx ON formicary_job_requests(user_key);
     CREATE INDEX formicary_job_request_updated_ndx ON formicary_job_requests(updated_at);
-    CREATE INDEX formicary_job_request_context_ndx ON formicary_job_requests(quick_search(512));
+    CREATE INDEX formicary_job_request_context_ndx ON formicary_job_requests(quick_search);
     CREATE INDEX formicary_job_request_errcode_ndx ON formicary_job_requests(error_code);
     CREATE INDEX formicary_job_requests_type_state_ndx ON formicary_job_requests(job_type, job_version, job_state);
 
     CREATE TABLE IF NOT EXISTS formicary_job_request_params (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
-      job_request_id INT(20) NOT NULL,
+      job_request_id VARCHAR(36) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      `type` VARCHAR(50) NOT NULL,
-      value LONGTEXT NOT NULL,
+      kind VARCHAR(50) NOT NULL,
+      value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW(),

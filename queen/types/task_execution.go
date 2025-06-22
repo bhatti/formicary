@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"plexobject.com/formicary/internal/types"
@@ -68,6 +69,7 @@ type TaskExecution struct {
 	Stdout []string `json:"stdout" gorm:"-"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
 	lookupContexts map[string]*TaskExecutionContext
+	lookupLock     sync.RWMutex
 }
 
 // TableName overrides default table name
@@ -175,6 +177,8 @@ func (te *TaskExecution) ContextMap() map[string]interface{} {
 
 // GetContext gets task context
 func (te *TaskExecution) GetContext(name string) *TaskExecutionContext {
+	te.lookupLock.RLock()
+	defer te.lookupLock.RUnlock()
 	return te.lookupContexts[name]
 }
 
@@ -227,6 +231,8 @@ func (te *TaskExecution) AddContext(
 		return nil, err
 	}
 	ctx.TaskExecutionID = te.ID
+	te.lookupLock.Lock()
+	defer te.lookupLock.Unlock()
 	if te.lookupContexts[name] == nil {
 		te.Contexts = append(te.Contexts, ctx)
 	} else {
@@ -242,6 +248,8 @@ func (te *TaskExecution) AddContext(
 
 // DeleteContext removes context by name
 func (te *TaskExecution) DeleteContext(name string) *TaskExecutionContext {
+	te.lookupLock.Lock()
+	defer te.lookupLock.Unlock()
 	old := te.lookupContexts[name]
 	if old == nil {
 		return nil
@@ -274,6 +282,8 @@ func (te *TaskExecution) Equals(other *TaskExecution) error {
 	if len(te.Contexts) != len(other.Contexts) {
 		return fmt.Errorf("expected number of context variables %v but was %v", len(te.Contexts), len(other.Contexts))
 	}
+	te.lookupLock.RLock()
+	defer te.lookupLock.RUnlock()
 	for _, c := range other.Contexts {
 		if te.lookupContexts[c.Name] == nil || te.lookupContexts[c.Name].Value != c.Value {
 			return fmt.Errorf("expected context variables for %v as %v but was %v", c.Name, te.lookupContexts[c.Name], c.Value)
@@ -284,6 +294,8 @@ func (te *TaskExecution) Equals(other *TaskExecution) error {
 
 // AfterLoad initializes task
 func (te *TaskExecution) AfterLoad() error {
+	te.lookupLock.Lock()
+	defer te.lookupLock.Unlock()
 	te.lookupContexts = make(map[string]*TaskExecutionContext)
 	for _, c := range te.Contexts {
 		_, err := c.GetParsedValue()

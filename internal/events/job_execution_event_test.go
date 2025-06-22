@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/types"
 	"testing"
@@ -11,7 +12,7 @@ func Test_ShouldCreateJobExecutionLaunchEvent(t *testing.T) {
 	e := NewJobExecutionLaunchEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		"executionID",
 		make(map[string]*types.AntReservation),
@@ -28,7 +29,7 @@ func Test_ShouldMarshalJobExecutionLaunchEvent(t *testing.T) {
 	e := NewJobExecutionLaunchEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		"executionID",
 		make(map[string]*types.AntReservation),
@@ -38,9 +39,9 @@ func Test_ShouldMarshalJobExecutionLaunchEvent(t *testing.T) {
 	// THEN it should return serialized bytes
 	b, err := e.Marshal()
 	require.NoError(t, err)
-	copy, err := UnmarshalJobExecutionLaunchEvent(b)
+	launchEvent, err := UnmarshalJobExecutionLaunchEvent(b)
 	require.NoError(t, err)
-	require.Equal(t, e.String(), copy.String())
+	require.Equal(t, e.String(), launchEvent.String())
 }
 
 func Test_ShouldCreateJobExecutionLifecycleEvent(t *testing.T) {
@@ -48,7 +49,7 @@ func Test_ShouldCreateJobExecutionLifecycleEvent(t *testing.T) {
 	e := NewJobExecutionLifecycleEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		"executionID",
 		types.EXECUTING,
@@ -67,7 +68,7 @@ func Test_ShouldMarshalJobExecutionLifecycleEvent(t *testing.T) {
 	e := NewJobExecutionLifecycleEvent(
 		"source",
 		"userID",
-		12,
+		ulid.Make().String(),
 		"jobType",
 		"executionID",
 		types.EXECUTING,
@@ -79,7 +80,7 @@ func Test_ShouldMarshalJobExecutionLifecycleEvent(t *testing.T) {
 	// THEN it should return serialized bytes
 	b, err := e.Marshal()
 	require.NoError(t, err)
-	copy, err := UnmarshalJobExecutionLifecycleEvent(b)
+	lifecycleEvent, err := UnmarshalJobExecutionLifecycleEvent(b)
 	require.NoError(t, err)
-	require.Equal(t, e.String(), copy.String())
+	require.Equal(t, e.String(), lifecycleEvent.String())
 }

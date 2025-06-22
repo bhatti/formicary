@@ -8,7 +8,7 @@ import (
 	common "plexobject.com/formicary/internal/types"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -100,10 +100,10 @@ func (jrr *JobResourceRepositoryImpl) Save(
 		}
 		newReq := false
 		if resource.ExternalID == "" {
-			resource.ExternalID = uuid.NewV4().String()
+			resource.ExternalID = ulid.Make().String()
 		}
 		if resource.ID == "" {
-			resource.ID = uuid.NewV4().String()
+			resource.ID = ulid.Make().String()
 			resource.CreatedAt = time.Now()
 			resource.UpdatedAt = time.Now()
 			newReq = true
@@ -131,7 +131,7 @@ func (jrr *JobResourceRepositoryImpl) Save(
 
 		for _, c := range resource.Configs {
 			if c.ID == "" {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 			}
 			c.JobResourceID = resource.ID
 		}
@@ -211,7 +211,7 @@ func (jrr *JobResourceRepositoryImpl) Allocate(
 		return nil, common.NewValidationError(err)
 	}
 	err = jrr.db.Transaction(func(tx *gorm.DB) error {
-		use.ID = uuid.NewV4().String()
+		use.ID = ulid.Make().String()
 		use.JobResourceID = resource.ID
 		use.CreatedAt = time.Now()
 		use.UpdatedAt = time.Now()
@@ -318,7 +318,7 @@ func (jrr *JobResourceRepositoryImpl) SaveConfig(
 			return common.NewValidationError(err)
 		}
 		if config.ID == "" {
-			config.ID = uuid.NewV4().String()
+			config.ID = ulid.Make().String()
 		}
 		res := tx.Save(config)
 		return res.Error

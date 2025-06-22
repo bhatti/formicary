@@ -1,12 +1,12 @@
 -- +goose Up
     CREATE TABLE IF NOT EXISTS formicary_job_executions (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
-      job_request_id INT(20) NOT NULL,
+      job_request_id VARCHAR(36) NOT NULL,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       job_type VARCHAR(100) NOT NULL,
       job_version VARCHAR(50) NOT NULL DEFAULT '',
       job_state VARCHAR(100) NOT NULL DEFAULT 'PENDING',
-      cpu_secs INT(15) NOT NULL DEFAULT 0,
+      cpu_secs INTEGER NOT NULL DEFAULT 0,
       user_id VARCHAR(36),
       organization_id VARCHAR(36),
       exit_code VARCHAR(100) ,
@@ -30,8 +30,8 @@
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       job_execution_id VARCHAR(36) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      `type` VARCHAR(50) NOT NULL,
-      value LONGTEXT NOT NULL,
+      kind VARCHAR(50) NOT NULL,
+      value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       CONSTRAINT formicary_job_execution_context_job_fk FOREIGN KEY (job_execution_id) REFERENCES formicary_job_executions(id)

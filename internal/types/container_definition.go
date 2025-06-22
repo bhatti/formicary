@@ -99,7 +99,7 @@ func (cd *ContainerDefinition) GetDockerVolumeNames() map[string]string {
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "ContainerDefinition",
-				"Type":      reflect.TypeOf(cd.Volumes),
+				"Kind":      reflect.TypeOf(cd.Volumes),
 				"Volumes":   cd.Volumes,
 			}).Warn("unknown docker volumes type")
 		return make(map[string]string)
@@ -125,7 +125,7 @@ func (cd *ContainerDefinition) GetDockerVolumes() map[string]struct{} {
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "ContainerDefinition",
-				"Type":      reflect.TypeOf(cd.Volumes),
+				"Kind":      reflect.TypeOf(cd.Volumes),
 				"Volumes":   cd.Volumes,
 			}).Warn("unknown docker volumes type")
 	}
@@ -183,4 +183,3 @@ func getKubernetesVolumes(v interface{}) *KubernetesVolumes {
 	}
 	return NewKubernetesVolumes()
 }
-

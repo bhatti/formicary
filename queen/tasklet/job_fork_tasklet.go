@@ -40,7 +40,7 @@ func NewJobForkTasklet(
 		MaxCapacity:  serverCfg.Jobs.MaxForkTaskletCapacity,
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.ForkJob},
-		Allocations:  make(map[uint64]*common.AntAllocation),
+		Allocations:  make(map[string]*common.AntAllocation),
 		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),
@@ -95,7 +95,7 @@ func (t *JobForkTasklet) Execute(
 	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
 	queryContext := common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID)
 	if taskReq.ExecutorOpts.ForkJobType == "" {
-		return taskReq.ErrorResponse(fmt.Errorf("fork_job_type is not specified for job %s and request %d", taskReq.JobType, taskReq.JobRequestID)), nil
+		return taskReq.ErrorResponse(fmt.Errorf("fork_job_type is not specified for job %s and request %s", taskReq.JobType, taskReq.JobRequestID)), nil
 	}
 	jobDef, err := t.jobManager.GetJobDefinitionByType(
 		queryContext,
@@ -123,7 +123,7 @@ func (t *JobForkTasklet) Execute(
 	}
 	_, _ = req.AddParam(common.ForkedJob, true)
 	req.ParentID = taskReq.JobRequestID
-	_, _ = req.AddParam(fmt.Sprintf("%s_%d", types.ParentJobTypePrefix, req.ParentID), taskReq.JobType)
+	_, _ = req.AddParam(fmt.Sprintf("%s_%s", types.ParentJobTypePrefix, req.ParentID), taskReq.JobType)
 
 	saved, err := t.jobManager.SaveJobRequest(
 		common.NewQueryContextFromIDs(taskReq.UserID, taskReq.OrganizationID),

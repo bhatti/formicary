@@ -10,10 +10,12 @@ import (
 
 	common "plexobject.com/formicary/internal/types"
 
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
+
+var _ JobRequestRepository = &JobRequestRepositoryImpl{}
 
 // JobRequestRepositoryImpl implements JobRequestRepository using gorm O/R mapping
 type JobRequestRepositoryImpl struct {
@@ -28,8 +30,8 @@ func NewJobRequestRepositoryImpl(db *gorm.DB, dbType string) (*JobRequestReposit
 
 // GetParams by id
 func (jrr *JobRequestRepositoryImpl) GetParams(
-	id uint64) (params []*types.JobRequestParam, err error) {
-	if id == 0 {
+	id string) (params []*types.JobRequestParam, err error) {
+	if id == "" {
 		return nil, common.NewValidationError(
 			fmt.Errorf("id is not specified for job-request"))
 	}
@@ -46,8 +48,8 @@ func (jrr *JobRequestRepositoryImpl) GetParams(
 // Get method finds JobRequest by id
 func (jrr *JobRequestRepositoryImpl) Get(
 	qc *common.QueryContext,
-	id uint64) (*types.JobRequest, error) {
-	if id == 0 {
+	id string) (*types.JobRequest, error) {
+	if id == "" {
 		return nil, common.NewValidationError(
 			fmt.Errorf("id is not specified for job-request"))
 	}
@@ -94,7 +96,7 @@ func (jrr *JobRequestRepositoryImpl) Clear() {
 
 // UpdateJobState sets state of job-request
 func (jrr *JobRequestRepositoryImpl) UpdateJobState(
-	id uint64,
+	id string,
 	oldState common.RequestState,
 	newState common.RequestState,
 	errorMessage string,
@@ -105,7 +107,7 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 	tx := jrr.db.Model(&job).Where("id = ?", id)
 	if oldState != "" {
 		if !oldState.CanTransitionTo(newState) {
-			return fmt.Errorf("job %d cannot transition from %s to %s", id, oldState, newState)
+			return fmt.Errorf("job %s cannot transition from %s to %s", id, oldState, newState)
 		}
 		tx = tx.Where("job_state = ?", oldState)
 	}
@@ -150,7 +152,7 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 
 // UpdateRunningTimestamp sets updated time of job-request
 func (jrr *JobRequestRepositoryImpl) UpdateRunningTimestamp(
-	id uint64) error {
+	id string) error {
 	var job types.JobRequest
 	// check in-clause
 	tx := jrr.db.Model(&job).
@@ -179,12 +181,13 @@ func (jrr *JobRequestRepositoryImpl) Save(
 	req.UserID = qc.GetUserID()
 	err = jrr.db.Transaction(func(tx *gorm.DB) error {
 		newReq := false
-		if req.ID == 0 {
+		if req.ID == "" {
+			req.ID = ulid.Make().String()
 			req.CreatedAt = time.Now()
 			req.UpdatedAt = time.Now()
 			req.JobState = common.PENDING
 			if req.UserKey == "" {
-				req.UserKey = uuid.NewV4().String()
+				req.UserKey = ulid.Make().String()
 			}
 			newReq = true
 		} else {
@@ -200,19 +203,19 @@ func (jrr *JobRequestRepositoryImpl) Save(
 				}).Warnf("invalid owner %s / %s didn't match query context",
 					req.UserID, req.OrganizationID)
 				return common.NewPermissionError(
-					fmt.Errorf("cannot access job request %d", req.ID))
+					fmt.Errorf("cannot access job request %s", req.ID))
 			}
 			req.UpdatedAt = time.Now()
 			jrr.clearOrphanJobParams(tx, req)
 		}
 		if req.UserKey == "" {
-			req.UserKey = uuid.NewV4().String()
+			req.UserKey = ulid.Make().String()
 		}
 		var res *gorm.DB
 
 		for _, c := range req.Params {
 			if c.ID == "" {
-				c.ID = uuid.NewV4().String()
+				c.ID = ulid.Make().String()
 			}
 			c.JobRequestID = req.ID
 		}
@@ -235,10 +238,10 @@ func (jrr *JobRequestRepositoryImpl) Save(
 
 // SetReadyToExecute marks job as ready to execute so that job can be picked up by job launcher
 func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
-	id uint64,
+	id string,
 	jobExecutionID string,
 	lastJobExecutionID string) error {
-	if id == 0 {
+	if id == "" {
 		return common.NewValidationError("id is not specified for request to set ready to execute")
 	}
 	if jobExecutionID == "" {
@@ -275,7 +278,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 			return common.NewNotFoundError(err)
 		}
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to mark job as READY because old status was %v for request-id %d",
+			fmt.Errorf("failed to mark job as READY because old status was %v for request-id %s",
 				old.JobState, id))
 	}
 	return nil
@@ -284,7 +287,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 // UpdatePriority update priority
 func (jrr *JobRequestRepositoryImpl) UpdatePriority(
 	qc *common.QueryContext,
-	id uint64,
+	id string,
 	priority int32) error {
 	var job types.JobRequest
 	tx := qc.AddOrgElseUserWhere(jrr.db.Model(&job), false).Where("id = ?", id)
@@ -302,13 +305,13 @@ func (jrr *JobRequestRepositoryImpl) UpdatePriority(
 // Cancel a job
 func (jrr *JobRequestRepositoryImpl) Cancel(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	req, err := jrr.Get(qc, id)
 	if err != nil {
 		return nil
 	}
 	if req.JobState.IsTerminal() {
-		return common.NewConflictError(fmt.Sprintf("request %d is already in terminal state %s",
+		return common.NewConflictError(fmt.Sprintf("request %s is already in terminal state %s",
 			req.ID, req.JobState))
 	}
 	return jrr.db.Transaction(func(db *gorm.DB) error {
@@ -348,7 +351,7 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 // Delete - deletes job-request
 func (jrr *JobRequestRepositoryImpl) Delete(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	_, err := jrr.Get(qc, id)
 	if err != nil {
 		return err
@@ -382,7 +385,7 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 	defer func() {
 		_ = rows.Close()
 	}()
-	ids := make([]uint64, 0)
+	ids := make([]string, 0)
 
 	for rows.Next() {
 		var id jobRequestID
@@ -410,10 +413,10 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 // Trigger triggers a scheduled job
 func (jrr *JobRequestRepositoryImpl) Trigger(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	// TODO check for cron schedule
 	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ? WHERE id = ? AND cron_triggered = ? AND job_state = ?"
-	args := []interface{}{time.Now(), time.Now(), uuid.NewV4().String(), id, true, common.PENDING}
+	args := []interface{}{time.Now(), time.Now(), ulid.Make().String(), id, true, common.PENDING}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
@@ -433,7 +436,7 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 // Restart the job
 func (jrr *JobRequestRepositoryImpl) Restart(
 	qc *common.QueryContext,
-	id uint64) error {
+	id string) error {
 	// TODO check for cron schedule
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
@@ -462,7 +465,7 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 
 // IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready
 func (jrr *JobRequestRepositoryImpl) IncrementScheduleAttempts(
-	id uint64,
+	id string,
 	scheduleSecs time.Duration,
 	decrPriority int,
 	errorMessage string) error {
@@ -475,23 +478,23 @@ func (jrr *JobRequestRepositoryImpl) IncrementScheduleAttempts(
 	}
 	if res.RowsAffected != 1 {
 		return common.NewNotFoundError(
-			fmt.Errorf("failed to update schedule_attempts for %d", id))
+			fmt.Errorf("failed to update schedule_attempts for %s", id))
 	}
 	return nil
 }
 
 type jobRequestID struct {
-	ID uint64
+	ID string
 }
 
 type jobRequestIDState struct {
-	ID       uint64
+	ID       string
 	JobState common.RequestState
 }
 
 // RecentIDs returns job -ids
 func (jrr *JobRequestRepositoryImpl) RecentIDs(
-	limit int) (res map[uint64]common.RequestState, err error) {
+	limit int) (res map[string]common.RequestState, err error) {
 	sql := "SELECT id, job_state FROM formicary_job_requests ORDER BY updated_at DESC limit ?"
 	args := []interface{}{limit}
 	rows, err := jrr.db.Raw(sql, args...).Limit(limit).Rows()
@@ -501,7 +504,7 @@ func (jrr *JobRequestRepositoryImpl) RecentIDs(
 	defer func() {
 		_ = rows.Close()
 	}()
-	res = make(map[uint64]common.RequestState)
+	res = make(map[string]common.RequestState)
 
 	for rows.Next() {
 		var id jobRequestIDState
@@ -516,7 +519,7 @@ func (jrr *JobRequestRepositoryImpl) RecentIDs(
 
 // RecentLiveIDs returns recently alive - executing/pending/starting job-ids
 func (jrr *JobRequestRepositoryImpl) RecentLiveIDs(
-	limit int) ([]uint64, error) {
+	limit int) ([]string, error) {
 	sql := "SELECT id FROM formicary_job_requests WHERE job_state NOT IN ? ORDER BY updated_at DESC limit ?"
 	jobStates := common.TerminalStates
 	args := []interface{}{jobStates, limit}
@@ -527,7 +530,7 @@ func (jrr *JobRequestRepositoryImpl) RecentLiveIDs(
 	defer func() {
 		_ = rows.Close()
 	}()
-	ids := make([]uint64, 0)
+	ids := make([]string, 0)
 
 	for rows.Next() {
 		var id jobRequestID
@@ -545,7 +548,7 @@ func (jrr *JobRequestRepositoryImpl) RecentDeadIDs(
 	limit int,
 	fromOffset time.Duration,
 	toOffset time.Duration,
-) ([]uint64, error) {
+) ([]string, error) {
 	sql := "SELECT id FROM formicary_job_requests WHERE job_state IN ? AND updated_at > ? AND updated_at < ? ORDER BY updated_at DESC limit ?"
 	jobStates := common.TerminalStates
 	now := time.Now()
@@ -557,7 +560,7 @@ func (jrr *JobRequestRepositoryImpl) RecentDeadIDs(
 	defer func() {
 		_ = rows.Close()
 	}()
-	ids := make([]uint64, 0)
+	ids := make([]string, 0)
 
 	for rows.Next() {
 		var id jobRequestID

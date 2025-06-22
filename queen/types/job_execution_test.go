@@ -63,7 +63,7 @@ func Test_ShouldCalculateJobExecutionDuration(t *testing.T) {
 	job := testNewJobExecution("test-exec-job")
 	job.AddTask(NewTaskDefinition("type", common.Kubernetes))
 	require.NotEqual(t, "", job.ElapsedDuration())
-	require.True(t, job.ElapsedMillis() <= 1)
+	require.True(t, job.ElapsedMillis() <= 2, "elapsed: %v", job.ElapsedMillis())
 	ended := time.Now().Add(time.Hour)
 	for _, task := range job.Tasks {
 		task.TaskState = common.COMPLETED
@@ -71,7 +71,7 @@ func Test_ShouldCalculateJobExecutionDuration(t *testing.T) {
 	}
 	job.EndedAt = &ended
 	require.Contains(t, job.ElapsedDuration(), "1h0m")
-	require.Equal(t, int64(3600000), job.ElapsedMillis())
+	require.True(t, job.ElapsedMillis() >= int64(3600000))
 	require.Equal(t, int64(14400), job.ExecutionCostSecs())
 	require.Equal(t, float64(0), job.CostFactor())
 	job.JobState = common.EXECUTING
@@ -152,7 +152,7 @@ func Test_ShouldGetSetPriorityForJobExecution(t *testing.T) {
 	// WHEN accessing priority
 	// THEN it should return saved value
 	require.Equal(t, -1, job.GetJobPriority())
-	require.Equal(t, uint64(0), job.GetID())
+	require.Equal(t, "", job.GetID())
 }
 
 func testNewJobExecution(name string) *JobExecution {

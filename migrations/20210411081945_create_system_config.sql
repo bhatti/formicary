@@ -4,7 +4,7 @@
       scope VARCHAR(100) NOT NULL,
       kind VARCHAR(100) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      value LONGTEXT NOT NULL,
+      value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()

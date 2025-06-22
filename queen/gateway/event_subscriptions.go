@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -163,7 +162,7 @@ func (gw *Gateway) subscribeToTaskExecutionLifecycleEvent(ctx context.Context,
 			gw.registry.Notify(
 				taskExecutionLifecycleEvent.UserID,
 				"TaskExecutionLifecycleEvent",
-				fmt.Sprintf("%d", taskExecutionLifecycleEvent.JobRequestID), // scope is request-id
+				taskExecutionLifecycleEvent.JobRequestID, // scope is request-id
 				event.Payload)
 			return nil
 		},
@@ -194,7 +193,7 @@ func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
 			gw.registry.Notify(
 				logEvent.UserID,
 				"LogEvent",
-				fmt.Sprintf("%d", logEvent.JobRequestID), // scope is request-id
+				logEvent.JobRequestID, // scope is request-id
 				event.Payload)
 			if _, err = gw.logsArchiver.Save(logEvent); err != nil {
 				// ignore error

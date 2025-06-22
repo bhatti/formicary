@@ -40,7 +40,7 @@ func (e *WebhookTaskEvent) Validate() error {
 	if e.JobExecutionID == "" {
 		return fmt.Errorf("jobExecutionID is not specified")
 	}
-	if e.JobRequestID == 0 {
+	if e.JobRequestID == "" {
 		return fmt.Errorf("requestID is not specified")
 	}
 	if e.TaskType == "" {

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"math/rand"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func Test_ShouldGetJobRequestNonExistingId(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN fetching non-existing request-id
-	_, err = repo.Get(qc, 143242)
+	_, err = repo.Get(qc, ulid.Make().String())
 
 	// THEN it should fail
 	require.Error(t, err)
@@ -151,7 +152,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN updating state of non-existing request should fail
-	err = repo.UpdateJobState(7891, "PENDING", "READY", "", "", 0, 0)
+	err = repo.UpdateJobState("7891", "PENDING", "READY", "", "", 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -246,7 +247,7 @@ func Test_ShouldUpdateStateToExecutingForJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN marking nonexisting request as executing
-	err = repo.SetReadyToExecute(7891, "123234", "")
+	err = repo.SetReadyToExecute("7891", "123234", "")
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -329,7 +330,7 @@ func Test_ShouldUpdatePriorityOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN updating priority of non-existing request
-	err = repo.UpdatePriority(qc, 7891, 20)
+	err = repo.UpdatePriority(qc, "7891", 20)
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -366,7 +367,7 @@ func Test_ShouldQueryJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND a set of job requests in the database
-	requests := make(map[uint64]*types.JobRequest, 0)
+	requests := make(map[string]*types.JobRequest, 0)
 	for i := 0; i < 10; i++ {
 		req, err := types.NewJobRequestFromDefinition(job)
 		require.NoError(t, err)

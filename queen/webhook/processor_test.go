@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
@@ -29,7 +30,7 @@ func Test_ShouldCreateJobWebhook(t *testing.T) {
 	}()
 	event := events.NewWebhookJobEvent(
 		&events.JobExecutionLifecycleEvent{
-			JobRequestID:   101,
+			JobRequestID:   ulid.Make().String(),
 			JobType:        "sample-job",
 			JobExecutionID: "200",
 			JobState:       common.COMPLETED,
@@ -62,7 +63,7 @@ func Test_ShouldCreateTaskWebhook(t *testing.T) {
 	}()
 	event := events.NewWebhookTaskEvent(
 		&events.TaskExecutionLifecycleEvent{
-			JobRequestID:    101,
+			JobRequestID:    "101",
 			TaskType:        "sample-job",
 			JobExecutionID:  "100",
 			TaskExecutionID: "200",

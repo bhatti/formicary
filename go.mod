@@ -52,6 +52,8 @@ require (
 	k8s.io/client-go v0.29.2
 )
 
+require github.com/oklog/ulid/v2 v2.1.1
+
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect

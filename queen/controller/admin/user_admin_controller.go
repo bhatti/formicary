@@ -170,7 +170,7 @@ func (uc *UserAdminController) getUser(c web.APIContext) error {
 	if cpuUsage, err := uc.jobExecRepository.GetResourceUsage(
 		userQC, ranges); err == nil {
 		m := map[string]interface{}{
-			"Type":  "CPU",
+			"Kind":  "CPU",
 			"Today": cpuUsage[0],
 			"Week":  cpuUsage[1],
 		}
@@ -187,7 +187,7 @@ func (uc *UserAdminController) getUser(c web.APIContext) error {
 	if storageUsage, err := uc.artifactRepository.GetResourceUsage(
 		userQC, ranges); err == nil {
 		m := map[string]interface{}{
-			"Type":  "Storage",
+			"Kind":  "Storage",
 			"Today": storageUsage[0],
 			"Week":  storageUsage[1],
 		}

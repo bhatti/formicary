@@ -3,7 +3,7 @@ package events
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"time"
 )
 
@@ -20,7 +20,7 @@ func NewHealthErrorEvent(
 	err string) *HealthErrorEvent {
 	return &HealthErrorEvent{
 		BaseEvent: BaseEvent{
-			ID:        uuid.NewV4().String(),
+			ID:        ulid.Make().String(),
 			Source:    source,
 			EventType: "HealthErrorEvent",
 			CreatedAt: time.Now(),

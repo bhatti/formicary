@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,9 @@ func NewHostPortMonitor(name string, url string) (Monitorable, error) {
 	host, port, err := parseURL(url)
 	if err != nil {
 		return nil, err
+	}
+	if host == "" || strings.HasPrefix(host, ":") {
+		return nil, fmt.Errorf("failed to find host from %s for monitoring %s", url, name)
 	}
 	return &HostPortMonitor{
 		name: name,
@@ -44,11 +48,12 @@ func (m *HostPortMonitor) PerformHealthCheck(_ context.Context) error {
 func IsNetworkHostPortAlive(hostPort string, name string) error {
 	conn, err := net.DialTimeout("tcp", hostPort, 1*time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to connect to %s for %s due to '%v'",
+		//debug.PrintStack()
+		return fmt.Errorf("monitor failed to connect to %s for %s due: to '%v'",
 			hostPort, name, err)
 	}
 	if conn == nil {
-		return fmt.Errorf("failed to connect to %s for %s",
+		return fmt.Errorf("monitor failed to connect to %s for %s",
 			hostPort, name)
 	}
 	_ = conn.Close()

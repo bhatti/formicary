@@ -52,9 +52,9 @@ func Test_ShouldGetRequestIDForContainerEvent(t *testing.T) {
 
 	// WHEN accessing properties
 	// THEN it should return saved value
-	require.Equal(t, uint64(0), e.RequestID())
+	require.Equal(t, "", e.RequestID())
 	e.Labels["RequestID"] = "2"
-	require.Equal(t, uint64(2), e.RequestID())
+	require.Equal(t, "2", e.RequestID())
 }
 
 func Test_ShouldGetElapsedForContainerEvent(t *testing.T) {
@@ -82,7 +82,7 @@ func Test_ShouldGetElapsedForContainerEvent(t *testing.T) {
 
 	e.ContainerState = types.COMPLETED
 	require.Equal(t, int64(1000), e.Elapsed())
-	require.Equal(t, time.Duration(1*time.Second), e.ElapsedSecs())
+	require.Equal(t, 1*time.Second, e.ElapsedSecs())
 	require.Equal(t, "1s", e.ElapsedDuration())
 }
 

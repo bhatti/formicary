@@ -15,7 +15,7 @@ type LogEventRepository interface {
 		pageSize int,
 		order []string) (recs []*events.LogEvent, totalRecords int64, err error)
 	// DeleteByRequestID delete all logs by request-id
-	DeleteByRequestID(requestID uint64) (int64, error)
+	DeleteByRequestID(requestID string) (int64, error)
 	// DeleteByJobExecutionID delete all logs by job-execution-id
 	DeleteByJobExecutionID(jobExecutionID string) (int64, error)
 	// DeleteByTaskExecutionID delete all logs by task-execution-id

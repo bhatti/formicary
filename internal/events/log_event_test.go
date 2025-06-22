@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -10,7 +11,7 @@ func Test_ShouldCreateLogEvent(t *testing.T) {
 	e := NewLogEvent(
 		"source",
 		"userID",
-		10,
+		ulid.Make().String(),
 		"jobType",
 		"taskType",
 		"execution-id",
@@ -31,7 +32,7 @@ func Test_ShouldMarshalLogEvent(t *testing.T) {
 	e := NewLogEvent(
 		"source",
 		"userID",
-		10,
+		ulid.Make().String(),
 		"jobType",
 		"taskType",
 		"execution-id",

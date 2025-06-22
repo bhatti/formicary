@@ -26,10 +26,10 @@ type State struct {
 	antRegistrations               map[string]*common.AntRegistration          // ant-id => registration
 	antByTag                       map[string]map[string]bool                  // tag => [ant-id: true]
 	antByMethod                    map[common.TaskMethod]map[string]bool       // method=> [ant-id: true]
-	antsByRequest                  map[uint64]map[string]bool                  // request-id => [ant-id: true]
-	allocationsByAnt               map[string]map[uint64]*common.AntAllocation // ant-id => [request-id: allocation]
+	antsByRequest                  map[string]map[string]bool                  // request-id => [ant-id: true]
+	allocationsByAnt               map[string]map[string]*common.AntAllocation // ant-id => [request-id: allocation]
 	containersEvents               map[string]*events.ContainerLifecycleEvent  // method+container-name: container event
-	containersEventKeysByRequestID map[uint64]map[string]bool                  // for removing containers by request
+	containersEventKeysByRequestID map[string]map[string]bool                  // for removing containers by request
 	lock                           sync.RWMutex
 }
 
@@ -43,10 +43,10 @@ func NewState(
 		antRegistrations:               make(map[string]*common.AntRegistration),          // ant-id => registration
 		antByTag:                       make(map[string]map[string]bool),                  // tag => [ant-id: true]
 		antByMethod:                    make(map[common.TaskMethod]map[string]bool),       // method=> [ant-id: true]
-		antsByRequest:                  make(map[uint64]map[string]bool),                  // request-id => [ant-id: true]
-		allocationsByAnt:               make(map[string]map[uint64]*common.AntAllocation), // ant-id => [request-id: allocation]
+		antsByRequest:                  make(map[string]map[string]bool),                  // request-id => [ant-id: true]
+		allocationsByAnt:               make(map[string]map[string]*common.AntAllocation), // ant-id => [request-id: allocation]
 		containersEvents:               make(map[string]*events.ContainerLifecycleEvent),  // method + container-name: container event
-		containersEventKeysByRequestID: make(map[uint64]map[string]bool),                  // for removing containers by request
+		containersEventKeysByRequestID: make(map[string]map[string]bool),                  // for removing containers by request
 	}
 }
 
@@ -57,7 +57,7 @@ func (s *State) getRegistrationByAnt(antID string) *common.AntRegistration {
 }
 
 func (s *State) reserve(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	method common.TaskMethod,
 	tags []string,
@@ -179,7 +179,7 @@ func (s *State) reserve(
 	return reservation, nil
 }
 
-func calculateLoad(allocationsByAnt map[uint64]*common.AntAllocation) (load int) {
+func calculateLoad(allocationsByAnt map[string]*common.AntAllocation) (load int) {
 	for _, alloc := range allocationsByAnt {
 		load += len(alloc.TaskTypes)
 	}
@@ -187,7 +187,7 @@ func calculateLoad(allocationsByAnt map[uint64]*common.AntAllocation) (load int)
 }
 
 func (s *State) addAllocationsByAnt(
-	requestID uint64,
+	requestID string,
 	taskType string,
 	reservation *common.AntReservation) {
 	allocationsByAnt := s.allocationsByAnt[reservation.AntID] // ant-id => [request-id: allocation]
@@ -206,7 +206,7 @@ func (s *State) addAllocationsByAnt(
 	reservation.CurrentLoad = len(allocationsByAnt)
 }
 
-func (s *State) addAntsByRequest(requestID uint64, antID string) {
+func (s *State) addAntsByRequest(requestID string, antID string) {
 	requestAnts := s.antsByRequest[requestID]
 	if requestAnts == nil {
 		requestAnts = make(map[string]bool)
@@ -215,7 +215,7 @@ func (s *State) addAntsByRequest(requestID uint64, antID string) {
 	s.antsByRequest[requestID] = requestAnts
 }
 
-func (s *State) releaseJob(requestID uint64) error {
+func (s *State) releaseJob(requestID string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -294,7 +294,7 @@ func (s *State) release(
 }
 
 func (s *State) getAllocationsByAnt(
-	antID string) map[uint64]*common.AntAllocation {
+	antID string) map[string]*common.AntAllocation {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.allocationsByAnt[antID] // ant-id => [request-id: allocation]
@@ -540,7 +540,7 @@ func (s *State) addRegistration(
 
 	oldAllocations := s.allocationsByAnt[registration.AntID]
 	if oldAllocations == nil {
-		oldAllocations = make(map[uint64]*common.AntAllocation)
+		oldAllocations = make(map[string]*common.AntAllocation)
 		// for new ant registration, we will fetch running containers
 		go s.addContainers(ctx, registration) // fetch containers in background
 	}

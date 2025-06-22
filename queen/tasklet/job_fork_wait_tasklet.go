@@ -34,7 +34,7 @@ func NewJobForkWaitTasklet(
 		MaxCapacity:  serverCfg.Jobs.MaxForkAwaitTaskletCapacity,
 		Tags:         []string{},
 		Methods:      []common.TaskMethod{common.AwaitForkedJob},
-		Allocations:  make(map[uint64]*common.AntAllocation),
+		Allocations:  make(map[string]*common.AntAllocation),
 		AutoRefresh:  true,
 		CreatedAt:    time.Now(),
 		AntStartedAt: time.Now(),

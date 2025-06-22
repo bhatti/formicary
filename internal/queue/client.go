@@ -19,7 +19,7 @@ const (
 	replyTopicKey    = "ReplyTopic"
 	messageKey       = "Key"
 	producerKey      = "Producer"
-	groupKey         = "Group"
+	groupKey         = "ArtifactGroup"
 	lastOffsetKey    = "lastOffset"
 	firstOffsetKey   = "lastOffset"
 )
@@ -85,7 +85,7 @@ func NewMessagingClient(config *types.CommonConfig) (Client, error) {
 	} else if config.MessagingProvider == types.KafkaMessagingProvider {
 		return newKafkaClient(config)
 	} else {
-		return nil, fmt.Errorf("unsupported messaging provider %s", config.MessagingProvider)
+		return nil, fmt.Errorf("unsupported messaging provider: '%s'", config.MessagingProvider)
 	}
 }
 

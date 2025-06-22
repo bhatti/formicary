@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,7 @@ func Test_ShouldNotDeletingNonExistingRequestID(t *testing.T) {
 	repo, err := NewTestLogEventRepository()
 	require.NoError(t, err)
 	// WHEN deleting non-existing request-id
-	total, err := repo.DeleteByRequestID(0)
+	total, err := repo.DeleteByRequestID("")
 	// THEN total should be zero
 	require.NoError(t, err)
 	require.Equal(t, int64(0), total)
@@ -49,13 +50,15 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 	require.NoError(t, err)
 	repo.clear()
 
+	var reqIds []string
 	// AND log records in the database
 	for i := 1; i <= 10; i++ {
+		reqId := ulid.Make().String()
 		for j := 0; j < 5; j++ {
 			e := events.NewLogEvent(
 				"source",
 				"username",
-				uint64(i),
+				reqId,
 				"job-type",
 				"taskType",
 				fmt.Sprintf("job-exec-%d", i),
@@ -66,6 +69,7 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 			_, err = repo.Save(e)
 			require.NoError(t, err)
 		}
+		reqIds = append(reqIds, reqId)
 	}
 
 	params := make(map[string]interface{})
@@ -85,7 +89,7 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 	require.Equal(t, int64(1), total)
 
 	// WHEN deleting by request id
-	total, err = repo.DeleteByRequestID(1)
+	total, err = repo.DeleteByRequestID(reqIds[0])
 	// THEN it should return valid results
 	require.NoError(t, err)
 	require.Equal(t, int64(5), total)

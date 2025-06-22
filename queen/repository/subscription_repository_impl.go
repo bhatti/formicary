@@ -3,7 +3,7 @@ package repository
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"time"
 
 	"gorm.io/gorm"
@@ -123,7 +123,7 @@ func (sr *SubscriptionRepositoryImpl) Create(
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
-	subscription.ID = uuid.NewV4().String()
+	subscription.ID = ulid.Make().String()
 	err = sr.db.Transaction(func(tx *gorm.DB) error {
 		// only one subscription can be active
 		res := tx.Model(subscription).

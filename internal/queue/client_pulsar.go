@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/sirupsen/logrus"
-	"github.com/twinj/uuid"
+	"github.com/oklog/ulid/v2"
 	"plexobject.com/formicary/internal/types"
 	"sync"
 	"time"
@@ -61,7 +61,7 @@ func (c *ClientPulsar) Subscribe(
 	filter Filter,
 	_ MessageHeaders,
 ) (id string, err error) {
-	id = uuid.NewV4().String()
+	id = ulid.Make().String()
 	if cb == nil {
 		return id, fmt.Errorf("callback function is not specified")
 	}
@@ -149,7 +149,7 @@ func (c *ClientPulsar) SendReceive(
 		return nil, ctx.Err()
 	}
 	props.SetReplyTopic(inTopic)
-	props.SetCorrelationID(uuid.NewV4().String())
+	props.SetCorrelationID(ulid.Make().String())
 	props.SetReusableTopic(true)
 
 	// subscribe first
@@ -157,7 +157,7 @@ func (c *ClientPulsar) SendReceive(
 	// sendPulsarMessage-receive consumer will retry for a limit time
 	opts := pulsar.ConsumerOptions{
 		Topic:                inTopic,
-		SubscriptionName:     uuid.NewV4().String(),
+		SubscriptionName:     ulid.Make().String(),
 		Type:                 pulsar.Exclusive,
 		ReceiverQueueSize:    1,
 		MaxReconnectToBroker: &c.config.MaxReconnectToBroker,
@@ -234,7 +234,7 @@ func (c *ClientPulsar) Close() {
 	c.closed = true
 }
 
-//////////////////////////// PRIVATE METHODS /////////////////////////////
+// ////////////////////////// PRIVATE METHODS /////////////////////////////
 func (c *ClientPulsar) closeConsumer(
 	topic string,
 	id string) (err error) {
@@ -298,7 +298,7 @@ func (c *ClientPulsar) getConsumer(
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientPulsar",
-			"Type":      opts.Type,
+			"Kind":      opts.Type,
 			"Topic":     topic,
 			"ID":        id}).
 			Debug("subscribed successfully!")

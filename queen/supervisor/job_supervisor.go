@@ -36,7 +36,7 @@ func NewJobSupervisor(
 		serverCfg:       serverCfg,
 		jobStateMachine: stateMachine,
 		eventBus:        eventBus,
-		id:              fmt.Sprintf("supervisor-%d", stateMachine.Request.GetID()),
+		id:              fmt.Sprintf("supervisor-%s", stateMachine.Request.GetID()),
 		cancel:          func() {},
 	}
 }

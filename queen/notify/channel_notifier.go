@@ -3,7 +3,7 @@ package notify
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
+	"os"
 	common "plexobject.com/formicary/internal/types"
 	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/config"
@@ -204,9 +204,9 @@ func (n *DefaultNotifier) NotifyJob(
 	if request.GetJobState().Completed() && lastRequestState.Failed() {
 		prefix = "Fixed "
 	}
-	subject := fmt.Sprintf("%sJob %s - %d %s", prefix, job.JobType, request.GetID(), request.GetJobState())
+	subject := fmt.Sprintf("%sJob %s - %s %s", prefix, job.JobType, request.GetID(), request.GetJobState())
 
-	link := fmt.Sprintf("%s/dashboard/jobs/requests/%d", n.cfg.Common.ExternalBaseURL, request.GetID())
+	link := fmt.Sprintf("%s/dashboard/jobs/requests/%s", n.cfg.Common.ExternalBaseURL, request.GetID())
 	params := map[string]interface{}{
 		"Job":       request,
 		"URLPrefix": n.cfg.Common.ExternalBaseURL,
@@ -353,9 +353,9 @@ func (n *DefaultNotifier) loadJobsTemplate(sender types.Sender) (string, error) 
 }
 
 func loadTemplate(name string, dir string) ([]byte, error) {
-	b, err := ioutil.ReadFile(name)
+	b, err := os.ReadFile(name)
 	if err != nil {
-		b, err = ioutil.ReadFile(dir + name)
+		b, err = os.ReadFile(dir + name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error loading template: '%s' due to %w", name, err)
