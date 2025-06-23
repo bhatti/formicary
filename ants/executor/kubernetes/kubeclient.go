@@ -9,49 +9,42 @@ import (
 	"plexobject.com/formicary/ants/config"
 )
 
-func getKubeClient(config *config.AntConfig) (
-	cli *kubernetes.Clientset,
-	restConfig *restclient.Config,
-	err error) {
-	if config.Kubernetes.Host == "" {
-		restConfig, err = guessClientConfig()
-	} else {
-		restConfig, err = getOutClusterClientConfig(&config.Kubernetes)
+// getKubeClient creates kubernetes client with enhanced configuration support
+func getKubeClient(config *config.AntConfig) (cli *kubernetes.Clientset, restConfig *restclient.Config, err error) {
+	//if config.Kubernetes.Host == "" {
+	//	restConfig, err = guessClientConfig()
+	//} else {
+	//	restConfig, err = getOutClusterClientConfig(&config.Kubernetes)
+	//}
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	//cli, err = kubernetes.NewForConfig(restConfig)
+	// Initialize the enhanced kubernetes client
+	if err = config.Kubernetes.InitializeKubernetesClient(); err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
 	}
-	if err != nil {
-		return nil, nil, err
+
+	// Get the initialized client
+	cli, ok := config.Kubernetes.GetClient().(*kubernetes.Clientset)
+	if !ok || cli == nil {
+		return nil, nil, fmt.Errorf("failed to get kubernetes clientset")
 	}
-	cli, err = kubernetes.NewForConfig(restConfig)
-	return
+
+	// Get the REST config (for backward compatibility with existing code)
+	restConfig = config.Kubernetes.SelectedKubeconfig
+	if restConfig == nil {
+		return nil, nil, fmt.Errorf("no REST config available")
+	}
+
+	return cli, restConfig, nil
 }
 
-func getOutClusterClientConfig(
-	config *config.KubernetesConfig) (*restclient.Config, error) {
-	kubeConfig := &restclient.Config{
-		Host:        config.Host,
-		BearerToken: config.BearerToken,
-		TLSClientConfig: restclient.TLSClientConfig{
-			CAFile: config.CAFile,
-		},
-	}
-
-	// certificate based auth
-	if config.CertFile != "" {
-		if config.KeyFile == "" || config.CAFile == "" {
-			return nil, fmt.Errorf("ca file, cert file and key file must be specified when using file based auth")
-		}
-
-		kubeConfig.TLSClientConfig.CertFile = config.CertFile
-		kubeConfig.TLSClientConfig.KeyFile = config.KeyFile
-	} else if len(config.Username) > 0 {
-		kubeConfig.Username = config.Username
-		kubeConfig.Password = config.Password
-	}
-
-	//kubeConfig.Insecure = true
-	return kubeConfig, nil
+func getOutClusterClientConfig(config *config.KubernetesConfig) (*restclient.Config, error) {
+	return config.GetKubeConfigForCluster()
 }
 
+// Deprecated: Use KubernetesConfig.InitializeKubernetesClient() instead
 func guessClientConfig() (*restclient.Config, error) {
 	// Try in cluster config first
 	if inClusterCfg, err := restclient.InClusterConfig(); err == nil {
@@ -59,12 +52,17 @@ func guessClientConfig() (*restclient.Config, error) {
 	}
 
 	// in cluster config failed. Reading default kubectl config
-	return defaultKubectlConfig()
+	return _defaultKubectlConfig()
 }
 
 // See https://godoc.org/k8s.io/client-go/tools/clientcmd#ClientConfigLoadingRules
 // https://godoc.org/k8s.io/client-go/tools/clientcmd/api#Config
-func defaultKubectlConfig() (*restclient.Config, error) {
+// Deprecated: Use KubernetesConfig.InitializeKubernetesClient() instead
+func _defaultKubectlConfig() (*restclient.Config, error) {
+	// new implementation Create a temporary config to use the enhanced logic
+	//tempConfig := &config.KubernetesConfig{}
+	//return tempConfig.getKubeConfigForCluster()
+	// old implementation below
 	load, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
 	if err != nil {
 		return nil, err

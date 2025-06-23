@@ -44,6 +44,13 @@
     CREATE INDEX formicary_job_request_errcode_ndx ON formicary_job_requests(error_code);
     CREATE INDEX formicary_job_requests_type_state_ndx ON formicary_job_requests(job_type, job_version, job_state);
 
+    CREATE INDEX formicary_job_requests_state_updated_ndx ON formicary_job_requests(job_state, updated_at);
+    CREATE INDEX formicary_job_requests_state_sched_pri_created_ndx ON formicary_job_requests(job_state, scheduled_at, job_priority DESC, created_at);
+    CREATE INDEX formicary_job_requests_state_scheduled_ndx ON formicary_job_requests(job_state, scheduled_at);
+    CREATE INDEX formicary_job_requests_state_created_ndx ON formicary_job_requests(job_state, created_at);
+    CREATE INDEX formicary_job_requests_org_user_state_ndx ON formicary_job_requests(organization_id, user_id, job_state);
+
+
     CREATE TABLE IF NOT EXISTS formicary_job_request_params (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       job_request_id VARCHAR(36) NOT NULL,
@@ -61,3 +68,8 @@
 -- +goose Down
     DROP TABLE IF EXISTS formicary_job_request_params;
     DROP TABLE IF EXISTS formicary_job_requests;
+    DROP INDEX IF EXISTS formicary_job_requests_state_updated_ndx;
+    DROP INDEX IF EXISTS formicary_job_requests_state_sched_pri_created_ndx;
+    DROP INDEX IF EXISTS formicary_job_requests_state_scheduled_ndx;
+    DROP INDEX IF EXISTS formicary_job_requests_state_created_ndx;
+    DROP INDEX IF EXISTS formicary_job_requests_org_user_state_ndx;

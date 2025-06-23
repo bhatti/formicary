@@ -1,0 +1,90 @@
+graph TB
+    subgraph Queen["Queen (Leader/Server)"]
+        JS["Job Scheduler"]:::core
+        RM["Resource Manager"]:::core
+        JSup["Job Supervisor"]:::core
+        TS["Task Supervisor"]:::core
+        WG["WebSocket Gateway"]:::core
+        Auth["Authentication"]:::security
+        AM["Artifact Manager"]:::core
+        JM["Job Manager"]:::core
+        UM["User Manager"]:::core
+    end
+
+    subgraph Ants["Ant Workers"]
+        BE["Base Executor"]:::executor
+        DE["Docker Executor"]:::executor
+        KE["Kubernetes Executor"]:::executor
+        SE["Shell Executor"]:::executor
+        HE["HTTP Executor"]:::executor
+    end
+
+    subgraph Storage["Storage Layer"]
+        DB[(Database)]:::storage
+        MinIO["MinIO Object Store"]:::storage
+        subgraph Queue["Message Queue"]
+            Redis["Redis Queue"]:::queue
+            Pulsar["Pulsar Queue"]:::queue
+        end
+    end
+
+    subgraph External["External Integration"]
+        OAuth["OAuth Providers"]:::external
+        GAuth["GitHub OAuth"]:::external
+        GoogleAuth["Google OAuth"]:::external
+        Email["Email Notifications"]:::external
+        Slack["Slack Notifications"]:::external
+    end
+
+    %% Relationships
+    JS --> JSup
+    JSup --> TS
+    TS --> WG
+    WG --> BE
+    BE --> DE
+    BE --> KE
+    BE --> SE
+    BE --> HE
+    
+    RM --> JSup
+    Auth --> OAuth
+    OAuth --> GAuth
+    OAuth --> GoogleAuth
+    
+    JSup --> MinIO
+    JSup --> DB
+    JSup --> Queue
+    
+    TS --> Email
+    TS --> Slack
+
+    %% Click Events
+    click JS "https://github.com/bhatti/formicary/blob/main/queen/scheduler/job_scheduler.go"
+    click RM "https://github.com/bhatti/formicary/blob/main/queen/resource/resource_manager.go"
+    click JSup "https://github.com/bhatti/formicary/blob/main/queen/supervisor/job_supervisor.go"
+    click TS "https://github.com/bhatti/formicary/blob/main/queen/supervisor/task_supervisor.go"
+    click WG "https://github.com/bhatti/formicary/blob/main/queen/gateway/websocket_gateway.go"
+    click Auth "https://github.com/bhatti/formicary/blob/main/queen/security/authentication.go"
+    click DE "https://github.com/bhatti/formicary/blob/main/ants/executor/docker/executor.go"
+    click KE "https://github.com/bhatti/formicary/blob/main/ants/executor/kubernetes/executor.go"
+    click SE "https://github.com/bhatti/formicary/blob/main/ants/executor/shell/executor.go"
+    click HE "https://github.com/bhatti/formicary/blob/main/ants/executor/http/executor.go"
+    click BE "https://github.com/bhatti/formicary/blob/main/ants/executor/executor.go"
+    click MinIO "https://github.com/bhatti/formicary/blob/main/internal/artifacts/service_minio.go"
+    click Redis "https://github.com/bhatti/formicary/blob/main/internal/queue/client_redis.go"
+    click Pulsar "https://github.com/bhatti/formicary/blob/main/internal/queue/client_pulsar.go"
+    click Email "https://github.com/bhatti/formicary/blob/main/queen/email/email_sender.go"
+    click Slack "https://github.com/bhatti/formicary/blob/main/queen/slack/slack_sender.go"
+    click GAuth "https://github.com/bhatti/formicary/blob/main/queen/security/github_auth.go"
+    click GoogleAuth "https://github.com/bhatti/formicary/blob/main/queen/security/google_auth.go"
+    click AM "https://github.com/bhatti/formicary/blob/main/queen/manager/artifact_manager.go"
+    click JM "https://github.com/bhatti/formicary/blob/main/queen/manager/job_manager.go"
+    click UM "https://github.com/bhatti/formicary/blob/main/queen/manager/user_manager.go"
+
+    %% Styling
+    classDef core fill:#a8d1f0,stroke:#333,stroke-width:2px
+    classDef executor fill:#ffd700,stroke:#333,stroke-width:2px
+    classDef storage fill:#90EE90,stroke:#333,stroke-width:2px
+    classDef queue fill:#DDA0DD,stroke:#333,stroke-width:2px
+    classDef security fill:#FF6B6B,stroke:#333,stroke-width:2px
+    classDef external fill:#FFA500,stroke:#333,stroke-width:2px

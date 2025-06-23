@@ -26,13 +26,36 @@ type ExecutorProvider struct {
 // NewExecutorProvider creates executor-provider for local kubernetes based execution
 func NewExecutorProvider(
 	config *config.AntConfig) (executor.Provider, error) {
+	if err := config.Kubernetes.Validate(); err != nil {
+		return nil, fmt.Errorf("kubernetes configuration validation failed: %w", err)
+	}
 	if log.IsLevelEnabled(log.DebugLevel) {
-		log.WithFields(log.Fields{
+		logFields := log.Fields{
 			"Component": "KubernetesExecutorProvider",
 			"Namespace": config.Kubernetes.Namespace,
-			"Server":    config.Kubernetes.Server,
-			"Username":  config.Kubernetes.Username,
-		}).Debug("connecting to Kubernetes ...")
+		}
+
+		// Add appropriate log fields based on configuration type
+		if config.Kubernetes.Host != "" {
+			// Legacy configuration
+			logFields["Server"] = config.Kubernetes.Host
+			logFields["Username"] = config.Kubernetes.Username
+			logFields["ConfigType"] = "legacy"
+		} else {
+			// Enhanced configuration
+			logFields["Kubeconfig"] = config.Kubernetes.Kubeconfig
+			logFields["ClusterName"] = config.Kubernetes.ClusterName
+			logFields["ConfigType"] = "enhanced"
+		}
+		// Add resource configuration details
+		if config.Kubernetes.DefaultResources.CPURequest != "" {
+			logFields["ResourceType"] = "structured"
+			logFields["DefaultCPU"] = config.Kubernetes.DefaultResources.CPURequest
+			logFields["DefaultMemory"] = config.Kubernetes.DefaultResources.MemoryRequest
+		} else if config.Kubernetes.DefaultLimits != nil {
+			logFields["ResourceType"] = "legacy"
+		}
+		log.WithFields(logFields).Debug("connecting to Kubernetes with enhanced configuration...")
 	}
 
 	cli, restConfig, err := getKubeClient(config)
@@ -43,6 +66,15 @@ func NewExecutorProvider(
 	if err != nil {
 		return nil, err
 	}
+	if config.Kubernetes.ClusterName != "" {
+		log.WithFields(log.Fields{
+			"Component": "KubernetesExecutorProvider",
+			"Namespace": config.Kubernetes.Namespace,
+			"QPS":       config.Kubernetes.QPS,
+			"Burst":     config.Kubernetes.Burst,
+		}).Info("connected to Kubernetes cluster")
+	}
+
 	return &ExecutorProvider{
 		BaseExecutorProvider: executor.BaseExecutorProvider{
 			AntConfig: config,

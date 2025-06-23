@@ -40,11 +40,13 @@ ENV DB_NAME="${DB_NAME:-formicary_db}" \
     DB_HOST="${DB_HOST:-localhost}" \
     DB_PORT="${DB_PORT:-3306}" \
     DB_ROOT_USER="${DB_ROOT_USER:-root}" \
+    DB_TYPE="${DB_TYPE:-postgres}" \
+    DB_SSL_MODE="${DB_SSL_MODE:-disable}" \
     DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-rootroot}" \
     PUBLIC_DIR="${PUBLIC_DIR:-/public}" 
 
 # Switch to the non-root user for security
 USER formicary-user
-    
+
 # The ENTRYPOINT or CMD should be updated to run the migrations
-ENTRYPOINT ["sh", "-c", "/migrations/psql_setup_db.sh && exec /formicary \"$@\"", "--"]
+ENTRYPOINT ["sh", "-c", "goose -dir /migrations $DB_TYPE \"user=$DB_USER password=$DB_PASSWORD dbname=$DB_NAME host=$DB_HOST port=$DB_PORT sslmode=$DB_SSL_MODE\" up && exec /formicary \"$@\"", "--"]

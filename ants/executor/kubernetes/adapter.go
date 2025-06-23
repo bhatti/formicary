@@ -249,7 +249,7 @@ func (u *Utils) AwaitPodRunning(
 		if tried%60 == 0 {
 			if pod, err := u.GetPod(ctx, name); err == nil {
 				for _, c := range pod.Status.Conditions {
-					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ pod-state %s %v %v message=%s reason=%s condition=%s",
+					_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🎛️ pod-state %s %v %v message=%s reason=%s condition=%v",
 						time.Now().Format(time.RFC3339), name, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.Message, pod.Status.Reason, c), domain.ExecTags)
 				}
 			} else if events, err := u.GetEvents(ctx, u.config.Kubernetes.Namespace, name, "", make(map[string]string)); err == nil {
@@ -407,21 +407,31 @@ func (u *Utils) BuildPod(
 				envMap["SERVICE_INSTANCE"] = strconv.Itoa(j)
 				envMap[strings.ToUpper(baseSvcName)+"_SERVICE_INSTANCE"] = strconv.Itoa(j)
 			}
-			serviceRequests, _, err := u.config.Kubernetes.CreateResourceList(
-				"service-request-"+svcName,
-				service.CPURequest,
-				service.MemoryRequest,
-				service.EphemeralStorageRequest)
-			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create service for %s due to %w", svcName, err)
-			}
-			serviceLimits, cost, err := u.config.Kubernetes.CreateResourceList(
-				"service-limit-"+svcName,
-				service.CPULimit,
-				service.MemoryLimit,
-				service.EphemeralStorageLimit)
-			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create service resource for %s due to %w", svcName, err)
+
+			// Enhanced resource handling - use structured resources if available
+			var serviceRequests, serviceLimits api.ResourceList
+			var cost float64
+
+			if u.hasStructuredServiceResources(service) {
+				serviceRequests, serviceLimits, cost, err = u.createStructuredServiceResources(svcName, service)
+			} else {
+				serviceRequests, cost, err = u.config.Kubernetes.CreateResourceList(
+					"service-request-"+svcName,
+					service.CPURequest,
+					service.MemoryRequest,
+					service.EphemeralStorageRequest)
+				if err != nil {
+					return nil, nil, nil, 0, fmt.Errorf("failed to create service request for %s due to %w", svcName, err)
+				}
+
+				serviceLimits, _, err = u.config.Kubernetes.CreateResourceList(
+					"service-limit-"+svcName,
+					service.CPULimit,
+					service.MemoryLimit,
+					service.EphemeralStorageLimit)
+				if err != nil {
+					return nil, nil, nil, 0, fmt.Errorf("failed to create service limits for %s due to %w", svcName, err)
+				}
 			}
 			totalCost += cost
 			volumes = service.GetKubernetesVolumes().AddVolumes(volumes)
@@ -447,21 +457,31 @@ func (u *Utils) BuildPod(
 		volumes = opts.MainContainer.GetKubernetesVolumes().AddVolumes(volumes)
 		volumeMounts := opts.MainContainer.GetKubernetesVolumes().AddVolumeMounts(
 			u.config.Kubernetes.Volumes.GetVolumeMounts())
-		requests, _, err := u.config.Kubernetes.CreateResourceList(
-			"request",
-			opts.MainContainer.CPURequest,
-			opts.MainContainer.MemoryRequest,
-			opts.MainContainer.EphemeralStorageRequest)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create resource for %s due to %w", opts.Name, err)
-		}
-		limits, cost, err := u.config.Kubernetes.CreateResourceList(
-			"limit",
-			opts.MainContainer.CPULimit,
-			opts.MainContainer.MemoryLimit,
-			opts.MainContainer.EphemeralStorageLimit)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %w", opts.Name, err)
+
+		var requests, limits api.ResourceList
+		var cost float64
+
+		// Use enhanced resource creation
+		if u.hasStructuredMainContainerResources(opts) {
+			requests, limits, cost, err = u.createStructuredMainContainerResources(opts)
+		} else {
+			requests, cost, err = u.config.Kubernetes.CreateResourceList(
+				"request",
+				opts.MainContainer.CPURequest,
+				opts.MainContainer.MemoryRequest,
+				opts.MainContainer.EphemeralStorageRequest)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create resource for %s due to %w", opts.Name, err)
+			}
+
+			limits, _, err = u.config.Kubernetes.CreateResourceList(
+				"limit",
+				opts.MainContainer.CPULimit,
+				opts.MainContainer.MemoryLimit,
+				opts.MainContainer.EphemeralStorageLimit)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %w", opts.Name, err)
+			}
 		}
 		totalCost += cost
 		mainContainer := buildContainer(
@@ -481,24 +501,35 @@ func (u *Utils) BuildPod(
 
 	if opts.HelperContainer.Image != "" {
 		helperName := fmt.Sprintf("%s-helper", opts.Name)
-		helperRequests, _, err := u.config.Kubernetes.CreateResourceList(
-			"helper-request",
-			opts.HelperContainer.CPURequest,
-			opts.HelperContainer.MemoryRequest,
-			opts.HelperContainer.EphemeralStorageRequest)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create helper resource for %s due to %w", helperName, err)
-		}
 
-		helperLimits, cost, err := u.config.Kubernetes.CreateResourceList(
-			"helper-limit",
-			opts.HelperContainer.CPULimit,
-			opts.HelperContainer.MemoryLimit,
-			opts.HelperContainer.EphemeralStorageLimit)
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("failed to create helper CPU resource for %s, cost %f due to %w", helperName, cost, err)
-		}
+		var helperRequests, helperLimits api.ResourceList
+		var cost float64
+		// Use enhanced resource creation for helper container
+		if u.hasStructuredHelperResources(opts) {
+			helperRequests, helperLimits, cost, err = u.createStructuredHelperResources(opts)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create structured helper resources for %s due to %w", helperName, err)
+			}
+		} else {
+			// Legacy resource creation
+			helperRequests, _, err = u.config.Kubernetes.CreateResourceList(
+				"helper-request",
+				opts.HelperContainer.CPURequest,
+				opts.HelperContainer.MemoryRequest,
+				opts.HelperContainer.EphemeralStorageRequest)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create helper resource for %s due to %w", helperName, err)
+			}
 
+			helperLimits, cost, err = u.config.Kubernetes.CreateResourceList(
+				"helper-limit",
+				opts.HelperContainer.CPULimit,
+				opts.HelperContainer.MemoryLimit,
+				opts.HelperContainer.EphemeralStorageLimit)
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("failed to create helper CPU resource for %s, cost %f due to %w", helperName, cost, err)
+			}
+		}
 		// totalCost += cost // not needed for helper
 
 		volumes = opts.HelperContainer.GetKubernetesVolumes().AddVolumes(volumes)
@@ -539,6 +570,26 @@ func (u *Utils) BuildPod(
 	tolerations := opts.NodeTolerations.Get()
 	affinity := opts.GetAffinity()
 
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "KubernetesAdapter",
+			"POD":           opts.Name,
+			"Services":      serviceNames,
+			"ServicesCount": len(podServices),
+			"TotalCost":     totalCost,
+			"ResourceType":  u.getResourceConfigType(),
+			"Options":       opts.String(),
+			"Labels":        labels,
+			"Privileged":    privileged,
+			"CWD":           opts.WorkingDirectory,
+			"Annotations":   annotations,
+			"NodeSelector":  nodeSelector,
+			"Tolerations":   len(tolerations),
+			"Affinity":      affinity != nil,
+			"Namespace":     u.config.Kubernetes.Namespace,
+		}).Debug("creating pod with enhanced configuration...")
+	}
+
 	podConfig, err := preparePodConfig(
 		u.config,
 		opts.Name,
@@ -557,34 +608,21 @@ func (u *Utils) BuildPod(
 		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %w", opts.Name, err)
 	}
 
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component":     "KubernetesAdapter",
-			"POD":           podConfig.Name,
-			"Services":      serviceNames,
-			"ServicesCount": len(podServices),
-			"Options":       opts.String(),
-			"Labels":        labels,
-			"Privileged":    privileged,
-			"CWD":           opts.WorkingDirectory,
-			"Annotations":   annotations,
-			"Namespace":     u.config.Kubernetes.Namespace,
-		}).Debugf("creating pod...")
-	}
-
 	pod, err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).Create(ctx, podConfig, metav1.CreateOptions{})
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"Component":   "KubernetesAdapter",
-			"POD":         podConfig.Name,
-			"Options":     opts.String(),
-			"Labels":      labels,
-			"CWD":         opts.WorkingDirectory,
-			"Annotations": annotations,
-			"Error":       err,
-			"Namespace":   u.config.Kubernetes.Namespace,
-			"Memory":      utils.MemUsageMiBString(),
-		}).Warnf("failed to create pod '%s'", podConfig.Name)
+			"Component":    "KubernetesAdapter",
+			"POD":          podConfig.Name,
+			"Options":      opts.String(),
+			"Labels":       labels,
+			"CWD":          opts.WorkingDirectory,
+			"Annotations":  annotations,
+			"Error":        err,
+			"Namespace":    u.config.Kubernetes.Namespace,
+			"Memory":       utils.MemUsageMiBString(),
+			"ResourceType": u.getResourceConfigType(),
+			"TotalCost":    totalCost,
+		}).Warn("failed to create pod with enhanced configuration")
 	} else {
 		logrus.WithFields(logrus.Fields{
 			"Component":     "KubernetesAdapter",
@@ -597,8 +635,11 @@ func (u *Utils) BuildPod(
 			"Annotations":   annotations,
 			"Namespace":     u.config.Kubernetes.Namespace,
 			"Memory":        utils.MemUsageMiBString(),
-		}).Info("created pod!")
+			"ResourceType":  u.getResourceConfigType(),
+			"TotalCost":     totalCost,
+		}).Info("created pod with enhanced configuration!")
 	}
+
 	return pod, serviceNames, aliasNames, totalCost, err
 }
 
@@ -740,7 +781,7 @@ func (u *Utils) GetRuntimeInfo(
 	sb.WriteString(fmt.Sprintf("pod=%s error=%v status=%s %v %v\n",
 		podName, err, pod.Status.Phase, pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses))
 	for _, c := range pod.Status.Conditions {
-		sb.WriteString(fmt.Sprintf("pod message=%s reason=%s condition=%s\n", pod.Status.Message, pod.Status.Reason, c))
+		sb.WriteString(fmt.Sprintf("pod message=%s reason=%s condition=%v\n", pod.Status.Message, pod.Status.Reason, c))
 	}
 
 	if u.config.Common.Debug {
@@ -903,6 +944,7 @@ func preparePodConfig(
 	return &pod, nil
 }
 
+// buildContainer builds container with enhanced resource support while maintaining backward compatibility
 func buildContainer(
 	config *config.KubernetesConfig,
 	name string,
@@ -914,7 +956,8 @@ func buildContainer(
 	volumeMounts []api.VolumeMount,
 	env []api.EnvVar,
 	privileged bool,
-	containerCommand ...string) (cnt api.Container) {
+	containerCommand ...string) api.Container {
+
 	var allowPrivilegeEscalation *bool
 	containerPorts, proxyPorts := imageDefinition.GetPorts()
 
@@ -933,7 +976,7 @@ func buildContainer(
 	}
 	command, args := getCommandAndArgs(imageDefinition, containerCommand...)
 
-	cnt = api.Container{
+	container := api.Container{
 		Name:            name,
 		Image:           image,
 		ImagePullPolicy: api.PullPolicy(config.PullPolicy.GetKubernetesPullPolicy()),
@@ -957,17 +1000,234 @@ func buildContainer(
 		},
 		Stdin: true,
 	}
+
 	if cwd != "" {
-		cnt.WorkingDir = cwd
+		container.WorkingDir = cwd
 	}
+
+	// Enhanced logging for resource configuration
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":                "KubernetesAdapter",
-			"POD":                      name,
-			"ContainerCommand":         containerCommand,
+			"Container":                name,
 			"Privileged":               privileged,
-			"allowPrivilegeEscalation": *allowPrivilegeEscalation,
-		}).Debugf("defining container")
+			"AllowPrivilegeEscalation": *allowPrivilegeEscalation,
+			"Requests":                 requests,
+			"Limits":                   limits,
+		}).Debug("built container with enhanced resource configuration")
 	}
-	return
+
+	return container
+}
+
+// hasStructuredServiceResources checks if service has structured resource configuration
+func (u *Utils) hasStructuredServiceResources(_ domain.Service) bool {
+	// Check if global config has structured resources configured
+	// Services will use global defaults unless they have their own config
+	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+}
+
+// createStructuredServiceResources creates resources using structured configuration
+func (u *Utils) createStructuredServiceResources(svcName string, service domain.Service) (requests, limits api.ResourceList, cost float64, err error) {
+	// Start with global defaults
+	resourceConfig := u.config.Kubernetes.DefaultResources
+
+	// Create a service-specific config based on the service's resource requests/limits
+	serviceResourceConfig := config.ResourceConfig{
+		CPURequest:              getServiceStringValue(service.CPURequest, resourceConfig.CPURequest),
+		MemoryRequest:           getServiceStringValue(service.MemoryRequest, resourceConfig.MemoryRequest),
+		CPULimit:                getServiceStringValue(service.CPULimit, resourceConfig.CPULimit),
+		MemoryLimit:             getServiceStringValue(service.MemoryLimit, resourceConfig.MemoryLimit),
+		EphemeralStorageRequest: getServiceStringValue(service.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
+		EphemeralStorageLimit:   getServiceStringValue(service.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
+	}
+
+	// Build resource requirements
+	resourceReqs := serviceResourceConfig.BuildResourceRequirements()
+
+	// Validate against limits
+	if err = u.config.Kubernetes.ValidateResourceLimits("service-"+svcName, resourceReqs); err != nil {
+		return nil, nil, 0, err
+	}
+
+	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
+
+	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
+}
+
+// hasStructuredMainContainerResources checks if main container has structured resources
+func (u *Utils) hasStructuredMainContainerResources(_ *domain.ExecutorOptions) bool {
+	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+}
+
+// createStructuredMainContainerResources creates main container resources
+func (u *Utils) createStructuredMainContainerResources(opts *domain.ExecutorOptions) (requests, limits api.ResourceList, cost float64, err error) {
+	// Start with global defaults
+	resourceConfig := u.config.Kubernetes.DefaultResources
+
+	// Override with main container specific values if available
+	mainResourceConfig := config.ResourceConfig{
+		CPURequest:              getContainerStringValue(opts.MainContainer.CPURequest, resourceConfig.CPURequest),
+		MemoryRequest:           getContainerStringValue(opts.MainContainer.MemoryRequest, resourceConfig.MemoryRequest),
+		CPULimit:                getContainerStringValue(opts.MainContainer.CPULimit, resourceConfig.CPULimit),
+		MemoryLimit:             getContainerStringValue(opts.MainContainer.MemoryLimit, resourceConfig.MemoryLimit),
+		EphemeralStorageRequest: getContainerStringValue(opts.MainContainer.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
+		EphemeralStorageLimit:   getContainerStringValue(opts.MainContainer.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
+	}
+
+	resourceReqs := mainResourceConfig.BuildResourceRequirements()
+
+	if err = u.config.Kubernetes.ValidateResourceLimits("main-"+opts.Name, resourceReqs); err != nil {
+		return nil, nil, 0, err
+	}
+
+	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
+
+	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
+}
+
+// hasStructuredHelperResources checks if helper container has structured resources
+func (u *Utils) hasStructuredHelperResources(_ *domain.ExecutorOptions) bool {
+	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+}
+
+// createStructuredHelperResources creates helper container resources
+func (u *Utils) createStructuredHelperResources(opts *domain.ExecutorOptions) (requests, limits api.ResourceList, cost float64, err error) {
+	// Helper containers typically use smaller resources
+	baseResourceConfig := config.ResourceConfig{
+		CPURequest:    "100m",
+		MemoryRequest: "128Mi",
+		CPULimit:      "200m",
+		MemoryLimit:   "256Mi",
+	}
+
+	// If helper container has specific resource config, use it; otherwise use scaled defaults
+	helperResourceConfig := config.ResourceConfig{
+		CPURequest:              getContainerStringValue(opts.HelperContainer.CPURequest, baseResourceConfig.CPURequest),
+		MemoryRequest:           getContainerStringValue(opts.HelperContainer.MemoryRequest, baseResourceConfig.MemoryRequest),
+		CPULimit:                getContainerStringValue(opts.HelperContainer.CPULimit, baseResourceConfig.CPULimit),
+		MemoryLimit:             getContainerStringValue(opts.HelperContainer.MemoryLimit, baseResourceConfig.MemoryLimit),
+		EphemeralStorageRequest: getContainerStringValue(opts.HelperContainer.EphemeralStorageRequest, baseResourceConfig.EphemeralStorageRequest),
+		EphemeralStorageLimit:   getContainerStringValue(opts.HelperContainer.EphemeralStorageLimit, baseResourceConfig.EphemeralStorageLimit),
+	}
+
+	resourceReqs := helperResourceConfig.BuildResourceRequirements()
+
+	// Helper containers don't need strict validation, but we can still validate
+	// Use a more lenient approach for helpers
+	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
+
+	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
+}
+
+// getServiceStringValue returns service value if not empty, otherwise returns default
+func getServiceStringValue(serviceValue, defaultValue string) string {
+	if serviceValue != "" {
+		return serviceValue
+	}
+	return defaultValue
+}
+
+// getContainerStringValue returns container value if not empty, otherwise returns default
+func getContainerStringValue(containerValue, defaultValue string) string {
+	if containerValue != "" {
+		return containerValue
+	}
+	return defaultValue
+}
+
+// createPodWithContainers creates the final pod with all containers
+func (u *Utils) createPodWithContainers(
+	opts *domain.ExecutorOptions,
+	containers []api.Container,
+	volumes []api.Volume,
+	hostAliases []api.HostAlias,
+	aliasNames []string,
+	totalCost float64) (*api.Pod, []string, []string, float64, error) {
+
+	// Extract service names for logging
+	serviceNames := make([]string, 0, len(containers))
+	for _, container := range containers {
+		serviceNames = append(serviceNames, container.Name)
+	}
+
+	// Create pod configuration using existing preparePodConfig function
+	podConfig, err := preparePodConfig(
+		u.config,
+		opts.Name,
+		containers,
+		opts.PodLabels,
+		opts.PodAnnotations,
+		buildImagePullSecrets(u.config),
+		hostAliases,
+		opts.NodeSelector,
+		opts.NodeTolerations.Get(),
+		opts.GetAffinity(),
+		volumes,
+		opts.HostNetwork,
+		u.config.Kubernetes.GetInitContainers())
+
+	if err != nil {
+		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %w", opts.Name, err)
+	}
+
+	// Log enhanced pod creation details
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "KubernetesAdapter",
+			"POD":           podConfig.Name,
+			"Services":      serviceNames,
+			"ServicesCount": len(containers),
+			"TotalCost":     totalCost,
+			"ResourceType":  u.getResourceConfigType(),
+			"Options":       opts.String(),
+			"Namespace":     u.config.Kubernetes.Namespace,
+		}).Debug("creating pod with enhanced resource configuration...")
+	}
+
+	// Create the pod
+	pod, err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).Create(
+		context.Background(), podConfig, metav1.CreateOptions{})
+
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "KubernetesAdapter",
+			"POD":       podConfig.Name,
+			"Error":     err,
+			"Namespace": u.config.Kubernetes.Namespace,
+		}).Warn("failed to create pod with enhanced configuration")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "KubernetesAdapter",
+			"POD":           podConfig.Name,
+			"Services":      serviceNames,
+			"ServicesCount": len(containers),
+			"TotalCost":     totalCost,
+			"ResourceType":  u.getResourceConfigType(),
+			"Namespace":     u.config.Kubernetes.Namespace,
+		}).Info("created pod with enhanced resource configuration!")
+	}
+
+	return pod, serviceNames, aliasNames, totalCost, err
+}
+
+func (u *Utils) getResourceConfigType() string {
+	if u.config.Kubernetes.DefaultResources.CPURequest != "" {
+		return "structured"
+	} else if u.config.Kubernetes.DefaultLimits != nil {
+		return "legacy"
+	}
+	return "default"
+}
+
+// buildImagePullSecrets creates image pull secrets
+func buildImagePullSecrets(config *config.AntConfig) []api.LocalObjectReference {
+	var imagePullSecrets []api.LocalObjectReference
+	for _, imagePullSecret := range config.Kubernetes.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: imagePullSecret})
+	}
+	return imagePullSecrets
 }

@@ -53,5 +53,32 @@ common:
     enabled: false
 kubernetes:
   allow_privilege_escalation: true
+# Enhanced resource configuration
+  default_resources:
+    cpuRequest: "500m"
+    memoryRequest: "512Mi"
+    cpuLimit: "1"
+    memoryLimit: "1Gi"
+    ephemeralStorageRequest: "1Gi"
+    ephemeralStorageLimit: "2Gi"
+  
+  min_resources:
+    cpuRequest: "100m"
+    memoryRequest: "128Mi"
+    ephemeralStorageRequest: "100Mi"
+  
+  max_resources:
+    cpuRequest: "2"
+    memoryRequest: "4Gi"
+    ephemeralStorageRequest: "10Gi"
+    
+  # Enhanced cluster configuration
+  #kubeconfig: "/path/to/kubeconfig"
+  cluster_name: "docker-desktop"
+  namespace: "default"
+  
+  # Performance tuning
+  qps: 200
+  burst: 300
   pod_security_context:
     run_as_user: 0
