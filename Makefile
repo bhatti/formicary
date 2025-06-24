@@ -18,9 +18,28 @@ build: vendor
 	mkdir -p out/bin
 	$(GOCMD) build -mod vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION)" -o out/bin/$(BINARY_NAME) .
 
-build-linux: vendor
-	CGO_CFLAGS="-D_LARGEFILE64_SOURCE" GO111MODULE=on CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GOCMD) build -mod=vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION) -linkmode external -extldflags "-static"" -o "out/bin/$(BINARY_NAME)" -v
+#CGO_ENABLED=1 GOOS=linux GOARCH=amd64 
+build-linux:
+	@echo "Running build-linux..."
+	@echo "GOCMD=$(GOCMD)"
+	@echo "COMMIT=$(COMMIT)"
+	@echo "DATE=$(DATE)"
+	@echo "VERSION=$(VERSION)"
+	@echo "Output binary will be: out/bin/$(BINARY_NAME)"
+	mkdir -p out/bin
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 \
+	$(GOCMD) build -mod=mod \
+	-ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION)" \
+	-o "out/bin/$(BINARY_NAME)" -v
 
+build-linux-static: vendor
+	mkdir -p out/bin
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+	CGO_CFLAGS="-D_LARGEFILE64_SOURCE" \
+	CGO_LDFLAGS="-static" \
+	$(GOCMD) build -mod=mod \
+	-ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION) -w -s -extldflags '-static'" \
+	-o "out/bin/$(BINARY_NAME)" -v
 
 clean:
 	rm -fr ./bin

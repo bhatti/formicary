@@ -22,6 +22,8 @@ common:
   max_job_timeout: 0s
   max_task_timeout: 0s
   http_port: 0
+  auth:
+    enabled: true
   xmonitoring_urls:
     docker: "localhost:2375"
   disabled_pulsar:
@@ -49,8 +51,6 @@ common:
     prefix: "formicary/"
     encryptionPassword: ""
     useSSL: false
-  auth:
-    enabled: false
 kubernetes:
   allow_privilege_escalation: true
 # Enhanced resource configuration

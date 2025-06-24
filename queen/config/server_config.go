@@ -150,6 +150,7 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 		"ID":         id,
 		"DB":         config.DB.Type,
 		"Port":       config.Common.HTTPPort,
+		"Auth":       config.Common.Auth.Enabled,
 		"UsedConfig": viper.ConfigFileUsed(),
 	}).Infof("loaded config file...")
 

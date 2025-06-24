@@ -12,7 +12,7 @@ const RedirectCookieName = "redirect_url"
 
 // AuthConfig -- Defines auth config
 type AuthConfig struct {
-	Enabled            bool          `yaml:"enabled" mapstructure:"enabled"`
+	Enabled            bool          `yaml:"enabled" mapstructure:"enabled" env:"ENABLED"`
 	CookieName         string        `yaml:"cookie_name" mapstructure:"cookie_name" env:"COOKIE_NAME"`
 	JWTSecret          string        `yaml:"jwt_secret" mapstructure:"jwt_secret" env:"JWT_SECRET"`
 	MaxAge             time.Duration `yaml:"max_age" mapstructure:"max_age"`

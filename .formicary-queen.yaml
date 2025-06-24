@@ -3,11 +3,9 @@ subscription_quota_enabled: false
 jobs:
   launch_topic_suffix: -anon-local
 db:
-  _db_type: sqlite
-  _data_source: .formicary_db.sqlite
   encryption_key: my-db-key
-  db_type: mysql
-  data_source: formicary_user_dev:formicary_pass@tcp(localhost:3306)/formicary_dev?charset=utf8mb4&parseTime=true&loc=Local
+  db_type: sqlite
+  data_source: formicary_db.sqlite
 common:
   development: true
   user_agent: ""
@@ -17,6 +15,9 @@ common:
   xmessaging_provider: KAFKA_MESSAGING
   http_port: 0
   external_base_url: http://localhost:7777
+  auth:
+    enabled: false
+    jwt_secret: changeme
   xmonitoring_urls:
     docker: "localhost:2375"
   disabled_pulsar:
@@ -26,7 +27,6 @@ common:
     brokers:
       - 192.168.1.102:19092
       - 192.168.1.102:29092
-      - 192.168.1.102:39092
     group: formicary-queen-1
   redis:
     host: "192.168.1.102"
@@ -38,9 +38,6 @@ common:
     region: "us-west-2"
     bucket: "formicary-artifacts"
     prefix: "formicary/"
-  auth:
-    enabled: false
-    jwt_secret: changeme
 smtp:
     from_email: "support@formicary.io"
     provider: ""

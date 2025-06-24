@@ -1,52 +1,61 @@
-FROM golang:1.22.0-alpine as go-builder
+FROM golang:1.24 AS go-builder
+
 COPY . /src
 WORKDIR /src
 
-RUN apk add --no-cache git make bash build-base sqlite sqlite-dev && \
-    go mod download && make build-linux
+# Install ALL the static linking dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git make bash build-essential \
+    sqlite3 libsqlite3-dev pkg-config \
+    ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
 
+# Set CGO flags for static linking
+ENV CGO_ENABLED=1
+ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
+ENV CGO_LDFLAGS="-static -w -s"
+
+# Download dependencies and build
+RUN go mod download && make build-linux || (echo "Build failed"; exit 1)
+
+
+# Clear static flags for Goose install
+ENV CGO_LDFLAGS=""
 
 # Install Goose in the builder stage
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
-#apk del build-base
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.17.0
 
+# Production stage
 FROM alpine:latest
 
-# Install runtime dependencies - postgresql-client
-RUN apk add --no-cache ca-certificates sqlite bash && \
-    apk add --no-cache mysql-client && \
+# Minimal runtime (static binary needs almost nothing)
+RUN apk add --no-cache ca-certificates bash mysql-client postgresql-client && \
     addgroup -S formicary-user && \
-    adduser -S -G formicary-user formicary-user 
+    adduser -S -G formicary-user formicary-user
 
-# Copy the built binary from the build stage
+# Copy binaries from builder stage
 COPY --from=go-builder /src/out/bin/formicary /formicary
+COPY --from=go-builder /go/bin/goose /usr/local/bin/goose
 
-# Copy the Goose binary from the go-builder stage
-COPY --from=go-builder /go/bin/goose /usr/local/bin
-
-# Copy the public directory from the build stage
+# Copy application files
 COPY --from=go-builder /src/public /public
-
-# Copy the migrations directory
 COPY --from=go-builder /src/migrations /migrations
 
-# Make sure go and goose are in the PATH for the formicary-user
-ENV PATH="/home/formicary-user/go/bin:${PATH}"
+# Copy and make migration script executable
+COPY migrations/migrate.sh /usr/local/bin/migrate.sh
+RUN chmod +x /usr/local/bin/migrate.sh
 
-# Initialize environment variables with default values if not already set
-ENV DB_NAME="${DB_NAME:-formicary_db}" \
-    DB_USER="${DB_USER:-formicary_user}" \
-    DB_PASSWORD="${DB_PASSWORD:-formicary_pass}" \
-    DB_HOST="${DB_HOST:-localhost}" \
-    DB_PORT="${DB_PORT:-3306}" \
-    DB_ROOT_USER="${DB_ROOT_USER:-root}" \
-    DB_TYPE="${DB_TYPE:-postgres}" \
-    DB_SSL_MODE="${DB_SSL_MODE:-disable}" \
-    DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-rootroot}" \
-    PUBLIC_DIR="${PUBLIC_DIR:-/public}" 
+# Set environment variables
+ENV DB_NAME="formicary_db" \
+    DB_USER="formicary_user" \
+    DB_HOST="localhost" \
+    DB_PORT="5432" \
+    DB_TYPE="sqlite" \
+    DB_SSL_MODE="disable" \
+    PUBLIC_DIR="/public"
 
-# Switch to the non-root user for security
+# Switch to non-root user
 USER formicary-user
 
-# The ENTRYPOINT or CMD should be updated to run the migrations
-ENTRYPOINT ["sh", "-c", "goose -dir /migrations $DB_TYPE \"user=$DB_USER password=$DB_PASSWORD dbname=$DB_NAME host=$DB_HOST port=$DB_PORT sslmode=$DB_SSL_MODE\" up && exec /formicary \"$@\"", "--"]
+# Use the migration script as entrypoint
+ENTRYPOINT ["/usr/local/bin/migrate.sh"]

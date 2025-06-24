@@ -17,3 +17,4 @@ out/
 .idea/
 .formicary_db.sqlite
 *.sh
+data
