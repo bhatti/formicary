@@ -130,7 +130,7 @@ func (kcr *CommandRunner) Await(ctx context.Context) (
 			"Error":     err,
 			"Elapsed":   kcr.BaseExecutor.Elapsed(),
 			"Memory":    cutils.MemUsageMiBString(),
-		}).Warn("failed to execute command in kubernetes")
+		}).Warn("failed to await execution of command in kubernetes")
 		if kcr.ExecutorOptions.Debug || !kcr.IsHelper(ctx) {
 			_ = kcr.BaseExecutor.WriteTraceError(ctx,
 				fmt.Sprintf("❌ %s failed to execute Host=%s Exitcode=%d Error=%s Duration=%v",

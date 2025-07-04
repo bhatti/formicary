@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/ant_config"
 	"sort"
 	"sync"
 	"time"
@@ -12,7 +13,6 @@ import (
 	cutils "plexobject.com/formicary/internal/utils"
 
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor/utils"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
@@ -35,7 +35,7 @@ const (
 // AntContainersRegistry keeps track of running containers
 type AntContainersRegistry struct {
 	id                              string
-	antCfg                          *config.AntConfig
+	antCfg                          *ant_config.AntConfig
 	queueClient                     queue.Client
 	metricsRegistry                 *metrics.Registry
 	registrations                   map[string]*types.AntRegistration          // ant-id => registration
@@ -47,7 +47,7 @@ type AntContainersRegistry struct {
 
 // NewAntContainersRegistry constructor
 func NewAntContainersRegistry(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	queueClient queue.Client,
 	metricsRegistry *metrics.Registry,
 ) *AntContainersRegistry {
@@ -204,67 +204,67 @@ func (r *AntContainersRegistry) registerAnt(
 func (r *AntContainersRegistry) subscribeToContainersLifecycleEvents(
 	ctx context.Context,
 	containerTopic string) (string, error) {
-	return r.queueClient.Subscribe(
-		ctx,
-		containerTopic,
-		false, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			containerEvent, err := events.UnmarshalContainerLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "AntContainersRegistry",
-					"Payload":   string(event.Payload),
-					"Target":    r.id,
-					"Error":     err}).Error("failed to unmarshal registration by container registry")
-				return err
-			}
-			if err := r.UpdateContainer(ctx, containerEvent); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":      "AntContainersRegistry",
-					"ContainerEvent": containerEvent,
-					"Target":         r.id,
-					"Error":          err}).Error("failed to register ant")
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		containerEvent, err := events.UnmarshalContainerLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "AntContainersRegistry",
+				"Payload":   string(event.Payload),
+				"Target":    r.id,
+				"Error":     err}).Error("failed to unmarshal registration by container registry")
+			return err
+		}
+		if err := r.UpdateContainer(ctx, containerEvent); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":      "AntContainersRegistry",
+				"ContainerEvent": containerEvent,
+				"Target":         r.id,
+				"Error":          err}).Error("failed to register ant")
+		}
+		return nil
+	}
+	return r.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    containerTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (r *AntContainersRegistry) subscribeToRegistration(
 	ctx context.Context,
 	registrationTopic string) (string, error) {
-	return r.queueClient.Subscribe(
-		ctx,
-		registrationTopic,
-		false, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			registration, err := types.UnmarshalAntRegistration(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":         "AntContainersRegistry",
-					"RegistrationTopic": registrationTopic,
-					"Registration":      registration,
-					"Payload":           string(event.Payload),
-					"Target":            r.id,
-					"Error":             err}).Error("failed to unmarshal registration by ant container registry")
-				return err
-			}
-			if err := r.registerAnt(ctx, registration); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":    "AntContainersRegistry",
-					"Registration": registration,
-					"Target":       r.id,
-					"Error":        err}).Error("failed to register ant")
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		registration, err := types.UnmarshalAntRegistration(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":         "AntContainersRegistry",
+				"RegistrationTopic": registrationTopic,
+				"Registration":      registration,
+				"Payload":           string(event.Payload),
+				"Target":            r.id,
+				"Error":             err}).Error("failed to unmarshal registration by ant container registry")
+			return err
+		}
+		if err := r.registerAnt(ctx, registration); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":    "AntContainersRegistry",
+				"Registration": registration,
+				"Target":       r.id,
+				"Error":        err}).Error("failed to register ant")
+		}
+		return nil
+	}
+	return r.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    registrationTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (r *AntContainersRegistry) registerAlreadyRunningContainers(ctx context.Context) {

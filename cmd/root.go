@@ -12,7 +12,7 @@ import (
 )
 
 var cfgFile string
-var id string
+var id = "default-formicary"
 var port int
 
 // Version of the queen server

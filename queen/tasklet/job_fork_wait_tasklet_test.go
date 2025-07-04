@@ -112,7 +112,8 @@ func newTestForkWaitTasklet(
 	jobManager *manager.JobManager,
 ) (waitTasklet *JobForkWaitTasklet, req *types.JobRequest, exec *types.JobExecution) {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	require.NoError(t, err)
 	requestRegistry := tasklet.NewRequestRegistry(
 		&cfg.Common,
 		metrics.New(),

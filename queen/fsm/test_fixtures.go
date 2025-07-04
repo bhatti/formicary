@@ -38,7 +38,10 @@ func NewTestTaskStateMachine() (*TaskExecutionStateMachine, error) {
 func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 	// Initializing dependent objects
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to pulsar due to %w", err)
+	}
 	jobManager, err := manager.TestJobManager(cfg)
 	if err != nil {
 		return nil, err
@@ -57,19 +60,19 @@ func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 	if err != nil {
 		return nil, err
 	}
-	queueClient.SendReceivePayloadFunc = func(
-		_ queue.MessageHeaders,
-		payload []byte) ([]byte, error) {
-		var req common.TaskRequest
-		err = json.Unmarshal(payload, &req)
-		if err != nil {
-			return nil, err
-		}
-		res := common.NewTaskResponse(&req)
-		res.AntID = "test"
-		res.Host = "test"
-		res.Status = common.COMPLETED
-		return json.Marshal(res)
+	if channelClient, ok := queueClient.(*queue.ClientChannel); ok {
+		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+			var req common.TaskRequest
+			err = json.Unmarshal(inReq.Payload, &req)
+			if err != nil {
+				return nil, err
+			}
+			res := common.NewTaskResponse(&req)
+			res.AntID = "test"
+			res.Host = "test"
+			res.Status = common.COMPLETED
+			return json.Marshal(res)
+		})
 	}
 
 	resourceManager.Registry["ant-1"] = &common.AntRegistration{

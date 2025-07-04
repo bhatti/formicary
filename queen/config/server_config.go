@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"path/filepath"
+	"plexobject.com/formicary/internal/ant_config"
 	"strings"
 	"time"
 
@@ -16,16 +17,17 @@ import (
 
 // ServerConfig -- Defines the Server Config
 type ServerConfig struct {
-	Common                        types.CommonConfig `yaml:"common" mapstructure:"common"`
-	DB                            DBConfig           `yaml:"db" mapstructure:"db"`
-	Jobs                          JobsConfig         `yaml:"jobs" mapstructure:"jobs"`
-	SMTP                          SMTPConfig         `yaml:"smtp" mapstructure:"smtp" env:"SMTP"`
-	Notify                        NotifyConfig       `yaml:"notify" mapstructure:"notify"`
-	GatewaySubscriptions          map[string]bool    `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
-	URLPresignedExpirationMinutes time.Duration      `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
-	DefaultArtifactExpiration     time.Duration      `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
-	DefaultArtifactLimit          int                `yaml:"default_artifact_limit" mapstructure:"default_artifact_limit"`
-	SubscriptionQuotaEnabled      bool               `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
+	Common                        types.CommonConfig    `yaml:"common" mapstructure:"common"`
+	DB                            DBConfig              `yaml:"db" mapstructure:"db"`
+	Jobs                          JobsConfig            `yaml:"jobs" mapstructure:"jobs"`
+	SMTP                          SMTPConfig            `yaml:"smtp" mapstructure:"smtp" env:"SMTP"`
+	Notify                        NotifyConfig          `yaml:"notify" mapstructure:"notify"`
+	EmbeddedAnt                   *ant_config.AntConfig `yaml:"embedded_ant" mapstructure:"embedded_ant"`
+	GatewaySubscriptions          map[string]bool       `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
+	URLPresignedExpirationMinutes time.Duration         `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
+	DefaultArtifactExpiration     time.Duration         `yaml:"default_artifact_expiration" mapstructure:"default_artifact_expiration"`
+	DefaultArtifactLimit          int                   `yaml:"default_artifact_limit" mapstructure:"default_artifact_limit"`
+	SubscriptionQuotaEnabled      bool                  `yaml:"subscription_quota_enabled" mapstructure:"subscription_quota_enabled"`
 }
 
 // NotifyConfig -- Defines notification config
@@ -121,7 +123,7 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	viper.SetDefault("common.s3.region", "")
 	viper.SetDefault("common.s3.prefix", "")
 	viper.SetDefault("common.s3.bucket", "")
-	viper.SetDefault("common.messaging_provider", "REDIS_MESSAGING")
+	viper.SetDefault("common.queue.provider", "")
 	viper.SetDefault("common.redis.host", "")
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")
@@ -145,23 +147,30 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
 	}
-	log.WithFields(log.Fields{
-		"Component":  "ServerConfig",
-		"ID":         id,
-		"DB":         config.DB.Type,
-		"Port":       config.Common.HTTPPort,
-		"Auth":       config.Common.Auth.Enabled,
-		"UsedConfig": viper.ConfigFileUsed(),
-	}).Infof("loaded config file...")
-
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	config.Common.ID = id
+	if id != "" {
+		config.Common.ID = id
+	}
 	if config.Common.Debug {
 		out, _ := yaml.Marshal(config)
 		fmt.Printf("%s\n", out)
 	}
+	if config.EmbeddedAnt != nil {
+		config.EmbeddedAnt.Common = config.Common
+		config.EmbeddedAnt.Common.ID = config.Common.ID + "_embedded_ant"
+	}
+	log.WithFields(log.Fields{
+		"Component":   "ServerConfig",
+		"ID":          config.Common.ID,
+		"DB":          config.DB.Type,
+		"Port":        config.Common.HTTPPort,
+		"Auth":        config.Common.Auth.Enabled,
+		"EmbeddedAnt": config.HasEmbeddedAnt(),
+		"UsedConfig":  viper.ConfigFileUsed(),
+	}).Infof("loaded config file...")
+
 	return &config, nil
 }
 
@@ -240,6 +249,9 @@ func (c *DBConfig) Validate() error {
 
 // Validate validates
 func (c *ServerConfig) Validate() error {
+	if err := c.Common.Validate(); err != nil {
+		return err
+	}
 	if err := c.Notify.Validate(c.Common.PublicDir); err != nil {
 		return err
 	}
@@ -269,7 +281,11 @@ func (c *ServerConfig) Validate() error {
 			"LogEvent":                    true,
 		}
 	}
-	return c.Common.Validate(make([]string, 0))
+	return nil
+}
+
+func (c *ServerConfig) HasEmbeddedAnt() bool {
+	return c.EmbeddedAnt != nil
 }
 
 // NewJobSchedulerLeaderEvent constructor
@@ -295,18 +311,18 @@ func (c *ServerConfig) GetResponseTopicTaskReply() string {
 // BuildResponseTopic response topic
 func (c *ServerConfig) BuildResponseTopic(suffix string) string {
 	return types.PersistentTopic(
-		c.Common.MessagingProvider,
-		c.Common.Pulsar.TopicTenant,
-		c.Common.Pulsar.TopicNamespace,
+		c.Common.Queue.Provider,
+		c.Common.Queue.TopicTenant,
+		c.Common.Queue.TopicNamespace,
 		"task-"+suffix)
 }
 
 // GetJobExecutionLaunchTopic launch topic
 func (c *ServerConfig) GetJobExecutionLaunchTopic() string {
 	return types.PersistentTopic(
-		c.Common.MessagingProvider,
-		c.Common.Pulsar.TopicTenant,
-		c.Common.Pulsar.TopicNamespace,
+		c.Common.Queue.Provider,
+		c.Common.Queue.TopicTenant,
+		c.Common.Queue.TopicNamespace,
 		"job-execution-launch"+c.Jobs.LaunchTopicSuffix)
 }
 

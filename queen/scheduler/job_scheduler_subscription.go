@@ -126,36 +126,36 @@ func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.
 // Subscribing to job-scheduler event in failover mode
 // TODO Failover mode is not working and is sending events to multiple subscribers as opposed to exclusive
 func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (string, error) {
-	return js.queueClient.Subscribe(
-		ctx,
-		js.jobSchedulerLeaderTopic,
-		false, // exclusive subscription with failover
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			var jobSchedulerLeaderEvent events.JobSchedulerLeaderEvent
-			if err := json.Unmarshal(event.Payload, &jobSchedulerLeaderEvent); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"jobSchedulerLeaderEvent": jobSchedulerLeaderEvent,
-					"payload":                 string(event.Payload),
-					"error":                   err,
-				}).Error("failed to unmarshal job scheduler leader event")
-			}
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		var jobSchedulerLeaderEvent events.JobSchedulerLeaderEvent
+		if err := json.Unmarshal(event.Payload, &jobSchedulerLeaderEvent); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"jobSchedulerLeaderEvent": jobSchedulerLeaderEvent,
+				"payload":                 string(event.Payload),
+				"error":                   err,
+			}).Error("failed to unmarshal job scheduler leader event")
+		}
 
-			js.lastJobSchedulerLeaderEventAt = time.Now()
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"jobSchedulerLeaderEvent": jobSchedulerLeaderEvent,
-					"totalPendingJobs":        js.totalPendingJobs,
-					"totalScheduledJobs":      js.totalScheduledJobs,
-					"noJobsTries":             js.noJobsTries,
-				}).Debug("received job scheduler leader event")
-			}
+		js.lastJobSchedulerLeaderEventAt = time.Now()
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"jobSchedulerLeaderEvent": jobSchedulerLeaderEvent,
+				"totalPendingJobs":        js.totalPendingJobs,
+				"totalScheduledJobs":      js.totalScheduledJobs,
+				"noJobsTries":             js.noJobsTries,
+			}).Debug("received job scheduler leader event")
+		}
 
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+		return nil
+	}
+	return js.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    js.jobSchedulerLeaderTopic,
+		Shared:   false, // exclusive subscription with failover
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (js *JobScheduler) unsubscribeToJobSchedulerLeader(ctx context.Context) (err error) {

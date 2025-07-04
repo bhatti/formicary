@@ -11,119 +11,122 @@ import (
 )
 
 func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) (string, error) {
-	return t.QueueClient.Subscribe(
-		ctx,
-		t.RequestTopic,
-		true, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			req, err := types.UnmarshalTaskRequest(t.registration.EncryptionKey, event.Payload)
-			if err != nil {
-				return err
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		req, err := types.UnmarshalTaskRequest(t.registration.EncryptionKey, event.Payload)
+		if err != nil {
+			return err
+		}
+		go func() {
+			req.StartedAt = time.Now()
+			req.CoRelationID = event.CoRelationID()
+			if err := t.handleRequest(ctx, req, event.ReplyTopic()); err != nil {
+				logrus.WithFields(
+					logrus.Fields{
+						"Component":       "BaseTasklet",
+						"Tasklet":         t.ID,
+						"RequestID":       req.JobRequestID,
+						"JobType":         req.JobType,
+						"TaskType":        req.TaskType,
+						"TaskExecutionID": req.TaskExecutionID,
+						"Params":          req.Variables,
+						"Error":           err,
+					}).Error("failed to handle request")
 			}
-			go func() {
-				req.StartedAt = time.Now()
-				req.CoRelationID = event.CoRelationID()
-				if err := t.handleRequest(ctx, req, event.ReplyTopic()); err != nil {
-					logrus.WithFields(
-						logrus.Fields{
-							"Component":       "BaseTasklet",
-							"Tasklet":         t.ID,
-							"RequestID":       req.JobRequestID,
-							"JobType":         req.JobType,
-							"TaskType":        req.TaskType,
-							"TaskExecutionID": req.TaskExecutionID,
-							"Params":          req.Variables,
-							"Error":           err,
-						}).Error("failed to handle request")
-				}
-			}()
-			return nil
-		},
-		t.QueueFilter,
-		make(map[string]string),
-	)
+		}()
+		return nil
+	}
+	return t.QueueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    t.RequestTopic,
+		Shared:   true,
+		Callback: callback,
+		Filter:   t.QueueFilter,
+		Props:    make(map[string]string),
+	})
 }
 
 func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 	ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return t.QueueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
-			if err != nil {
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "BaseTasklet",
+				"Tasklet":                    t.ID,
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+				"Error":                      err,
+			}).Error("failed to unmarshal jobExecutionLifecycleEvent")
+			return err
+		}
+
+		// the base-tasklet will subscribe to messaging queue once for job-execution event and then
+		// propagate via event bus to all request-executors that work on each request so each request doesn't
+		// need to consume any queuing resources.
+		t.EventBus.Publish(t.Config.GetJobExecutionLifecycleTopic(), jobExecutionLifecycleEvent)
+		if jobExecutionLifecycleEvent.JobState == types.CANCELLED ||
+			jobExecutionLifecycleEvent.JobState == types.PAUSED {
+			if err := t.RequestRegistry.CancelJob(jobExecutionLifecycleEvent.JobRequestID); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":                  "BaseTasklet",
 					"Tasklet":                    t.ID,
+					"ID":                         jobExecutionLifecycleEvent.ID,
 					"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-					"Error":                      err,
-				}).Error("failed to unmarshal jobExecutionLifecycleEvent")
+					"Error":                      err}).Error("failed to cancel all tasks for job")
 				return err
 			}
-
-			// the base-tasklet will subscribe to messaging queue once for job-execution event and then
-			// propagate via event bus to all request-executors that work on each request so each request doesn't
-			// need to consume any queuing resources.
-			t.EventBus.Publish(t.Config.GetJobExecutionLifecycleTopic(), jobExecutionLifecycleEvent)
-			if jobExecutionLifecycleEvent.JobState == types.CANCELLED ||
-				jobExecutionLifecycleEvent.JobState == types.PAUSED {
-				if err := t.RequestRegistry.CancelJob(jobExecutionLifecycleEvent.JobRequestID); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"Component":                  "BaseTasklet",
-						"Tasklet":                    t.ID,
-						"ID":                         jobExecutionLifecycleEvent.ID,
-						"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-						"Error":                      err}).Error("failed to cancel all tasks for job")
-					return err
-				}
-			}
-			return nil
-		},
-		t.QueueFilter,
-		make(map[string]string),
-	)
+		}
+		return nil
+	}
+	return t.QueueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Filter:   t.QueueFilter,
+		Props:    make(map[string]string),
+	})
 }
 
 func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return t.QueueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			taskExecutionLifecycleEvent, err := events.UnmarshalTaskExecutionLifecycleEvent(event.Payload)
-			if err != nil {
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		taskExecutionLifecycleEvent, err := events.UnmarshalTaskExecutionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                   "BaseTasklet",
+				"Tasklet":                     t.ID,
+				"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
+				"Error":                       err}).
+				Error("failed to unmarshal taskExecutionLifecycleEvent")
+			return err
+		}
+		t.EventBus.Publish(t.Config.GetTaskExecutionLifecycleTopic(), taskExecutionLifecycleEvent)
+		if taskExecutionLifecycleEvent.TaskState == types.CANCELLED ||
+			taskExecutionLifecycleEvent.TaskState == types.PAUSED {
+			if err = t.RequestRegistry.Cancel(taskExecutionLifecycleEvent.Key()); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":                   "BaseTasklet",
 					"Tasklet":                     t.ID,
 					"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-					"Error":                       err}).
-					Error("failed to unmarshal taskExecutionLifecycleEvent")
+					"ID":                          taskExecutionLifecycleEvent.ID,
+					"Error":                       err}).Error("failed to cancel task")
 				return err
 			}
-			t.EventBus.Publish(t.Config.GetTaskExecutionLifecycleTopic(), taskExecutionLifecycleEvent)
-			if taskExecutionLifecycleEvent.TaskState == types.CANCELLED ||
-				taskExecutionLifecycleEvent.TaskState == types.PAUSED {
-				if err = t.RequestRegistry.Cancel(taskExecutionLifecycleEvent.Key()); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"Component":                   "BaseTasklet",
-						"Tasklet":                     t.ID,
-						"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-						"ID":                          taskExecutionLifecycleEvent.ID,
-						"Error":                       err}).Error("failed to cancel task")
-					return err
-				}
-			}
-			return nil
-		},
-		t.QueueFilter,
-		make(map[string]string),
-	)
+		}
+		return nil
+	}
+	return t.QueueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Filter:   t.QueueFilter,
+		Props:    make(map[string]string),
+	})
 }
 
 func (t *BaseTasklet) startTickerForRegistration(

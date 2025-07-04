@@ -3,9 +3,9 @@ package kubernetes
 import (
 	"github.com/stretchr/testify/require"
 	"os"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/ants/executor/tests"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"testing"
 )
@@ -13,7 +13,7 @@ import (
 var integrationTestsEnabled = len(os.Getenv("INTEGRATION_EXECUTION_TESTS")) > 0
 
 // start minikube - minikube start --driver=docker
-func newProviders(c *config.AntConfig) (map[string]executor.Provider, error) {
+func newProviders(c *ant_config.AntConfig) (map[string]executor.Provider, error) {
 	kubernetesProvider, err := NewExecutorProvider(c)
 	if err != nil {
 		return nil, err
@@ -23,8 +23,8 @@ func newProviders(c *config.AntConfig) (map[string]executor.Provider, error) {
 	}, nil
 }
 
-func newConfig() *config.AntConfig {
-	c := config.AntConfig{}
+func newConfig() *ant_config.AntConfig {
+	c := ant_config.AntConfig{}
 	c.DefaultShell = []string{
 		"sh",
 		"-c",

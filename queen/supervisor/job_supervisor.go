@@ -338,10 +338,10 @@ func (js *JobSupervisor) executeNextTask(
 		if taskStateMachine.TaskExecution.TaskState == common.FAILED &&
 			!taskStateMachine.TaskDefinition.AllowFailure {
 			return taskStateMachine.TaskExecution.ErrorCode,
-				fmt.Errorf(taskStateMachine.TaskExecution.ErrorMessage)
+				fmt.Errorf("%s", taskStateMachine.TaskExecution.ErrorMessage)
 		} else if taskStateMachine.TaskExecution.TaskState == common.PAUSED {
 			return taskStateMachine.TaskExecution.ErrorCode,
-				fmt.Errorf(taskStateMachine.TaskExecution.ErrorMessage)
+				fmt.Errorf("%s", taskStateMachine.TaskExecution.ErrorMessage)
 		} else if len(taskStateMachine.TaskDefinition.OnExitCode) > 0 {
 			return common.ErrorInvalidNextTask,
 				fmt.Errorf("cannot find next task after %s, unexpected task status=%s, exit-code: %s, error-code: %s, multiple exits=%v",

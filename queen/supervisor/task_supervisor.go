@@ -55,7 +55,11 @@ func (ts *TaskSupervisor) execute(
 		ctx, ts.cancel = context.WithCancel(ctx)
 	}
 
-	defer ts.cancel()
+	defer func() {
+		logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
+			Infof("canceling context in execute with timeout: %s", timeout)
+		ts.cancel()
+	}()
 
 	// If this is continuation from last execution and task was completed successfully then use it
 	if ts.taskStateMachine.TaskExecution.TaskState.Completed() {
@@ -101,7 +105,8 @@ func (ts *TaskSupervisor) execute(
 	if err = ts.taskStateMachine.PrepareExecution(ctx); err != nil {
 		// task is updated with FAILED
 		// changing job state from EXECUTING to FAILED
-		return fmt.Errorf("failed to prepare task for execution due to %w", err)
+		err = fmt.Errorf("failed to prepare task for execution due to %w", err)
+		return err
 	}
 
 	logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
@@ -151,7 +156,8 @@ func (ts *TaskSupervisor) tryExecuteTask(
 	// Try running the task with retry loop - by default it will run once if no retry is set
 	for executing := true; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
 		// send request and wait synchronously for response
-		taskResp, err := ts.invoke(ctx, taskReq)
+		var taskResp *common.TaskResponse
+		taskResp, err = ts.invoke(ctx, taskReq)
 		if err == nil {
 			err = ctx.Err()
 		}
@@ -199,7 +205,6 @@ func (ts *TaskSupervisor) invoke(
 	if b, err = taskReq.Marshal(ts.taskStateMachine.Reservation.EncryptionKey); err != nil {
 		return nil, fmt.Errorf("failed to marshal %s due to %w", taskReq, err)
 	}
-	var event *queue.MessageEvent
 
 	ts.taskStateMachine.TaskExecution.AntID = ts.taskStateMachine.Reservation.AntID
 	if _, err = ts.taskStateMachine.TaskExecution.AddContext("AntTopic", ts.taskStateMachine.Reservation.AntTopic); err != nil {
@@ -220,25 +225,37 @@ func (ts *TaskSupervisor) invoke(
 		}).Infof("sending request to remote ant worker")
 	}
 
-	if event, err = ts.taskStateMachine.QueueClient.SendReceive(
-		ctx,
-		ts.taskStateMachine.Reservation.AntTopic,
-		b,
-		ts.serverCfg.GetResponseTopicTaskReply(),
-		queue.NewMessageHeaders(
+	req := &queue.SendReceiveRequest{
+		OutTopic: ts.taskStateMachine.Reservation.AntTopic,
+		InTopic:  ts.serverCfg.GetResponseTopicTaskReply(),
+		Payload:  b,
+		Timeout:  taskReq.Timeout,
+		Props: queue.NewMessageHeaders(
 			queue.DisableBatchingKey, "true",
 			queue.MessageTarget, ts.taskStateMachine.Reservation.AntID,
 			"RequestID", taskReq.JobRequestID,
 			"TaskType", taskReq.TaskType,
 			"UserID", taskReq.UserID,
 		),
-	); err != nil {
+	}
+	res, err := ts.taskStateMachine.QueueClient.SendReceive(ctx, req)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "TaskSupervisor",
+			"AntID":         ts.taskStateMachine.Reservation.AntID,
+			"ContainerName": taskReq.ContainerName(),
+			"OutTopic":      ts.taskStateMachine.Reservation.AntTopic,
+			"InTopic":       ts.serverCfg.GetResponseTopicTaskReply(),
+			"RequestID":     ts.taskStateMachine.Request.GetID(),
+			"Retried":       ts.taskStateMachine.Request.GetRetried(),
+			"Error":         err,
+		}).Error("task supervisor failed to send request to ant")
 		return nil, err
 	}
-	if event == nil {
+	if res.Event == nil {
 		return nil, fmt.Errorf("received nil response from request %v", taskReq)
 	}
-	taskResp, err = common.UnmarshalTaskResponse(ts.taskStateMachine.Reservation.EncryptionKey, event.Payload)
+	taskResp, err = common.UnmarshalTaskResponse(ts.taskStateMachine.Reservation.EncryptionKey, res.Event.Payload)
 	if err != nil {
 		return taskReq.ErrorResponse(err), nil
 	}
@@ -257,7 +274,7 @@ func (ts *TaskSupervisor) invoke(
 		"OriginalErrorCode": taskResp.ErrorCode,
 		"ExitCode":          taskResp.ExitCode,
 		"TaskResp":          taskResp,
-		"Event":             event.Properties,
+		"Event":             res.Event.Properties,
 		"NewState":          newState,
 		"NewErrorCode":      newErrorCode,
 	}).Infof("received reply")
@@ -285,6 +302,6 @@ func (ts *TaskSupervisor) invoke(
 			taskResp.ErrorCode = newErrorCode
 		}
 	}
-	event.Ack() // auto-ack
+	res.Ack() // auto-ack
 	return
 }

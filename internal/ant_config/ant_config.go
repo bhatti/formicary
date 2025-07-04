@@ -1,4 +1,4 @@
-package config
+package ant_config
 
 import (
 	"errors"
@@ -15,6 +15,12 @@ import (
 
 	"github.com/spf13/viper"
 )
+
+var defaultShell = []string{
+	"sh",
+	"-c",
+	"if [ -x /usr/local/bin/bash ]; then\n\texec /usr/local/bin/bash \nelif [ -x /usr/bin/bash ]; then\n\texec /usr/bin/bash \nelif [ -x /bin/bash ]; then\n\texec /bin/bash \nelif [ -x /usr/local/bin/   sh ]; then\n\texec /usr/local/bin/sh \nelif [ -x /usr/bin/sh ]; then\n\texec /usr/bin/sh \nelif [ -x /bin/sh ]; then\n\texec /bin/sh \nelif [ -x /busybox/sh ]; then\n\texec /busybox/sh \nelse\n\techo shell  not found\n\texit 1\nfi\n\n",
+}
 
 // Registry -- Registry Config
 type Registry struct {
@@ -49,12 +55,7 @@ func NewAntConfig(id string) (*AntConfig, error) {
 	var config *AntConfig
 
 	viper.SetDefault("log_level", "info")
-	viper.SetDefault("default_shell", []string{
-		"sh",
-		"-c",
-		"if [ -x /usr/local/bin/bash ]; then\n\texec /usr/local/bin/bash \nelif [ -x /usr/bin/bash ]; then\n\texec /usr/bin/bash \nelif [ -x /bin/bash ]; then\n\texec /bin/bash \nelif [ -x /usr/local/bin/   sh ]; then\n\texec /usr/local/bin/sh \nelif [ -x /usr/bin/sh ]; then\n\texec /usr/bin/sh \nelif [ -x /bin/sh ]; then\n\texec /bin/sh \nelif [ -x /busybox/sh ]; then\n\texec /busybox/sh \nelse\n\techo shell  not found\n\texit 1\nfi\n\n",
-	})
-
+	viper.SetDefault("default_shell", defaultShell)
 	viper.SetDefault("common.user_agent", "")
 	viper.SetDefault("common.proxy_url", "")
 	viper.SetDefault("common.external_base_url", "")
@@ -78,7 +79,7 @@ func NewAntConfig(id string) (*AntConfig, error) {
 	viper.SetDefault("common.s3.region", "")
 	viper.SetDefault("common.s3.prefix", "")
 	viper.SetDefault("common.s3.bucket", "")
-	viper.SetDefault("common.messaging_provider", "REDIS_MESSAGING")
+	viper.SetDefault("common.queue.provider", "")
 	viper.SetDefault("common.redis.host", "")
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")
@@ -139,7 +140,10 @@ func NewAntConfig(id string) (*AntConfig, error) {
 
 // Validate config
 func (c *AntConfig) Validate() error {
-	if c.Methods == nil || len(c.Methods) == 0 {
+	if err := c.Common.Validate(); err != nil {
+		return err
+	}
+	if len(c.Methods) == 0 {
 		return errors.New("methods is not set")
 	}
 	if err := c.Docker.Validate(); err != nil {
@@ -157,6 +161,9 @@ func (c *AntConfig) Validate() error {
 	if c.PollAttemptsBeforeShutdown == 0 {
 		c.PollAttemptsBeforeShutdown = 5
 	}
+	if c.PollInterval <= 0 {
+		c.PollInterval = 3
+	}
 	if c.Common.EncryptionKey == "" {
 		if b, err := crypto.GenerateKey(32); err == nil {
 			c.Common.EncryptionKey = string(b)
@@ -164,7 +171,13 @@ func (c *AntConfig) Validate() error {
 			c.Common.EncryptionKey = ulid.Make().String()
 		}
 	}
-	return c.Common.Validate(c.Tags)
+	if c.OutputLimit <= 0 {
+		c.OutputLimit = 64 * 1024 * 1024
+	}
+	if len(c.DefaultShell) == 0 {
+		c.DefaultShell = defaultShell
+	}
+	return nil
 }
 
 // NewAntRegistration constructor for ant registration

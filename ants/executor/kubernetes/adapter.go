@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"plexobject.com/formicary/internal/ant_config"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -22,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/async"
 	domain "plexobject.com/formicary/internal/types"
@@ -93,14 +93,14 @@ type Adapter interface {
 // https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 // https://godoc.org/k8s.io/client-go/kubernetes#Clientset
 type Utils struct {
-	config     *config.AntConfig
+	config     *ant_config.AntConfig
 	restConfig *restclient.Config
 	cli        *kubernetes.Clientset
 }
 
 // NewKubernetesUtils - creates new adapter for kubernetes
 func NewKubernetesUtils(
-	config *config.AntConfig,
+	config *ant_config.AntConfig,
 	cli *kubernetes.Clientset,
 	restConfig *restclient.Config) (*Utils, error) {
 	return &Utils{
@@ -373,6 +373,7 @@ func (u *Utils) BuildPod(
 	if opts.MainContainer.Image == "" {
 		return nil, nil, nil, 0, fmt.Errorf("image not specified")
 	}
+
 	// pod container specifications
 	serviceNames := make([]string, 0)
 	podServices := make([]api.Container, 0)
@@ -399,7 +400,7 @@ func (u *Utils) BuildPod(
 			service.Instances = 1
 		}
 		baseSvcName := service.Name
-		for j := 0; i < service.Instances; j++ {
+		for j := 0; j < service.Instances; j++ {
 			svcName := baseSvcName
 			envMap := make(map[string]string)
 			if service.Instances > 1 {
@@ -413,7 +414,7 @@ func (u *Utils) BuildPod(
 			var cost float64
 
 			if u.hasStructuredServiceResources(service) {
-				serviceRequests, serviceLimits, cost, err = u.createStructuredServiceResources(svcName, service)
+				//serviceRequests, serviceLimits, cost, err = u.createStructuredServiceResources(svcName, service)
 			} else {
 				serviceRequests, cost, err = u.config.Kubernetes.CreateResourceList(
 					"service-request-"+svcName,
@@ -421,6 +422,17 @@ func (u *Utils) BuildPod(
 					service.MemoryRequest,
 					service.EphemeralStorageRequest)
 				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component":    "KubernetesAdapter",
+						"POD":          opts.Name,
+						"ResourceType": u.getResourceConfigType(),
+						"Options":      opts.String(),
+						"CWD":          opts.WorkingDirectory,
+						"Namespace":    u.config.Kubernetes.Namespace,
+						"Services":     len(opts.Services),
+						"Service":      service.Name,
+						"Instances":    service.Instances,
+					}).WithError(err).Errorf("failed to create service request for %s", svcName)
 					return nil, nil, nil, 0, fmt.Errorf("failed to create service request for %s due to %w", svcName, err)
 				}
 
@@ -430,6 +442,17 @@ func (u *Utils) BuildPod(
 					service.MemoryLimit,
 					service.EphemeralStorageLimit)
 				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component":    "KubernetesAdapter",
+						"POD":          opts.Name,
+						"ResourceType": u.getResourceConfigType(),
+						"Options":      opts.String(),
+						"CWD":          opts.WorkingDirectory,
+						"Namespace":    u.config.Kubernetes.Namespace,
+						"Services":     len(opts.Services),
+						"Service":      service.Name,
+						"Instances":    service.Instances,
+					}).WithError(err).Errorf("failed to create service limits for %s", svcName)
 					return nil, nil, nil, 0, fmt.Errorf("failed to create service limits for %s due to %w", svcName, err)
 				}
 			}
@@ -463,7 +486,7 @@ func (u *Utils) BuildPod(
 
 		// Use enhanced resource creation
 		if u.hasStructuredMainContainerResources(opts) {
-			requests, limits, cost, err = u.createStructuredMainContainerResources(opts)
+			//requests, limits, cost, err = u.createStructuredMainContainerResources(opts)
 		} else {
 			requests, cost, err = u.config.Kubernetes.CreateResourceList(
 				"request",
@@ -471,7 +494,16 @@ func (u *Utils) BuildPod(
 				opts.MainContainer.MemoryRequest,
 				opts.MainContainer.EphemeralStorageRequest)
 			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create resource for %s due to %w", opts.Name, err)
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesAdapter",
+					"POD":          opts.Name,
+					"ResourceType": u.getResourceConfigType(),
+					"Options":      opts.String(),
+					"CWD":          opts.WorkingDirectory,
+					"Namespace":    u.config.Kubernetes.Namespace,
+					"Services":     len(opts.Services),
+				}).WithError(err).Errorf("failed to create main resource for %s", opts.Name)
+				return nil, nil, nil, 0, fmt.Errorf("failed to create main resource for %s due to %w", opts.Name, err)
 			}
 
 			limits, _, err = u.config.Kubernetes.CreateResourceList(
@@ -480,7 +512,16 @@ func (u *Utils) BuildPod(
 				opts.MainContainer.MemoryLimit,
 				opts.MainContainer.EphemeralStorageLimit)
 			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create CPU resource for %s due to %w", opts.Name, err)
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesAdapter",
+					"POD":          opts.Name,
+					"ResourceType": u.getResourceConfigType(),
+					"Options":      opts.String(),
+					"CWD":          opts.WorkingDirectory,
+					"Namespace":    u.config.Kubernetes.Namespace,
+					"Services":     len(opts.Services),
+				}).WithError(err).Errorf("failed to create main limit for %s", opts.Name)
+				return nil, nil, nil, 0, fmt.Errorf("failed to create main limit for %s due to %w", opts.Name, err)
 			}
 		}
 		totalCost += cost
@@ -508,6 +549,15 @@ func (u *Utils) BuildPod(
 		if u.hasStructuredHelperResources(opts) {
 			helperRequests, helperLimits, cost, err = u.createStructuredHelperResources(opts)
 			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesAdapter",
+					"POD":          opts.Name,
+					"ResourceType": u.getResourceConfigType(),
+					"Options":      opts.String(),
+					"CWD":          opts.WorkingDirectory,
+					"Namespace":    u.config.Kubernetes.Namespace,
+					"Services":     len(opts.Services),
+				}).WithError(err).Errorf("failed to create helper structured resource for %s", opts.Name)
 				return nil, nil, nil, 0, fmt.Errorf("failed to create structured helper resources for %s due to %w", helperName, err)
 			}
 		} else {
@@ -518,6 +568,15 @@ func (u *Utils) BuildPod(
 				opts.HelperContainer.MemoryRequest,
 				opts.HelperContainer.EphemeralStorageRequest)
 			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesAdapter",
+					"POD":          opts.Name,
+					"ResourceType": u.getResourceConfigType(),
+					"Options":      opts.String(),
+					"CWD":          opts.WorkingDirectory,
+					"Namespace":    u.config.Kubernetes.Namespace,
+					"Services":     len(opts.Services),
+				}).WithError(err).Errorf("failed to create helper resource for %s", opts.Name)
 				return nil, nil, nil, 0, fmt.Errorf("failed to create helper resource for %s due to %w", helperName, err)
 			}
 
@@ -527,7 +586,16 @@ func (u *Utils) BuildPod(
 				opts.HelperContainer.MemoryLimit,
 				opts.HelperContainer.EphemeralStorageLimit)
 			if err != nil {
-				return nil, nil, nil, 0, fmt.Errorf("failed to create helper CPU resource for %s, cost %f due to %w", helperName, cost, err)
+				logrus.WithFields(logrus.Fields{
+					"Component":    "KubernetesAdapter",
+					"POD":          opts.Name,
+					"ResourceType": u.getResourceConfigType(),
+					"Options":      opts.String(),
+					"CWD":          opts.WorkingDirectory,
+					"Namespace":    u.config.Kubernetes.Namespace,
+					"Services":     len(opts.Services),
+				}).WithError(err).Errorf("failed to create helper limit for %s", opts.Name)
+				return nil, nil, nil, 0, fmt.Errorf("failed to create helper limit for %s, cost %f due to %w", helperName, cost, err)
 			}
 		}
 		// totalCost += cost // not needed for helper
@@ -587,7 +655,7 @@ func (u *Utils) BuildPod(
 			"Tolerations":   len(tolerations),
 			"Affinity":      affinity != nil,
 			"Namespace":     u.config.Kubernetes.Namespace,
-		}).Debug("creating pod with enhanced configuration...")
+		}).Debugf("creating pod with enhanced configuration...")
 	}
 
 	podConfig, err := preparePodConfig(
@@ -605,6 +673,19 @@ func (u *Utils) BuildPod(
 		opts.HostNetwork,
 		initContainers)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "KubernetesAdapter",
+			"POD":          podConfig.Name,
+			"Options":      opts.String(),
+			"Labels":       labels,
+			"CWD":          opts.WorkingDirectory,
+			"Annotations":  annotations,
+			"Error":        err,
+			"Namespace":    u.config.Kubernetes.Namespace,
+			"Memory":       utils.MemUsageMiBString(),
+			"ResourceType": u.getResourceConfigType(),
+			"TotalCost":    totalCost,
+		}).Warnf("failed to create pod config for %s", opts.Name)
 		return nil, nil, nil, 0, fmt.Errorf("failed to create pod config for %s due to %w", opts.Name, err)
 	}
 
@@ -622,7 +703,7 @@ func (u *Utils) BuildPod(
 			"Memory":       utils.MemUsageMiBString(),
 			"ResourceType": u.getResourceConfigType(),
 			"TotalCost":    totalCost,
-		}).Warn("failed to create pod with enhanced configuration")
+		}).Warnf("failed to create pod with enhanced configuration: %s", opts.Name)
 	} else {
 		logrus.WithFields(logrus.Fields{
 			"Component":     "KubernetesAdapter",
@@ -637,7 +718,7 @@ func (u *Utils) BuildPod(
 			"Memory":        utils.MemUsageMiBString(),
 			"ResourceType":  u.getResourceConfigType(),
 			"TotalCost":     totalCost,
-		}).Info("created pod with enhanced configuration!")
+		}).Infof("created pod with enhanced configuration: %s", opts.Name)
 	}
 
 	return pod, serviceNames, aliasNames, totalCost, err
@@ -704,6 +785,7 @@ func (u *Utils) Execute(
 			"Status":                     pod.Status.Phase,
 			"Memory":                     utils.MemUsageMiBString(),
 			"ExecuteCommandWithoutShell": executeCommandWithoutShell,
+			"UseAttach":                  useAttach,
 		}).Info("executing...")
 	}
 
@@ -749,15 +831,20 @@ func (u *Utils) Execute(
 
 	exec, err := remotecommand.NewSPDYExecutor(u.restConfig, http.MethodPost, req.URL())
 	if err != nil {
-		return pod, fmt.Errorf("failed to create create spdy executor for %s due to %w", pod.Name, err)
+		return pod, fmt.Errorf("failed to create create spdy executor for %s, useAttach %v due to %w",
+			pod.Name, useAttach, err)
 	}
 
-	return pod, exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+	if err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: &base.Stdout, // base.Trace
 		Stderr: &base.Stderr,
 		Tty:    false,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute with stream %s in pod %s, useAttach %v due to: %w",
+			cmd, pod.Name, useAttach, err)
+	}
+	return pod, nil
 }
 
 // GetRuntimeInfo returns runtime info
@@ -896,7 +983,7 @@ func (u *Utils) cleanupServices(
 }
 
 func preparePodConfig(
-	config *config.AntConfig,
+	config *ant_config.AntConfig,
 	name string,
 	containers []api.Container,
 	labels map[string]string,
@@ -946,7 +1033,7 @@ func preparePodConfig(
 
 // buildContainer builds container with enhanced resource support while maintaining backward compatibility
 func buildContainer(
-	config *config.KubernetesConfig,
+	config *ant_config.KubernetesConfig,
 	name string,
 	cwd string,
 	image string,
@@ -1024,80 +1111,83 @@ func buildContainer(
 func (u *Utils) hasStructuredServiceResources(_ domain.Service) bool {
 	// Check if global config has structured resources configured
 	// Services will use global defaults unless they have their own config
-	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
-		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	//return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+	//	u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	return false
 }
 
 // createStructuredServiceResources creates resources using structured configuration
-func (u *Utils) createStructuredServiceResources(svcName string, service domain.Service) (requests, limits api.ResourceList, cost float64, err error) {
-	// Start with global defaults
-	resourceConfig := u.config.Kubernetes.DefaultResources
-
-	// Create a service-specific config based on the service's resource requests/limits
-	serviceResourceConfig := config.ResourceConfig{
-		CPURequest:              getServiceStringValue(service.CPURequest, resourceConfig.CPURequest),
-		MemoryRequest:           getServiceStringValue(service.MemoryRequest, resourceConfig.MemoryRequest),
-		CPULimit:                getServiceStringValue(service.CPULimit, resourceConfig.CPULimit),
-		MemoryLimit:             getServiceStringValue(service.MemoryLimit, resourceConfig.MemoryLimit),
-		EphemeralStorageRequest: getServiceStringValue(service.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
-		EphemeralStorageLimit:   getServiceStringValue(service.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
-	}
-
-	// Build resource requirements
-	resourceReqs := serviceResourceConfig.BuildResourceRequirements()
-
-	// Validate against limits
-	if err = u.config.Kubernetes.ValidateResourceLimits("service-"+svcName, resourceReqs); err != nil {
-		return nil, nil, 0, err
-	}
-
-	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
-
-	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
-}
+//func (u *Utils) createStructuredServiceResources(svcName string, service domain.Service) (requests, limits api.ResourceList, cost float64, err error) {
+//	// Start with global defaults
+//	resourceConfig := u.config.Kubernetes.DefaultResources
+//
+//	// Create a service-specific config based on the service's resource requests/limits
+//	serviceResourceConfig := ant_config.ResourceConfig{
+//		CPURequest:              getServiceStringValue(service.CPURequest, resourceConfig.CPURequest),
+//		MemoryRequest:           getServiceStringValue(service.MemoryRequest, resourceConfig.MemoryRequest),
+//		CPULimit:                getServiceStringValue(service.CPULimit, resourceConfig.CPULimit),
+//		MemoryLimit:             getServiceStringValue(service.MemoryLimit, resourceConfig.MemoryLimit),
+//		EphemeralStorageRequest: getServiceStringValue(service.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
+//		EphemeralStorageLimit:   getServiceStringValue(service.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
+//	}
+//
+//	// Build resource requirements
+//	resourceReqs := serviceResourceConfig.BuildResourceRequirements()
+//
+//	// Validate against limits
+//	if err = u.config.Kubernetes.ValidateResourceLimits("service-"+svcName, resourceReqs); err != nil {
+//		return nil, nil, 0, err
+//	}
+//
+//	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
+//
+//	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
+//}
 
 // hasStructuredMainContainerResources checks if main container has structured resources
 func (u *Utils) hasStructuredMainContainerResources(_ *domain.ExecutorOptions) bool {
-	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
-		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	//return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+	//	u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	return false
 }
 
 // createStructuredMainContainerResources creates main container resources
-func (u *Utils) createStructuredMainContainerResources(opts *domain.ExecutorOptions) (requests, limits api.ResourceList, cost float64, err error) {
-	// Start with global defaults
-	resourceConfig := u.config.Kubernetes.DefaultResources
-
-	// Override with main container specific values if available
-	mainResourceConfig := config.ResourceConfig{
-		CPURequest:              getContainerStringValue(opts.MainContainer.CPURequest, resourceConfig.CPURequest),
-		MemoryRequest:           getContainerStringValue(opts.MainContainer.MemoryRequest, resourceConfig.MemoryRequest),
-		CPULimit:                getContainerStringValue(opts.MainContainer.CPULimit, resourceConfig.CPULimit),
-		MemoryLimit:             getContainerStringValue(opts.MainContainer.MemoryLimit, resourceConfig.MemoryLimit),
-		EphemeralStorageRequest: getContainerStringValue(opts.MainContainer.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
-		EphemeralStorageLimit:   getContainerStringValue(opts.MainContainer.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
-	}
-
-	resourceReqs := mainResourceConfig.BuildResourceRequirements()
-
-	if err = u.config.Kubernetes.ValidateResourceLimits("main-"+opts.Name, resourceReqs); err != nil {
-		return nil, nil, 0, err
-	}
-
-	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
-
-	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
-}
+//func (u *Utils) createStructuredMainContainerResources(opts *domain.ExecutorOptions) (requests, limits api.ResourceList, cost float64, err error) {
+//	// Start with global defaults
+//	resourceConfig := u.config.Kubernetes.DefaultResources
+//
+//	// Override with main container specific values if available
+//	mainResourceConfig := ant_config.ResourceConfig{
+//		CPURequest:              getContainerStringValue(opts.MainContainer.CPURequest, resourceConfig.CPURequest),
+//		MemoryRequest:           getContainerStringValue(opts.MainContainer.MemoryRequest, resourceConfig.MemoryRequest),
+//		CPULimit:                getContainerStringValue(opts.MainContainer.CPULimit, resourceConfig.CPULimit),
+//		MemoryLimit:             getContainerStringValue(opts.MainContainer.MemoryLimit, resourceConfig.MemoryLimit),
+//		EphemeralStorageRequest: getContainerStringValue(opts.MainContainer.EphemeralStorageRequest, resourceConfig.EphemeralStorageRequest),
+//		EphemeralStorageLimit:   getContainerStringValue(opts.MainContainer.EphemeralStorageLimit, resourceConfig.EphemeralStorageLimit),
+//	}
+//
+//	resourceReqs := mainResourceConfig.BuildResourceRequirements()
+//
+//	if err = u.config.Kubernetes.ValidateResourceLimits("main-"+opts.Name, resourceReqs); err != nil {
+//		return nil, nil, 0, err
+//	}
+//
+//	cost = u.config.Kubernetes.CalculateResourceCost(resourceReqs)
+//
+//	return resourceReqs.Requests, resourceReqs.Limits, cost, nil
+//}
 
 // hasStructuredHelperResources checks if helper container has structured resources
 func (u *Utils) hasStructuredHelperResources(_ *domain.ExecutorOptions) bool {
-	return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
-		u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	//return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
+	//	u.config.Kubernetes.DefaultResources.MemoryRequest != ""
+	return false
 }
 
 // createStructuredHelperResources creates helper container resources
 func (u *Utils) createStructuredHelperResources(opts *domain.ExecutorOptions) (requests, limits api.ResourceList, cost float64, err error) {
 	// Helper containers typically use smaller resources
-	baseResourceConfig := config.ResourceConfig{
+	baseResourceConfig := ant_config.ResourceConfig{
 		CPURequest:    "100m",
 		MemoryRequest: "128Mi",
 		CPULimit:      "200m",
@@ -1105,7 +1195,7 @@ func (u *Utils) createStructuredHelperResources(opts *domain.ExecutorOptions) (r
 	}
 
 	// If helper container has specific resource config, use it; otherwise use scaled defaults
-	helperResourceConfig := config.ResourceConfig{
+	helperResourceConfig := ant_config.ResourceConfig{
 		CPURequest:              getContainerStringValue(opts.HelperContainer.CPURequest, baseResourceConfig.CPURequest),
 		MemoryRequest:           getContainerStringValue(opts.HelperContainer.MemoryRequest, baseResourceConfig.MemoryRequest),
 		CPULimit:                getContainerStringValue(opts.HelperContainer.CPULimit, baseResourceConfig.CPULimit),
@@ -1215,16 +1305,17 @@ func (u *Utils) createPodWithContainers(
 }
 
 func (u *Utils) getResourceConfigType() string {
-	if u.config.Kubernetes.DefaultResources.CPURequest != "" {
-		return "structured"
-	} else if u.config.Kubernetes.DefaultLimits != nil {
+	//if u.config.Kubernetes.DefaultResources.CPURequest != "" {
+	//	return "structured"
+	//}
+	if u.config.Kubernetes.DefaultLimits != nil {
 		return "legacy"
 	}
 	return "default"
 }
 
 // buildImagePullSecrets creates image pull secrets
-func buildImagePullSecrets(config *config.AntConfig) []api.LocalObjectReference {
+func buildImagePullSecrets(config *ant_config.AntConfig) []api.LocalObjectReference {
 	var imagePullSecrets []api.LocalObjectReference
 	for _, imagePullSecret := range config.Kubernetes.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: imagePullSecret})

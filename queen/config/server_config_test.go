@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"os"
+	"plexobject.com/formicary/internal/types"
 	"testing"
 )
 
@@ -27,6 +28,8 @@ func Test_ShouldLoadConfig(t *testing.T) {
 }
 
 func Test_ShouldValidateTopics(t *testing.T) {
+	os.Setenv("COMMON_QUEUE_PROVIDER", string(types.RedisMessagingProvider))
+	os.Setenv("COMMON_DEBUG", "true")
 	viper.AddConfigPath("../..")
 	viper.SetConfigName(".formicary-queen")
 	viper.SetConfigType("yaml")

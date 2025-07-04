@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"plexobject.com/formicary/internal/ant_config"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/artifacts"
 
@@ -46,7 +46,7 @@ type ArtifactTransfer interface {
 // UploadCacheAndArtifacts uploads artifacts
 func UploadCacheAndArtifacts(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	artifactService artifacts.Service,
 	execute AsyncCommandExecutor,
 	jobWriter executor.TraceWriter,
@@ -109,7 +109,7 @@ func UploadCacheAndArtifacts(
 
 func uploadCache(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	transferService ArtifactTransfer,
 	paths []string,
 	expiration time.Time,
@@ -165,7 +165,7 @@ func uploadCache(
 
 func uploadArtifacts(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	transferService ArtifactTransfer,
 	paths []string,
 	expiration time.Time,
@@ -207,7 +207,7 @@ func uploadArtifacts(
 // SetupCacheAndDownloadArtifacts download and unzip all dependent artifacts in helper container
 func SetupCacheAndDownloadArtifacts(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	artifactService artifacts.Service,
 	execute AsyncCommandExecutor,
 	jobWriter executor.TraceWriter,
@@ -265,7 +265,7 @@ func SetupCacheAndDownloadArtifacts(
 
 func downloadCache(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	execute AsyncCommandExecutor,
@@ -388,7 +388,7 @@ func UploadConsoleLog(
 }
 
 func buildArtifactTransferService(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	artifactService artifacts.Service,
 	execute AsyncCommandExecutor,
 	jobWriter executor.TraceWriter,

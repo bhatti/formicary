@@ -2,13 +2,13 @@ package shell
 
 import (
 	"github.com/stretchr/testify/require"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/ants/executor/tests"
+	"plexobject.com/formicary/internal/ant_config"
 	"testing"
 )
 
-func newProviders(c *config.AntConfig) (map[string]executor.Provider, error) {
+func newProviders(c *ant_config.AntConfig) (map[string]executor.Provider, error) {
 	shellProvider, err := NewExecutorProvider(c)
 	if err != nil {
 		return nil, err
@@ -18,8 +18,8 @@ func newProviders(c *config.AntConfig) (map[string]executor.Provider, error) {
 	}, nil
 }
 
-func newConfig() *config.AntConfig {
-	c := config.AntConfig{}
+func newConfig() *ant_config.AntConfig {
+	c := ant_config.AntConfig{}
 	c.DefaultShell = []string{
 		"sh",
 		"-c",

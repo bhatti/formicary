@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/sirupsen/logrus"
 	"github.com/oklog/ulid/v2"
+	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/async"
 	"plexobject.com/formicary/internal/math"
 	"plexobject.com/formicary/internal/types"
@@ -14,407 +14,451 @@ import (
 	"time"
 )
 
-// ClientRedis structure implements interface for queuing messages using Redis
+// ClientRedis implements the queue.Client interface using Redis
 type ClientRedis struct {
-	redisClient       *redis.Client
-	pubsubConnections map[string]*redisPubSubConnection
-	queueSubscribers  map[string]*redisQueueSubscription
-	maxWait           time.Duration
-	lock              sync.RWMutex
-	closed            bool
+	*MetricsCollector
+	redisClient          *redis.Client
+	pubsubConnections    map[string]*redisPubSubConnection
+	queueSubscribers     map[string]*redisQueueSubscription
+	maxWait              time.Duration
+	config               *types.CommonConfig
+	consumerProducerLock sync.RWMutex
 }
 
-// redisPubSubConnection structure
 type redisPubSubConnection struct {
 	topic     *redis.PubSub
-	consumers map[string]redisPubSubSubscription
+	consumers map[string]*pulsarSubscription
 	done      chan bool
 }
 
-// redisPubSubSubscription structure
-type redisPubSubSubscription struct {
+type redisQueueSubscription struct {
+	topic    string
 	callback Callback
 	filter   Filter
+	mx       *SendReceiveMultiplexer
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
-// redisQueueSubscription structure
-type redisQueueSubscription struct {
-	mx   *SendReceiveMultiplexer
-	done chan bool
-}
-
-// HeadersPayload structure
-type HeadersPayload struct {
-	Properties map[string]string
-	Payload    []byte
-}
-
-// newClientRedis creates structure for implementing queuing operations
-func newClientRedis(
-	config *types.RedisConfig,
-) (Client, error) {
-	if config.Host == "" || config.Port == 0 {
-		return nil, fmt.Errorf("redis is not configured %s:%d", config.Host, config.Port)
+func newRedisClient(ctx context.Context, config *types.CommonConfig, _ string) (*ClientRedis, error) {
+	if config.Redis.Host == "" || config.Redis.Port == 0 {
+		return nil, fmt.Errorf("redis is not configured %v", config.Redis)
 	}
+
 	opts := &redis.Options{
-		Addr: fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Addr: fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port),
 		DB:   0,
 	}
-	if config.Password != "" {
-		opts.Password = config.Password
+	if config.Redis.Password != "" {
+		opts.Password = config.Redis.Password
 	}
+
 	redisClient := redis.NewClient(opts)
+
 	return &ClientRedis{
 		redisClient:       redisClient,
-		maxWait:           config.MaxPopWait,
+		config:            config,
+		maxWait:           config.Redis.MaxPopWait,
 		pubsubConnections: make(map[string]*redisPubSubConnection),
 		queueSubscribers:  make(map[string]*redisQueueSubscription),
+		MetricsCollector:  newMetricsCollector(ctx),
 	}, nil
 }
 
-// Subscribe - nonblocking subscribe that calls back handler upon message
-func (c *ClientRedis) Subscribe(
-	ctx context.Context,
-	topic string,
-	shared bool,
-	cb Callback,
-	filter Filter,
-	_ MessageHeaders,
-) (id string, err error) {
-	id = ulid.Make().String()
-	if cb == nil {
-		return id, fmt.Errorf("callback function is not specified")
-	}
+// Subscribe implements queue.Client interface
+func (c *ClientRedis) Subscribe(ctx context.Context, opts SubscribeOptions) (string, error) {
 	if ctx.Err() != nil {
-		return id, ctx.Err()
+		return "", fmt.Errorf("context cancelled: %w", ctx.Err())
 	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientRedis",
-			"Topic":     topic,
-			"ID":        id}).
-			Debug("Creating goroutine to receive messages")
+	if c.closed {
+		return "", fmt.Errorf("client is closed")
 	}
-	if shared {
-		return id, c.addQueueSubscriber(ctx, topic, id, cb, filter)
+	if err := validateSubscribeOptions(&opts); err != nil {
+		return "", err
 	}
-	return id, c.addPubSubscriber(ctx, topic, id, cb, filter)
+
+	subID := ulid.Make().String()
+
+	if opts.Shared {
+		err := c.addQueueSubscriber(ctx, opts.Topic, subID, opts)
+		if err != nil {
+			return "", fmt.Errorf("failed to create queue subscription: %w", err)
+		}
+	} else {
+		err := c.addPubSubscriber(ctx, opts.Topic, subID, opts)
+		if err != nil {
+			return "", fmt.Errorf("failed to create pub/sub subscription: %w", err)
+		}
+	}
+
+	return subID, nil
 }
 
-// UnSubscribe - unsubscribe
-func (c *ClientRedis) UnSubscribe(
-	_ context.Context,
-	topic string,
-	id string,
-) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	sharedConn := c.pubsubConnections[topic]
-	if sharedConn != nil {
+// UnSubscribe implements queue.Client interface
+func (c *ClientRedis) UnSubscribe(_ context.Context, topic string, id string) error {
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+
+	if sharedConn := c.pubsubConnections[topic]; sharedConn != nil {
 		delete(sharedConn.consumers, id)
 		if len(sharedConn.consumers) == 0 {
 			close(sharedConn.done)
 			delete(c.pubsubConnections, topic)
 		}
 	}
-	subscription := c.queueSubscribers[topic]
-	if subscription != nil {
-		count := subscription.mx.Remove(id)
-		if count == 0 {
-			delete(c.queueSubscribers, topic)
-		}
-		if logrus.IsLevelEnabled(logrus.DebugLevel) {
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientRedis",
-				"ID":        id,
-				"Topic":     topic}).
-				Debugf("unsubscribing redis topic")
-		}
+
+	if subscription := c.queueSubscribers[topic]; subscription != nil {
+		subscription.cancel()
+		delete(c.queueSubscribers, topic)
 	}
+
 	return nil
 }
 
-// Send - sends one message
-func (c *ClientRedis) Send(
-	ctx context.Context,
-	topic string,
-	payload []byte,
-	props MessageHeaders,
-) (messageID []byte, err error) {
+// Send implements queue.Client interface
+func (c *ClientRedis) Send(ctx context.Context, topic string, payload []byte,
+	props MessageHeaders) ([]byte, error) {
 	if ctx.Err() != nil {
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context is cancelled: %w", ctx.Err())
 	}
-	messageID = make([]byte, 0)
-	data, err := toHeadersPayloadData(props, payload)
-	if err != nil {
+	if c.closed {
+		return nil, fmt.Errorf("client is closed")
+	}
+
+	if props == nil {
+		props = make(MessageHeaders)
+	}
+	// Validate input
+	if err := validateSendRequest(topic, payload, props, c.config.Queue); err != nil {
 		return nil, err
 	}
+
+	data, err := toHeadersPayloadData(props, payload)
+	if err != nil {
+		c.updateMetrics(topic, 0, 0, 0, 1, -1)
+		return nil, err
+	}
+
 	_, err = c.redisClient.RPush(ctx, topic, data).Result()
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientRedis",
-			"Error":     err,
-			"Topic":     topic}).
-			Debugf("Sent message using RPush!")
+	if err != nil {
+		c.updateMetrics(topic, 0, 0, 0, 1, -1)
+		return nil, err
 	}
-	return
+
+	c.updateMetrics(topic, 1, 0, 0, 0, -1)
+	return []byte{}, nil // Redis doesn't have message IDs
 }
 
-// SendReceive - Send and receive message
-func (c *ClientRedis) SendReceive(
-	ctx context.Context,
-	outTopic string,
-	payload []byte,
-	inTopic string,
-	props MessageHeaders,
-) (event *MessageEvent, err error) {
+// SendReceive implements queue.Client interface
+func (c *ClientRedis) SendReceive(ctx context.Context, req *SendReceiveRequest) (*SendReceiveResponse, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	// redis doesn't support consumer groups so only one subscriber can consume it so making reply-topic unique
-	inTopic = inTopic + "-" + ulid.Make().String() // make it unique
-	props.SetCorrelationID(ulid.Make().String())
-	props.SetReplyTopic(inTopic)
+	if c.closed {
+		return nil, fmt.Errorf("client is closed")
+	}
+	// Validate request
+	if err := validateSendReceiveRequest(req, c.config.Queue); err != nil {
+		return nil, err
+	}
 
-	_, err = c.Send(ctx, outTopic, payload, props)
+	// Make reply topic unique for Redis
+	replyTopic := ulid.Make().String()
+	req.Props.SetReplyTopic(replyTopic)
+	req.Props.SetCorrelationID(ulid.Make().String())
+
+	// Send request
+	_, err := c.Send(ctx, req.OutTopic, req.Payload, req.Props)
 	if err != nil {
 		return nil, err
 	}
-	event, err = c.pollQueue(ctx, inTopic)
-	return
+
+	// Wait for response
+	event, err := c.pollQueue(ctx, replyTopic)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SendReceiveResponse{
+		Event: event,
+		Ack:   func() {}, // Redis doesn't need explicit acks
+		Nack:  func() {},
+	}, nil
 }
 
-// Publish - publishes the message and caches producer if it doesn't exist
-func (c *ClientRedis) Publish(
-	ctx context.Context,
-	topic string,
-	payload []byte,
-	props MessageHeaders,
-) (messageID []byte, err error) {
+// Publish implements queue.Client interface
+func (c *ClientRedis) Publish(ctx context.Context, topic string, payload []byte,
+	props MessageHeaders) ([]byte, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	messageID = make([]byte, 0)
+	if c.closed {
+		return nil, fmt.Errorf("client is closed")
+	}
+	if props == nil {
+		props = make(MessageHeaders)
+	}
+	// Validate input
+	if err := validateSendRequest(topic, payload, props, c.config.Queue); err != nil {
+		return nil, err
+	}
+
+	id := props.GetMessageKey()
+	if id == "" {
+		id = ulid.Make().String()
+	}
+	props.SetMessageKey(id)
 	data, err := toHeadersPayloadData(props, payload)
 	if err != nil {
+		c.updateMetrics(topic, 0, 0, 0, 1, -1)
 		return nil, err
 	}
+
 	err = c.redisClient.Publish(ctx, topic, data).Err()
-	return
+	if err != nil {
+		c.updateMetrics(topic, 0, 0, 0, 1, -1)
+		return nil, err
+	}
+
+	c.updateMetrics(topic, 1, 0, 0, 0, -1)
+	return []byte(id), nil
 }
 
-// Close - closes all subscribers
+// CreateTopicIfNotExists implements queue.Client interface
+func (c *ClientRedis) CreateTopicIfNotExists(_ context.Context, topic string, _ *TopicConfig) error {
+	// Redis doesn't need explicit topic creation
+	return validateTopic(topic)
+}
+
+// Close implements queue.Client interface
 func (c *ClientRedis) Close() {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	for _, next := range c.pubsubConnections {
-		close(next.done)
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+
+	if c.closed {
+		return
 	}
-	for _, next := range c.queueSubscribers {
-		for _, id := range next.mx.SubscriberIDs() {
-			next.mx.Remove(id)
-		}
-		close(next.done)
+
+	for _, conn := range c.pubsubConnections {
+		close(conn.done)
 	}
+
+	for _, sub := range c.queueSubscribers {
+		sub.cancel()
+	}
+
+	_ = c.redisClient.Close()
 	c.closed = true
 }
 
-//////////////////////////// PRIVATE METHODS /////////////////////////////
-func (c *ClientRedis) addQueueSubscriber(
-	ctx context.Context,
-	topic string,
-	id string,
-	cb Callback,
-	filter Filter) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	subscription := c.queueSubscribers[topic]
-	if subscription != nil {
-		_ = subscription.mx.Add(ctx, id, "", cb, filter, nil)
-		return nil
+// Helper methods for Redis queue implementation
+
+func (c *ClientRedis) addQueueSubscriber(ctx context.Context, topic, id string, opts SubscribeOptions) error {
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+
+	qCtx, cancel := context.WithCancel(context.Background())
+	commitTimeout := 30 * time.Second
+	if c.config.Queue.CommitTimeout != nil {
+		commitTimeout = *c.config.Queue.CommitTimeout
 	}
-	subscription = &redisQueueSubscription{
-		mx: NewSendReceiveMultiplexer(
-			ctx,
-			topic,
-			0),
-		done: make(chan bool),
+	subscription := &redisQueueSubscription{
+		topic:    topic,
+		callback: opts.Callback,
+		filter:   opts.Filter,
+		ctx:      qCtx,
+		cancel:   cancel,
+		mx:       NewSendReceiveMultiplexer(ctx, topic, commitTimeout),
 	}
 	c.queueSubscribers[topic] = subscription
-	_ = subscription.mx.Add(ctx, id, "", cb, filter, nil)
 
+	// Register message processing
 	go func() {
-		c.doQueueReceive(ctx, subscription, topic, id)
+		c.doQueueReceive(ctx, subscription)
 	}()
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientRedis",
 			"Topic":     topic,
-			"ID":        id}).
-			Debug("subscribed successfully!")
+			"ID":        id,
+		}).Debug("Queue subscription created successfully")
 	}
 
-	return
+	return nil
 }
 
-func (c *ClientRedis) doQueueReceive(
-	ctx context.Context,
-	subscription *redisQueueSubscription,
-	topic string,
-	id string,
-) {
-	started := time.Now()
+func (c *ClientRedis) doQueueReceive(ctx context.Context, subscription *redisQueueSubscription) {
 	defer func() {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-		delete(c.queueSubscribers, topic)
-		close(subscription.done)
-	}()
-	for {
-		event, err := c.pollQueue(ctx, topic)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientRedis",
-				"Topic":     topic,
-				"Error":     err,
-				"ID":        id}).
-				Warnf("failed to receive event!")
-		} else {
-			subscription.mx.Notify(ctx, event)
+		if r := recover(); r != nil {
+			logrus.WithError(fmt.Errorf("%v", r)).Error("Recovered from panic in message processing")
 		}
+		subscription.cancel()
+	}()
+
+	for {
 		select {
-		case <-subscription.done:
+		case <-subscription.ctx.Done():
 			return
 		case <-ctx.Done():
-			elapsed := time.Since(started)
-			err = ctx.Err()
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientRedis",
-				"Topic":     topic,
-				"Elapsed":   elapsed,
-				"Error":     err,
-				"ID":        id}).
-				Warn("context done while receiving event!")
 			return
-		case <-time.After(10 * time.Millisecond):
-			continue
+		default:
+			event, err := c.pollQueue(ctx, subscription.topic)
+			if err != nil {
+				if ctx.Err() == nil {
+					logrus.WithFields(logrus.Fields{
+						"Component": "ClientRedis",
+						"Topic":     subscription.topic,
+						"Error":     err,
+					}).Error("Failed to receive message")
+					c.updateMetrics(subscription.topic, 0, 0, 1, 0, -1)
+				}
+				continue
+			}
+
+			if subscription.filter == nil || subscription.filter(ctx, event) {
+				ackOnce := sync.Once{}
+				nackOnce := sync.Once{}
+
+				ack := func() {
+					ackOnce.Do(func() {
+						c.updateMetrics(subscription.topic, 0, 1, 0, 0, -1)
+					})
+				}
+
+				nack := func() {
+					nackOnce.Do(func() {
+						c.updateMetrics(subscription.topic, 0, 0, 1, 0, -1)
+					})
+				}
+
+				if err := subscription.callback(ctx, event, ack, nack); err != nil {
+					c.updateMetrics(subscription.topic, 0, 0, 0, 1, -1)
+					logrus.WithError(err).Error("failed to process message")
+				}
+			}
 		}
 	}
 }
 
-func (c *ClientRedis) addPubSubscriber(
-	ctx context.Context,
-	topic string,
-	id string,
-	cb Callback,
-	filter Filter) (err error) {
+func (c *ClientRedis) addPubSubscriber(ctx context.Context, topic, id string, opts SubscribeOptions) error {
+	c.consumerProducerLock.Lock()
+	defer c.consumerProducerLock.Unlock()
+
 	var sharedConn *redisPubSubConnection
-	{
-		c.lock.Lock()
-		defer c.lock.Unlock()
-		sharedConn = c.pubsubConnections[topic]
+	sharedConn = c.pubsubConnections[topic]
 
-		if sharedConn != nil {
-			sharedConn.consumers[id] = redisPubSubSubscription{
-				callback: cb,
-				filter:   filter,
-			}
-			return nil
-		}
-
+	if sharedConn == nil {
 		sharedConn = &redisPubSubConnection{
 			topic:     c.redisClient.Subscribe(ctx, topic),
-			consumers: make(map[string]redisPubSubSubscription),
+			consumers: make(map[string]*pulsarSubscription),
 			done:      make(chan bool),
 		}
-		sharedConn.consumers[id] = redisPubSubSubscription{
-			callback: cb,
-			filter:   filter,
-		}
 		c.pubsubConnections[topic] = sharedConn
+
+		// Register pub/sub message processing
+		go func() {
+			c.doPubSubReceive(ctx, sharedConn, topic)
+		}()
 	}
 
-	go func() {
-		c.doPubSubReceive(ctx, sharedConn, topic)
-	}()
+	pCtx, cancel := context.WithCancel(context.Background())
+	subscription := &pulsarSubscription{
+		topic:    topic,
+		callback: opts.Callback,
+		filter:   opts.Filter,
+		ctx:      pCtx,
+		cancel:   cancel,
+	}
+	sharedConn.consumers[id] = subscription
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ClientRedis",
 			"Topic":     topic,
-			"ID":        id}).
-			Debug("subscribed successfully!")
+			"ID":        id,
+		}).Debug("Pub/Sub subscription created successfully")
 	}
 
-	return
+	return nil
 }
 
-func (c *ClientRedis) doPubSubReceive(
-	ctx context.Context,
-	sharedConn *redisPubSubConnection,
-	topic string,
-) {
+func (c *ClientRedis) doPubSubReceive(ctx context.Context, conn *redisPubSubConnection, topic string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.WithError(fmt.Errorf("%v", r)).Error("Recovered from panic in pub/sub processing")
+		}
+		_ = conn.topic.Close()
+	}()
+
 	maxWait := 30 * time.Second
 	minWait := 10 * time.Millisecond
 	curWait := minWait
-	subscribed := true
-	defer func() {
-		_ = sharedConn.topic.Unsubscribe(ctx, topic)
-		_ = sharedConn.topic.Close()
-	}()
+
 	for {
-		if err := c.redisClient.Ping(ctx).Err(); err != nil {
-			if curWait < maxWait {
-				curWait *= 2
-			}
-			subscribed = false
-		}
-		if !subscribed {
-			if err := sharedConn.topic.Subscribe(ctx, topic); err == nil {
-				subscribed = true
-			}
-		}
 		select {
-		case msg := <-sharedConn.topic.Channel():
+		case msg := <-conn.topic.Channel():
 			hp := toHeadersPayload([]byte(msg.Payload))
-			c.notifyPubSubConsumers(ctx, topic, hp.Properties, hp.Payload)
+			event := &MessageEvent{
+				Topic:       topic,
+				Payload:     hp.Payload,
+				Properties:  hp.Properties,
+				ID:          nil, // Redis doesn't provide message IDs
+				PublishTime: time.Now(),
+			}
+
+			c.consumerProducerLock.RLock()
+			for _, subscription := range conn.consumers {
+				if subscription.filter == nil || subscription.filter(ctx, event) {
+					ackOnce := sync.Once{}
+					nackOnce := sync.Once{}
+
+					ack := func() {
+						ackOnce.Do(func() {
+							c.updateMetrics(topic, 0, 1, 0, 0, -1)
+						})
+					}
+
+					nack := func() {
+						nackOnce.Do(func() {
+							c.updateMetrics(topic, 0, 0, 1, 0, -1)
+						})
+					}
+
+					if err := subscription.callback(ctx, event, ack, nack); err != nil {
+						c.updateMetrics(topic, 0, 0, 0, 1, -1)
+						logrus.WithError(err).Error("Failed to process pub/sub message")
+					}
+				}
+			}
+			c.consumerProducerLock.RUnlock()
 			curWait = minWait
-		case <-sharedConn.done:
+
+		case <-conn.done:
 			return
 		case <-ctx.Done():
 			return
 		case <-time.After(math.MinDuration(maxWait, curWait)):
+			// Check connection health
+			if err := c.redisClient.Ping(ctx).Err(); err != nil {
+				logrus.WithError(err).Error("Redis connection error")
+				if curWait < maxWait {
+					curWait *= 2
+				}
+			}
 		}
 	}
 }
 
-func (c *ClientRedis) pollQueue(
-	ctx context.Context,
-	inTopic string,
-) (event *MessageEvent, err error) {
-	event = &MessageEvent{
-		Topic:        inTopic,
-		ProducerName: "",
-		Properties:   make(map[string]string),
-		ID:           make([]byte, 0),
-		PublishTime:  time.Now(),
-		Ack:          func() {},
-		Nack:         func() {},
-	}
-	minWait := 10 * time.Millisecond
-	started := time.Now()
-	handler := func(ctx context.Context, payload interface{}) (bool, interface{}, error) {
-		res, err := c.redisClient.BLPop(ctx, c.maxWait, inTopic).Result()
+func (c *ClientRedis) pollQueue(ctx context.Context, topic string) (*MessageEvent, error) {
+	handler := func(ctx context.Context, payload any) (bool, any, error) {
+		res, err := c.redisClient.BLPop(ctx, c.maxWait, topic).Result()
 		if err != nil || len(res) < 2 {
 			return false, nil, nil
 		}
-		hp := toHeadersPayload([]byte(res[1]))
-		event.Properties = hp.Properties
-		event.Payload = hp.Payload
-		return true, nil, nil
+		return true, []byte(res[1]), nil
 	}
-
+	minWait := 10 * time.Millisecond
 	future := async.ExecutePollingWithSignal(
 		ctx,
 		handler,
@@ -422,73 +466,41 @@ func (c *ClientRedis) pollQueue(
 		0,
 		minWait,
 		10*minWait)
-	_, err = future.Await(ctx)
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientRedis",
-			"Elapsed":   time.Since(started),
-			"Error":     err,
-			"Topic":     inTopic}).
-			Debugf("received message!")
+	res, err := future.Await(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return event, err
+	hp := toHeadersPayload(res.([]byte))
+	return &MessageEvent{
+		Topic:       topic,
+		Payload:     hp.Payload,
+		Properties:  hp.Properties,
+		ID:          []byte(hp.Properties[messageKey]), // Redis doesn't provide message IDs
+		PublishTime: time.Now(),
+	}, nil
 }
 
-// notifyPubSubConsumers all subscribers for pub/sub
-func (c *ClientRedis) notifyPubSubConsumers(
-	ctx context.Context,
-	topic string,
-	props map[string]string,
-	data []byte) {
-	// build event
-	event := &MessageEvent{
-		Topic:        topic,
-		ProducerName: "",
-		Properties:   props,
-		ID:           make([]byte, 0),
-		Payload:      data,
-		PublishTime:  time.Now(),
-		Ack:          func() {},
-		Nack:         func() {},
-	}
-
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	connection := c.pubsubConnections[topic]
-	if connection != nil {
-		// notify subscribers
-		for _, next := range connection.consumers {
-			if next.filter == nil || next.filter(ctx, event) {
-				_ = next.callback(ctx, event)
-			}
-		}
-		if logrus.IsLevelEnabled(logrus.DebugLevel) {
-			logrus.WithFields(logrus.Fields{
-				"Component": "ClientRedis",
-				"Topic":     topic,
-				"Consumers": len(connection.consumers)}).
-				Debugf("consumers notified!")
-		}
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"Component": "ClientRedis",
-			"Topic":     topic,
-			"Data":      len(data)}).
-			Warn("no consumers found!")
-	}
+type HeadersPayload struct {
+	Properties map[string]string `json:"properties"`
+	Payload    []byte            `json:"payload"`
 }
 
-func toHeadersPayloadData(props map[string]string, payload []byte) ([]byte, error) {
-	hp := HeadersPayload{Properties: props, Payload: payload}
+func toHeadersPayloadData(props MessageHeaders, payload []byte) ([]byte, error) {
+	hp := HeadersPayload{
+		Properties: props,
+		Payload:    payload,
+	}
 	return json.Marshal(hp)
 }
 
 func toHeadersPayload(data []byte) *HeadersPayload {
-	hp := HeadersPayload{}
-	err := json.Unmarshal(data, &hp)
-	if err != nil {
-		hp.Properties = make(map[string]string)
+	hp := &HeadersPayload{
+		Properties: make(map[string]string),
+	}
+
+	if err := json.Unmarshal(data, hp); err != nil {
+		// If unmarshaling fails, treat the entire data as payload
 		hp.Payload = data
 	}
-	return &hp
+	return hp
 }

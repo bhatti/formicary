@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"plexobject.com/formicary/internal/ant_config"
 
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor/utils"
 	"plexobject.com/formicary/ants/registry"
 	"plexobject.com/formicary/internal/metrics"
@@ -19,7 +19,7 @@ import (
 // RequestHandler structure
 type RequestHandler struct {
 	*tasklet.BaseTasklet
-	antCfg            *config.AntConfig
+	antCfg            *ant_config.AntConfig
 	queueClient       queue.Client
 	webClient         web.HTTPClient
 	containerRegistry *registry.AntContainersRegistry
@@ -29,7 +29,7 @@ type RequestHandler struct {
 
 // NewRequestHandler constructor
 func NewRequestHandler(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	queueClient queue.Client,
 	webClient web.HTTPClient,
 	requestRegistry tasklet.RequestRegistry,

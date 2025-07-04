@@ -3,6 +3,7 @@ package tasklet
 import (
 	"fmt"
 	"plexobject.com/formicary/internal/metrics"
+	"runtime/debug"
 	"sync"
 
 	"plexobject.com/formicary/internal/types"
@@ -51,10 +52,10 @@ func (r *RequestRegistryImpl) Add(
 		return fmt.Errorf("request not specified")
 	}
 	if req.Key() == "" {
-		return fmt.Errorf("request task key not specified")
+		return fmt.Errorf("request task key not specified for add: %s", req)
 	}
 	if r.requests[req.Key()] != nil {
-		return fmt.Errorf("request task key not specified")
+		return fmt.Errorf("request task key already exists")
 
 	}
 	req.Status = types.READY
@@ -68,7 +69,8 @@ func (r *RequestRegistryImpl) Cancel(
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	if key == "" {
-		return fmt.Errorf("request task key not specified")
+		debug.PrintStack()
+		return fmt.Errorf("request task key not specified for cancel: %s", key)
 	}
 	req := r.requests[key]
 	if req == nil {
@@ -107,7 +109,7 @@ func (r *RequestRegistryImpl) Remove(
 		return fmt.Errorf("request not specified")
 	}
 	if req.Key() == "" {
-		return fmt.Errorf("request task key not specified")
+		return fmt.Errorf("request task key not specified to remove: %s", req)
 	}
 	if r.requests[req.Key()] == nil {
 		return fmt.Errorf("request task key not found")

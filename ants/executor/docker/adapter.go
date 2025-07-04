@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types/registry"
 	"io"
+	"plexobject.com/formicary/internal/ant_config"
 	"strings"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	domain "plexobject.com/formicary/internal/types"
 )
@@ -59,13 +59,13 @@ type Adapter interface {
 
 // Utils defines helper methods using docker API
 type Utils struct {
-	config       *config.DockerConfig
+	config       *ant_config.DockerConfig
 	cli          *client.Client
 	attachOption bool
 }
 
 // NewDockerUtils creates new adapter for docker
-func NewDockerUtils(config *config.DockerConfig, cli *client.Client) *Utils {
+func NewDockerUtils(config *ant_config.DockerConfig, cli *client.Client) *Utils {
 	return &Utils{config: config, cli: cli}
 }
 

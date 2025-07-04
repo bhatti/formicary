@@ -20,7 +20,7 @@ func Test_ShouldRealGet(t *testing.T) {
 		map[string]string{"key": "value"},
 		make(map[string]string))
 	if err != nil {
-		t.Logf("Unexpected response Get error " + err.Error())
+		t.Logf("Unexpected response Get error %s", err)
 	}
 }
 
@@ -32,7 +32,7 @@ func Test_ShouldRealDelete(t *testing.T) {
 		map[string]string{"key": "value"},
 		nil)
 	if err != nil {
-		t.Logf("Unexpected response Get error " + err.Error())
+		t.Logf("Unexpected response Get error %s", err)
 	}
 }
 
@@ -44,7 +44,7 @@ func Test_ShouldRealDeleteBody(t *testing.T) {
 		map[string]string{"key": "value"},
 		[]byte("hello"))
 	if err != nil {
-		t.Logf("Unexpected response Get error " + err.Error())
+		t.Logf("Unexpected response Get error %s", err)
 	}
 }
 
@@ -89,6 +89,6 @@ func Test_ShouldRealPostBody(t *testing.T) {
 		map[string]string{},
 		[]byte("hello"))
 	if err != nil {
-		t.Logf("Unexpected response PostJSON error " + err.Error())
+		t.Logf("Unexpected response PostJSON error %s", err)
 	}
 }

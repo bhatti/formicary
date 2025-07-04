@@ -163,7 +163,7 @@ func (je *JobExecution) Completed() bool {
 func (je *JobExecution) GetFailedTaskError() (*TaskExecution, string, error) {
 	for _, t := range je.Tasks {
 		if !t.AllowFailure && t.TaskState.Failed() {
-			return t, t.ErrorCode, fmt.Errorf(t.ErrorMessage)
+			return t, t.ErrorCode, fmt.Errorf("%s", t.ErrorMessage)
 		}
 	}
 	return nil, "", nil

@@ -135,7 +135,10 @@ func TestResourceManager(serverCfg *config.ServerConfig) resource.Manager {
 	if serverCfg == nil {
 		serverCfg = config.TestServerConfig()
 	}
-	queueClient := queue.NewStubClient(&serverCfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	if err != nil {
+		panic(err)
+	}
 	return resource.New(serverCfg, queueClient)
 }
 
@@ -196,7 +199,10 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 	if err != nil {
 		return nil, err
 	}
-	queueClient := queue.NewStubClient(&serverCfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	if err != nil {
+		return nil, err
+	}
 	resourceManager := resource.New(serverCfg, queueClient)
 	return NewJobManager(
 		context.Background(),

@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
+	"plexobject.com/formicary/internal/ant_config"
 	"strings"
 	"time"
 
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/metrics"
@@ -19,7 +19,7 @@ import (
 
 // ContainersReaper struct
 type ContainersReaper struct {
-	antCfg                              *config.AntConfig
+	antCfg                              *ant_config.AntConfig
 	queueClient                         queue.Client
 	httpClient                          web.HTTPClient
 	metricsRegistry                     *metrics.Registry
@@ -31,7 +31,7 @@ type ContainersReaper struct {
 
 // NewContainersReaper constructor
 func NewContainersReaper(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	queueClient queue.Client,
 	httpClient web.HTTPClient,
 	metricsRegistry *metrics.Registry,
@@ -209,26 +209,26 @@ func (r *ContainersReaper) sendContainerEvent(
 func (r *ContainersReaper) subscribeToRecentlyCompletedJobIDs(
 	ctx context.Context,
 	containerTopic string) (string, error) {
-	return r.queueClient.Subscribe(
-		ctx,
-		containerTopic,
-		false, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobIDsEvent, err := events.UnmarshalRecentlyCompletedJobsEvent(event.Payload)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"Component": "ContainersReaper",
-					"Payload":   string(event.Payload),
-					"Error":     err}).Error("failed to unmarshal registration by recently completed job-ids")
-				return err
-			}
-			for _, id := range jobIDsEvent.JobIDs {
-				r.recentlyCompletedJobIDs.Add(id, true)
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobIDsEvent, err := events.UnmarshalRecentlyCompletedJobsEvent(event.Payload)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"Component": "ContainersReaper",
+				"Payload":   string(event.Payload),
+				"Error":     err}).Error("failed to unmarshal registration by recently completed job-ids")
+			return err
+		}
+		for _, id := range jobIDsEvent.JobIDs {
+			r.recentlyCompletedJobIDs.Add(id, true)
+		}
+		return nil
+	}
+	return r.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    containerTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }

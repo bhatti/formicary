@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
+	"runtime/debug"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -24,6 +25,7 @@ func NewDefaultController(
 	webserver.GET("/", ctrl.health, acl.NewPermission(acl.Health, acl.Metrics)).Name = "ant_health"
 	webserver.GET("/metrics", web.WrapHandler(promhttp.Handler()), acl.NewPermission(acl.Health, acl.Metrics))
 	if err := prometheus.Register(prometheus.NewBuildInfoCollector()); err != nil {
+		debug.PrintStack()
 		logrus.WithFields(logrus.Fields{
 			"Component": "AntController",
 			"Error":     err,

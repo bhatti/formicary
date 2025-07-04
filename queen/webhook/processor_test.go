@@ -19,7 +19,8 @@ func Test_ShouldCreateJobWebhook(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	// GIVEN webhook processor
-	queueClient := queue.NewStubClient(&serverCfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	require.NoError(t, err)
 	http := web.NewStubHTTPClient()
 	http.PostMapping["https://formicary.io/webhook/jobs"] = web.NewStubHTTPResponse(200, "test-body")
 
@@ -52,7 +53,8 @@ func Test_ShouldCreateTaskWebhook(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	// GIVEN webhook processor
-	queueClient := queue.NewStubClient(&serverCfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	require.NoError(t, err)
 	http := web.NewStubHTTPClient()
 	http.PostMapping["https://formicary.io/webhook/tasks"] = web.NewStubHTTPResponse(200, "test-body")
 

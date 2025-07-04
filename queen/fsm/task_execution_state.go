@@ -289,7 +289,7 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
 	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.Common.ID
 
-	if taskReq.Variables["debug"].Value == "true" || taskReq.Variables["debug"].Value == true {
+	if tsm.serverCfg.Common.Debug || taskReq.Variables["debug"].Value == "true" || taskReq.Variables["debug"].Value == true {
 		taskReq.ExecutorOpts.Debug = true
 	}
 

@@ -46,7 +46,7 @@ func startAntWorker(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	queueClient, err := queue.NewMessagingClient(&serverConfig.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverConfig.Common)
 	if err != nil {
 		return err
 	}

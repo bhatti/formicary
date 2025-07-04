@@ -130,7 +130,7 @@ func startWebsocketGateway(
 }
 
 func startControllers(
-	_ *config.ServerConfig,
+	cfg *config.ServerConfig,
 	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
@@ -139,6 +139,9 @@ func startControllers(
 	statsRegistry *stats.JobStatsRegistry,
 	heathMonitor *health.Monitor,
 	webServer web.Server) {
+	if cfg.Common.Debug {
+		controller.NewProfileStatsController(&cfg.Common, webServer)
+	}
 	controller.NewIndexController(webServer)
 	controller.NewAuditController(
 		repoFactory.AuditRecordRepository,

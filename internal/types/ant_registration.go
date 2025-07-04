@@ -132,8 +132,8 @@ func (r *AntRegistration) Marshal() ([]byte, error) {
 
 // String defines description of registration
 func (r *AntRegistration) String() string {
-	return fmt.Sprintf("ID=%s Tags=%s Max=%d Load=%d Executed=%d\n",
-		r.AntID, r.Tags, r.MaxCapacity, r.CurrentLoad, r.TotalExecuted)
+	return fmt.Sprintf("ID=%s Tags=%s Methods=%v Max=%d Load=%d Executed=%d\n",
+		r.AntID, r.Tags, r.Methods, r.MaxCapacity, r.CurrentLoad, r.TotalExecuted)
 }
 
 // UpdatedAtString defines formatted date

@@ -104,23 +104,24 @@ func (t *MessagingTasklet) Execute(
 	if b, err = taskReq.Marshal(""); err != nil {
 		return nil, fmt.Errorf("failed to marshal %s due to %w", taskReq, err)
 	}
-	var event *queue.MessageEvent
 	logrus.WithFields(logrus.Fields{
 		"Component":     "MessagingTasklet",
 		"RequestTopic":  taskReq.ExecutorOpts.MessagingRequestQueue,
 		"ResponseTopic": taskReq.ExecutorOpts.MessagingReplyQueue,
 	}).
 		Infof("sending request")
-	if event, err = t.queueClient.SendReceive(
-		ctx,
-		taskReq.ExecutorOpts.MessagingRequestQueue,
-		b,
-		taskReq.ExecutorOpts.MessagingReplyQueue,
-		make(map[string]string),
-	); err != nil {
+	req := &queue.SendReceiveRequest{
+		OutTopic: taskReq.ExecutorOpts.MessagingRequestQueue,
+		InTopic:  taskReq.ExecutorOpts.MessagingReplyQueue,
+		Payload:  b,
+		Props:    make(map[string]string),
+		Timeout:  taskReq.Timeout,
+	}
+	res, err := t.queueClient.SendReceive(ctx, req)
+	if err != nil {
 		return nil, err
 	}
-	if event == nil {
+	if res.Event == nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":     "MessagingTasklet",
 			"RequestTopic":  taskReq.ExecutorOpts.MessagingRequestQueue,
@@ -128,9 +129,9 @@ func (t *MessagingTasklet) Execute(
 			"Request":       taskReq,
 		}).
 			Errorf("failed to receive reply")
-		return nil, fmt.Errorf("failed to receive reply from " + taskReq.ExecutorOpts.MessagingReplyQueue)
+		return nil, fmt.Errorf("failed to receive reply from %s", taskReq.ExecutorOpts.MessagingReplyQueue)
 	}
-	taskResp, err = common.UnmarshalTaskResponse(t.serverCfg.Jobs.MessagingEncryptionKey, event.Payload)
+	taskResp, err = common.UnmarshalTaskResponse(t.serverCfg.Jobs.MessagingEncryptionKey, res.Event.Payload)
 	if err != nil {
 		return taskReq.ErrorResponse(err), nil
 	}

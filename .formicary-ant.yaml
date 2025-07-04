@@ -1,84 +1,107 @@
+common:
+    id: ant-worker-id
+    user_agent: "formicary-agent"
+    proxy_url: ""
+    external_base_url: ""
+    block_user_agents: []
+    public_dir: ./public/
+    http_port: 0
+    queue:
+        provider: "REDIS_MESSAGING"
+        endpoints: []
+        topic_tenant: ""
+        topic_namespace: ""
+        pulsar: null
+        kafka: null
+        username: ""
+        password: ""
+        token: ""
+        tls: null
+        defaultoptions: null
+        maxconnections: 0
+        maxmessagesize: 0
+        maxfetchsize: 0
+        connectiontimeout: null
+        operationtimeout: null
+        committimeout: null
+        retrymax: 0
+        retrydelay: null
+    s3:
+        endpoint: localhost:9000
+        access_key_id: minioadmin
+        secret_access_key: minioadmin
+        token: ""
+        region: us-west-2
+        prefix: formicary/
+        bucket: formicary-artifacts
+        encryption_password: ""
+        useSSL: false
+    redis:
+        host: localhost
+        port: 6379
+        password: ""
+        ttl_minutes: 0s
+        pool_size: 0
+        max_subscription_wait: 0s
+    auth:
+        enabled: false
+        cookie_name: ""
+        jwt_secret: ""
+        max_age: 0s
+        token_max_age: 0s
+        secure: false
+        google_client_id: ""
+        google_client_secret: ""
+        google_callback_host: ""
+        github_client_id: ""
+        github_client_secret: ""
+        github_callback_host: ""
+    container_reaper_interval: 0s
+    monitor_interval: 0s
+    monitoring_urls:
+      docker: "192.168.1.102:2375"
+    registration_interval: 0s
+    dead_job_ids_events_interval: 0s
+    max_streaming_log_message_size: 0
+    max_job_timeout: 0s
+    max_task_timeout: 0s
+    rate_limit_sec: 0
+    development: true
+    encryptionkey: ""
+    debug: true
+tags: ["docker", "kubernetes", "embedded", "builder"]
 methods:
-  - DOCKER
-  - KUBERNETES
-  - SHELL
-  - HTTP_GET
-  - HTTP_POST_FORM
-  - HTTP_POST_JSON
-  - HTTP_PUT_FORM
-  - HTTP_PUT_JSON
-  - HTTP_DELETE
+    - DOCKER
+    - KUBERNETES
+    - SHELL
+    - HTTP_GET
+    - HTTP_POST_FORM
+    - HTTP_POST_JSON
+    - HTTP_PUT_FORM
+    - HTTP_PUT_JSON
+    - HTTP_DELETE
 docker:
   host: "tcp://192.168.1.100:2375"
-kube: "https://localhost:55000"
-common:
-  id: ant-worker-id
-  user_agent: "formicary-agent"
-  development: true
-  public_dir: "./public/"
-  proxy_url: ""
-  messaging_provider: REDIS_MESSAGING
-  xmessaging_provider: KAFKA_MESSAGING
-  max_job_timeout: 0s
-  max_task_timeout: 0s
-  http_port: 0
-  auth:
-    enabled: true
-  xmonitoring_urls:
-    docker: "localhost:2375"
-  disabled_pulsar:
-    url: "pulsar://localhost:6650"
-    connection_timeout: 30
-  kafka:
-    brokers:
-      - 192.168.1.102:19092
-      - 192.168.1.102:29092
-      - 192.168.1.102:39092
-    group: formicary-ant-1
-  redis:
-    host: "192.168.1.102"
-    port: 6379
-    password: ""
-    ttl_minutes: 0s
-    pool_size: 0
-    max_subscription_wait: 0s
-  s3:
-    endpoint: "192.168.1.102:9000"
-    accessKeyID: "admin"
-    secretAccessKey: "password"
-    region: "us-west-2"
-    bucket: "formicary-artifacts"
-    prefix: "formicary/"
-    encryptionPassword: ""
-    useSSL: false
 kubernetes:
-  allow_privilege_escalation: true
-# Enhanced resource configuration
-  default_resources:
-    cpuRequest: "500m"
-    memoryRequest: "512Mi"
-    cpuLimit: "1"
-    memoryLimit: "1Gi"
-    ephemeralStorageRequest: "1Gi"
-    ephemeralStorageLimit: "2Gi"
-  
-  min_resources:
-    cpuRequest: "100m"
-    memoryRequest: "128Mi"
-    ephemeralStorageRequest: "100Mi"
-  
-  max_resources:
-    cpuRequest: "2"
-    memoryRequest: "4Gi"
-    ephemeralStorageRequest: "10Gi"
-    
-  # Enhanced cluster configuration
-  #kubeconfig: "/path/to/kubeconfig"
-  cluster_name: "docker-desktop"
-  namespace: "default"
-  
-  # Performance tuning
-  qps: 200
-  burst: 300
-  pod_security_context:
-    run_as_user: 0
+    registry:
+        registry: ""
+        username: '@bhatti'
+        password: "test"
+        pull_policy: ""
+    kubeconfig: ""
+    host: ""
+    helper_image: ""
+    allow_privilege_escalation: true
+    # Enhanced cluster configuration
+    #kubeconfig: "/path/to/kubeconfig"
+    cluster_name: "docker-desktop"
+    namespace: "default"
+    pod_security_context:
+      run_as_user: 0
+    default_resources:
+      cpuRequest: "500m"
+      memoryRequest: "512Mi"
+      cpuLimit: "1"
+      memoryLimit: "1Gi"
+      ephemeralStorageRequest: "1Gi"
+      ephemeralStorageLimit: "2Gi"

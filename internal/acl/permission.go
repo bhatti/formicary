@@ -56,6 +56,8 @@ const (
 	Report Resource = "Report"
 	// Logs resource
 	Logs Resource = "Logs"
+	// ProfileStats resource
+	ProfileStats Resource = "ProfileStats"
 )
 
 const (

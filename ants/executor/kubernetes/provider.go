@@ -3,13 +3,13 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/ant_config"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 	api "k8s.io/api/core/v1"
 	"plexobject.com/formicary/internal/utils/trace"
 
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/types"
 )
@@ -25,7 +25,7 @@ type ExecutorProvider struct {
 
 // NewExecutorProvider creates executor-provider for local kubernetes based execution
 func NewExecutorProvider(
-	config *config.AntConfig) (executor.Provider, error) {
+	config *ant_config.AntConfig) (executor.Provider, error) {
 	if err := config.Kubernetes.Validate(); err != nil {
 		return nil, fmt.Errorf("kubernetes configuration validation failed: %w", err)
 	}
@@ -48,13 +48,13 @@ func NewExecutorProvider(
 			logFields["ConfigType"] = "enhanced"
 		}
 		// Add resource configuration details
-		if config.Kubernetes.DefaultResources.CPURequest != "" {
-			logFields["ResourceType"] = "structured"
-			logFields["DefaultCPU"] = config.Kubernetes.DefaultResources.CPURequest
-			logFields["DefaultMemory"] = config.Kubernetes.DefaultResources.MemoryRequest
-		} else if config.Kubernetes.DefaultLimits != nil {
-			logFields["ResourceType"] = "legacy"
-		}
+		//if config.Kubernetes.DefaultResources.CPURequest != "" {
+		//	logFields["ResourceType"] = "structured"
+		//	logFields["DefaultCPU"] = config.Kubernetes.DefaultResources.CPURequest
+		//	logFields["DefaultMemory"] = config.Kubernetes.DefaultResources.MemoryRequest
+		//} else if config.Kubernetes.DefaultLimits != nil {
+		//	logFields["ResourceType"] = "legacy"
+		//}
 		log.WithFields(logFields).Debug("connecting to Kubernetes with enhanced configuration...")
 	}
 

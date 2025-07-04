@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"plexobject.com/formicary/internal/ant_config"
 	"strconv"
 	"strings"
 	"time"
@@ -12,14 +13,12 @@ import (
 
 	"plexobject.com/formicary/ants/executor"
 
-	"plexobject.com/formicary/ants/config"
-
 	"plexobject.com/formicary/internal/types"
 )
 
 // ArtifactTransferHelperContainer structure
 type ArtifactTransferHelperContainer struct {
-	antCfg    *config.AntConfig
+	antCfg    *ant_config.AntConfig
 	execute   AsyncCommandExecutor
 	jobWriter executor.TraceWriter
 	taskReq   *types.TaskRequest
@@ -28,7 +27,7 @@ type ArtifactTransferHelperContainer struct {
 
 // NewArtifactTransferHelperContainer constructor
 func NewArtifactTransferHelperContainer(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	execute AsyncCommandExecutor,
 	jobWriter executor.TraceWriter,
 	taskReq *types.TaskRequest,

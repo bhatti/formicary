@@ -102,21 +102,21 @@ func sendAntRegistration(serverCfg *config.ServerConfig, queueClient queue.Clien
 	)
 }
 
-func buildTestQueueClient(cfg *config.ServerConfig) *queue.StubClientImpl {
-	queueClient := queue.NewStubClient(&cfg.Common)
-	queueClient.SendReceivePayloadFunc = func(
-		_ queue.MessageHeaders,
-		payload []byte) ([]byte, error) {
-		var req common.TaskRequest
-		err := json.Unmarshal(payload, &req)
-		if err != nil {
-			return nil, err
-		}
-		res := common.NewTaskResponse(&req)
-		res.AntID = "query-ant-test"
-		res.Host = "query-ant-test"
-		res.Status = common.COMPLETED
-		return json.Marshal(res)
+func buildTestQueueClient(cfg *config.ServerConfig) queue.Client {
+	queueClient, _ := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	if channelClient, ok := queueClient.(*queue.ClientChannel); ok {
+		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+			var req common.TaskRequest
+			err := json.Unmarshal(inReq.Payload, &req)
+			if err != nil {
+				return nil, err
+			}
+			res := common.NewTaskResponse(&req)
+			res.AntID = "query-ant-test"
+			res.Host = "query-ant-test"
+			res.Status = common.COMPLETED
+			return json.Marshal(res)
+		})
 	}
 	return queueClient
 }

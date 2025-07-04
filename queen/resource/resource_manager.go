@@ -153,6 +153,11 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 	// Matching methods
 	for _, method := range methods {
 		if exists, total := rm.state.hasAntsByMethod(method); !exists {
+			logrus.WithFields(logrus.Fields{
+				"Methods": methods,
+				"Tags":    tags,
+				"Dump":    rm.state.dump(false),
+			}).Warnf("failed to find ant by methods: %s", method)
 			return fmt.Errorf("no ant for method='%s' antsByMethods=%d", method, total)
 		}
 	}
@@ -161,6 +166,11 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 	for _, tag := range tags { // tag => [ant-id:true]
 		antIDs, totalAntsByTags := rm.state.getAntsByTag(tag)
 		if len(antIDs) == 0 {
+			logrus.WithFields(logrus.Fields{
+				"Methods": methods,
+				"Tags":    tags,
+				"Dump":    rm.state.dump(false),
+			}).Warnf("failed to find ant by tags: %s", tag)
 			return fmt.Errorf("no ant for tag='%s' ants-by-tags=%d", tag, totalAntsByTags)
 		}
 		matched := false

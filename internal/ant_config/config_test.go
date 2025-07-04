@@ -1,8 +1,9 @@
-package config
+package ant_config
 
 import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	"os"
 	"plexobject.com/formicary/internal/types"
 	"testing"
 )
@@ -13,6 +14,8 @@ func Test_ShouldNotCreateAntConfigWithoutConfigFile(t *testing.T) {
 }
 
 func Test_ShouldCreateValidAntConfigFromPath(t *testing.T) {
+	os.Setenv("COMMON_QUEUE_PROVIDER", string(types.RedisMessagingProvider))
+	os.Setenv("COMMON_DEBUG", "true")
 	// GIVEN viper is setup with path
 	viper.AddConfigPath("../..")
 	viper.SetConfigName(".formicary-ant")
@@ -92,11 +95,12 @@ func Test_ShouldFailValidateAntConfigWithoutMethods(t *testing.T) {
 
 func newTestConfig() AntConfig {
 	cfg := AntConfig{}
+	_ = cfg.Validate()
 	cfg.Common.ID = "test-id"
 	cfg.Common.S3.AccessKeyID = "admin"
 	cfg.Common.S3.SecretAccessKey = "password"
 	cfg.Common.S3.Bucket = "test-bucket"
-	cfg.Common.Pulsar.URL = "test"
+	cfg.Common.Queue.Endpoints = []string{"test"}
 	cfg.Common.Redis.Host = "test"
 	return cfg
 }

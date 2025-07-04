@@ -1,4 +1,4 @@
-package config
+package ant_config
 
 import (
 	"github.com/stretchr/testify/require"

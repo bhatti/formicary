@@ -47,6 +47,13 @@ func (c *RedisConfig) GetPool() (pool *redis.Pool, err error) {
 	return
 }
 
+func (c *RedisConfig) CheckHost() error {
+	if !isURLOpen(fmt.Sprintf("tcp://%s:%d", c.Host, c.Port), time.Millisecond*200) {
+		return fmt.Errorf("redis endpoint %s:%d is not accessible", c.Host, c.Port)
+	}
+	return nil
+}
+
 // Validate - validates
 func (c *RedisConfig) Validate() error {
 	if c.Host == "" {
@@ -58,5 +65,8 @@ func (c *RedisConfig) Validate() error {
 	if c.MaxPopWait == 0 {
 		c.MaxPopWait = 60 * time.Second
 	}
+	//if x.Ttl == nil {
+	//	x.Ttl = durationpb.New(5 * time.Minute)
+	//}
 	return nil
 }

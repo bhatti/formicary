@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"plexobject.com/formicary/internal/ant_config"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +26,6 @@ import (
 	"plexobject.com/formicary/internal/artifacts"
 
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/types"
@@ -43,7 +44,7 @@ type RequestExecutor interface {
 
 // RequestExecutorImpl structure
 type RequestExecutorImpl struct {
-	antCfg          *config.AntConfig
+	antCfg          *ant_config.AntConfig
 	queueClient     queue.Client
 	webClient       web.HTTPClient
 	artifactService artifacts.Service
@@ -51,7 +52,7 @@ type RequestExecutorImpl struct {
 
 // NewRequestExecutor constructor
 func NewRequestExecutor(
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	queueClient queue.Client,
 	webClient web.HTTPClient,
 	artifactService artifacts.Service) *RequestExecutorImpl {
@@ -72,6 +73,14 @@ func (re *RequestExecutorImpl) Execute(
 
 	taskResp.Timings.ReceivedAt = taskReq.StartedAt
 
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component": "RequestExecutorImpl",
+				"AntID":     re.antCfg.Common.ID,
+				"Task":      taskReq.String(),
+			}).Debugf("pre-processing...")
+	}
 	// prepare executor options and build container based on request method
 	container, err := re.preProcess(ctx, taskReq)
 	if err != nil {
@@ -98,6 +107,14 @@ func (re *RequestExecutorImpl) Execute(
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName()))
 	}
 	// prescript
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component": "RequestExecutorImpl",
+				"AntID":     re.antCfg.Common.ID,
+				"Task":      taskReq.String(),
+			}).Debugf("executing...")
+	}
 	if err := re.execute(
 		ctx,
 		container,
@@ -145,6 +162,14 @@ func (re *RequestExecutorImpl) Execute(
 	if taskReq.ExecutorOpts.Debug && taskReq.ExecutorOpts.Privileged {
 		// TODO check /run/secrets/kubernetes.io/serviceaccount
 		taskReq.AfterScript = append(taskReq.AfterScript, "echo system memory in bytes && cat /sys/fs/cgroup/memory/memory.usage_in_bytes && echo cpu usage in nanoseconds && cat /sys/fs/cgroup/cpu/cpuacct.usage && df -k")
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component": "RequestExecutorImpl",
+				"AntID":     re.antCfg.Common.ID,
+				"Task":      taskReq.String(),
+			}).Debugf("post-processing...")
 	}
 	if err := re.execute(
 		ctx,
@@ -296,16 +321,28 @@ func addArtifactToPath(taskReq *types.TaskRequest, i int, cmd string, stdout []b
 
 func (re *RequestExecutorImpl) asyncExecuteCommand(
 	ctx context.Context,
-	container executor.Executor,
+	exec executor.Executor,
 	cmd string,
 	variables map[string]types.VariableValue,
 	helper bool) (stdout []byte, stderr []byte, exitCode int, exitMessage string, err error) {
 	var runner executor.CommandRunner
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(
+			logrus.Fields{
+				"Component":    "RequestExecutorImpl",
+				"AntID":        re.antCfg.Common.ID,
+				"ExecutorID":   exec.GetID(),
+				"ExecutorName": exec.GetName(),
+				"ExecutorType": reflect.TypeOf(exec).String(),
+				"Command":      cmd,
+				"Helper":       helper,
+			}).Debugf("async-executing...")
+	}
 	if helper {
 		ctx = context.WithValue(ctx, types.HelperContainerKey, true)
-		runner, err = container.AsyncHelperExecute(ctx, cmd, variables)
+		runner, err = exec.AsyncHelperExecute(ctx, cmd, variables)
 	} else {
-		runner, err = container.AsyncExecute(ctx, cmd, variables)
+		runner, err = exec.AsyncExecute(ctx, cmd, variables)
 	}
 	if err != nil {
 		if runner != nil {
@@ -665,7 +702,7 @@ func (re *RequestExecutorImpl) additionalError(
 
 func sendContainerEvent(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	queueClient queue.Client,
 	userID string,
 	method types.TaskMethod,

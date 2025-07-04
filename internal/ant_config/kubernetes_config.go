@@ -1,4 +1,4 @@
-package config
+package ant_config
 
 import (
 	"fmt"
@@ -106,9 +106,9 @@ type KubernetesConfig struct {
 	Environment              types.EnvironmentMap               `yaml:"environment" json:"environment"`
 
 	// Enhanced resource configuration - new structured approach
-	DefaultResources ResourceConfig `yaml:"default_resources" json:"default_resources"`
-	MinResources     ResourceConfig `yaml:"min_resources" json:"min_resources"`
-	MaxResources     ResourceConfig `yaml:"max_resources" json:"max_resources"`
+	//DefaultResources ResourceConfig `yaml:"default_resources" json:"default_resources"`
+	//MinResources     ResourceConfig `yaml:"min_resources" json:"min_resources"`
+	//MaxResources     ResourceConfig `yaml:"max_resources" json:"max_resources"`
 
 	DefaultLimits      api.ResourceList `yaml:"default_limits" json:"default_limits"`
 	MinLimits          api.ResourceList `yaml:"min_limits" json:"min_limits"`
@@ -230,10 +230,10 @@ func (kc *KubernetesConfig) createLegacyResourceList(kind string, cpu string, me
 
 // ValidateResourceLimits validates resource requirements against configured min/max
 func (kc *KubernetesConfig) ValidateResourceLimits(kind string, resourceReqs api.ResourceRequirements) error {
-	// Use structured min/max if available
-	if kc.MinResources.CPURequest != "" || kc.MaxResources.CPURequest != "" {
-		return kc.validateStructuredResourceLimits(kind, resourceReqs)
-	}
+	//// Use structured min/max if available
+	//if kc.MinResources.CPURequest != "" || kc.MaxResources.CPURequest != "" {
+	//	return kc.validateStructuredResourceLimits(kind, resourceReqs)
+	//}
 
 	// Fall back to legacy validation if legacy limits are configured
 	if kc.MinLimits != nil || kc.MaxLimits != nil {
@@ -244,40 +244,40 @@ func (kc *KubernetesConfig) ValidateResourceLimits(kind string, resourceReqs api
 }
 
 // validateStructuredResourceLimits validates against structured min/max resource config
-func (kc *KubernetesConfig) validateStructuredResourceLimits(kind string, resourceReqs api.ResourceRequirements) error {
-	minReqs := kc.MinResources.BuildResourceRequirements()
-	maxReqs := kc.MaxResources.BuildResourceRequirements()
-
-	// Validate CPU
-	if cpuReq, exists := resourceReqs.Requests[api.ResourceCPU]; exists {
-		if minCPU, minExists := minReqs.Requests[api.ResourceCPU]; minExists {
-			if cpuReq.Cmp(minCPU) < 0 {
-				return fmt.Errorf("cpu request %s for %s is smaller than min-cpu %s", cpuReq.String(), kind, minCPU.String())
-			}
-		}
-		if maxCPU, maxExists := maxReqs.Requests[api.ResourceCPU]; maxExists {
-			if cpuReq.Cmp(maxCPU) > 0 {
-				return fmt.Errorf("cpu request %s for %s exceeds max-cpu %s", cpuReq.String(), kind, maxCPU.String())
-			}
-		}
-	}
-
-	// Validate Memory
-	if memReq, exists := resourceReqs.Requests[api.ResourceMemory]; exists {
-		if minMem, minExists := minReqs.Requests[api.ResourceMemory]; minExists {
-			if memReq.Cmp(minMem) < 0 {
-				return fmt.Errorf("memory request %s for %s is smaller than min-memory %s", memReq.String(), kind, minMem.String())
-			}
-		}
-		if maxMem, maxExists := maxReqs.Requests[api.ResourceMemory]; maxExists {
-			if memReq.Cmp(maxMem) > 0 {
-				return fmt.Errorf("memory request %s for %s exceeds max-memory %s", memReq.String(), kind, maxMem.String())
-			}
-		}
-	}
-
-	return nil
-}
+//func (kc *KubernetesConfig) validateStructuredResourceLimits(kind string, resourceReqs api.ResourceRequirements) error {
+//	minReqs := kc.MinResources.BuildResourceRequirements()
+//	maxReqs := kc.MaxResources.BuildResourceRequirements()
+//
+//	// Validate CPU
+//	if cpuReq, exists := resourceReqs.Requests[api.ResourceCPU]; exists {
+//		if minCPU, minExists := minReqs.Requests[api.ResourceCPU]; minExists {
+//			if cpuReq.Cmp(minCPU) < 0 {
+//				return fmt.Errorf("cpu request %s for %s is smaller than min-cpu %s", cpuReq.String(), kind, minCPU.String())
+//			}
+//		}
+//		if maxCPU, maxExists := maxReqs.Requests[api.ResourceCPU]; maxExists {
+//			if cpuReq.Cmp(maxCPU) > 0 {
+//				return fmt.Errorf("cpu request %s for %s exceeds max-cpu %s", cpuReq.String(), kind, maxCPU.String())
+//			}
+//		}
+//	}
+//
+//	// Validate Memory
+//	if memReq, exists := resourceReqs.Requests[api.ResourceMemory]; exists {
+//		if minMem, minExists := minReqs.Requests[api.ResourceMemory]; minExists {
+//			if memReq.Cmp(minMem) < 0 {
+//				return fmt.Errorf("memory request %s for %s is smaller than min-memory %s", memReq.String(), kind, minMem.String())
+//			}
+//		}
+//		if maxMem, maxExists := maxReqs.Requests[api.ResourceMemory]; maxExists {
+//			if memReq.Cmp(maxMem) > 0 {
+//				return fmt.Errorf("memory request %s for %s exceeds max-memory %s", memReq.String(), kind, maxMem.String())
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
 
 // validateLegacyResourceLimits validates against legacy resource limits
 func (kc *KubernetesConfig) validateLegacyResourceLimits(kind string, resourceReqs api.ResourceRequirements) error {
@@ -642,51 +642,51 @@ func (kc *KubernetesConfig) Validate() error {
 	}
 
 	// Set up default resources using structured approach if not configured
-	if kc.DefaultResources.CPURequest == "" && kc.DefaultLimits == nil {
-		kc.DefaultResources = ResourceConfig{
-			CPURequest:              "0.5",
-			MemoryRequest:           "500Mi",
-			EphemeralStorageRequest: "1Gi",
-		}
-	}
-
-	if kc.MinResources.CPURequest == "" && kc.MinLimits == nil {
-		kc.MinResources = ResourceConfig{
-			CPURequest:              "0.1",
-			MemoryRequest:           "100Mi",
-			EphemeralStorageRequest: "100Mi",
-		}
-	}
-
-	if kc.MaxResources.CPURequest == "" && kc.MaxLimits == nil {
-		kc.MaxResources = ResourceConfig{
-			CPURequest:              "2.0",
-			MemoryRequest:           "4Gi",
-			EphemeralStorageRequest: "2Gi",
-		}
-	}
+	//if kc.DefaultResources.CPURequest == "" && kc.DefaultLimits == nil {
+	//	kc.DefaultResources = ResourceConfig{
+	//		CPURequest:              "0.5",
+	//		MemoryRequest:           "500Mi",
+	//		EphemeralStorageRequest: "1Gi",
+	//	}
+	//}
+	//
+	//if kc.MinResources.CPURequest == "" && kc.MinLimits == nil {
+	//	kc.MinResources = ResourceConfig{
+	//		CPURequest:              "0.1",
+	//		MemoryRequest:           "100Mi",
+	//		EphemeralStorageRequest: "100Mi",
+	//	}
+	//}
+	//
+	//if kc.MaxResources.CPURequest == "" && kc.MaxLimits == nil {
+	//	kc.MaxResources = ResourceConfig{
+	//		CPURequest:              "2.0",
+	//		MemoryRequest:           "4Gi",
+	//		EphemeralStorageRequest: "2Gi",
+	//	}
+	//}
 
 	// Maintain backward compatibility with legacy resource lists
-	if kc.DefaultLimits == nil && kc.DefaultResources.CPURequest != "" {
-		kc.DefaultLimits, _ = utils.CreateResourceList(
-			kc.DefaultResources.CPURequest,
-			kc.DefaultResources.MemoryRequest,
-			kc.DefaultResources.EphemeralStorageRequest)
-	}
-
-	if kc.MinLimits == nil && kc.MinResources.CPURequest != "" {
-		kc.MinLimits, _ = utils.CreateResourceList(
-			kc.MinResources.CPURequest,
-			kc.MinResources.MemoryRequest,
-			kc.MinResources.EphemeralStorageRequest)
-	}
-
-	if kc.MaxLimits == nil && kc.MaxResources.CPURequest != "" {
-		kc.MaxLimits, _ = utils.CreateResourceList(
-			kc.MaxResources.CPURequest,
-			kc.MaxResources.MemoryRequest,
-			kc.MaxResources.EphemeralStorageRequest)
-	}
+	//if kc.DefaultLimits == nil && kc.DefaultResources.CPURequest != "" {
+	//	kc.DefaultLimits, _ = utils.CreateResourceList(
+	//		kc.DefaultResources.CPURequest,
+	//		kc.DefaultResources.MemoryRequest,
+	//		kc.DefaultResources.EphemeralStorageRequest)
+	//}
+	//
+	//if kc.MinLimits == nil && kc.MinResources.CPURequest != "" {
+	//	kc.MinLimits, _ = utils.CreateResourceList(
+	//		kc.MinResources.CPURequest,
+	//		kc.MinResources.MemoryRequest,
+	//		kc.MinResources.EphemeralStorageRequest)
+	//}
+	//
+	//if kc.MaxLimits == nil && kc.MaxResources.CPURequest != "" {
+	//	kc.MaxLimits, _ = utils.CreateResourceList(
+	//		kc.MaxResources.CPURequest,
+	//		kc.MaxResources.MemoryRequest,
+	//		kc.MaxResources.EphemeralStorageRequest)
+	//}
 
 	if kc.DefaultLimits == nil {
 		kc.DefaultLimits, _ = utils.CreateResourceList("0.5", "500m", "1G")

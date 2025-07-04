@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/utils/trace"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/oklog/ulid/v2"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/types"
 )
@@ -26,7 +26,7 @@ type Executor struct {
 // NewShellExecutor for creating shell executor
 func NewShellExecutor(
 	ctx context.Context,
-	cfg *config.AntConfig,
+	cfg *ant_config.AntConfig,
 	trace trace.JobTrace,
 	opts *types.ExecutorOptions) (*Executor, error) {
 	base, err := executor.NewBaseExecutor(cfg, trace, opts)

@@ -43,7 +43,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 
 	// Create messaging client
-	queueClient, err := queue.NewMessagingClient(&serverCfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(ctx, &serverCfg.Common)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	artifactService, err := artifacts.New(&serverCfg.Common.S3)
+	artifactService, err := artifacts.New(serverCfg.Common.S3)
 	if err != nil {
 		return err
 	}
@@ -256,6 +256,46 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		}()
 	})
 
+	if serverCfg.HasEmbeddedAnt() {
+		if err = serverCfg.EmbeddedAnt.Validate(); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Tags":    serverCfg.EmbeddedAnt.Tags,
+				"Methods": serverCfg.EmbeddedAnt.Methods,
+			}).WithError(serverCfg.EmbeddedAnt.Validate()).Error("Embedded ants could not be configured")
+			return err
+		}
+		serverCfg.EmbeddedAnt.Common = serverCfg.Common
+		// Create embedded ants manager
+		embeddedAntsManager, _ := NewEmbeddedAntsManager(serverCfg)
+		// Start embedded ants first (they run asynchronously)
+		if err = embeddedAntsManager.Start(queueClient, artifactService); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Error": err,
+			}).Error("Failed to start embedded ants")
+			// Don't fail the entire server startup for embedded ants
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Tags":    serverCfg.EmbeddedAnt.Tags,
+				"Methods": serverCfg.EmbeddedAnt.Methods,
+			}).Info("Embedded ants configured")
+
+			// Set up graceful shutdown for embedded ants
+			go func() {
+				<-ctx.Done()
+				logrus.Info("Shutting down embedded ants...")
+				if err := embeddedAntsManager.Stop(); err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Error": err,
+					}).Error("Error stopping embedded ants")
+				}
+			}()
+		}
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"ID":   serverCfg.Common.ID,
+		"Port": serverCfg.Common.HTTPPort}).
+		Infof("starting server...")
 	// starts web server for APIs
 	if err = server.StartWebServer(
 		ctx,
@@ -288,19 +328,12 @@ func buildHealthMonitor(
 		return nil, err
 	}
 
-	if serverCfg.Common.MessagingProvider == common.PulsarMessagingProvider {
-		var pulsarMonitor health.Monitorable
-		if pulsarMonitor, err = health.NewHostPortMonitor("pulsar", serverCfg.Common.Pulsar.URL); err != nil {
+	for i, endpoint := range serverCfg.Common.Queue.Endpoints {
+		if monitor, err := health.NewHostPortMonitor(
+			fmt.Sprintf("%s-%d", serverCfg.Common.Queue.Provider, i), endpoint); err != nil {
 			return nil, err
-		}
-		healthMonitor.Register(ctx, pulsarMonitor)
-	} else if serverCfg.Common.MessagingProvider == common.KafkaMessagingProvider {
-		for i, broker := range serverCfg.Common.Kafka.Brokers {
-			var kafkaMonitor health.Monitorable
-			if kafkaMonitor, err = health.NewHostPortMonitor(fmt.Sprintf("kafka-%d", i), broker); err != nil {
-				return nil, err
-			}
-			healthMonitor.Register(ctx, kafkaMonitor)
+		} else {
+			healthMonitor.Register(ctx, monitor)
 		}
 	}
 	if serverCfg.Common.Redis.Host != "" {

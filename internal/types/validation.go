@@ -32,7 +32,7 @@ func (vr *ValidationResult) AddInfo(msg string) {
 // Log logs the validation result with appropriate log levels
 func (vr *ValidationResult) Log() error {
 	for _, info := range vr.Info {
-		logrus.Info(info)
+		logrus.Debug(info)
 	}
 
 	for _, warning := range vr.Warnings {

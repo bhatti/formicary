@@ -2,7 +2,7 @@ package executor
 
 import (
 	"context"
-	"plexobject.com/formicary/ants/config"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils/trace"
 )
@@ -28,5 +28,5 @@ type Provider interface {
 
 // BaseExecutorProvider defines base structure for executor provider
 type BaseExecutorProvider struct {
-	*config.AntConfig
+	*ant_config.AntConfig
 }

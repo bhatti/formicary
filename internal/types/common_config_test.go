@@ -20,6 +20,7 @@ func Test_ShouldCreateCommonConfig(t *testing.T) {
 		MaxTaskTimeout:             time.Second,
 		RateLimitPerSecond:         1,
 	}
+	_ = c.Validate()
 	c.AddSignalHandlerForStackTrace()
 	c.AddSignalHandlerForShutdown(nil)
 	require.Equal(t, "http://:8080", c.GetExternalBaseURL())
@@ -28,15 +29,16 @@ func Test_ShouldCreateCommonConfig(t *testing.T) {
 	c.ExternalBaseURL = "https://external"
 	require.Equal(t, "https://external", c.GetExternalBaseURL())
 	require.Contains(t, c.GetSource(), "id@")
-	require.Error(t, c.Validate([]string{"a"}))
-	require.Contains(t, c.Validate([]string{"a"}).Error(), "redis")
-	c.Redis.Host = "localhost"
-	require.Error(t, c.Validate([]string{"a"}))
-	require.Contains(t, c.Validate([]string{"a"}).Error(), "s3 access-key")
+	require.Error(t, c.Validate())
+	require.Contains(t, c.Validate().Error(), "s3 access-key")
 	c.S3.AccessKeyID = "id"
 	c.S3.SecretAccessKey = "id"
 	c.S3.Bucket = "bucket"
-	require.NoError(t, c.Validate([]string{"a"}))
+	c.Queue.Provider = RedisMessagingProvider
+	require.Error(t, c.Validate())
+	require.Contains(t, c.Validate().Error(), "redis")
+	c.Redis.Host = "localhost"
+	require.NoError(t, c.Validate())
 }
 
 func Test_ShouldValidateTopics(t *testing.T) {
@@ -53,6 +55,7 @@ func Test_ShouldValidateTopics(t *testing.T) {
 		MaxTaskTimeout:             time.Second,
 		RateLimitPerSecond:         1,
 	}
+	_ = c.Validate()
 	require.Equal(t, "formicary-topic-container-lifecycle", c.GetContainerLifecycleTopic())
 	require.Equal(t, "formicary-topic-job-definition-lifecycle", c.GetJobDefinitionLifecycleTopic())
 	require.Equal(t, "formicary-topic-job-request-lifecycle", c.GetJobRequestLifecycleTopic())

@@ -6,15 +6,15 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
-	"plexobject.com/formicary/ants/config"
+	config2 "plexobject.com/formicary/internal/ant_config"
 )
 
 // getKubeClient creates kubernetes client with enhanced configuration support
-func getKubeClient(config *config.AntConfig) (cli *kubernetes.Clientset, restConfig *restclient.Config, err error) {
-	//if config.Kubernetes.Host == "" {
+func getKubeClient(config *config2.AntConfig) (cli *kubernetes.Clientset, restConfig *restclient.Config, err error) {
+	//if ant_config.Kubernetes.Host == "" {
 	//	restConfig, err = guessClientConfig()
 	//} else {
-	//	restConfig, err = getOutClusterClientConfig(&config.Kubernetes)
+	//	restConfig, err = getOutClusterClientConfig(&ant_config.Kubernetes)
 	//}
 	//if err != nil {
 	//	return nil, nil, err
@@ -40,7 +40,7 @@ func getKubeClient(config *config.AntConfig) (cli *kubernetes.Clientset, restCon
 	return cli, restConfig, nil
 }
 
-func getOutClusterClientConfig(config *config.KubernetesConfig) (*restclient.Config, error) {
+func getOutClusterClientConfig(config *config2.KubernetesConfig) (*restclient.Config, error) {
 	return config.GetKubeConfigForCluster()
 }
 

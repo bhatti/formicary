@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/ants/config"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/utils/trace"
 	"strings"
@@ -123,7 +123,7 @@ type Executor interface {
 // BaseExecutor struct defines attributes for the executor
 // swagger:ignore
 type BaseExecutor struct {
-	*config.AntConfig
+	*ant_config.AntConfig
 	*types.ExecutorOptions
 	ID                string
 	Name              string
@@ -140,7 +140,7 @@ type BaseExecutor struct {
 
 // NewBaseExecutor constructor for base executor
 func NewBaseExecutor(
-	cfg *config.AntConfig,
+	cfg *ant_config.AntConfig,
 	trace trace.JobTrace,
 	opts *types.ExecutorOptions) (BaseExecutor, error) {
 	exec := BaseExecutor{

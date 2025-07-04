@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
@@ -22,7 +23,8 @@ func Test_InitializeSwaggerStructsForHealth(t *testing.T) {
 func Test_ShouldQueryHealth(t *testing.T) {
 	// GIVEN health controller
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	require.NoError(t, err)
 	webServer := web.NewStubWebServer()
 	heathMonitor, err := health.New(&cfg.Common, queueClient)
 	require.NoError(t, err)

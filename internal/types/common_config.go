@@ -28,9 +28,57 @@ const (
 
 	// KafkaMessagingProvider uses apache kafka
 	KafkaMessagingProvider MessagingProvider = "KAFKA_MESSAGING"
+
+	// ChannelMessagingProvider uses memory channel
+	ChannelMessagingProvider MessagingProvider = "CHANNEL_MESSAGING"
 )
 
 var listeningForStackTraceDumps = false
+
+type TLSConfig struct {
+	CertFile           string `json:"cert_file,omitempty"`
+	KeyFile            string `json:"key_file,omitempty"`
+	CaFile             string `json:"ca_file,omitempty"`
+	ServerAddress      string `json:"server_address,omitempty"`
+	Server             bool   `json:"server,omitempty"`
+	InsecureSkipVerify bool   `json:"insecure_skip_verify,omitempty"` // Whether to skip certificate verification
+	Enabled            bool   `json:"enabled,omitempty"`              // Enabled
+	VerifySsl          bool   `json:"verify_ssl,omitempty"`
+	UseSasl            bool   `json:"use_sasl,omitempty"`
+}
+
+type ProcessingOptions struct {
+	MaxRetries        int32          `json:"max_retries,omitempty"`        // Maximum number of retries before moving to DLQ
+	RetryDelay        *time.Duration `json:"retry_delay,omitempty"`        // Delay between retries
+	MaxRetryDelay     *time.Duration `json:"max_retry_delay,omitempty"`    // Maximum delay between retries
+	DeadLetterTopic   string         `json:"dead_letter_topic,omitempty"`  // Dead letter queue topic
+	BatchSize         int32          `json:"batch_size,omitempty"`         // Batch size for consumers
+	Timeout           *time.Duration `json:"timeout,omitempty"`            // Message timeout
+	Concurrency       int32          `json:"concurrency,omitempty"`        // Concurrency level for processing
+	OrderedProcessing bool           `json:"ordered_processing,omitempty"` // Whether to maintain message ordering
+}
+
+type QueueConfig struct {
+	Provider          MessagingProvider  `json:"provider,omitempty" env:"PROVIDER"` // Queue provider type
+	Endpoints         []string           `json:"endpoints,omitempty"`               // Provider endpoints
+	TopicTenant       string             `yaml:"topic_tenant" mapstructure:"topic_tenant"`
+	TopicNamespace    string             `yaml:"topic_namespace" mapstructure:"topic_namespace"`
+	Pulsar            *PulsarConfig      `json:"pulsar,omitempty"`
+	Kafka             *KafkaConfig       `json:"kafka,omitempty"`
+	Username          string             `json:"username,omitempty"`                                       // Username for authentication
+	Password          string             `json:"password,omitempty"`                                       // Password for authentication
+	Token             string             `protobuf:"bytes,7,opt,name=token,proto3" json:"token,omitempty"` // Authentication token
+	Tls               *TLSConfig         `json:"tls,omitempty"`                                            // TLS configuration
+	DefaultOptions    *ProcessingOptions `json:"default_options,omitempty"`                                // Default processing options
+	MaxConnections    int32              `json:"max_connections,omitempty"`                                // Maximum number of connections
+	MaxMessageSize    int32              `json:"max_message_size,omitempty"`                               // Maximum message size
+	MaxFetchSize      int32              `json:"max_fetch_size,omitempty"`                                 // Maximum fetch size
+	ConnectionTimeout *time.Duration     `json:"connection_timeout,omitempty"`                             // Connection timeout
+	OperationTimeout  *time.Duration     `json:"operation_timeout,omitempty"`                              // Operation timeout
+	CommitTimeout     *time.Duration     `json:"commit_timeout,omitempty"`                                 // Commit timeout
+	RetryMax          int32              `json:"retry_max,omitempty"`
+	RetryDelay        *time.Duration     `json:"retry_delay,omitempty"` // Delay between retries
+}
 
 // CommonConfig -- common config between ant and server
 type CommonConfig struct {
@@ -41,12 +89,10 @@ type CommonConfig struct {
 	BlockUserAgents            []string           `yaml:"block_user_agents" mapstructure:"block_user_agents"`
 	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir" env:"PUBLIC_DIR"`
 	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port" env:"HTTP_PORT"`
-	Pulsar                     PulsarConfig       `yaml:"pulsar" mapstructure:"pulsar"`
-	Kafka                      KafkaConfig        `yaml:"kafka" mapstructure:"kafka"`
-	S3                         S3Config           `yaml:"s3" mapstructure:"s3" env:"S3"`
-	Redis                      RedisConfig        `yaml:"redis" mapstructure:"redis" env:"REDIS"`
-	Auth                       AuthConfig         `yaml:"auth" mapstructure:"auth" env:"AUTH"`
-	MessagingProvider          MessagingProvider  `yaml:"messaging_provider" mapstructure:"messaging_provider" env:"MESSAGING_PROVIDER"`
+	Queue                      *QueueConfig       `protobuf:"bytes,9,opt,name=queue,proto3" json:"queue,omitempty"`
+	S3                         *S3Config          `yaml:"s3" mapstructure:"s3" env:"S3"`
+	Redis                      *RedisConfig       `yaml:"redis" mapstructure:"redis" env:"REDIS"`
+	Auth                       *AuthConfig        `yaml:"auth" mapstructure:"auth" env:"AUTH"`
 	ContainerReaperInterval    time.Duration      `yaml:"container_reaper_interval" mapstructure:"container_reaper_interval"`
 	MonitorInterval            time.Duration      `yaml:"monitor_interval" mapstructure:"monitor_interval"`
 	MonitoringURLs             map[string]string  `yaml:"monitoring_urls" mapstructure:"monitoring_urls"`
@@ -109,11 +155,13 @@ func (c *CommonConfig) AddSignalHandlerForStackTrace() {
 			fmt.Println(string(stacktrace[:length]))
 		}
 	}()
-	logrus.WithFields(logrus.Fields{
-		"Component": "CommonConfig",
-		"ID":        c.ID,
-		"Signal":    syscall.SIGHUP,
-	}).Infof("adding signal handler to dump stack trace")
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component": "CommonConfig",
+			"ID":        c.ID,
+			"Signal":    syscall.SIGHUP,
+		}).Debug("adding signal handler to dump stack trace")
+	}
 }
 
 // AddSignalHandlerForShutdown listen for signal to shut down cleanly
@@ -169,194 +217,206 @@ func (c *CommonConfig) BlockUserAgent(agent string) bool {
 // GetRegistrationTopic - registration topic
 func (c *CommonConfig) GetRegistrationTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		RegistrationTopic)
 }
 
 // GetJobExecutionLaunchTopic launch topic
 func (c *CommonConfig) GetJobExecutionLaunchTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-execution-launch")
 }
 
 // GetJobSchedulerLeaderTopic leader election event
 func (c *CommonConfig) GetJobSchedulerLeaderTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-scheduler-leader")
 }
 
 // GetContainerLifecycleTopic - container lifecycle topic
 func (c *CommonConfig) GetContainerLifecycleTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"container-lifecycle")
 }
 
 // GetRecentlyCompletedJobsTopic topic
 func (c *CommonConfig) GetRecentlyCompletedJobsTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"recently-completed-job-ids")
 }
 
 // GetJobDefinitionLifecycleTopic topic
 func (c *CommonConfig) GetJobDefinitionLifecycleTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-definition-lifecycle")
 }
 
 // GetJobRequestLifecycleTopic topic
 func (c *CommonConfig) GetJobRequestLifecycleTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-request-lifecycle")
 }
 
 // GetJobExecutionLifecycleTopic topic
 func (c *CommonConfig) GetJobExecutionLifecycleTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-execution-lifecycle")
 }
 
 // GetJobWebhookTopic topic
 func (c *CommonConfig) GetJobWebhookTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"job-webhook-lifecycle")
 }
 
 // GetTaskWebhookTopic topic
 func (c *CommonConfig) GetTaskWebhookTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"task-webhook-lifecycle")
 }
 
 // GetTaskExecutionLifecycleTopic topic
 func (c *CommonConfig) GetTaskExecutionLifecycleTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"task-execution-lifecycle")
 }
 
 // GetWebsocketTaskletTopic topic
 func (c *CommonConfig) GetWebsocketTaskletTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"websocket-tasklet")
 }
 
 // GetExpireArtifactsTaskletTopic topic
 func (c *CommonConfig) GetExpireArtifactsTaskletTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"expire-artifacts-tasklet")
 }
 
 // GetForkJobTaskletTopic topic
 func (c *CommonConfig) GetForkJobTaskletTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"fork-job-tasklet")
 }
 
 // GetWaitForkJobTaskletTopic topic
 func (c *CommonConfig) GetWaitForkJobTaskletTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"wait-fork-job-tasklet")
 }
 
 // GetMessagingQueue topic
 func (c *CommonConfig) GetMessagingQueue(q string) string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		q)
 }
 
 // GetMessagingTaskletTopic topic
 func (c *CommonConfig) GetMessagingTaskletTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"messaging-tasklet")
 }
 
 // GetLogTopic topic
 func (c *CommonConfig) GetLogTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"logs")
 }
 
 // GetHealthErrorTopic topic
 func (c *CommonConfig) GetHealthErrorTopic() string {
 	return NonPersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"health-error")
 }
 
 // GetRequestTopic request topic for incoming requests
 func (c *CommonConfig) GetRequestTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"ant-request")
 }
 
 // GetReplyTopic reply topic for incoming requests
 func (c *CommonConfig) GetReplyTopic() string {
 	return PersistentTopic(
-		c.MessagingProvider,
-		c.Pulsar.TopicTenant,
-		c.Pulsar.TopicNamespace,
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
 		"ant-reply")
 }
 
 // Validate - validates
-func (c *CommonConfig) Validate(_ []string) error {
+func (c *CommonConfig) Validate() error {
+	if c.Queue == nil {
+		c.Queue = &QueueConfig{}
+	}
+	if c.S3 == nil {
+		c.S3 = &S3Config{}
+	}
+	if c.Redis == nil {
+		c.Redis = &RedisConfig{}
+	}
+	if c.Auth == nil {
+		c.Auth = &AuthConfig{}
+	}
 	if c.MonitorInterval == 0 {
 		c.MonitorInterval = 2 * time.Second
 	}
@@ -407,20 +467,25 @@ func (c *CommonConfig) Validate(_ []string) error {
 		c.PublicDir += "/"
 	}
 
-	if c.MessagingProvider == PulsarMessagingProvider {
-		if err := c.Pulsar.Validate(); err != nil {
+	if err := c.Queue.Validate(); err != nil {
+		return err
+	}
+
+	if c.Queue.Provider == PulsarMessagingProvider {
+		if err := c.Queue.Pulsar.Validate(); err != nil {
 			return err
 		}
-	} else if c.MessagingProvider == KafkaMessagingProvider {
-		if err := c.Kafka.Validate(); err != nil {
+	} else if c.Queue.Provider == KafkaMessagingProvider {
+		if err := c.Queue.Kafka.Validate(); err != nil {
 			return err
 		}
-	} else {
+	} else if c.Queue.Provider == RedisMessagingProvider {
 		if err := c.Redis.Validate(); err != nil {
 			return err
 		}
+	} else {
+		// no check
 	}
-
 	if err := c.S3.Validate(); err != nil {
 		return err
 	}
@@ -431,6 +496,52 @@ func (c *CommonConfig) Validate(_ []string) error {
 
 	if !listeningForStackTraceDumps {
 		c.AddSignalHandlerForStackTrace()
+	}
+
+	return nil
+}
+
+// Validate - validates
+func (c *QueueConfig) Validate() error {
+	if c.MaxConnections == 0 {
+		c.MaxConnections = 256
+	}
+	if c.MaxMessageSize == 0 {
+		c.MaxMessageSize = 1024 * 1024 // 1MB default
+	}
+	if c.MaxFetchSize == 0 {
+		c.MaxFetchSize = 1024 * 1024 // 1MB default
+	}
+	if c.CommitTimeout == nil {
+		duration := 30 * time.Second
+		c.CommitTimeout = &duration
+	}
+	if c.RetryMax == 0 {
+		c.RetryMax = 5
+	}
+	if c.RetryDelay == nil {
+		duration := 1 * time.Second
+		c.RetryDelay = &duration
+	}
+
+	// Validate timeouts
+	if c.ConnectionTimeout == nil || c.ConnectionTimeout.Seconds() == 0 {
+		duration := 10 * time.Second
+		c.ConnectionTimeout = &duration
+	}
+
+	if c.OperationTimeout == nil || c.OperationTimeout.Seconds() == 0 {
+		duration := 30 * time.Second
+		c.OperationTimeout = &duration
+	}
+	if c.TopicTenant == "" {
+		c.TopicTenant = "public"
+	}
+	if c.TopicNamespace == "" {
+		c.TopicNamespace = "default"
+	}
+	if c.DefaultOptions != nil && c.DefaultOptions.MaxRetries <= 0 {
+		c.DefaultOptions.MaxRetries = 3
 	}
 
 	return nil

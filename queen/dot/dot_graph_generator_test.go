@@ -3,7 +3,6 @@ package dot
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
 	"os"
 	"plexobject.com/formicary/internal/crypto"
 	"testing"
@@ -16,7 +15,7 @@ var testEncryptedKey = crypto.SHA256Key("test-key")
 
 func Test_ShouldCreateDotForForkJob(t *testing.T) {
 	// GIVEN job jobDefinition defined in yaml
-	b, err := ioutil.ReadFile("../../docs/examples/parallel-video-encoding.yaml")
+	b, err := os.ReadFile("../../docs/examples/parallel-video-encoding.yaml")
 	require.NoError(t, err)
 	definition, err := types.NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
@@ -49,7 +48,7 @@ func Test_ShouldCreateDotForForkJob(t *testing.T) {
 
 func Test_ShouldCreateDotForTacoJob(t *testing.T) {
 	// GIVEN job jobDefinition defined in yaml
-	b, err := ioutil.ReadFile("../../docs/examples/taco-job.yaml")
+	b, err := os.ReadFile("../../docs/examples/taco-job.yaml")
 	require.NoError(t, err)
 	definition, err := types.NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
@@ -80,7 +79,7 @@ func Test_ShouldCreateDotForTacoJob(t *testing.T) {
 
 func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
 	// GIVEN job jobDefinition defined in yaml
-	b, err := ioutil.ReadFile("../../fixtures/basic-job.yaml")
+	b, err := os.ReadFile("../../fixtures/basic-job.yaml")
 	require.NoError(t, err)
 	definition, err := types.NewJobDefinitionFromYaml(b)
 	require.NoError(t, err)
@@ -129,7 +128,7 @@ func Test_ShouldCreateDotImageForSimpleHappyJob(t *testing.T) {
 	// THEN a valid dot config is created
 	require.NoError(t, err)
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "dot-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "dot-")
 	require.NoError(t, err)
 
 	// Remember to clean up the file afterwards

@@ -69,7 +69,7 @@ func (c *KafkaConfig) Validate() error {
 		c.ChannelBuffer = 1
 	}
 	if c.CommitTimeout == 0 {
-		c.CommitTimeout = time.Hour // auto-commit after 1 hour
+		c.CommitTimeout = time.Second * 30
 	}
 	return nil
 }

@@ -46,229 +46,230 @@ func (gw *Gateway) reapStaleLeases(_ context.Context) (count int) {
 func (gw *Gateway) subscribeToJobDefinitionLifecycleEvent(
 	ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobDefinitionLifecycleEvent, err := events.UnmarshalJobDefinitionLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":                   "WebsocketGateway",
-					"JobDefinitionLifecycleEvent": jobDefinitionLifecycleEvent,
-					"Target":                      gw.id,
-					"Error":                       err}).
-					Error("failed to unmarshal JobDefinitionLifecycleEvent")
-				return err
-			}
-			// notify subscribers who are interested in changes to job-definitions
-			gw.registry.Notify(
-				jobDefinitionLifecycleEvent.UserID,
-				"JobDefinitionLifecycleEvent",
-				"", // no scope
-				event.Payload,
-			)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobDefinitionLifecycleEvent, err := events.UnmarshalJobDefinitionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                   "WebsocketGateway",
+				"JobDefinitionLifecycleEvent": jobDefinitionLifecycleEvent,
+				"Target":                      gw.id,
+				"Error":                       err}).
+				Error("failed to unmarshal JobDefinitionLifecycleEvent")
+			return err
+		}
+		// notify subscribers who are interested in changes to job-definitions
+		gw.registry.Notify(
+			jobDefinitionLifecycleEvent.UserID,
+			"JobDefinitionLifecycleEvent",
+			"", // no scope
+			event.Payload,
+		)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (gw *Gateway) subscribeToJobRequestLifecycleEvent(
 	ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobRequestLifecycleEvent, err := events.UnmarshalJobRequestLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":                "WebsocketGateway",
-					"JobRequestLifecycleEvent": jobRequestLifecycleEvent,
-					"Target":                   gw.id,
-					"Error":                    err}).
-					Error("failed to unmarshal JobRequestLifecycleEvent")
-				return err
-			}
-			// notify subscribers who are interested in changes to job-request
-			gw.registry.Notify(
-				jobRequestLifecycleEvent.UserID,
-				"JobRequestLifecycleEvent",
-				"", // no scope
-				event.Payload)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobRequestLifecycleEvent, err := events.UnmarshalJobRequestLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                "WebsocketGateway",
+				"JobRequestLifecycleEvent": jobRequestLifecycleEvent,
+				"Target":                   gw.id,
+				"Error":                    err}).
+				Error("failed to unmarshal JobRequestLifecycleEvent")
+			return err
+		}
+		// notify subscribers who are interested in changes to job-request
+		gw.registry.Notify(
+			jobRequestLifecycleEvent.UserID,
+			"JobRequestLifecycleEvent",
+			"", // no scope
+			event.Payload)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (gw *Gateway) subscribeToJobExecutionLifecycleEvent(
 	ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":                  "WebsocketGateway",
-					"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-					"Target":                     gw.id,
-					"Error":                      err}).
-					Error("failed to unmarshal JobExecutionLifecycleEvent")
-				return err
-			}
-			// notify subscribers who are interested in changes to start/end events of job-execution
-			gw.registry.Notify(
-				jobExecutionLifecycleEvent.UserID,
-				"JobExecutionLifecycleEvent",
-				"", // no scope
-				event.Payload)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "WebsocketGateway",
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+				"Target":                     gw.id,
+				"Error":                      err}).
+				Error("failed to unmarshal JobExecutionLifecycleEvent")
+			return err
+		}
+		// notify subscribers who are interested in changes to start/end events of job-execution
+		gw.registry.Notify(
+			jobExecutionLifecycleEvent.UserID,
+			"JobExecutionLifecycleEvent",
+			"", // no scope
+			event.Payload)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (gw *Gateway) subscribeToTaskExecutionLifecycleEvent(ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			taskExecutionLifecycleEvent, err := events.UnmarshalTaskExecutionLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":                   "WebsocketGateway",
-					"Target":                      gw.id,
-					"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
-					"Error":                       err,
-				}).
-					Error("failed to unmarshal TaskExecutionLifecycleEvent")
-				return err
-			}
-			gw.registry.Notify(
-				taskExecutionLifecycleEvent.UserID,
-				"TaskExecutionLifecycleEvent",
-				taskExecutionLifecycleEvent.JobRequestID, // scope is request-id
-				event.Payload)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		taskExecutionLifecycleEvent, err := events.UnmarshalTaskExecutionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                   "WebsocketGateway",
+				"Target":                      gw.id,
+				"TaskExecutionLifecycleEvent": taskExecutionLifecycleEvent,
+				"Error":                       err,
+			}).
+				Error("failed to unmarshal TaskExecutionLifecycleEvent")
+			return err
+		}
+		gw.registry.Notify(
+			taskExecutionLifecycleEvent.UserID,
+			"TaskExecutionLifecycleEvent",
+			taskExecutionLifecycleEvent.JobRequestID, // scope is request-id
+			event.Payload)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			logEvent, err := events.UnmarshalLogEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "WebsocketGateway",
-					"Target":    gw.id,
-					"LogEvent":  logEvent,
-					"Error":     err,
-				}).
-					Error("failed to unmarshal LogEvent")
-				return err
-			}
-			gw.registry.Notify(
-				logEvent.UserID,
-				"LogEvent",
-				logEvent.JobRequestID, // scope is request-id
-				event.Payload)
-			if _, err = gw.logsArchiver.Save(logEvent); err != nil {
-				// ignore error
-				logrus.WithFields(logrus.Fields{
-					"Component": "WebsocketGateway",
-					"Target":    gw.id,
-					"LogEvent":  logEvent,
-					"Error":     err,
-				}).Warn("failed to archive LogEvent")
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		logEvent, err := events.UnmarshalLogEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "WebsocketGateway",
+				"Target":    gw.id,
+				"LogEvent":  logEvent,
+				"Error":     err,
+			}).
+				Error("failed to unmarshal LogEvent")
+			return err
+		}
+		gw.registry.Notify(
+			logEvent.UserID,
+			"LogEvent",
+			logEvent.JobRequestID, // scope is request-id
+			event.Payload)
+		if _, err = gw.logsArchiver.Save(logEvent); err != nil {
+			// ignore error
+			logrus.WithFields(logrus.Fields{
+				"Component": "WebsocketGateway",
+				"Target":    gw.id,
+				"LogEvent":  logEvent,
+				"Error":     err,
+			}).Warn("failed to archive LogEvent")
+		}
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (gw *Gateway) subscribeToHealthErrorEvent(ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			healthEvent, err := events.UnmarshalHealthErrorEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":        "WebsocketGateway",
-					"Target":           gw.id,
-					"HealthErrorEvent": healthEvent,
-					"Error":            err,
-				}).
-					Error("ErrorEvent")
-				return err
-			}
-			gw.registry.Notify(
-				"",
-				"HealthErrorEvent",
-				"", // no scope
-				event.Payload)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		healthEvent, err := events.UnmarshalHealthErrorEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":        "WebsocketGateway",
+				"Target":           gw.id,
+				"HealthErrorEvent": healthEvent,
+				"Error":            err,
+			}).
+				Error("ErrorEvent")
+			return err
+		}
+		gw.registry.Notify(
+			"",
+			"HealthErrorEvent",
+			"", // no scope
+			event.Payload)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
+
 func (gw *Gateway) subscribeToContainersLifecycleEvents(
 	ctx context.Context,
 	containerTopic string) (string, error) {
-	return gw.queueClient.Subscribe(
-		ctx,
-		containerTopic,
-		false, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			containerEvent, err := events.UnmarshalContainerLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "WebsocketGateway",
-					"Target":    gw.id,
-					"Payload":   string(event.Payload),
-					"Error":     err,
-				}).
-					Error("failed to unmarshal registration by event gateway")
-				return err
-			}
-			gw.registry.Notify(
-				containerEvent.UserID,
-				"ContainerLifecycleEvent",
-				"", // no scope
-				event.Payload)
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		containerEvent, err := events.UnmarshalContainerLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "WebsocketGateway",
+				"Target":    gw.id,
+				"Payload":   string(event.Payload),
+				"Error":     err,
+			}).
+				Error("failed to unmarshal registration by event gateway")
+			return err
+		}
+		gw.registry.Notify(
+			containerEvent.UserID,
+			"ContainerLifecycleEvent",
+			"", // no scope
+			event.Payload)
+		return nil
+	}
+	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    containerTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }

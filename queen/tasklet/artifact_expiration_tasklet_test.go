@@ -83,12 +83,13 @@ func newTestArtifactExpirationTasklet(user *common.User, t *testing.T) *Artifact
 	cfg := config.TestServerConfig()
 	cfg.DefaultArtifactExpiration = time.Hour * 24 * 50
 	cfg.DefaultArtifactLimit = 10000
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	require.NoError(t, err)
 	requestRegistry := tasklet.NewRequestRegistry(
 		&cfg.Common,
 		metrics.New(),
 	)
-	artifactService, err := artifacts.NewStub(&cfg.Common.S3)
+	artifactService, err := artifacts.NewStub(cfg.Common.S3)
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)

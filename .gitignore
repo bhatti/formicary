@@ -18,3 +18,4 @@ out/
 .formicary_db.sqlite
 *.sh
 data
+profiles

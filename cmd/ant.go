@@ -3,15 +3,14 @@ package cmd
 import (
 	"context"
 	"os"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/buildversion"
 
 	"plexobject.com/formicary/internal/utils"
 
-	"plexobject.com/formicary/ants"
-	"plexobject.com/formicary/ants/config"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"plexobject.com/formicary/ants"
 )
 
 var tags string
@@ -27,7 +26,7 @@ var antCmd = &cobra.Command{
 			"ID":   id,
 			"Port": port}).
 			Infof("starting formicary ant ...")
-		antCfg, err := config.NewAntConfig(id)
+		antCfg, err := ant_config.NewAntConfig(id)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Error": err}).

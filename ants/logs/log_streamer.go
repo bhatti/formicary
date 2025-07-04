@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/types"
@@ -30,7 +30,7 @@ type LogStreamer struct {
 // NewLogStreamer --
 func NewLogStreamer(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	taskReq *types.TaskRequest,
 	queueClient queue.Client,
 ) (streamer *LogStreamer, err error) {

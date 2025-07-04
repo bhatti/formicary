@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/ants/executor/tests"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils/trace"
 	"plexobject.com/formicary/internal/web"
@@ -213,7 +213,7 @@ func Test_ShouldGetRuntime(t *testing.T) {
 	}
 }
 
-func newProviders(c *config.AntConfig, method types.TaskMethod) (map[string]executor.Provider, error) {
+func newProviders(c *ant_config.AntConfig, method types.TaskMethod) (map[string]executor.Provider, error) {
 	httpClient := web.NewStubHTTPClient()
 	httpClient.GetMapping["https://jsonplaceholder.typicode.com/todos/1"] = web.NewStubHTTPResponse(200, "test get bin response")
 	httpClient.PostMapping["https://jsonplaceholder.typicode.com/todos"] = web.NewStubHTTPResponse(200, "test post bin response")
@@ -243,8 +243,8 @@ func newProviders(c *config.AntConfig, method types.TaskMethod) (map[string]exec
 	}, nil
 }
 
-func newConfig() *config.AntConfig {
-	c := config.AntConfig{}
+func newConfig() *ant_config.AntConfig {
+	c := ant_config.AntConfig{}
 	c.OutputLimit = 64 * 1024 * 1024
 	return &c
 }

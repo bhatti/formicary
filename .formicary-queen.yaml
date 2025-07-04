@@ -1,53 +1,120 @@
-id: queen-server-id
-subscription_quota_enabled: false
-jobs:
-  launch_topic_suffix: -anon-local
-db:
-  encryption_key: my-db-key
-  db_type: sqlite
-  data_source: formicary_db.sqlite
 common:
-  development: true
-  user_agent: ""
-  proxy_url: ""
-  public_dir: "./public/"
-  messaging_provider: REDIS_MESSAGING
-  xmessaging_provider: KAFKA_MESSAGING
-  http_port: 0
-  external_base_url: http://localhost:7777
-  auth:
-    enabled: false
-    jwt_secret: changeme
-  xmonitoring_urls:
-    docker: "localhost:2375"
-  disabled_pulsar:
-    url: "pulsar://localhost:6650"
-    connection_timeout: 30
-  kafka:
-    brokers:
-      - 192.168.1.102:19092
-      - 192.168.1.102:29092
-    group: formicary-queen-1
-  redis:
-    host: "192.168.1.102"
-    port: 6379
-  s3:
-    endpoint: "192.168.1.102:9000"
-    accessKeyID: "admin"
-    secretAccessKey: "password"
-    region: "us-west-2"
-    bucket: "formicary-artifacts"
-    prefix: "formicary/"
+    id: default-server-id
+    user_agent: ""
+    proxy_url: ""
+    external_base_url: http://localhost:7777
+    block_user_agents:
+        - Slackbot-LinkExpanding
+    public_dir: ./public/
+    http_port: 0
+    xmonitoring_urls:
+      docker: "localhost:2375"
+    queue:
+        _provider: "REDIS_MESSAGING"
+        endpoints: []
+        topic_tenant: public
+        topic_namespace: default
+        pulsar:
+            connection_timeout: 30ns
+            channel_buffer: 0
+            max_reconnect_to_broker: 0
+        kafka:
+            brokers:
+                - 192.168.1.102:19092
+                - 192.168.1.102:29092
+            username: ""
+            password: ""
+            certificate: ""
+        username: ""
+        password: ""
+        token: ""
+        tls: null
+        defaultoptions: null
+        retrymax: 5
+        retrydelay: 1s
+    s3:
+        endpoint: localhost:9000
+        access_key_id: minioadmin
+        secret_access_key: minioadmin
+        token: ""
+        region: us-west-2
+        prefix: formicary/
+        bucket: formicary-artifacts
+        encryption_password: ""
+        useSSL: false
+    _redis:
+        host: localhost
+        port: 6379
+        password: ""
+    auth:
+        enabled: false
+        cookie_name: formicary-session
+        jwt_secret: changeme
+        secure: false
+        google_client_id: ""
+        google_client_secret: ""
+        google_callback_host: localhost
+        github_client_id: ""
+        github_client_secret: ""
+        github_callback_host: localhost
+    container_reaper_interval: 1m0s
+    monitor_interval: 2s
+    registration_interval: 5s
+    rate_limit_sec: 1
+    development: true
+    encryptionkey: ""
+    debug: true
+db:
+    data_source: formicary_db.sqlite
+    type: ""
+    encryption_key: my-db-key
+    max_idle_connections: 10
+    max_open_connections: 20
+jobs:
+    job_scheduler_leader_interval: 15s
+    job_scheduler_check_pending_jobs_interval: 1s
 smtp:
-    from_email: "support@formicary.io"
+    from_email: support@formicary.io
+    from_name: ""
     provider: ""
     api_key: ""
-    username: ""
-    password: ""
-    host: ""
+    username: support@formicary.io
+    password: test
+    host: mail.formicary.io
     port: 0
 notify:
     email_jobs_template_file: views/notify/email_notify_job.html
     slack_jobs_template_file: views/notify/slack_notify_job.txt
     verify_email_template_file: views/notify/verify_email.html
     user_invitation_template_file: views/notify/user_invitation.html
+embedded_ant:
+    tags: ["docker", "kubernetes", "embedded", "builder"]
+    methods: ["KUBERNETES", "DOCKER", "SHELL", "HTTP_POST"]
+    max_capacity: 3
+    poll_interval: 3
+    output_limit: 67108864  # 64MB
+    docker:
+      host: "tcp://192.168.1.100:2375"
+    kubernetes:
+      _service_account: "formicary-ant"
+      registry:
+        registry: ""
+        username: '@bhatti'
+        password: "test"
+        pull_policy: ""
+      kubeconfig: ""
+      host: ""
+      allow_privilege_escalation: true
+      # Enhanced cluster configuration
+      #kubeconfig: "/path/to/kubeconfig"
+      cluster_name: "docker-desktop"
+      namespace: "default"
+      pod_security_context:
+        run_as_user: 0
+      default_resources:
+        cpuRequest: "500m"
+        memoryRequest: "512Mi"
+        cpuLimit: "1"
+        memoryLimit: "1Gi"
+        ephemeralStorageRequest: "1Gi"
+        ephemeralStorageLimit: "2Gi"

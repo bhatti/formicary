@@ -105,7 +105,7 @@ func Test_ShouldUploadArtifacts(t *testing.T) {
 }
 
 func newTestArtifactManager(t *testing.T, err error, serverCfg *config.ServerConfig) *ArtifactManager {
-	artifactService, err := artifacts.NewStub(&serverCfg.Common.S3)
+	artifactService, err := artifacts.NewStub(serverCfg.Common.S3)
 	require.NoError(t, err)
 	artifactRepository, err := repository.NewTestArtifactRepository()
 	require.NoError(t, err)

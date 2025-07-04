@@ -161,89 +161,89 @@ func (jl *JobLauncher) launchJob(
 
 // Subscribing to job launch topic
 func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error) {
-	return jl.queueClient.Subscribe(
-		ctx,
-		jl.serverCfg.GetJobExecutionLaunchTopic(),
-		true, // shared
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobLaunchEvent, err := events.UnmarshalJobExecutionLaunchEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "JobLauncher",
-					"ID":        jl.serverCfg.Common.ID,
-					"Data":      string(event.Payload),
-					"Error":     err,
-				}).Error("failed to parse launch event")
-				return err
-			}
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobLaunchEvent, err := events.UnmarshalJobExecutionLaunchEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobLauncher",
+				"ID":        jl.serverCfg.Common.ID,
+				"Data":      string(event.Payload),
+				"Error":     err,
+			}).Error("failed to parse launch event")
+			return err
+		}
 
-			// Launching job
-			if err := jl.launchJob(
-				ctx,
-				jobLaunchEvent.JobRequestID,
-				jobLaunchEvent.JobType,
-				jobLaunchEvent.JobExecutionID,
-				jobLaunchEvent.Reservations,
-			); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":      "JobLauncher",
-					"ID":             jl.serverCfg.Common.ID,
-					"Request":        jobLaunchEvent.JobRequestID,
-					"JobType":        jobLaunchEvent.JobType,
-					"JobExecutionID": jobLaunchEvent.JobExecutionID,
-					"Error":          err,
-				}).Error("failed to launch job as a result of launch event")
-			}
+		// Launching job
+		if err := jl.launchJob(
+			ctx,
+			jobLaunchEvent.JobRequestID,
+			jobLaunchEvent.JobType,
+			jobLaunchEvent.JobExecutionID,
+			jobLaunchEvent.Reservations,
+		); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":      "JobLauncher",
+				"ID":             jl.serverCfg.Common.ID,
+				"Request":        jobLaunchEvent.JobRequestID,
+				"JobType":        jobLaunchEvent.JobType,
+				"JobExecutionID": jobLaunchEvent.JobExecutionID,
+				"Error":          err,
+			}).Error("failed to launch job as a result of launch event")
+		}
 
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+		return nil
+	}
+	return jl.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    jl.serverCfg.GetJobExecutionLaunchTopic(),
+		Shared:   true,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (jl *JobLauncher) subscribeToJobLifecycleEvent(
 	ctx context.Context,
 	subscriptionTopic string) (string, error) {
-	return jl.queueClient.Subscribe(
-		ctx,
-		subscriptionTopic,
-		false, // exclusive subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component":                  "JobLauncher",
-					"Target":                     jl.id,
-					"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-					"Error":                      err}).Error("failed to unmarshal jobExecutionLifecycleEvent")
-				return err
-			}
-			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithFields(logrus.Fields{
-					"Component":                  "JobLauncher",
-					"ID":                         jobExecutionLifecycleEvent.ID,
-					"Target":                     jl.id,
-					"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
-					"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
-				}).Debug("received job lifecycle event")
-			}
-			// job-launcher just subscribes to messaging queue once and then uses messaging bus to propagate events
-			// to all job-supervisors so that each job-supervisor doesn't need to consume queue resources
-			jl.eventBus.Publish(
-				jl.serverCfg.Common.GetJobExecutionLifecycleTopic(),
-				ctx,
-				jobExecutionLifecycleEvent)
-			if jobExecutionLifecycleEvent.JobState.IsTerminal() {
-				jl.removeSupervisor(ctx, jobExecutionLifecycleEvent)
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		jobExecutionLifecycleEvent, err := events.UnmarshalJobExecutionLifecycleEvent(event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "JobLauncher",
+				"Target":                     jl.id,
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+				"Error":                      err}).Error("failed to unmarshal jobExecutionLifecycleEvent")
+			return err
+		}
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "JobLauncher",
+				"ID":                         jobExecutionLifecycleEvent.ID,
+				"Target":                     jl.id,
+				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+			}).Debug("received job lifecycle event")
+		}
+		// job-launcher just subscribes to messaging queue once and then uses messaging bus to propagate events
+		// to all job-supervisors so that each job-supervisor doesn't need to consume queue resources
+		jl.eventBus.Publish(
+			jl.serverCfg.Common.GetJobExecutionLifecycleTopic(),
+			ctx,
+			jobExecutionLifecycleEvent)
+		if jobExecutionLifecycleEvent.JobState.IsTerminal() {
+			jl.removeSupervisor(ctx, jobExecutionLifecycleEvent)
+		}
+		return nil
+	}
+	return jl.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    subscriptionTopic,
+		Shared:   false,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 }
 
 func (jl *JobLauncher) addSupervisor(requestID string, jobSupervisor *supervisor.JobSupervisor) {

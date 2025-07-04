@@ -33,8 +33,10 @@ func Test_ShouldStartAndStopJobLauncher(t *testing.T) {
 func newTestLauncher(serverCfg *config.ServerConfig, t *testing.T) *JobLauncher {
 	errorRepo, err := repository.NewTestErrorCodeRepository()
 	require.NoError(t, err)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	require.NoError(t, err)
 	return New(serverCfg,
-		queue.NewStubClient(&serverCfg.Common),
+		queueClient,
 		manager.AssertTestJobManager(serverCfg, t),
 		manager.AssertTestArtifactManager(serverCfg, t),
 		manager.AssertTestUserManager(serverCfg, t),

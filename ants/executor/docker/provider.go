@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils/trace"
 	"sync"
@@ -22,7 +22,7 @@ type ExecutorProvider struct {
 
 // NewExecutorProvider creates executor-provider for local docker based execution
 func NewExecutorProvider(
-	config *config.AntConfig) (executor.Provider, error) {
+	config *ant_config.AntConfig) (executor.Provider, error) {
 	log.WithFields(log.Fields{
 		"Component": "DockerExecutorProvider",
 		"Host":      config.Docker.Host,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"plexobject.com/formicary/internal/ant_config"
 	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/utils/trace"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	api "k8s.io/api/core/v1"
 
 	"github.com/oklog/ulid/v2"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/types"
 )
@@ -35,7 +35,7 @@ type Executor struct {
 // &backoff.Backoff{Min: time.Second, Max: 30 * time.Second},
 func NewKubernetesExecutor(
 	ctx context.Context,
-	cfg *config.AntConfig,
+	cfg *ant_config.AntConfig,
 	trace trace.JobTrace,
 	adapter Adapter,
 	registryCredentials *api.Secret,
@@ -207,6 +207,16 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 	// retry build pod if we can
 	var aliases []string
 	for i := 0; i < maxBuildPodTries; i++ {
+		if true || logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(
+				logrus.Fields{
+					"Component":      "KubernetesExecutor",
+					"Container":      ke.ExecutorOptions.Name,
+					"Debug":          ke.ExecutorOptions.Debug,
+					"Tries":          i,
+					"InitContainers": len(initContainers),
+				}).Infof("ensuring pods are configured...")
+		}
 		ke.pod, ke.serviceNames, aliases, ke.ExecutorOptions.CostFactor, err = ke.adapter.BuildPod(
 			ctx,
 			ke.ExecutorOptions,

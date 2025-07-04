@@ -3,10 +3,10 @@ package utils
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/health"
 	"plexobject.com/formicary/internal/utils/trace"
 
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/ants/executor/docker"
 	"plexobject.com/formicary/ants/executor/http"
@@ -19,7 +19,7 @@ import (
 // StopContainer stops a running container
 func StopContainer(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	httpClient web.HTTPClient,
 	opts *types.ExecutorOptions,
 	id string,
@@ -34,7 +34,7 @@ func StopContainer(
 // AllRunningContainers list containers by all providers
 func AllRunningContainers(
 	ctx context.Context,
-	antCfg *config.AntConfig) (res map[types.TaskMethod][]executor.Info) {
+	antCfg *ant_config.AntConfig) (res map[types.TaskMethod][]executor.Info) {
 	res = make(map[types.TaskMethod][]executor.Info)
 	if provider, err := shell.NewExecutorProvider(antCfg); err == nil {
 		if containers, err := provider.AllRunningExecutors(ctx); err == nil {
@@ -62,7 +62,7 @@ func AllRunningContainers(
 // BuildProvider build provider based on method
 func BuildProvider(
 	_ context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	httpClient web.HTTPClient,
 	opts *types.ExecutorOptions) (provider executor.Provider, err error) {
 
@@ -83,7 +83,7 @@ func BuildProvider(
 // BuildExecutor create executor
 func BuildExecutor(
 	ctx context.Context,
-	antCfg *config.AntConfig,
+	antCfg *ant_config.AntConfig,
 	trace trace.JobTrace,
 	httpClient web.HTTPClient,
 	opts *types.ExecutorOptions) (exe executor.Executor, err error) {

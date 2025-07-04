@@ -11,7 +11,7 @@ type S3Config struct {
 	Region             string `yaml:"region" mapstructure:"region" env:"REGION"`
 	Prefix             string `yaml:"prefix" mapstructure:"prefix" env:"PREFIX"`
 	Bucket             string `yaml:"bucket" mapstructure:"bucket" env:"BUCKET"`
-	EncryptionPassword string `yaml:"encryption_password" mapstructure:"password" env:"PASSWORD"`
+	EncryptionPassword string `yaml:"encryption_password" mapstructure:"encryption_password" env:"PASSWORD"`
 	UseSSL             bool   `yaml:"useSSL" mapstructure:"useSSL"`
 }
 

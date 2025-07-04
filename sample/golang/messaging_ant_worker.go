@@ -50,26 +50,26 @@ func (h *MessagingHandler) Start(
 	if h.responseTopic == "" {
 		return fmt.Errorf("responseTopic is not specified")
 	}
-	h.subscriberID, err = h.queueClient.Subscribe(
-		ctx,
-		h.requestTopic,
-		true, // shared subscription
-		func(ctx context.Context, event *queue.MessageEvent) error {
-			defer event.Ack()
-			err = h.execute(ctx, event.Properties, event.Payload)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "MessagingHandler",
-					"Payload":   string(event.Payload),
-					"Target":    h.id,
-					"Error":     err}).Error("failed to execute")
-				return err
-			}
-			return nil
-		},
-		nil,
-		make(map[string]string),
-	)
+	callback := func(ctx context.Context, event *queue.MessageEvent,
+		ack queue.AckHandler, nack queue.AckHandler) error {
+		defer ack()
+		err = h.execute(ctx, event.Properties, event.Payload)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "MessagingHandler",
+				"Payload":   string(event.Payload),
+				"Target":    h.id,
+				"Error":     err}).Error("failed to execute")
+			return err
+		}
+		return nil
+	}
+	h.subscriberID, err = h.queueClient.Subscribe(ctx, queue.SubscribeOptions{
+		Topic:    h.requestTopic,
+		Shared:   true,
+		Callback: callback,
+		Props:    make(map[string]string),
+	})
 	return
 }
 

@@ -228,7 +228,7 @@ func Test_ShouldSaveTaskExecutionConcurrently(t *testing.T) {
 	wg.Wait()
 	// THEN no errors should be raised
 	for _, err := range errors {
-		t.Fatalf(err)
+		t.Fatalf("fatal error: %s", err)
 	}
 }
 

@@ -424,7 +424,7 @@ func (jsm *JobExecutionStateMachine) ExecutionCancelled(
 
 	// Note: we won't fire any lifecycle event because that is fired upon cancellation
 
-	return jsm.failed(common.EXECUTING, true, fmt.Errorf(errorMsg), errorCode)
+	return jsm.failed(common.EXECUTING, true, fmt.Errorf("%s", errorMsg), errorCode)
 }
 
 // ExecutionFailed is called when job fails to execute
@@ -441,7 +441,7 @@ func (jsm *JobExecutionStateMachine) ExecutionFailed(
 	}
 	jsm.JobExecution.ErrorCode = errorCode
 	jsm.JobExecution.ErrorMessage = errorMsg
-	saveError := jsm.failed(common.EXECUTING, false, fmt.Errorf(errorMsg), errorCode)
+	saveError := jsm.failed(common.EXECUTING, false, fmt.Errorf("%s", errorMsg), errorCode)
 
 	// treating error sending lifecycle event as non-fatal error
 	// using fresh context in case deadline reached

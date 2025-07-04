@@ -2,7 +2,7 @@ package kubernetes
 
 import (
 	api "k8s.io/api/core/v1"
-	"plexobject.com/formicary/ants/config"
+	"plexobject.com/formicary/internal/ant_config"
 	domain "plexobject.com/formicary/internal/types"
 )
 
@@ -66,7 +66,7 @@ func getDefaultCapDrop() []string {
 }
 
 func buildVariables(
-	config *config.KubernetesConfig,
+	config *ant_config.KubernetesConfig,
 	opts *domain.ExecutorOptions,
 	helper bool,
 	other map[string]string) []api.EnvVar {

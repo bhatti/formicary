@@ -19,6 +19,8 @@ import (
 	common "plexobject.com/formicary/internal/types"
 )
 
+var taskTimeout = time.Second * 30
+
 // State for resources
 type State struct {
 	serverCfg                      *config.ServerConfig
@@ -432,20 +434,35 @@ func (s *State) terminateContainer(
 	var b []byte
 	var taskResp *common.TaskResponse
 	if b, err = taskReq.Marshal(registration.EncryptionKey); err == nil {
-		var event *queue.MessageEvent
-		if event, err = s.queueClient.SendReceive(
-			ctx,
-			registration.AntTopic,
-			b,
-			s.serverCfg.GetResponseTopicAntRegistration(),
-			make(map[string]string),
-		); err == nil {
-			defer event.Ack() // auto-ack
-			taskResp, err = common.UnmarshalTaskResponse(registration.EncryptionKey, event.Payload)
+		req := &queue.SendReceiveRequest{
+			OutTopic: registration.AntTopic,
+			InTopic:  s.serverCfg.GetResponseTopicAntRegistration(),
+			Payload:  b,
+			Props:    make(map[string]string),
+			Timeout:  taskTimeout,
+		}
+		if res, err := s.queueClient.SendReceive(ctx, req); err == nil {
+			defer res.Ack() // auto-ack
+			taskResp, err = common.UnmarshalTaskResponse(registration.EncryptionKey, res.Event.Payload)
 			if err == nil && taskResp.Status.Failed() {
 				err = fmt.Errorf("failed to terminate %s by %s due to %s", id, antID, taskResp.ErrorMessage)
 			}
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component": "ResourceManager",
+				"AntID":     registration.AntID,
+				"OutTopic":  registration.AntTopic,
+				"InTopic":   s.serverCfg.GetResponseTopicAntRegistration(),
+			}).WithError(err).Errorf("failed to send request for termination")
 		}
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ResourceManager",
+			"InTopic":   s.serverCfg.GetResponseTopicAntRegistration(),
+			"OutTopic":  registration.AntTopic,
+			"AntID":     registration.AntID,
+			"Error":     err,
+		}).Error("failed to terminate execution containers because message could not be sent")
 	}
 	return
 }
@@ -464,14 +481,16 @@ func (s *State) addContainers(
 		StartedAt:       time.Now(),
 	}
 	if b, err := taskReq.Marshal(registration.EncryptionKey); err == nil {
-		if event, err := s.queueClient.SendReceive(
-			ctx,
-			registration.AntTopic,
-			b,
-			s.serverCfg.GetResponseTopicAntRegistration(),
-			make(map[string]string),
-		); err == nil {
-			if event == nil {
+		req := &queue.SendReceiveRequest{
+			OutTopic: registration.AntTopic,
+			InTopic:  s.serverCfg.GetResponseTopicAntRegistration(),
+			Payload:  b,
+			Props:    make(map[string]string),
+			Timeout:  taskTimeout,
+		}
+		if res, err := s.queueClient.SendReceive(ctx, req); err == nil {
+			defer res.Ack() // auto-ack
+			if res.Event == nil {
 				logrus.WithFields(logrus.Fields{
 					"Component": "ResourceManager",
 					"AntID":     registration.AntID,
@@ -481,8 +500,7 @@ func (s *State) addContainers(
 				debug.PrintStack()
 				return
 			}
-			defer event.Ack() // auto-ack
-			taskResp, err := common.UnmarshalTaskResponse(registration.EncryptionKey, event.Payload)
+			taskResp, err := common.UnmarshalTaskResponse(registration.EncryptionKey, res.Event.Payload)
 			if err == nil {
 				jsonContainers := taskResp.TaskContext["containers"]
 				containers := make([]*events.ContainerLifecycleEvent, 0)
@@ -494,38 +512,47 @@ func (s *State) addContainers(
 						}
 						logrus.WithFields(logrus.Fields{
 							"Component":  "ResourceManager",
+							"InTopic":    s.serverCfg.GetResponseTopicAntRegistration(),
+							"OutTopic":   registration.AntTopic,
 							"AntID":      registration.AntID,
 							"Containers": len(containers),
-						}).Info("added execution containers")
+						}).Info("added execution containers for ant registration")
 					} else {
 						logrus.WithFields(logrus.Fields{
 							"Component": "ResourceManager",
+							"InTopic":   s.serverCfg.GetResponseTopicAntRegistration(),
+							"OutTopic":  registration.AntTopic,
 							"AntID":     registration.AntID,
 							"JSON":      jsonContainers,
 							"Error":     err,
-						}).Warn("failed to add execution containers due to unmarshalling containers")
+						}).Error("failed to add execution containers due to unmarshalling containers")
 					}
 				}
 			} else {
 				logrus.WithFields(logrus.Fields{
 					"Component": "ResourceManager",
+					"InTopic":   s.serverCfg.GetResponseTopicAntRegistration(),
+					"OutTopic":  registration.AntTopic,
 					"AntID":     registration.AntID,
 					"Error":     err,
-				}).Warn("failed to add execution containers due to unmarshalling task-response")
+				}).Error("failed to add execution containers due to unmarshalling task-response")
 			}
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"Component": "ResourceManager",
+				"InTopic":   s.serverCfg.GetResponseTopicAntRegistration(),
+				"OutTopic":  registration.AntTopic,
 				"AntID":     registration.AntID,
 				"Error":     err,
-			}).Warn("failed to add execution containers because message could not be sent")
+			}).Error("failed to add execution containers because message could not be sent")
 		}
 	} else {
 		logrus.WithFields(logrus.Fields{
 			"Component": "ResourceManager",
+			"Topic":     registration.AntTopic,
 			"AntID":     registration.AntID,
 			"Error":     err,
-		}).Warn("failed to add execution containers due to marshalling error")
+		}).Error("failed to add execution containers due to marshalling error")
 	}
 }
 
@@ -563,6 +590,18 @@ func (s *State) addRegistration(
 	s.updateAntsByMethods(registration)
 
 	s.updateAntsByTags(registration)
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":            "ResourceManager",
+			"Topic":                registration.AntTopic,
+			"AntID":                registration.AntID,
+			"Tags":                 registration.Tags,
+			"Methods":              registration.Methods,
+			"TotalRegistrations":   len(s.antRegistrations),
+			"TagsRegistrations":    len(s.antByTag),
+			"MethodsRegistrations": len(s.antByMethod),
+		}).Debug("registered ant, will add execution container")
+	}
 }
 
 // removeRegistration for ant
@@ -605,7 +644,7 @@ func (s *State) removeRegistration(antID string) (removedTags []string, removedM
 			"AntsByTag":      s.antByTag,
 			"AntsByMethods":  s.antByMethod,
 			"AntsByRequests": s.antsByRequest,
-		}).Debugf("after removing ant-id from registration")
+		}).Debugf("removed ant registration and execution container")
 	}
 	return
 }
@@ -667,4 +706,26 @@ func (s *State) reapStaleAllocations(timeout time.Duration) (removed []*common.A
 
 	// unlocking here before calling Release as it also uses locks
 	return
+}
+
+func (s *State) dump(full bool) string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	var buf strings.Builder
+	if full {
+		for k, v := range s.antRegistrations {
+			buf.WriteString("{" + k + "=" + v.String() + "}")
+		}
+	}
+
+	buf.WriteString("Tags: [")
+	for k, v := range s.antByTag {
+		buf.WriteString(fmt.Sprintf("%s=%d,", k, len(v)))
+	}
+	buf.WriteString("] Methods: [")
+	for k, v := range s.antByMethod {
+		buf.WriteString(fmt.Sprintf("%s=%d,", k, len(v)))
+	}
+	buf.WriteString("]")
+	return buf.String()
 }

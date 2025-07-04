@@ -101,7 +101,7 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	logrus.WithFields(logrus.Fields{
 		"Component": "JobScheduler",
 		"ID":        js.serverCfg.Common.ID,
-	}).Infof("started")
+	}).Infof("started scheduler")
 	return nil
 }
 

@@ -37,22 +37,22 @@ func Test_ShouldPreExecuteForkTasklet(t *testing.T) {
 }
 
 func Test_ShouldListForkTasklet(t *testing.T) {
-	// GIVEN tasklet
+	// GIVEN forkTasklet
 	jobManager := manager.AssertTestJobManager(nil, t)
-	tasklet := newTestForkTasklet(jobManager)
+	forkTasklet := newTestForkTasklet(jobManager)
 	req := &common.TaskRequest{
 		ExecutorOpts: common.NewExecutorOptions("name", common.Kubernetes),
 	}
 	// WHEN listing containers
-	_, err := tasklet.ListContainers(context.Background(), req)
+	_, err := forkTasklet.ListContainers(context.Background(), req)
 	// THEN it should not fail
 	require.NoError(t, err)
 }
 
 func Test_ShouldExecuteForkTasklet(t *testing.T) {
-	// GIVEN tasklet
+	// GIVEN forkTasklet
 	jobManager := manager.AssertTestJobManager(nil, t)
-	tasklet := newTestForkTasklet(jobManager)
+	forkTasklet := newTestForkTasklet(jobManager)
 	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
 	user.ID = "555"
 	req := &common.TaskRequest{
@@ -70,7 +70,7 @@ func Test_ShouldExecuteForkTasklet(t *testing.T) {
 	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
 
 	// WHEN executing without job
-	res, err := tasklet.Execute(context.Background(), req)
+	res, err := forkTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should fail
 	require.Equal(t, common.FAILED, res.Status)
@@ -81,7 +81,7 @@ func Test_ShouldExecuteForkTasklet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user.ID, job.UserID)
 	require.Equal(t, user.OrganizationID, job.OrganizationID)
-	res, err = tasklet.Execute(context.Background(), req)
+	res, err = forkTasklet.Execute(context.Background(), req)
 	require.NoError(t, err)
 	// THEN it should not fail
 	require.Equal(t, "", res.ErrorMessage)
@@ -90,7 +90,7 @@ func Test_ShouldExecuteForkTasklet(t *testing.T) {
 
 func newTestForkTasklet(jobManager *manager.JobManager) *JobForkTasklet {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, _ := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
 	requestRegistry := tasklet.NewRequestRegistry(
 		&cfg.Common,
 		metrics.New(),

@@ -34,11 +34,13 @@ func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 	for _, registration := range rm.state.getRegistrations() {
 		if time.Duration(now.Unix()-registration.ReceivedAt.Unix())*time.Second > rm.serverCfg.Jobs.AntRegistrationAliveTimeout {
 			removeAntIDs = append(removeAntIDs, registration.AntID)
-			logrus.WithFields(logrus.Fields{
-				"Component":    "ResourceManager",
-				"Registration": registration,
-				"Received":     registration.ReceivedAt,
-			}).Warnf("adding stale registration of ant %s", registration.AntID)
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component":    "ResourceManager",
+					"Registration": registration,
+					"Received":     registration.ReceivedAt,
+				}).Debugf("adding stale registration of ant %s", registration.AntID)
+			}
 		}
 		if registration.ValidRegistration != nil {
 			if err := registration.ValidRegistration(ctx); err != nil {

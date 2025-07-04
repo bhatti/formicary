@@ -133,5 +133,5 @@ func (ctr *EmailVerificationAdminController) verifyEmailVerification(c web.APICo
 		}
 		return c.Render(http.StatusOK, "email_verification/verify_email", res)
 	}
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/"+user.ID))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/%s", user.ID))
 }

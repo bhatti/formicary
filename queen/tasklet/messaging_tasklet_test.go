@@ -83,27 +83,26 @@ func Test_ShouldExecuteMessagingTasklet(t *testing.T) {
 
 func newTestMessagingTasklet(t *testing.T) *MessagingTasklet {
 	cfg := config.TestServerConfig()
-	queueClient := queue.NewStubClient(&cfg.Common)
+	queueClient, _ := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
 	jobManager := manager.AssertTestJobManager(nil, t)
 	requestRegistry := tasklet.NewRequestRegistry(
 		&cfg.Common,
 		metrics.New(),
 	)
-	queueClient.SendReceivePayloadFunc = func(
-		_ queue.MessageHeaders,
-		payload []byte) ([]byte, error) {
-		var req common.TaskRequest
-		err := json.Unmarshal(payload, &req)
-		if err != nil {
-			return nil, err
-		}
-		res := common.NewTaskResponse(&req)
-		res.AntID = "test"
-		res.Host = "test"
-		res.Status = common.COMPLETED
-		return json.Marshal(res)
+	if channelClient, ok := queueClient.(*queue.ClientChannel); ok {
+		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+			var req common.TaskRequest
+			err := json.Unmarshal(inReq.Payload, &req)
+			if err != nil {
+				return nil, err
+			}
+			res := common.NewTaskResponse(&req)
+			res.AntID = "test"
+			res.Host = "test"
+			res.Status = common.COMPLETED
+			return json.Marshal(res)
+		})
 	}
-
 	messagingTasklet := NewMessagingTasklet(
 		cfg,
 		requestRegistry,

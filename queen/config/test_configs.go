@@ -10,10 +10,11 @@ import (
 // TestServerConfig for testing
 func TestServerConfig() *ServerConfig {
 	serverCfg := &ServerConfig{}
+	_ = serverCfg.Validate()
 	serverCfg.Common.S3.AccessKeyID = "admin"
 	serverCfg.Common.S3.SecretAccessKey = "password"
 	serverCfg.Common.S3.Bucket = "bucket"
-	serverCfg.Common.Pulsar.URL = "test"
+	serverCfg.Common.Queue.Endpoints = []string{"test"}
 	serverCfg.Common.Redis.Host = "localhost"
 	serverCfg.Common.ExternalBaseURL = "http://localhost:7070"
 	serverCfg.SMTP.FromName = "Formicary Support"

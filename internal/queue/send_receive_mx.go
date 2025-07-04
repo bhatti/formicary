@@ -3,6 +3,8 @@ package queue
 import (
 	"context"
 	"github.com/sirupsen/logrus"
+	"plexobject.com/formicary/internal/types"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -10,8 +12,9 @@ import (
 // SendReceiveMultiplexer manages send/receive queues so that a single queue/topic can be used
 // to receive messages that can be then handed out to proper recipients.
 type SendReceiveMultiplexer struct {
+	created               time.Time
 	topic                 string
-	commitTimeoutSecs     int64
+	commitTimeout         time.Duration
 	callbacksCorrelations map[string]callBackCoRelation
 	lock                  sync.RWMutex
 }
@@ -26,22 +29,35 @@ type callBackCoRelation struct {
 
 // NewSendReceiveMultiplexer constructor
 func NewSendReceiveMultiplexer(
-	ctx context.Context,
+	_ context.Context,
 	topic string,
-	commitTimeoutSecs int64,
+	commitTimeout time.Duration,
 ) *SendReceiveMultiplexer {
 	return &SendReceiveMultiplexer{
+		created:               time.Now(),
 		topic:                 topic,
-		commitTimeoutSecs:     commitTimeoutSecs,
+		commitTimeout:         commitTimeout,
 		callbacksCorrelations: make(map[string]callBackCoRelation),
 	}
 }
 
 // Notify invokes callback methods
-func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEvent) int {
+func (mx *SendReceiveMultiplexer) Notify(ctx context.Context,
+	event *MessageEvent, ack AckHandler, nack AckHandler) int {
 	// creating a local copy of subscribers so that we don't share instance variables during notification
 	subscribers := mx.cloneSubscribers()
 
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "SendReceiveMultiplexer",
+			"Topic":         mx.topic,
+			"ID":            string(event.ID),
+			"CorrelationID": event.CoRelationID(),
+			"Subscribers":   len(subscribers),
+			"CommitTimeout": mx.commitTimeout,
+			"Elapsed":       time.Since(mx.created),
+		}).Debug("notifying subscribers")
+	}
 	// notifying subscribers
 	sent := 0
 	started := time.Now()
@@ -51,7 +67,7 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 		if next.correlationID == "" || next.correlationID == event.CoRelationID() {
 			sent++
 			if next.filter == nil || next.filter(ctx, event) {
-				if err := next.callback(ctx, event); err != nil {
+				if err := next.callback(ctx, event, ack, nack); err != nil {
 					logrus.WithFields(logrus.Fields{
 						"Component": "SendReceiveMultiplexer",
 						"Event":     event,
@@ -65,8 +81,8 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context, event *MessageEven
 			}
 		} else {
 			age := started.Unix() - event.PublishTime.Unix()
-			if age > mx.commitTimeoutSecs {
-				event.Ack() // commit old messages to eliminate redelivery
+			if age > int64(mx.commitTimeout.Seconds()) {
+				ack() // commit old messages to eliminate redelivery
 			}
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				logrus.WithFields(logrus.Fields{
@@ -90,7 +106,14 @@ func (mx *SendReceiveMultiplexer) Add(
 	correlationID string,
 	cb Callback,
 	filter Filter,
-	consumerChannel chan *MessageEvent) int {
+	consumerChannel chan *MessageEvent) (int, error) {
+	if cb == nil {
+		debug.PrintStack()
+		return 0, types.NewValidationError("callback not specified")
+	}
+	if correlationID == "" {
+		// TODO we won't have it for in-topic
+	}
 	mx.lock.Lock()
 	defer mx.lock.Unlock()
 	mx.callbacksCorrelations[id] = callBackCoRelation{
@@ -118,7 +141,7 @@ func (mx *SendReceiveMultiplexer) Add(
 			"Topic":        mx.topic,
 		}).Debugf("added multiplex subscriber")
 	}
-	return len(mx.callbacksCorrelations)
+	return len(mx.callbacksCorrelations), nil
 }
 
 // SubscriberIDs returns subscriberIDs

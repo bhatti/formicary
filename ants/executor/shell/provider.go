@@ -3,8 +3,8 @@ package shell
 import (
 	"context"
 	"fmt"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils/trace"
 	"sync"
@@ -18,7 +18,7 @@ type ExecutorProvider struct {
 }
 
 // NewExecutorProvider creates executor-provider for local shell based execution
-func NewExecutorProvider(config *config.AntConfig) (executor.Provider, error) {
+func NewExecutorProvider(config *ant_config.AntConfig) (executor.Provider, error) {
 	return &ExecutorProvider{
 		BaseExecutorProvider: executor.BaseExecutorProvider{
 			AntConfig: config,

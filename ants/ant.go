@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"plexobject.com/formicary/ants/executor/utils"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/metrics"
 	"time"
 
@@ -15,14 +16,48 @@ import (
 
 	"plexobject.com/formicary/internal/artifacts"
 
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/handler"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/web"
 )
 
 // Start starts ant
-func Start(ctx context.Context, antCfg *config.AntConfig) error {
+func Start(ctx context.Context, antCfg *ant_config.AntConfig) (err error) {
+	webServer, err := web.NewDefaultWebServer(&antCfg.Common)
+	if err != nil {
+		return fmt.Errorf("failed to create web server due to %w", err)
+	}
+
+	// Create messaging client
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &antCfg.Common)
+	if err != nil {
+		return fmt.Errorf("failed to connect to pulsar due to %w", err)
+	}
+
+	artifactService, err := artifacts.New(antCfg.Common.S3)
+	if err != nil {
+		return fmt.Errorf("failed to connect to minio due to %w", err)
+	}
+
+	if err = startCommon(ctx, antCfg, queueClient, artifactService, func() {
+		controller.StopWebServer(webServer)
+	}); err != nil {
+		return err
+	}
+
+	// starts the web server for APIs
+	controller.StartWebServer(antCfg, webServer)
+	return nil
+}
+
+// StartEmbedded starts embedded ant
+func StartEmbedded(ctx context.Context, antCfg *ant_config.AntConfig,
+	queueClient queue.Client, artifactService artifacts.Service) (err error) {
+	return startCommon(ctx, antCfg, queueClient, artifactService, func() {})
+}
+
+func startCommon(ctx context.Context, antCfg *ant_config.AntConfig,
+	queueClient queue.Client, artifactService artifacts.Service, shutdownFunc func()) (err error) {
 	requestTopic := antCfg.Common.GetRequestTopic()
 
 	metricsRegistry := metrics.New()
@@ -31,22 +66,6 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 	requestRegistry := tasklet.NewRequestRegistry(&antCfg.Common, metricsRegistry)
 
 	webClient := web.New(&antCfg.Common)
-
-	webServer, err := web.NewDefaultWebServer(&antCfg.Common)
-	if err != nil {
-		return fmt.Errorf("failed to create web server due to %w", err)
-	}
-
-	// Create messaging client
-	queueClient, err := queue.NewMessagingClient(&antCfg.Common)
-	if err != nil {
-		return fmt.Errorf("failed to connect to pulsar due to %w", err)
-	}
-
-	artifactService, err := artifacts.New(&antCfg.Common.S3)
-	if err != nil {
-		return fmt.Errorf("failed to connect to minio due to %w", err)
-	}
 
 	executor := handler.NewRequestExecutor(
 		antCfg,
@@ -108,17 +127,12 @@ func Start(ctx context.Context, antCfg *config.AntConfig) error {
 				time.Sleep(antCfg.PollIntervalBeforeShutdown)
 			}
 			_ = containerReaper.Stop(context.Background())
-			// in the end stop web server
-			webServer.Stop()
+			shutdownFunc()
 			logrus.WithFields(logrus.Fields{
 				"Component": "Queen",
 				"ID":        antCfg.Common.ID,
 			}).Warnf("shutting down, finished waiting for requests, exiting...")
 		}()
 	})
-	// starts the web server for APIs
-	controller.StartWebServer(
-		antCfg,
-		webServer)
 	return nil
 }

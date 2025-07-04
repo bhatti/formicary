@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils/trace"
 	"sync"
@@ -25,7 +25,7 @@ type Executor struct {
 // NewDockerExecutor creates new docker executor
 func NewDockerExecutor(
 	ctx context.Context,
-	cfg *config.AntConfig,
+	cfg *ant_config.AntConfig,
 	trace trace.JobTrace,
 	opts *types.ExecutorOptions,
 	adapter Adapter) (exec *Executor, err error) {

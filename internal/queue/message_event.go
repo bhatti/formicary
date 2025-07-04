@@ -5,6 +5,24 @@ import (
 	"time"
 )
 
+// constants
+const (
+	// DisableBatchingKey to disable batch send
+	DisableBatchingKey = "DisableBatching"
+	// ReusableTopicKey to cache producer
+	ReusableTopicKey = "ReusableTopic"
+	// MessageTarget of message
+	MessageTarget = "MessageTarget"
+	// CorrelationIDKey for send/receive
+	CorrelationIDKey = "CorrelationID"
+	replyTopicKey    = "ReplyTopic"
+	messageKey       = "Key"
+	producerKey      = "Producer"
+	groupKey         = "ArtifactGroup"
+	lastOffsetKey    = "lastOffset"
+	firstOffsetKey   = "lastOffset"
+)
+
 // MessageHeaders for message headers
 type MessageHeaders map[string]string
 
@@ -136,12 +154,6 @@ type MessageEvent struct {
 
 	// Offset if available
 	Offset int64
-
-	// Ack call handles ack
-	Ack AckHandler
-
-	// Nack call handles nack
-	Nack AckHandler
 }
 
 // CoRelationID returns correlation-id

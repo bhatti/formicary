@@ -13,12 +13,13 @@ import (
 
 func Test_ShouldStartAndStopRegistration(t *testing.T) {
 	cfg := newTestCommonConfig()
-	err := cfg.Validate(make([]string, 0))
+	err := cfg.Validate()
 	require.NoError(t, err)
 
 	// GIVEN request registry
 	metricsRegistry := metrics.New()
-	queueClient := queue.NewStubClient(cfg)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), cfg)
+	require.NoError(t, err)
 	requestRegistry := NewRequestRegistry(cfg, metricsRegistry)
 
 	// WHEN a tasklet is created and registered
@@ -53,10 +54,10 @@ func Test_ShouldStartAndStopRegistration(t *testing.T) {
 
 func newTestCommonConfig() *types.CommonConfig {
 	cfg := &types.CommonConfig{}
+	_ = cfg.Validate()
 	cfg.S3.AccessKeyID = "admin"
 	cfg.S3.SecretAccessKey = "password"
 	cfg.S3.Bucket = "test-bucket"
-	cfg.Pulsar.URL = "test"
 	cfg.Redis.Host = "test"
 	return cfg
 }

@@ -3,11 +3,11 @@ package http
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/utils/trace"
 	"plexobject.com/formicary/internal/web"
 	"sync"
 
-	"plexobject.com/formicary/ants/config"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/types"
 )
@@ -22,7 +22,7 @@ type ExecutorProvider struct {
 
 // NewExecutorProvider creates executor-provider for local http based execution
 func NewExecutorProvider(
-	config *config.AntConfig,
+	config *ant_config.AntConfig,
 	client web.HTTPClient) (executor.Provider, error) {
 	return &ExecutorProvider{
 		BaseExecutorProvider: executor.BaseExecutorProvider{
