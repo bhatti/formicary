@@ -49,7 +49,7 @@ type JobNotifyConfig struct {
 }
 
 // ValidateEmail validates email of recipients
-func (c JobNotifyConfig) ValidateEmail() error {
+func (c *JobNotifyConfig) ValidateEmail() error {
 	for _, email := range c.Recipients {
 		if email == "" {
 			return errors.New("email is not specified")

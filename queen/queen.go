@@ -186,6 +186,15 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return fmt.Errorf("failed to create artifact expiration tasklet due to %w", err)
 	}
 
+	// starts artifact-expiration tasklet
+	if err = tasklet.NewManualTasklet(
+		serverCfg,
+		requestRegistry,
+		queueClient,
+	).Start(ctx); err != nil {
+		return fmt.Errorf("failed to create manual tasklet due to %w", err)
+	}
+
 	// starts messaging tasklet
 	if err = tasklet.NewMessagingTasklet(
 		serverCfg,

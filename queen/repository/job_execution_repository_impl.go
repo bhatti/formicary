@@ -7,8 +7,8 @@ import (
 
 	common "plexobject.com/formicary/internal/types"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/oklog/ulid/v2"
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
 )
@@ -189,7 +189,7 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 			"retried":       retried,
 			"updated_at":    time.Now(),
 		}
-		if newState == common.PAUSED {
+		if newState == common.PAUSED { // not common.MANUAL_APPROVAL_REQUIRED {
 			if scheduleDelay > 0 {
 				updates["scheduled_at"] = time.Now().Add(scheduleDelay)
 			}
@@ -238,13 +238,18 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 	id string,
 	oldState common.RequestState,
-	newState common.RequestState) error {
-	if newState.CanFinalize() {
+	newState common.RequestState, manualTaskType string) error {
+	if newState.IsTerminal() { // TODO possibly add PAUSED
 		return common.NewValidationError(
 			fmt.Errorf("new state %s cannot be terminal", newState))
 	}
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{"job_state": newState, "updated_at": time.Now()}
+		if newState.IsTerminal() {
+			updates["manual_approval_task"] = ""
+		} else if manualTaskType != "" {
+			updates["manual_approval_task"] = manualTaskType
+		}
 		// saving job request along with job-execution in a same transaction
 		res := tx.Model(&types.JobRequest{}).
 			Where("job_execution_id = ?", id).
@@ -312,6 +317,100 @@ func (jer *JobExecutionRepositoryImpl) UpdateTaskState(
 				fmt.Errorf("failed to update task execution state to %v with id %v",
 					newState, id))
 		}
+		return nil
+	})
+}
+
+// GetJobsPendingManualApproval get jobs pending manual approval
+func (jer *JobExecutionRepositoryImpl) GetJobsPendingManualApproval(
+	qc *common.QueryContext,
+	limit int,
+	offset int) ([]*types.JobExecution, error) {
+
+	jobs := make([]*types.JobExecution, 0)
+
+	tx := jer.db.Preload("Tasks", "task_state = ?", common.MANUAL_APPROVAL_REQUIRED).
+		Preload("Contexts").
+		Where("job_state = ? AND active = ?", common.MANUAL_APPROVAL_REQUIRED, true).
+		Order("updated_at ASC").
+		Limit(limit).Offset(offset)
+
+	// Add organization/user filtering
+	if !qc.IsAdmin() {
+		if qc.HasOrganization() {
+			tx = tx.Where("organization_id = ?", qc.GetOrganizationID())
+		} else if qc.GetUserID() != "" {
+			tx = tx.Where("user_id = ?", qc.GetUserID())
+		}
+	}
+
+	res := tx.Find(&jobs)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	for _, job := range jobs {
+		if err := job.AfterLoad(); err != nil {
+			log.WithFields(log.Fields{
+				"Component": "JobExecutionRepositoryImpl",
+				"JobID":     job.ID,
+				"Error":     err,
+			}).Warn("Failed to load job execution after retrieval")
+		}
+	}
+
+	return jobs, nil
+}
+
+// ResumeFromManualApproval resumes job execution after manual approval
+// This updates job-execution state and can be used for more complex resume logic if needed
+func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.ApproveTaskRequest) error {
+	return jer.db.Transaction(func(tx *gorm.DB) error {
+		now := time.Now()
+
+		// 1. Update the approved task execution
+		taskRes := tx.Model(&types.TaskExecution{}).
+			Where("job_execution_id = ? AND task_type = ? AND task_state = ?",
+				request.ExecutionID, request.TaskType, common.MANUAL_APPROVAL_REQUIRED).
+			Updates(map[string]interface{}{
+				"task_state":         common.COMPLETED,
+				"exit_code":          "APPROVED",
+				"exit_message":       fmt.Sprintf("Manually approved by %s", request.ApprovedBy),
+				"manual_approved_by": request.ApprovedBy,
+				"manual_approved_at": now,
+				"ended_at":           now,
+				"updated_at":         now,
+			})
+
+		if taskRes.Error != nil {
+			return taskRes.Error
+		}
+
+		// 2. Update job execution to READY state for scheduler pickup
+		jobRes := tx.Model(&types.JobExecution{}).
+			Where("id = ? AND job_state = ?", request.ExecutionID, common.MANUAL_APPROVAL_REQUIRED).
+			Updates(map[string]interface{}{
+				"job_state":     common.READY,
+				"error_code":    "",
+				"error_message": "",
+				"updated_at":    now,
+			})
+
+		if jobRes.Error != nil {
+			return jobRes.Error
+		}
+
+		if jobRes.RowsAffected != 1 {
+			return fmt.Errorf("failed to update job execution state for job %s", request.ExecutionID)
+		}
+
+		log.WithFields(log.Fields{
+			"Component":      "JobExecutionRepositoryImpl",
+			"JobExecutionID": request.ExecutionID,
+			"TaskType":       request.TaskType,
+			"ApprovedBy":     request.ApprovedBy,
+		}).Info("Job execution resumed from manual approval")
+
 		return nil
 	})
 }

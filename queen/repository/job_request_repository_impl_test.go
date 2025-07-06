@@ -516,7 +516,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 		job, err := SaveTestJobDefinition(qc, jobType, "")
 		require.NoError(t, err)
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
-			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED}
+			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED}
 		// See https://github.com/hashicorp/cronexpr
 
 		for j, jobState := range jobStates {
@@ -539,7 +539,7 @@ func Test_ShouldFindJobTimes(t *testing.T) {
 
 	// THEN it should not fail
 	require.NoError(t, err)
-	require.Equal(t, 140, len(recs))
+	require.Equal(t, 160, len(recs))
 }
 
 // Test query for triggered jobs that are active
@@ -562,7 +562,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 		require.NoError(t, err)
 		jobTypes = append(jobTypes, types.NewJobTypeCronTrigger(job))
 		jobStates := []common.RequestState{common.PENDING, common.READY, common.STARTED,
-			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED}
+			common.EXECUTING, common.COMPLETED, common.FAILED, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED}
 		// See https://github.com/hashicorp/cronexpr
 
 		for j, jobState := range jobStates {
@@ -591,7 +591,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 	total, err := repo.Count(qc, params)
 	// THEN it should match expected count
 	require.NoError(t, err)
-	require.Equal(t, int64(140), total)
+	require.Equal(t, int64(160), total)
 
 	// WHEN finding active requests by jobTypes
 	infos, err := repo.FindActiveCronScheduledJobsByJobType(jobTypes)
@@ -624,7 +624,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 
 	// WHEN scheduling jobs with empty database
 	infos, err := jobRequestRepository.NextSchedulableJobsByTypes(make([]string, 0),
-		[]common.RequestState{common.PENDING, common.PAUSED}, 100)
+		[]common.RequestState{common.PENDING, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED}, 100)
 	// THEN it should match 0 count
 	require.NoError(t, err)
 	require.Equal(t, 0, len(infos))
@@ -682,7 +682,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 
 	// WHEN scheduling jobs (top pending jobs)
 	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(make([]string, 0),
-		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
+		[]common.RequestState{common.PENDING, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED}, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
@@ -693,7 +693,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 
 	// WHEN scheduling next top pending jobs
 	infos, err = jobRequestRepository.NextSchedulableJobsByTypes(jobTypes,
-		[]common.RequestState{common.PENDING, common.PAUSED}, 10)
+		[]common.RequestState{common.PENDING, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED}, 10)
 	// THEN it should match expected count
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))

@@ -16,6 +16,15 @@ const ReservedRequestProperties = "platform,jobType,jobGroup,jobPriority,orgID,u
 // ParentJobTypePrefix prefix for forked job id
 const ParentJobTypePrefix = "ParentJobType"
 
+// ApproveTaskRequest type for the request structure
+type ApproveTaskRequest struct {
+	RequestID   string `json:"request_id" form:"request_id"`
+	ExecutionID string `json:"execution_id" form:"execution_id"`
+	TaskType    string `json:"task_type" form:"task_type"`
+	ApprovedBy  string `json:"approved_by" form:"approved_by"`
+	Comments    string `json:"comments" form:"comments"`
+}
+
 // UserJobTypeKey defines key for job-type by user/org
 type UserJobTypeKey interface {
 	// GetJobType defines the type of job
@@ -86,6 +95,7 @@ type IJobRequest interface {
 	GetCreatedAt() time.Time
 	//GetUserJobTypeKey key of job-type
 	GetUserJobTypeKey() string
+	GetApprovalTaskType() string
 	GetParams() []*JobRequestParam
 	SetParams(params []*JobRequestParam)
 	Editable(userID string, organizationID string) bool
@@ -142,6 +152,8 @@ type JobRequest struct {
 	ErrorCode string `json:"error_code"`
 	// ErrorMessage captures error message at the end of job execution if it fails
 	ErrorMessage string `json:"error_message"`
+	// ManualApprovalTask defines manual approval task
+	ManualApprovalTask string `json:"manual_approval_task"`
 	// Params are passed with job request
 	Params []*JobRequestParam `yaml:"-" json:"-" gorm:"ForeignKey:JobRequestID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// ScheduledAt defines schedule time when job will be submitted so that you can submit a job
@@ -262,6 +274,16 @@ func (jr *JobRequest) CanRestart() bool {
 // CanCancel if job can be cancelled
 func (jr *JobRequest) CanCancel() bool {
 	return jr.JobState.CanCancel()
+}
+
+// CanApprove if job's task can be manually approved
+func (jr *JobRequest) CanApprove() bool {
+	return jr.JobState.CanApprove()
+}
+
+// GetApprovalTaskType returns task for manual approval
+func (jr *JobRequest) GetApprovalTaskType() string {
+	return jr.ManualApprovalTask
 }
 
 // CanTriggerCron if job is triggered that can be scheduled

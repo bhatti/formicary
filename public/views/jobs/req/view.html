@@ -21,14 +21,16 @@
             <a class="nav-link btn-sm btn-outline-success"
                id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
                role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
-            {{end}}
-            {{if .Failed }}
+            {{else if .Failed }}
             <a class="nav-link btn-sm btn-outline-danger"
                id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
                role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
-            {{ end }}
-            {{if .NotTerminal }}
-            <a class="nav-link btn-sm"
+            {{else if .CanApprove }}
+            <a class="nav-link btn-sm btn-outline-warning"
+               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
+               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}} ⚠️</a>
+            {{else if .NotTerminal }}
+            <a class="nav-link btn-sm  btn-outline-info"
                id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
                role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
             {{end}}
@@ -64,7 +66,7 @@
              id="job-tabs-{{.ID}}"
              role="tabpanel"
              aria-labelledby="job-tab-{{.ID}}">
-            {{ template "jobs/req/task" . }}
+            {{ template "jobs/req/task" (Dict "Task" . "Request" $.Request) }}
         </div>
         {{ end }}
         {{ end }}
@@ -93,7 +95,9 @@
 </script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
 <script type="text/javascript" src="/js/ansi_colors.js"></script>
-
+{{if false}}
+<script type="text/javascript" src="/js/approval.js"></script>
+{{end}}
 {{if .Request.NotTerminal }}
 <h4>Streaming Events:</h4>
 <pre id="logs"></pre>

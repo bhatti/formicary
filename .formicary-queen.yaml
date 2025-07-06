@@ -89,8 +89,17 @@ notify:
     user_invitation_template_file: views/notify/user_invitation.html
 embedded_ant:
     tags: ["docker", "kubernetes", "embedded", "builder"]
-    methods: ["KUBERNETES", "DOCKER", "SHELL", "HTTP_POST"]
-    max_capacity: 3
+    methods:
+      - DOCKER
+      - KUBERNETES
+      - SHELL
+      - HTTP_GET
+      - HTTP_POST_FORM
+      - HTTP_POST_JSON
+      - HTTP_PUT_FORM
+      - HTTP_PUT_JSON
+      - HTTP_DELETE
+    max_capacity: 10
     poll_interval: 3
     output_limit: 67108864  # 64MB
     docker:

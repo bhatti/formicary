@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"plexobject.com/formicary/internal/queue"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -178,11 +179,6 @@ func (tsm *TaskExecutionStateMachine) FinalizeTaskState(
 
 	tsm.TaskExecution.EndedAt = &now
 	// optionally release resource if completed
-	/*
-		if tsm.TaskExecution.TaskState.Completed() {
-			delete(tsm.Reservations, tsm.TaskDefinition.TaskType)
-		}
-	*/
 
 	// SaveFile job context from task result
 	_ = tsm.JobManager.UpdateJobExecutionContext(
@@ -340,6 +336,17 @@ func (tsm *TaskExecutionStateMachine) BuildTaskResponseFromPreviousResult() (*co
 
 // SetFailed marks task execution as failed
 func (tsm *TaskExecutionStateMachine) SetFailed(err error) {
+	logrus.WithFields(logrus.Fields{
+		"Component":    "TaskSupervisor",
+		"Task":         tsm.TaskDefinition,
+		"RequestID":    tsm.Request.GetID(),
+		"State":        tsm.TaskExecution.TaskState,
+		"ErrorCode":    tsm.TaskExecution.ErrorCode,
+		"ExitCode":     tsm.TaskExecution.ExitCode,
+		"ErrorMessage": tsm.TaskExecution.ErrorMessage,
+		"Retries":      tsm.Request.GetRetried(),
+	}).Warnf("[tsm] overriding status as failed")
+	tsm.TaskExecution.AddContext("OldStatus", tsm.TaskExecution.TaskState)
 	tsm.TaskExecution.TaskState = common.FAILED
 	if tsm.TaskExecution.ErrorCode == "" {
 		if strings.Contains(err.Error(), "context deadline") {
@@ -349,6 +356,7 @@ func (tsm *TaskExecutionStateMachine) SetFailed(err error) {
 		}
 	}
 	tsm.TaskExecution.ErrorMessage = err.Error()
+	debug.PrintStack()
 }
 
 // CanRetry checks if task can be retried in case of failure
@@ -389,26 +397,43 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 		tsm.TaskExecution.ErrorMessage = ""
 		tsm.TaskExecution.Stdout = taskResp.Stdout
 	} else {
-		if tsm.errorCode, err = tsm.ErrorCodeRepository.Match(
-			tsm.QueryContext(),
-			taskResp.ErrorMessage,
-			tsm.JobDefinition.Platform,
-			taskResp.FailedCommand,
-			tsm.JobDefinition.JobType,
-			tsm.taskType); err == nil {
-			taskResp.ErrorCode = tsm.errorCode.ErrorCode
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":            "TaskSupervisor",
+				"Task":                 tsm.TaskDefinition,
+				"RequestID":            tsm.Request.GetID(),
+				"State":                taskResp.Status,
+				"ErrorCode":            taskResp.ErrorCode,
+				"ErrorMessage":         taskResp.ErrorMessage,
+				"OriginalState":        tsm.TaskExecution.TaskState,
+				"OriginalErrorCode":    tsm.TaskExecution.ErrorCode,
+				"OriginalErrorMessage": tsm.TaskExecution.ErrorMessage,
+				"ExitCode":             taskResp.ExitCode,
+				"Retries":              tsm.Request.GetRetried(),
+			}).Debugf("[tsm] overriding error code")
 		}
-		if taskResp.ErrorCode == "" {
-			if strings.Contains(taskResp.ErrorMessage, "context deadline") {
-				taskResp.ErrorCode = common.ErrorTaskTimedOut
-			} else {
-				taskResp.ErrorCode = common.ErrorTaskExecute
+		if taskResp.Status != common.MANUAL_APPROVAL_REQUIRED && taskResp.Status != common.PAUSED {
+			if tsm.errorCode, err = tsm.ErrorCodeRepository.Match(
+				tsm.QueryContext(),
+				taskResp.ErrorMessage,
+				tsm.JobDefinition.Platform,
+				taskResp.FailedCommand,
+				tsm.JobDefinition.JobType,
+				tsm.taskType); err == nil {
+				taskResp.ErrorCode = tsm.errorCode.ErrorCode
 			}
+			if taskResp.ErrorCode == "" {
+				if strings.Contains(taskResp.ErrorMessage, "context deadline") {
+					taskResp.ErrorCode = common.ErrorTaskTimedOut
+				} else {
+					taskResp.ErrorCode = common.ErrorTaskExecute
+				}
+			}
+			tsm.TaskExecution.ErrorCode = taskResp.ErrorCode
+			tsm.TaskExecution.ErrorMessage = taskResp.ErrorMessage
+			err = fmt.Errorf("[tsm] ant failed to execute task '%s' due to '%s'",
+				tsm.taskType, taskResp.ErrorMessage)
 		}
-		tsm.TaskExecution.ErrorCode = taskResp.ErrorCode
-		tsm.TaskExecution.ErrorMessage = taskResp.ErrorMessage
-		err = fmt.Errorf("ant failed to execute task '%s' due to %s",
-			tsm.taskType, taskResp.ErrorMessage)
 	}
 
 	tsm.updateArtifactsFromResponse(taskResp)

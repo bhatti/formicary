@@ -34,6 +34,8 @@ const (
 	Docker TaskMethod = "DOCKER"
 	// Kubernetes method runs ant using kubernetes container
 	Kubernetes TaskMethod = "KUBERNETES"
+	// Manual method runs manual task
+	Manual TaskMethod = "MANUAL"
 )
 
 // SupportsCaptureStdout checks method can store stdout to a file
@@ -75,6 +77,7 @@ func (m TaskMethod) IsValid() bool {
 		m == ForkJob ||
 		m == AwaitForkedJob ||
 		m == Messaging ||
+		m == Manual ||
 		m == ExpireArtifacts
 }
 

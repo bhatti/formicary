@@ -103,13 +103,31 @@ func (js *JobSupervisor) tryExecuteJob(
 	var task *types.TaskDefinition
 	var errorCode string
 
+	// ONLY check for resume from manual approval at job start (not expensive per-task)
+	startTaskType, isResuming := js.determineStartTask()
+	if isResuming {
+		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+			Infof("resuming job execution after approval, starting with task: %s", startTaskType)
+	} else {
+		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+			Infof("not resuming job execution after approval, starting with from beginning: %s",
+				js.jobStateMachine.Request)
+	}
+
 	// Begin execution with first task in retry loop - by default it will run job once unless retry is set
 	for canExecute := true; canExecute; canExecute = js.jobStateMachine.Request.IncrRetried() > 0 &&
 		js.jobStateMachine.CanRetry() {
-		// Find the first task to run or in case of restart, execute last task executing
-		task, err = js.jobStateMachine.JobDefinition.GetFirstTask()
-		if err != nil {
-			break
+
+		// Use determined start task or find first task for new execution
+		if startTaskType != "" {
+			task = js.jobStateMachine.JobDefinition.GetTask(startTaskType)
+		}
+		if task == nil {
+			// Find the first task to run or in case of restart, execute last task executing
+			task, err = js.jobStateMachine.JobDefinition.GetFirstTask()
+			if err != nil {
+				break
+			}
 		}
 		errorCode, err = js.executeNextTask(ctx, task.TaskType)
 		if err == nil {
@@ -130,7 +148,7 @@ func (js *JobSupervisor) tryExecuteJob(
 
 		// quit retrying upon success, fatal error or if job needs to be restarted and rescheduled later
 		if err == nil || errorCode == common.ErrorFatal || errorCode == common.ErrorRestartJob ||
-			errorCode == common.ErrorPauseJob ||
+			errorCode == common.ErrorPauseJob || errorCode == common.ErrorManualApprovalRequired ||
 			js.jobStateMachine.Request.GetRetried() == js.jobStateMachine.JobDefinition.Retry {
 			break
 		}
@@ -146,22 +164,28 @@ func (js *JobSupervisor) tryExecuteJob(
 				err,
 				sleepDuration)
 		time.Sleep(sleepDuration)
+
+		// Reset start task type for retries
+		startTaskType = ""
 	}
 
 	// check if job ran successfully
 	if err == nil {
 		logrus.WithFields(js.jobStateMachine.LogFields(
 			"JobSupervisor",
-		)).Infof("completed job successfully %s!", js.jobStateMachine.JobDefinition.JobType)
+		)).Infof("completed job successfully %s state=%s", js.jobStateMachine.JobDefinition.JobType,
+			js.jobStateMachine.Request.GetJobState())
 		return js.jobStateMachine.ExecutionCompleted(ctx)
 	}
 
-	// check finalized task if job failed
-	for _, lastTask := range js.jobStateMachine.JobDefinition.GetLastAlwaysRunTasks() {
-		if lastTask != nil {
-			_, lastTaskExists := js.jobStateMachine.JobExecution.GetTask("", lastTask.TaskType)
-			if lastTaskExists == nil {
-				_, _ = js.submitTask(ctx, lastTask.TaskType)
+	// check finalized task if job failed - TODO move this up
+	if js.jobStateMachine.Request.GetJobState().IsTerminal() {
+		for _, lastTask := range js.jobStateMachine.JobDefinition.GetLastAlwaysRunTasks() {
+			if lastTask != nil {
+				_, lastTaskExists := js.jobStateMachine.JobExecution.GetTask("", lastTask.TaskType)
+				if lastTaskExists == nil {
+					_, _ = js.submitTask(ctx, lastTask.TaskType)
+				}
 			}
 		}
 	}
@@ -181,6 +205,17 @@ func (js *JobSupervisor) tryExecuteJob(
 		return js.jobStateMachine.RestartJobBackToPendingPaused(err)
 	} else if errorCode == common.ErrorPauseJob {
 		return js.jobStateMachine.PauseJob()
+	} else if errorCode == common.ErrorManualApprovalRequired {
+		logrus.WithFields(js.jobStateMachine.LogFields(
+			"JobSupervisor",
+		)).Warnf("[js] request %s with job '%s' requires manual approval",
+			js.jobStateMachine.Request.GetID(), js.jobStateMachine.JobDefinition.JobType)
+		return nil
+	} else {
+		logrus.WithFields(js.jobStateMachine.LogFields(
+			"JobSupervisor",
+		)).Warnf("[js] request %s with job '%s' will be marked failed",
+			js.jobStateMachine.Request.GetID(), js.jobStateMachine.JobDefinition.JobType)
 	}
 
 	// job failed
@@ -195,6 +230,12 @@ func (js *JobSupervisor) tryExecuteJob(
 
 	}
 	return err
+}
+
+// determineStartTask - efficient method to determine where to start/resume execution
+func (js *JobSupervisor) determineStartTask() (taskType string, isResuming bool) {
+	task := js.jobStateMachine.JobExecution.GetApprovalTaskType()
+	return task, task != ""
 }
 
 // UpdateFromJobLifecycleEvent updates if current job is cancelled
@@ -283,7 +324,6 @@ func (js *JobSupervisor) UpdateFromJobLifecycleEvent(
 func (js *JobSupervisor) executeNextTask(
 	ctx context.Context,
 	taskType string) (errorCode string, err error) {
-
 	// Abort if job already cancelled
 	if js.jobStateMachine.JobExecution.JobState.IsTerminal() {
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -305,6 +345,21 @@ func (js *JobSupervisor) executeNextTask(
 
 	if err != nil {
 		return
+	}
+
+	// Handle manual approval case - stop execution and save state
+	if taskStateMachine.TaskExecution.TaskState == common.MANUAL_APPROVAL_REQUIRED {
+		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+			Infof("[js] Job paused for manual approval of task: %s", taskStateMachine.TaskDefinition.TaskType)
+
+		// Set job to manual approval required state using existing repository method
+		if err = js.jobStateMachine.JobManager.SetJobRequestAndExecutingStatusToApprovalRequired(
+			js.jobStateMachine.JobExecution.ID, taskStateMachine.TaskDefinition.TaskType); err != nil {
+			return errorCode, fmt.Errorf("failed to set job to manual approval state: %w", err)
+		}
+
+		// Stop execution here - scheduler will resume when approved
+		return common.ErrorManualApprovalRequired, fmt.Errorf("job paused for manual approval of task: %s", taskStateMachine.TaskDefinition.TaskType)
 	}
 
 	// Continue with next task if task failed but is optional or succeeded

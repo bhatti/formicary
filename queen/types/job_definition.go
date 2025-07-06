@@ -226,6 +226,9 @@ func (jd *JobDefinition) GetNextTask(
 	} else if common.NewRequestState(nextTaskName) == common.PAUSE_JOB ||
 		common.NewRequestState(nextTaskName) == common.PAUSED {
 		nextTaskName = task.OnExitCode[common.PAUSE_JOB]
+		//} else if common.NewRequestState(nextTaskName) == common.WAIT_FOR_APPROVAL ||
+		//	common.NewRequestState(nextTaskName) == common.MANUAL_APPROVAL_REQUIRED {
+		//	nextTaskName = task.OnExitCode[common.WAIT_FOR_APPROVAL] // TODO verify
 	} else if common.NewRequestState(nextTaskName) == common.COMPLETED {
 		nextTaskName = task.OnExitCode[common.COMPLETED]
 	} else if common.NewRequestState(nextTaskName) == common.FAILED ||

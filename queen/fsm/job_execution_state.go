@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 	}
 
 	jsm.revertState = jsm.Request.GetJobState()
-	if jsm.revertState != common.PAUSED {
+	if jsm.revertState != common.PAUSED && jsm.revertState != common.MANUAL_APPROVAL_REQUIRED {
 		jsm.revertState = common.PENDING
 	}
 
@@ -279,7 +280,7 @@ func (jsm *JobExecutionStateMachine) CreateJobExecution(ctx context.Context) (db
 	if jsm.JobExecution != nil {
 		return fmt.Errorf("job-execution already exists"), nil
 	}
-	if jsm.Request.GetJobState() != common.PENDING && jsm.Request.GetJobState() != common.PAUSED {
+	if jsm.Request.GetJobState() != common.PENDING && jsm.Request.GetJobState() != common.PAUSED { // not common.MANUAL_APPROVAL_REQUIRED
 		return fmt.Errorf("invalid job-state %s", jsm.Request.GetJobState()), nil
 	}
 
@@ -613,6 +614,62 @@ func (jsm *JobExecutionStateMachine) PauseJob() (saveError error) {
 	return
 }
 
+// RequiresManualApproval for manual task
+func (jsm *JobExecutionStateMachine) RequiresManualApproval() (saveError error) {
+	if jsm.JobExecution.JobState != common.EXECUTING {
+		return fmt.Errorf("job cannot be set to manual approval because it's not executing")
+	}
+	// release ant resources for the job
+	jsm.forceReleaseJobResources()
+	now := time.Now()
+	jsm.Request.SetJobState(common.MANUAL_APPROVAL_REQUIRED)
+	jsm.JobExecution.EndedAt = &now
+	jsm.JobExecution.JobState = common.MANUAL_APPROVAL_REQUIRED
+	jsm.JobExecution.ErrorCode = common.ErrorMarshalingFailed
+	jsm.JobExecution.EndedAt = &now
+
+	fields := jsm.LogFields("JobExecutionStateMachine", nil)
+
+	// Mark job request and execution to common.MANUAL_APPROVAL_REQUIRED
+	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
+		jsm.QueryContext(),
+		jsm.User,
+		jsm.JobDefinition,
+		jsm.Request,
+		jsm.JobExecution,
+		common.EXECUTING,
+		jsm.JobDefinition.GetPauseTime(),
+		jsm.Request.IncrRetried(),
+	)
+
+	_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
+		jsm.Request,
+		types.JobRequestPaused,
+		jsm.QueryContext()))
+
+	jsm.MetricsRegistry.Incr(
+		"job_paused_total",
+		map[string]string{
+			"Org": jsm.Request.GetOrganizationID(),
+			"Job": jsm.Request.GetJobType()})
+
+	// treating error sending lifecycle event as non-fatal error
+	// using fresh context in case deadline reached
+	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
+		fields["LifecycleNotificationsError"] = eventError
+	}
+	fields["JobExecutionState"] = jsm.JobExecution.JobState
+	fields["JobExecutionErrorCode"] = jsm.JobExecution.ErrorCode
+	fields["PauseTime"] = jsm.JobDefinition.GetPauseTime().String()
+	if saveError == nil {
+		logrus.WithFields(fields).Infof("paused job successfully.")
+	} else {
+		fields["saveErr"] = saveError
+		logrus.WithFields(fields).Warnf("paused job failed to persist state.")
+	}
+	return
+}
+
 // RestartJobBackToPendingPaused puts back the job in PENDING|PAUSED state from executing
 func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (saveError error) {
 	// release ant resources for the job
@@ -722,6 +779,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		"Scheduled":          jsm.Request.GetScheduledAt(),
 		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
 		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
+		"ApprovalTaskType":   jsm.Request.GetApprovalTaskType(),
 	})
 
 	if jsm.JobDefinition != nil {
@@ -829,8 +887,8 @@ func (jsm *JobExecutionStateMachine) failed(
 	if saveExecErr != nil {
 		fields["saveExecErr"] = saveExecErr
 	}
-	//debug.PrintStack()
-	logrus.WithFields(fields).Warnf("failed to execute job")
+	debug.PrintStack()
+	logrus.WithFields(fields).Warnf("[jsm] failed to execute job, marked: %s", jsm.Request.GetJobState())
 	return saveExecErr
 }
 
@@ -913,7 +971,8 @@ func (jsm *JobExecutionStateMachine) forceReleaseJobResources() {
 // Fire event to notify job state
 func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.Context) (err error) {
 	if jsm.JobExecution == nil {
-		return fmt.Errorf("job-execution is not set")
+		debug.PrintStack()
+		return fmt.Errorf("job-execution is not set: %s", jsm.Request.GetJobExecutionID())
 	}
 	event := events.NewJobExecutionLifecycleEvent(
 		jsm.id,

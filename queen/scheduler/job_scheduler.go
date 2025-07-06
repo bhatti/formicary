@@ -168,7 +168,7 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	js.metricsRegistry.Incr("scheduler_checked_pending_total", nil)
 	requests, err := js.jobManager.NextSchedulableJobRequestsByType(
 		[]string{},
-		[]common.RequestState{common.PENDING, common.PAUSED},
+		[]common.RequestState{common.PENDING, common.PAUSED}, // MANUAL_APPROVAL_REQUIRED is not needed
 		1000)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -361,19 +361,20 @@ func (js *JobScheduler) scheduleJob(
 		return jobStateMachine.RevertRequestToPendingPaused(eventError)
 	}
 	logrus.WithFields(logrus.Fields{
-		"Component":        "JobScheduler",
-		"ID":               js.serverCfg.Common.ID,
-		"RequestID":        request.ID,
-		"UserID":           request.UserID,
-		"Organization":     request.OrganizationID,
-		"JobDefinitionID":  jobStateMachine.JobDefinition.ID,
-		"CronTrigger":      jobStateMachine.JobDefinition.CronTrigger,
-		"JobExecutionID":   jobStateMachine.JobExecution.ID,
-		"JobType":          request.JobType,
-		"Disabled":         jobStateMachine.JobDefinition.Disabled,
-		"RequestRetry":     request.GetRetried(),
-		"Priority":         request.GetJobPriority(),
-		"ScheduleAttempts": request.ScheduleAttempts,
+		"Component":          "JobScheduler",
+		"ID":                 js.serverCfg.Common.ID,
+		"RequestID":          request.ID,
+		"UserID":             request.UserID,
+		"Organization":       request.OrganizationID,
+		"JobDefinitionID":    jobStateMachine.JobDefinition.ID,
+		"CronTrigger":        jobStateMachine.JobDefinition.CronTrigger,
+		"JobExecutionID":     jobStateMachine.JobExecution.ID,
+		"JobType":            request.JobType,
+		"ManualApprovalTask": request.ManualApprovalTask,
+		"Disabled":           jobStateMachine.JobDefinition.Disabled,
+		"RequestRetry":       request.GetRetried(),
+		"Priority":           request.GetJobPriority(),
+		"ScheduleAttempts":   request.ScheduleAttempts,
 	}).Info("scheduling job...")
 	return nil
 }

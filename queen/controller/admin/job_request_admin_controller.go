@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"plexobject.com/formicary/internal/utils"
@@ -37,6 +38,7 @@ func NewJobRequestAdminController(
 	webserver.GET("/dashboard/jobs/requests/new", jraCtr.newJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "new_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests", jraCtr.createJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/approve", jraCtr.approveJobRequest, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
@@ -130,6 +132,21 @@ func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) erro
 		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/requests?job_state=DONE")
+}
+
+// approveJobRequests - approve job-request
+func (jraCtr *JobRequestAdminController) approveJobRequest(c web.APIContext) error {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	request := &types.ApproveTaskRequest{}
+	request.RequestID = id
+	request.TaskType = c.FormValue("taskType")
+	request.ApprovedBy = qc.GetUserID()
+
+	if err := jraCtr.jobManager.ApproveJobRequest(context.Background(), qc, request); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
 }
 
 // triggerJobRequest - triggers a scheduled job-request

@@ -111,6 +111,8 @@ const (
 	Subscribe = 131072
 	// Register action
 	Register = 262144
+	// Approve action
+	Approve = 524288
 	// All action
 	All = 1024 * 1024 * 1024
 )

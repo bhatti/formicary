@@ -116,7 +116,7 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 		updates["error_message"] = errorMessage
 		updates["error_code"] = errorCode
 	}
-	if newState == common.PENDING || newState == common.PAUSED {
+	if newState == common.PENDING || newState == common.PAUSED { // not common.MANUAL_APPROVAL_REQUIRED {
 		if scheduleDelay > 0 {
 			updates["scheduled_at"] = time.Now().Add(scheduleDelay)
 		}
@@ -261,7 +261,7 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 	var job types.JobRequest
 	tx := jrr.db.Model(&job).
 		Where("id = ?", id).
-		Where("job_state IN ?", []string{string(common.PENDING), string(common.PAUSED)})
+		Where("job_state IN ?", []string{string(common.PENDING), string(common.PAUSED)}) // not MANUAL_APPROVAL_REQUIRED
 
 	res = tx.Updates(map[string]interface{}{
 		"job_state":             common.READY,
@@ -300,6 +300,161 @@ func (jrr *JobRequestRepositoryImpl) UpdatePriority(
 			fmt.Errorf("failed to update priority for job-request with id %v", id))
 	}
 	return nil
+}
+
+// ApproveManually approves a job and updates job-request, job-execution, and task-execution atomically
+func (jrr *JobRequestRepositoryImpl) ApproveManually(qc *common.QueryContext, request *types.ApproveTaskRequest) error {
+	if request.RequestID == "" {
+		return common.NewValidationError(fmt.Errorf("job request is not defined"))
+	}
+	if request.TaskType == "" {
+		return common.NewValidationError(fmt.Errorf("task type is not defined"))
+	}
+	// Get the job request first
+	req, err := jrr.Get(qc, request.RequestID)
+	if err != nil {
+		return err
+	}
+
+	// Verify job is in manual approval state
+	if req.JobState != common.MANUAL_APPROVAL_REQUIRED {
+		return common.NewConflictError(fmt.Sprintf("request %s is not waiting for manual approval but has state %s",
+			req.ID, req.JobState))
+	}
+
+	// Verify we have a job execution
+	if req.JobExecutionID == "" {
+		return common.NewValidationError(fmt.Errorf("job request %s has no job execution ID", req.ID))
+	}
+	request.ExecutionID = req.JobExecutionID // ugg
+
+	return jrr.db.Transaction(func(db *gorm.DB) error {
+		now := time.Now()
+
+		// 1. Update the task execution that required approval
+		if request.TaskType != "" {
+			taskUpdateRes := db.Model(&types.TaskExecution{}).
+				Where("job_execution_id = ? AND task_type = ? AND task_state = ?",
+					req.JobExecutionID, request.TaskType, common.MANUAL_APPROVAL_REQUIRED).
+				Updates(map[string]interface{}{
+					"task_state":         common.COMPLETED,
+					"exit_code":          "APPROVED",
+					"exit_message":       fmt.Sprintf("Manually approved by %s", request.ApprovedBy),
+					"comments":           request.Comments,
+					"manual_approved_by": request.ApprovedBy,
+					"manual_approved_at": now,
+					"ended_at":           now,
+					"updated_at":         now,
+				})
+
+			if taskUpdateRes.Error != nil {
+				return common.NewNotFoundError(taskUpdateRes.Error)
+			}
+
+			if taskUpdateRes.RowsAffected == 0 {
+				logrus.WithFields(logrus.Fields{
+					"Component":      "JobRequestRepositoryImpl",
+					"JobExecutionID": req.JobExecutionID,
+					"TaskType":       request.TaskType,
+					"UserID":         request.ApprovedBy,
+				}).Warn("No task found to approve - task may have already been processed")
+			}
+
+			// Add approval context to the task
+			_, contextErr := jrr.addTaskApprovalContext(db, req.JobExecutionID, request.TaskType, request.ApprovedBy, now)
+			if contextErr != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component": "JobRequestRepositoryImpl",
+					"Error":     contextErr,
+				}).Warn("Failed to add approval context to task")
+			}
+		}
+
+		// 2. Update job execution state from MANUAL_APPROVAL_REQUIRED to READY
+		//    (scheduler will pick it up and resume from next task)
+		jobExecUpdateRes := db.Model(&types.JobExecution{}).
+			Where("id = ? AND job_state = ?", req.JobExecutionID, common.MANUAL_APPROVAL_REQUIRED).
+			Updates(map[string]interface{}{
+				"job_state":     common.READY,
+				"error_code":    "",
+				"error_message": "",
+				"updated_at":    now,
+			})
+
+		if jobExecUpdateRes.Error != nil {
+			return common.NewNotFoundError(jobExecUpdateRes.Error)
+		}
+
+		if jobExecUpdateRes.RowsAffected != 1 {
+			return common.NewNotFoundError(
+				fmt.Errorf("failed to update job execution state for job-execution-id %s", req.JobExecutionID))
+		}
+
+		// 3. Update job request state from MANUAL_APPROVAL_REQUIRED to PENDING
+		//    (scheduler will pick up PENDING jobs and resume execution)
+		jobReqUpdateRes := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).
+			Where("id = ? AND job_state = ?", request.RequestID, common.MANUAL_APPROVAL_REQUIRED).
+			Updates(map[string]interface{}{
+				"job_state":     common.PENDING,
+				"error_code":    "",
+				"error_message": "",
+				"updated_at":    now,
+			})
+
+		if jobReqUpdateRes.Error != nil {
+			return common.NewNotFoundError(jobReqUpdateRes.Error)
+		}
+
+		if jobReqUpdateRes.RowsAffected != 1 {
+			return common.NewNotFoundError(
+				fmt.Errorf("failed to mark job-request as manually approved with id %s", request.RequestID))
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"Component":      "JobRequestRepositoryImpl",
+			"JobRequestID":   request.RequestID,
+			"JobExecutionID": req.JobExecutionID,
+			"TaskType":       request.TaskType,
+			"ApprovedBy":     request.ApprovedBy,
+		}).Info("Job manually approved and set back to PENDING for scheduler pickup")
+
+		return nil
+	})
+}
+
+// Helper method to add approval context to task execution
+func (jrr *JobRequestRepositoryImpl) addTaskApprovalContext(
+	db *gorm.DB,
+	jobExecutionID string,
+	taskType string,
+	userId string,
+	approvedAt time.Time) (*types.TaskExecutionContext, error) {
+	// Find the task execution
+	var taskExec types.TaskExecution
+	err := db.Where("job_execution_id = ? AND task_type = ?", jobExecutionID, taskType).First(&taskExec).Error
+	if err != nil {
+		return nil, err
+	}
+
+	nv, err := common.NewNameTypeValue("ManuallyApprovedBy", userId, false)
+	if err != nil {
+		return nil, err
+	}
+	// Create approval context
+	approvalContext := &types.TaskExecutionContext{
+		ID:              ulid.Make().String(),
+		TaskExecutionID: taskExec.ID,
+		NameTypeValue:   nv,
+		CreatedAt:       approvedAt,
+	}
+
+	// Save context
+	err = db.Create(approvalContext).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return approvalContext, nil
 }
 
 // Cancel a job
@@ -441,7 +596,7 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
 		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
-	// TODO check PAUSED
+	// TODO check PAUSED and MANUAL_APPROVAL_REQUIRED
 	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, common.NotRestartableStates}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
@@ -729,11 +884,12 @@ func (jrr *JobRequestRepositoryImpl) FindActiveCronScheduledJobsByJobType(
 		}
 		_, userKeys[i] = types.GetCronScheduleTimeAndUserKey(typeAndTrigger.OrganizationOrUserID(), typeAndTrigger.JobType, typeAndTrigger.CronTrigger)
 	}
-	jobStates := []common.RequestState{common.PENDING, common.PAUSED, common.READY, common.STARTED, common.EXECUTING}
+	jobStates := []common.RequestState{common.PENDING, common.PAUSED, common.MANUAL_APPROVAL_REQUIRED,
+		common.READY, common.STARTED, common.EXECUTING}
 	args := []interface{}{true, jobTypes, jobStates}
 
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE " +
+		" job_definition_id, job_execution_id, last_job_execution_id, manual_approval_task, cron_triggered, retried FROM formicary_job_requests WHERE " +
 		" cron_triggered = ? AND ((job_type IN ? AND job_state IN ?"
 	if len(userIDs) > 0 {
 		sql += " AND user_id IN ?"
@@ -797,7 +953,7 @@ func (jrr *JobRequestRepositoryImpl) NextSchedulableJobsByTypes(
 	state []common.RequestState,
 	limit int) ([]*types.JobRequestInfo, error) {
 	sql := "SELECT id, job_type, job_version, organization_id, user_id, job_priority, job_state, schedule_attempts, scheduled_at, created_at, " +
-		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, retried FROM formicary_job_requests WHERE job_type in " +
+		" job_definition_id, job_execution_id, last_job_execution_id, cron_triggered, manual_approval_task, retried FROM formicary_job_requests WHERE job_type in " +
 		" (SELECT job_type FROM formicary_job_definitions WHERE disabled is false AND active is true AND " +
 		" (user_id = formicary_job_requests.user_id OR organization_id = formicary_job_requests.organization_id)) " +
 		" AND job_state IN ? AND scheduled_at <= ? "
@@ -903,7 +1059,8 @@ func (jrr *JobRequestRepositoryImpl) Query(
 	tx := qc.AddOrgElseUserWhere(jrr.db, true).Preload("Params").Limit(pageSize).Offset(page * pageSize)
 	tx = jrr.addQuery(params, tx)
 	if len(order) == 0 {
-		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING || jobState == common.PAUSED {
+		if jobState == common.WAITING || jobState == common.READY || jobState == common.PENDING ||
+			jobState == common.PAUSED || jobState == common.MANUAL_APPROVAL_REQUIRED {
 			tx = tx.Order("job_priority DESC").Order("created_at")
 		} else {
 			tx = tx.Order("updated_at DESC")

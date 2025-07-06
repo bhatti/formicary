@@ -22,6 +22,13 @@
                         <input type="submit" class="btn btn-secondary" value="Wait Time"></form>
                     {{end}}
 
+                    {{if .CanApprove }}
+                    &nbsp;
+                    <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#approveModal">
+                        Approve
+                    </button>
+                    {{end}}
+
                     {{if .CanCancel }}
                     &nbsp;
                     <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"
@@ -33,6 +40,50 @@
             </tr>
         </table>
     </header>
+
+    <!-- Approval Modal -->
+    {{if .CanApprove }}
+    <div class="modal fade" id="approveModal" tabindex="-1" role="dialog" aria-labelledby="approveModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approveModalLabel">Approve Job Request</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form action="/dashboard/jobs/requests/{{.ID}}/approve" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>Job ID:</strong> {{.ID}}<br>
+                            <strong>Job Type:</strong> {{.JobType}}<br>
+                            <strong>Task Requiring Approval:</strong> {{.GetApprovalTaskType}}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="approvalComments">Comments (optional):</label>
+                            <textarea class="form-control" id="approvalComments" name="comments" rows="3"
+                                      placeholder="Add any comments about this approval..."></textarea>
+                        </div>
+
+                        <input type="hidden" name="taskType" value="{{.GetApprovalTaskType}}">
+                        <input type="hidden" name="requestId" value="{{.ID}}">
+
+                        <div class="alert alert-warning">
+                            <strong>Are you sure you want to approve this job?</strong><br>
+                            This will allow the job to continue execution.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <input type="submit" class="btn btn-warning" value="Approve Job">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
     <div class="table-responsive">
         <table class="table table-sm">
             <tr class="table-primary">
@@ -410,4 +461,16 @@
         </table>
     </div>
     {{ end }}
+    <!-- Add JavaScript for Bootstrap modal if not already included -->
+    <script>
+        // Ensure modal works properly
+        $(document).ready(function() {
+            $('#approveModal').on('show.bs.modal', function (e) {
+                // Focus on comments field when modal opens
+                setTimeout(function() {
+                    $('#approvalComments').focus();
+                }, 500);
+            });
+        });
+    </script>
 </section>

@@ -144,6 +144,13 @@ func (jl *JobLauncher) launchJob(
 			return jobStateMachine.RevertRequestToPendingPaused(err)
 		default:
 			jl.metricsRegistry.Incr("launcher_failed_total", nil)
+			logrus.WithFields(logrus.Fields{
+				"Component":             "JobLauncher",
+				"RequestID":             requestID,
+				"JobType":               jobType,
+				"JobExecutionID":        jobExecutionID,
+				"AllocationsByTaskType": allocationsByTaskType,
+			}).WithError(err).Warnf("failed to launch request")
 			// changing state from READY to FAILED
 			return jobStateMachine.LaunchFailed(ctx, err)
 		}
@@ -262,7 +269,7 @@ func (jl *JobLauncher) removeSupervisor(
 	// cancel explicitly to make sure we don't miss it
 	if jobSupervisor != nil &&
 		(jobExecutionLifecycleEvent.JobState == common.CANCELLED ||
-			jobExecutionLifecycleEvent.JobState == common.PAUSED) {
+			jobExecutionLifecycleEvent.JobState == common.PAUSED) { // not MANUAL_APPROVAL_REQUIRED
 		logrus.WithFields(logrus.Fields{
 			"Component":                  "JobLauncher",
 			"ID":                         jobExecutionLifecycleEvent.ID,
@@ -271,5 +278,13 @@ func (jl *JobLauncher) removeSupervisor(
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
 		}).Infof("forwarding cancellation job lifecycle event")
 		_ = jobSupervisor.UpdateFromJobLifecycleEvent(ctx, jobExecutionLifecycleEvent)
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component":                  "JobLauncher",
+			"ID":                         jobExecutionLifecycleEvent.ID,
+			"Target":                     jl.id,
+			"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+		}).Infof("skip forwarding cancellation job lifecycle event")
 	}
 }

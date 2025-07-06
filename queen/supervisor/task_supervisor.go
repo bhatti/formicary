@@ -56,8 +56,10 @@ func (ts *TaskSupervisor) execute(
 	}
 
 	defer func() {
-		logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
-			Infof("canceling context in execute with timeout: %s", timeout)
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
+				Debugf("[ts] canceling context in execute with timeout: %s", timeout)
+		}
 		ts.cancel()
 	}()
 
@@ -72,7 +74,7 @@ func (ts *TaskSupervisor) execute(
 
 	// we will save task state in the end
 	defer func() {
-		if !ts.taskStateMachine.TaskExecution.TaskState.IsTerminal() {
+		if !ts.taskStateMachine.TaskExecution.TaskState.CanFinalize() { // changed from IsTerminal for manual
 			if err == nil {
 				if ctx.Err() != nil {
 					err = fmt.Errorf("%v (timeout=%s/%s)",
@@ -88,16 +90,24 @@ func (ts *TaskSupervisor) execute(
 		saveErr := ts.taskStateMachine.FinalizeTaskState(ctx)
 		if ts.taskStateMachine.TaskExecution.Failed() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("failed to run task '%s', exit=%s!",
-					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
+				Warnf("[ts] failed to run task '%s', exit=%s state=%s",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
+					ts.taskStateMachine.TaskExecution.TaskState)
 		} else if ts.taskStateMachine.TaskExecution.Paused() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("pausing job from task '%s', exit=%s!",
-					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
+				Warnf("[ts] pausing job from task '%s', exit=%s state=%s",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
+					ts.taskStateMachine.TaskExecution.TaskState)
+		} else if ts.taskStateMachine.TaskExecution.CanApprove() {
+			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
+				Warnf("[ts] waiting for manual approval of task '%s', exit=%s state=%s",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
+					ts.taskStateMachine.TaskExecution.TaskState)
 		} else {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Infof("completed task successfully '%s', exit=%s!",
-					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode)
+				Infof("[ts] completed task successfully '%s', exit=%s state=%s",
+					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
+					ts.taskStateMachine.TaskExecution.TaskState)
 		}
 	}()
 
@@ -110,9 +120,8 @@ func (ts *TaskSupervisor) execute(
 	}
 
 	logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor")).
-		Infof("starting task %s ...",
-			ts.taskStateMachine.TaskDefinition.TaskType,
-		)
+		Infof("starting %s task %s ...",
+			ts.taskStateMachine.TaskDefinition.Method, ts.taskStateMachine.TaskDefinition.TaskType)
 
 	// mark task as executing
 	if err = ts.taskStateMachine.SetTaskToExecuting(ctx); err == nil {
@@ -157,7 +166,11 @@ func (ts *TaskSupervisor) tryExecuteTask(
 	for executing := true; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
 		// send request and wait synchronously for response
 		var taskResp *common.TaskResponse
-		taskResp, err = ts.invoke(ctx, taskReq)
+		if ts.taskStateMachine.TaskDefinition.Method == common.Manual {
+			taskResp, err = ts.invokeManual(ctx, taskReq)
+		} else {
+			taskResp, err = ts.invoke(ctx, taskReq)
+		}
 		if err == nil {
 			err = ctx.Err()
 		}
@@ -303,5 +316,42 @@ func (ts *TaskSupervisor) invoke(
 		}
 	}
 	res.Ack() // auto-ack
+	return
+}
+
+// invoking manual task request
+func (ts *TaskSupervisor) invokeManual(
+	_ context.Context,
+	taskReq *common.TaskRequest) (taskResp *common.TaskResponse, err error) {
+	// setup retry parameters and container name
+	taskReq.JobRetry = ts.taskStateMachine.Request.GetRetried()
+	taskReq.TaskRetry = ts.taskStateMachine.TaskExecution.Retried
+	ts.taskStateMachine.BuildExecutorOptsName()
+	ts.taskStateMachine.TaskExecution.AntID = string(common.Manual)
+
+	// Add context for manual approval tracking
+	_, _ = ts.taskStateMachine.TaskExecution.AddContext("ManualApprovalRequired", true)
+	_, _ = ts.taskStateMachine.TaskExecution.AddContext("ManualApprovalRequestedAt", time.Now().Format(time.RFC3339))
+	_, _ = ts.taskStateMachine.TaskExecution.AddContext("AwaitingApprovalFor", ts.taskStateMachine.TaskDefinition.TaskType)
+
+	taskResp = common.NewTaskResponse(taskReq)
+	taskResp.Status = common.MANUAL_APPROVAL_REQUIRED
+	taskResp.ExitCode = "AWAITING_APPROVAL"
+	taskResp.ExitMessage = fmt.Sprintf("Task '%s' requires manual approval", ts.taskStateMachine.TaskDefinition.TaskType)
+	taskResp.ErrorMessage = taskResp.ExitMessage
+
+	logrus.WithFields(logrus.Fields{
+		"Component":         "TaskSupervisor",
+		"Task":              ts.taskStateMachine.TaskDefinition,
+		"AntID":             ts.taskStateMachine.Reservation.AntTopic,
+		"ReqTopic":          ts.taskStateMachine.Reservation.AntTopic,
+		"ResTopic":          ts.serverCfg.GetResponseTopicTaskReply(),
+		"RequestID":         ts.taskStateMachine.Request.GetID(),
+		"Retried":           ts.taskStateMachine.Request.GetRetried(),
+		"OriginalState":     taskResp.Status,
+		"OriginalErrorCode": taskResp.ErrorCode,
+		"ExitCode":          taskResp.ExitCode,
+		"RequiresApproval":  true,
+	}).Infof("[ts] invokeManual marking manual task: %s", ts.taskStateMachine.TaskDefinition.TaskType)
 	return
 }

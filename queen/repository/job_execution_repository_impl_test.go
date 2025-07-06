@@ -62,7 +62,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 
 	// AND setting status to EXECUTING for job-execution should succeed
 	err = jobExecutionRepository.UpdateJobRequestAndExecutionState(
-		savedJobExec.ID, common.READY, common.EXECUTING)
+		savedJobExec.ID, common.READY, common.EXECUTING, "")
 	require.NoError(t, err)
 
 	// AND changing job-context should succeed
@@ -97,7 +97,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 
 	// should fail setting status after terminal state
 	err = jobExecutionRepository.UpdateJobRequestAndExecutionState(
-		savedJobExec.ID, common.READY, common.EXECUTING)
+		savedJobExec.ID, common.READY, common.EXECUTING, "")
 	require.Error(t, err)
 
 	loaded, err = jobExecutionRepository.Get(jobExec.ID)

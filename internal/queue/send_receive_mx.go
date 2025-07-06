@@ -69,10 +69,13 @@ func (mx *SendReceiveMultiplexer) Notify(ctx context.Context,
 			if next.filter == nil || next.filter(ctx, event) {
 				if err := next.callback(ctx, event, ack, nack); err != nil {
 					logrus.WithFields(logrus.Fields{
-						"Component": "SendReceiveMultiplexer",
-						"Event":     event,
-						"Topic":     mx.topic,
-					}).Warnf("failed to notify event")
+						"Component":          "SendReceiveMultiplexer",
+						"EventTopic":         event.Topic,
+						"EventProducerName ": event.ProducerName,
+						"EventID":            string(event.ID),
+						"Topic":              mx.topic,
+					}).WithError(err).Warnf("failed to notify event")
+					return sent // TODO verify
 				}
 				if next.consumerChannel != nil {
 					// this is mainly used by send/receive and could be blocked if buffer is full in other use cases

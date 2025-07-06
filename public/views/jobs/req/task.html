@@ -1,73 +1,146 @@
 <section class="group">
     <header class="group-header">
-        <h4 class="group-title">Task Execution</h4>
+        <table class="table table-sm">
+            <tr>
+                <td>
+                    <h4 class="group-title">Task Execution: {{.Task.TaskType}} - {{.Task.ID}}</h4>
+                </td>
+                <td class="text-right row">
+                    {{if and .Request.CanApprove .Task.CanApprove }}
+                    <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#approveTaskModal">
+                        Approve Task
+                    </button>
+                    {{end}}
+                </td>
+            </tr>
+        </table>
     </header>
+
+    <!-- Task Approval Modal -->
+    {{if and .Request.CanApprove .Task.CanApprove }}
+    <div class="modal fade" id="approveTaskModal" tabindex="-1" role="dialog" aria-labelledby="approveTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approveTaskModalLabel">Approve Task</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form action="/dashboard/jobs/requests/{{.Request.ID}}/approve" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>Task ID:</strong> {{.Task.ID}}<br>
+                            <strong>Task Type:</strong> {{.Task.TaskType}}<br>
+                            <strong>Job Execution ID:</strong> {{.Task.JobExecutionID}}<br>
+                            <strong>Current State:</strong> {{.Task.TaskState}}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskApprovalComments">Comments (optional):</label>
+                            <textarea class="form-control" id="taskApprovalComments" name="comments" rows="3"
+                                      placeholder="Add any comments about this task approval..."></textarea>
+                        </div>
+
+                        <input type="hidden" name="taskType" value="{{.Task.TaskType}}">
+                        <input type="hidden" name="taskExecutionId" value="{{.Request.ID}}">
+
+                        <div class="alert alert-warning">
+                            <strong>Are you sure you want to approve this task?</strong><br>
+                            This will mark the task as completed and allow the job to continue.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <input type="submit" class="btn btn-warning" value="Approve Task">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
     <div class="table-responsive">
         <table class="table table-sm">
             <tr class="table-info">
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>ID:</b></dt>
-                        <dd class="col-sm-8">{{ .ID }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ID }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Type:</b></dt>
-                        <dd class="col-sm-8">{{ .TaskType}}</dd>
+                        <dd class="col-sm-8">{{ .Task.TaskType}}</dd>
                     </dl>
                 </td>
             </tr>
-            {{if .Completed }}
+            <!-- Show manual approval details if task requires approval -->
+            {{if and .Request.CanApprove .Task.CanApprove }}
+            <tr class="table-warning">
+                <td colspan="2">
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Approval Status:</b></dt>
+                        <dd class="col-sm-8">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                            <strong>This task requires manual approval before the job can continue.</strong>
+                            <br><small class="text-muted">Please review the task and click "Approve Task" if ready to proceed.</small>
+                        </dd>
+                    </dl>
+                </td>
+            </tr>
+            {{end}}
+            {{if .Task.Completed }}
             <tr class="table-success">
-                {{end}}
-                {{if .Failed }}
+            {{end}}
+            {{if .Task.Failed }}
             <tr class="table-danger">
-                {{end}}
-                {{if .NotTerminal }}
+            {{end}}
+            {{if .Task.NotTerminal }}
             <tr class="table-info">
-                {{end}}
+            {{end}}
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>State:</b></dt>
-                        <dd class="col-sm-8">{{ .TaskState }}</dd>
+                        <dd class="col-sm-8">{{ .Task.TaskState }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Task Method:</b></dt>
-                        <dd class="col-sm-8">{{ .Method }}</dd>
+                        <dd class="col-sm-8">{{ .Task.Method }}</dd>
                     </dl>
                 </td>
             </tr>
-            {{if .Completed }}
+            {{if .Task.Completed }}
             <tr class="table-secondary">
-                {{end}}
-                {{if .Failed }}
+            {{end}}
+            {{if .Task.Failed }}
             <tr class="table-danger">
-                {{end}}
-                {{if .NotTerminal }}
+            {{end}}
+            {{if .Task.NotTerminal }}
             <tr class="table-secondary">
-                {{end}}
+            {{end}}
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Error Code:</b></dt>
-                        <dd class="col-sm-8">{{ .ErrorCode }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ErrorCode }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Failure Retries:</b></dt>
-                        <dd class="col-sm-8">{{ .Retried }}</dd>
+                        <dd class="col-sm-8">{{ .Task.Retried }}</dd>
                     </dl>
                 </td>
             </tr>
-            {{if .Failed }}
+            {{if .Task.Failed }}
             <tr class="table-danger">
                 <td colspan="2">
                     <dl class="row">
                         <dt class="col-sm-4"><b>Error Message:</b></dt>
-                        <dd class="col-sm-8">{{ .ErrorMessage }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ErrorMessage }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -75,13 +148,13 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Exit Message:</b></dt>
-                        <dd class="col-sm-8">{{ .ExitMessage }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ExitMessage }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Failed Command:</b></dt>
-                        <dd class="col-sm-8">{{ .FailedCommand }}</dd>
+                        <dd class="col-sm-8">{{ .Task.FailedCommand }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -90,13 +163,13 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Run Time:</b></dt>
-                        <dd class="col-sm-8">{{ .ElapsedDuration }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ElapsedDuration }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Exit Code:</b></dt>
-                        <dd class="col-sm-8">{{ .ExitCode }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ExitCode }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -104,13 +177,13 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Total Cost:</b></dt>
-                        <dd class="col-sm-8">{{ .ExecutionCostSecs }}</dd>
+                        <dd class="col-sm-8">{{ .Task.ExecutionCostSecs }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Services:</b></dt>
-                        <dd class="col-sm-8">{{ .CountServices }}</dd>
+                        <dd class="col-sm-8">{{ .Task.CountServices }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -118,13 +191,13 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Order:</b></dt>
-                        <dd class="col-sm-8">{{ .TaskOrder}}</dd>
+                        <dd class="col-sm-8">{{ .Task.TaskOrder}}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Allow Failure:</b></dt>
-                        <dd class="col-sm-8">{{ .AllowFailure }}</dd>
+                        <dd class="col-sm-8">{{ .Task.AllowFailure }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -132,27 +205,45 @@
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Ant ID:</b></dt>
-                        <dd class="col-sm-8">{{ .AntID }}</dd>
+                        <dd class="col-sm-8">{{ .Task.AntID }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Ant Host:</b></dt>
-                        <dd class="col-sm-8">{{ .AntHost }}</dd>
+                        <dd class="col-sm-8">{{ .Task.AntHost }}</dd>
                     </dl>
                 </td>
             </tr>
+            <!-- Show manual approval details if task was manually approved -->
+            {{if .Task.ManualApprovedBy }}
+            <tr class="table-success">
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Manually Approved By:</b></dt>
+                        <dd class="col-sm-8">{{ .Task.ManualApprovedBy }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Approved At:</b></dt>
+                        <dd class="col-sm-8">{{ .Task.ManualApprovedAt }}</dd>
+                    </dl>
+                </td>
+            </tr>
+            {{end}}
+
             <tr class="table-secondary">
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Started At:</b></dt>
-                        <dd class="col-sm-8">{{ .StartedAt }}</dd>
+                        <dd class="col-sm-8">{{ .Task.StartedAt }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
                         <dt class="col-sm-4"><b>Ended At:</b></dt>
-                        <dd class="col-sm-8">{{ .EndedAt }}</dd>
+                        <dd class="col-sm-8">{{ .Task.EndedAt }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -175,7 +266,7 @@
                 <th class="col-sm-2">Size</th>
             </tr>
             </thead>
-            {{range .Artifacts }}
+            {{range .Task.Artifacts }}
             <tr scope="row">
                 {{if false}}
                 <td>
@@ -207,7 +298,7 @@
                 <th class="col-sm-8">Value</th>
             </tr>
             </thead>
-            {{range .Contexts }}
+            {{range .Task.Contexts }}
             <tr scope="row">
                 <td>
                     <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
@@ -220,7 +311,7 @@
         </table>
     </div>
 
-    {{ with .LogArtifact }}
+    {{ with .Task.LogArtifact }}
     <div>
         <h5><label for="logs_{{.SHA256}}" class="col-sm-2 col-form-label">Console Logs: </label></h5>
         <div class="form-group row">
@@ -237,4 +328,16 @@
         </div>
     </div>
     {{ end }}
+
+    <!-- JavaScript for modal functionality -->
+    <script>
+        $(document).ready(function() {
+            $('#approveTaskModal').on('show.bs.modal', function (e) {
+                // Focus on comments field when modal opens
+                setTimeout(function() {
+                    $('#taskApprovalComments').focus();
+                }, 500);
+            });
+        });
+    </script>
 </section>

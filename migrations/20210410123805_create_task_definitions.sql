@@ -17,6 +17,7 @@
       on_exit_code_serialized TEXT,
       on_completed VARCHAR(100),
       on_failed VARCHAR(100),
+      required_manual_roles VARCHAR(200),
       task_order INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW(),

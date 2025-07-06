@@ -101,6 +101,8 @@ type JobRequestRepository interface {
 	Cancel(
 		qc *common.QueryContext,
 		id string) error
+	// ApproveManually - approves task
+	ApproveManually(qc *common.QueryContext, request *types.ApproveTaskRequest) error
 	// Trigger triggers a scheduled job
 	Trigger(
 		qc *common.QueryContext,

@@ -68,7 +68,8 @@ func (t *BaseTasklet) subscribeToJobLifecycleEvent(
 		// need to consume any queuing resources.
 		t.EventBus.Publish(t.Config.GetJobExecutionLifecycleTopic(), jobExecutionLifecycleEvent)
 		if jobExecutionLifecycleEvent.JobState == types.CANCELLED ||
-			jobExecutionLifecycleEvent.JobState == types.PAUSED {
+			jobExecutionLifecycleEvent.JobState == types.PAUSED ||
+			jobExecutionLifecycleEvent.JobState == types.MANUAL_APPROVAL_REQUIRED {
 			if err := t.RequestRegistry.CancelJob(jobExecutionLifecycleEvent.JobRequestID); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":                  "BaseTasklet",
@@ -107,7 +108,7 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 		}
 		t.EventBus.Publish(t.Config.GetTaskExecutionLifecycleTopic(), taskExecutionLifecycleEvent)
 		if taskExecutionLifecycleEvent.TaskState == types.CANCELLED ||
-			taskExecutionLifecycleEvent.TaskState == types.PAUSED {
+			taskExecutionLifecycleEvent.TaskState == types.PAUSED { //not MANUAL_APPROVAL_REQUIRED
 			if err = t.RequestRegistry.Cancel(taskExecutionLifecycleEvent.Key()); err != nil {
 				logrus.WithFields(logrus.Fields{
 					"Component":                   "BaseTasklet",

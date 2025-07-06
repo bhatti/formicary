@@ -42,10 +42,16 @@ type TaskExecution struct {
 	ErrorMessage string `json:"error_message"`
 	// FailedCommand captures command that failed
 	FailedCommand string `json:"failed_command"`
+	// Comments
+	Comments string `json:"comments"`
 	// AntID - id of ant with version
 	AntID string `json:"ant_id"`
 	// AntHost - host where ant ran the task
 	AntHost string `json:"ant_host"`
+	// ManualApprovedBy for manual task
+	ManualApprovedBy string `json:"manual_approved_by" gorm:"manual_approved_by"`
+	// ManualApprovedAt for manual task
+	ManualApprovedAt *time.Time `json:"manual_approved_at" gorm:"manual_approved_at"`
 	// Retried keeps track of retry attempts
 	Retried int `json:"retried"`
 	// Contexts defines context variables of task
@@ -132,6 +138,16 @@ func (te *TaskExecution) CanRestart() bool {
 // CanCancel checks if task can be cancelled
 func (te *TaskExecution) CanCancel() bool {
 	return te.TaskState.CanCancel()
+}
+
+// CanApprove checks if task can be approved
+func (te *TaskExecution) CanApprove() bool {
+	return te.TaskState.CanApprove()
+}
+
+// IsManuallyApproved checks if task was manually approved
+func (te *TaskExecution) IsManuallyApproved() bool {
+	return te.ManualApprovedBy != "" && te.ManualApprovedAt != nil
 }
 
 // Completed task

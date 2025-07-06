@@ -717,7 +717,8 @@ func (jm *JobManager) CancelJobRequest(
 		return err
 	}
 	jm.jobStatsRegistry.Cancelled(req)
-	if req.JobState == common.PENDING || req.JobState == common.PAUSED {
+	if req.JobState == common.PENDING || req.JobState == common.PAUSED ||
+		req.JobState == common.MANUAL_APPROVAL_REQUIRED {
 		if err = jm.jobRequestRepository.Cancel(qc, id); err != nil {
 			return err
 		}
@@ -737,6 +738,87 @@ func (jm *JobManager) CancelJobRequest(
 		"UserKey":      req.UserKey,
 	}).Infof("canceled request")
 	_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestCancelled, qc))
+	return nil
+}
+
+// ApproveJobRequest approves a manually paused job - scheduler will resume it
+func (jm *JobManager) ApproveJobRequest(ctx context.Context,
+	qc *common.QueryContext, approveRequest *types.ApproveTaskRequest) error {
+	// Use the repository's atomic approval method
+	if err := jm.jobRequestRepository.ApproveManually(qc, approveRequest); err != nil {
+		return fmt.Errorf("failed to approve job request: %w", err)
+	}
+
+	// Get the updated job request for notifications/audit
+	request, err := jm.jobRequestRepository.Get(qc, approveRequest.RequestID)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobManager",
+			"RequestID": approveRequest.RequestID,
+			"Error":     err,
+		}).Warn("Failed to get job request after approval for audit/notification")
+	} else {
+		// Create audit record
+		_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(request, types.JobRequestApproved, qc))
+
+		// Send notifications
+		_ = jm.sendApprovalNotification(ctx, qc, request, approveRequest)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"Component":          "JobManager",
+		"RequestID":          approveRequest.RequestID,
+		"TaskType":           approveRequest.TaskType,
+		"ApprovedBy":         approveRequest.ApprovedBy,
+		"Comments":           approveRequest.Comments,
+		"ManualApprovalTask": request.ManualApprovalTask,
+		"Retried":            request.Retried,
+	}).Info("Job approved and set to PENDING for scheduler pickup")
+
+	return nil
+}
+
+// Fire event to start the job by job-launcher that listens to incoming request in queue and executes it
+func (jm *JobManager) sendApprovalNotification(_ context.Context, qc *common.QueryContext,
+	request *types.JobRequest, _ *types.ApproveTaskRequest) (err error) {
+	// TODO add background process for message notifications with database persistence
+	go func() {
+		job, err := jm.jobDefinitionRepository.GetByType(qc, request.JobType)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":        "JobManager",
+				"User":             qc.User,
+				"Request":          request,
+				"LastRequestState": common.APPROVED,
+			}).WithError(err).Warnf("failed to find job-type %s", request.JobType)
+			return
+		}
+		jobExec, err := jm.jobExecutionRepository.Get(request.JobExecutionID)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":        "JobManager",
+				"User":             qc.User,
+				"Request":          request,
+				"LastRequestState": common.APPROVED,
+			}).WithError(err).Warnf("failed to find job-execution %s", request.JobExecutionID)
+			return
+		}
+		if notifyErr := jm.NotifyJobMessage(
+			qc,
+			qc.User,
+			job,
+			request,
+			jobExec,
+			common.APPROVED); notifyErr != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":        "JobManager",
+				"User":             qc.User,
+				"Request":          request,
+				"LastRequestState": common.APPROVED,
+				"Error":            notifyErr,
+			}).Warnf("failed to send job notification")
+		}
+	}()
 	return nil
 }
 
@@ -1083,7 +1165,18 @@ func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID str
 	return jm.jobExecutionRepository.UpdateJobRequestAndExecutionState(
 		executionID,
 		common.READY,
-		common.EXECUTING)
+		common.EXECUTING,
+		"")
+}
+
+// SetJobRequestAndExecutingStatusToApprovalRequired updates state of job-execution and job-request to MANUAL_APPROVAL_REQUIRED
+func (jm *JobManager) SetJobRequestAndExecutingStatusToApprovalRequired(
+	executionID string, taskType string) error {
+	return jm.jobExecutionRepository.UpdateJobRequestAndExecutionState(
+		executionID,
+		common.EXECUTING, // old state
+		common.MANUAL_APPROVAL_REQUIRED,
+		taskType) // new state
 }
 
 // NotifyJobMessage notifies job results

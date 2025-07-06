@@ -25,13 +25,15 @@ const (
 	CANCELLED RequestState = "CANCELLED"
 	// PAUSED request
 	PAUSED RequestState = "PAUSED"
+	// MANUAL_APPROVAL_REQUIRED request
+	MANUAL_APPROVAL_REQUIRED RequestState = "MANUAL_APPROVAL_REQUIRED"
 
 	// HISTORY request -- collection of FAILED/COMPLETED/CANCELLED
 	// Grouping use for queries
 	HISTORY RequestState = "HISTORY"
 	// RUNNING request -- collection of STARTED/EXECUTING
 	RUNNING RequestState = "RUNNING"
-	// WAITING request -- collection of PENDING/PAUSED/READY
+	// WAITING request -- collection of PENDING/PAUSED/MANUAL_APPROVAL_REQUIRED/READY
 	WAITING RequestState = "WAITING"
 
 	// FATAL request
@@ -43,8 +45,14 @@ const (
 	// PAUSE_JOB request
 	PAUSE_JOB RequestState = "PAUSE_JOB"
 
+	// WAIT_FOR_APPROVAL request
+	WAIT_FOR_APPROVAL RequestState = "WAIT_FOR_APPROVAL"
+
 	// RESTART_TASK request
 	RESTART_TASK RequestState = "RESTART_TASK"
+
+	// APPROVED request
+	APPROVED RequestState = "APPROVED"
 
 	// RESERVED request
 	// Resource management
@@ -62,7 +70,7 @@ var TerminalStates = []string{string(COMPLETED), string(FAILED), string(CANCELLE
 var RunningStates = []string{string(EXECUTING), string(STARTED)}
 
 // WaitingStates defines pending or ready state
-var WaitingStates = []string{string(PENDING), string(PAUSED), string(READY)}
+var WaitingStates = []string{string(PENDING), string(PAUSED), string(READY), string(MANUAL_APPROVAL_REQUIRED)}
 
 // NotRestartableStates defines pending or completed state
 var NotRestartableStates = []string{string(PENDING), string(READY), string(COMPLETED)}
@@ -82,22 +90,28 @@ func (rs RequestState) IsTerminal() bool {
 
 // CanFinalize returns true if state is terminal or be finalized
 func (rs RequestState) CanFinalize() bool {
-	return rs.IsTerminal() || rs == PAUSED
+	return rs.IsTerminal() || rs == PAUSED || rs == MANUAL_APPROVAL_REQUIRED
 }
 
 // Processing returns true if state is still processing
 func (rs RequestState) Processing() bool {
-	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY || rs == EXECUTING || rs == STARTED
+	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY || rs == EXECUTING ||
+		rs == STARTED || rs == MANUAL_APPROVAL_REQUIRED
 }
 
 // CanRestart checks if request can be restarted
 func (rs RequestState) CanRestart() bool {
-	return rs == FAILED || rs == CANCELLED || rs == PAUSED
+	return rs == FAILED || rs == CANCELLED || rs == PAUSED // not MANUAL_APPROVAL_REQUIRED
 }
 
 // CanCancel checks if request can be cancelled
 func (rs RequestState) CanCancel() bool {
-	return !rs.IsTerminal()
+	return !rs.IsTerminal() || rs == PAUSED || rs == MANUAL_APPROVAL_REQUIRED
+}
+
+// CanApprove checks if request can be approved
+func (rs RequestState) CanApprove() bool {
+	return rs == MANUAL_APPROVAL_REQUIRED
 }
 
 // Completed returns true if state is completed.
@@ -108,6 +122,11 @@ func (rs RequestState) Completed() bool {
 // Paused returns true if state is paused.
 func (rs RequestState) Paused() bool {
 	return rs == PAUSED
+}
+
+// ManualApprovalRequired returns true for manual approval.
+func (rs RequestState) ManualApprovalRequired() bool {
+	return rs == MANUAL_APPROVAL_REQUIRED
 }
 
 // Failed returns failed status
@@ -142,7 +161,7 @@ func (rs RequestState) Started() bool {
 
 // Waiting returns true if state is waiting to run
 func (rs RequestState) Waiting() bool {
-	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY
+	return rs == WAITING || rs == PENDING || rs == PAUSED || rs == READY || rs == MANUAL_APPROVAL_REQUIRED
 }
 
 // Running returns true if state is running
@@ -161,6 +180,7 @@ func (rs RequestState) Unknown() bool {
 		rs != CANCELLED &&
 		rs != PENDING &&
 		rs != PAUSED &&
+		rs != MANUAL_APPROVAL_REQUIRED &&
 		rs != READY &&
 		rs != COMPLETED &&
 		rs != EXECUTING &&
@@ -177,12 +197,14 @@ func (rs RequestState) CanTransitionTo(newState RequestState) bool {
 		return newState == PENDING
 	} else if rs == PENDING || rs == PAUSED {
 		return newState == READY || newState == FAILED
+	} else if rs == MANUAL_APPROVAL_REQUIRED {
+		return newState == READY
 	} else if rs == READY {
-		return newState == STARTED || newState == FAILED || newState == PENDING || newState == PAUSED
+		return newState == STARTED || newState == FAILED || newState == PENDING || newState == PAUSED // not MANUAL_APPROVAL_REQUIRED
 	} else if rs == STARTED {
 		return newState == EXECUTING
 	} else if rs == EXECUTING {
-		return newState == FAILED || newState == COMPLETED || newState == PAUSED
+		return newState == FAILED || newState == COMPLETED || newState == PAUSED || newState == MANUAL_APPROVAL_REQUIRED
 	}
 	return false
 }

@@ -71,6 +71,8 @@ type TaskDefinition struct {
 	OnCompleted string `yaml:"on_completed,omitempty" json:"on_completed" gorm:"on_completed"`
 	// OnFailed defines next task to run based on failure
 	OnFailed string `yaml:"on_failed,omitempty" json:"on_failed" gorm:"on_failed"`
+	// RequiredManualRoles for manual approval
+	RequiredManualRoles string `yaml:"required_manual_roles,omitempty" json:"required_manual_roles" gorm:"required_manual_roles"`
 	// Variables defines properties of task
 	Variables []*TaskDefinitionVariable `yaml:"-" json:"-" gorm:"ForeignKey:TaskDefinitionID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// CreatedAt job creation time
@@ -578,6 +580,8 @@ func (td *TaskDefinition) OverrideStatusAndErrorCode(
 		return common.FAILED, common.ErrorRestartJob
 	} else if targetState == common.PAUSE_JOB {
 		return common.PAUSED, common.ErrorPauseJob
+	} else if targetState == common.WAIT_FOR_APPROVAL {
+		return common.MANUAL_APPROVAL_REQUIRED, common.ErrorManualApprovalRequired
 	} else if targetState == common.RESTART_TASK {
 		return common.FAILED, common.ErrorRestartTask
 	} else if strings.HasPrefix(target, "ERR_") {

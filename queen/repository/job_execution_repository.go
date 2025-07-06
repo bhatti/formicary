@@ -43,7 +43,8 @@ type JobExecutionRepository interface {
 	UpdateJobRequestAndExecutionState(
 		id string,
 		oldState common.RequestState,
-		newState common.RequestState) error
+		newState common.RequestState,
+		manualTaskType string) error
 	// ResetStateToReady resets state to ready
 	ResetStateToReady(id string) error
 	// UpdateTaskState sets state of task-execution
@@ -59,4 +60,6 @@ type JobExecutionRepository interface {
 	GetResourceUsage(
 		qc *common.QueryContext,
 		ranges []types.DateRange) ([]types.ResourceUsage, error)
+
+	ResumeFromManualApproval(request types.ApproveTaskRequest) error
 }

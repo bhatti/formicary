@@ -74,7 +74,7 @@ func (r *RequestRegistryImpl) Cancel(
 	}
 	req := r.requests[key]
 	if req == nil {
-		return fmt.Errorf("request not found")
+		return fmt.Errorf("request not found for key: %s", key)
 	}
 	if req.Cancel == nil {
 		return fmt.Errorf("request cancel not found")

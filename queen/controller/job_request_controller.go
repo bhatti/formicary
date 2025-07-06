@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
@@ -36,6 +37,7 @@ func NewJobRequestController(
 	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
 	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_job_request"
 	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
+	webserver.POST("/api/jobs/requests/:id/approve", jobReqCtrl.approveJobRequest, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_job_request"
 	webserver.POST("/api/jobs/requests/:id/pause", jobReqCtrl.pauseJobRequest, acl.NewPermission(acl.JobRequest, acl.Pause)).Name = "pause_job_request"
 	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
 	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
@@ -128,6 +130,29 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
 	if err := jobReqCtrl.jobManager.CancelJobRequest(qc, id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+// swagger:route POST /api/jobs/requests/{id}/approve job-requests approveJobRequest
+// Approves a job-request that is pending for manually approve.
+// responses:
+//
+//	200: emptyResponse
+func (jobReqCtrl *JobRequestController) approveJobRequest(c web.APIContext) error {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	request := &types.ApproveTaskRequest{}
+	err := json.NewDecoder(c.Request().Body).Decode(request)
+	if err != nil {
+		return err
+	}
+
+	request.ApprovedBy = qc.GetUserID()
+	request.RequestID = id
+
+	if err = jobReqCtrl.jobManager.ApproveJobRequest(context.Background(), qc, request); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
@@ -289,7 +314,7 @@ type jobRequestQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
+// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest approveJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
 // The parameters for finding job-request by id
 type jobRequestIDParams struct {
 	// in:path

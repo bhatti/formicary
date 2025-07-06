@@ -55,6 +55,8 @@ const (
 	ErrorRestartJob = "ERR_RESTART_JOB"
 	// ErrorPauseJob error code
 	ErrorPauseJob = "ERR_PAUSE_JOB"
+	// ErrorManualApprovalRequired error code
+	ErrorManualApprovalRequired = "ERR_MANUAL_APPROVAL_REQUIRED"
 	// ErrorRestartTask error code
 	ErrorRestartTask = "ERR_RESTART_TASK"
 	// ErrorTaskTimedOut  error code

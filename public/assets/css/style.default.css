@@ -2883,3 +2883,27 @@ a>code {
  padding-bottom:.375rem;
  font-size:125%
 }
+.approval-required {
+    background-color: #fff3cd !important;
+    border-color: #ffeaa7 !important;
+}
+
+.approval-badge {
+    background-color: #f39c12;
+    color: white;
+}
+
+.approved-badge {
+    background-color: #27ae60;
+    color: white;
+}
+
+.approval-section {
+    border-left: 4px solid #f39c12;
+    padding-left: 15px;
+    margin: 10px 0;
+}
+
+.approval-section.approved {
+    border-left-color: #27ae60;
+}
