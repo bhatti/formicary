@@ -386,11 +386,11 @@ func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.Ap
 			return taskRes.Error
 		}
 
-		// 2. Update job execution to READY state for scheduler pickup
+		// 2. Update job execution to PENDING state for scheduler pickup
 		jobRes := tx.Model(&types.JobExecution{}).
 			Where("id = ? AND job_state = ?", request.ExecutionID, common.MANUAL_APPROVAL_REQUIRED).
 			Updates(map[string]interface{}{
-				"job_state":     common.READY,
+				"job_state":     common.PENDING,
 				"error_code":    "",
 				"error_message": "",
 				"updated_at":    now,

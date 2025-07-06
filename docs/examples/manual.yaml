@@ -1,0 +1,30 @@
+job_type: semi-automated
+description: Semi automated
+max_concurrency: 1
+tasks:
+- task_type: start
+  script:
+    - echo starting... 
+  method: KUBERNETES
+  container:
+    image: ubuntu:16.04
+  on_completed: make-doe
+- task_type: make-doe
+  method: MANUAL
+  on_completed: cook
+- task_type: cook
+  method: "KUBERNETES"
+  container:
+    image: ubuntu:16.04
+  script:
+    - echo cooking... 
+  on_completed: check-doe
+- task_type: check-doe
+  method: MANUAL
+  on_completed: serve
+- task_type: serve
+  method: "KUBERNETES"
+  container:
+    image: ubuntu:16.04
+  script:
+    - "echo 'Serving......'"
