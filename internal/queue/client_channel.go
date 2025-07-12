@@ -399,7 +399,7 @@ func (c *ClientChannel) SendReceive(ctx context.Context, req *SendReceiveRequest
 	case <-timeoutCtx.Done():
 		//debug.PrintStack()
 		elapsed := time.Since(started)
-		return nil, fmt.Errorf("timeout waiting for response after %s (%s)", req.Timeout, elapsed)
+		return nil, fmt.Errorf("timeout waiting for response (elapsed: %s, configured timeout: %s)", elapsed, req.Timeout)
 	}
 }
 

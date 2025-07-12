@@ -1,0 +1,60 @@
+job_type: aws-region-failover
+description: A playbook to provision and failover to a secondary region.
+tasks:
+- task_type: check-primary-status
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Pinging primary region endpoint... it's down! Initiating failover procedure."
+    - exit 1 # Simulate failure to trigger the 'on_failed' path
+  allow_failure: true
+  on_failed: provision-secondary-infra
+
+- task_type: provision-secondary-infra
+  method: KUBERNETES
+  container:
+    image: hashicorp/terraform:light
+  script:
+    - echo "Simulating 'terraform apply' to provision DR infrastructure in us-west-2..."
+    - sleep 10 
+    - echo "Terraform apply complete. Outputting simulated state file."
+    - echo '{}' > terraform.tfstate
+  artifacts:
+    paths: [ "terraform.tfstate" ]
+  on_completed: verify-failover
+
+- task_type: verify-failover
+  method: MANUAL
+  description: "Secondary infrastructure in us-west-2 has been provisioned. The terraform.tfstate file is available as an artifact. Please VERIFY COSTS and readiness. Approve to switch live traffic."
+  on_exit_code:
+    APPROVED: switch-dns
+    REJECTED: teardown-secondary-infra
+
+- task_type: switch-dns
+  method: KUBERNETES
+  container:
+    image: amazon/aws-cli
+  script:
+    - echo "CRITICAL Switching production DNS records to the us-west-2 environment..."
+    - sleep 5
+    - echo "DNS failover complete. Traffic is now routed to the DR region."
+  on_completed: notify-completion
+
+- task_type: teardown-secondary-infra
+  method: KUBERNETES
+  container:
+    image: hashicorp/terraform:light
+  script:
+    - echo "Failover REJECTED. Simulating 'terraform destroy' for secondary infrastructure..."
+    - sleep 10
+    - echo "Teardown complete."
+  on_completed: notify-completion
+
+- task_type: notify-completion
+  method: KUBERNETES
+  always_run: true
+  container:
+    image: alpine:latest
+  script:
+    - echo "Disaster recovery playbook has concluded."

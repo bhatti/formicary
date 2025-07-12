@@ -54,6 +54,9 @@ const (
 	// APPROVED request
 	APPROVED RequestState = "APPROVED"
 
+	// REJECTED request
+	REJECTED RequestState = "REJECTED"
+
 	// RESERVED request
 	// Resource management
 	RESERVED RequestState = "RESERVED"
@@ -217,7 +220,7 @@ const (
 	defaultColor   = "gray"
 )
 
-// DotColor for drawing dot image
+// DotColor for drawing diagrams image
 func (rs RequestState) DotColor() string {
 	if rs.Completed() {
 		return successColor

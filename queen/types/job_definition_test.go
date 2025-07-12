@@ -86,7 +86,7 @@ func Test_ShouldJobDefinitionValidateWithMultipleLeafTasks(t *testing.T) {
 
 	// THEN it should fail
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "multiple leaf tasks")
+	require.Contains(t, err.Error(), "task task1 is not reachable")
 }
 
 // Validate job with looping tasks (pointing to each other)

@@ -238,7 +238,7 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 	id string,
 	oldState common.RequestState,
-	newState common.RequestState, manualTaskType string) error {
+	newState common.RequestState, currentTask string) error {
 	if newState.IsTerminal() { // TODO possibly add PAUSED
 		return common.NewValidationError(
 			fmt.Errorf("new state %s cannot be terminal", newState))
@@ -246,9 +246,9 @@ func (jer *JobExecutionRepositoryImpl) UpdateJobRequestAndExecutionState(
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{"job_state": newState, "updated_at": time.Now()}
 		if newState.IsTerminal() {
-			updates["manual_approval_task"] = ""
-		} else if manualTaskType != "" {
-			updates["manual_approval_task"] = manualTaskType
+			updates["current_task"] = ""
+		} else if currentTask != "" {
+			updates["current_task"] = currentTask
 		}
 		// saving job request along with job-execution in a same transaction
 		res := tx.Model(&types.JobRequest{}).
@@ -364,7 +364,26 @@ func (jer *JobExecutionRepositoryImpl) GetJobsPendingManualApproval(
 
 // ResumeFromManualApproval resumes job execution after manual approval
 // This updates job-execution state and can be used for more complex resume logic if needed
-func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.ApproveTaskRequest) error {
+func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.ReviewTaskRequest) error {
+	if request.RequestID == "" {
+		return common.NewValidationError(fmt.Errorf("job request is not defined"))
+	}
+	if request.TaskType == "" {
+		return common.NewValidationError(fmt.Errorf("task type is not defined"))
+	}
+	if request.Status == "" {
+		return common.NewValidationError(fmt.Errorf("status is not defined"))
+	}
+	if request.Status != common.APPROVED && request.Status != common.REJECTED {
+		return common.NewValidationError(fmt.Errorf("status is not valid: %s", request.Status))
+	}
+
+	var taskState common.RequestState
+	if request.Status == common.COMPLETED {
+		taskState = common.COMPLETED
+	} else {
+		taskState = common.FAILED
+	}
 	return jer.db.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 
@@ -373,11 +392,11 @@ func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.Ap
 			Where("job_execution_id = ? AND task_type = ? AND task_state = ?",
 				request.ExecutionID, request.TaskType, common.MANUAL_APPROVAL_REQUIRED).
 			Updates(map[string]interface{}{
-				"task_state":         common.COMPLETED,
-				"exit_code":          "APPROVED",
-				"exit_message":       fmt.Sprintf("Manually approved by %s", request.ApprovedBy),
-				"manual_approved_by": request.ApprovedBy,
-				"manual_approved_at": now,
+				"task_state":         taskState,
+				"exit_code":          request.Status,
+				"exit_message":       fmt.Sprintf("Manually %s by %s", request.Status, request.ReviewedBy),
+				"manual_reviewed_by": request.ReviewedBy,
+				"manual_reviewed_at": now,
 				"ended_at":           now,
 				"updated_at":         now,
 			})
@@ -408,7 +427,7 @@ func (jer *JobExecutionRepositoryImpl) ResumeFromManualApproval(request types.Ap
 			"Component":      "JobExecutionRepositoryImpl",
 			"JobExecutionID": request.ExecutionID,
 			"TaskType":       request.TaskType,
-			"ApprovedBy":     request.ApprovedBy,
+			"ReviewedBy":     request.ReviewedBy,
 		}).Info("Job execution resumed from manual approval")
 
 		return nil

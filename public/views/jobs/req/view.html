@@ -46,6 +46,7 @@
                role="tab"
                aria-controls="job-graph-tabs"
                aria-selected="false"
+               onclick="loadMermaidDiagram('/dashboard/jobs/requests/{{.ID}}/mermaid')"
             >Job Graph</a>
         </li>
     </ul>
@@ -70,11 +71,40 @@
         </div>
         {{ end }}
         {{ end }}
+        {{ if false }}
         <div class="tab-pane fade"
              id="job-graph-tabs"
              role="tabpanel"
              aria-labelledby="job-graph-tab">
             <img src="/dashboard/jobs/requests/{{.ID}}/dot.png">
+        </div>
+        {{ end }}
+        <div class="tab-pane fade"
+             id="job-graph-tabs"
+             role="tabpanel"
+             aria-labelledby="job-graph-tab">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Job Execution Graph</h5>
+                <div>
+                    <button id="exportSVG" class="btn btn-sm btn-outline-primary" onclick="exportJobGraphSVG()">
+                        Export SVG
+                    </button>
+                    <button id="exportPNG" class="btn btn-sm btn-outline-secondary" onclick="exportJobGraphPNG()">
+                        Export PNG
+                    </button>
+                </div>
+            </div>
+            <div id="mermaid-diagram" class="border rounded p-3" style="min-height: 400px; background: #fafafa;">
+                <div class="text-center text-muted" id="diagram-loading">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    Loading diagram...
+                </div>
+            </div>
+            <div id="mermaid-error" class="alert alert-danger d-none" role="alert">
+                <strong>Error:</strong> <span id="error-message"></span>
+            </div>
         </div>
     </div>
     {{ end }} <!-- Request -->
@@ -91,13 +121,17 @@
                 tabTrigger.show();
             });
         });
+        // For job requests
+        {{if .Request}}
+        //loadMermaidDiagram('/dashboard/jobs/requests/{{.Request.ID}}/mermaid');
+        {{end}}
     })
 </script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
 <script type="text/javascript" src="/js/ansi_colors.js"></script>
-{{if false}}
 <script type="text/javascript" src="/js/approval.js"></script>
-{{end}}
+<script type="text/javascript" src="/js/graph.js"></script>
 {{if .Request.NotTerminal }}
 <h4>Streaming Events:</h4>
 <pre id="logs"></pre>

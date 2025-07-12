@@ -1238,9 +1238,10 @@ func (jd *JobDefinition) validateTaskExitCodes() error {
 		return fmt.Errorf("tasks are not valid and could not find starting task")
 	}
 
-	if len(tasksWithoutExitCodes) > 1 {
-		return fmt.Errorf("multiple leaf tasks found %v", tasksWithoutExitCodes)
-	}
+	// Disabled to allow multiple paths
+	//if len(tasksWithoutExitCodes) > 1 {
+	//	return fmt.Errorf("multiple leaf tasks found %v", tasksWithoutExitCodes)
+	//}
 	return nil
 }
 

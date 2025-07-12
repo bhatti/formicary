@@ -105,7 +105,7 @@ func (nv NameTypeValue) GetVariableValue() (val VariableValue, err error) {
 
 // GetParsedValue parses value
 func (nv NameTypeValue) GetParsedValue() (val interface{}, err error) {
-	if nv.Kind == "string" {
+	if nv.Kind == "string" || nv.Kind == "types.RequestState" {
 		nv.ParsedValue = nv.Value
 	} else if nv.Kind == "bool" {
 		nv.ParsedValue = nv.Value == "true"

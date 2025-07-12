@@ -31,6 +31,7 @@ type ExecuteInfo struct {
 
 // Adapter for docker APIs
 type Adapter interface {
+	GetConfigInfo() map[string]any
 	Pull(ctx context.Context, image string) (io.ReadCloser, error)
 	Stop(
 		ctx context.Context,
@@ -361,7 +362,7 @@ func (u *Utils) Stop(
 	logrus.WithFields(logrus.Fields{
 		"Component": "DockerAdapter",
 		"ID":        id,
-	}).Info("✋ removing docker volumes...")
+	}).Info("⚠️ removing docker volumes...")
 	if err = u.removeDockerVolumes(ctx, opts); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "DockerAdapter",
@@ -456,4 +457,112 @@ func attachOptions() container.AttachOptions {
 		Stdout: true,
 		Stderr: true,
 	}
+}
+
+// GetConfigInfo returns Docker executor configuration information
+func (u *Utils) GetConfigInfo() map[string]any {
+	config := make(map[string]interface{})
+
+	// Docker connection info
+	config["docker_host"] = u.config.Host
+	config["docker_version"] = u.getDockerVersion()
+	config["pull_policy"] = fmt.Sprintf("%s", u.config.PullPolicy)
+
+	// Registry info (mask sensitive data)
+	config["registry_server"] = u.config.Server
+	config["registry_username"] = u.config.Username
+	config["registry_has_password"] = u.config.Password != ""
+
+	// Docker daemon status
+	config["docker_daemon_accessible"] = u.isDockerDaemonAccessible()
+
+	return config
+}
+
+// GetConnectionString returns a formatted connection string for Docker
+func (u *Utils) GetConnectionString() string {
+	var parts []string
+
+	if u.config.Host != "" {
+		parts = append(parts, fmt.Sprintf("Host=%s", u.config.Host))
+	}
+
+	if u.config.Server != "" {
+		parts = append(parts, fmt.Sprintf("Registry=%s", u.config.Server))
+	}
+
+	if u.config.Username != "" {
+		parts = append(parts, fmt.Sprintf("User=%s", u.config.Username))
+	}
+
+	parts = append(parts, fmt.Sprintf("PullPolicy=%s", u.config.PullPolicy))
+
+	return fmt.Sprintf("Docker[%s]", strings.Join(parts, ", "))
+}
+
+// GetDockerInfo returns detailed Docker daemon information
+func (u *Utils) GetDockerInfo() (map[string]any, error) {
+	ctx := context.Background()
+	info, err := u.cli.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Docker info: %w", err)
+	}
+
+	result := make(map[string]interface{})
+	result["server_version"] = info.ServerVersion
+	result["kernel_version"] = info.KernelVersion
+	result["operating_system"] = info.OperatingSystem
+	result["architecture"] = info.Architecture
+	result["total_memory"] = fmt.Sprintf("%.2f GB", float64(info.MemTotal)/1024/1024/1024)
+	result["cpus"] = info.NCPU
+	result["docker_root_dir"] = info.DockerRootDir
+	result["driver"] = info.Driver
+	result["containers_running"] = info.ContainersRunning
+	result["containers_paused"] = info.ContainersPaused
+	result["containers_stopped"] = info.ContainersStopped
+	result["images"] = info.Images
+
+	return result, nil
+}
+
+// GetStatus returns current Docker executor status
+func (u *Utils) GetStatus() map[string]interface{} {
+	status := make(map[string]interface{})
+
+	// Basic connectivity
+	status["connected"] = u.isDockerDaemonAccessible()
+	status["config"] = u.GetConnectionString()
+
+	// Get Docker info if possible
+	if dockerInfo, err := u.GetDockerInfo(); err == nil {
+		status["daemon_info"] = dockerInfo
+	} else {
+		status["daemon_error"] = err.Error()
+	}
+
+	// Get current containers
+	if containers, err := u.List(context.Background()); err == nil {
+		status["active_containers"] = len(containers)
+		status["containers"] = containers
+	} else {
+		status["containers_error"] = err.Error()
+	}
+
+	return status
+}
+
+// Helper methods
+func (u *Utils) getDockerVersion() string {
+	ctx := context.Background()
+	version, err := u.cli.ServerVersion(ctx)
+	if err != nil {
+		return "unknown"
+	}
+	return version.Version
+}
+
+func (u *Utils) isDockerDaemonAccessible() bool {
+	ctx := context.Background()
+	_, err := u.cli.Ping(ctx)
+	return err == nil
 }

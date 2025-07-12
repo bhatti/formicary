@@ -25,7 +25,7 @@
                     {{if .CanApprove }}
                     &nbsp;
                     <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#approveModal">
-                        Approve
+                        Review for Approval
                     </button>
                     {{end}}
 
@@ -47,36 +47,39 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="approveModalLabel">Approve Job Request</h5>
+                    <h5 class="modal-title" id="approveModalLabel">Review Job Request</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <form action="/dashboard/jobs/requests/{{.ID}}/approve" method="POST" enctype="multipart/form-data">
+                <form id="jobReviewForm" action="/dashboard/jobs/requests/{{.ID}}/review" method="POST"
+                      onsubmit="return handleReviewSubmit(this)" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="alert alert-info">
                             <strong>Job ID:</strong> {{.ID}}<br>
                             <strong>Job Type:</strong> {{.JobType}}<br>
-                            <strong>Task Requiring Approval:</strong> {{.GetApprovalTaskType}}
+                            <strong>Task Requiring Review:</strong> {{.GetCurrentTask}}
                         </div>
 
                         <div class="form-group">
-                            <label for="approvalComments">Comments (optional):</label>
+                            <label for="approvalComments">Comments:</label>
                             <textarea class="form-control" id="approvalComments" name="comments" rows="3"
-                                      placeholder="Add any comments about this approval..."></textarea>
+                                      placeholder="Add comments about your decision..."></textarea>
+                            <small class="form-text text-muted">Required for rejections, optional for approvals.</small>
                         </div>
 
-                        <input type="hidden" name="taskType" value="{{.GetApprovalTaskType}}">
-                        <input type="hidden" name="requestId" value="{{.ID}}">
+                        <input type="hidden" name="taskType" value="{{.CurrentTask}}">
 
                         <div class="alert alert-warning">
-                            <strong>Are you sure you want to approve this job?</strong><br>
-                            This will allow the job to continue execution.
+                            <strong>Choose your action:</strong><br>
+                            <strong>Approve:</strong> The job will continue execution<br>
+                            <strong>Reject:</strong> The job will be marked as failed
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <input type="submit" class="btn btn-warning" value="Approve Job">
+                        <button type="submit" class="review-btn review-btn-danger" name="statusB" value="REJECTED">Reject Job</button>
+                        <button type="submit" class="review-btn review-btn-success" name="statusB" value="APPROVED">Approve Job</button>
                     </div>
                 </form>
             </div>
@@ -461,16 +464,4 @@
         </table>
     </div>
     {{ end }}
-    <!-- Add JavaScript for Bootstrap modal if not already included -->
-    <script>
-        // Ensure modal works properly
-        $(document).ready(function() {
-            $('#approveModal').on('show.bs.modal', function (e) {
-                // Focus on comments field when modal opens
-                setTimeout(function() {
-                    $('#approvalComments').focus();
-                }, 500);
-            });
-        });
-    </script>
 </section>

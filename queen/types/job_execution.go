@@ -33,8 +33,8 @@ type JobExecution struct {
 	OrganizationID string `json:"organization_id"`
 	// UserID defines user who submitted the job
 	UserID string `json:"user_id"`
-	// ManualApprovalTask defines manual approval task
-	ManualApprovalTask string `json:"manual_approval_task"`
+	// CurrentTask defines current task executing
+	CurrentTask string `json:"current_task"`
 	// ExitCode defines exit status from the job execution
 	ExitCode string `json:"exit_code"`
 	// ExitMessage defines exit message from the job execution
@@ -161,9 +161,9 @@ func (je *JobExecution) CanApprove() bool {
 	return je.JobState.CanApprove()
 }
 
-// GetApprovalTaskType returns task for manual approval
-func (je *JobExecution) GetApprovalTaskType() string {
-	return je.ManualApprovalTask
+// GetCurrentTask returns task for current task
+func (je *JobExecution) GetCurrentTask() string {
+	return je.CurrentTask
 }
 
 // Completed job

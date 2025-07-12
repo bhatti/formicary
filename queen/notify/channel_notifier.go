@@ -333,7 +333,7 @@ func (n *DefaultNotifier) NotifyJob(
 		"ReportStdoutLen":  reportStdoutLen,
 		"Stdout":           len(jobExec.Stdout()),
 		"Error":            err,
-	}).Infof("notified job")
+	}).Infof("notified job for status: %s", request.GetJobState())
 	return
 }
 

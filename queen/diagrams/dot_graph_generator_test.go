@@ -1,4 +1,4 @@
-package dot
+package diagrams
 
 import (
 	"fmt"
@@ -32,12 +32,12 @@ func Test_ShouldCreateDotForForkJob(t *testing.T) {
 	jobExec.AddTask(definition.GetTask("fork-await")).TaskState = common.EXECUTING
 	jobExec.JobState = common.EXECUTING
 
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	//generator, err := New(definition, jobExec)
-	generator, err := New(definition, nil)
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	//generator, err := NewDot(definition, jobExec)
+	generator, err := NewDot(definition, nil)
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	require.Contains(t, dotConf, `"validate" -> "download"`)
 	require.Contains(t, dotConf, `"download" -> "split"`)
@@ -65,11 +65,11 @@ func Test_ShouldCreateDotForTacoJob(t *testing.T) {
 	jobExec.AddTask(definition.GetTask("deallocate")).TaskState = common.COMPLETED
 	jobExec.JobState = common.FAILED
 
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(definition, jobExec)
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(definition, jobExec)
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	require.Contains(t, dotConf, `"start" -> "allocate"`)
 	require.Contains(t, dotConf, `"check-date" -> "monday"`)
@@ -91,11 +91,11 @@ func Test_ShouldCreateDotForBasicJobFromYAML(t *testing.T) {
 	jobExec.AddTask(definition.Tasks[0]).TaskState = common.FAILED
 	jobExec.JobState = common.FAILED
 
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(definition, jobExec)
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(definition, jobExec)
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	require.Contains(t, dotConf, `"start" -> "task1"`)
 }
@@ -104,9 +104,9 @@ func Test_ShouldCreateDotForSimpleHappyJob(t *testing.T) {
 	// GIVEN job jobDefinition and execution
 	definition := newTestJob("test1", 10)
 	exec := newTestJobExecution(definition)
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(definition, exec)
-	// THEN a valid dot config is created
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(definition, exec)
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
 	require.NoError(t, err)
@@ -120,15 +120,15 @@ func Test_ShouldCreateDotImageForSimpleHappyJob(t *testing.T) {
 	// GIVEN job jobDefinition and execution
 	definition := newTestJob("test1", 10)
 	exec := newTestJobExecution(definition)
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(definition, exec)
-	// THEN a valid dot config is created
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(definition, exec)
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	b, err := generator.GenerateDotImage()
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 
-	tmpFile, err := os.CreateTemp(os.TempDir(), "dot-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "diagrams-")
 	require.NoError(t, err)
 
 	// Remember to clean up the file afterwards
@@ -178,12 +178,12 @@ func Test_ShouldCreateDotWithAlwaysRun(t *testing.T) {
 	jobExec.AddTasks(job.Tasks[3])
 	jobExec.JobState = common.COMPLETED
 
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(job, jobExec)
-	// THEN a valid dot config is created
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(job, jobExec)
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	require.Contains(t, dotConf, `"start" -> "allocate"`)
 	require.Contains(t, dotConf, `"allocate" -> "check"`)
@@ -210,13 +210,13 @@ func Test_ShouldCreateDotForCustomizedExitCode(t *testing.T) {
 	task9.TaskState = common.READY
 	exec.JobState = common.FAILED
 
-	// WHEN job jobDefinition and execution is passed to generate dot config
-	generator, err := New(definition, exec)
-	// THEN a valid dot config is created
+	// WHEN job jobDefinition and execution is passed to generate diagrams config
+	generator, err := NewDot(definition, exec)
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	dotConf, err := generator.GenerateDot()
 
-	// THEN a valid dot config is created
+	// THEN a valid diagrams config is created
 	require.NoError(t, err)
 	require.Contains(t, dotConf, `"start" -> "task1"`)
 	require.Contains(t, dotConf, `"task1" -> "task2"`)

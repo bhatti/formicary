@@ -78,12 +78,16 @@ func NewDockerExecutor(
 
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
-		"[%s DOCKER %s] 🔥 running with formicary %s on %s",
+		"[%s DOCKER %s] ✅ running with formicary %s on %s",
 		time.Now().Format(time.RFC3339), opts.Name, cfg.Common.ID, hostName))
 	_ = exec.WriteTraceInfo(ctx, fmt.Sprintf(
 		"[%s DOCKER %s] 🐳 preparing docker container with image %s",
 		time.Now().Format(time.RFC3339), opts.Name, opts.MainContainer.Image))
 	return
+}
+
+func (de *Executor) GetConfigInfo() map[string]any {
+	return de.adapter.GetConfigInfo()
 }
 
 // GetRuntimeInfo - runtime info by docker executor

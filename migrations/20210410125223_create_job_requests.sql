@@ -20,7 +20,7 @@
       job_priority INTEGER NOT NULL DEFAULT 1,
       timeout BIGINT NOT NULL DEFAULT 0,
       retried INTEGER NOT NULL DEFAULT 0,
-      manual_approval_task VARCHAR(200),
+      current_task VARCHAR(200),
       quick_search TEXT,
       error_code VARCHAR(100),
       error_message TEXT,

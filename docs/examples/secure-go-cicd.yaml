@@ -1,0 +1,69 @@
+job_type: secure-go-cicd
+description: Build, scan, and deploy a Go application with a manual production gate.
+tasks:
+- task_type: build
+  method: KUBERNETES
+  container:
+    image: golang:1.24-alpine
+  script:
+    - echo "Building Go binary..." > app.txt
+  artifacts:
+    paths:
+      - app.txt
+  on_completed: security-scan
+
+- task_type: security-scan
+  method: KUBERNETES
+  container:
+    image: securego/gosec:latest
+  allow_failure: true 
+  script:
+    - echo "Running SAST scan with gosec..."
+    - echo "gosec -fmt=sarif -out=gosec-report.sarif ./..." > gosec-report.sarif
+  artifacts:
+    paths:
+      - gosec-report.sarif
+  on_completed: deploy-staging
+
+- task_type: deploy-staging
+  method: KUBERNETES
+  dependencies: [ "build" ]
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deploying ./my-app to staging..."
+    - sleep 5 
+    - echo "Staging deployment complete. Endpoint http://staging.example.com"
+  on_completed: verify-production-deploy
+
+- task_type: verify-production-deploy
+  method: MANUAL
+  description: "Staging deployment complete. A security scan report is available as an artifact. Please verify the staging environment and the report before promoting to production."
+  on_exit_code:
+    APPROVED: promote-production
+    REJECTED: rollback-staging
+
+- task_type: promote-production
+  method: KUBERNETES
+  dependencies: [ "build" ]
+  container:
+    image: alpine:latest
+  script:
+    - echo "PROMOTING ./my-app TO PRODUCTION! This is a critical, irreversible step."
+  on_completed: cleanup
+
+- task_type: rollback-staging
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deployment was REJECTED. Rolling back staging environment now."
+  on_completed: cleanup
+
+- task_type: cleanup
+  method: KUBERNETES
+  always_run: true
+  container:
+    image: alpine:latest
+  script:
+    - echo "Pipeline finished."

@@ -104,14 +104,16 @@ func (js *JobSupervisor) tryExecuteJob(
 	var errorCode string
 
 	// ONLY check for resume from manual approval at job start (not expensive per-task)
-	startTaskType, isResuming := js.determineStartTask()
-	if isResuming {
+	startTaskType := js.jobStateMachine.JobExecution.GetCurrentTask()
+	if startTaskType != "" {
+		_, taskExec := js.jobStateMachine.JobExecution.GetTask("", startTaskType)
+		var taskState common.RequestState
+		if taskExec != nil {
+			taskState = taskExec.TaskState
+		}
 		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
-			Infof("resuming job execution after approval, starting with task: %s", startTaskType)
-	} else {
-		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
-			Infof("not resuming job execution after approval, starting with from beginning: %s",
-				js.jobStateMachine.Request)
+			Infof("resuming job execution after approval, starting with task: %s, state: %s",
+				startTaskType, taskState)
 	}
 
 	// Begin execution with first task in retry loop - by default it will run job once unless retry is set
@@ -143,6 +145,14 @@ func (js *JobSupervisor) tryExecuteJob(
 						err,
 						failedTask,
 						failedTask.Active)
+			}
+		} else {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+					WithError(err).
+					Debugf("failed to get next for job='%s' task=%s oncompleted=%s onfailed=%s errorcode=%s",
+						js.jobStateMachine.JobDefinition.JobType, task.TaskType,
+						task.OnCompleted, task.OnFailed, errorCode)
 			}
 		}
 
@@ -230,12 +240,6 @@ func (js *JobSupervisor) tryExecuteJob(
 
 	}
 	return err
-}
-
-// determineStartTask - efficient method to determine where to start/resume execution
-func (js *JobSupervisor) determineStartTask() (taskType string, isResuming bool) {
-	task := js.jobStateMachine.JobExecution.GetApprovalTaskType()
-	return task, task != ""
 }
 
 // UpdateFromJobLifecycleEvent updates if current job is cancelled
@@ -344,6 +348,10 @@ func (js *JobSupervisor) executeNextTask(
 	}
 
 	if err != nil {
+		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
+			WithError(err).
+			Warnf("[js] failed to submit task for job='%s' task=%s errorcode=%s",
+				js.jobStateMachine.JobDefinition.JobType, taskType, errorCode)
 		return
 	}
 
@@ -430,7 +438,7 @@ func (js *JobSupervisor) submitTask(
 	if err != nil && !taskStateMachine.TaskDefinition.AllowFailure {
 		// changing state from EXECUTING to FAILED
 		return taskStateMachine,
-			fmt.Errorf("failed to execute task for '%s' due to %w", taskType, err)
+			fmt.Errorf("[js] failed to execute task for '%s' due to %w", taskType, err)
 	}
 	return taskStateMachine, nil
 }

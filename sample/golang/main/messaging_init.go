@@ -94,6 +94,7 @@ func initConfig() {
 		}
 	} else {
 		viper.AddConfigPath(".")
+		viper.AddConfigPath("config")
 		// Find home directory.
 		if home, err := homedir.Dir(); err == nil {
 			// Search config in home directory with name ".formicary" (without extension).

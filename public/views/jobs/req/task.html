@@ -8,7 +8,7 @@
                 <td class="text-right row">
                     {{if and .Request.CanApprove .Task.CanApprove }}
                     <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#approveTaskModal">
-                        Approve Task
+                        Review Task for Approval
                     </button>
                     {{end}}
                 </td>
@@ -19,45 +19,48 @@
     <!-- Task Approval Modal -->
     {{if and .Request.CanApprove .Task.CanApprove }}
     <div class="modal fade" id="approveTaskModal" tabindex="-1" role="dialog" aria-labelledby="approveTaskModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="approveTaskModalLabel">Approve Task</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <form action="/dashboard/jobs/requests/{{.Request.ID}}/approve" method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <strong>Task ID:</strong> {{.Task.ID}}<br>
-                            <strong>Task Type:</strong> {{.Task.TaskType}}<br>
-                            <strong>Job Execution ID:</strong> {{.Task.JobExecutionID}}<br>
-                            <strong>Current State:</strong> {{.Task.TaskState}}
-                        </div>
-
-                        <div class="form-group">
-                            <label for="taskApprovalComments">Comments (optional):</label>
-                            <textarea class="form-control" id="taskApprovalComments" name="comments" rows="3"
-                                      placeholder="Add any comments about this task approval..."></textarea>
-                        </div>
-
-                        <input type="hidden" name="taskType" value="{{.Task.TaskType}}">
-                        <input type="hidden" name="taskExecutionId" value="{{.Request.ID}}">
-
-                        <div class="alert alert-warning">
-                            <strong>Are you sure you want to approve this task?</strong><br>
-                            This will mark the task as completed and allow the job to continue.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <input type="submit" class="btn btn-warning" value="Approve Task">
-                    </div>
-                </form>
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="approveTaskModalLabel">Review Task</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
+            <form id="taskReviewForm" action="/dashboard/jobs/requests/{{.Request.ID}}/review" method="POST"
+                  onsubmit="return handleReviewSubmit(this)" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Task ID:</strong> {{.Task.ID}}<br>
+                        <strong>Task Type:</strong> {{.Task.TaskType}}<br>
+                        <strong>Job Execution ID:</strong> {{.Task.JobExecutionID}}<br>
+                        <strong>Current State:</strong> {{.Task.TaskState}}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskApprovalComments">Comments:</label>
+                        <textarea class="form-control" id="taskApprovalComments" name="comments" rows="3"
+                                  placeholder="Add comments about your decision..."></textarea>
+                        <small class="form-text text-muted">Required for rejections, optional for approvals.</small>
+                    </div>
+
+                    <input type="hidden" name="taskType" value="{{.Task.TaskType}}">
+
+                    <div class="alert alert-warning">
+                        <strong>Choose your action:</strong><br>
+                        <strong>Approve:</strong> Task will be completed and job will continue<br>
+                        <strong>Reject:</strong> Task and job will be marked as failed
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="review-btn review-btn-danger" name="statusB" value="REJECTED">Reject Job</button>
+                    <button type="submit" class="review-btn review-btn-success" name="statusB" value="APPROVED">Approve Job</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
     {{end}}
 
     <div class="table-responsive">
@@ -216,18 +219,24 @@
                 </td>
             </tr>
             <!-- Show manual approval details if task was manually approved -->
-            {{if .Task.ManualApprovedBy }}
+            {{if .Task.ManualReviewedBy }}
             <tr class="table-success">
                 <td>
                     <dl class="row">
-                        <dt class="col-sm-4"><b>Manually Approved By:</b></dt>
-                        <dd class="col-sm-8">{{ .Task.ManualApprovedBy }}</dd>
+                        <dt class="col-sm-4"><b>Manually Reviewed By:</b></dt>
+                        <dd class="col-sm-8">{{ .Task.ManualReviewedBy }}</dd>
                     </dl>
                 </td>
                 <td>
                     <dl class="row">
-                        <dt class="col-sm-4"><b>Approved At:</b></dt>
-                        <dd class="col-sm-8">{{ .Task.ManualApprovedAt }}</dd>
+                        <dt class="col-sm-4"><b>Reviewed At:</b></dt>
+                        <dd class="col-sm-8">{{ .Task.ManualReviewedAt }}</dd>
+                    </dl>
+                </td>
+                <td>
+                    <dl class="row">
+                        <dt class="col-sm-4"><b>Status:</b></dt>
+                        <dd class="col-sm-8">{{ .Task.ReviewedStatus }}</dd>
                     </dl>
                 </td>
             </tr>
@@ -329,15 +338,4 @@
     </div>
     {{ end }}
 
-    <!-- JavaScript for modal functionality -->
-    <script>
-        $(document).ready(function() {
-            $('#approveTaskModal').on('show.bs.modal', function (e) {
-                // Focus on comments field when modal opens
-                setTimeout(function() {
-                    $('#taskApprovalComments').focus();
-                }, 500);
-            });
-        });
-    </script>
 </section>

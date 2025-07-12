@@ -20,8 +20,8 @@ common:
             max_reconnect_to_broker: 0
         kafka:
             brokers:
-                - 127.0.0.1:19092
-                - 127.0.0.1:29092
+                - 192.168.1.102:19092
+                - 192.168.1.102:29092
             username: ""
             password: ""
             certificate: ""
@@ -33,7 +33,7 @@ common:
         retrymax: 5
         retrydelay: 1s
     s3:
-        endpoint: 127.0.0.1:9000
+        endpoint: 192.168.1.105:9000
         access_key_id: minioadmin
         secret_access_key: minioadmin
         token: ""
@@ -103,7 +103,7 @@ embedded_ant:
     poll_interval: 3
     output_limit: 67108864  # 64MB
     docker:
-      host: "tcp://127.0.0.1:2375"
+      host: "tcp://192.168.1.105:2375"
     kubernetes:
       _service_account: "formicary-ant"
       registry:

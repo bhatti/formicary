@@ -67,5 +67,9 @@ INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000019', '*', 'fatal error', 'ERR_FATAL');
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000020', '*', 'resource quota exceeded', 'ERR_QUOTA_EXCEEDED');
+INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
+VALUES ('00000000-0000-0000-0000-000000000021', '*', 'manual approval required', 'ERR_MANUAL_APPROVAL_REQUIRED');
+INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
+VALUES ('00000000-0000-0000-0000-000000000022', '*', 'manual task was rejected', 'ERR_MANUAL_REJECTION');
 -- +goose Down
 DROP TABLE IF EXISTS formicary_error_codes;

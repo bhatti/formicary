@@ -364,7 +364,7 @@ func (jsm *JobExecutionStateMachine) UpdateJobRequestTimestampAndCheckQuota(_ co
 func (jsm *JobExecutionStateMachine) SetJobStatusToExecuting(_ context.Context) (err error) {
 	// Mark job request and execution to EXECUTING (from READY unless execution was already running)
 	if err = jsm.JobManager.SetJobRequestAndExecutingStatusToExecuting(
-		jsm.JobExecution.ID); err != nil {
+		jsm.JobExecution.ID, ""); err != nil {
 		return err
 	}
 	jsm.Request.SetJobState(common.EXECUTING)
@@ -779,7 +779,7 @@ func (jsm *JobExecutionStateMachine) LogFields(component string, err ...error) l
 		"Scheduled":          jsm.Request.GetScheduledAt(),
 		"ScheduleAttempts":   jsm.Request.GetScheduleAttempts(),
 		"LastJobExecutionID": jsm.Request.GetLastJobExecutionID(),
-		"ApprovalTaskType":   jsm.Request.GetApprovalTaskType(),
+		"ApprovalTaskType":   jsm.Request.GetCurrentTask(),
 	})
 
 	if jsm.JobDefinition != nil {
@@ -887,7 +887,7 @@ func (jsm *JobExecutionStateMachine) failed(
 	if saveExecErr != nil {
 		fields["saveExecErr"] = saveExecErr
 	}
-	debug.PrintStack()
+	//debug.PrintStack()
 	logrus.WithFields(fields).Warnf("[jsm] failed to execute job, marked: %s", jsm.Request.GetJobState())
 	return saveExecErr
 }

@@ -361,20 +361,20 @@ func (js *JobScheduler) scheduleJob(
 		return jobStateMachine.RevertRequestToPendingPaused(eventError)
 	}
 	logrus.WithFields(logrus.Fields{
-		"Component":          "JobScheduler",
-		"ID":                 js.serverCfg.Common.ID,
-		"RequestID":          request.ID,
-		"UserID":             request.UserID,
-		"Organization":       request.OrganizationID,
-		"JobDefinitionID":    jobStateMachine.JobDefinition.ID,
-		"CronTrigger":        jobStateMachine.JobDefinition.CronTrigger,
-		"JobExecutionID":     jobStateMachine.JobExecution.ID,
-		"JobType":            request.JobType,
-		"ManualApprovalTask": request.ManualApprovalTask,
-		"Disabled":           jobStateMachine.JobDefinition.Disabled,
-		"RequestRetry":       request.GetRetried(),
-		"Priority":           request.GetJobPriority(),
-		"ScheduleAttempts":   request.ScheduleAttempts,
+		"Component":        "JobScheduler",
+		"ID":               js.serverCfg.Common.ID,
+		"RequestID":        request.ID,
+		"UserID":           request.UserID,
+		"Organization":     request.OrganizationID,
+		"JobDefinitionID":  jobStateMachine.JobDefinition.ID,
+		"CronTrigger":      jobStateMachine.JobDefinition.CronTrigger,
+		"JobExecutionID":   jobStateMachine.JobExecution.ID,
+		"JobType":          request.JobType,
+		"CurrentTask":      request.CurrentTask,
+		"Disabled":         jobStateMachine.JobDefinition.Disabled,
+		"RequestRetry":     request.GetRetried(),
+		"Priority":         request.GetJobPriority(),
+		"ScheduleAttempts": request.ScheduleAttempts,
 	}).Info("scheduling job...")
 	return nil
 }

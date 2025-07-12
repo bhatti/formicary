@@ -55,8 +55,7 @@ type Info interface {
 	GetEndedAt() *time.Time
 	GetLabels() map[string]string // returns labels
 	ElapsedSecs() time.Duration
-	GetRuntimeInfo(
-		ctx context.Context) string // returns runtime information
+	GetRuntimeInfo(ctx context.Context) string // returns runtime information
 }
 
 // TraceWriter writes to job tracer
@@ -86,6 +85,7 @@ type Executor interface {
 	GetState() State          // get executor state
 	GetRuntimeInfo(
 		ctx context.Context) string // returns runtime information
+	GetConfigInfo() map[string]any
 	ElapsedSecs() time.Duration
 	AsyncExecute(
 		ctx context.Context,
@@ -99,7 +99,7 @@ type Executor interface {
 	) (CommandRunner, error) // executes command asynchronously on helper container
 	Stop(
 		ctx context.Context,
-		) error // stops executor
+	) error // stops executor
 	GetStartedAt() time.Time
 	GetEndedAt() *time.Time
 	Elapsed() string // time since executor started

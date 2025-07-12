@@ -32,8 +32,6 @@ import (
 )
 
 const tmpArtifacts = "temp_artifacts"
-const httpPrefix = "http"
-const httpsPrefix = "https"
 
 // RequestExecutor interface
 type RequestExecutor interface {
@@ -227,12 +225,12 @@ func (re *RequestExecutorImpl) execute(
 			if err == nil {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("️🎉 executed successfully command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d stdout-len=%d",
+					fmt.Sprintf("✅ executed successfully command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d stdout-len=%d",
 						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), exitCode, len(stdout)))
 			} else {
 				_ = container.WriteTraceInfo(
 					ctx,
-					fmt.Sprintf("😞 executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d, error=%s stderr-len=%d",
+					fmt.Sprintf("❌ executed unsucessfully for command '%s' of task '%s' of job '%s' and request-id '%s' name '%s', exit=%d, error=%s stderr-len=%d",
 						cmd, taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), exitCode, err, len(stderr)))
 			}
 		}
@@ -382,18 +380,16 @@ func (re *RequestExecutorImpl) preProcess(
 		taskReq.ExecutorOpts.Environment[k] = fmt.Sprintf("%v", v)
 	}
 
-	// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-	if re.antCfg.Common.S3.UseSSL {
-		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpsPrefix,
-			re.antCfg.Common.S3.Endpoint)
-	} else {
-		taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = fmt.Sprintf("%s://%s", httpPrefix,
-			re.antCfg.Common.S3.Endpoint)
-	}
+	// See https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = re.antCfg.Common.S3.BuildEndpoint()
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = re.antCfg.Common.S3.Endpoint
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_ACCESS_KEY_ID"] = re.antCfg.Common.S3.AccessKeyID
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.Common.S3.SecretAccessKey
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_DEFAULT_REGION"] = re.antCfg.Common.S3.Region
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_CLI_S3_ADDRESSING_STYLE"] = "path"
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_CLI_S3_SIGNATURE_VERSION"] = "s3v4"
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_CLI_S3_MAX_CONCURRENT_REQUESTS"] = "10"
+	//taskReq.ExecutorOpts.HelperEnvironment["AWS_CLI_S3_MULTIPART_THRESHOLD"] = "64MB"
 
 	if taskReq.ExecutorOpts.Method == types.Kubernetes {
 		taskReq.ExecutorOpts.HelperContainer.Image = re.antCfg.Kubernetes.HelperImage
@@ -559,7 +555,7 @@ func (re *RequestExecutorImpl) postProcess(
 	} else {
 		_ = container.WriteTraceSuccess(
 			ctx,
-			fmt.Sprintf("🙌 task '%s' of job '%s' with request-id '%s' name '%s' completed Duration=%s",
+			fmt.Sprintf("✅ task '%s' of job '%s' with request-id '%s' name '%s' completed Duration=%s",
 				taskReq.TaskType, taskReq.JobType, taskReq.JobRequestID, taskReq.ContainerName(), elapsed))
 	}
 
@@ -682,7 +678,7 @@ func (re *RequestExecutorImpl) additionalError(
 	taskResp *types.TaskResponse,
 	err error,
 	fatal bool) {
-	_ = container.WriteTraceError(ctx, "💣 "+err.Error())
+	_ = container.WriteTraceError(ctx, "❌ "+err.Error())
 	logrus.WithFields(
 		logrus.Fields{
 			"Component":    "RequestExecutorImpl",

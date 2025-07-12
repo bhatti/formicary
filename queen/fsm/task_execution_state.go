@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"plexobject.com/formicary/internal/queue"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -356,7 +355,7 @@ func (tsm *TaskExecutionStateMachine) SetFailed(err error) {
 		}
 	}
 	tsm.TaskExecution.ErrorMessage = err.Error()
-	debug.PrintStack()
+	//debug.PrintStack()
 }
 
 // CanRetry checks if task can be retried in case of failure

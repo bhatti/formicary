@@ -316,7 +316,7 @@ func mapAuthErrors(err error) error {
 		logrus.WithFields(logrus.Fields{
 			"Component": "DefaultWebServer",
 			"Error":     err,
-		}).Warn("failed to authenticate api")
+		}).Warn("mapAuthErrors failed to authenticate api")
 		return herr
 	case *types.NotFoundError:
 		return &echo.HTTPError{
@@ -370,7 +370,7 @@ func mapAPIErrors(err error) error {
 		logrus.WithFields(logrus.Fields{
 			"Component": "DefaultWebServer",
 			"Error":     err,
-		}).Warn("failed to authenticate api")
+		}).Warn("mapAPIErrors failed to authenticate api")
 		return herr
 	case *types.NotFoundError:
 		return &echo.HTTPError{

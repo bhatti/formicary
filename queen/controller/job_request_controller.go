@@ -33,11 +33,12 @@ func NewJobRequestController(
 
 	webserver.GET("/api/jobs/requests", jobReqCtrl.queryJobRequests, acl.NewPermission(acl.JobRequest, acl.Query)).Name = "query_job_requests"
 	webserver.GET("/api/jobs/requests/:id", jobReqCtrl.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_job_request"
+	webserver.GET("/api/jobs/requests/:id/mermaid", jobReqCtrl.mermaidJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "mermaid_job_request"
 	webserver.GET("/api/jobs/requests/:id/dot", jobReqCtrl.dotJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_job_request"
 	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
 	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_job_request"
 	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
-	webserver.POST("/api/jobs/requests/:id/approve", jobReqCtrl.approveJobRequest, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_job_request"
+	webserver.POST("/api/jobs/requests/:id/review", jobReqCtrl.reviewJobRequestForApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "review_job_request"
 	webserver.POST("/api/jobs/requests/:id/pause", jobReqCtrl.pauseJobRequest, acl.NewPermission(acl.JobRequest, acl.Pause)).Name = "pause_job_request"
 	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
 	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
@@ -135,24 +136,24 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/approve job-requests approveJobRequest
+// swagger:route POST /api/jobs/requests/{id}/review job-requests reviewJobRequestForApproval
 // Approves a job-request that is pending for manually approve.
 // responses:
 //
 //	200: emptyResponse
-func (jobReqCtrl *JobRequestController) approveJobRequest(c web.APIContext) error {
+func (jobReqCtrl *JobRequestController) reviewJobRequestForApproval(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	request := &types.ApproveTaskRequest{}
+	request := &types.ReviewTaskRequest{}
 	err := json.NewDecoder(c.Request().Body).Decode(request)
 	if err != nil {
 		return err
 	}
 
-	request.ApprovedBy = qc.GetUserID()
+	request.ReviewedBy = qc.GetUserID()
 	request.RequestID = id
 
-	if err = jobReqCtrl.jobManager.ApproveJobRequest(context.Background(), qc, request); err != nil {
+	if err = jobReqCtrl.jobManager.ReviewTaskRequestForManualApproval(context.Background(), qc, request); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
@@ -200,6 +201,21 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) erro
 		return err
 	}
 	return c.NoContent(http.StatusOK)
+}
+
+// swagger:route GET /api/jobs/requests/{id}/mermaid job-requests mermaidJobRequest
+// Returns Mermaid for the graph of tasks defined in the job request.
+// responses:
+//
+//	200: stringResponse
+func (jobReqCtrl *JobRequestController) mermaidJobRequest(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	id := c.Param("id")
+	d, err := jobReqCtrl.jobManager.GetMermaidConfigForJobRequest(qc, id)
+	if err != nil {
+		return err
+	}
+	return c.String(http.StatusOK, d)
 }
 
 // swagger:route GET /api/jobs/requests/{id}/dot job-requests dotJobRequest
@@ -314,11 +330,18 @@ type jobRequestQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest approveJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
+// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
 // The parameters for finding job-request by id
 type jobRequestIDParams struct {
 	// in:path
 	ID string `json:"id"`
+}
+
+// swagger:parameters reviewJobRequestForApproval
+// The request body for reviewing manual job.
+type reviewJobRequestBody struct {
+	// in:body
+	Body types.ReviewTaskRequest
 }
 
 // swagger:parameters submitJobRequest

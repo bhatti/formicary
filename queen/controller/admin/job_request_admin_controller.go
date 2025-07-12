@@ -38,11 +38,12 @@ func NewJobRequestAdminController(
 	webserver.GET("/dashboard/jobs/requests/new", jraCtr.newJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "new_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests", jraCtr.createJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests/:id/approve", jraCtr.approveJobRequest, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/review", jraCtr.reviewJobRequestForApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id/wait_time", jraCtr.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/:id/mermaid", jraCtr.mermaidJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "mermaid_job_request"
 	webserver.GET("/dashboard/jobs/requests/:id/dot", jraCtr.dotJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_job_request"
 	webserver.GET("/dashboard/jobs/requests/:id/dot.png", jraCtr.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
 	webserver.GET("/dashboard/jobs/requests/stats", jraCtr.statsJobRequests, acl.NewPermission(acl.JobRequest, acl.Metrics)).Name = "stats_admin_job_requests"
@@ -135,15 +136,32 @@ func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) erro
 }
 
 // approveJobRequests - approve job-request
-func (jraCtr *JobRequestAdminController) approveJobRequest(c web.APIContext) error {
+func (jraCtr *JobRequestAdminController) reviewJobRequestForApproval(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	request := &types.ApproveTaskRequest{}
-	request.RequestID = id
-	request.TaskType = c.FormValue("taskType")
-	request.ApprovedBy = qc.GetUserID()
 
-	if err := jraCtr.jobManager.ApproveJobRequest(context.Background(), qc, request); err != nil {
+	status := c.FormValue("status")
+	taskType := c.FormValue("taskType")
+	comments := c.FormValue("comments")
+
+	// Validate required fields
+	if status == "" {
+		return fmt.Errorf("status is required")
+	}
+
+	if status == "REJECTED" && comments == "" {
+		return fmt.Errorf("comments are required for rejection")
+	}
+
+	request := &types.ReviewTaskRequest{
+		RequestID:  id,
+		TaskType:   taskType,
+		ReviewedBy: qc.GetUserID(),
+		Comments:   comments,
+		Status:     common.RequestState(status),
+	}
+
+	if err := jraCtr.jobManager.ReviewTaskRequestForManualApproval(context.Background(), qc, request); err != nil {
 		return err
 	}
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
@@ -240,6 +258,16 @@ func (jraCtr *JobRequestAdminController) getJobRequest(c web.APIContext) error {
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/req/view", res)
+}
+
+func (jraCtr *JobRequestAdminController) mermaidJobRequest(c web.APIContext) error {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	d, err := jraCtr.jobManager.GetMermaidConfigForJobRequest(qc, id)
+	if err != nil {
+		return err
+	}
+	return c.String(http.StatusOK, d)
 }
 
 func (jraCtr *JobRequestAdminController) dotJobRequest(c web.APIContext) error {

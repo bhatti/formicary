@@ -30,6 +30,7 @@ import (
 
 // Adapter for kubernetes APIs
 type Adapter interface {
+	GetConfigInfo() map[string]any
 	GetPod(
 		ctx context.Context,
 		name string) (*api.Pod, error)
@@ -211,7 +212,7 @@ func (u *Utils) AwaitPodRunning(
 		}
 		res := payload.(PodPhaseResponse)
 		if res.phase == api.PodRunning {
-			_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 👍 pod-running ready with Status=%s",
+			_, _ = trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ✅ pod-running ready with Status=%s",
 				time.Now().Format(time.RFC3339), name, res.phase), domain.ExecTags)
 			return true, res, nil
 		} else if res.phase == api.PodSucceeded {
@@ -831,8 +832,8 @@ func (u *Utils) Execute(
 
 	exec, err := remotecommand.NewSPDYExecutor(u.restConfig, http.MethodPost, req.URL())
 	if err != nil {
-		return pod, fmt.Errorf("failed to create create spdy executor for %s, useAttach %v due to %w",
-			pod.Name, useAttach, err)
+		return pod, fmt.Errorf("failed to create create spdy executor for %s due to %w",
+			pod.Name, err)
 	}
 
 	if err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
@@ -841,8 +842,8 @@ func (u *Utils) Execute(
 		Stderr: &base.Stderr,
 		Tty:    false,
 	}); err != nil {
-		return nil, fmt.Errorf("failed to execute with stream %s in pod %s, useAttach %v due to: %w",
-			cmd, pod.Name, useAttach, err)
+		return nil, fmt.Errorf("failed to execute with stream %s in pod %s due to: %w",
+			cmd, pod.Name, err)
 	}
 	return pod, nil
 }
@@ -1321,4 +1322,231 @@ func buildImagePullSecrets(config *ant_config.AntConfig) []api.LocalObjectRefere
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: imagePullSecret})
 	}
 	return imagePullSecrets
+}
+
+// GetConfigInfo returns Kubernetes executor configuration information
+func (u *Utils) GetConfigInfo() map[string]any {
+	config := make(map[string]interface{})
+
+	// Basic cluster info
+	config["cluster_name"] = u.config.Kubernetes.ClusterName
+	config["namespace"] = u.config.Kubernetes.Namespace
+	config["service_account"] = u.config.Kubernetes.ServiceAccount
+	config["host"] = fmt.Sprintf("%s", u.config.Kubernetes.Host)
+
+	// Registry configuration
+	if u.config.Kubernetes.Registry.Server != "" {
+		config["registry_server"] = u.config.Kubernetes.Registry.Server
+		config["registry_username"] = u.config.Kubernetes.Username
+		config["registry_has_password"] = u.config.Kubernetes.Password != ""
+		config["pull_policy"] = fmt.Sprintf("%s", u.config.Kubernetes.PullPolicy)
+	}
+
+	// Resource configuration
+	config["resource_config_type"] = u.getResourceConfigType()
+	if u.config.Kubernetes.DefaultLimits != nil {
+		config["default_cpu_limit"] = u.config.Kubernetes.DefaultLimits.Cpu()
+		config["default_memory_limit"] = u.config.Kubernetes.DefaultLimits.Memory()
+		config["default_ephemeral_storage_limit"] = u.config.Kubernetes.DefaultLimits.StorageEphemeral()
+	}
+
+	// Security settings
+	config["allow_privilege_escalation"] = u.config.Kubernetes.AllowPrivilegeEscalation
+	config["image_pull_secrets"] = u.config.Kubernetes.ImagePullSecrets
+
+	// DNS and networking
+	if dnsPolicy, err := u.config.Kubernetes.DNSPolicy.Get(); err == nil {
+		config["dns_policy"] = string(dnsPolicy)
+	}
+
+	// Pod security context
+	if secCtx := u.config.Kubernetes.GetPodSecurityContext(); secCtx != nil {
+		config["pod_run_as_user"] = secCtx.RunAsUser
+		config["pod_run_as_group"] = secCtx.RunAsGroup
+		config["pod_fs_group"] = secCtx.FSGroup
+	}
+
+	return config
+}
+
+// GetConnectionString returns a formatted connection string for Kubernetes
+func (u *Utils) GetConnectionString() string {
+	var parts []string
+
+	if u.config.Kubernetes.ClusterName != "" {
+		parts = append(parts, fmt.Sprintf("Cluster=%s", u.config.Kubernetes.ClusterName))
+	}
+
+	if u.config.Kubernetes.Host != "" {
+		parts = append(parts, fmt.Sprintf("Host=%s", u.config.Kubernetes.Host))
+	}
+
+	if u.config.Kubernetes.Namespace != "" {
+		parts = append(parts, fmt.Sprintf("Namespace=%s", u.config.Kubernetes.Namespace))
+	}
+
+	if u.config.Kubernetes.ServiceAccount != "" {
+		parts = append(parts, fmt.Sprintf("ServiceAccount=%s", u.config.Kubernetes.ServiceAccount))
+	}
+
+	return fmt.Sprintf("Kubernetes[%s]", strings.Join(parts, ", "))
+}
+
+// GetClusterInfo returns detailed Kubernetes cluster information
+func (u *Utils) GetClusterInfo() (map[string]interface{}, error) {
+	ctx := context.Background()
+	result := make(map[string]interface{})
+
+	// Get server version
+	version, err := u.cli.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server version: %w", err)
+	}
+	result["server_version"] = version.String()
+	result["git_version"] = version.GitVersion
+	result["platform"] = version.Platform
+
+	// Get cluster nodes info
+	nodes, err := u.cli.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		nodeInfo := make([]map[string]interface{}, 0, len(nodes.Items))
+		for _, node := range nodes.Items {
+			nodeData := map[string]interface{}{
+				"name":               node.Name,
+				"ready":              isNodeReady(node),
+				"kubernetes_version": node.Status.NodeInfo.KubeletVersion,
+				"os_image":           node.Status.NodeInfo.OSImage,
+				"architecture":       node.Status.NodeInfo.Architecture,
+				"container_runtime":  node.Status.NodeInfo.ContainerRuntimeVersion,
+				"internal_ip":        getNodeInternalIP(node),
+			}
+			nodeInfo = append(nodeInfo, nodeData)
+		}
+		result["nodes"] = nodeInfo
+		result["node_count"] = len(nodes.Items)
+	} else {
+		result["nodes_error"] = err.Error()
+	}
+
+	// Get namespace info
+	namespaces, err := u.cli.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		result["total_namespaces"] = len(namespaces.Items)
+		result["current_namespace"] = u.config.Kubernetes.Namespace
+	}
+
+	return result, nil
+}
+
+// GetStatus returns current Kubernetes executor status
+func (u *Utils) GetStatus() map[string]interface{} {
+	status := make(map[string]interface{})
+
+	// Basic connectivity and config
+	status["connected"] = u.isClusterAccessible()
+	status["config"] = u.GetConnectionString()
+
+	// Get cluster info if possible
+	if clusterInfo, err := u.GetClusterInfo(); err == nil {
+		status["cluster_info"] = clusterInfo
+	} else {
+		status["cluster_error"] = err.Error()
+	}
+
+	// Get current namespace status
+	if nsInfo, err := u.getNamespaceInfo(); err == nil {
+		status["namespace_info"] = nsInfo
+	} else {
+		status["namespace_error"] = err.Error()
+	}
+
+	// Get current pods in namespace
+	if pods, err := u.List(context.Background()); err == nil {
+		status["active_pods"] = len(pods)
+		status["pods"] = pods
+	} else {
+		status["pods_error"] = err.Error()
+	}
+
+	return status
+}
+
+// GetResourceQuotas returns resource quota information for the namespace
+func (u *Utils) GetResourceQuotas() (map[string]interface{}, error) {
+	ctx := context.Background()
+	result := make(map[string]interface{})
+
+	// Get resource quotas
+	quotas, err := u.cli.CoreV1().ResourceQuotas(u.config.Kubernetes.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource quotas: %w", err)
+	}
+
+	quotaInfo := make([]map[string]interface{}, 0, len(quotas.Items))
+	for _, quota := range quotas.Items {
+		quotaData := map[string]interface{}{
+			"name": quota.Name,
+			"hard": quota.Status.Hard,
+			"used": quota.Status.Used,
+		}
+		quotaInfo = append(quotaInfo, quotaData)
+	}
+	result["resource_quotas"] = quotaInfo
+
+	// Get limit ranges
+	limitRanges, err := u.cli.CoreV1().LimitRanges(u.config.Kubernetes.Namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		limitInfo := make([]map[string]interface{}, 0, len(limitRanges.Items))
+		for _, lr := range limitRanges.Items {
+			limitData := map[string]interface{}{
+				"name":   lr.Name,
+				"limits": lr.Spec.Limits,
+			}
+			limitInfo = append(limitInfo, limitData)
+		}
+		result["limit_ranges"] = limitInfo
+	}
+
+	return result, nil
+}
+
+// Helper methods
+
+func (u *Utils) isClusterAccessible() bool {
+	_, err := u.cli.Discovery().ServerVersion()
+	return err == nil
+}
+
+func (u *Utils) getNamespaceInfo() (map[string]interface{}, error) {
+	ctx := context.Background()
+	ns, err := u.cli.CoreV1().Namespaces().Get(ctx, u.config.Kubernetes.Namespace, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"name":        ns.Name,
+		"status":      string(ns.Status.Phase),
+		"created":     ns.CreationTimestamp.Time,
+		"labels":      ns.Labels,
+		"annotations": ns.Annotations,
+	}, nil
+}
+
+func isNodeReady(node api.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == api.NodeReady {
+			return condition.Status == api.ConditionTrue
+		}
+	}
+	return false
+}
+
+func getNodeInternalIP(node api.Node) string {
+	for _, address := range node.Status.Addresses {
+		if address.Type == api.NodeInternalIP {
+			return address.Address
+		}
+	}
+	return ""
 }

@@ -38,7 +38,7 @@ func NewShellExecutor(
 
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
-		"[%s SHELL %s] 🔥 running with formicary %s on %s",
+		"[%s SHELL %s] ✅ running with formicary %s on %s",
 		time.Now().Format(time.RFC3339), opts.Name, cfg.Common.ID, hostName))
 	_ = base.WriteTraceInfo(ctx, fmt.Sprintf("[%s SHELL %s] 🌱 preparing shell executor",
 		time.Now().Format(time.RFC3339), opts.Name))
@@ -47,6 +47,10 @@ func NewShellExecutor(
 		BaseExecutor: base,
 		runners:      make(map[string]*CommandRunner),
 	}, nil
+}
+
+func (se *Executor) GetConfigInfo() map[string]any {
+	return make(map[string]any)
 }
 
 // GetRuntimeInfo for getting runtime info for shell executor

@@ -10,8 +10,8 @@
       max_concurrency INTEGER NOT NULL DEFAULT 1,
       license_policy VARCHAR(100),
       sticky_message VARCHAR(200),
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
     );
 
     CREATE UNIQUE INDEX formicary_orgs_org_ndx ON formicary_orgs(org_unit);
@@ -27,8 +27,8 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
       CONSTRAINT formicary_org_configs_job_fk FOREIGN KEY (organization_id) REFERENCES formicary_orgs(id)
     );
 
@@ -55,8 +55,8 @@
       url VARCHAR(150),
       auth_provider VARCHAR(50),
       auth_id VARCHAR(50),
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
     );
 
     CREATE UNIQUE INDEX formicary_users_username_ndx ON formicary_users(username);
@@ -77,8 +77,8 @@
       picture_url TEXT,
       auth_provider VARCHAR(50),
       data TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
       CONSTRAINT formicary_user_sessions_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)
     );
 
@@ -90,7 +90,7 @@
       active BOOLEAN NOT NULL DEFAULT TRUE,
       sha256 VARCHAR(64) NOT NULL,
       expires_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP,
       CONSTRAINT formicary_user_tokens_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)
     );
 
@@ -103,7 +103,7 @@
       invitation_code VARCHAR(50) NOT NULL,
       accepted_at TIMESTAMP NULL DEFAULT NULL,
       expires_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP,
       CONSTRAINT formicary_user_invitation_fk FOREIGN KEY (invited_by_user_id) REFERENCES formicary_users(id)
     );
     CREATE UNIQUE INDEX formicary_user_invitations_code_ndx ON formicary_user_invitations(invitation_code);

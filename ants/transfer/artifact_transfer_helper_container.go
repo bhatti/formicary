@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/ant_config"
+	"plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
 	"time"
-
-	"plexobject.com/formicary/internal/utils"
-
-	"plexobject.com/formicary/ants/executor"
-
-	"plexobject.com/formicary/internal/types"
 )
+
+// aws configure set default.output json && aws configure set default.s3.signature_version s3v4`
+var configureCmd = `aws configure set default.s3.addressing_style path`
 
 // ArtifactTransferHelperContainer structure
 type ArtifactTransferHelperContainer struct {
@@ -162,14 +162,23 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		sha256 = sha256[diff:]
 	}
 
-	uploadCmd := fmt.Sprintf("ls -l %s && aws s3 --endpoint-url $AWS_URL cp %s s3://%s/%s",
-		zipFile, zipFile, t.antCfg.Common.S3.Bucket, id)
+	// for debugging
+	if t.antCfg.Common.Debug {
+		if err = t.debugPreUpload(ctx, zipFile); err != nil {
+			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("⚠️ Pre-upload debug failed: %v", err))
+		}
+	}
+
+	// endpoint is $AWS_URL
+	uploadCmd := fmt.Sprintf("%s && ls -l %s && aws s3 --endpoint-url %s cp %s s3://%s/%s",
+		configureCmd, zipFile, t.antCfg.Common.S3.BuildEndpoint(), zipFile, t.antCfg.Common.S3.Bucket, id)
+
 	if expiration.Unix() > time.Now().Unix() {
 		uploadCmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
 	}
 
 	// upload artifact
-	if _, _, _, _, err := t.execute(
+	if _, _, _, _, err = t.execute(
 		ctx,
 		uploadCmd,
 		true); err != nil {
@@ -200,8 +209,9 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	id string) (err error) {
 	// TODO verify download/upload
 	cmds := []string{
-		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url $AWS_URL cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
-			extractedDir, t.antCfg.Common.S3.Bucket, id),
+		// endpoint is $AWS_URL
+		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url %s cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
+			extractedDir, t.antCfg.Common.S3.BuildEndpoint(), t.antCfg.Common.S3.Bucket, id),
 		fmt.Sprintf("python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
 		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),
 	}
@@ -215,5 +225,47 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 				id, err, string(stderr))
 		}
 	}
+	return nil
+}
+
+func (t *ArtifactTransferHelperContainer) debugPreUpload(ctx context.Context, zipFile string) error {
+	_ = t.jobWriter.WriteTrace(ctx, "🔍 === UPLOAD DEBUG ===")
+
+	// Check if file exists and get size
+	if stdout, _, _, _, err := t.execute(ctx, fmt.Sprintf("%s && ls -lh %s", configureCmd, zipFile), true); err == nil {
+		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("📄 File: %s", strings.TrimSpace(string(stdout))))
+	}
+
+	// Test MinIO connectivity (try most likely endpoints)
+	endpoints := []string{"$AWS_URL", "http://minio:9000", "http://host.docker.internal:9000"}
+	connected := false
+
+	workingEndpoint := ""
+	for _, endpoint := range endpoints {
+		if _, _, _, _, err := t.execute(ctx, fmt.Sprintf("curl -f --connect-timeout 3 -s '%s/minio/health/live'", endpoint), true); err == nil {
+			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("✅ MinIO reachable: %s", endpoint))
+			connected = true
+			workingEndpoint = endpoint
+			break
+		}
+	}
+
+	if !connected {
+		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("❌ MinIO not reachable from any endpoint: working=%s", workingEndpoint))
+	}
+
+	// Test S3 access with simple command (no --max-items for older AWS CLI)
+	// endpoint is $AWS_URL
+	if stdout, stderr, _, _, err := t.execute(ctx, fmt.Sprintf("aws s3 --endpoint-url %s ls s3://%s/",
+		t.antCfg.Common.S3.BuildEndpoint(), t.antCfg.Common.S3.Bucket), true); err == nil {
+		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("✅ S3 access OK: working=%s - %s", workingEndpoint, stdout))
+	} else {
+		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("❌ S3 access failed: %v, endpoint: working=%s", err, workingEndpoint))
+		if len(stderr) > 0 {
+			firstLine := strings.Split(string(stderr), "\n")[0]
+			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("   Error: %s", firstLine))
+		}
+	}
+
 	return nil
 }

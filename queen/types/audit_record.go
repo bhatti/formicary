@@ -22,6 +22,8 @@ const (
 	JobRequestPaused AuditKind = "JOB_REQUEST_PAUSED"
 	// JobRequestApproved manual
 	JobRequestApproved AuditKind = "JOB_REQUEST_APPROVED"
+	// JobRequestRejected manual
+	JobRequestRejected AuditKind = "JOB_REQUEST_REJECTED"
 	// JobRequestFailed failed
 	JobRequestFailed AuditKind = "JOB_REQUEST_FAILED"
 	// JobRequestCancelled cancelled

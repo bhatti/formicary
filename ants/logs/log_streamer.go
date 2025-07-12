@@ -83,6 +83,9 @@ func (s *LogStreamer) publish(data []byte, tags string) {
 	if len(data) == 0 {
 		return
 	}
+	if s.ctx.Err() != nil {
+		return
+	}
 	var msg string
 	if len(data) > s.maxMessageSize {
 		msg = fmt.Sprintf("%s\n__TRUNCATED__(%d:%d)\n%s",
@@ -125,8 +128,7 @@ func (s *LogStreamer) publish(data []byte, tags string) {
 				"Component": "LogStreamer",
 				"Message":   string(data),
 				"Tags":      tags,
-				"Error":     pubErr,
-			}).Error("failed to publish log event")
+			}).WithError(pubErr).Error("failed to publish log event")
 		}
 	}
 }

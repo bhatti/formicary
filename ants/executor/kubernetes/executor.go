@@ -48,9 +48,9 @@ func NewKubernetesExecutor(
 	base.Name = opts.Name
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
-		"🔥 running with formicary %s on %s", cfg.Common.ID, hostName))
+		"☸️ running with formicary %s on %s", cfg.Common.ID, hostName))
 	_ = base.WriteTraceInfo(ctx, fmt.Sprintf(
-		"🐳 preparing kubernetes container '%s' with image '%s'",
+		"☸️ preparing kubernetes container '%s' with image '%s'",
 		opts.Name, opts.MainContainer.Image))
 	return &Executor{
 		BaseExecutor:        base,
@@ -58,6 +58,10 @@ func NewKubernetesExecutor(
 		registryCredentials: registryCredentials,
 		services:            make([]api.Service, 0),
 	}, nil
+}
+
+func (ke *Executor) GetConfigInfo() map[string]any {
+	return ke.adapter.GetConfigInfo()
 }
 
 // GetRuntimeInfo - runtime info for kubernetes executor
@@ -124,7 +128,7 @@ func (ke *Executor) Stop(
 
 	if ke.State == executor.Removing {
 		_ = ke.WriteTrace(ctx,
-			fmt.Sprintf("cannot remove container as it's already stopped"))
+			fmt.Sprintf("☸️ cannot remove container as it's already stopped"))
 		return fmt.Errorf("container [%s %s] is already stopped", ke.pod.UID, ke.Name)
 	}
 	_ = ke.BaseExecutor.WriteTraceInfo(ctx, fmt.Sprintf("✋ stopping container"))
@@ -249,7 +253,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 		time.Sleep(time.Duration(i+1) * time.Second)
 	}
 
-	_, _ = ke.Trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] 🐳 creating pod Image=%s Containers=%d Services=%v Aliases=%v Privileged=%v/%v Cost=%v",
+	_, _ = ke.Trace.Writeln(fmt.Sprintf("[%s KUBERNETES %s] ☸️ creating pod Image=%s Containers=%d Services=%v Aliases=%v Privileged=%v/%v Cost=%v",
 		time.Now().Format(time.RFC3339),
 		ke.pod.Name,
 		ke.ExecutorOptions.MainContainer.Image,

@@ -40,6 +40,7 @@
                role="tab"
                aria-controls="job-graph-tabs"
                aria-selected="false"
+               onclick="loadMermaidDiagram('/dashboard/jobs/definitions/{{.ID}}/mermaid')"
             >Job Graph</a>
         </li>
     </ul>
@@ -88,11 +89,40 @@
             </div>
         </div>
         {{ with .Definition }}
+        {{ if false }}
         <div class="tab-pane fade"
              id="job-graph-tabs"
              role="tabpanel"
              aria-labelledby="job-graph-tab">
             <img src="/dashboard/jobs/definitions/{{.ID}}/dot.png">
+        </div>
+        {{ end }} <!-- false -->
+        <div class="tab-pane fade"
+             id="job-graph-tabs"
+             role="tabpanel"
+             aria-labelledby="job-graph-tab">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Job Definition Graph</h5>
+                <div>
+                    <button id="exportDefinitionSVG" class="btn btn-sm btn-outline-primary" onclick="exportJobDefinitionSVG()">
+                        Export SVG
+                    </button>
+                    <button id="exportDefinitionPNG" class="btn btn-sm btn-outline-secondary" onclick="exportJobDefinitionPNG()">
+                        Export PNG
+                    </button>
+                </div>
+            </div>
+            <div id="definition-mermaid-diagram" class="border rounded p-3" style="min-height: 400px; background: #fafafa;">
+                <div class="text-center text-muted" id="definition-diagram-loading">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    Loading diagram...
+                </div>
+            </div>
+            <div id="definition-mermaid-error" class="alert alert-danger d-none" role="alert">
+                <strong>Error:</strong> <span id="definition-error-message"></span>
+            </div>
         </div>
         {{ end }} <!-- Definition -->
     </div>
@@ -109,7 +139,14 @@
                 tabTrigger.show();
             });
         });
+        // For job definitions
+        {{if .Definition}}
+        //loadMermaidDiagram('/dashboard/jobs/definitions/{{.Definition.ID}}/mermaid');
+        {{end}}
     })
 </script>
+</script>
+<script type="text/javascript" src="/js/graph.js"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
 {{ template "layouts/footer" }}

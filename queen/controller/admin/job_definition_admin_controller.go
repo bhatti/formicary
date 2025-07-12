@@ -46,6 +46,7 @@ func NewJobDefinitionAdminController(
 	webserver.GET("/dashboard/jobs/definitions", jdaCtr.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_definitions"
 	webserver.GET("/dashboard/jobs/plugins", jdaCtr.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_admin_job_plugins"
 	webserver.GET("/dashboard/jobs/definitions/:id", jdaCtr.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_admin_job_definitions"
+	webserver.GET("/dashboard/jobs/definitions/:id/mermaid", jdaCtr.mermaidJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "mermaid_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot", jdaCtr.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/:id/dot.png", jdaCtr.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
 	webserver.GET("/dashboard/jobs/definitions/stats", jdaCtr.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_admin_job_definition"
@@ -346,6 +347,16 @@ func (jdaCtr *JobDefinitionAdminController) deleteJobDefinition(c web.APIContext
 		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions")
+}
+
+func (jdaCtr *JobDefinitionAdminController) mermaidJobDefinition(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	d, err := jdaCtr.jobManager.GetMermaidConfigForJobDefinition(qc, c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	return c.String(http.StatusOK, d)
 }
 
 func (jdaCtr *JobDefinitionAdminController) dotJobDefinition(c web.APIContext) error {

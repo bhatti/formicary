@@ -278,6 +278,17 @@ func (jl *JobLauncher) removeSupervisor(
 			"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
 		}).Infof("forwarding cancellation job lifecycle event")
 		_ = jobSupervisor.UpdateFromJobLifecycleEvent(ctx, jobExecutionLifecycleEvent)
+	} else if jobSupervisor != nil &&
+		jobExecutionLifecycleEvent.JobState == common.FAILED {
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithFields(logrus.Fields{
+				"Component":                  "JobLauncher",
+				"ID":                         jobExecutionLifecycleEvent.ID,
+				"Target":                     jl.id,
+				"RequestID":                  jobExecutionLifecycleEvent.JobRequestID,
+				"JobExecutionLifecycleEvent": jobExecutionLifecycleEvent,
+			}).Debugf("skip forwarding cancellation job lifecycle failed event")
+		}
 	} else {
 		logrus.WithFields(logrus.Fields{
 			"Component":                  "JobLauncher",

@@ -9,7 +9,7 @@
       cpu_secs INTEGER NOT NULL DEFAULT 0,
       user_id VARCHAR(36),
       organization_id VARCHAR(36),
-      manual_approval_task VARCHAR(200),
+      current_task VARCHAR(200),
       exit_code VARCHAR(100) ,
       exit_message TEXT,
       error_code TEXT,

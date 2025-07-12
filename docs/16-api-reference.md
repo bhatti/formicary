@@ -124,7 +124,7 @@ Restarts a failed or completed job request.
     -   `id` (string): The ID of the job request to restart.
 -   **Success Response (200 OK):** Empty body.
 
-### `POST /api/jobs/requests/{id}/approve`
+### `POST /api/jobs/requests/{id}/review`
 Approves a task that is awaiting manual intervention, allowing the job to continue.
 
 -   **Permissions:** `JobRequest:Approve`
@@ -135,7 +135,8 @@ Approves a task that is awaiting manual intervention, allowing the job to contin
     {
       "execution_id": "string",
       "task_type": "string",
-      "comments": "string (optional)"
+      "comments": "string (optional)",
+      "status": "string (APPROVED|REJECTED)"
     }
     ```
 -   **Success Response (200 OK):** Empty body.

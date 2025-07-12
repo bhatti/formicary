@@ -1,6 +1,6 @@
 # Formicary
 
-![Formicary Logo](docs/images/formicary.png)
+![Formicary Logo](docs/formicary.png)
 
 **Formicary is a distributed, cloud-native orchestration engine for executing complex workflows, data pipelines, and CI/CD jobs.**
 

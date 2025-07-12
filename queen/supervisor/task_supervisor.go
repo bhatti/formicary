@@ -90,22 +90,22 @@ func (ts *TaskSupervisor) execute(
 		saveErr := ts.taskStateMachine.FinalizeTaskState(ctx)
 		if ts.taskStateMachine.TaskExecution.Failed() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("[ts] failed to run task '%s', exit=%s state=%s",
+				Warnf("[ts-final] failed to run task '%s', exit=%s state=%s",
 					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
 					ts.taskStateMachine.TaskExecution.TaskState)
 		} else if ts.taskStateMachine.TaskExecution.Paused() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("[ts] pausing job from task '%s', exit=%s state=%s",
+				Warnf("[ts-final] pausing job from task '%s', exit=%s state=%s",
 					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
 					ts.taskStateMachine.TaskExecution.TaskState)
 		} else if ts.taskStateMachine.TaskExecution.CanApprove() {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Warnf("[ts] waiting for manual approval of task '%s', exit=%s state=%s",
+				Warnf("[ts-final] waiting for manual approval of task '%s', exit=%s state=%s",
 					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
 					ts.taskStateMachine.TaskExecution.TaskState)
 		} else {
 			logrus.WithFields(ts.taskStateMachine.LogFields("TaskSupervisor", err, saveErr)).
-				Infof("[ts] completed task successfully '%s', exit=%s state=%s",
+				Infof("[ts-final] completed task successfully '%s', exit=%s state=%s",
 					ts.taskStateMachine.TaskDefinition.TaskType, ts.taskStateMachine.TaskExecution.ExitCode,
 					ts.taskStateMachine.TaskExecution.TaskState)
 		}
@@ -115,6 +115,7 @@ func (ts *TaskSupervisor) execute(
 	if err = ts.taskStateMachine.PrepareExecution(ctx); err != nil {
 		// task is updated with FAILED
 		// changing job state from EXECUTING to FAILED
+		// MLN1
 		err = fmt.Errorf("failed to prepare task for execution due to %w", err)
 		return err
 	}
@@ -166,6 +167,7 @@ func (ts *TaskSupervisor) tryExecuteTask(
 	for executing := true; ts.taskStateMachine.CanRetry() || executing; ts.taskStateMachine.TaskExecution.Retried++ {
 		// send request and wait synchronously for response
 		var taskResp *common.TaskResponse
+		var err error // Critical bug fix - adding shadow error so that we don't return invoke error and only save it in the response - MLN2
 		if ts.taskStateMachine.TaskDefinition.Method == common.Manual {
 			taskResp, err = ts.invokeManual(ctx, taskReq)
 		} else {
@@ -270,6 +272,16 @@ func (ts *TaskSupervisor) invoke(
 	}
 	taskResp, err = common.UnmarshalTaskResponse(ts.taskStateMachine.Reservation.EncryptionKey, res.Event.Payload)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":     "TaskSupervisor",
+			"AntID":         ts.taskStateMachine.Reservation.AntID,
+			"ContainerName": taskReq.ContainerName(),
+			"OutTopic":      ts.taskStateMachine.Reservation.AntTopic,
+			"InTopic":       ts.serverCfg.GetResponseTopicTaskReply(),
+			"RequestID":     ts.taskStateMachine.Request.GetID(),
+			"Retried":       ts.taskStateMachine.Request.GetRetried(),
+			"Error":         err,
+		}).Error("task supervisor failed to unmarshal response")
 		return taskReq.ErrorResponse(err), nil
 	}
 

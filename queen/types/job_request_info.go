@@ -33,8 +33,8 @@ type JobRequestInfo struct {
 	// UserID defines user who submitted the job
 	UserID string `json:"user_id"`
 	// CronTriggered is true if request was triggered by cron
-	CronTriggered      bool   `json:"cron_triggered"`
-	ManualApprovalTask string `json:"manual_approval_task"`
+	CronTriggered bool   `json:"cron_triggered"`
+	CurrentTask   string `json:"current_task"`
 	// Params are passed with job request
 	Params []*JobRequestParam `yaml:"-" json:"-" gorm:"-"`
 	// ScheduledAt defines schedule time
@@ -105,9 +105,9 @@ func (jri *JobRequestInfo) GetScheduleAttempts() int {
 	return jri.ScheduleAttempts
 }
 
-// GetApprovalTaskType returns task for manual approval
-func (jri *JobRequestInfo) GetApprovalTaskType() string {
-	return jri.ManualApprovalTask
+// GetCurrentTask returns current task
+func (jri *JobRequestInfo) GetCurrentTask() string {
+	return jri.CurrentTask
 }
 
 // GetJobType defines the type of job

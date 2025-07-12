@@ -32,6 +32,7 @@ type AntRegistration struct {
 	CreatedAt     time.Time                 `json:"created_at" mapstructure:"created_at"`
 	AntStartedAt  time.Time                 `json:"ant_started_at" mapstructure:"ant_started_at"`
 	AutoRefresh   bool                      `json:"auto_refresh" mapstructure:"auto_refresh"`
+	ConfigInfo    map[string]any            `json:"config_info" mapstructure:"config_info"`
 	// Transient property
 	ReceivedAt        time.Time         `json:"-" mapstructure:"-"`
 	ValidRegistration ValidRegistration `json:"-" mapstructure:"-"`

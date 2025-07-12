@@ -18,7 +18,7 @@ import (
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/queen/config"
-	"plexobject.com/formicary/queen/dot"
+	"plexobject.com/formicary/queen/diagrams"
 	"plexobject.com/formicary/queen/resource"
 
 	common "plexobject.com/formicary/internal/types"
@@ -483,7 +483,31 @@ func (jm *JobManager) DeleteJobDefinition(
 	return
 }
 
-// GetDotConfigForJobDefinition - creates graphviz dot file
+// GetMermaidConfigForJobDefinition - creates graphviz diagrams file
+func (jm *JobManager) GetMermaidConfigForJobDefinition(
+	qc *common.QueryContext,
+	id string) (string, error) {
+	definition, err := jm.jobDefinitionRepository.Get(qc, id)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobManager",
+			"ID":        id,
+		}).WithError(err).Warnf("failed to find job definition")
+		return "", err
+	}
+
+	generator, err := diagrams.NewMermaid(definition, nil)
+	if err != nil {
+		return "", err
+	}
+	d, err := generator.GenerateMermaid()
+	if err != nil {
+		return "", err
+	}
+	return d, nil
+}
+
+// GetDotConfigForJobDefinition - creates graphviz diagrams file
 func (jm *JobManager) GetDotConfigForJobDefinition(
 	qc *common.QueryContext,
 	id string) (string, error) {
@@ -492,7 +516,7 @@ func (jm *JobManager) GetDotConfigForJobDefinition(
 		return "", err
 	}
 
-	generator, err := dot.New(definition, nil)
+	generator, err := diagrams.NewDot(definition, nil)
 	if err != nil {
 		return "", err
 	}
@@ -512,7 +536,7 @@ func (jm *JobManager) GetDotImageForJobDefinition(
 		return nil, err
 	}
 
-	generator, err := dot.New(definition, nil)
+	generator, err := diagrams.NewDot(definition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -741,67 +765,95 @@ func (jm *JobManager) CancelJobRequest(
 	return nil
 }
 
-// ApproveJobRequest approves a manually paused job - scheduler will resume it
-func (jm *JobManager) ApproveJobRequest(ctx context.Context,
-	qc *common.QueryContext, approveRequest *types.ApproveTaskRequest) error {
-	// Use the repository's atomic approval method
-	if err := jm.jobRequestRepository.ApproveManually(qc, approveRequest); err != nil {
-		return fmt.Errorf("failed to approve job request: %w", err)
+// ReviewTaskRequestForManualApproval approves/rejects a manually paused job - scheduler will resume it
+func (jm *JobManager) ReviewTaskRequestForManualApproval(ctx context.Context,
+	qc *common.QueryContext, reviewRequest *types.ReviewTaskRequest) error {
+	// Validate request
+	if reviewRequest.Status != common.APPROVED && reviewRequest.Status != common.REJECTED {
+		return common.NewValidationError(fmt.Errorf("status must be APPROVED or REJECTED, got: %s", reviewRequest.Status))
+	}
+
+	var err error
+	var auditType types.AuditKind
+
+	// Route to appropriate repository method based on status
+	if reviewRequest.Status == common.APPROVED {
+		err = jm.jobRequestRepository.ApproveManualTask(qc, reviewRequest)
+		auditType = types.JobRequestApproved
+	} else {
+		err = jm.jobRequestRepository.RejectManualTask(qc, reviewRequest)
+		auditType = types.JobRequestRejected
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to %s job request: %w", strings.ToLower(string(reviewRequest.Status)), err)
 	}
 
 	// Get the updated job request for notifications/audit
-	request, err := jm.jobRequestRepository.Get(qc, approveRequest.RequestID)
+	request, err := jm.jobRequestRepository.Get(qc, reviewRequest.RequestID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobManager",
-			"RequestID": approveRequest.RequestID,
+			"RequestID": reviewRequest.RequestID,
+			"Task":      reviewRequest.TaskType,
+			"Status":    reviewRequest.Status,
 			"Error":     err,
-		}).Warn("Failed to get job request after approval for audit/notification")
+		}).Warn("Failed to get job request after review for audit/notification")
 	} else {
 		// Create audit record
-		_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(request, types.JobRequestApproved, qc))
+		_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(request, auditType, qc))
 
 		// Send notifications
-		_ = jm.sendApprovalNotification(ctx, qc, request, approveRequest)
+		_ = jm.sendReviewNotification(ctx, qc, request, reviewRequest)
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"Component":          "JobManager",
-		"RequestID":          approveRequest.RequestID,
-		"TaskType":           approveRequest.TaskType,
-		"ApprovedBy":         approveRequest.ApprovedBy,
-		"Comments":           approveRequest.Comments,
-		"ManualApprovalTask": request.ManualApprovalTask,
-		"Retried":            request.Retried,
-	}).Info("Job approved and set to PENDING for scheduler pickup")
+		"Component":   "JobManager",
+		"RequestID":   reviewRequest.RequestID,
+		"TaskType":    reviewRequest.TaskType,
+		"ReviewedBy":  reviewRequest.ReviewedBy,
+		"Comments":    reviewRequest.Comments,
+		"Status":      reviewRequest.Status,
+		"CurrentTask": request.CurrentTask,
+		"Retried":     request.Retried,
+		"JobState":    request.JobState,
+	}).Infof("Job %s successfully", reviewRequest.Status)
 
 	return nil
 }
 
 // Fire event to start the job by job-launcher that listens to incoming request in queue and executes it
-func (jm *JobManager) sendApprovalNotification(_ context.Context, qc *common.QueryContext,
-	request *types.JobRequest, _ *types.ApproveTaskRequest) (err error) {
+func (jm *JobManager) sendReviewNotification(_ context.Context, qc *common.QueryContext,
+	request *types.JobRequest, reviewRequest *types.ReviewTaskRequest) (err error) {
 	// TODO add background process for message notifications with database persistence
 	go func() {
 		job, err := jm.jobDefinitionRepository.GetByType(qc, request.JobType)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
-				"Component":        "JobManager",
-				"User":             qc.User,
-				"Request":          request,
-				"LastRequestState": common.APPROVED,
+				"Component": "JobManager",
+				"User":      qc.User,
+				"Request":   request,
+				"Status":    reviewRequest.Status,
 			}).WithError(err).Warnf("failed to find job-type %s", request.JobType)
 			return
 		}
 		jobExec, err := jm.jobExecutionRepository.Get(request.JobExecutionID)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
-				"Component":        "JobManager",
-				"User":             qc.User,
-				"Request":          request,
-				"LastRequestState": common.APPROVED,
+				"Component": "JobManager",
+				"User":      qc.User,
+				"Request":   request,
+				"Status":    reviewRequest.Status,
 			}).WithError(err).Warnf("failed to find job-execution %s", request.JobExecutionID)
 			return
+		}
+
+		// Convert review status to appropriate notification state
+		var notificationState common.RequestState
+		if reviewRequest.Status == common.APPROVED {
+			notificationState = common.APPROVED
+		} else {
+			notificationState = common.FAILED // Use FAILED for rejected tasks
 		}
 		if notifyErr := jm.NotifyJobMessage(
 			qc,
@@ -809,13 +861,13 @@ func (jm *JobManager) sendApprovalNotification(_ context.Context, qc *common.Que
 			job,
 			request,
 			jobExec,
-			common.APPROVED); notifyErr != nil {
+			notificationState); notifyErr != nil {
 			logrus.WithFields(logrus.Fields{
-				"Component":        "JobManager",
-				"User":             qc.User,
-				"Request":          request,
-				"LastRequestState": common.APPROVED,
-				"Error":            notifyErr,
+				"Component": "JobManager",
+				"User":      qc.User,
+				"Request":   request,
+				"Status":    reviewRequest.Status,
+				"Error":     notifyErr,
 			}).Warnf("failed to send job notification")
 		}
 	}()
@@ -1034,7 +1086,30 @@ func (jm *JobManager) UpdateJobRequestTimestamp(requestID string) (err error) {
 	return jm.jobRequestRepository.UpdateRunningTimestamp(requestID)
 }
 
-// GetDotConfigForJobRequest - creates graphviz dot file
+// GetMermaidConfigForJobRequest - creates graphviz diagrams file
+func (jm *JobManager) GetMermaidConfigForJobRequest(
+	qc *common.QueryContext,
+	id string) (string, error) {
+	request, err := jm.jobRequestRepository.Get(qc, id)
+	if err != nil {
+		return "", err
+	}
+	definition, err := jm.GetJobDefinitionByType(qc, request.JobType, request.JobVersion)
+	if err != nil {
+		return "", err
+	}
+
+	if request.JobExecutionID != "" {
+		request.Execution, _ = jm.jobExecutionRepository.Get(request.JobExecutionID)
+	}
+	generator, err := diagrams.NewMermaid(definition, request.Execution)
+	if err != nil {
+		return "", err
+	}
+	return generator.GenerateMermaid()
+}
+
+// GetDotConfigForJobRequest - creates graphviz diagrams file
 func (jm *JobManager) GetDotConfigForJobRequest(
 	qc *common.QueryContext,
 	id string) (string, error) {
@@ -1050,7 +1125,7 @@ func (jm *JobManager) GetDotConfigForJobRequest(
 	if request.JobExecutionID != "" {
 		request.Execution, _ = jm.jobExecutionRepository.Get(request.JobExecutionID)
 	}
-	generator, err := dot.New(definition, request.Execution)
+	generator, err := diagrams.NewDot(definition, request.Execution)
 	if err != nil {
 		return "", err
 	}
@@ -1073,7 +1148,7 @@ func (jm *JobManager) GetDotImageForJobRequest(
 	if request.JobExecutionID != "" {
 		request.Execution, _ = jm.jobExecutionRepository.Get(request.JobExecutionID)
 	}
-	generator, err := dot.New(definition, request.Execution)
+	generator, err := diagrams.NewDot(definition, request.Execution)
 	if err != nil {
 		return nil, err
 	}
@@ -1161,12 +1236,12 @@ func (jm *JobManager) ResetJobExecutionStateToReady(exec *types.JobExecution) er
 }
 
 // SetJobRequestAndExecutingStatusToExecuting updates state of job-execution and job-request to EXECUTING
-func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID string) error {
+func (jm *JobManager) SetJobRequestAndExecutingStatusToExecuting(executionID string, taskType string) error {
 	return jm.jobExecutionRepository.UpdateJobRequestAndExecutionState(
 		executionID,
 		common.READY,
 		common.EXECUTING,
-		"")
+		taskType)
 }
 
 // SetJobRequestAndExecutingStatusToApprovalRequired updates state of job-execution and job-request to MANUAL_APPROVAL_REQUIRED

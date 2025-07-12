@@ -40,6 +40,7 @@ func NewJobDefinitionController(
 	webserver.GET("/api/jobs/definitions", jobDefCtrl.queryJobDefinitions, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_definitions"
 	webserver.GET("/api/jobs/plugins", jobDefCtrl.queryPlugins, acl.NewPermission(acl.JobDefinition, acl.Query)).Name = "query_job_plugins"
 	webserver.GET("/api/jobs/definitions/:id", jobDefCtrl.getJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_job_definition"
+	webserver.GET("/api/jobs/definitions/:id/mermaid", jobDefCtrl.mermaidJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "mermaid_job_definition"
 	webserver.GET("/api/jobs/definitions/:id/dot", jobDefCtrl.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/api/jobs/definitions/:id/dot.png", jobDefCtrl.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
 	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
@@ -258,6 +259,21 @@ func (jobDefCtrl *JobDefinitionController) deleteJobDefinition(c web.APIContext)
 		return err
 	}
 	return c.NoContent(http.StatusOK)
+}
+
+// swagger:route GET /api/jobs/definitions/{id}/mermaid job-definitions mermaidJobDefinition
+// Returns Mermaid definition for the graph of tasks defined in the job.
+// responses:
+//
+//	200: stringResponse
+func (jobDefCtrl *JobDefinitionController) mermaidJobDefinition(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	d, err := jobDefCtrl.jobManager.GetMermaidConfigForJobDefinition(qc, c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	return c.String(http.StatusOK, d)
 }
 
 // swagger:route GET /api/jobs/definitions/{id}/dot job-definitions dotJobDefinition

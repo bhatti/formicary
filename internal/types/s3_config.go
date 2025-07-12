@@ -34,3 +34,11 @@ func (c *S3Config) Validate() error {
 	}
 	return nil
 }
+
+func (c *S3Config) BuildEndpoint() string {
+	if c.UseSSL {
+		return fmt.Sprintf("%s://%s", httpsPrefix, c.Endpoint)
+	} else {
+		return fmt.Sprintf("%s://%s", httpPrefix, c.Endpoint)
+	}
+}

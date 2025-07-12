@@ -1,4 +1,4 @@
-package dot
+package diagrams
 
 import (
 	"bytes"
@@ -10,15 +10,8 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
-const (
-	endSuccessColor = "darkseagreen"
-	endFailColor    = "firebrick"
-	blueColor       = "dodgerblue3"
-	defaultColor    = "gray"
-)
-
-// Generator structure
-type Generator struct {
+// DotGenerator structure
+type DotGenerator struct {
 	jobDefinition   *types.JobDefinition
 	jobExecution    *types.JobExecution
 	executionStatus common.RequestState
@@ -39,10 +32,10 @@ type Node struct {
 	children   []*Node
 }
 
-// New constructor
-func New(
+// NewDot constructor
+func NewDot(
 	jobDefinition *types.JobDefinition,
-	jobExecution *types.JobExecution) (*Generator, error) {
+	jobExecution *types.JobExecution) (*DotGenerator, error) {
 	if jobDefinition == nil {
 		return nil, fmt.Errorf("job jobDefinition is not specified")
 	}
@@ -53,7 +46,7 @@ func New(
 	if jobExecution != nil {
 		executionStatus = jobExecution.JobState
 	}
-	return &Generator{
+	return &DotGenerator{
 		jobDefinition:   jobDefinition,
 		jobExecution:    jobExecution,
 		executionStatus: executionStatus,
@@ -61,8 +54,8 @@ func New(
 	}, nil
 }
 
-// GenerateDotImage creates dot image in PNG format
-func (dg *Generator) GenerateDotImage() ([]byte, error) {
+// GenerateDotImage creates diagrams image in PNG format
+func (dg *DotGenerator) GenerateDotImage() ([]byte, error) {
 	g := graphviz.New()
 	conf, err := dg.GenerateDot()
 	if err != nil {
@@ -80,8 +73,15 @@ func (dg *Generator) GenerateDotImage() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// GenerateDot creates dot config
-func (dg *Generator) GenerateDot() (string, error) {
+// GenerateDot creates diagrams config
+func (dg *DotGenerator) GenerateDot() (string, error) {
+	const (
+		endSuccessColor = "darkseagreen"
+		endFailColor    = "firebrick"
+		blueColor       = "dodgerblue3"
+		defaultColor    = "gray"
+	)
+
 	endColor := blueColor
 	if dg.executionStatus.Completed() {
 		endColor = endSuccessColor
@@ -141,8 +141,8 @@ func (dg *Generator) GenerateDot() (string, error) {
 	return dg.buf.String(), nil
 }
 
-/////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
-func (dg *Generator) writeTask(node *Node) {
+// ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+func (dg *DotGenerator) writeTask(node *Node) {
 	if node == nil {
 		return
 	}
@@ -157,7 +157,7 @@ func (dg *Generator) writeTask(node *Node) {
 	}
 }
 
-func (dg *Generator) writeTaskLine(
+func (dg *DotGenerator) writeTaskLine(
 	from *Node,
 	to *Node,
 ) {
@@ -183,11 +183,11 @@ func (dg *Generator) writeTaskLine(
 	dg.write(sb.String())
 }
 
-func (dg *Generator) write(line string) {
+func (dg *DotGenerator) write(line string) {
 	dg.buf.WriteString(line)
 }
 
-func (dg *Generator) writeShape(node *Node) {
+func (dg *DotGenerator) writeShape(node *Node) {
 	dg.write(fmt.Sprintf(`  "%s" [shape=`, node.task.TaskType))
 	if dg.jobExecution == nil {
 		shape := overriddenShape(node, "ellipse")
@@ -212,13 +212,15 @@ func overriddenShape(node *Node, shape string) string {
 		shape = "invhouse"
 	} else if node.task.Method == common.AwaitForkedJob {
 		shape = "house"
+	} else if node.task.Method == common.Manual {
+		shape = "circle"
 	} else if node.task.Method == "ForkedJob" {
 		shape = "component"
 	}
 	return shape
 }
 
-func (dg *Generator) buildTree() (node *Node, nodes map[string]*Node, err error) {
+func (dg *DotGenerator) buildTree() (node *Node, nodes map[string]*Node, err error) {
 	var firstTask *types.TaskDefinition
 	firstTask, err = dg.jobDefinition.GetFirstTask()
 	if err != nil {
@@ -231,7 +233,7 @@ func (dg *Generator) buildTree() (node *Node, nodes map[string]*Node, err error)
 	return
 }
 
-func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
+func (dg *DotGenerator) addNodes(parentNode *Node, nodes map[string]*Node) {
 	if parentNode == nil || parentNode.task == nil {
 		return
 	}
@@ -323,7 +325,7 @@ func (dg *Generator) addNodes(parentNode *Node, nodes map[string]*Node) {
 	}
 }
 
-func (dg *Generator) getTaskStateStateColor(taskType string) (common.RequestState, string, bool) {
+func (dg *DotGenerator) getTaskStateStateColor(taskType string) (common.RequestState, string, bool) {
 	if dg.jobExecution == nil {
 		return common.UNKNOWN, defaultColor, false
 	}
