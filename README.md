@@ -80,6 +80,13 @@ The easiest way to get started with Formicary is using `docker-compose`.
 ## Comparison with Other Tools
 - [See how Formicary compares](./docs/18-comparison.md) to tools like Airflow, Jenkins, GitLab CI, and GitHub Actions.
 
+## Blogs/Articles
+
+-   [Building a distributed orchestration and graph processing system](https://shahbhat.medium.com/building-a-distributed-orchestration-and-graph-processing-system-04f757ae97f4)
+-   [Building Resilient, Interactive Playbooks with an Orchestration Engine](https://shahbhat.medium.com/building-resilient-interactive-playbooks-with-formicary-8cc289c9c917)
+-   [Task Scheduling Algorithms in Distributed Orchestration Systems](https://weblog.plexobject.com/archives/6960)
+
+
 ## License
 
 Formicary is licensed under the [GNU AGPLv3 License](./LICENSE.md).

@@ -1,0 +1,27 @@
+graph TB
+    subgraph Sensor["Sensor/Polling Task"]
+        START["Start Polling"]:::start
+        CHECK["Check Condition"]:::check
+        WAIT["Wait/Retry"]:::wait
+        SUCCESS["Condition Met"]:::success
+        FAIL["Max Retries"]:::fail
+    end
+    
+    subgraph NextTask["Next Task"]
+        PROCESS["Process Resource"]:::process
+    end
+    
+    START --> CHECK
+    CHECK -->|404/Not Ready| WAIT
+    CHECK -->|200/Ready| SUCCESS
+    CHECK -->|500/Error| FAIL
+    WAIT --> CHECK
+    SUCCESS --> PROCESS
+    
+    %% Styling
+    classDef start fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
+    classDef check fill:#BD10E0,stroke:#8B0A9F,stroke-width:2px,color:#FFFFFF
+    classDef wait fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF
+    classDef success fill:#50E3C2,stroke:#3AAF94,stroke-width:2px,color:#000000
+    classDef fail fill:#D0021B,stroke:#9B0114,stroke-width:2px,color:#FFFFFF
+    classDef process fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
