@@ -1,0 +1,41 @@
+graph TB
+    subgraph Input["Job Submission"]
+        JR["Job Request"]:::request
+    end
+    
+    subgraph Scheduler["Scheduler Checks"]
+        PC["Priority Check"]:::decision
+        RC["Resource Check"]:::decision
+        TC["Tag Check"]:::decision
+    end
+    
+    subgraph Queues["Job Queues"]
+        HPQ["High Priority"]:::highpri
+        MPQ["Medium Priority"]:::medpri  
+        LPQ["Low Priority"]:::lowpri
+    end
+    
+    subgraph Workers["Workers"]
+        FW["Fast Workers"]:::executor
+        MW["Medium Workers"]:::executor
+        HW["Heavy Workers"]:::executor
+    end
+    
+    %% Relationships
+    JR --> PC
+    PC --> RC
+    RC --> TC
+    TC --> HPQ
+    TC --> MPQ
+    TC --> LPQ
+    HPQ --> FW
+    MPQ --> MW
+    LPQ --> HW
+    
+    %% Styling
+    classDef request fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
+    classDef decision fill:#BD10E0,stroke:#8B0A9F,stroke-width:2px,color:#FFFFFF
+    classDef highpri fill:#D0021B,stroke:#9B0114,stroke-width:2px,color:#FFFFFF
+    classDef medpri fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF
+    classDef lowpri fill:#50E3C2,stroke:#3AAF94,stroke-width:2px,color:#000000
+    classDef executor fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF

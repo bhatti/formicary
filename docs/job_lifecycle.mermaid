@@ -1,0 +1,40 @@
+graph TB
+    subgraph Submission["Job Submission"]
+        SUB["Job Submitted"]:::request
+        PEND["PENDING"]:::pending
+    end
+    
+    subgraph Scheduling["Scheduling"]
+        READY["READY"]:::ready
+        SCHED["Scheduler"]:::core
+    end
+    
+    subgraph Execution["Execution"]
+        EXEC["EXECUTING"]:::executing
+        TASK["Task Execution"]:::executor
+    end
+    
+    subgraph Results["Results"]
+        COMP["COMPLETED"]:::complete
+        FAIL["FAILED"]:::failed
+    end
+    
+    %% Relationships
+    SUB --> PEND
+    PEND --> SCHED
+    SCHED --> READY
+    READY --> EXEC
+    EXEC --> TASK
+    TASK --> COMP
+    TASK --> FAIL
+    FAIL --> PEND
+    
+    %% Styling
+    classDef request fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
+    classDef pending fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF
+    classDef ready fill:#BD10E0,stroke:#8B0A9F,stroke-width:2px,color:#FFFFFF
+    classDef executing fill:#9013FE,stroke:#6A0EBC,stroke-width:2px,color:#FFFFFF
+    classDef complete fill:#50E3C2,stroke:#3AAF94,stroke-width:2px,color:#000000
+    classDef failed fill:#D0021B,stroke:#9B0114,stroke-width:2px,color:#FFFFFF
+    classDef core fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
+    classDef executor fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF

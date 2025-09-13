@@ -36,19 +36,13 @@ The easiest way to get started with Formicary is using `docker-compose`.
     cd formicary
     ```
 
-2.  **Prepare environment:**
-    Create a `.env` file from the example and generate a secure session key.
-    ```bash
-    cp .env.example .env
-    # Replace the placeholder in .env with a real secret
-    # On Linux/macOS:
-    # SECRET_KEY=$(openssl rand -base64 32); sed -i.bak "s/your_strong_secret_key_here/$SECRET_KEY/" .env
-    ```
+2.  **Prepare configuration:**
+    Define configuration file similar to `config/.formicary.yaml`
     
 3.  **Run Formicary:**
     This command starts the Queen server, a local Ant worker, Redis, and MinIO.
     ```bash
-    docker-compose -f sqlite-docker-compose.yaml up
+    docker-compose up
     ```
 
 4.  **Explore!**
@@ -80,7 +74,7 @@ The easiest way to get started with Formicary is using `docker-compose`.
     -   [Troubleshooting & FAQ](./docs/20-troubleshooting-faq.md)
 -   **Community**
     -   [Contributing Guide](./docs/17-contributing.md)
-    -   [Code of Conduct](./CODE_OF_CONDUCT.md)
+    -   [Code of Conduct](./docs/CODE_OF_CONDUCT.md)
     -   [License](./LICENSE.md)
 
 ## Comparison with Other Tools

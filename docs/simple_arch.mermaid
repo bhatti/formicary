@@ -1,0 +1,27 @@
+graph TB
+    subgraph Queen["Queen Server"]
+        JS["Job Scheduler"]:::core
+        JSup["Job Supervisor"]:::core
+        TS["Task Supervisor"]:::core
+    end
+    subgraph MQ["Message Queue"]
+        TQ["Task Queue"]:::queue
+    end
+    subgraph Ants["Ant Workers"]
+        DE["Docker Executor"]:::executor
+        KE["Kubernetes Executor"]:::executor
+        SE["Shell Executor"]:::executor
+        HE["HTTP Executor"]:::executor
+    end
+    %% Relationships
+    JS --> JSup
+    JSup --> TS
+    JSup --> TQ
+    TQ --> DE
+    TQ --> KE
+    TQ --> SE
+    TQ --> HE
+    %% Styling
+    classDef core fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
+    classDef executor fill:#F5A623,stroke:#D4841F,stroke-width:2px,color:#FFFFFF
+    classDef queue fill:#BD10E0,stroke:#8B0A9F,stroke-width:2px,color:#FFFFFF
