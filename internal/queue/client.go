@@ -86,12 +86,32 @@ func CreateClient(ctx context.Context, config *types.CommonConfig) (Client, erro
 		return newRedisClient(ctx, config, config.ID)
 	case types.ChannelMessagingProvider:
 		return newChannelClient(ctx, config.Queue, config.ID)
+	case types.WebSocketMessagingProvider:
+		return newWebSocketClient(ctx, config)
 	default:
 		if config.Queue.Provider == "" {
 			return newChannelClient(ctx, config.Queue, config.ID)
 		}
 		return nil, fmt.Errorf("unsupported provider: %v", config.Queue.Provider)
 	}
+}
+
+// newWebSocketClient creates either a server-side or ant-side WebSocket queue client.
+// If WebSocketConfig.ServerEndpoint is empty, this node is the queen (server mode).
+// If ServerEndpoint is set to a URL, this node is an ant (client mode).
+func newWebSocketClient(ctx context.Context, config *types.CommonConfig) (Client, error) {
+	wsCfg := config.Queue.WebSocket
+	if wsCfg == nil {
+		wsCfg = &types.WebSocketConfig{}
+		wsCfg.Validate()
+		config.Queue.WebSocket = wsCfg
+	}
+	if wsCfg.ServerEndpoint == "" {
+		// Queen mode: serve WebSocket connections from ants
+		return newWebSocketServerClient(ctx, config.Queue)
+	}
+	// Ant mode: connect to queen via WebSocket
+	return newWebSocketAntClient(ctx, config.Queue)
 }
 
 // ClientManager manages queue clients

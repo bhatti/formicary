@@ -34,10 +34,17 @@ func Start(ctx context.Context, antCfg *ant_config.AntConfig) (err error) {
 		return fmt.Errorf("failed to connect to pulsar due to %w", err)
 	}
 
-	artifactService, err := artifacts.New(antCfg.Common.S3)
-	if err != nil {
-		return fmt.Errorf("failed to connect to minio due to %w", err)
+	// Standalone ants must point at an external S3/SeaweedFS endpoint (the queen's).
+	// local_mode is only valid when running embedded inside the queen process.
+	if antCfg.Common.S3 != nil && antCfg.Common.S3.IsLocalMode() {
+		return fmt.Errorf("s3 local_mode is not supported for standalone ants — " +
+			"configure s3.endpoint to point at the queen's SeaweedFS or S3 service")
 	}
+	artifactService, artifactCloser, err := artifacts.New(antCfg.Common.S3)
+	if err != nil {
+		return fmt.Errorf("failed to start artifact service due to %w", err)
+	}
+	defer func() { _ = artifactCloser.Close() }()
 
 	if err = startCommon(ctx, antCfg, queueClient, artifactService, func() {
 		controller.StopWebServer(webServer)

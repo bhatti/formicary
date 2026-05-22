@@ -142,6 +142,19 @@ func (r *AntRegistration) UpdatedAtString() string {
 	return r.ReceivedAt.Format("Jan _2, 15:04:05 MST")
 }
 
+// IsAlive returns true if the registration heartbeat is within the alive timeout window.
+func (r *AntRegistration) IsAlive(timeout time.Duration) bool {
+	if time.Duration(time.Now().Unix()-r.ReceivedAt.Unix())*time.Second > timeout {
+		return false
+	}
+	if r.ValidRegistration != nil {
+		if err := r.ValidRegistration(context.Background()); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 // Supports check supported method and tags
 func (r *AntRegistration) Supports(
 	method TaskMethod,

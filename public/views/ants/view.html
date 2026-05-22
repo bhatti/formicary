@@ -1,66 +1,64 @@
 {{ template "layouts/header" . }}
 
 {{ with .Ant }}
-<section class="group">
-    <header class="group-header">
-        <h3 class="group-title">Ant Registration</h3>
-    </header>
-    <dl class="row">
-        <dt class="col-sm-4"><b>ID:</b></dt>
-        <dd class="col-sm-8">{{ .AntID }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Topic:</b></dt>
-        <dd class="col-sm-8">{{ .AntTopic }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Methods:</b></dt>
-        <dd class="col-sm-8">{{ .Methods }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Tags:</b></dt>
-        <dd class="col-sm-8">{{ .Tags }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Capacity:</b></dt>
-        <dd class="col-sm-8">{{ .MaxCapacity }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Load:</b></dt>
-        <dd class="col-sm-8">{{ .CurrentLoad }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Total Executed:</b></dt>
-        <dd class="col-sm-8">{{ .TotalExecuted}}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Updated At:</b></dt>
-        <dd class="col-sm-8">{{ .UpdatedAtString }}</dd>
-    </dl>
-</section>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Ant Registration</h2>
+        </div>
+    </div>
+</div>
 
-<header class="group-header">
-    <h3 class="group-title">Job Allocations</h3>
-</header>
-<div class="table-responsive">
-    <table class="table table-striped table-sm">
-        <thead>
-        <tr>
-            <th>Request ID</th>
-            <th>Task Types</th>
-            <th>Updated</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range .Allocations }}
-        <tr>
-            <td>{{.JobRequestID}}</td>
-            <td>{{.TaskTypes}}</td>
-            <td>{{.AllocatedAtString}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Ant Details</h3>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-5 text-secondary">ID</dt>
+            <dd class="col-7">{{ .AntID }}</dd>
+            <dt class="col-5 text-secondary">Topic</dt>
+            <dd class="col-7">{{ .AntTopic }}</dd>
+            <dt class="col-5 text-secondary">Methods</dt>
+            <dd class="col-7">{{ .Methods }}</dd>
+            <dt class="col-5 text-secondary">Tags</dt>
+            <dd class="col-7">{{ .Tags }}</dd>
+            <dt class="col-5 text-secondary">Capacity</dt>
+            <dd class="col-7">{{ .MaxCapacity }}</dd>
+            <dt class="col-5 text-secondary">Load</dt>
+            <dd class="col-7">{{ .CurrentLoad }}</dd>
+            <dt class="col-5 text-secondary">Total Executed</dt>
+            <dd class="col-7">{{ .TotalExecuted }}</dd>
+            <dt class="col-5 text-secondary">Updated At</dt>
+            <dd class="col-7">{{ .UpdatedAtString }}</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Job Allocations</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Task Types</th>
+                <th>Updated</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Allocations }}
+            <tr>
+                <td>{{.JobRequestID}}</td>
+                <td>{{.TaskTypes}}</td>
+                <td>{{.AllocatedAtString}}</td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{ end }}
 {{ template "layouts/footer" }}

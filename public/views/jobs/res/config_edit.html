@@ -1,59 +1,57 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">Edit Config for Virtual Resource</h4>
-        {{ with .Resource }}
-        <dl class="row">
-            <dt class="col-sm-4"><b>ID:</b></dt>
-            <dd class="col-sm-8">{{ .ID }}</dd>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Edit Config for Virtual Resource</h2>
+        </div>
+    </div>
+</div>
+
+{{ with .Resource }}
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-5 text-secondary">ID</dt>
+            <dd class="col-7">{{ .ID }}</dd>
+            <dt class="col-5 text-secondary">Type</dt>
+            <dd class="col-7">{{ .ResourceType }}</dd>
         </dl>
-        <dl class="row">
-            <dt class="col-sm-4"><b>Type:</b></dt>
-            <dd class="col-sm-8">{{ .ResourceType }}</dd>
-        </dl>
-        {{ end }}
-    </header>
-    <form action="/dashboard/jobs/resources/{{ .Resource.ID }}/configs" method="POST">
-        {{ with .Config }}
-        <div class="form-group">
+    </div>
+</div>
+{{ end }}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Configuration</h3>
+    </div>
+    <div class="card-body">
+        <form action="/dashboard/jobs/resources/{{ .Resource.ID }}/configs" method="POST">
+            {{ with .Config }}
             {{ with .Errors.Error }}
-            <p class="error" align="center">{{ . }}</p>
+            <div class="alert alert-danger">{{ . }}</div>
             {{ end }}
-        </div>
-        <div class="form-group">
-            {{ with .Errors.Name }}
-            <p class="error" align="center">{{ . }}</p>
-            {{ end }}
-            <div class="row">
-                <label for="name" class="col-sm-2 col-form-label">Name:</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control col-sm-6" name="name" id="name"
-                           value="{{ .Name }}" placeholder="config name">
-                </div>
+            <div class="mb-3">
+                {{ with .Errors.Name }}
+                <div class="alert alert-danger">{{ . }}</div>
+                {{ end }}
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" name="name" id="name"
+                       value="{{ .Name }}" placeholder="config name">
             </div>
-        </div>
-        <div class="form-group">
-            {{ with .Errors.value }}
-            <p class="error" align="center">{{ . }}</p>
-            {{ end }}
-            <div class="row">
-                <label for="value" class="col-sm-2 col-form-label">Value:</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control col-sm-6" name="value" id="value" value="{{ .Value }}"
-                           placeholder="config value">
-                </div>
+            <div class="mb-3">
+                {{ with .Errors.value }}
+                <div class="alert alert-danger">{{ . }}</div>
+                {{ end }}
+                <label for="value" class="form-label">Value</label>
+                <input type="text" class="form-control" name="value" id="value" value="{{ .Value }}"
+                       placeholder="config value">
             </div>
-        </div>
-        <div class="form-group row">
-            <div class="col-sm-10 offset-sm-2">
+            <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Save Config</button>
             </div>
-        </div>
-        {{end}}
-    </form>
+            {{end}}
+        </form>
+    </div>
+</div>
 
-    <footer class="group-footer">
-    </footer>
-
-</section>
 {{ template "layouts/footer" }}

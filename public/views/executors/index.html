@@ -1,44 +1,53 @@
 {{ template "layouts/header" . }}
-<h3>Ant Executors</h3>
-The executors are used by remote ant workers to execute a task. Ant workers register with type of executors they support and receive tasks that require those such as Kubernetes, Docker, HTTP, Shell, etc.
-<div class="table-responsive">
-    <table class="table table-striped table-sm">
-        <thead>
-        <tr>
-            <th>RequestID</th>
-            <th>Name</th>
-            <th>Ant</th>
-            <th>Method</th>
-            <th>User</th>
-            <th>State</th>
-            <th>Started</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range .Executors}}
-        <tr>
-            <td>{{.RequestID}}</td>
-            <td>{{.ContainerName}}</td>
-            <td>{{.AntID}}</td>
-            <td>{{.Method}}</td>
-            <td>{{.UserID}}</td>
-            <td>{{.ContainerState}}</td>
-            <td>{{.StartedAtString}}</td>
-            <td class="group row">
-                <form action="/dashboard/executors/{{.ContainerName}}/delete" method="POST"
-                      enctype="multipart/form-data"
-                      onsubmit="return confirm('Please confirm terminate this executor (' + this['id'].value + ')?');">
-                    <input type="submit" class="btn btn-danger" value="Terminate">
-                    <input type="hidden" name="antID" value="{{.AntID}}">
-                    <input type="hidden" name="method" value="{{.Method}}">
-                    <input type="hidden" name="id" value="{{.ContainerName}}">
-                </form>
-            </td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Ant Executors</h2>
+            <div class="text-secondary mt-1">Remote ant workers execute tasks using Kubernetes, Docker, HTTP, Shell, and other executor types.</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Name</th>
+                <th>Ant</th>
+                <th>Method</th>
+                <th>User</th>
+                <th>State</th>
+                <th>Started</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Executors}}
+            <tr>
+                <td>{{.RequestID}}</td>
+                <td>{{.ContainerName}}</td>
+                <td>{{.AntID}}</td>
+                <td>{{.Method}}</td>
+                <td>{{.UserID}}</td>
+                <td>{{.ContainerState}}</td>
+                <td>{{.StartedAtString}}</td>
+                <td>
+                    <form action="/dashboard/executors/{{.ContainerName}}/delete" method="POST"
+                          enctype="multipart/form-data"
+                          onsubmit="return confirm('Please confirm terminate this executor (' + this['id'].value + ')?');">
+                        <input type="submit" class="btn btn-danger btn-sm" value="Terminate">
+                        <input type="hidden" name="antID" value="{{.AntID}}">
+                        <input type="hidden" name="method" value="{{.Method}}">
+                        <input type="hidden" name="id" value="{{.ContainerName}}">
+                    </form>
+                </td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{ template "layouts/pagination" .Pagination }}
 {{ template "layouts/footer" }}

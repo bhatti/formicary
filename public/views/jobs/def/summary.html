@@ -1,172 +1,76 @@
-<section class="group">
-    <header class="group-header">
-        <table class="table table-sm">
-            <tr>
-                <td>
-                    <h3 class="group-title">Job Definition: {{ .JobType }}</h3>
-                </td>
-                <td class="text-right row">
-                    <form action="/dashboard/jobs/definitions/{{.ID}}/edit" method="GET">
-                        <input type="submit" class="btn btn-secondary" value="Edit">
-                    </form>
-                    &nbsp;
-                    <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
-                          onsubmit="return confirm('Please confirm deleting this job definition (' + this['id'].value + ')?');">
-                        <input type="submit" class="btn btn-danger" value="Delete">
-                        <input type="hidden" name="id" value="{{.JobType}}">
-                    </form>
-                    &nbsp;
-                    {{if .Disabled }}
-                    <form action="/dashboard/jobs/definitions/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
-                        <input type="submit" class="btn btn-warning" value="Enable">
-                    </form>
-                    {{else}}
-                    <form action="/dashboard/jobs/requests/new" method="GET">
-                        <input type="submit" class="btn btn-success" value="Trigger">
-                        <input type="hidden" name="jobType" value="{{.JobType}}">
-                    </form>
-                    &nbsp;
-                    <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
-                        <input type="submit" class="btn btn-warning" value="Disable">
-                    </form>
-                    {{end}}
-                </td>
-            </tr>
-        </table>
-    </header>
-    <div class="table-responsive">
-        <table class="table table-sm">
-            <tr class="table-primary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>ID:</b></dt>
-                        <dd class="col-sm-8">{{ .ID }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Version:</b></dt>
-                        <dd class="col-sm-8">{{ .Version }}
-                            {{with .SemVersion}}
-                            ({{.}})
-                            {{end}}
-                        </dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Type:</b></dt>
-                        <dd class="col-sm-8">{{ .JobType }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Description:</b></dt>
-                        <dd class="col-sm-8">{{ .Description }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>User:</b></dt>
-                        <dd class="col-sm-8"><a href="/dashboard/users/{{.UserID}}">{{.UserID}}</a></dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Organization:</b></dt>
-                        <dd class="col-sm-8"><a href="/dashboard/orgs/{{.OrganizationID}}">{{.OrganizationID}}</a></dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Platform:</b></dt>
-                        <dd class="col-sm-8">{{ .Platform }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>MaxConcurrency:</b></dt>
-                        <dd class="col-sm-8">{{ .MaxConcurrency }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Methods:</b></dt>
-                        <dd class="col-sm-8">{{ .Methods }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Tags:</b></dt>
-                        <dd class="col-sm-8">{{ .Tags }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Cron Schedule:</b></dt>
-                        <dd class="col-sm-8">{{ .CronAndScheduleTime }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Skip If:</b></dt>
-                        <dd class="col-sm-8">{{ .SkipIf }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>MaxConcurrency:</b></dt>
-                        <dd class="col-sm-8">{{ .MaxConcurrency }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Retry:</b></dt>
-                        <dd class="col-sm-8">{{ .Retry }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Timeout:</b></dt>
-                        <dd class="col-sm-8">{{ .Timeout }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Delay between retries:</b></dt>
-                        <dd class="col-sm-8">{{ .DelayBetweenRetries }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Created At:</b></dt>
-                        <dd class="col-sm-8">{{ .CreatedAt }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Updated At:</b></dt>
-                        <dd class="col-sm-8">{{ .UpdatedAt }}</dd>
-                    </dl>
-                </td>
-            </tr>
-        </table>
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title">Job Definition: {{.JobType}}</h3>
+    <div class="d-flex gap-2 flex-wrap">
+      <form action="/dashboard/jobs/definitions/{{.ID}}/edit" method="GET">
+        <input type="submit" class="btn btn-sm btn-secondary" value="Edit">
+      </form>
+      <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+            onsubmit="return confirm('Please confirm deleting this job definition (' + this[\'id\'].value + ')?');">
+        <input type="submit" class="btn btn-sm btn-danger" value="Delete">
+        <input type="hidden" name="id" value="{{.JobType}}">
+      </form>
+      {{if .Disabled}}
+      <form action="/dashboard/jobs/definitions/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
+        <input type="submit" class="btn btn-sm btn-warning" value="Enable">
+      </form>
+      {{else}}
+      <form action="/dashboard/jobs/requests/new" method="GET">
+        <input type="submit" class="btn btn-sm btn-success" value="Trigger">
+        <input type="hidden" name="jobType" value="{{.JobType}}">
+      </form>
+      <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
+        <input type="submit" class="btn btn-sm btn-warning" value="Disable">
+      </form>
+      {{end}}
     </div>
-    {{ template "jobs/def/configs/list" . }}
-</section>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <dl class="row mb-0">
+          <dt class="col-5 text-secondary">ID</dt>
+          <dd class="col-7">{{.ID}}</dd>
+          <dt class="col-5 text-secondary">Type</dt>
+          <dd class="col-7">{{.JobType}}</dd>
+          <dt class="col-5 text-secondary">Description</dt>
+          <dd class="col-7">{{.Description}}</dd>
+          <dt class="col-5 text-secondary">User</dt>
+          <dd class="col-7"><a href="/dashboard/users/{{.UserID}}">{{.UserID}}</a></dd>
+          <dt class="col-5 text-secondary">Organization</dt>
+          <dd class="col-7"><a href="/dashboard/orgs/{{.OrganizationID}}">{{.OrganizationID}}</a></dd>
+          <dt class="col-5 text-secondary">Platform</dt>
+          <dd class="col-7">{{.Platform}}</dd>
+          <dt class="col-5 text-secondary">Methods</dt>
+          <dd class="col-7">{{.Methods}}</dd>
+          <dt class="col-5 text-secondary">Tags</dt>
+          <dd class="col-7">{{.Tags}}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row mb-0">
+          <dt class="col-5 text-secondary">Version</dt>
+          <dd class="col-7">{{.Version}} {{with .SemVersion}}({{.}}){{end}}</dd>
+          <dt class="col-5 text-secondary">Max Concurrency</dt>
+          <dd class="col-7">{{.MaxConcurrency}}</dd>
+          <dt class="col-5 text-secondary">Cron Schedule</dt>
+          <dd class="col-7">{{.CronAndScheduleTime}}</dd>
+          <dt class="col-5 text-secondary">Skip If</dt>
+          <dd class="col-7">{{.SkipIf}}</dd>
+          <dt class="col-5 text-secondary">Retry</dt>
+          <dd class="col-7">{{.Retry}}</dd>
+          <dt class="col-5 text-secondary">Timeout</dt>
+          <dd class="col-7">{{.Timeout}}</dd>
+          <dt class="col-5 text-secondary">Retry Delay</dt>
+          <dd class="col-7">{{.DelayBetweenRetries}}</dd>
+          <dt class="col-5 text-secondary">Created</dt>
+          <dd class="col-7">{{.CreatedAt}}</dd>
+          <dt class="col-5 text-secondary">Updated</dt>
+          <dd class="col-7">{{.UpdatedAt}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ template "jobs/def/configs/list" . }}

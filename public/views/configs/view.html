@@ -1,34 +1,37 @@
 {{ template "layouts/header" . }}
 
-<section class="group">
-    <header class="group-header">
-        <h3 class="group-title">Configuration</h3>
-    </header>
-    {{ with .Config }}
-    <div align="right">
-        <a href="/dashboard/configs/{{.ID}}/edit">Edit</a>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Configuration</h2>
+        </div>
+        {{ with .Config }}
+        <div class="col-auto">
+            <a href="/dashboard/configs/{{.ID}}/edit" class="btn btn-secondary btn-sm">
+                <i class="ti ti-pencil"></i> Edit
+            </a>
+        </div>
+        {{ end }}
     </div>
-    <dl class="row">
-        <dt class="col-sm-4"><b>ID:</b></dt>
-        <dd class="col-sm-8">{{ .ID }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Kind:</b></dt>
-        <dd class="col-sm-8">{{ .Kind }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Name:</b></dt>
-        <dd class="col-sm-8">{{ .Name }}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Secret:</b></dt>
-        <dd class="col-sm-8">{{ .Secret}}</dd>
-    </dl>
-    <dl class="row">
-        <dt class="col-sm-4"><b>Value:</b></dt>
-        <dd class="col-sm-8">{{ .Value }}</dd>
-    </dl>
-    {{ end }}
-</section>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        {{ with .Config }}
+        <dl class="row">
+            <dt class="col-5 text-secondary">ID</dt>
+            <dd class="col-7">{{ .ID }}</dd>
+            <dt class="col-5 text-secondary">Kind</dt>
+            <dd class="col-7">{{ .Kind }}</dd>
+            <dt class="col-5 text-secondary">Name</dt>
+            <dd class="col-7">{{ .Name }}</dd>
+            <dt class="col-5 text-secondary">Secret</dt>
+            <dd class="col-7">{{ .Secret }}</dd>
+            <dt class="col-5 text-secondary">Value</dt>
+            <dd class="col-7">{{ .Value }}</dd>
+        </dl>
+        {{ end }}
+    </div>
+</div>
 
 {{ template "layouts/footer" }}

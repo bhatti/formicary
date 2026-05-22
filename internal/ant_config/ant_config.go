@@ -113,7 +113,7 @@ func NewAntConfig(id string) (*AntConfig, error) {
 			"Component":  "AntConfig",
 			"ID":         id,
 			"UsedConfig": viper.ConfigFileUsed(),
-		}).Infof("loading config file...")
+		}).Debugf("loading config file...")
 	} else {
 		log.WithFields(log.Fields{
 			"Component":  "AntConfig",
@@ -128,7 +128,7 @@ func NewAntConfig(id string) (*AntConfig, error) {
 		log.Fatalf("unable to decode into struct, %v", err)
 		return nil, err
 	}
-	if config.Common.Debug {
+	if log.IsLevelEnabled(log.TraceLevel) {
 		out, _ := yaml.Marshal(config)
 		fmt.Printf("%s\n", out)
 	}

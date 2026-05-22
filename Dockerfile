@@ -1,3 +1,5 @@
+ARG WEED_VERSION=3.68
+
 FROM golang:1.24 AS go-builder
 COPY . /src
 WORKDIR /src
@@ -7,6 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 libsqlite3-dev pkg-config \
     ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
+
+ARG WEED_VERSION=3.68
+RUN curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/${WEED_VERSION}/linux_amd64.tar.gz" \
+    | tar -xz -C /usr/local/bin weed && \
+    chmod +x /usr/local/bin/weed
 # Set CGO flags for static linking
 ENV CGO_ENABLED=1
 ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
@@ -28,6 +35,7 @@ RUN apk add --no-cache ca-certificates bash mysql-client postgresql-client && \
 # Copy binaries from builder stage
 COPY --from=go-builder /src/out/bin/formicary /formicary
 COPY --from=go-builder /go/bin/goose /usr/local/bin/goose
+COPY --from=go-builder /usr/local/bin/weed /usr/local/bin/weed
 # Copy application files
 RUN mkdir -p /app/public
 COPY --from=go-builder /src/public /app/public

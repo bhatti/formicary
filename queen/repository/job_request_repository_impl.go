@@ -985,12 +985,10 @@ func (jrr *JobRequestRepositoryImpl) JobCounts(
 		if err = jrr.db.ScanRows(rows, &stat); err != nil {
 			return nil, err
 		}
-		if stat.StartTime.Unix() >= start.Unix() && stat.EndTime.Unix() <= end.Unix() {
-			stat.Day = stat.GetStartTime().Format("2006-01-02")
-			stats = append(stats, &stat)
-		}
+		stat.Day = stat.GetStartTime().Format("2006-01-02")
+		stats = append(stats, &stat)
 	}
-	sort.Slice(stats, func(i, j int) bool { return stats[i].EndTime.Unix() > stats[j].EndTime.Unix() })
+	sort.Slice(stats, func(i, j int) bool { return stats[i].GetEndTime().Unix() > stats[j].GetEndTime().Unix() })
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobRequestRepositoryImpl",

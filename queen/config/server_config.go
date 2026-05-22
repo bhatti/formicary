@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"plexobject.com/formicary/internal/ant_config"
 	"strings"
@@ -153,23 +152,29 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	if id != "" {
 		config.Common.ID = id
 	}
-	if config.Common.Debug {
-		out, _ := yaml.Marshal(config)
-		fmt.Printf("%s\n", out)
-	}
 	if config.EmbeddedAnt != nil {
 		config.EmbeddedAnt.Common = config.Common
 		config.EmbeddedAnt.Common.ID = config.Common.ID + "_embedded_ant"
 	}
+	s3Info := "local-embedded"
+	if config.Common.S3 != nil && !config.Common.S3.IsLocalMode() {
+		s3Info = config.Common.S3.Endpoint
+	}
+	queueInfo := "in-memory"
+	if config.Common.Redis != nil && config.Common.Redis.Host != "" {
+		queueInfo = fmt.Sprintf("%s:%d", config.Common.Redis.Host, config.Common.Redis.Port)
+	}
 	log.WithFields(log.Fields{
 		"Component":   "ServerConfig",
 		"ID":          config.Common.ID,
-		"DB":          config.DB.Type,
 		"Port":        config.Common.HTTPPort,
+		"DB":          config.DB.Type,
+		"S3":          s3Info,
+		"Queue":       queueInfo,
 		"Auth":        config.Common.Auth.Enabled,
 		"EmbeddedAnt": config.HasEmbeddedAnt(),
-		"UsedConfig":  viper.ConfigFileUsed(),
-	}).Infof("loaded config file...")
+		"ConfigFile":  viper.ConfigFileUsed(),
+	}).Infof("loaded config")
 
 	return &config, nil
 }

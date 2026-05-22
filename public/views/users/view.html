@@ -1,34 +1,47 @@
 {{ template "layouts/header" . }}
 
-<ul class="nav nav-tabs" id="userView" role="tablist">
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">User Profile</h2>
+        </div>
+        <div class="col-auto">
+            <a href="/dashboard/users/{{.User.ID}}/edit" class="btn btn-secondary btn-sm">
+                <i class="ti ti-pencil"></i> Edit Profile
+            </a>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="userView" role="tablist">
     <li class="nav-item">
-        <a class="nav-link active" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
+        <a class="nav-link active" id="profile-tab" data-bs-toggle="tab" href="#profile" role="tab" aria-controls="profile"
            aria-selected="true">Profile</a>
     </li>
     {{ with .Subscription }}
     <li class="nav-item">
-        <a class="nav-link" id="subscription-tab" data-toggle="tab" href="#subscription" role="tab"
+        <a class="nav-link" id="subscription-tab" data-bs-toggle="tab" href="#subscription" role="tab"
            aria-controls="subscription" aria-selected="false">Subscription</a>
     </li>
     {{end}}
     <li class="nav-item">
-        <a class="nav-link" id="resource-tab" data-toggle="tab" href="#resource" role="tab" aria-controls="resource"
+        <a class="nav-link" id="resource-tab" data-bs-toggle="tab" href="#resource" role="tab" aria-controls="resource"
            aria-selected="false">Resources Usage</a>
     </li>
     {{ with .DBUser }}
     <li class="nav-item">
-        <a class="nav-link" id="token-tab" data-toggle="tab" href="#token" role="tab" aria-controls="token"
+        <a class="nav-link" id="token-tab" data-bs-toggle="tab" href="#token" role="tab" aria-controls="token"
            aria-selected="false">API Tokens</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" id="notify-tab" data-toggle="tab" href="#notify" role="tab" aria-controls="notify"
+        <a class="nav-link" id="notify-tab" data-bs-toggle="tab" href="#notify" role="tab" aria-controls="notify"
            aria-selected="false">Notification</a>
     </li>
     {{end}}
     {{if $.ReadAdmin}}
     <li class="nav-item">
-        <a class="nav-link" id="permission-tab" data-toggle="tab" href="#permission" role="tab"
-           aria-controls="permission" aria-selected="false">Roles & Permissions</a>
+        <a class="nav-link" id="permission-tab" data-bs-toggle="tab" href="#permission" role="tab"
+           aria-controls="permission" aria-selected="false">Roles &amp; Permissions</a>
     </li>
     {{end}}
     {{if .User.HasOrganization}}
@@ -40,385 +53,291 @@
 
 <div class="tab-content" id="userViewContent">
     <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
-        <section class="group">
-            <header class="group-header">
-                <h4 class="group-title">User Profile</h4>
-            </header>
-            <div class="form-group">
-                <p class="error" align="center">{{ .User.StickyMessage }}</p>
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Profile Details</h3>
             </div>
-
-            <div align="right">
-                <a href="/dashboard/users/{{.User.ID}}/edit">Edit Profile</a>
-            </div>
-            {{ if .User.IsAdmin }}
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Roles: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.RolesList}}</b>
-                    </div>
-                </div>
-            </div>
-            {{ end }}
-
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">ID: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.ID }}</b>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Username: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.Username }}</b>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Name: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.Name }}</b>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Email: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.Email }}</b>
+            <div class="card-body">
+                {{ with .User.StickyMessage }}
+                <div class="alert alert-info">{{ . }}</div>
+                {{ end }}
+                <dl class="row">
+                    {{ if .User.IsAdmin }}
+                    <dt class="col-5 text-secondary">Roles</dt>
+                    <dd class="col-7">{{ .User.RolesList }}</dd>
+                    {{ end }}
+                    <dt class="col-5 text-secondary">ID</dt>
+                    <dd class="col-7">{{ .User.ID }}</dd>
+                    <dt class="col-5 text-secondary">Username</dt>
+                    <dd class="col-7">{{ .User.Username }}</dd>
+                    <dt class="col-5 text-secondary">Name</dt>
+                    <dd class="col-7">{{ .User.Name }}</dd>
+                    <dt class="col-5 text-secondary">Email</dt>
+                    <dd class="col-7">
+                        {{ .User.Email }}
                         {{ if not .User.EmailVerified }}
                         <form action="/dashboard/users/{{.User.ID}}/create_verify_email" method="POST"
-                              enctype="multipart/form-data">
-                            <input type="submit" class="btn btn-primary" value="Verify Email">
+                              enctype="multipart/form-data" class="d-inline ms-2">
+                            <input type="submit" class="btn btn-warning btn-sm" value="Verify Email">
                         </form>
                         {{ end }}
-                    </div>
-                </div>
+                    </dd>
+                    {{ if .User.EmailVerified }}
+                    <dt class="col-5 text-secondary">Email Verified</dt>
+                    <dd class="col-7"><span class="badge badge-success">Yes</span></dd>
+                    {{ end }}
+                    {{if .User.HasOrganization}}
+                    <dt class="col-5 text-secondary">Organization</dt>
+                    <dd class="col-7"><a href="/dashboard/orgs/{{.User.OrganizationID}}">{{.User.OrganizationID}}</a></dd>
+                    <dt class="col-5 text-secondary">Bundle</dt>
+                    <dd class="col-7">{{ .User.BundleID }}</dd>
+                    {{ end }}
+                </dl>
             </div>
-
-            {{ if .User.EmailVerified }}
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Email Verified: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.EmailVerified }}</b>
-                    </div>
-                </div>
-            </div>
-            {{ end }}
-
-            {{if .User.HasOrganization}}
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Organization: </label>
-                    <div class="col-sm-10">
-                        <a href="/dashboard/orgs/{{.User.OrganizationID}}">{{.User.OrganizationID}}</a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="row">
-                    <label class="col-sm-2 col-form-label">Bundle: </label>
-                    <div class="col-sm-10">
-                        <b>{{ .User.BundleID }}</b>
-                    </div>
-                </div>
-            </div>
-            {{ end }}
-        </section>
+        </div>
     </div>
+
     <div class="tab-pane fade" id="subscription" role="tabpanel" aria-labelledby="subscription-tab">
-        <section class="group">
-            {{ with .Subscription }}
-            <header class="group-header">
-                <h4 class="group-title">Subscription ({{$.PolicyRange}})</h4>
-            </header>
+        {{ with .Subscription }}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Subscription ({{$.PolicyRange}})</h3>
+            </div>
             <div class="table-responsive">
-                <table class="table table-sm table-border">
-                    <thead class="thead-dark">
+                <table class="table table-vcenter table-sm card-table">
+                    <thead>
                     <tr>
-                        <th class="col-sm-1">Policy</th>
-                        <th class="col-sm-1">Period</th>
-                        <th class="col-sm-1">CPU Quota (secs)</th>
-                        <th class="col-sm-1">Disk Quota (MiB)</th>
-                        <th class="col-sm-1">Remaining CPU Quota (secs)</th>
-                        <th class="col-sm-1">Remaining Disk Quota (MiB)</th>
+                        <th>Policy</th>
+                        <th>Period</th>
+                        <th>CPU Quota (secs)</th>
+                        <th>Disk Quota (MiB)</th>
+                        <th>Remaining CPU (secs)</th>
+                        <th>Remaining Disk (MiB)</th>
                     </tr>
                     </thead>
-                    <tr scope="row">
-                        <td>
-                            <dt class="col-sm-1"><b>{{ .Policy }}:</b></dt>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .Period }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .CPUQuota }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .DiskQuota }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .RemainingCPUQuota }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .RemainingDiskQuota }}</dd>
-                        </td>
+                    <tbody>
+                    <tr>
+                        <td>{{ .Policy }}</td>
+                        <td>{{ .Period }}</td>
+                        <td>{{ .CPUQuota }}</td>
+                        <td>{{ .DiskQuota }}</td>
+                        <td>{{ .RemainingCPUQuota }}</td>
+                        <td>{{ .RemainingDiskQuota }}</td>
                     </tr>
+                    </tbody>
                 </table>
             </div>
-            {{ end }}
-        </section>
+        </div>
+        {{ end }}
     </div>
+
     <div class="tab-pane fade" id="resource" role="tabpanel" aria-labelledby="resource-tab">
-        <section class="group">
-            {{ with .ResourcesUsage }}
-            <header class="group-header">
-                <h4 class="group-title">Resources Usage</h4>
-            </header>
+        {{ with .ResourcesUsage }}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Resources Usage</h3>
+            </div>
             <div class="table-responsive">
-                <table class="table table-sm table-border">
-                    <thead class="thead-dark">
+                <table class="table table-vcenter table-sm card-table">
+                    <thead>
                     <tr>
-                        <th class="col-sm-2">Type</th>
-                        <th class="col-sm-2">Today ({{$.TodayRange}})</th>
-                        <th class="col-sm-2">Week ({{$.WeekRange}})</th>
+                        <th>Type</th>
+                        <th>Today ({{$.TodayRange}})</th>
+                        <th>Week ({{$.WeekRange}})</th>
                         {{if $.HasPolicyRange}}
-                        <th class="col-sm-2">Subscription ({{$.PolicyRange}})</th>
+                        <th>Subscription ({{$.PolicyRange}})</th>
                         {{else}}
-                        <th class="col-sm-2">Month ({{$.MonthRange}})</th>
+                        <th>Month ({{$.MonthRange}})</th>
                         {{end}}
                     </tr>
                     </thead>
+                    <tbody>
                     {{range .}}
-                    <tr scope="row">
-                        <td>
-                            <dt class="col-sm-2"><b>{{ .Type }}:</b></dt>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .Today.ValueString }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-1">{{ .Week.ValueString }}</dd>
-                        </td>
+                    <tr>
+                        <td>{{ .Type }}</td>
+                        <td>{{ .Today.ValueString }}</td>
+                        <td>{{ .Week.ValueString }}</td>
                         <td>
                             {{if $.HasPolicyRange}}
-                            <dd class="col-sm-2">{{ .Subscription.ValueString }}</dd>
+                            {{ .Subscription.ValueString }}
                             {{else}}
-                            <dd class="col-sm-2">{{ .Month.ValueString }}</dd>
+                            {{ .Month.ValueString }}
                             {{end}}
                         </td>
                     </tr>
                     {{ end }}
+                    </tbody>
                 </table>
             </div>
-            {{ end }}
-        </section>
+        </div>
+        {{ end }}
     </div>
-    <div class="tab-pane fade" id="notify" role="tabpanel" aria-labelledby="token-tab">
-        <section class="group">
-            {{ with .DBUser }}
-            <header class="group-header">
-                <h4 class="group-title">Job Notifications</h4>
-            </header>
-            <form action="/dashboard/users/{{.ID}}/notify" method="POST">
-                <div class="form-group">
-                    {{ with .Errors.Notify }}
-                    <p class="error" align="center">{{ . }}</p>
-                    {{ end }}
-                </div>
-                <div class="form-group">
-                    <div class="row">
-                        <label class="col-sm-2 col-form-label">Slack Channel: </label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control col-sm-6" name="slackChannel" id="slackChannel"
-                                   value="{{ .NotifyChannel }}"
-                                   placeholder="your slack channel">
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="row">
-                        <label class="col-sm-2 col-form-label">Slack Token: </label>
-                        <div class="col-sm-10">
-                            <input type="password" class="form-control col-sm-6" name="slackToken" id="slackToken"
-                                   value="{{ $.SlackToken }}"
-                                   placeholder="your slack token to post chat messages">
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="row">
-                        <label class="col-sm-2 col-form-label">Email(s): </label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control col-sm-6" name="email" id="email"
-                                   value="{{ .NotifyEmail }}"
-                                   placeholder="your emails separated by comma">
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="row">
-                        <label class="col-sm-2 col-form-label">When: </label>
-                        <div class="col-sm-5">
-                            <select class="browser-default custom-select" name="when">
-                                <option value="never">Never</option>
-                                {{if eq .NotifyWhen "always"}}
-                                <option selected value="always">Always</option>
-                                {{else}}
-                                <option value="always">Always</option>
-                                {{end}}
-                                {{if eq .NotifyWhen "onSuccess"}}
-                                <option selected value="onSuccess">On Success</option>
-                                {{else}}
-                                <option value="onSuccess">On Success</option>
-                                {{end}}
-                                {{if eq .NotifyWhen "onFailure"}}
-                                <option selected value="onFailure">On Failure</option>
-                                {{else}}
-                                <option value="onFailure">On Failure</option>
-                                {{end}}
-                            </select>
-                        </div>
-                    </div>
-                </div>
 
-                <input type="submit" class="btn btn-primary" value="Update Notification Settings">
-            </form>
-            <div class="form-group col text-center">
+    <div class="tab-pane fade" id="notify" role="tabpanel" aria-labelledby="notify-tab">
+        {{ with .DBUser }}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Job Notifications</h3>
+            </div>
+            <div class="card-body">
+                <form action="/dashboard/users/{{.ID}}/notify" method="POST">
+                    {{ with .Errors.Notify }}
+                    <div class="alert alert-danger">{{ . }}</div>
+                    {{ end }}
+                    <div class="mb-3">
+                        <label class="form-label" for="slackChannel">Slack Channel</label>
+                        <input type="text" class="form-control" name="slackChannel" id="slackChannel"
+                               value="{{ .NotifyChannel }}"
+                               placeholder="your slack channel">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="slackToken">Slack Token</label>
+                        <input type="password" class="form-control" name="slackToken" id="slackToken"
+                               value="{{ $.SlackToken }}"
+                               placeholder="your slack token to post chat messages">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="email">Email(s)</label>
+                        <input type="text" class="form-control" name="email" id="email"
+                               value="{{ .NotifyEmail }}"
+                               placeholder="your emails separated by comma">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="when">When</label>
+                        <select class="form-select" name="when" id="when">
+                            <option value="never">Never</option>
+                            {{if eq .NotifyWhen "always"}}
+                            <option selected value="always">Always</option>
+                            {{else}}
+                            <option value="always">Always</option>
+                            {{end}}
+                            {{if eq .NotifyWhen "onSuccess"}}
+                            <option selected value="onSuccess">On Success</option>
+                            {{else}}
+                            <option value="onSuccess">On Success</option>
+                            {{end}}
+                            {{if eq .NotifyWhen "onFailure"}}
+                            <option selected value="onFailure">On Failure</option>
+                            {{else}}
+                            <option value="onFailure">On Failure</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Update Notification Settings</button>
+                </form>
                 {{ range $.UnverifiedEmails}}
-                &nbsp;
                 <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST"
-                      enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-secondary" value="Verify {{.}}">
+                      enctype="multipart/form-data" class="mt-2">
+                    <input type="submit" class="btn btn-secondary btn-sm" value="Verify {{.}}">
                     <input type="hidden" name="email" value="{{.}}">
                 </form>
                 {{ end }}
+                <p class="text-secondary mt-3 small">
+                    The Slack support requires an organization account and your Slack token will be saved as a
+                    <a href="/dashboard/orgs/{{$.User.OrganizationID}}/configs">secret organization config</a>.
+                    Email notifications will only be sent to verified email addresses.
+                </p>
             </div>
-            <blockquote class="blockquote-footer">
-                   <span class="font-italic">
-                       The Slack support requires an organization account and your Slack token will be saved as a
-                         <a href="/dashboard/orgs/{{$.User.OrganizationID}}/configs">secret organization config</a>.
-                   </span>
-            </blockquote>
-            <blockquote class="blockquote-footer">
-                   <span class="font-italic">
-                     The email notifications will only be sent to the verified email addresses.
-                   </span>
-            </blockquote>
-            {{end}}
-        </section>
+        </div>
+        {{end}}
     </div>
+
     <div class="tab-pane fade" id="token" role="tabpanel" aria-labelledby="token-tab">
-        <section class="group">
-            {{ with .DBUser }}
-            <header class="group-header">
-                <h4 class="group-title">API Tokens</h4>
-            </header>
-            <div align="right">
-                <a href="/dashboard/users/{{.ID}}/tokens/new">New API Token</a>
+        {{ with .DBUser }}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">API Tokens</h3>
+                <div class="card-options">
+                    <a href="/dashboard/users/{{.ID}}/tokens/new" class="btn btn-primary btn-sm">
+                        <i class="ti ti-plus"></i> New API Token
+                    </a>
+                </div>
             </div>
             <div class="table-responsive">
-                <table class="table table-sm table-border">
-                    <thead class="thead-dark">
+                <table class="table table-vcenter table-sm card-table">
+                    <thead>
                     <tr>
-                        <th class="col-sm-2">Name</th>
-                        <th class="col-sm-2">Created</th>
-                        <th class="col-sm-2">Expires</th>
-                        <th class="col-sm-2">Actions</th>
+                        <th>Name</th>
+                        <th>Created</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
                     </tr>
                     </thead>
+                    <tbody>
                     {{range $.Tokens}}
-                    <tr scope="row">
+                    <tr>
+                        <td>{{ .TokenName }}</td>
+                        <td>{{ .CreatedAt }}</td>
+                        <td>{{ .ExpiresAt }}</td>
                         <td>
-                            <dt class="col-sm-2"><b>{{ .TokenName }}:</b></dt>
-                        </td>
-                        <td>
-                            <dd class="col-sm-2">{{ .CreatedAt }}</dd>
-                        </td>
-                        <td>
-                            <dd class="col-sm-2">{{ .ExpiresAt }}</dd>
-                        </td>
-                        <td class="group row col-sm-2">
                             <form action="/dashboard/users/{{.UserID}}/tokens/{{.ID}}/delete" method="POST"
                                   enctype="multipart/form-data"
                                   onsubmit="return confirm('Please confirm revoking this token(' + this['id'].value + ')?');">
-                                <input type="submit" class="btn btn-danger" value="Delete">
+                                <input type="submit" class="btn btn-danger btn-sm" value="Revoke">
                                 <input type="hidden" name="id" value="{{.TokenName}}">
                             </form>
                         </td>
                     </tr>
                     {{ end }}
+                    </tbody>
                 </table>
             </div>
-            {{end}}
-        </section>
+        </div>
+        {{end}}
     </div>
+
     <div class="tab-pane fade" id="permission" role="tabpanel" aria-labelledby="permission-tab">
-        <section class="group">
-            {{if $.ReadAdmin}}
-            <header class="group-header">
-                <h4 class="group-title">Roles</h4>
-            </header>
+        {{if $.ReadAdmin}}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Roles</h3>
+            </div>
             <div class="table-responsive">
-                <table class="table table-sm table-border">
-                    <thead class="thead-dark">
+                <table class="table table-vcenter table-sm card-table">
+                    <thead>
                     <tr>
-                        <th class="col-sm-2">Type</th>
-                        <th class="col-sm-4">Scope</th>
+                        <th>Type</th>
+                        <th>Scope</th>
                     </tr>
                     </thead>
+                    <tbody>
                     {{range .User.RolesList}}
-                    <tr scope="row">
-                        <td class="col-sm-2">
-                            <dt class="col-sm-2"><b>{{ .RoleType }}:</b></dt>
-                        </td>
-                        <td class="col-sm-4">
-                            <dd class="col-sm-4">{{ .Scope }}</dd>
-                        </td>
+                    <tr>
+                        <td>{{ .RoleType }}</td>
+                        <td>{{ .Scope }}</td>
                     </tr>
                     {{ end }}
+                    </tbody>
                 </table>
             </div>
-            <header class="group-header">
-                <h4 class="group-title">Permissions</h4>
-            </header>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Permissions</h3>
+            </div>
             <div class="table-responsive">
-                <table class="table table-sm table-border">
-                    <thead class="thead-dark">
+                <table class="table table-vcenter table-sm card-table">
+                    <thead>
                     <tr>
-                        <th class="col-sm-2">Resource</th>
-                        <th class="col-sm-4">Actions</th>
+                        <th>Resource</th>
+                        <th>Actions</th>
                     </tr>
                     </thead>
+                    <tbody>
                     {{range .User.PermissionList}}
                     {{ if .NotEmpty }}
-                    <tr scope="row">
-                        <td class="col-sm-2">
-                            <dt class="col-sm-2"><b>{{ .Resource }}:</b></dt>
-                        </td>
-                        <td class="col-sm-4">
-                            <dd class="col-sm-4">{{ .LongAction }}</dd>
-                        </td>
+                    <tr>
+                        <td>{{ .Resource }}</td>
+                        <td>{{ .LongAction }}</td>
                     </tr>
                     {{ end }}
                     {{ end }}
+                    </tbody>
                 </table>
             </div>
-            {{end}}
-        </section>
+        </div>
+        {{end}}
     </div>
 </div>
 
-<footer class="group-footer">
-</footer>
 {{ template "layouts/footer" }}

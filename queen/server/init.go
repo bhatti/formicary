@@ -51,6 +51,11 @@ func StartWebServer(
 		return err
 	}
 
+	// If the queue provider is WebSocket, register the ant-connection endpoint on the HTTP server.
+	if hp, ok := queueClient.(queue.HTTPHandlerProvider); ok {
+		webServer.GET(hp.WebSocketPath(), web.WrapHandler(hp.HTTPHandler()), nil)
+	}
+
 	if err := startNewWebsocketProxyRegistry(
 		serverCfg,
 		resourceManager,

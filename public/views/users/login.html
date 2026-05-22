@@ -1,26 +1,40 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-    <title>Formicary Signin</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    <style>
-        body        { padding-top:70px; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Formicary – Sign In</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/css/tabler.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.22.0/dist/tabler-icons.min.css">
 </head>
-<body>
-<div class="container">
-    <div class="jumbotron text-center">
-        <h1 class="text-success"><span class="fa fa-lock"></span> Welcome to Formicary</h1>
-        <h5 class="text-bold"><span class="fa fa-id-card"></span> a distributed orchestration and graph processing system</h5>
-        <p class="text-blue">Login or Register with:</p>
-        {{if .HasGoogleOAuth}}
-        <a href="/auth/google" class="btn btn-primary"><span class="fa fa-google"></span> SignIn with Google</a>
-        {{end}}
-        {{if .HasGithubOAuth}}
-        <a href="/auth/github" class="btn btn-secondary"><span class="fa fa-github"></span> SignIn with Github</a>
-        {{end}}
+<body class="antialiased d-flex flex-column">
+  <div class="flex-fill d-flex flex-column justify-content-center py-4">
+    <div class="container-tight py-6">
+      <div class="text-center mb-4">
+        <img src="/images/formicary250.png" height="60" alt="Formicary" class="mb-3">
+        <h2>Formicary</h2>
+        <p class="text-secondary">Distributed job orchestration</p>
+      </div>
+      <div class="card card-md">
+        <div class="card-body">
+          <h2 class="h2 text-center mb-4">Sign in to your account</h2>
+          <div class="d-grid gap-2">
+            {{if .HasGoogleOAuth}}
+            <a href="/auth/google" class="btn btn-outline-secondary">
+              <i class="ti ti-brand-google me-2"></i>Sign in with Google
+            </a>
+            {{end}}
+            {{if .HasGithubOAuth}}
+            <a href="/auth/github" class="btn btn-outline-secondary">
+              <i class="ti ti-brand-github me-2"></i>Sign in with GitHub
+            </a>
+            {{end}}
+          </div>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/js/tabler.min.js"></script>
 </body>
-</html> 
+</html>

@@ -6,46 +6,20 @@ common:
     block_user_agents:
         - Slackbot-LinkExpanding
     public_dir: ./public/
-    http_port: 0
+    http_port: 7777
     xmonitoring_urls:
       docker: "localhost:2375"
     queue:
-        _provider: "REDIS_MESSAGING"
-        endpoints: []
-        topic_tenant: public
-        topic_namespace: default
-        pulsar:
-            connection_timeout: 30ns
-            channel_buffer: 0
-            max_reconnect_to_broker: 0
-        kafka:
-            brokers:
-                - 192.168.1.102:19092
-                - 192.168.1.102:29092
-            username: ""
-            password: ""
-            certificate: ""
-        username: ""
-        password: ""
-        token: ""
-        tls: null
-        defaultoptions: null
+        # embedded ant mode: use in-memory channel queue (provider empty = CHANNEL_MESSAGING)
+        provider: ""
         retrymax: 5
         retrydelay: 1s
     s3:
-        endpoint: 192.168.1.105:9000
-        access_key_id: minioadmin
-        secret_access_key: minioadmin
-        token: ""
-        region: us-west-2
-        prefix: formicary/
+        local_mode: true
+        local_data_dir: ./data/seaweedfs
         bucket: formicary-artifacts
-        encryption_password: ""
-        useSSL: false
-    _redis:
-        host: localhost
-        port: 6379
-        password: ""
+        prefix: formicary/
+        region: us-east-1
     auth:
         enabled: false
         cookie_name: formicary-session
@@ -66,7 +40,7 @@ common:
     debug: true
 db:
     data_source: formicary_db.sqlite
-    type: ""
+    type: sqlite
     encryption_key: my-db-key
     max_idle_connections: 10
     max_open_connections: 20
@@ -87,6 +61,7 @@ notify:
     slack_jobs_template_file: views/notify/slack_notify_job.txt
     verify_email_template_file: views/notify/verify_email.html
     user_invitation_template_file: views/notify/user_invitation.html
+# embedded_ant uses the queen's in-process ClientWebSocketServer directly (no network hop)
 embedded_ant:
     tags: ["docker", "kubernetes", "embedded", "builder"]
     methods:
@@ -103,7 +78,7 @@ embedded_ant:
     poll_interval: 3
     output_limit: 67108864  # 64MB
     docker:
-      host: "tcp://192.168.1.105:2375"
+      host: "tcp://127.0.0.1:2375"
     kubernetes:
       _service_account: "formicary-ant"
       registry:
@@ -114,8 +89,6 @@ embedded_ant:
       kubeconfig: ""
       host: ""
       allow_privilege_escalation: true
-      # Enhanced cluster configuration
-      #kubeconfig: "/path/to/kubeconfig"
       cluster_name: "docker-desktop"
       namespace: "default"
       pod_security_context:

@@ -7,65 +7,35 @@ common:
     public_dir: ./public/
     http_port: 0
     queue:
-        provider: "REDIS_MESSAGING"
-        endpoints: []
-        topic_tenant: ""
-        topic_namespace: ""
-        pulsar: null
-        kafka: null
-        username: ""
-        password: ""
-        token: ""
-        tls: null
-        defaultoptions: null
-        maxconnections: 0
-        maxmessagesize: 0
-        maxfetchsize: 0
-        connectiontimeout: null
-        operationtimeout: null
-        committimeout: null
-        retrymax: 0
-        retrydelay: null
+        provider: "WEBSOCKET_MESSAGING"
+        websocket:
+            # Ant mode: server_endpoint points at the queen's WebSocket queue endpoint
+            server_endpoint: "ws://localhost:7777/ws/queue"
+            buffer_db_path: "/tmp/formicary-ant-buffer.db"
+            ping_interval: 10s
+            reconnect_min_delay: 1s
+            reconnect_max_delay: 30s
+        retrymax: 5
+        retrydelay: 1s
     s3:
-        endpoint: localhost:9000
-        access_key_id: minioadmin
-        secret_access_key: minioadmin
-        token: ""
-        region: us-west-2
-        prefix: formicary/
+        # Point at the queen's embedded SeaweedFS S3 endpoint (default port 8333)
+        local_mode: false
+        endpoint: "localhost:8333"
+        access_key_id: "localkey"
+        secret_access_key: "localsecret"
         bucket: formicary-artifacts
-        encryption_password: ""
-        useSSL: false
-    redis:
-        host: localhost
-        port: 6379
-        password: ""
-        ttl_minutes: 0s
-        pool_size: 0
-        max_subscription_wait: 0s
+        prefix: formicary/
+        region: us-east-1
     auth:
         enabled: false
         cookie_name: ""
         jwt_secret: ""
-        max_age: 0s
-        token_max_age: 0s
         secure: false
-        google_client_id: ""
-        google_client_secret: ""
-        google_callback_host: ""
-        github_client_id: ""
-        github_client_secret: ""
-        github_callback_host: ""
     container_reaper_interval: 0s
     monitor_interval: 0s
     monitoring_urls:
       docker: "192.168.1.102:2375"
     registration_interval: 0s
-    dead_job_ids_events_interval: 0s
-    max_streaming_log_message_size: 0
-    max_job_timeout: 0s
-    max_task_timeout: 0s
-    rate_limit_sec: 0
     development: true
     encryptionkey: ""
     debug: true
@@ -92,8 +62,6 @@ kubernetes:
     host: ""
     helper_image: ""
     allow_privilege_escalation: true
-    # Enhanced cluster configuration
-    #kubeconfig: "/path/to/kubeconfig"
     cluster_name: "docker-desktop"
     namespace: "default"
     pod_security_context:

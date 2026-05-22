@@ -1,39 +1,21 @@
-</main>
-</div>
-</div>
+    </div><!-- /container-xl -->
+  </div><!-- /page-wrapper -->
+</div><!-- /wrapper -->
 
-<!-- Bootstrap core JavaScript
-================================================== -->
-<!-- Placed at the end of the document so the pages load faster -->
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script src="https://pagecdn.io/lib/popper/2.4.4/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-<!-- Icons -->
-<script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
-
-<script type="text/javascript">
-    feather.replace()
-
-    function load_logs(btn, logs, url) {
-        document.getElementById(btn).hidden = true;
-        const logsRef = document.getElementById(logs)
-        logsRef.hidden = true;
-
-        $.ajax({
-            url: url,
-            dataType: 'text',
-            success: function (data) {
-                logsRef.textContent = data;
-                logsRef.hidden = false;
-                logsRef.focus()
-            }
-        });
-    }
+<script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/js/tabler.min.js"></script>
+<script src="/js/ansi_colors.js"></script>
+<script src="/js/approval.js"></script>
+<script>
+function load_logs(btn, logs, url) {
+  document.getElementById(btn).hidden = true;
+  var logsRef = document.getElementById(logs);
+  logsRef.hidden = true;
+  fetch(url).then(function(r){ return r.text(); }).then(function(data) {
+    logsRef.textContent = data;
+    logsRef.hidden = false;
+    logsRef.focus();
+  });
+}
 </script>
-
-<!-- Graphs -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script>
 </body>
 </html>
-

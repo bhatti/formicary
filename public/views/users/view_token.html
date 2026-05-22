@@ -1,54 +1,40 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">API Token</h4>
-    </header>
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Token Name: </label>
-            <div class="col-sm-10">
-                <b>{{ .Token.TokenName}}</b>
-            </div>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">API Token Created</h2>
         </div>
     </div>
+</div>
 
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Expires: </label>
-            <div class="col-sm-10">
-                <b>{{ .Token.ExpiresAt }}</b>
-            </div>
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">API Token Details</h3>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-5 text-secondary">Token Name</dt>
+            <dd class="col-7">{{ .Token.TokenName }}</dd>
+            <dt class="col-5 text-secondary">Expires</dt>
+            <dd class="col-7">{{ .Token.ExpiresAt }}</dd>
+        </dl>
+        <div class="mb-3">
+            <label class="form-label">API Key</label>
+            <textarea id="api_token" class="form-control font-monospace" rows="5" readonly>{{ .Token.APIToken }}</textarea>
+        </div>
+        <div class="mb-3">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyToClipboard('api_token');">
+                <i class="ti ti-copy"></i> Copy to Clipboard
+            </button>
+            <span class="text-secondary ms-2 small">Copy your API token — it will not be displayed again.</span>
         </div>
     </div>
+</div>
 
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">API Key: </label>
-            <div class="col-sm-10">
-                <textarea id="api_token" cols="60" rows="5" readonly>{{ .Token.APIToken}}</textarea>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label"><input type="button" value="Copy" onclick="copy_to_clipboard('api_token');"></label>
-            <div class="col-sm-10">
-                <i>Copy your API token, it will not be displayed again.</i>
-            </div>
-            <script>
-                function copy_to_clipboard(id)
-                {
-                    document.getElementById(id).select();
-                    document.execCommand('copy');
-                }
-            </script>
-        </div>
-    </div>
-
-    <footer class="group-footer">
-    </footer>
-
-</section>
+<script>
+function copyToClipboard(id) {
+    document.getElementById(id).select();
+    document.execCommand('copy');
+}
+</script>
 {{ template "layouts/footer" }}

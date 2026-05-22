@@ -1,69 +1,37 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">User Invited</h4>
-    </header>
-
-    Following invitation has been sent to {{.Invitation.Email}} to join your organization:
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Invitation Code: </label>
-            <div class="col-sm-10">
-                <b>{{ .Invitation.InvitationCode }}</b>
-            </div>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Invitation Sent</h2>
         </div>
     </div>
+</div>
 
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Sent: </label>
-            <div class="col-sm-10">
-                <b>{{ .Invitation.CreatedAt }}</b>
-            </div>
-        </div>
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Invitation Details</h3>
     </div>
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Expires: </label>
-            <div class="col-sm-10">
-                <b>{{ .Invitation.ExpiresAt }}</b>
-            </div>
+    <div class="card-body">
+        <div class="alert alert-success mb-3">
+            <i class="ti ti-mail me-2"></i>
+            Invitation has been sent to <strong>{{.Invitation.Email}}</strong> to join your organization.
         </div>
+        <dl class="row">
+            <dt class="col-5 text-secondary">Invitation Code</dt>
+            <dd class="col-7">{{ .Invitation.InvitationCode }}</dd>
+            <dt class="col-5 text-secondary">Sent</dt>
+            <dd class="col-7">{{ .Invitation.CreatedAt }}</dd>
+            <dt class="col-5 text-secondary">Expires</dt>
+            <dd class="col-7">{{ .Invitation.ExpiresAt }}</dd>
+            <dt class="col-5 text-secondary">Invited By</dt>
+            <dd class="col-7">{{ .Invitation.InvitedByUserID }}</dd>
+            <dt class="col-5 text-secondary">For Organization</dt>
+            <dd class="col-7"><a href="/dashboard/orgs/{{.Invitation.OrganizationID}}">{{.Invitation.OrganizationID}}</a></dd>
+            {{ with .Invitation.AcceptedAt }}
+            <dt class="col-5 text-secondary">Accepted</dt>
+            <dd class="col-7">{{ . }}</dd>
+            {{ end }}
+        </dl>
     </div>
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">By User: </label>
-            <div class="col-sm-10">
-                <b>{{ .Invitation.InvitedByUserID }}</b>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">For Organization: </label>
-            <div class="col-sm-10">
-                <a href="/dashboard/orgs/{{.Invitation.OrganizationID}}">{{.Invitation.OrganizationID}}</a>
-            </div>
-        </div>
-    </div>
-
-    {{ with .Invitation.AcceptedAt }}
-    <div class="form-group">
-        <div class="row">
-            <label class="col-sm-2 col-form-label">Accepted: </label>
-            <div class="col-sm-10">
-                <b>{{ . }}</b>
-            </div>
-        </div>
-    </div>
-    {{ end  }}
-
-    <footer class="group-footer">
-    </footer>
-
-</section>
+</div>
 {{ template "layouts/footer" }}

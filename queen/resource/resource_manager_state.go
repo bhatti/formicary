@@ -315,6 +315,18 @@ func (s *State) hasAntsByMethod(method common.TaskMethod) (exists bool, total in
 	return
 }
 
+// getAntIDsByMethod returns all ant IDs registered for a method (may include stale ants).
+func (s *State) getAntIDsByMethod(method common.TaskMethod) []string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	ants := s.antByMethod[method]
+	ids := make([]string, 0, len(ants))
+	for id := range ants {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 func (s *State) getAntsByTag(
 	tag string) (antIDs []string, total int) {
 	s.lock.RLock()

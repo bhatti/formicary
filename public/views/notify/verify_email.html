@@ -6,18 +6,18 @@
         <meta name="description" content="">
         <meta name="author" content="">
         <title>{{.Title}}</title>
-        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
     <body>
-        <div class="container-fluid">
+        <div class="container-fluid py-3">
             <p>Hi {{.Name}},</p>
             <p>Please enter the one time following code into email verification field at <a href="{{$.URLPrefix}}/dashboard/users/verify_email/{{.VerifyID}}">{{$.URLPrefix}}/dashboard/users/verify_email/{{.VerifyID}}</a>.</p>
-           
-            <p> <b>Verification code: {{.EmailCode}}</b></p>
+
+            <p><b>Verification code: {{.EmailCode}}</b></p>
             {{ with .Email }}
-            <p> Email: {{.}}</p>
-            {{ end  }}
+            <p>Email: {{.}}</p>
+            {{ end }}
 
             <p><a href="{{$.URLPrefix}}/dashboard/users/{{.UserID}}">Your Profile</a></p>
 
@@ -25,6 +25,6 @@
 
             <p>Regards,</p>
             <p>Formicary Support</p>
-        </div>  
+        </div>
     </body>
 </html>

@@ -22,7 +22,6 @@ var antCmd = &cobra.Command{
 	Long:  "starts a formicary ant for executing tasks using docker/kubernetes/APIs",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.WithFields(log.Fields{
-			"Args": args,
 			"ID":   id,
 			"Port": port}).
 			Infof("starting formicary ant ...")

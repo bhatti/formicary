@@ -1,0 +1,67 @@
+common:
+    id: default-server-id
+    user_agent: ""
+    proxy_url: ""
+    external_base_url: http://localhost:7777
+    block_user_agents:
+        - Slackbot-LinkExpanding
+    public_dir: ./public/
+    http_port: 7777
+    xmonitoring_urls:
+      docker: "localhost:2375"
+    queue:
+        provider: "WEBSOCKET_MESSAGING"
+        websocket:
+            # Queen mode: no server_endpoint — listens for ant WebSocket connections at /ws/queue
+            path: "/ws/queue"
+            ping_interval: 10s
+        retrymax: 5
+        retrydelay: 1s
+    s3:
+        local_mode: true
+        local_data_dir: ./data/seaweedfs
+        bucket: formicary-artifacts
+        prefix: formicary/
+        region: us-east-1
+    auth:
+        enabled: false
+        cookie_name: formicary-session
+        jwt_secret: changeme
+        secure: false
+        google_client_id: ""
+        google_client_secret: ""
+        google_callback_host: localhost
+        github_client_id: ""
+        github_client_secret: ""
+        github_callback_host: localhost
+    container_reaper_interval: 1m0s
+    monitor_interval: 2s
+    registration_interval: 5s
+    rate_limit_sec: 1
+    development: true
+    encryptionkey: ""
+    debug: true
+db:
+    data_source: formicary_db.sqlite
+    type: sqlite
+    encryption_key: my-db-key
+    max_idle_connections: 10
+    max_open_connections: 20
+jobs:
+    job_scheduler_leader_interval: 15s
+    job_scheduler_check_pending_jobs_interval: 1s
+smtp:
+    from_email: support@formicary.io
+    from_name: ""
+    provider: ""
+    api_key: ""
+    username: support@formicary.io
+    password: test
+    host: mail.formicary.io
+    port: 0
+notify:
+    email_jobs_template_file: views/notify/email_notify_job.html
+    slack_jobs_template_file: views/notify/slack_notify_job.txt
+    verify_email_template_file: views/notify/verify_email.html
+    user_invitation_template_file: views/notify/user_invitation.html
+# embedded_ant is intentionally absent — using external ant via WebSocket

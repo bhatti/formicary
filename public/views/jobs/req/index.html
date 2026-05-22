@@ -1,178 +1,167 @@
 {{ template "layouts/header" . }}
-<h3>{{.Title}}</h3>
-<div class="float-right text-right row">
-    <form action="/dashboard/jobs/requests/new" method="GET">
-        <input type="submit" class="btn btn-success" value="Trigger New Job">
-    </form>
+
+<div class="page-header mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{.Title}}</h2>
+    </div>
+    <div class="col-auto">
+      <form action="/dashboard/jobs/requests/new" method="GET">
+        <input type="submit" class="btn btn-sm btn-success" value="Trigger New Job">
+      </form>
+    </div>
+  </div>
 </div>
 
-<div class="form-group">
-    <p class="error_id" align="center"></p>
-</div>
-<div class="table-responsive">
-    <table id="jobs_table" class="table table-striped table-sm">
-        <thead>
+<p class="error_id text-danger text-center"></p>
+
+<div class="card">
+  <div class="table-responsive">
+    <table id="jobs_table" class="table table-vcenter table-hover table-sm card-table">
+      <thead>
         <tr>
-            <th>ID</th>
-            <th>Job Type</th>
-            <th>User</th>
-            <th>Status</th>
-            <th>Priority</th>
-            {{if .Pending }}
-            <th>Scheduled</th>
-            {{else}}
-            <th>Updated</th>
-            {{end}}
-            {{if .IsTerminal }}
-            <th>Elapsed</th>
-            {{ end }}
-            <th>Error</th>
-            <th>Actions</th>
+          <th>ID</th>
+          <th>Job Type</th>
+          <th>User</th>
+          <th>Status</th>
+          <th>Priority</th>
+          {{if .Pending}}<th>Scheduled</th>{{else}}<th>Updated</th>{{end}}
+          {{if .IsTerminal}}<th>Elapsed</th>{{end}}
+          <th>Error</th>
+          <th>Actions</th>
         </tr>
-        </thead>
-        <tbody>
-        {{range .Records}}
-        <tr id="jobs_row_{{.ID}}">
-            <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ID}}</a></td>
-            <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.ShortJobType}}</a></td>
-            <td><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
-            {{if .Completed }}
-            <td id="jobs_status_{{.ID}}" class="table-success">{{.JobState}}</td>
-            {{end}}
-            {{if .Failed }}
-            <td id="jobs_status_{{.ID}}" class="table-danger">{{.JobState}}</td>
-            {{end}}
-            {{if .NotTerminal }}
-            <td id="jobs_status_{{.ID}}">{{.JobState}}</td>
-            {{end}}
-            <td>{{.JobPriority}}</td>
-            {{if .Pending }}
-            <td id="jobs_updated_{{.ID}}">{{.ScheduledAtString}}</td>
-            {{else}}
-            <td id="jobs_updated_{{.ID}}">{{.UpdatedAtString}}</td>
-            {{end}}
-            {{if .IsTerminal }}
-            <td id="jobs_elapsed_{{.ID}}">{{.ElapsedDuration}}</td>
-            {{ end }}
-            <td id="jobs_error_{{.ID}}">{{.ErrorCode}}</td>
-            <td id="jobs_action_{{.ID}}" class="group row">
-                <form action="/dashboard/jobs/requests/{{.ID}}" method="GET">
-                    <input type="submit" class="btn btn-primary" value="View">
-                </form>
-                {{if .CanRestart }}
-                &nbsp;
-                <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-secondary" value="Restart"></form>
-                {{end}}
-                {{if .CanTriggerCron }}
-                &nbsp;
-                <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-success" value="Trigger">
-                    <input type="hidden" name="id" value="{{.ID}}"></form>
-                {{end}}
-                {{if .CanCancel }}
-                &nbsp;
-                <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"
-                      onsubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
-                    <input type="submit" class="btn btn-danger" value="Cancel">
-                    <input type="hidden" name="id" value="{{.ID}}"></form>
-                {{end}}
-            </td>
-        </tr>
+      </thead>
+      <tbody>
+      {{range .Records}}
+      <tr id="jobs_row_{{.ID}}">
+        <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ID}}</a></td>
+        <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.ShortJobType}}</a></td>
+        <td><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
+        {{if .Completed}}
+        <td id="jobs_status_{{.ID}}"><span class="badge badge-success">{{.JobState}}</span></td>
+        {{else if .Failed}}
+        <td id="jobs_status_{{.ID}}"><span class="badge badge-failed">{{.JobState}}</span></td>
+        {{else if .Running}}
+        <td id="jobs_status_{{.ID}}"><span class="badge badge-running">{{.JobState}}</span></td>
+        {{else if .Waiting}}
+        <td id="jobs_status_{{.ID}}"><span class="badge badge-waiting">{{.JobState}}</span></td>
+        {{else}}
+        <td id="jobs_status_{{.ID}}"><span class="badge badge-pending">{{.JobState}}</span></td>
         {{end}}
-        </tbody>
+        <td>{{.JobPriority}}</td>
+        {{if .Pending}}
+        <td id="jobs_updated_{{.ID}}">{{.ScheduledAtString}}</td>
+        {{else}}
+        <td id="jobs_updated_{{.ID}}">{{.UpdatedAtString}}</td>
+        {{end}}
+        {{if .IsTerminal}}
+        <td id="jobs_elapsed_{{.ID}}">{{.ElapsedDuration}}</td>
+        {{end}}
+        <td id="jobs_error_{{.ID}}" class="text-secondary small">{{.ErrorCode}}</td>
+        <td id="jobs_action_{{.ID}}">
+          <div class="d-flex gap-1 flex-wrap">
+            <form action="/dashboard/jobs/requests/{{.ID}}" method="GET">
+              <input type="submit" class="btn btn-sm btn-primary" value="View">
+            </form>
+            {{if .CanRestart}}
+            <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
+              <input type="submit" class="btn btn-sm btn-secondary" value="Restart">
+            </form>
+            {{end}}
+            {{if .CanTriggerCron}}
+            <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
+              <input type="submit" class="btn btn-sm btn-success" value="Trigger">
+              <input type="hidden" name="id" value="{{.ID}}">
+            </form>
+            {{end}}
+            {{if .CanCancel}}
+            <form action="/dashboard/jobs/requests/{{.ID}}/cancel" method="POST" enctype="multipart/form-data"
+                  onsubmit="return confirm('Please confirm cancelling this request (' + this[\'id\'].value + ')?');">
+              <input type="submit" class="btn btn-sm btn-danger" value="Cancel">
+              <input type="hidden" name="id" value="{{.ID}}">
+            </form>
+            {{end}}
+          </div>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
     </table>
+  </div>
 </div>
 {{ template "layouts/pagination" .Pagination }}
 
 <script>
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
-    console.log({uri}, 'Connecting')
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
+  const ws = new WebSocket(uri);
 
-    const ws = new WebSocket(uri);
-    ws.onopen = function () {
-        console.log({uri}, 'Connected');
-        const intervalId = setInterval(function () {
-            ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
-        }, 15000);
-        ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
+  ws.onopen = function() {
+    setInterval(() => ws.send('{"event_type": "JobExecutionLifecycleEvent"}'), 15000);
+    ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
+  };
+
+  const formatDate = (str) => {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const d = new Date(Date.parse(str));
+    return months[d.getMonth()] + " " + d.getDate() + ", " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+  };
+
+  const stateBadge = (state) => {
+    const s = state.toLowerCase();
+    if (s === 'completed' || s === 'succeeded') return `<span class="badge badge-success">${state}</span>`;
+    if (s === 'failed' || s === 'cancelled') return `<span class="badge badge-failed">${state}</span>`;
+    if (s === 'started' || s === 'executing' || s === 'running') return `<span class="badge badge-running">${state}</span>`;
+    if (s === 'pending' || s === 'paused' || s === 'ready') return `<span class="badge badge-waiting">${state}</span>`;
+    return `<span class="badge badge-pending">${state}</span>`;
+  };
+
+  ws.onmessage = function(evt) {
+    const event = JSON.parse(evt.data);
+    if (event.event_type === "ErrorEvent") {
+      const el = document.querySelector('.error_id');
+      if (el) el.innerText = event.message;
+      return;
     }
-
-    const formatDate = (str) => {
-        const months = ["Jan", "Feb", "Mar","Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const d = new Date(Date.parse(str));
-        return months[d.getMonth()] + " " + d.getDate() + ", " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds() ;// d.getFullYear()
-        // .getTimezoneOffset()
+    const row = document.getElementById(`jobs_row_${event.job_request_id}`);
+    if (row == null) {
+      const tbody = document.getElementById('jobs_table').getElementsByTagName('tbody')[0];
+      const newRow = tbody.insertRow();
+      newRow.id = `jobs_row_${event.job_request_id}`;
+      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}">${event.job_request_id}</a>`;
+      newRow.insertCell().innerHTML = event.job_type;
+      newRow.insertCell().innerHTML = event.user_id;
+      const statusCell = newRow.insertCell();
+      statusCell.id = `jobs_status_${event.job_request_id}`;
+      statusCell.innerHTML = stateBadge(event.job_state);
+      newRow.insertCell().innerHTML = event.job_priority;
+      const updatedCell = newRow.insertCell();
+      updatedCell.id = `jobs_updated_${event.job_request_id}`;
+      updatedCell.innerHTML = formatDate(event.created_at);
+      newRow.insertCell().innerHTML = event.elapsed_time || '';
+      newRow.insertCell().innerHTML = '';
+      const actionCell = newRow.insertCell();
+      actionCell.id = `jobs_action_${event.job_request_id}`;
+      actionCell.innerHTML = `
+        <div class="d-flex gap-1">
+          <form action="/dashboard/jobs/requests/${event.job_request_id}" method="GET">
+            <input type="submit" class="btn btn-sm btn-primary" value="View">
+          </form>
+          <form action="/dashboard/jobs/requests/${event.job_request_id}/cancel" method="POST" encType="multipart/form-data"
+            onSubmit="return confirm('Please confirm cancelling this request (' + this[\'id\'].value + ')?');">
+            <input type="submit" class="btn btn-sm btn-danger" value="Cancel">
+            <input type="hidden" name="id" value="${event.job_request_id}">
+          </form>
+        </div>`;
+    } else {
+      const status = document.getElementById(`jobs_status_${event.job_request_id}`);
+      if (status) status.innerHTML = stateBadge(event.job_state);
+      const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
+      if (updated) updated.innerHTML = formatDate(event.created_at);
+      const elapsed = document.getElementById(`jobs_elapsed_${event.job_request_id}`);
+      if (elapsed) elapsed.innerHTML = event.elapsed_time || '';
     }
-
-    ws.onmessage = function (evt) {
-        console.log(evt);
-        const event = JSON.parse(evt.data);
-        if (event.event_type === "ErrorEvent") {
-            const row = document.getElementById(`error_id`);
-            if (row != null) {
-                row.innerText = event.message;
-            }
-            return;
-        }
-        const row = document.getElementById(`jobs_row_${event.job_request_id}`);
-        if (row == null) {
-            const tbodyRef = document.getElementById('jobs_table').getElementsByTagName('tbody')[0];
-            const newRow = tbodyRef.insertRow();
-            newRow.id = `jobs_row_${event.job_request_id}`;
-            newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}">${event.job_request_id}</a>`;
-            newRow.insertCell().innerHTML = event.job_type;
-            newRow.insertCell().innerHTML = event.user_id;
-            {
-                const col = newRow.insertCell();
-                col.id=`jobs_status_${event.job_request_id}`;
-                col.innerHTML = event.job_state;
-            }
-            newRow.insertCell().innerHTML = event.job_priority;
-            {
-                const col = newRow.insertCell();
-                col.id=`jobs_updated_${event.job_request_id}`;
-                col.innerHTML = formatDate(event.created_at);
-            }
-            newRow.insertCell().innerHTML = event.elapsed_time || '';
-            newRow.insertCell().innerHTML = ''; // error
-            {
-                const col = newRow.insertCell();
-                col.id=`jobs_action_${event.job_request_id}`;
-                col.className = 'group row';
-                col.innerHTML = `
-                    <form action="/dashboard/jobs/requests/${event.job_request_id}" method="GET">
-                        <input type="submit" class="btn btn-primary" value="View">
-                    </form>
-                    &nbsp;
-                    <form action="/dashboard/jobs/requests/${event.job_request_id}/cancel" method="POST" encType="multipart/form-data"
-                      onSubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
-                        <input type="submit" class="btn btn-danger" value="Cancel">
-                        <input type="hidden" name="id" value="${event.job_request_id}">
-                    </form>
-                    `;
-            }
-        } else {
-            const status = document.getElementById(`jobs_status_${event.job_request_id}`);
-            if (status != null) {
-                status.innerHTML = event.job_state;
-            }
-            const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
-            if (updated != null) {
-                updated.innerHTML = formatDate(event.created_at);
-            }
-            const elapsed = document.getElementById(`jobs_elapsed_${event.job_request_id}`);
-            if (elapsed != null) {
-                elapsed.innerHTML = event.elapsed_time || '';
-            }
-            const action = document.getElementById(`jobs_action_${event.job_request_id}`);
-            if (action != null) {
-                // TODO
-            }
-        }
-    }
-
+  };
 </script>
 
 {{ template "layouts/footer" }}

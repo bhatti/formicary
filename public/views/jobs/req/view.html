@@ -1,176 +1,119 @@
 {{ template "layouts/header" . }}
 
-<section class="group">
-    {{ with .Request }}
-    <!-- Tabs navs -->
-    <ul class="nav nav-tabs nav-justified mb-3" id="job-details" role="tablist">
-        <li class="nav-item" role="presentation">
-            <a class="nav-link active"
-               id="job-context-tab-1"
-               data-mdb-toggle="tab"
-               href="#job-context-tabs-1"
-               role="tab"
-               aria-controls="job-context-tabs-1"
-               aria-selected="true"
-            >Job Summary</a>
-        </li>
-        {{ with .Execution }}
-        {{ range .Tasks }}
-        <li class="nav-item" role="presentation">
-            {{if .Completed }}
-            <a class="nav-link btn-sm btn-outline-success"
-               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
-               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
-            {{else if .Failed }}
-            <a class="nav-link btn-sm btn-outline-danger"
-               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
-               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
-            {{else if .CanApprove }}
-            <a class="nav-link btn-sm btn-outline-warning"
-               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
-               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}} ⚠️</a>
-            {{else if .NotTerminal }}
-            <a class="nav-link btn-sm  btn-outline-info"
-               id="job-tab-{{.ID}}" data-mdb-toggle="tab" href="#job-tabs-{{.ID}}"
-               role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
-            {{end}}
-        </li>
-        {{ end }}
-        {{ end }}
-        &nbsp;
-        <li class="nav-item" role="presentation">
-            <a class="nav-link"
-               id="job-graph-tab"
-               data-mdb-toggle="tab"
-               href="#job-graph-tabs"
-               role="tab"
-               aria-controls="job-graph-tabs"
-               aria-selected="false"
-               onclick="loadMermaidDiagram('/dashboard/jobs/requests/{{.ID}}/mermaid')"
-            >Job Graph</a>
-        </li>
-    </ul>
-    <!-- Tabs navs -->
-
-    <!-- Tabs content -->
-    <div class="tab-content" id="ex2-content">
-        <div class="tab-pane fade show active"
-             id="job-context-tabs-1"
-             role="tabpanel"
-             aria-labelledby="job-context-tab-1">
-
-            {{ template "jobs/req/summary" . }}
-        </div>
-        {{ with .Execution }}
-        {{range .Tasks}}
-        <div class="tab-pane fade"
-             id="job-tabs-{{.ID}}"
-             role="tabpanel"
-             aria-labelledby="job-tab-{{.ID}}">
-            {{ template "jobs/req/task" (Dict "Task" . "Request" $.Request) }}
-        </div>
-        {{ end }}
-        {{ end }}
-        {{ if false }}
-        <div class="tab-pane fade"
-             id="job-graph-tabs"
-             role="tabpanel"
-             aria-labelledby="job-graph-tab">
-            <img src="/dashboard/jobs/requests/{{.ID}}/dot.png">
-        </div>
-        {{ end }}
-        <div class="tab-pane fade"
-             id="job-graph-tabs"
-             role="tabpanel"
-             aria-labelledby="job-graph-tab">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>Job Execution Graph</h5>
-                <div>
-                    <button id="exportSVG" class="btn btn-sm btn-outline-primary" onclick="exportJobGraphSVG()">
-                        Export SVG
-                    </button>
-                    <button id="exportPNG" class="btn btn-sm btn-outline-secondary" onclick="exportJobGraphPNG()">
-                        Export PNG
-                    </button>
-                </div>
-            </div>
-            <div id="mermaid-diagram" class="border rounded p-3" style="min-height: 400px; background: #fafafa;">
-                <div class="text-center text-muted" id="diagram-loading">
-                    <div class="spinner-border spinner-border-sm" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    Loading diagram...
-                </div>
-            </div>
-            <div id="mermaid-error" class="alert alert-danger d-none" role="alert">
-                <strong>Error:</strong> <span id="error-message"></span>
-            </div>
-        </div>
+{{ with .Request }}
+<div class="page-header mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Job Request: {{.ID}}</h2>
+      <div class="text-secondary small">{{.JobType}}</div>
     </div>
-    {{ end }} <!-- Request -->
-    <!-- Tabs content -->
-</section>
-<script type="text/javascript">
-    window.addEventListener("load", function () {
-        const triggerTabList = [].slice.call(document.querySelectorAll('#job-details a'));
-        triggerTabList.forEach((triggerEl) => {
-            const tabTrigger = new mdb.Tab(triggerEl);
+  </div>
+</div>
 
-            triggerEl.addEventListener('click', (event) => {
-                event.preventDefault();
-                tabTrigger.show();
-            });
-        });
-        // For job requests
-        {{if .Request}}
-        //loadMermaidDiagram('/dashboard/jobs/requests/{{.Request.ID}}/mermaid');
-        {{end}}
-    })
-</script>
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.2.0/mdb.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
-<script type="text/javascript" src="/js/ansi_colors.js"></script>
-<script type="text/javascript" src="/js/approval.js"></script>
-<script type="text/javascript" src="/js/graph.js"></script>
-{{if .Request.NotTerminal }}
-<h4>Streaming Events:</h4>
-<pre id="logs"></pre>
-<script type="text/javascript">
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
-    console.log({uri}, 'Connecting')
+<ul class="nav nav-tabs mb-3" id="job-details" role="tablist">
+  <li class="nav-item" role="presentation">
+    <a class="nav-link active" id="job-context-tab-1" data-bs-toggle="tab" href="#job-context-tabs-1"
+       role="tab" aria-controls="job-context-tabs-1" aria-selected="true">Summary</a>
+  </li>
+  {{ with .Execution }}
+  {{ range .Tasks }}
+  <li class="nav-item" role="presentation">
+    {{if .Completed}}
+    <a class="nav-link text-success" id="job-tab-{{.ID}}" data-bs-toggle="tab" href="#job-tabs-{{.ID}}"
+       role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+    {{else if .Failed}}
+    <a class="nav-link text-danger" id="job-tab-{{.ID}}" data-bs-toggle="tab" href="#job-tabs-{{.ID}}"
+       role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+    {{else if .CanApprove}}
+    <a class="nav-link text-warning" id="job-tab-{{.ID}}" data-bs-toggle="tab" href="#job-tabs-{{.ID}}"
+       role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}} <i class="ti ti-alert-triangle"></i></a>
+    {{else if .NotTerminal}}
+    <a class="nav-link text-info" id="job-tab-{{.ID}}" data-bs-toggle="tab" href="#job-tabs-{{.ID}}"
+       role="tab" aria-controls="job-tabs-{{.ID}}" aria-selected="false">{{.TaskType}}</a>
+    {{end}}
+  </li>
+  {{ end }}
+  {{ end }}
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" id="job-graph-tab" data-bs-toggle="tab" href="#job-graph-tabs"
+       role="tab" aria-controls="job-graph-tabs" aria-selected="false"
+       onclick="loadMermaidDiagram('/dashboard/jobs/requests/{{.ID}}/mermaid')">Graph</a>
+  </li>
+</ul>
 
-    const ws = new WebSocket(uri)
-    ws.onopen = function () {
-        console.log({uri}, 'Connected')
-        const requestID = document.getElementById('requestID').innerText
-        const intervalId = setInterval(function () {
-            ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
-            ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
-            console.log({
-                "event_type": "LogEvent & TaskExecutionLifecycleEvent",
-                "event_scope": requestID
-            }, 'subscribing');
-        }, 15000);
-        ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
-        ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
-        console.log({"event_type": "LogEvent & TaskExecutionLifecycleEvent", "event_scope": requestID}, 'subscribing');
-    }
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="job-context-tabs-1" role="tabpanel" aria-labelledby="job-context-tab-1">
+    {{ template "jobs/req/summary" . }}
+  </div>
 
-    ws.onmessage = function (evt) {
-        const event = JSON.parse(evt.data);
-        //const msg = ansispan(event.message);
-        if (event.event_type === 'LogEvent') {
-            document.getElementById('logs').innerText += event.message + '\n';
-            window.scrollTo(0, document.body.scrollHeight);
-        } else if (event.event_type === 'TaskExecutionLifecycleEvent') {
-            window.location.reload(false);
-        } else {
-            console.log({evt}, 'unknown event');
-        }
-    }
-</script>
+  {{ with .Execution }}
+  {{ range .Tasks }}
+  <div class="tab-pane fade" id="job-tabs-{{.ID}}" role="tabpanel" aria-labelledby="job-tab-{{.ID}}">
+    {{ template "jobs/req/task" (Dict "Task" . "Request" $.Request) }}
+  </div>
+  {{ end }}
+  {{ end }}
+
+  <div class="tab-pane fade" id="job-graph-tabs" role="tabpanel" aria-labelledby="job-graph-tab">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title">Job Execution Graph</h3>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="exportJobGraphSVG()">Export SVG</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="exportJobGraphPNG()">Export PNG</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="mermaid-diagram" class="border rounded p-3" style="min-height:400px;background:#fafafa;">
+          <div class="text-center text-muted" id="diagram-loading">
+            <div class="spinner-border spinner-border-sm me-2" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            Loading diagram...
+          </div>
+        </div>
+        <div id="mermaid-error" class="alert alert-danger d-none mt-2" role="alert">
+          <strong>Error:</strong> <span id="error-message"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {{ end }}
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<script src="/js/graph.js"></script>
+{{if .Request.NotTerminal}}
+<div class="card mt-3">
+  <div class="card-header"><h3 class="card-title">Streaming Events</h3></div>
+  <div class="card-body">
+    <pre id="logs" class="mb-0" style="font-size:.82rem;max-height:400px;overflow-y:auto"></pre>
+  </div>
+</div>
+<script>
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
+  const ws = new WebSocket(uri);
+  ws.onopen = function() {
+    const requestID = document.getElementById('requestID').innerText;
+    const send = () => {
+      ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
+      ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
+    };
+    setInterval(send, 15000);
+    send();
+  };
+  ws.onmessage = function(evt) {
+    const event = JSON.parse(evt.data);
+    if (event.event_type === 'LogEvent') {
+      const logs = document.getElementById('logs');
+      logs.innerText += event.message + '\n';
+      logs.scrollTop = logs.scrollHeight;
+    } else if (event.event_type === 'TaskExecutionLifecycleEvent') {
+      window.location.reload(false);
+    }
+  };
+</script>
+{{end}}
 
 {{ template "layouts/footer" }}

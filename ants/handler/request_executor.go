@@ -381,8 +381,17 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 
 	// See https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = re.antCfg.Common.S3.BuildEndpoint()
-	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = re.antCfg.Common.S3.Endpoint
+	s3Endpoint := re.antCfg.Common.S3.Endpoint
+	if re.antCfg.Common.S3.IsLocalMode() {
+		// Helper containers (Docker/K8s) cannot reach localhost; use the host-accessible address.
+		s3Endpoint = re.antCfg.Common.S3.LocalContainerEndpoint()
+	}
+	s3EndpointURL := re.antCfg.Common.S3.BuildEndpoint()
+	if re.antCfg.Common.S3.IsLocalMode() {
+		s3EndpointURL = "http://" + s3Endpoint
+	}
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = s3EndpointURL
+	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = s3Endpoint
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_ACCESS_KEY_ID"] = re.antCfg.Common.S3.AccessKeyID
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_SECRET_ACCESS_KEY"] = re.antCfg.Common.S3.SecretAccessKey
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_DEFAULT_REGION"] = re.antCfg.Common.S3.Region

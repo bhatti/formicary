@@ -140,30 +140,38 @@ func (rm *ManagerImpl) Registration(id string) *common.AntRegistration {
 	return rm.state.getRegistration(id)
 }
 
-// HasAntsForJobTags - checks if antRegistrations are available for tags
-// Note: A job collects all tags used by tasks, but we won't actually use them at the same
-// time
+// HasAntsForJobTags - checks if live antRegistrations are available for methods and tags.
+// Note: A job collects all tags used by tasks, but we won't actually use them at the same time.
 func (rm *ManagerImpl) HasAntsForJobTags(
 	methods []common.TaskMethod,
 	tags []string) error {
 	if methods == nil || len(methods) == 0 {
 		return fmt.Errorf("methods not specified for ant-registration")
 	}
+	aliveTimeout := rm.serverCfg.Jobs.AntRegistrationAliveTimeout
 
-	// Matching methods
+	// Matching methods — only consider ants that are alive and support the method
 	for _, method := range methods {
-		if exists, total := rm.state.hasAntsByMethod(method); !exists {
+		antIDs := rm.state.getAntIDsByMethod(method)
+		liveCount := 0
+		for _, antID := range antIDs {
+			reg := rm.state.getRegistrationByAnt(antID)
+			if reg != nil && reg.Supports(method, nil, aliveTimeout) {
+				liveCount++
+			}
+		}
+		if liveCount == 0 {
 			logrus.WithFields(logrus.Fields{
 				"Methods": methods,
 				"Tags":    tags,
 				"Dump":    rm.state.dump(false),
-			}).Warnf("failed to find ant by methods: %s", method)
-			return fmt.Errorf("no ant for method='%s' antsByMethods=%d", method, total)
+			}).Warnf("no live ant for method: %s", method)
+			return fmt.Errorf("no live ant for method='%s'", method)
 		}
 	}
 
-	// Matching tags
-	for _, tag := range tags { // tag => [ant-id:true]
+	// Matching tags — only consider ants that are alive and have capacity
+	for _, tag := range tags {
 		antIDs, totalAntsByTags := rm.state.getAntsByTag(tag)
 		if len(antIDs) == 0 {
 			logrus.WithFields(logrus.Fields{
@@ -174,16 +182,17 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 			return fmt.Errorf("no ant for tag='%s' ants-by-tags=%d", tag, totalAntsByTags)
 		}
 		matched := false
-
 		errors := make([]string, 0)
 		for _, antID := range antIDs {
 			registration := rm.state.getRegistrationByAnt(antID)
-			allocations := rm.state.getAllocationsByAnt(antID) // ant-id => [request-id: allocation]
+			allocations := rm.state.getAllocationsByAnt(antID)
 			if registration == nil || allocations == nil {
-				continue // shouldn't happen
+				continue
 			}
-
-			// For backpressure, we won't try to schedule a job if ants are overloaded
+			if !registration.IsAlive(aliveTimeout) {
+				errors = append(errors, fmt.Sprintf("AntID=%s stale (last seen %s)", antID, registration.ReceivedAt.Format("15:04:05")))
+				continue
+			}
 			if float64(len(allocations)) <= float64(registration.MaxCapacity) {
 				matched = true
 				break
@@ -194,7 +203,7 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 			}
 		}
 		if !matched {
-			return fmt.Errorf("no matching ant for tag='%s' ants-by-tags=%d errors=%v",
+			return fmt.Errorf("no matching live ant for tag='%s' ants-by-tags=%d errors=%v",
 				tag, totalAntsByTags, errors)
 		}
 	}

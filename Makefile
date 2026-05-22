@@ -84,11 +84,35 @@ lint:
 vet: clean 
 	$(GOVET) ./... 2> go-vet-report.out
 
-run: build
-	./"out/bin/${BINARY_NAME}"
+WEED_VERSION ?= 3.68
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Darwin)
+  ifeq ($(UNAME_M),arm64)
+    WEED_ARCH := darwin_arm64
+  else
+    WEED_ARCH := darwin_amd64
+  endif
+else
+  WEED_ARCH := linux_amd64
+endif
+
+bin/weed:
+	mkdir -p bin
+	curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/$(WEED_VERSION)/$(WEED_ARCH).tar.gz" \
+	    | tar -xz -C bin weed
+	chmod +x bin/weed
+
+download-weed: bin/weed
+
+run: build bin/weed
+	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen-embedded.yaml
+
+run-queen: build bin/weed
+	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen.yaml
 
 ant: build
-	./"out/bin/${BINARY_NAME}" ant --id=formicary-ant-id1 --port 7771 --tags "builder pulsar redis kotlin aws-lambda"
+	./"out/bin/${BINARY_NAME}" ant --config config/formicary-ant.yaml --id=formicary-ant-id1 --port 7771 --tags "builder pulsar redis kotlin aws-lambda"
 
 
 test:

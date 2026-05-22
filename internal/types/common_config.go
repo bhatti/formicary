@@ -31,6 +31,9 @@ const (
 
 	// ChannelMessagingProvider uses memory channel
 	ChannelMessagingProvider MessagingProvider = "CHANNEL_MESSAGING"
+
+	// WebSocketMessagingProvider uses WebSocket for lightweight/edge deployments
+	WebSocketMessagingProvider MessagingProvider = "WEBSOCKET_MESSAGING"
 )
 
 var listeningForStackTraceDumps = false
@@ -65,6 +68,7 @@ type QueueConfig struct {
 	TopicNamespace    string             `yaml:"topic_namespace" mapstructure:"topic_namespace"`
 	Pulsar            *PulsarConfig      `json:"pulsar,omitempty"`
 	Kafka             *KafkaConfig       `json:"kafka,omitempty"`
+	WebSocket         *WebSocketConfig   `json:"websocket,omitempty" yaml:"websocket" mapstructure:"websocket"`
 	Username          string             `json:"username,omitempty"`                                       // Username for authentication
 	Password          string             `json:"password,omitempty"`                                       // Password for authentication
 	Token             string             `protobuf:"bytes,7,opt,name=token,proto3" json:"token,omitempty"` // Authentication token
@@ -417,6 +421,9 @@ func (c *CommonConfig) Validate() error {
 	if c.Auth == nil {
 		c.Auth = &AuthConfig{}
 	}
+	if c.HTTPPort == 0 {
+		c.HTTPPort = 7777
+	}
 	if c.MonitorInterval == 0 {
 		c.MonitorInterval = 2 * time.Second
 	}
@@ -483,6 +490,11 @@ func (c *CommonConfig) Validate() error {
 		if err := c.Redis.Validate(); err != nil {
 			return err
 		}
+	} else if c.Queue.Provider == WebSocketMessagingProvider {
+		if c.Queue.WebSocket == nil {
+			c.Queue.WebSocket = &WebSocketConfig{}
+		}
+		c.Queue.WebSocket.Validate()
 	} else {
 		// no check
 	}

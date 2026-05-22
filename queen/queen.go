@@ -59,10 +59,20 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	artifactService, err := artifacts.New(serverCfg.Common.S3)
+	artifactService, artifactCloser, err := artifacts.New(serverCfg.Common.S3)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = artifactCloser.Close() }()
+	s3Info := "local-embedded"
+	if serverCfg.Common.S3 != nil && !serverCfg.Common.S3.IsLocalMode() {
+		s3Info = serverCfg.Common.S3.Endpoint
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component": "Queen",
+		"S3":        s3Info,
+		"Bucket":    serverCfg.Common.S3.Bucket,
+	}).Info("artifact store initializing (ready on first use)")
 
 	jobStatsRegistry := stats.NewJobStatsRegistry()
 
@@ -274,6 +284,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			return err
 		}
 		serverCfg.EmbeddedAnt.Common = serverCfg.Common
+		serverCfg.EmbeddedAnt.Common.ID = serverCfg.Common.ID + "_embedded_ant"
 		// Create embedded ants manager
 		embeddedAntsManager, _ := NewEmbeddedAntsManager(serverCfg)
 		// Start embedded ants first (they run asynchronously)
@@ -361,11 +372,14 @@ func buildHealthMonitor(
 		}
 		healthMonitor.Register(ctx, dbMonitor)
 	}
-	var s3Monitor health.Monitorable
-	if s3Monitor, err = health.NewHostPortMonitor("S3", serverCfg.Common.S3.Endpoint); err != nil {
-		return nil, err
+	// Skip S3 health monitor in local mode — the endpoint is assigned dynamically at startup.
+	if !serverCfg.Common.S3.IsLocalMode() && serverCfg.Common.S3.Endpoint != "" {
+		var s3Monitor health.Monitorable
+		if s3Monitor, err = health.NewHostPortMonitor("S3", serverCfg.Common.S3.Endpoint); err != nil {
+			return nil, err
+		}
+		healthMonitor.Register(ctx, s3Monitor)
 	}
-	healthMonitor.Register(ctx, s3Monitor)
 
 	if err = healthMonitor.Start(ctx); err != nil {
 		return nil, err

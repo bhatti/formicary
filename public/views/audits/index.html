@@ -1,47 +1,53 @@
 {{ template "layouts/header" . }}
-<h3>Audit Logs</h3>
-<form action="/dashboard/audits" method="GET">
-    <div class="form-group row col-sm-8">
-        <label for="kind" class="col-sm-1 col-form-label">Kind: </label>
-        <select class="form-control col-sm-4" id="kind" name="kind">
-            {{range .Kinds}}
-            {{if eq $.Kind .}}
-            <option selected> {{.}}</option>
-            {{else}}
-            <option> {{.}}</option>
-            {{end}}
-            {{end}}
-        </select>
-        &nbsp;
-        <input type="text" class="col-sm-4 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search">
-        &nbsp;
-        <button type="submit" class="col-sm-2 btn btn-primary">Search</button>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Audit Logs</h2>
+        </div>
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            <form action="/dashboard/audits" method="GET" class="d-flex gap-2 align-items-center">
+                <label for="kind" class="form-label mb-0">Kind:</label>
+                <select class="form-select form-select-sm" id="kind" name="kind" style="width:auto;">
+                    {{range .Kinds}}
+                    {{if eq $.Kind .}}
+                    <option selected>{{.}}</option>
+                    {{else}}
+                    <option>{{.}}</option>
+                    {{end}}
+                    {{end}}
+                </select>
+                <input type="text" class="form-control form-control-sm" name="q" id="q" value="{{ .Q }}" placeholder="Search">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            </form>
+        </div>
     </div>
-</form>
+</div>
 
-<div class="table-responsive">
-    <table class="table table-striped table-sm">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Kind</th>
-            <th>User</th>
-            <th>IP Address</th>
-            <th>Message</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range .Records}}
-        <tr>
-            <td>{{.TargetID}}</td>
-            <td>{{.Kind}}</td>
-            <td>{{.UserID}}</td>
-            <td>{{.RemoteIP}}</td>
-            <td>{{.Message}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kind</th>
+                <th>User</th>
+                <th>IP Address</th>
+                <th>Message</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Records}}
+            <tr>
+                <td>{{.TargetID}}</td>
+                <td>{{.Kind}}</td>
+                <td>{{.UserID}}</td>
+                <td>{{.RemoteIP}}</td>
+                <td>{{.Message}}</td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{ template "layouts/pagination" .Pagination }}
 {{ template "layouts/footer" }}

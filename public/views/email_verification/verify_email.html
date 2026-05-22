@@ -1,54 +1,48 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">Email Verification</h4>
-    </header>
-    <form action="/dashboard/users/{{.User.ID}}/verify_email" method="POST">
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Email Verification</h2>
+        </div>
+    </div>
+</div>
 
-        <div class="form-group">
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Verify Your Email</h3>
+    </div>
+    <div class="card-body">
+        <form action="/dashboard/users/{{.User.ID}}/verify_email" method="POST">
             {{ with .Error }}
-            <p class="error" align="center">{{ . }}</p>
+            <div class="alert alert-danger">{{ . }}</div>
             {{ end }}
-        </div>
 
-        {{ with .Email }}
-        <div class="form-group">
-            <div class="row">
-                <label class="col-sm-2 col-form-label">Email: </label>
-                <div class="col-sm-10">
-                    <b>{{ . }}</b>
-                </div>
+            {{ with .Email }}
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <div class="form-control-plaintext"><strong>{{ . }}</strong></div>
             </div>
-        </div>
-        {{ end }}
+            {{ end }}
 
-        <div class="form-group">
-            <div class="row">
-                <label class="col-sm-2 col-form-label">Verification Code: </label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control col-sm-6" name="code" id="code" value="{{.EmailCode}}" placeholder="your verification code">
-                    {{ with $.ID}}
-                    <input type="hidden" name="id" value="{{.}}">
-                    {{end}}
-                </div>
+            <div class="mb-3">
+                <label for="code" class="form-label">Verification Code</label>
+                <input type="text" class="form-control" name="code" id="code" value="{{.EmailCode}}" placeholder="your verification code">
+                {{ with $.ID}}
+                <input type="hidden" name="id" value="{{.}}">
+                {{end}}
             </div>
-        </div>
 
-        <div class="form-group row">
-            <div class="col-sm-10 offset-sm-2">
+            <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Verify</button>
             </div>
-        </div>
-    </form>
+        </form>
 
-    {{ with .Email }}
-    <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data">
-        <input type="submit" class="btn btn-secondary" value="Resend verification code to {{.}}">
-        <input type="hidden" name="email" value="{{.}}">
-    </form>
-    {{ end }}
-    <footer class="group-footer">
-    </footer>
-
-</section>
+        {{ with .Email }}
+        <form action="/dashboard/users/{{$.User.ID}}/create_verify_email" method="POST" enctype="multipart/form-data" class="mt-2">
+            <input type="submit" class="btn btn-secondary btn-sm" value="Resend verification code to {{.}}">
+            <input type="hidden" name="email" value="{{.}}">
+        </form>
+        {{ end }}
+    </div>
+</div>
 {{ template "layouts/footer" }}

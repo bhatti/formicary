@@ -1,19 +1,23 @@
 {{ template "layouts/header" . }}
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">New Error Code</h4>
-    </header>
-    <form action="/dashboard/errors" method="POST">
-    {{ template "errors/form" .Error }}
-        <div class="form-group row">
-            <div class="col-sm-10 offset-sm-2">
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">New Error Code</h2>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Error Code Details</h3>
+    </div>
+    <div class="card-body">
+        <form action="/dashboard/errors" method="POST">
+            {{ template "errors/form" .Error }}
+            <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Create Error Code</button>
             </div>
-        </div>
-    </form>
-
-    <footer class="group-footer">
-    </footer>
-
-</section>
+        </form>
+    </div>
+</div>
 {{ template "layouts/footer" }}

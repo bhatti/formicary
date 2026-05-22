@@ -1,75 +1,17 @@
 services:
-  minio:
-    # Use the latest stable MinIO version
-    image: minio/minio:latest
-    container_name: formicary-minio
-    volumes:
-      - minio-data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin_user
-      MINIO_ROOT_PASSWORD: minioadmin_pass
-      # Set console address explicitly
-      MINIO_CONSOLE_ADDRESS: ":9001"
-      # For single-node setup, disable distributed mode warnings
-      MINIO_CI_CD: "1"
-    # Updated command for latest MinIO
-    command: server /data --console-address ":9001"
-    healthcheck:
-      # Updated health check for newer MinIO versions
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-
-  # MinIO Client - Fixed bucket creation command
-  minio-mc:
-    image: minio/mc:latest
-    container_name: formicary-minio-mc
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      echo 'Configuring MinIO client...';
-      mc alias set formicary http://minio:9000 minioadmin_user minioadmin_pass;
-      echo 'Creating bucket if it does not exist...';
-      mc mb formicary/formicary-artifacts || echo 'Bucket already exists or creation failed, continuing...';
-      echo 'Setting bucket policy to public read...';
-      mc anonymous set public formicary/formicary-artifacts || echo 'Policy setting failed, continuing...';
-      echo 'Listing buckets:';
-      mc ls formicary;
-      echo 'MinIO setup complete!';
-      tail -f /dev/null
-      "
-    restart: unless-stopped
-
   formicary-server:
     image: plexobject/formicary
     container_name: formicary-server
-    depends_on:
-      minio:
-        condition: service_healthy
-      minio-mc:
-        condition: service_started
     environment:
       COMMON_DEBUG: 'true'
       # Use SQLite for simplicity
       DB_TYPE: 'sqlite'
       DB_NAME: '/data/formicary.db'
-      # MinIO settings with updated credentials
-      #COMMON_S3_ENDPOINT: 'minio:9000'
-      COMMON_S3_ENDPOINT: 'host.docker.internal:9000'
-      COMMON_S3_ACCESS_KEY_ID: 'minioadmin_user'
-      COMMON_S3_SECRET_ACCESS_KEY: 'minioadmin_pass'
-      COMMON_S3_REGION: '${AWS_DEFAULT_REGION:-us-west-2}'
+      # Embedded SeaweedFS — no external object store needed
+      COMMON_S3_LOCAL_MODE: 'true'
+      COMMON_S3_LOCAL_DATA_DIR: '/data/seaweedfs'
       COMMON_S3_BUCKET: '${BUCKET:-formicary-artifacts}'
       COMMON_S3_PREFIX: '${PREFIX:-formicary}'
-      COMMON_S3_USE_SSL: 'false'
       # Auth settings
       COMMON_AUTH_GITHUB_CLIENT_ID: '${COMMON_AUTH_GITHUB_CLIENT_ID:-}'
       COMMON_AUTH_GITHUB_CLIENT_SECRET: '${COMMON_AUTH_GITHUB_CLIENT_SECRET:-}'
@@ -98,8 +40,6 @@ services:
     entrypoint: ["/bin/bash", "-c", "/usr/local/bin/migrate.sh && exec /formicary --config /app/config/.formicary.yaml"]
 
 volumes:
-  minio-data:
-    driver: local
   formicary-data:
     driver: local
   formicary-logs:

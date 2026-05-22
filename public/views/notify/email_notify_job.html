@@ -6,18 +6,18 @@
         <meta name="description" content="">
         <meta name="author" content="">
         <title>{{.Title}}</title>
-        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
     <body>
-        <div class="container-fluid">
+        <div class="container-fluid py-3">
             {{if .Job.Completed }}
-            <h1 class="table-success">{{.Title}}</h1>
+            <h1 class="text-success">{{.Title}}</h1>
             {{else}}
-            <h1 class="table-danger">{{.Title}}</h1>
+            <h1 class="text-danger">{{.Title}}</h1>
             {{end}}
             <div class="table-responsive">
-                <table class="table table-striped table-sm">
+                <table class="table table-bordered table-sm">
                     <tbody>
                         <tr>
                             <td><b>ID</b></td>
@@ -67,15 +67,13 @@
                 </table>
             </div>
             <blockquote class="blockquote">
-                   <span class="font-italic">
+                <p class="fst-italic">
                     Visit <a href="{{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}">{{.URLPrefix}}/dashboard/jobs/requests/{{.Job.ID}}</a> for more details.
-                   </span>
+                </p>
             </blockquote>
-            <blockquote class="blockquote-footer">
-                   <span class="font-italic">
-                    You are receiving this email based on your job notification settings on the <a href="{{.URLPrefix}}">Formicary platform</a>. <a href="{{.URLPrefix}}/dashboard/users/{{.Job.UserID}}">Manage email notification settings</a>.
-                   </span>
-            </blockquote>
-        </div>  
+            <p class="text-muted fst-italic small">
+                You are receiving this email based on your job notification settings on the <a href="{{.URLPrefix}}">Formicary platform</a>. <a href="{{.URLPrefix}}/dashboard/users/{{.Job.UserID}}">Manage email notification settings</a>.
+            </p>
+        </div>
     </body>
 </html>

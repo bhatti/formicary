@@ -1,77 +1,74 @@
 {{ template "layouts/header" . }}
-<h3>Virtual Job Resources</h3>
-The virtual job resources are used to represent as locks or quota for external resources such as licences, devices,
-connections to external services, etc. You can then specify these resources in a job or task definition so that
-they allocates the resource if a resource is available otherwise wait for the resource.
-
-<div class="float-right text-right row">
-    <form action="/dashboard/jobs/resources/new" method="GET">
-        <input type="submit" class="btn btn-primary" value="New Job Resource">
-    </form>
-    &nbsp;
-    &nbsp;
-    &nbsp;
-    <form action="/dashboard/jobs/resources" method="GET">
-        <div class="form-group">
-            <div class="form-group row">
-                <input type="text" class="col-sm-6 form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search resources">
-                &nbsp;
-                <button type="submit" class="col-sm-4 btn btn-primary">Search</button>
-            </div>
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Virtual Job Resources</h2>
+            <div class="text-secondary mt-1">Virtual resources act as locks or quota for external resources such as licences, devices, and connections.</div>
         </div>
-    </form>
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            <form action="/dashboard/jobs/resources/new" method="GET">
+                <input type="submit" class="btn btn-primary btn-sm" value="New Job Resource">
+            </form>
+            <form action="/dashboard/jobs/resources" method="GET" class="d-flex gap-2">
+                <input type="text" class="form-control form-control-sm" name="q" id="q" value="{{ .Q }}" placeholder="Search resources">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            </form>
+        </div>
+    </div>
 </div>
-<div class="table-responsive">
-    <table class="table table-striped table-sm">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Resource</th>
-            <th>Max Quota</th>
-            <th>Platform</th>
-            <th>Category</th>
-            <th>Valid</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range .Records}}
-        <tr>
-            <td><a href="/dashboard/jobs/resources/{{.ID}}">{{.ShortID}}</a></td>
-            <td>{{.ResourceType}}</td>
-            <td>{{.Quota}}</td>
-            <td>{{.Platform}}</td>
-            <td>{{.Category}}</td>
-            <td>{{.ValidStatus}}</td>
-            <td class="group row">
-                <form action="/dashboard/jobs/resources/{{.ID}}" method="GET">
-                    <input type="submit" class="btn btn-primary" value="View">
-                </form>
-                &nbsp;
-                <form action="/dashboard/jobs/resources/{{.ID}}/edit" method="GET">
-                    <input type="submit" class="btn btn-secondary" value="Edit">
-                </form>
-                &nbsp;
-                <form action="/dashboard/jobs/resources/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
-                      onsubmit="return confirm('Please confirm deleting this resource (' + this['id'].value + ')?');">
-                    <input type="submit" class="btn btn-danger" value="Delete">
-                    <input type="hidden" name="id" value="{{.ResourceType}}">
-                </form>
-                &nbsp;
-                {{if .Disabled }}
-                <form action="/dashboard/jobs/resources/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-secondary" value="Enable">
-                </form>
-                {{else}}
-                <form action="/dashboard/jobs/resources/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
-                    <input type="submit" class="btn btn-warning" value="Disable">
-                </form>
-                {{end}}
-            </td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Resource</th>
+                <th>Max Quota</th>
+                <th>Platform</th>
+                <th>Category</th>
+                <th>Valid</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Records}}
+            <tr>
+                <td><a href="/dashboard/jobs/resources/{{.ID}}">{{.ShortID}}</a></td>
+                <td>{{.ResourceType}}</td>
+                <td>{{.Quota}}</td>
+                <td>{{.Platform}}</td>
+                <td>{{.Category}}</td>
+                <td>{{.ValidStatus}}</td>
+                <td>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <form action="/dashboard/jobs/resources/{{.ID}}" method="GET">
+                            <input type="submit" class="btn btn-primary btn-sm" value="View">
+                        </form>
+                        <form action="/dashboard/jobs/resources/{{.ID}}/edit" method="GET">
+                            <input type="submit" class="btn btn-secondary btn-sm" value="Edit">
+                        </form>
+                        <form action="/dashboard/jobs/resources/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                              onsubmit="return confirm('Please confirm deleting this resource (' + this['id'].value + ')?');">
+                            <input type="submit" class="btn btn-danger btn-sm" value="Delete">
+                            <input type="hidden" name="id" value="{{.ResourceType}}">
+                        </form>
+                        {{if .Disabled }}
+                        <form action="/dashboard/jobs/resources/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
+                            <input type="submit" class="btn btn-secondary btn-sm" value="Enable">
+                        </form>
+                        {{else}}
+                        <form action="/dashboard/jobs/resources/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
+                            <input type="submit" class="btn btn-warning btn-sm" value="Disable">
+                        </form>
+                        {{end}}
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{ template "layouts/pagination" .Pagination }}
 {{ template "layouts/footer" }}

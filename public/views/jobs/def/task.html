@@ -1,122 +1,75 @@
-<section class="group">
-    <header class="group-header">
-        <h4 class="group-title">Task Definition</h4>
-    </header>
-    <div class="table-responsive">
-        <table class="table table-sm">
-            <tr class="table-info">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>ID:</b></dt>
-                        <dd class="col-sm-8">{{ .ID }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Type:</b></dt>
-                        <dd class="col-sm-8">{{ .TaskType}}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Method:</b></dt>
-                        <dd class="col-sm-8">{{ .Method}}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Description:</b></dt>
-                        <dd class="col-sm-8">{{ .Description }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Allow failure:</b></dt>
-                        <dd class="col-sm-8">{{ .AllowFailure }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Allow start if completed:</b></dt>
-                        <dd class="col-sm-8">{{ .AllowStartIfCompleted }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Always run :</b></dt>
-                        <dd class="col-sm-8">{{ .AlwaysRun }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Timeout:</b></dt>
-                        <dd class="col-sm-8">{{ .Timeout }}</dd>
-                    </dl>
-                </td>
-            </tr>
-            <tr class="table-secondary">
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>Tags:</b></dt>
-                        <dd class="col-sm-8">{{ .Tags }}</dd>
-                    </dl>
-                </td>
-                <td>
-                    <dl class="row">
-                        <dt class="col-sm-4"><b>OnExit:</b></dt>
-                        <dd class="col-sm-8 text-left">{{ .OnExitCodeSerialized}}</dd>
-                    </dl>
-                </td>
-            </tr>
-        </table>
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Task Definition</h3></div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <dl class="row mb-0">
+          <dt class="col-5 text-secondary">ID</dt>
+          <dd class="col-7">{{.ID}}</dd>
+          <dt class="col-5 text-secondary">Type</dt>
+          <dd class="col-7">{{.TaskType}}</dd>
+          <dt class="col-5 text-secondary">Method</dt>
+          <dd class="col-7">{{.Method}}</dd>
+          <dt class="col-5 text-secondary">Description</dt>
+          <dd class="col-7">{{.Description}}</dd>
+          <dt class="col-5 text-secondary">Tags</dt>
+          <dd class="col-7">{{.Tags}}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row mb-0">
+          <dt class="col-5 text-secondary">Allow Failure</dt>
+          <dd class="col-7">{{.AllowFailure}}</dd>
+          <dt class="col-5 text-secondary">Allow Start If Completed</dt>
+          <dd class="col-7">{{.AllowStartIfCompleted}}</dd>
+          <dt class="col-5 text-secondary">Always Run</dt>
+          <dd class="col-7">{{.AlwaysRun}}</dd>
+          <dt class="col-5 text-secondary">Timeout</dt>
+          <dd class="col-7">{{.Timeout}}</dd>
+          <dt class="col-5 text-secondary">OnExit</dt>
+          <dd class="col-7">{{.OnExitCodeSerialized}}</dd>
+        </dl>
+      </div>
     </div>
+  </div>
+</div>
 
-    <header class="group-header">
-        <h5 class="group-sub-header">Task Config</h5>
-    </header>
-    <div class="table-responsive">
-        <table class="table table-sm table-border">
-            <thead class="thead-dark">
-            <tr>
-                <th class="col-sm-4">Name</th>
-                <th class="col-sm-8">Value</th>
-            </tr>
-            </thead>
-            {{range .FilteredVariables }}
-            <tr scope="row">
-                <td>
-                    <dt class="col-sm-4"><b>{{ .Name }}:</b></dt>
-                </td>
-                <td>
-                    <dd class="col-sm-8">{{ .Value }}</dd>
-                </td>
-            </tr>
-            {{ end }}
-        </table>
-    </div>
+{{if .FilteredVariables}}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Task Config</h3></div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-sm card-table">
+      <thead class="table-dark">
+        <tr><th>Name</th><th>Value</th></tr>
+      </thead>
+      <tbody>
+      {{range .FilteredVariables}}
+      <tr><td class="fw-semibold">{{.Name}}</td><td>{{.Value}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
 
-    <header class="group-header">
-        <h5 class="group-sub-header">Before Script</h5>
-    </header>
-    <ul>
-        {{range .BeforeScript}}
-        <li>{{.}}</li>
-        {{end}}
-    </ul>
+{{if .BeforeScript}}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Before Script</h3></div>
+  <div class="card-body">
+    <ol class="mb-0">
+      {{range .BeforeScript}}<li><code>{{.}}</code></li>{{end}}
+    </ol>
+  </div>
+</div>
+{{end}}
 
-    <header class="group-header">
-        <h5 class="group-sub-header">Script</h5>
-    </header>
-    <ul>
-        {{range .Script}}
-        <li>{{.}}</li>
-        {{end}}
-    </ul>
-
-</section>
+{{if .Script}}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Script</h3></div>
+  <div class="card-body">
+    <ol class="mb-0">
+      {{range .Script}}<li><code>{{.}}</code></li>{{end}}
+    </ol>
+  </div>
+</div>
+{{end}}

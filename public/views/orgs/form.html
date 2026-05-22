@@ -1,40 +1,29 @@
-<div class="form-group">
+<div class="mb-3">
     {{ with .Errors.Error }}
-    <p class="error" align="center">{{ . }}</p>
+    <div class="alert alert-danger">{{ . }}</div>
     {{ end }}
 </div>
 
-<div class="form-group">
-    <div class="row">
-        <label class="col-sm-2 col-form-label">Username: </label>
-        <div class="col-sm-10">
-            <b>{{ .Username }}</b>
-        </div>
-    </div>
+<div class="mb-3">
+    <label class="form-label">Username</label>
+    <div class="form-control-plaintext"><strong>{{ .Username }}</strong></div>
 </div>
 
-<div class="form-group">
+<div class="mb-3">
     {{ with .Errors.OrgID }}
-    <p class="error" align="center">{{ . }}</p>
+    <div class="alert alert-danger">{{ . }}</div>
     {{ end }}
-    <div class="row">
-        <label for="orgUnit" class="col-sm-2 col-form-label">Organization: (optional) </label>
-        <div class="col-sm-10">
-            <input type="text" class="form-control col-sm-6" name="orgUnit" id="orgUnit" value="{{ .OrgUnit}}"
-                   placeholder="organization name">
-        </div>
-    </div>
+    <label for="orgUnit" class="form-label">Organization <span class="text-secondary">(optional)</span></label>
+    <input type="text" class="form-control" name="orgUnit" id="orgUnit" value="{{ .OrgUnit}}"
+           placeholder="organization name">
 </div>
-<div class="form-group">
+
+<div class="mb-3">
     {{ with .Errors.BundleID }}
-    <p class="error" align="center">{{ . }}</p>
+    <div class="alert alert-danger">{{ . }}</div>
     {{ end }}
-    <div class="row">
-        <label for="bundle" class="col-sm-2 col-form-label">Bundle: </label>
-        <div class="col-sm-10">
-            <input type="text" class="form-control col-sm-6" name="bundle" id="bundle" value="{{ .BundleID }}"
-                   placeholder="Use reverse domain of organization such as com.plexobject or unique handle such as personal.myhandle for individual account">
-            Use reverse domain of organization such as com.plexobject for organization or unique handle such as com.github.myid or myhandle for individual account.
-        </div>
-    </div>
+    <label for="bundle" class="form-label">Bundle ID</label>
+    <input type="text" class="form-control" name="bundle" id="bundle" value="{{ .BundleID }}"
+           placeholder="e.g. com.plexobject or personal.myhandle">
+    <div class="form-text">Use reverse domain of organization (e.g. <code>com.plexobject</code>) or a unique handle for individual accounts.</div>
 </div>
