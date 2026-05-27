@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "buf/validate/validate.proto";
+import "formicary/v1/annotations.proto";
+import "formicary/v1/domain/common.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// JobDefinitionConfig holds a named configuration property for a job definition.
+message JobDefinitionConfig {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_definition_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_definition_id\""];
+  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  map<string, string> errors = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// JobDefinitionVariable holds a named variable for a job definition (defined inline in YAML).
+message JobDefinitionVariable {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_definition_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_definition_id\""];
+  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+}
+
+// TaskDefinitionVariable holds a named variable for a task definition.
+message TaskDefinitionVariable {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string task_definition_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"task_definition_id\""];
+  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+}
+
+// TaskDefinition specifies a unit of work within a job DAG.
+message TaskDefinition {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_definition_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_definition_id\""];
+  string task_type = 3 [
+    (formicary.v1.tags) = "yaml:\"task_type\" json:\"task_type\"",
+    (buf.validate.field).string.min_len = 1
+  ];
+  // method stores TaskMethod as string (e.g., "KUBERNETES", "DOCKER", "SHELL").
+  string method = 4 [(formicary.v1.tags) = "yaml:\"method\" json:\"method\""];
+  string description = 5 [(formicary.v1.tags) = "yaml:\"description,omitempty\" json:\"description\""];
+  string host_network = 6 [(formicary.v1.tags) = "json:\"host_network,omitempty\" yaml:\"host_network,omitempty\" gorm:\"-\""];
+  bool allow_failure = 7 [(formicary.v1.tags) = "yaml:\"allow_failure,omitempty\" json:\"allow_failure\""];
+  bool allow_start_if_completed = 8 [(formicary.v1.tags) = "yaml:\"allow_start_if_completed,omitempty\" json:\"allow_start_if_completed\""];
+  bool always_run = 9 [(formicary.v1.tags) = "yaml:\"always_run,omitempty\" json:\"always_run\""];
+  int64 timeout_ns = 10 [(formicary.v1.tags) = "yaml:\"timeout,omitempty\" json:\"timeout\""];
+  int32 retry = 11 [(formicary.v1.tags) = "yaml:\"retry,omitempty\" json:\"retry\""];
+  int64 delay_between_retries_ns = 12 [(formicary.v1.tags) = "yaml:\"delay_between_retries,omitempty\" json:\"delay_between_retries\""];
+  // webhook_json stores serialized Webhook config.
+  string webhook_json = 13 [(formicary.v1.tags) = "yaml:\"webhook,omitempty\" json:\"webhook\" gorm:\"-\""];
+  // on_exit_code_serialized is the DB-persisted form of on_exit_code map.
+  string on_exit_code_serialized = 14 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  // on_exit_code maps RequestState to next task type (transient, loaded from on_exit_code_serialized).
+  string on_exit_code_json = 15 [(formicary.v1.tags) = "yaml:\"on_exit_code,omitempty\" json:\"on_exit_code\" gorm:\"-\""];
+  string on_completed = 16 [(formicary.v1.tags) = "yaml:\"on_completed,omitempty\" json:\"on_completed\" gorm:\"on_completed\""];
+  string on_failed = 17 [(formicary.v1.tags) = "yaml:\"on_failed,omitempty\" json:\"on_failed\" gorm:\"on_failed\""];
+  string required_manual_roles = 18 [(formicary.v1.tags) = "yaml:\"required_manual_roles,omitempty\" json:\"required_manual_roles\" gorm:\"required_manual_roles\""];
+  repeated TaskDefinitionVariable variables = 19 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:TaskDefinitionID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  google.protobuf.Timestamp created_at = 20 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 21 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  int32 task_order = 22 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"task_order\""];
+  bool report_stdout = 23 [(formicary.v1.tags) = "yaml:\"report_stdout,omitempty\" json:\"report_stdout\""];
+  // Transient fields.
+  string name_value_variables_json = 24 [(formicary.v1.tags) = "yaml:\"variables,omitempty\" json:\"variables\" gorm:\"-\""];
+  map<string, string> headers = 25 [(formicary.v1.tags) = "yaml:\"headers,omitempty\" json:\"headers\" gorm:\"-\""];
+  repeated string before_script = 26 [(formicary.v1.tags) = "yaml:\"before_script,omitempty\" json:\"before_script\" gorm:\"-\""];
+  repeated string after_script = 27 [(formicary.v1.tags) = "yaml:\"after_script,omitempty\" json:\"after_script\" gorm:\"-\""];
+  repeated string script = 28 [(formicary.v1.tags) = "yaml:\"script,omitempty\" json:\"script\" gorm:\"-\""];
+  formicary.v1.domain.BasicResource resources = 29 [(formicary.v1.tags) = "yaml:\"resources,omitempty\" json:\"resources\" gorm:\"-\""];
+  repeated string tags = 30 [(formicary.v1.tags) = "yaml:\"tags,omitempty\" json:\"tags\" gorm:\"-\""];
+  // except stores the conditional skip expression.
+  string except = 31 [(formicary.v1.tags) = "yaml:\"except,omitempty\" json:\"except\" gorm:\"-\""];
+  // executor_options_json stores serialized ExecutorOptions.
+  string executor_options_json = 32 [(formicary.v1.tags) = "yaml:\"executor_options,omitempty\" json:\"executor_options\" gorm:\"-\""];
+}
+
+// JobDefinition outlines a DAG of tasks executed by ant workers.
+// A new JobExecution is created when a JobRequest is scheduled against this definition.
+message JobDefinition {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_type = 2 [
+    (formicary.v1.tags) = "yaml:\"job_type\" json:\"job_type\"",
+    (buf.validate.field).string.min_len = 1
+  ];
+  int32 version = 3 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  string sem_version = 4 [(formicary.v1.tags) = "yaml:\"sem_version\" json:\"sem_version\""];
+  string url = 5 [(formicary.v1.tags) = "json:\"url\""];
+  string user_id = 6 [(formicary.v1.tags) = "json:\"user_id\""];
+  string organization_id = 7 [(formicary.v1.tags) = "json:\"organization_id\""];
+  string description = 8 [(formicary.v1.tags) = "yaml:\"description,omitempty\" json:\"description\""];
+  string platform = 9 [(formicary.v1.tags) = "yaml:\"platform,omitempty\" json:\"platform\""];
+  string notify_serialized = 10 [(formicary.v1.tags) = "yaml:\"-,omitempty\" json:\"-\" gorm:\"notify_serialized\""];
+  string cron_trigger = 11 [(formicary.v1.tags) = "yaml:\"cron_trigger,omitempty\" json:\"cron_trigger\""];
+  // timeout_ns stores time.Duration in nanoseconds.
+  int64 timeout_ns = 12 [(formicary.v1.tags) = "yaml:\"timeout,omitempty\" json:\"timeout\""];
+  int64 pause_time_ns = 13 [(formicary.v1.tags) = "yaml:\"pause_time,omitempty\" json:\"pause_time\""];
+  int32 retry = 14 [(formicary.v1.tags) = "yaml:\"retry,omitempty\" json:\"retry\""];
+  int32 hard_reset_after_retries = 15 [(formicary.v1.tags) = "yaml:\"hard_reset_after_retries,omitempty\" json:\"hard_reset_after_retries\""];
+  int64 delay_between_retries_ns = 16 [(formicary.v1.tags) = "yaml:\"delay_between_retries,omitempty\" json:\"delay_between_retries\""];
+  int32 max_concurrency = 17 [(formicary.v1.tags) = "yaml:\"max_concurrency,omitempty\" json:\"max_concurrency\""];
+  bool disabled = 18 [(formicary.v1.tags) = "yaml:\"-\" json:\"disabled\""];
+  bool public_plugin = 19 [(formicary.v1.tags) = "yaml:\"public_plugin,omitempty\" json:\"public_plugin\""];
+  repeated string required_params = 20 [(formicary.v1.tags) = "yaml:\"required_params,omitempty\" json:\"required_params\" gorm:\"-\""];
+  bool uses_template = 21 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  bool dynamic_template_tasks = 22 [(formicary.v1.tags) = "yaml:\"dynamic_template_tasks\" json:\"-\" gorm:\"-\""];
+  string tags = 23 [(formicary.v1.tags) = "yaml:\"tags,omitempty\" json:\"tags\""];
+  string methods = 24 [(formicary.v1.tags) = "yaml:\"methods,omitempty\" json:\"methods\""];
+  string raw_yaml = 25 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  repeated TaskDefinition tasks = 26 [(formicary.v1.tags) = "yaml:\"tasks\" json:\"tasks\" gorm:\"ForeignKey:JobDefinitionID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  repeated JobDefinitionConfig configs = 27 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:JobDefinitionID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  repeated JobDefinitionVariable variables = 28 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:JobDefinitionID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  google.protobuf.Timestamp created_at = 29 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 30 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  bool active = 31 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  // Transient fields.
+  bool can_edit = 32 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  string webhook_json = 33 [(formicary.v1.tags) = "yaml:\"webhook,omitempty\" json:\"-\" gorm:\"-\""];
+  string name_value_variables_json = 34 [(formicary.v1.tags) = "yaml:\"job_variables,omitempty\" json:\"job_variables\" gorm:\"-\""];
+  string notify_json = 35 [(formicary.v1.tags) = "yaml:\"notify,omitempty\" json:\"notify\" gorm:\"-\""];
+  formicary.v1.domain.BasicResource resources = 36 [(formicary.v1.tags) = "yaml:\"resources,omitempty\" json:\"resources\" gorm:\"-\""];
+  map<string, string> errors = 37 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}

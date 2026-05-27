@@ -126,7 +126,7 @@ tasks:
 <p>The plugin can be uploaded just like any other job such as:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/yaml&quot; \
-  --data-binary @io.formicary.stock-plugin.yaml $SERVER/api/jobs/definitions
+  --data-binary @io.formicary.stock-plugin.yaml $SERVER/api/v1/jobs/definitions
 </code></pre>
 <h3 id="invoking-public-plugin">Invoking public plugin</h3>
 <p>Here is a sample job that invokes above public plugin:</p>
@@ -151,14 +151,14 @@ tasks:
 <p>You can upload above client job as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/yaml&quot; \
-    --data-binary @plugin-client.yaml $SERVER/api/jobs/definitions
+    --data-binary @plugin-client.yaml $SERVER/api/v1/jobs/definitions
 </code></pre>
 <p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
 <h3 id="submitting-client-job">Submitting Client Job</h3>
 <p>You can then submit the client job as follows:</p>
 <pre><code class="lang-yaml"> curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;plugin-client&quot;, &quot;params&quot;: {&quot;Symbol&quot;: &quot;MSFT&quot;}}&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;plugin-client&quot;, &quot;params&quot;: {&quot;Symbol&quot;: &quot;MSFT&quot;}}&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 </div>  
 </body>

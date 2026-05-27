@@ -96,7 +96,7 @@ The plugin can be uploaded just like any other job such as:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  --data-binary @io.formicary.stock-plugin.yaml $SERVER/api/jobs/definitions
+  --data-binary @io.formicary.stock-plugin.yaml $SERVER/api/v1/jobs/definitions
 ```
 
 ### Invoking public plugin
@@ -131,7 +131,7 @@ You can upload above client job as follows:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/yaml" \
-    --data-binary @plugin-client.yaml $SERVER/api/jobs/definitions
+    --data-binary @plugin-client.yaml $SERVER/api/v1/jobs/definitions
 ```
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to
 the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.
@@ -142,5 +142,5 @@ You can then submit the client job as follows:
 ```yaml
  curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    --data '{"job_type": "plugin-client", "params": {"Symbol": "MSFT"}}' $SERVER/api/jobs/requests
+    --data '{"job_type": "plugin-client", "params": {"Symbol": "MSFT"}}' $SERVER/api/v1/jobs/requests
 ```

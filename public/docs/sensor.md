@@ -147,7 +147,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  --data-binary @sensor-job.yaml $SERVER/api/jobs/definitions
+  --data-binary @sensor-job.yaml $SERVER/api/v1/jobs/definitions
 ```
 
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to the API

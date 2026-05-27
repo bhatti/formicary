@@ -32,7 +32,6 @@ func NewAuditController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route POST /api/logs logs logEvent
 // Post log event
 // responses:
 //   200: logResponse
@@ -49,7 +48,6 @@ func (uc *AuditController) logEvent(c web.APIContext) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route GET /api/audits audits queryAudits
 // Queries audits within the organization that is allowed.
 // responses:
 //   200: auditQueryResponse
@@ -67,7 +65,6 @@ func (uc *AuditController) queryAudits(c web.APIContext) error {
 }
 
 // ********************************* Swagger types ***********************************
-// swagger:parameters logEvent
 // The request body includes log event for persistence.
 type logEvent struct {
 	// in:body
@@ -75,11 +72,9 @@ type logEvent struct {
 }
 
 // logResponse defines response of log event
-// swagger:response logResponse
 type logResponse struct {
 }
 
-// swagger:parameters queryAudits
 // The params for querying audits.
 type auditQueryParams struct {
 	// in:query
@@ -100,7 +95,6 @@ type auditQueryParams struct {
 }
 
 // Paginated results of audits matching query
-// swagger:response auditQueryResponse
 type auditQueryResponseBody struct {
 	// in:body
 	Body struct {

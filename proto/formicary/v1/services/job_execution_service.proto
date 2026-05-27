@@ -1,0 +1,339 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/job_request.proto";
+import "formicary/v1/queen/job_execution.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// SubmitJobRequest carries parameters for submitting a new job.
+message SubmitJobRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "SubmitJobRequest"
+      description: "Parameters for submitting a new job execution."
+      required: ["job_type"]
+    }
+  };
+
+  string job_type = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "The job type to execute (must match an existing job definition)."}
+  ];
+  // params are key-value pairs passed to the job (merged with job definition variables).
+  map<string, string> params = 2 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Runtime parameters passed to the job template."}
+  ];
+  // scheduled_at is an optional RFC3339 timestamp to delay execution.
+  string scheduled_at = 3 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional RFC3339 timestamp to delay execution."}
+  ];
+  // job_group allows grouping related jobs.
+  string job_group = 4;
+  int32 job_priority = 5 [
+    (buf.validate.field).int32 = {gte: 0, lte: 100},
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Priority 0–100 (higher = scheduled first)."}
+  ];
+  // user_key allows deduplication — a second submit with the same user_key for the same job type is rejected.
+  string user_key = 6;
+  string description = 7;
+}
+
+// SubmitJobResponse returns the created job request.
+message SubmitJobResponse {
+  formicary.v1.queen.JobRequest job_request = 1;
+}
+
+// QueryJobRequestsRequest carries filter and pagination params for listing job requests.
+message QueryJobRequestsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "QueryJobRequestsRequest"
+      description: "Filter parameters for querying job requests."
+    }
+  };
+
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string job_type = 4;
+  // job_state filters by state string (e.g., "PENDING", "EXECUTING", "COMPLETED").
+  string job_state = 5;
+  string job_group = 6;
+  string organization_id = 7;
+  string user_id = 8;
+}
+
+// QueryJobRequestsResponse returns a paginated list of job requests.
+message QueryJobRequestsResponse {
+  repeated formicary.v1.queen.JobRequest records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetJobRequestRequest identifies a job request by ID.
+message GetJobRequestRequest {
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job request ID (ULID)."}
+  ];
+}
+
+// GetJobRequestResponse wraps a single job request.
+message GetJobRequestResponse {
+  formicary.v1.queen.JobRequest job_request = 1;
+}
+
+// CancelJobRequest cancels an in-flight job request.
+message CancelJobRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// PauseJobRequest pauses an executing job request.
+message PauseJobRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// RestartJobRequest restarts a failed or cancelled job request.
+message RestartJobRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// TriggerJobRequest manually triggers a waiting/paused job request.
+message TriggerJobRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ReviewJobRequest submits a manual approval decision for a job awaiting review.
+message ReviewJobRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  formicary.v1.queen.ReviewTaskRequest review = 2 [(buf.validate.field).required = true];
+}
+
+// JobWaitTimeResponse returns estimated wait time information.
+message JobWaitTimeResponse {
+  int64 estimated_wait_secs = 1;
+  string job_type = 2;
+  string job_state = 3;
+}
+
+// JobRequestStatsResponse returns execution statistics aggregated by job type.
+message JobRequestStatsResponse {
+  repeated JobRequestStat stats = 1;
+}
+
+// JobRequestStat holds statistics for a single job type.
+message JobRequestStat {
+  string job_type = 1;
+  int64 total = 2;
+  int64 succeeded = 3;
+  int64 failed = 4;
+  int64 cancelled = 5;
+  double success_rate = 6;
+  int64 avg_duration_secs = 7;
+}
+
+// GetJobExecutionRequest identifies a job execution by ID.
+message GetJobExecutionRequest {
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job execution ID (ULID)."}
+  ];
+}
+
+// GetJobExecutionResponse wraps a single job execution.
+// The mermaid field is populated only by the GetJobRequestMermaid RPC.
+message GetJobExecutionResponse {
+  formicary.v1.queen.JobExecution job_execution = 1;
+  string mermaid = 2;
+}
+
+// JobExecutionService manages the submission and lifecycle of job executions.
+service JobExecutionService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Submit and manage job execution requests."
+    name: "job-executions"
+  };
+
+  // SubmitJob creates a new job request and schedules it for execution.
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Submit a job"
+      description: "Creates a new job request and queues it for execution by ant workers. Returns the created JobRequest with its assigned ID."
+      tags: ["job-executions"]
+      responses: {
+        key: "201"
+        value: {description: "Job request created."}
+      }
+    };
+  }
+
+  // QueryJobRequests returns a paginated list of job requests matching the filter.
+  rpc QueryJobRequests(QueryJobRequestsRequest) returns (QueryJobRequestsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List job requests"
+      description: "Returns a paginated list of job requests matching the provided filters."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated list of job requests."}
+      }
+    };
+  }
+
+  // GetJobRequest returns a single job request by its ID.
+  rpc GetJobRequest(GetJobRequestRequest) returns (GetJobRequestResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job request"
+      description: "Returns a single job request including its current state and execution details."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Job request."}
+      }
+    };
+  }
+
+  // GetJobExecution returns a single job execution by its ID.
+  rpc GetJobExecution(GetJobExecutionRequest) returns (GetJobExecutionResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/executions/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job execution"
+      description: "Returns a single job execution including all task executions and their contexts."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Job execution with tasks."}
+      }
+    };
+  }
+
+  // CancelJob cancels a running or pending job request.
+  rpc CancelJob(CancelJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/cancel" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Cancel job"
+      description: "Cancels a running or pending job request. Sends a cancellation signal to the executing ant worker."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Cancelled successfully."}
+      }
+    };
+  }
+
+  // PauseJob pauses an executing job request.
+  rpc PauseJob(PauseJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/pause" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Pause job"
+      description: "Pauses an executing job at the next task boundary."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Paused successfully."}
+      }
+    };
+  }
+
+  // RestartJob restarts a failed, cancelled, or paused job request.
+  rpc RestartJob(RestartJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/restart" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Restart job"
+      description: "Restarts a failed, cancelled, or paused job request. Only failed tasks are re-executed unless HardResetAfterRetries kicks in."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Restarted successfully."}
+      }
+    };
+  }
+
+  // TriggerJob manually triggers a waiting or paused job.
+  rpc TriggerJob(TriggerJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/trigger" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Trigger job"
+      description: "Manually triggers a job that is waiting for scheduled time or in a paused state."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Triggered successfully."}
+      }
+    };
+  }
+
+  // ReviewJob submits a manual approval decision (APPROVED or REJECTED) for a job awaiting review.
+  rpc ReviewJob(ReviewJobRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/{id}/review"
+      body: "review"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Review job (manual approval)"
+      description: "Submits an APPROVED or REJECTED decision for a job that requires manual approval. The reviewer must have the required_manual_roles specified in the task definition."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Review submitted."}
+      }
+    };
+  }
+
+  // GetJobWaitTime returns the estimated wait time for a job request.
+  rpc GetJobWaitTime(GetJobRequestRequest) returns (JobWaitTimeResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/{id}/wait_time"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get estimated wait time"
+      description: "Returns estimated wait time before the job will start executing, based on current queue depth."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Wait time estimate."}
+      }
+    };
+  }
+
+  // GetJobRequestMermaid returns a Mermaid.js diagram for a job request's execution graph.
+  rpc GetJobRequestMermaid(GetJobRequestRequest) returns (GetJobExecutionResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/{id}/mermaid"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get Mermaid diagram for request"
+      description: "Returns a Mermaid.js flowchart showing the execution state of all tasks in the job."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Job execution with Mermaid diagram data."}
+      }
+    };
+  }
+
+  // GetJobStats returns execution statistics aggregated by job type.
+  rpc GetJobStats(QueryJobRequestsRequest) returns (JobRequestStatsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/stats"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job stats"
+      description: "Returns aggregated execution statistics (success rate, avg duration, counts) grouped by job type."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Statistics list."}
+      }
+    };
+  }
+}

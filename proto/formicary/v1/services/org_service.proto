@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/user/user.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryOrgsRequest carries filter params for listing organizations.
+message QueryOrgsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string org_unit = 4;
+  string bundle_id = 5;
+}
+
+// QueryOrgsResponse returns a paginated list of organizations.
+message QueryOrgsResponse {
+  repeated formicary.v1.user.Organization records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetOrgRequest identifies an organization by ID.
+message GetOrgRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetOrgResponse wraps a single organization.
+message GetOrgResponse {
+  formicary.v1.user.Organization organization = 1;
+}
+
+// CreateOrgRequest wraps a new organization.
+message CreateOrgRequest {
+  formicary.v1.user.Organization organization = 1 [(buf.validate.field).required = true];
+}
+
+// CreateOrgResponse returns the created organization.
+message CreateOrgResponse {
+  formicary.v1.user.Organization organization = 1;
+}
+
+// UpdateOrgRequest carries an updated organization.
+message UpdateOrgRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  formicary.v1.user.Organization organization = 2 [(buf.validate.field).required = true];
+}
+
+// UpdateOrgResponse returns the updated organization.
+message UpdateOrgResponse {
+  formicary.v1.user.Organization organization = 1;
+}
+
+// DeleteOrgRequest identifies the organization to delete.
+message DeleteOrgRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// QueryOrgConfigsRequest carries filter params for listing organization configs.
+message QueryOrgConfigsRequest {
+  string organization_id = 1 [(buf.validate.field).string.min_len = 1];
+  int32 page = 2 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 3 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+}
+
+// QueryOrgConfigsResponse returns a paginated list of org configs.
+message QueryOrgConfigsResponse {
+  repeated formicary.v1.user.OrganizationConfig records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// SaveOrgConfigRequest creates or updates a named org config property.
+message SaveOrgConfigRequest {
+  string organization_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2;
+  formicary.v1.user.OrganizationConfig config = 3 [(buf.validate.field).required = true];
+}
+
+// SaveOrgConfigResponse returns the saved org config.
+message SaveOrgConfigResponse {
+  formicary.v1.user.OrganizationConfig config = 1;
+}
+
+// DeleteOrgConfigRequest identifies an org config to delete.
+message DeleteOrgConfigRequest {
+  string organization_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// OrganizationService manages organizations and their configurations.
+service OrganizationService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage organizations (multi-tenant grouping of users and job definitions)."
+    name: "organizations"
+  };
+
+  // QueryOrgs lists organizations (admin sees all; users see their own).
+  rpc QueryOrgs(QueryOrgsRequest) returns (QueryOrgsResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List organizations"
+      description: "Returns a paginated list of organizations. Admins see all; regular users see only their own."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated organization list."}
+      }
+    };
+  }
+
+  // GetOrg returns a single organization by its ULID.
+  rpc GetOrg(GetOrgRequest) returns (GetOrgResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get organization"
+      description: "Returns a single organization including its configurations."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Organization."}
+      }
+    };
+  }
+
+  // CreateOrg creates a new organization.
+  rpc CreateOrg(CreateOrgRequest) returns (CreateOrgResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create organization"
+      description: "Creates a new organization."
+      tags: ["organizations"]
+      responses: {
+        key: "201"
+        value: {description: "Created organization."}
+      }
+    };
+  }
+
+  // UpdateOrg updates an organization.
+  rpc UpdateOrg(UpdateOrgRequest) returns (UpdateOrgResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/orgs/{id}"
+      body: "organization"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update organization"
+      description: "Updates an organization's properties."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Updated organization."}
+      }
+    };
+  }
+
+  // DeleteOrg removes an organization.
+  rpc DeleteOrg(DeleteOrgRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/orgs/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete organization"
+      description: "Soft-deletes an organization. Requires admin role."
+      tags: ["organizations"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+
+  // QueryOrgConfigs lists configuration properties for an organization.
+  rpc QueryOrgConfigs(QueryOrgConfigsRequest) returns (QueryOrgConfigsResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs/{organization_id}/configs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List org configs"
+      description: "Returns paginated configuration properties for an organization."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Org config list."}
+      }
+    };
+  }
+
+  // SaveOrgConfig creates or updates a named configuration property on an organization.
+  rpc SaveOrgConfig(SaveOrgConfigRequest) returns (SaveOrgConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{organization_id}/configs"
+      body: "config"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save org config"
+      description: "Creates or updates a named configuration property for an organization. Secret values are encrypted at rest."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Saved config."}
+      }
+    };
+  }
+
+  // DeleteOrgConfig removes a named configuration property from an organization.
+  rpc DeleteOrgConfig(DeleteOrgConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/orgs/{organization_id}/configs/{config_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete org config"
+      description: "Removes a named configuration property from an organization."
+      tags: ["organizations"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

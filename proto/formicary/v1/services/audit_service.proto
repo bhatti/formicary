@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/audit.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryAuditRecordsRequest carries filter params for querying audit records.
+message QueryAuditRecordsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string user_id = 4;
+  string organization_id = 5;
+  // kind filters by audit event type (e.g., "JOB_REQUEST_CREATED").
+  string kind = 6;
+  string job_type = 7;
+  string target_id = 8;
+}
+
+// QueryAuditRecordsResponse returns a paginated list of audit records.
+message QueryAuditRecordsResponse {
+  repeated formicary.v1.queen.AuditRecord records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// AuditService provides read-only access to the audit log.
+service AuditService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Query the system audit log for security and compliance."
+    name: "audit"
+  };
+
+  // QueryAuditRecords returns a paginated, filtered list of audit records.
+  rpc QueryAuditRecords(QueryAuditRecordsRequest) returns (QueryAuditRecordsResponse) {
+    option (google.api.http) = {get: "/api/v1/audit"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Query audit records"
+      description: "Returns a paginated list of audit records, optionally filtered by user, org, event kind, or job type. Requires admin role."
+      tags: ["audit"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated audit record list."}
+      }
+    };
+  }
+}

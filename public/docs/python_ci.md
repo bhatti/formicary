@@ -173,7 +173,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/yaml" \
-    --data-binary @go-build-ci.yaml $SERVER/api/jobs/definitions
+    --data-binary @go-build-ci.yaml $SERVER/api/v1/jobs/definitions
 ```
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to
 the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.
@@ -184,7 +184,7 @@ You can then submit the job as follows:
 ```yaml
  curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    --data '{"job_type": "go-build-ci", "params": {"GitCommitID": "$COMMIT", "GitBranch": "$BRANCH", "GitCommitMessage": "$COMMIT_MESSAGE"}}' $SERVER/api/jobs/requests
+    --data '{"job_type": "go-build-ci", "params": {"GitCommitID": "$COMMIT", "GitBranch": "$BRANCH", "GitCommitMessage": "$COMMIT_MESSAGE"}}' $SERVER/api/v1/jobs/requests
 ```
 The above example kicks off `go-build-ci` job that you can see on the dashboard UI.
 

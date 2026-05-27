@@ -68,7 +68,7 @@
 <p>You can also submit a job at scheduled time as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-  --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;scheduled_at&quot;: &quot;2025-06-15T00:00:00.0-00:00&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/jobs/requests
+  --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;scheduled_at&quot;: &quot;2025-06-15T00:00:00.0-00:00&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>The above example will kick off <code>hello_world</code> job based on <code>scheduled_at</code> time in the future, however the job will be immediately scheduled if the <code>scheduled_at</code> is in the past.</p>
 <h4 id="delay_between_retries">delay_between_retries</h4>
@@ -91,7 +91,7 @@ skip_if: {{if eq .Target &quot;charlie&quot;}} true {{end}}
 <p>In above example, the job will not run if <code>Target</code> variable is &quot;charlie&quot;, e.g., you can pass these parameters when you submit jobs:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;charlie&quot; } }&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;charlie&quot; } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>Following example shows how you can limit execution on a branch, e.g.,</p>
 <pre><code class="lang-yaml">job_type: node_build
@@ -100,7 +100,7 @@ skip_if: {{if ne .GitBranch &quot;main&quot;}} true {{end}}
 <p>In above example, the scheduled job will not run if <code>Branch</code> is not &quot;main&quot;, e.g., you can pass these parameters when you submit jobs:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: { &quot;Branch&quot;: &quot;feature-x&quot; } }&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: { &quot;Branch&quot;: &quot;feature-x&quot; } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <h4 id="hard_reset_after_retries">hard_reset_after_retries</h4>
 <p>When a job fails, and the job is retried manually or automatically via <code>retry</code> parameters, only the failed tasks are executed. However, you can use <code>hard_reset_after_retries</code> to reset the job so that all tasks are executed, e.g.</p>
@@ -142,7 +142,7 @@ required_params:
 <p>In above example, the <code>Name</code> and <code>Age</code> parameters must be given when submitting the request, e.g.,</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-  --data &#39;{&quot;job_type&quot;: &quot;test-job&quot;, &quot;params&quot;: { &quot;Name&quot;: &quot;Bob&quot;, &quot;Age&quot;: 30 } }&#39; $SERVER/api/jobs/requests
+  --data &#39;{&quot;job_type&quot;: &quot;test-job&quot;, &quot;params&quot;: { &quot;Name&quot;: &quot;Bob&quot;, &quot;Age&quot;: 30 } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <h4 id="resources">resources</h4>
 <p>The resources can be used to implement locks, mutex or semaphores when executing jobs if they require any external limited resources such as license keys, API tokens, etc.</p>

@@ -214,12 +214,12 @@ func (a *Artifact) AfterLoad() error {
 
 // DashboardURL link to download artifact
 func (a *Artifact) DashboardURL() string {
-	return strings.ReplaceAll(a.URL, "/api/", "/dashboard/")
+	return strings.ReplaceAll(a.URL, "/api/v1/", "/dashboard/")
 }
 
 // DashboardRawURL link to download artifact
 func (a *Artifact) DashboardRawURL() string {
-	return strings.ReplaceAll(a.URL, "/api/", "/dashboard/") + "/raw"
+	return strings.ReplaceAll(a.URL, "/api/v1/", "/dashboard/") + "/raw"
 }
 
 // Digest hash

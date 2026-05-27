@@ -8,14 +8,12 @@ import (
 // See https://pkg.go.dev/k8s.io/kubernetes@v1.19.4/pkg/apis/core#Toleration
 
 // KubernetesHostAliases host aliases
-// swagger:ignore
 type KubernetesHostAliases struct {
 	IP        string   `yaml:"ip" json:"ip"`
 	Hostnames []string `yaml:"hostnames" json:"hostnames"`
 }
 
 // KubernetesVolumes volumes
-// swagger:ignore
 type KubernetesVolumes struct {
 	HostPaths  []KubernetesHostPath  `yaml:"host_path" json:"host_path" mapstructure:"host_path"`
 	PVCs       []KubernetesPVC       `yaml:"pvc" json:"pvc" mapstructure:"pvc"`
@@ -37,7 +35,6 @@ func NewKubernetesVolumes() *KubernetesVolumes {
 }
 
 // KubernetesConfigMap map
-// swagger:ignore
 type KubernetesConfigMap struct {
 	Name      string            `yaml:"name" json:"name"`
 	MountPath string            `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -47,7 +44,6 @@ type KubernetesConfigMap struct {
 }
 
 // KubernetesHostPath host-path
-// swagger:ignore
 type KubernetesHostPath struct {
 	Name      string `yaml:"name" json:"name"`
 	MountPath string `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -57,7 +53,6 @@ type KubernetesHostPath struct {
 }
 
 // KubernetesPVC pvc
-// swagger:ignore
 type KubernetesPVC struct {
 	Name      string `yaml:"name" json:"name"`
 	MountPath string `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -66,7 +61,6 @@ type KubernetesPVC struct {
 }
 
 // KubernetesSecret secrets
-// swagger:ignore
 type KubernetesSecret struct {
 	Name      string            `yaml:"name" json:"name"`
 	MountPath string            `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -76,7 +70,6 @@ type KubernetesSecret struct {
 }
 
 // KubernetesProjected sources
-// swagger:ignore
 type KubernetesProjected struct {
 	Name      string                       `yaml:"name" json:"name"`
 	MountPath string                       `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -84,7 +77,6 @@ type KubernetesProjected struct {
 }
 
 // KubernetesVolumeProjection sources
-// swagger:ignore
 type KubernetesVolumeProjection struct {
 	Secret              *KubernetesSecretProjection              `yaml:"secret" json:"secret" mapstructure:"secret"`
 	ConfigMap           *KubernetesConfigMapProjection           `yaml:"config_map" json:"config_map" mapstructure:"config_map"`
@@ -102,7 +94,6 @@ type KubernetesConfigMapProjection struct {
 }
 
 // KubernetesServiceAccountTokenProjection account
-// swagger:ignore
 type KubernetesServiceAccountTokenProjection struct {
 	Audience          string `yaml:"audience" json:"audience" mapstructure:"audience"`
 	ExpirationSeconds *int64 `yaml:"expiration_seconds" json:"expiration_seconds" mapstructure:"expiration_seconds"`
@@ -110,7 +101,6 @@ type KubernetesServiceAccountTokenProjection struct {
 }
 
 // KubernetesEmptyDir empty-dir
-// swagger:ignore
 type KubernetesEmptyDir struct {
 	Name      string `yaml:"name" json:"name"`
 	MountPath string `yaml:"mount_path" json:"mount_path" mapstructure:"mount_path"`
@@ -119,7 +109,6 @@ type KubernetesEmptyDir struct {
 }
 
 // KubernetesPodSecurityContext security
-// swagger:ignore
 type KubernetesPodSecurityContext struct {
 	FSGroup            *int64  `yaml:"fs_group,omitempty" json:"fs_group" mapstructure:"fs_group"`
 	RunAsGroup         *int64  `yaml:"run_as_group,omitempty" json:"run_as_group,omitempty" mapstructure:"run_as_group,omitempty"`
@@ -134,14 +123,12 @@ type KubernetesPodSecurityContext struct {
 //}
 
 // KubernetesNodeAffinity affinity
-// swagger:ignore
 type KubernetesNodeAffinity struct {
 	RequiredDuringSchedulingIgnoredDuringExecution  *NodeSelector             `yaml:"required_during_scheduling_ignored_during_execution,omitempty" json:"required_during_scheduling_ignored_during_execution" mapstructure:"required_during_scheduling_ignored_during_execution"`
 	PreferredDuringSchedulingIgnoredDuringExecution []PreferredSchedulingTerm `yaml:"preferred_during_scheduling_ignored_during_execution,omitempty" json:"preferred_during_scheduling_ignored_during_execution" mapstructure:"preferred_during_scheduling_ignored_during_execution"`
 }
 
 // NodeSelector selector
-// swagger:ignore
 type NodeSelector struct {
 	NodeSelectorTerms []NodeSelectorTerm `yaml:"node_selector_terms" json:"node_selector_terms" mapstructure:"node_selector_terms"`
 }
@@ -156,7 +143,6 @@ func (c *NodeSelector) GetNodeSelector() *api.NodeSelector {
 }
 
 // PreferredSchedulingTerm term
-// swagger:ignore
 type PreferredSchedulingTerm struct {
 	Weight     int32            `yaml:"weight" json:"weight"`
 	Preference NodeSelectorTerm `yaml:"preference" json:"preference"`
@@ -193,7 +179,6 @@ func (c *NodeSelectorTerm) GetNodeSelectorTerm() api.NodeSelectorTerm {
 }
 
 // NodeSelectorRequirement selector
-// swagger:ignore
 type NodeSelectorRequirement struct {
 	Key      string   `yaml:"key,omitempty" json:"key"`
 	Operator string   `yaml:"operator,omitempty" json:"operator"`

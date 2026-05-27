@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/resource/ant.proto";
+import "formicary/v1/user/user.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryAntRegistrationsRequest carries filter params for listing ant registrations.
+message QueryAntRegistrationsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  // method filters by task method string.
+  string method = 3;
+  // tags filters by comma-separated tag list.
+  string tags = 4;
+}
+
+// QueryAntRegistrationsResponse returns a paginated list of ant registrations.
+message QueryAntRegistrationsResponse {
+  repeated formicary.v1.resource.AntRegistration records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetAntRegistrationRequest identifies an ant by ID.
+message GetAntRegistrationRequest {
+  string ant_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetAntRegistrationResponse wraps a single ant registration.
+message GetAntRegistrationResponse {
+  formicary.v1.resource.AntRegistration ant_registration = 1;
+}
+
+// QuerySubscriptionsRequest carries filter params for listing subscriptions.
+message QuerySubscriptionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string user_id = 4;
+  string organization_id = 5;
+  string kind = 6;
+}
+
+// QuerySubscriptionsResponse returns a paginated list of subscriptions.
+message QuerySubscriptionsResponse {
+  repeated formicary.v1.user.Subscription records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetSubscriptionRequest identifies a subscription by ID.
+message GetSubscriptionRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetSubscriptionResponse wraps a single subscription.
+message GetSubscriptionResponse {
+  formicary.v1.user.Subscription subscription = 1;
+}
+
+// SaveSubscriptionRequest creates or updates a subscription.
+message SaveSubscriptionRequest {
+  string id = 1;
+  formicary.v1.user.Subscription subscription = 2 [(buf.validate.field).required = true];
+}
+
+// SaveSubscriptionResponse returns the saved subscription.
+message SaveSubscriptionResponse {
+  formicary.v1.user.Subscription subscription = 1;
+}
+
+// ResourceService manages ant worker registrations and user subscriptions.
+service ResourceService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage ant worker registrations and user quota subscriptions."
+    name: "resources"
+  };
+
+  // QueryAntRegistrations lists registered ant workers.
+  rpc QueryAntRegistrations(QueryAntRegistrationsRequest) returns (QueryAntRegistrationsResponse) {
+    option (google.api.http) = {get: "/api/v1/ants"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List ant registrations"
+      description: "Returns a list of currently registered ant worker processes, optionally filtered by method or tags."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "List of ant registrations."}
+      }
+    };
+  }
+
+  // GetAntRegistration returns details for a single ant worker.
+  rpc GetAntRegistration(GetAntRegistrationRequest) returns (GetAntRegistrationResponse) {
+    option (google.api.http) = {get: "/api/v1/ants/{ant_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get ant registration"
+      description: "Returns current capacity and allocation details for a single ant worker."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "Ant registration details."}
+      }
+    };
+  }
+
+  // QuerySubscriptions lists user quota subscriptions (admin only).
+  rpc QuerySubscriptions(QuerySubscriptionsRequest) returns (QuerySubscriptionsResponse) {
+    option (google.api.http) = {get: "/api/v1/subscriptions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List subscriptions"
+      description: "Returns a paginated list of user quota subscriptions. Requires admin role."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated subscription list."}
+      }
+    };
+  }
+
+  // GetSubscription returns a single subscription by its ULID.
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse) {
+    option (google.api.http) = {get: "/api/v1/subscriptions/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get subscription"
+      description: "Returns a single user quota subscription (looked up by ULID) including current CPU and disk usage."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "Subscription."}
+      }
+    };
+  }
+
+  // SaveSubscription creates or updates a subscription.
+  rpc SaveSubscription(SaveSubscriptionRequest) returns (SaveSubscriptionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/subscriptions"
+      body: "subscription"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save subscription"
+      description: "Creates or updates a user quota subscription. Requires admin role."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "Saved subscription."}
+      }
+    };
+  }
+}

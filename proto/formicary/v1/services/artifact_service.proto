@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/resource/artifact.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryArtifactsRequest carries filter parameters for listing artifacts.
+message QueryArtifactsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string job_request_id = 4;
+  string job_execution_id = 5;
+  string task_execution_id = 6;
+  string kind = 7;
+  string artifact_group = 8;
+}
+
+// QueryArtifactsResponse returns a paginated list of artifacts.
+message QueryArtifactsResponse {
+  repeated formicary.v1.resource.Artifact records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetArtifactRequest identifies an artifact by ID.
+message GetArtifactRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetArtifactResponse wraps a single artifact.
+message GetArtifactResponse {
+  formicary.v1.resource.Artifact artifact = 1;
+}
+
+// DeleteArtifactRequest identifies an artifact to delete.
+message DeleteArtifactRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ArtifactService manages artifacts produced by job executions.
+service ArtifactService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage artifacts produced by job and task executions (logs, results, cache)."
+    name: "artifacts"
+  };
+
+  // QueryArtifacts returns a paginated list of artifacts matching the filter.
+  rpc QueryArtifacts(QueryArtifactsRequest) returns (QueryArtifactsResponse) {
+    option (google.api.http) = {get: "/api/v1/artifacts"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List artifacts"
+      description: "Returns a paginated list of artifacts, optionally filtered by job/task execution IDs or kind."
+      tags: ["artifacts"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated artifact list."}
+      }
+    };
+  }
+
+  // GetArtifact returns metadata for a single artifact.
+  rpc GetArtifact(GetArtifactRequest) returns (GetArtifactResponse) {
+    option (google.api.http) = {get: "/api/v1/artifacts/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get artifact"
+      description: "Returns metadata and a pre-signed download URL for a single artifact."
+      tags: ["artifacts"]
+      responses: {
+        key: "200"
+        value: {description: "Artifact metadata."}
+      }
+    };
+  }
+
+  // DeleteArtifact removes an artifact from storage and the database.
+  rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/artifacts/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete artifact"
+      description: "Removes an artifact from both the object store and database records."
+      tags: ["artifacts"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

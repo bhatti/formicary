@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "buf/validate/validate.proto";
+import "formicary/v1/annotations.proto";
+import "formicary/v1/queen/job_execution.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// JobRequestParam holds a named parameter passed with a job request.
+message JobRequestParam {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string job_request_id = 2 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  string name = 3 [(formicary.v1.tags) = "json:\"name\""];
+  string value = 4 [(formicary.v1.tags) = "json:\"value\""];
+  string kind = 5 [(formicary.v1.tags) = "json:\"kind\""];
+  bool secret = 6 [(formicary.v1.tags) = "json:\"secret\""];
+}
+
+// JobRequest represents a user's request to execute a job definition.
+message JobRequest {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string parent_id = 2 [(formicary.v1.tags) = "json:\"parent_id\""];
+  string user_key = 3 [(formicary.v1.tags) = "json:\"user_key\""];
+  string job_definition_id = 4 [(formicary.v1.tags) = "json:\"job_definition_id\""];
+  string job_execution_id = 5 [(formicary.v1.tags) = "json:\"job_execution_id\""];
+  string last_job_execution_id = 6 [(formicary.v1.tags) = "json:\"last_job_execution_id\""];
+  string organization_id = 7 [(formicary.v1.tags) = "json:\"organization_id\""];
+  string user_id = 8 [(formicary.v1.tags) = "json:\"user_id\""];
+  int32 permissions = 9 [(formicary.v1.tags) = "json:\"permissions\""];
+  string description = 10 [(formicary.v1.tags) = "json:\"description\""];
+  string platform = 11 [(formicary.v1.tags) = "json:\"platform\""];
+  string job_type = 12 [
+    (formicary.v1.tags) = "json:\"job_type\"",
+    (buf.validate.field).string.min_len = 1
+  ];
+  string job_version = 13 [(formicary.v1.tags) = "json:\"job_version\""];
+  // job_state stores RequestState as string.
+  string job_state = 14 [(formicary.v1.tags) = "json:\"job_state\""];
+  string job_group = 15 [(formicary.v1.tags) = "json:\"job_group\""];
+  int32 job_priority = 16 [(formicary.v1.tags) = "json:\"job_priority\""];
+  int64 timeout_ns = 17 [(formicary.v1.tags) = "yaml:\"timeout,omitempty\" json:\"timeout\""];
+  int32 schedule_attempts = 18 [(formicary.v1.tags) = "json:\"schedule_attempts\" gorm:\"schedule_attempts\""];
+  int32 retried = 19 [(formicary.v1.tags) = "json:\"retried\""];
+  bool cron_triggered = 20 [(formicary.v1.tags) = "json:\"cron_triggered\""];
+  string quick_search = 21 [(formicary.v1.tags) = "json:\"quick_search\""];
+  string error_code = 22 [(formicary.v1.tags) = "json:\"error_code\""];
+  string error_message = 23 [(formicary.v1.tags) = "json:\"error_message\""];
+  string current_task = 24 [(formicary.v1.tags) = "json:\"current_task\""];
+  repeated JobRequestParam params = 25 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:JobRequestID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  google.protobuf.Timestamp scheduled_at = 26 [(formicary.v1.tags) = "json:\"scheduled_at\""];
+  google.protobuf.Timestamp created_at = 27 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 28 [(formicary.v1.tags) = "json:\"updated_at\" gorm:\"updated_at\""];
+  // Transient fields.
+  JobExecution execution = 29 [(formicary.v1.tags) = "yaml:\"-\" json:\"execution\" gorm:\"-\""];
+  string name_value_params_json = 30 [(formicary.v1.tags) = "yaml:\"params,omitempty\" json:\"params\" gorm:\"-\""];
+  string params_json = 31 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  map<string, string> errors = 32 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// ReviewTaskRequest is used for manual approval of a task.
+message ReviewTaskRequest {
+  string request_id = 1 [(formicary.v1.tags) = "json:\"request_id\" form:\"request_id\""];
+  string execution_id = 2 [(formicary.v1.tags) = "json:\"execution_id\" form:\"execution_id\""];
+  string task_type = 3 [(formicary.v1.tags) = "json:\"task_type\" form:\"task_type\""];
+  string reviewed_by = 4 [(formicary.v1.tags) = "json:\"reviewed_by\" form:\"reviewed_by\""];
+  string comments = 5 [(formicary.v1.tags) = "json:\"comments\" form:\"comments\""];
+  // status is "APPROVED" or "REJECTED".
+  string status = 6 [(formicary.v1.tags) = "json:\"status\" form:\"status\""];
+}

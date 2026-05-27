@@ -70,7 +70,6 @@ func (t TaskResponseTimings) PodShutdownDuration() time.Duration {
 
 // TaskResponse outlines the outcome of a task execution, encompassing its status, context, generated artifacts,
 // and additional outputs.
-// swagger:ignore
 type TaskResponse struct {
 	JobRequestID    string                 `json:"job_request_id"`
 	TaskExecutionID string                 `json:"task_execution_id"`

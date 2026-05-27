@@ -32,7 +32,6 @@ func NewEmailVerificationController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/users/email_verifications email-verifications queryEmailVerifications
 // Queries email-verifications within the organization that is allowed.
 // responses:
 //   200: emailVerificationQueryResponse
@@ -51,7 +50,6 @@ func (uc *EmailVerificationController) queryEmailVerifications(c web.APIContext)
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/users/:id/verify_email email-verifications verifyEmailVerification
 // Creates new emailVerification.
 // `This requires admin access`
 // responses:
@@ -71,7 +69,6 @@ func (uc *EmailVerificationController) createEmailVerification(c web.APIContext)
 	return c.JSON(http.StatusCreated, saved)
 }
 
-// swagger:route PUT /api/users/:id/verify_email/:code email-verifications verifyEmailVerification
 // Creates new emailVerification.
 // `This requires admin access`
 // responses:
@@ -88,7 +85,6 @@ func (uc *EmailVerificationController) verifyEmailVerification(c web.APIContext)
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryEmailVerifications
 // The params for querying email-verifications.
 type emailVerificationQueryParams struct {
 	// in:query
@@ -103,7 +99,6 @@ type emailVerificationQueryParams struct {
 }
 
 // Paginated results of email-verifications matching query
-// swagger:response emailVerificationQueryResponse
 type emailVerificationQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -115,7 +110,6 @@ type emailVerificationQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters createEmailVerification
 // The params for creating emailVerification.
 type emailVerificationCreateParams struct {
 	// in:body
@@ -123,13 +117,11 @@ type emailVerificationCreateParams struct {
 }
 
 // EmailVerification is used for email verification
-// swagger:response emailVerificationResponse
 type emailVerificationCreateResponseBody struct {
 	// in:body
 	Body *types.EmailVerification
 }
 
-// swagger:parameters verifyEmailVerification
 // The params to verify email
 type emailVerificationVerifyParams struct {
 	// in:path

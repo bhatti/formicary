@@ -45,7 +45,6 @@ func NewJobResourceController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/jobs/resources job-resources queryJobResources
 // Queries job resources by criteria such as type, platform, etc.
 // responses:
 //
@@ -65,7 +64,6 @@ func (jobResCtrl *JobResourceController) queryJobResources(c web.APIContext) err
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route GET /api/jobs/resources/{id} job-resources getJobResource
 // Finds the job-resource by id.
 // responses:
 //
@@ -79,7 +77,6 @@ func (jobResCtrl *JobResourceController) getJobResource(c web.APIContext) error 
 	return c.JSON(http.StatusOK, resource)
 }
 
-// swagger:route POST /api/jobs/resources job-resources postJobResource
 // Adds a job-resource that can be used for managing internal or external constraints.
 // responses:
 //
@@ -108,7 +105,6 @@ func (jobResCtrl *JobResourceController) postJobResource(c web.APIContext) error
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/jobs/resources/{id} job-resources putJobResource
 // Updates a job-resource that can be used for managing internal or external constraints.
 // responses:
 //
@@ -130,7 +126,6 @@ func (jobResCtrl *JobResourceController) putJobResource(c web.APIContext) error 
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route POST /api/jobs/resources/{id}/disable job-resources disableJobResource
 // disables the job-resource so that any jobs requiring it will not be able to execute.
 // responses:
 //
@@ -144,7 +139,6 @@ func (jobResCtrl *JobResourceController) disableJobResource(c web.APIContext) er
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/resources/{id}/disable job-resources enableJobResource
 // disables the job-resource so that any jobs requiring it will not be able to execute.
 // responses:
 //
@@ -158,7 +152,6 @@ func (jobResCtrl *JobResourceController) enableJobResource(c web.APIContext) err
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/resources/{id}/disable job-resources deleteJobResource
 // Deletes the job-resource by id.
 // responses:
 //
@@ -172,7 +165,6 @@ func (jobResCtrl *JobResourceController) deleteJobResource(c web.APIContext) err
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route DELETE /api/jobs/resources/{id}/configs/{configId} job-resources deleteJobResourceConfig
 // Deletes the job-resource config by id of job-resource and config-id.
 // responses:
 //
@@ -197,7 +189,6 @@ func (jobResCtrl *JobResourceController) deleteJobResourceConfig(c web.APIContex
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/resources/{id}/configs job-resources saveJobResourceConfig
 // Save the job-resource config.
 // responses:
 //
@@ -224,7 +215,6 @@ func (jobResCtrl *JobResourceController) saveJobResourceConfig(c web.APIContext)
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryJobResources
 // The params for querying jobResources.
 type jobResourceQueryParams struct {
 	// in:query
@@ -239,7 +229,6 @@ type jobResourceQueryParams struct {
 }
 
 // Paginated results of jobResources matching query
-// swagger:response jobResourceQueryResponse
 type jobResourceQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -251,21 +240,18 @@ type jobResourceQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters getJobResource disableJobResource enableJobResource deleteJobResource
 // The parameters for finding job-request by id
 type jobResourceIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
-// swagger:parameters postJobResource
 // The request body includes job-resource for persistence.
 type jobResourceCreateParams struct {
 	// in:body
 	Body types.JobResource
 }
 
-// swagger:parameters putJobResource
 // The request body includes job-resource for persistence.
 type jobResourceUpdateParams struct {
 	// in:path
@@ -275,13 +261,11 @@ type jobResourceUpdateParams struct {
 }
 
 // JobResource represents a virtual resource, which can be used to implement mutex/semaphores for a job.
-// swagger:response jobResource
 type jobResourceBody struct {
 	// in:body
 	Body types.JobResource
 }
 
-// swagger:parameters deleteJobResourceConfig
 // The request params for querying/deleting resource-config
 type jobResourceConfigDeleteParams struct {
 	// in:path
@@ -291,7 +275,6 @@ type jobResourceConfigDeleteParams struct {
 }
 
 // jobResourceConfig represents config for the resource
-// swagger:response jobResourceConfig
 type jobResourceConfigBody struct {
 	// in:body
 	Body types.JobResourceConfig

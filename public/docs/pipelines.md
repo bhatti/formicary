@@ -131,7 +131,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-    --data-binary @video-encoding.yaml $SERVER/api/jobs/definitions
+    --data-binary @video-encoding.yaml $SERVER/api/v1/jobs/definitions
 ```
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to
 the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.
@@ -142,7 +142,7 @@ You can then submit the job as follows:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    --data '{"job_type": "video-encoding", "params": {"InputEncoding": "MP4", "OutputEncoding": "WebM", "URL": "https://github.com"}}' $SERVER/api/jobs/requests
+    --data '{"job_type": "video-encoding", "params": {"InputEncoding": "MP4", "OutputEncoding": "WebM", "URL": "https://github.com"}}' $SERVER/api/v1/jobs/requests
 ```
 The above example kicks off `video-encoding` job and passes `URL`, `InputEncoding`, and `OutputEncoding` as parameters.
 

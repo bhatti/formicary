@@ -105,7 +105,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  --data-binary @go-kart.yaml $SERVER/api/jobs/definitions
+  --data-binary @go-kart.yaml $SERVER/api/v1/jobs/definitions
 ```
 
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to the API
@@ -118,7 +118,7 @@ You can then submit the job as follows:
 ```yaml
  curl -v -H "Authorization: Bearer $TOKEN" \
    -H "Content-Type: application/json" \
-   --data '{"job_type": "go-kart" }' $SERVER/api/jobs/requests
+   --data '{"job_type": "go-kart" }' $SERVER/api/v1/jobs/requests
 ```
 
 The above example kicks off `go-kart` job that you can see on the dashboard UI.

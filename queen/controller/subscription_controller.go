@@ -46,7 +46,6 @@ func NewSubscriptionController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/subscriptions subscriptions querySubscriptions
 // Queries system subscriptions.
 // `This requires admin access`
 // responses:
@@ -62,7 +61,6 @@ func (cc *SubscriptionController) querySubscriptions(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/subscriptions subscriptions postSubscription
 // Creates new system subscription based on request body.
 // `This requires admin access`
 // responses:
@@ -102,7 +100,6 @@ func (cc *SubscriptionController) postSubscription(c web.APIContext) (err error)
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/subscriptions/{id} subscriptions putSubscription
 // Updates an existing system subscription based on request body.
 // `This requires admin access`
 // responses:
@@ -133,7 +130,6 @@ func (cc *SubscriptionController) putSubscription(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/subscriptions/{id} subscriptions getSubscription
 // Finds an existing system subscription based on id.
 // `This requires admin access`
 // responses:
@@ -148,7 +144,6 @@ func (cc *SubscriptionController) getSubscription(c web.APIContext) error {
 	return c.JSON(http.StatusOK, subscription)
 }
 
-// swagger:route DELETE /api/subscriptions/{id} subscriptions deleteSubscription
 // Deletes an existing system subscription based on id.
 // `This requires admin access`
 // responses:
@@ -165,7 +160,6 @@ func (cc *SubscriptionController) deleteSubscription(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters querySubscriptions
 // The params for querying subscriptions
 type subscriptionsQueryParams struct {
 	// in:query
@@ -180,7 +174,6 @@ type subscriptionsQueryParams struct {
 }
 
 // Query results of subscriptions
-// swagger:response subscriptionQueryResponse
 type subscriptionsQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -192,14 +185,12 @@ type subscriptionsQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters postSubscription
 // The params for system-subscription
 type subscriptionCreateParams struct {
 	// in:body
 	Body common.Subscription
 }
 
-// swagger:parameters putSubscription
 // The params for system-subscription
 type subscriptionUpdateParams struct {
 	// in:path
@@ -209,13 +200,11 @@ type subscriptionUpdateParams struct {
 }
 
 // Subscription body for update
-// swagger:response subscriptionResponse
 type subscriptionResponseBody struct {
 	// in:body
 	Body common.Subscription
 }
 
-// swagger:parameters deleteSubscription getSubscription
 // The parameters for finding system-subscription by id
 type subscriptionIDParams struct {
 	// in:path

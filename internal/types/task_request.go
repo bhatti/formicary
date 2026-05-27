@@ -34,7 +34,6 @@ const (
 // TaskRequest specifies the parameters for a task that is dispatched to a remote ant-worker for execution.
 // This request is transmitted through a messaging middleware to the most appropriate ant-worker, selected
 // based on its resource availability and capacity to handle the task efficiently.
-// swagger:ignore
 type TaskRequest struct {
 	UserID          string                   `json:"user_id" yaml:"user_id"`
 	OrganizationID  string                   `json:"organization_id" yaml:"organization_id"`

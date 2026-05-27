@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 	"math"
+	"net"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
@@ -33,7 +34,14 @@ type Server interface {
 	PUT(path string, h HandlerFunc, perm *acl.Permission, m ...echo.MiddlewareFunc) *echo.Route
 	DELETE(path string, h HandlerFunc, perm *acl.Permission, m ...echo.MiddlewareFunc) *echo.Route
 	AddMiddleware(m echo.MiddlewareFunc)
+	// RegisterRootHandler mounts an http.Handler on the root Echo instance for
+	// a given path prefix, bypassing all apiGroup/dashboardGroup middleware (JWT, rate limit, etc.).
+	// Used by grpc-gateway so its own gRPC interceptors handle auth exclusively.
+	RegisterRootHandler(pathPrefix string, h http.Handler)
 	Start(address string)
+	// StartWithListener starts the server using an already-created net.Listener.
+	// Used by cmux to share a single TCP port between gRPC and HTTP.
+	StartWithListener(lis net.Listener)
 	Stop()
 }
 
@@ -278,9 +286,27 @@ func (w *DefaultWebServer) DELETE(path string, h HandlerFunc, perm *acl.Permissi
 	}
 }
 
+// RegisterRootHandler mounts h on the root Echo instance so that it bypasses
+// apiGroup/dashboardGroup JWT middleware. Used by grpc-gateway routes.
+func (w *DefaultWebServer) RegisterRootHandler(pathPrefix string, h http.Handler) {
+	wrapped := func(c echo.Context) error {
+		h.ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
+	w.e.Any(pathPrefix+"*", wrapped)
+}
+
 // Start - starts web server
 func (w *DefaultWebServer) Start(address string) {
 	w.e.Logger.Fatal(w.e.Start(address))
+}
+
+// StartWithListener starts the web server using an already-bound net.Listener.
+// Used by cmux so that gRPC and HTTP share a single TCP port.
+func (w *DefaultWebServer) StartWithListener(lis net.Listener) {
+	if err := w.e.Server.Serve(lis); err != nil {
+		logrus.WithError(err).Info("HTTP server stopped")
+	}
 }
 
 // Stop - stops web server

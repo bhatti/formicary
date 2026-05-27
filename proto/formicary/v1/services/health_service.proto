@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// ComponentHealth holds health status for a single system component.
+message ComponentHealth {
+  string name = 1;
+  // status is "healthy", "degraded", or "down".
+  string status = 2;
+  string message = 3;
+  int64 last_checked_unix = 4;
+}
+
+// HealthResponse reports overall system health and per-component status.
+message HealthResponse {
+  // overall_status is "healthy" when all components are OK, otherwise "degraded" or "down".
+  string overall_status = 1;
+  repeated ComponentHealth components = 2;
+  // registered_ants lists currently connected ant worker counts by method.
+  map<string, int32> registered_ants = 3;
+}
+
+// MetricsResponse carries Prometheus-format text metrics.
+message MetricsResponse {
+  string content_type = 1;
+  bytes body = 2;
+}
+
+// HealthService provides liveness, readiness, and metrics endpoints.
+service HealthService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "System health checks and Prometheus metrics."
+    name: "health"
+  };
+
+  // GetHealth returns the overall system health and per-component status.
+  rpc GetHealth(google.protobuf.Empty) returns (HealthResponse) {
+    option (google.api.http) = {get: "/api/v1/health"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Health check"
+      description: "Returns the overall system health status and details for all monitored components (DB, queue, object store, ant workers)."
+      tags: ["health"]
+      security: {}
+      responses: {
+        key: "200"
+        value: {description: "System is healthy."}
+      }
+      responses: {
+        key: "503"
+        value: {description: "System is degraded or down."}
+      }
+    };
+  }
+
+  // Ping is a lightweight liveness probe.
+  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {get: "/api/v1/ping"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Ping"
+      description: "Lightweight liveness probe. Returns 200 OK when the server is running."
+      tags: ["health"]
+      security: {}
+      responses: {
+        key: "200"
+        value: {description: "OK."}
+      }
+    };
+  }
+}

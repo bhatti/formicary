@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 
@@ -64,7 +65,13 @@ func (w *stubWebServer) DELETE(string, HandlerFunc, *acl.Permission, ...echo.Mid
 	return &echo.Route{}
 }
 
+func (w *stubWebServer) RegisterRootHandler(string, http.Handler) {
+}
+
 func (w *stubWebServer) Start(string) {
+}
+
+func (w *stubWebServer) StartWithListener(_ net.Listener) {
 }
 
 func (w *stubWebServer) Stop() {

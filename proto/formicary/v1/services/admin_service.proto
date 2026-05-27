@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/resource/ant.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// DashboardStatsRequest carries optional date range for dashboard stats.
+message DashboardStatsRequest {
+  // start_date is an optional RFC3339 timestamp for the start of the time range.
+  string start_date = 1;
+  // end_date is an optional RFC3339 timestamp for the end of the time range.
+  string end_date = 2;
+}
+
+// JobCountsByDay holds job execution counts for a single day.
+message JobCountsByDay {
+  string date = 1;
+  int64 total = 2;
+  int64 succeeded = 3;
+  int64 failed = 4;
+}
+
+// ContainerEventCount holds execution method breakdown for container events.
+message ContainerEventCount {
+  string method = 1;
+  int64 count = 2;
+}
+
+// ResourceUsage holds CPU and disk usage metrics.
+message ResourceUsage {
+  double cpu_percent = 1;
+  double disk_percent = 2;
+  int64 cpu_secs = 3;
+  int64 disk_mb = 4;
+}
+
+// DashboardStatsResponse contains all metrics displayed on the main dashboard.
+message DashboardStatsResponse {
+  int64 total_orgs = 1;
+  int64 total_users = 2;
+  int64 total_ant_registrations = 3;
+  int64 total_job_definitions = 4;
+  int64 total_plugins = 5;
+  int64 jobs_succeeded = 6;
+  int64 jobs_failed = 7;
+  int64 jobs_pending = 8;
+  int64 jobs_running = 9;
+  int64 jobs_done = 10;
+  double success_rate = 11;
+  int64 total_artifacts = 12;
+  repeated JobCountsByDay job_counts_by_day = 13;
+  repeated ContainerEventCount container_events = 14;
+  ResourceUsage cpu_resources = 15;
+  ResourceUsage storage_resources = 16;
+  bool is_healthy = 17;
+  repeated formicary.v1.resource.AntRegistration ant_registrations = 18;
+}
+
+// AdminService provides administrative dashboard statistics and monitoring endpoints.
+service AdminService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Admin dashboard statistics and monitoring."
+    name: "admin"
+  };
+
+  // GetDashboardStats returns aggregated statistics for the admin dashboard.
+  rpc GetDashboardStats(DashboardStatsRequest) returns (DashboardStatsResponse) {
+    option (google.api.http) = {get: "/api/v1/admin/dashboard"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Dashboard statistics"
+      description: "Returns aggregated job, user, ant, and resource statistics for the admin dashboard. Optionally filtered by date range."
+      tags: ["admin"]
+      responses: {
+        key: "200"
+        value: {description: "Dashboard statistics."}
+      }
+    };
+  }
+}

@@ -164,7 +164,7 @@ func RenderDBUserFromSession(c APIContext, res map[string]interface{}) {
 	if res["Q"] == nil {
 		res["Q"] = ""
 	}
-	res["APIDocsURL"] = "https://petstore.swagger.io/?url=https://" + c.Request().Host + "/docs/swagger.yaml"
+	res["APIDocsURL"] = "https://petstore.swagger.io/?url=https://raw.githubusercontent.com/bhatti/formicary/main/public/docs/openapi.json"
 	if user != nil {
 		res[DBUser] = user
 		res[DBUserOrg] = user.OrganizationID
@@ -230,6 +230,11 @@ func IsWhiteListURL(path string, method string) bool {
 	}
 	return (whitelistGetURLs[path] && method == "GET") ||
 		(whitelistPostURLs[path] && method == "POST")
+}
+
+// ParseToken is the exported wrapper around parseToken for use outside this package.
+func ParseToken(tokenString, secret string) (*JwtClaims, error) {
+	return parseToken(tokenString, secret)
 }
 
 // parseToken parses a JWT and returns Claims object

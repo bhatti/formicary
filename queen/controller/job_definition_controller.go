@@ -55,7 +55,6 @@ func NewJobDefinitionController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/jobs/definitions job-definitions queryJobDefinitions
 // Queries job definitions by criteria such as type, platform, etc.
 // responses:
 //
@@ -78,7 +77,6 @@ func (jobDefCtrl *JobDefinitionController) queryJobDefinitions(c web.APIContext)
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route GET /api/jobs/plugins job-definitions queryPlugins
 // Queries job definitions by criteria such as type, platform, etc.
 // responses:
 //
@@ -98,7 +96,6 @@ func (jobDefCtrl *JobDefinitionController) queryPlugins(c web.APIContext) error 
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/jobs/definitions job-definitions postJobDefinition
 // Uploads job definitions using JSON or YAML body based on content-type header.
 // responses:
 //
@@ -156,7 +153,6 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (
 	return c.JSON(status, saved)
 }
 
-// swagger:route POST /api/jobs/definitions/{id}/disable job-definitions disableJobDefinition
 // disables job-definition so that no new requests are executed while in-progress jobs are allowed to complete.
 // responses:
 //
@@ -170,7 +166,6 @@ func (jobDefCtrl *JobDefinitionController) disableJobDefinition(c web.APIContext
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/definitions/{id}/enable job-definitions enableJobDefinition
 // Enables job-definition so that new requests can start processing.
 // responses:
 //
@@ -184,7 +179,6 @@ func (jobDefCtrl *JobDefinitionController) enableJobDefinition(c web.APIContext)
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route GET /api/jobs/definitions/{id} job-definitions getJobDefinition
 // Finds the job-definition by id.
 // responses:
 //
@@ -214,7 +208,6 @@ func (jobDefCtrl *JobDefinitionController) getJobDefinition(c web.APIContext) (e
 	return c.JSON(http.StatusOK, job)
 }
 
-// swagger:route GET /api/jobs/definitions/{type}/yaml job-definitions getYamlJobDefinition
 // Finds job-definition by type and returns response YAML format.
 // responses:
 //
@@ -228,7 +221,6 @@ func (jobDefCtrl *JobDefinitionController) getYamlJobDefinition(c web.APIContext
 	return c.String(http.StatusOK, string(b))
 }
 
-// swagger:route PUT /api/jobs/definitions/{id}/concurrency job-definitions updateConcurrencyJobDefinition
 // Updates the concurrency for job-definition by id to limit the maximum jobs that can be executed at the same time.
 // responses:
 //
@@ -247,7 +239,6 @@ func (jobDefCtrl *JobDefinitionController) updateConcurrencyJobDefinition(c web.
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route DELETE /api/jobs/definitions/{id} job-definitions deleteJobDefinition
 // Deletes the job-definition by id.
 // responses:
 //
@@ -261,7 +252,6 @@ func (jobDefCtrl *JobDefinitionController) deleteJobDefinition(c web.APIContext)
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route GET /api/jobs/definitions/{id}/mermaid job-definitions mermaidJobDefinition
 // Returns Mermaid definition for the graph of tasks defined in the job.
 // responses:
 //
@@ -276,7 +266,6 @@ func (jobDefCtrl *JobDefinitionController) mermaidJobDefinition(c web.APIContext
 	return c.String(http.StatusOK, d)
 }
 
-// swagger:route GET /api/jobs/definitions/{id}/dot job-definitions dotJobDefinition
 // Returns Graphviz DOT definition for the graph of tasks defined in the job.
 // responses:
 //
@@ -291,7 +280,6 @@ func (jobDefCtrl *JobDefinitionController) dotJobDefinition(c web.APIContext) er
 	return c.String(http.StatusOK, d)
 }
 
-// swagger:route GET /api/jobs/definitions/{id}/dot.png job-definitions dotImageJobDefinition
 // Returns Graphviz DOT image for the graph of tasks defined in the job.
 // responses:
 //
@@ -305,7 +293,6 @@ func (jobDefCtrl *JobDefinitionController) dotImageJobDefinition(c web.APIContex
 	return c.Blob(http.StatusOK, "image/png", d)
 }
 
-// swagger:route GET /api/jobs/definitions/{id}/stats job-definitions statsJobDefinition
 // Returns Real-time statistics of jobs running.
 // responses:
 //
@@ -320,7 +307,6 @@ func (jobDefCtrl *JobDefinitionController) statsJobDefinition(c web.APIContext) 
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryJobDefinitions queryPlugins
 // The params for querying jobDefinitions.
 type jobDefinitionQueryParams struct {
 	// in:query
@@ -339,7 +325,6 @@ type jobDefinitionQueryParams struct {
 }
 
 // Paginated results of jobDefinitions matching query
-// swagger:response jobDefinitionQueryResponse
 type jobDefinitionQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -351,7 +336,6 @@ type jobDefinitionQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters postJobDefinition
 // The job-definition can be specified in JSON or YAML format based on content-type
 type jobDefinitionUploadParams struct {
 	// in:body
@@ -360,33 +344,28 @@ type jobDefinitionUploadParams struct {
 
 // The job-definition defines DAG (directed acyclic graph) of tasks, which are executed by
 // ant followers. The workflow of job uses task exit codes to define next task to execute.
-// swagger:response jobDefinition
 type jobDefinitionBody struct {
 	// in:body
 	Body types.JobDefinition
 }
 
-// swagger:response jobDefinitionStatsResponse
 // Real-time statistics of jobs that are recently completed or being executed.
 type jobDefinitionStatsResponseBody struct {
 	// in:body
 	Body []stats.JobStats
 }
 
-// swagger:parameters getYamlJobDefinition
 type jobDefinitionTypeParams struct {
 	// in:path
 	Type string `json:"type"`
 }
 
-// swagger:parameters jobDefinitionIDParams getJobDefinition disableJobDefinition enableJobDefinition deleteJobDefinition dotJobDefinition dotImageJobDefinition
 // The parameters for finding job-definition by id
 type jobDefinitionIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
-// swagger:parameters updateConcurrencyJobDefinition
 // The parameters for updating job-definition concurrency by id
 type jobDefinitionConcurrencyParams struct {
 	// in:path
@@ -395,7 +374,6 @@ type jobDefinitionConcurrencyParams struct {
 	Concurrency int `json:"concurrency"`
 }
 
-// swagger:parameters statsJobDefinition
 // The parameters for job stats
 type emptyJobDefinitionParams struct {
 }

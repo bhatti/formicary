@@ -43,7 +43,6 @@ func NewJobConfigController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/jobs/definitions/{jobId}/configs job-configs queryJobConfigs
 // Queries job configs by criteria such as name, type, etc.
 // responses:
 //   200: jobConfigQueryResponse
@@ -57,7 +56,6 @@ func (cc *JobConfigController) queryJobConfigs(c web.APIContext) error {
 	return c.JSON(http.StatusOK, job.Configs)
 }
 
-// swagger:route POST /api/jobs/definitions/{jobId}/configs job-configs postJobConfig
 // Adds a config for the job.
 // responses:
 //   200: jobConfig
@@ -96,7 +94,6 @@ func (cc *JobConfigController) postJobConfig(c web.APIContext) error {
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/jobs/definitions/{jobId}/configs/{id} job-configs putJobConfig
 // Updates a config for the job.
 // responses:
 //   200: jobConfig
@@ -122,7 +119,6 @@ func (cc *JobConfigController) putJobConfig(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/jobs/definitions/{jobId}/configs/{id} job-configs getJobConfig
 // Finds a config for the job by id.
 // responses:
 //   200: jobConfig
@@ -141,7 +137,6 @@ func (cc *JobConfigController) getJobConfig(c web.APIContext) error {
 	return c.JSON(http.StatusOK, cfg)
 }
 
-// swagger:route DELETE /api/jobs/definitions/{jobId}/configs/{id} job-configs deleteJobConfig
 // Deletes a config for the job by id.
 // responses:
 //   200: emptyResponse
@@ -159,7 +154,6 @@ func (cc *JobConfigController) deleteJobConfig(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryOrgConfigs
 // The params for querying jobConfigs.
 type jobConfigQueryParams struct {
 	// in:query
@@ -170,7 +164,6 @@ type jobConfigQueryParams struct {
 }
 
 // Paginated results of jobConfigs matching query
-// swagger:response jobConfigQueryResponse
 type jobConfigQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -182,7 +175,6 @@ type jobConfigQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters deleteJobConfig getJobConfig
 // The parameters for accessing job-config by id
 type jobConfigIDParams struct {
 	// in:path
@@ -191,7 +183,6 @@ type jobConfigIDParams struct {
 	ID string `json:"id"`
 }
 
-// swagger:parameters putJobConfig
 // The parameters for updating job config by id
 type jobConfigUpdateParams struct {
 	// in:path
@@ -202,7 +193,6 @@ type jobConfigUpdateParams struct {
 	Body types.JobDefinitionConfig
 }
 
-// swagger:parameters postJobConfig
 // The request body includes job-request for persistence.
 type jobConfigParams struct {
 	// in:body
@@ -210,7 +200,6 @@ type jobConfigParams struct {
 }
 
 // OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
-// swagger:response jobConfig
 type jobConfigBody struct {
 	// in:body
 	Body types.JobDefinitionConfig

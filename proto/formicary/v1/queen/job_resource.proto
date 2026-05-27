@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// ResourceCriteriaConfig defines properties to extract from a resource into job variables.
+message ResourceCriteriaConfig {
+  repeated string properties = 1 [(formicary.v1.tags) = "yaml:\"properties\" json:\"properties\" gorm:\"-\""];
+  string context_prefix = 2 [(formicary.v1.tags) = "yaml:\"context_prefix\" json:\"context_prefix\" gorm:\"-\""];
+}
+
+// BasicResource defines common properties of a resource used to implement mutex/semaphores for a job.
+// Resources can represent external constraints such as device limits, connection pools, or license counts.
+message BasicResource {
+  // resource_type identifies the kind of resource (e.g., "DEVICE", "CPU", "LICENSE").
+  string resource_type = 1 [(formicary.v1.tags) = "yaml:\"resource_type\" json:\"resource_type\" gorm:\"resource_type\""];
+  string description = 2 [(formicary.v1.tags) = "yaml:\"description,omitempty\" json:\"description\" gorm:\"description\""];
+  // platform specifies the OS platform or target runtime this resource applies to.
+  string platform = 3 [(formicary.v1.tags) = "yaml:\"platform,omitempty\" json:\"platform\" gorm:\"platform\""];
+  string category = 4 [(formicary.v1.tags) = "yaml:\"category,omitempty\" json:\"category\" gorm:\"category\""];
+  // tags_serialized stores JSON-encoded tags list (not exposed directly in API).
+  string tags_serialized = 5 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"tags_serialized\""];
+  // tags is the deserialized transient list of tag strings.
+  repeated string tags = 6 [(formicary.v1.tags) = "yaml:\"tags,omitempty\" json:\"tags\" gorm:\"-\""];
+  // value consumed per allocation (1 for mutex/semaphore, higher for quotas).
+  int32 value = 7 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\" gorm:\"-\""];
+  // extract_config extracts resource config properties into job context variables.
+  ResourceCriteriaConfig extract_config = 8 [(formicary.v1.tags) = "yaml:\"extract_config\" json:\"extract_config\" gorm:\"-\""];
+}
+
+// JobResourceConfig stores a named configuration property for a job resource.
+message JobResourceConfig {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_resource_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_resource_id\""];
+  // name of the config property.
+  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  // kind is the data type (STRING, INT, BOOL, etc.).
+  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  // value stored as string (encrypted if secret is true).
+  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  map<string, string> errors = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// JobResourceUse records a single allocation of a job resource by a task execution.
+message JobResourceUse {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string job_resource_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_resource_id\""];
+  // job_request_id is the ID of the job request that consumed this resource.
+  uint64 job_request_id = 3 [(formicary.v1.tags) = "yaml:\"-\" json:\"job_request_id\""];
+  string task_execution_id = 4 [(formicary.v1.tags) = "yaml:\"-\" json:\"task_execution_id\""];
+  string user_id = 5 [(formicary.v1.tags) = "yaml:\"-\" json:\"user_id\""];
+  // value consumed by this use (1 for mutex/semaphore).
+  int32 value = 6 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  // aborted is true if the resource was released forcefully (e.g., timeout).
+  bool aborted = 7 [(formicary.v1.tags) = "yaml:\"aborted\" json:\"aborted\""];
+  bool active = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  google.protobuf.Timestamp created_at = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 10 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  google.protobuf.Timestamp expires_at = 11 [(formicary.v1.tags) = "yaml:\"-\" json:\"expires_at\""];
+  // remaining_quota is a transient field computed at query time.
+  int32 remaining_quota = 12 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// JobResource represents a virtual resource used to implement mutex/semaphores or quota limits for jobs.
+// Jobs can declare resource requirements and the scheduler enforces limits based on current allocations.
+message JobResource {
+  BasicResource basic = 1;
+  string id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string external_id = 3 [(formicary.v1.tags) = "yaml:\"external_id\" json:\"external_id\""];
+  // valid_status indicates whether this resource is healthy and available.
+  bool valid_status = 4 [(formicary.v1.tags) = "yaml:\"valid_status\" json:\"valid_status\""];
+  // quota is the maximum total value that can be allocated simultaneously (1 = mutex).
+  int32 quota = 5 [(formicary.v1.tags) = "yaml:\"quota\" json:\"quota\""];
+  // lease_timeout_ns is the max nanoseconds to hold a lease before auto-release.
+  int64 lease_timeout_ns = 6 [(formicary.v1.tags) = "yaml:\"lease_timeout,omitempty\" json:\"lease_timeout\""];
+  bool disabled = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"disabled\""];
+  // configs stores named configuration properties for this resource.
+  repeated JobResourceConfig configs = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:JobResourceID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  // uses records current active allocations.
+  repeated JobResourceUse uses = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:JobResourceID\""];
+  string organization_id = 10 [(formicary.v1.tags) = "json:\"organization_id\""];
+  string user_id = 11 [(formicary.v1.tags) = "json:\"user_id\""];
+  google.protobuf.Timestamp created_at = 12 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 13 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  bool active = 14 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  // name_value_configs is a transient map of resource variables keyed by name.
+  string name_value_configs_json = 15 [(formicary.v1.tags) = "yaml:\"resource_variables,omitempty\" json:\"resource_variables\" gorm:\"-\""];
+  map<string, string> errors = 16 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}

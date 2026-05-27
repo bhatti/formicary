@@ -36,7 +36,6 @@ func NewSystemConfigController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/configs system-configs querySystemConfigs
 // Queries system configs
 // `This requires admin access`
 // responses:
@@ -51,7 +50,6 @@ func (cc *SystemConfigController) querySystemConfigs(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/configs system-configs postSystemConfig
 // Creates new system config based on request body.
 // `This requires admin access`
 // responses:
@@ -77,7 +75,6 @@ func (cc *SystemConfigController) postSystemConfig(c web.APIContext) error {
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/configs/{id} system-configs putSystemConfig
 // Updates an existing system config based on request body.
 // `This requires admin access`
 // responses:
@@ -96,7 +93,6 @@ func (cc *SystemConfigController) putSystemConfig(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/configs/{id} system-configs getSystemConfig
 // Finds an existing system config based on id.
 // `This requires admin access`
 // responses:
@@ -110,7 +106,6 @@ func (cc *SystemConfigController) getSystemConfig(c web.APIContext) error {
 	return c.JSON(http.StatusOK, cfg)
 }
 
-// swagger:route DELETE /api/configs/{id} system-configs deleteSystemConfig
 // Deletes an existing system config based on id.
 // `This requires admin access`
 // responses:
@@ -126,7 +121,6 @@ func (cc *SystemConfigController) deleteSystemConfig(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters querySystemConfigs
 // The params for querying system-configs
 type sysConfigsQueryParams struct {
 	// in:query
@@ -141,7 +135,6 @@ type sysConfigsQueryParams struct {
 }
 
 // Query results of system-configs
-// swagger:response sysConfigQueryResponse
 type sysConfigsQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -153,14 +146,12 @@ type sysConfigsQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters postSystemConfig
 // The params for system-config
 type sysConfigCreateParams struct {
 	// in:body
 	Body types.SystemConfig
 }
 
-// swagger:parameters putSystemConfig
 // The params for system-config
 type sysConfigUpdateParams struct {
 	// in:path
@@ -170,13 +161,11 @@ type sysConfigUpdateParams struct {
 }
 
 // SystemConfig body for update
-// swagger:response sysConfigResponse
 type sysConfigResponseBody struct {
 	// in:body
 	Body types.SystemConfig
 }
 
-// swagger:parameters deleteSystemConfig getSystemConfig
 // The parameters for finding system-config by id
 type sysConfigIDParams struct {
 	// in:path

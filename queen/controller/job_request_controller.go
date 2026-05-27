@@ -50,7 +50,6 @@ func NewJobRequestController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/jobs/requests job-requests queryJobRequests
 // Queries job requests by criteria such as type, platform, etc.
 // responses:
 //
@@ -70,7 +69,6 @@ func (jobReqCtrl *JobRequestController) queryJobRequests(c web.APIContext) error
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route GET /api/jobs/requests/{id} job-requests getJobRequest
 // Finds the job-request by id.
 // responses:
 //
@@ -85,7 +83,6 @@ func (jobReqCtrl *JobRequestController) getJobRequest(c web.APIContext) error {
 	return c.JSON(http.StatusOK, request)
 }
 
-// swagger:route POST /api/jobs/requests job-requests submitJobRequest
 // Submits a job-request for processing, which is saved in the database and is then scheduled for execution.
 // responses:
 //
@@ -122,7 +119,6 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error
 	return c.JSON(http.StatusCreated, saved)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/cancel job-requests cancelJobRequest
 // Cancels a job-request that is pending for execution or already executing.
 // responses:
 //
@@ -136,7 +132,6 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/review job-requests reviewJobRequestForApproval
 // Approves a job-request that is pending for manually approve.
 // responses:
 //
@@ -159,7 +154,6 @@ func (jobReqCtrl *JobRequestController) reviewJobRequestForApproval(c web.APICon
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/pause job-requests pauseJobRequest
 // Pauses a job-request that is already executing.
 // responses:
 //
@@ -173,7 +167,6 @@ func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error 
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/trigger job-requests triggerJobRequest
 // Triggers a scheduled job.
 // responses:
 //
@@ -188,7 +181,6 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/jobs/requests/{id}/restart job-requests restartJobRequest
 // Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.
 // responses:
 //
@@ -203,7 +195,6 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) erro
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route GET /api/jobs/requests/{id}/mermaid job-requests mermaidJobRequest
 // Returns Mermaid for the graph of tasks defined in the job request.
 // responses:
 //
@@ -218,7 +209,6 @@ func (jobReqCtrl *JobRequestController) mermaidJobRequest(c web.APIContext) erro
 	return c.String(http.StatusOK, d)
 }
 
-// swagger:route GET /api/jobs/requests/{id}/dot job-requests dotJobRequest
 // Returns Graphviz DOT request for the graph of tasks defined in the job request.
 // responses:
 //
@@ -233,7 +223,6 @@ func (jobReqCtrl *JobRequestController) dotJobRequest(c web.APIContext) error {
 	return c.String(http.StatusOK, d)
 }
 
-// swagger:route GET /api/jobs/requests/{id}/dot.png job-requests dotImageJobRequest
 // Returns Graphviz DOT image for the graph of tasks defined in the job.
 // responses:
 //
@@ -248,7 +237,6 @@ func (jobReqCtrl *JobRequestController) dotImageJobRequest(c web.APIContext) err
 	return c.Blob(http.StatusOK, "image/png", d)
 }
 
-// swagger:route GET /api/jobs/requests/{id}/wait_time job-requests getWaitTimeJobRequest
 // Returns wait time for the job-request.
 // responses:
 //
@@ -263,7 +251,6 @@ func (jobReqCtrl *JobRequestController) getWaitTimeJobRequest(c web.APIContext) 
 	return c.JSON(http.StatusOK, estimate)
 }
 
-// swagger:route GET /api/jobs/requests/stats job-requests statsJobRequests
 // Returns statistics for the job-request such as success rate, latency, etc.
 // `This requires admin access`
 // responses:
@@ -280,7 +267,6 @@ func (jobReqCtrl *JobRequestController) statsJobRequests(c web.APIContext) error
 	return c.JSON(http.StatusOK, recs)
 }
 
-// swagger:route GET /api/jobs/requests/dead_ids job-requests getDeadIDs
 // Returns job-request ids for recently completed jobs.
 // responses:
 //
@@ -301,7 +287,6 @@ func (jobReqCtrl *JobRequestController) getDeadIDs(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryJobRequests
 // The params for querying jobRequests.
 type jobRequestQueryParams struct {
 	// in:query
@@ -318,7 +303,6 @@ type jobRequestQueryParams struct {
 }
 
 // Paginated results of jobRequests matching query
-// swagger:response jobRequestQueryResponse
 type jobRequestQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -330,21 +314,18 @@ type jobRequestQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters jobRequestIDParams getJobRequest pauseJobRequest cancelJobRequest restartJobRequest triggerJobRequest dotJobRequest dotImageJobRequest
 // The parameters for finding job-request by id
 type jobRequestIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
-// swagger:parameters reviewJobRequestForApproval
 // The request body for reviewing manual job.
 type reviewJobRequestBody struct {
 	// in:body
 	Body types.ReviewTaskRequest
 }
 
-// swagger:parameters submitJobRequest
 // The request body includes job-request for persistence.
 type jobRequestParams struct {
 	// in:body
@@ -352,28 +333,24 @@ type jobRequestParams struct {
 }
 
 // JobRequest defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
-// swagger:response jobRequest
 type jobRequestBody struct {
 	// in:body
 	Body types.JobRequest
 }
 
 // The job-request wait times based on average of previously executed jobs and pending jobs in the queue.
-// swagger:response jobRequestWaitTimes
 type jobRequestWaitTimesBody struct {
 	// in:body
 	Body stats.JobWaitEstimate
 }
 
 // The job-request statistics about success-rate, latency, etc.
-// swagger:response jobRequestStats
 type jobRequestStatsBody struct {
 	// in:body
 	Body []types.JobCounts
 }
 
 // The job-request ids
-// swagger:response jobRequestIDs
 type jobRequestIDsBody struct {
 	// in:body
 	Body []uint64

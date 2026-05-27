@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.user;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/user;user";
+
+// OrganizationConfig holds an org-level named configuration property.
+message OrganizationConfig {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string organization_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"organization_id\""];
+  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  map<string, string> errors = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// Subscription defines quota policy and usage period for a user or org.
+message Subscription {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string user_id = 2 [(formicary.v1.tags) = "json:\"user_id\""];
+  string organization_id = 3 [(formicary.v1.tags) = "json:\"organization_id\""];
+  // policy is the subscription tier: FREEMIUM, BASIC, ENTERPRISE, UNLIMITED.
+  string policy = 4 [(formicary.v1.tags) = "json:\"policy\""];
+  // kind is the subscription scope: INDIVIDUAL or ORGANIZATION.
+  string kind = 5 [(formicary.v1.tags) = "json:\"kind\""];
+  // period is the billing period: WEEKLY, MONTHLY, SEMI_ANNUAL, ANNUAL.
+  string period = 6 [(formicary.v1.tags) = "json:\"period\""];
+  int64 cpu_quota = 7 [(formicary.v1.tags) = "json:\"cpu_quota\""];
+  int64 disk_quota = 8 [(formicary.v1.tags) = "json:\"disk_quota\""];
+  // price in cents.
+  int64 price = 9 [(formicary.v1.tags) = "json:\"price\""];
+  google.protobuf.Timestamp started_at = 10 [(formicary.v1.tags) = "json:\"started_at\""];
+  google.protobuf.Timestamp ended_at = 11 [(formicary.v1.tags) = "json:\"ended_at\""];
+  bool active = 12 [(formicary.v1.tags) = "json:\"-\""];
+  google.protobuf.Timestamp created_at = 13 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 14 [(formicary.v1.tags) = "json:\"updated_at\""];
+  // Transient fields (not stored in DB).
+  int64 remaining_cpu_quota = 15 [(formicary.v1.tags) = "json:\"remaining_cpu_quota\" gorm:\"-\""];
+  int64 remaining_disk_quota = 16 [(formicary.v1.tags) = "json:\"remaining_disk_quota\" gorm:\"-\""];
+  google.protobuf.Timestamp loaded_at = 17 [(formicary.v1.tags) = "json:\"-\" gorm:\"-\""];
+}
+
+// Organization represents a multi-tenant organization grouping one or more users.
+message Organization {
+  string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
+  string parent_id = 2 [(formicary.v1.tags) = "json:\"parent_id\""];
+  string owner_user_id = 3 [(formicary.v1.tags) = "json:\"owner_user_id\""];
+  string bundle_id = 4 [(formicary.v1.tags) = "json:\"bundle_id\""];
+  string org_unit = 5 [(formicary.v1.tags) = "json:\"org_unit\""];
+  string salt = 6 [(formicary.v1.tags) = "json:\"salt\""];
+  int32 max_concurrency = 7 [(formicary.v1.tags) = "yaml:\"max_concurrency,omitempty\" json:\"max_concurrency\""];
+  string sticky_message = 8 [(formicary.v1.tags) = "json:\"sticky_message\" gorm:\"sticky_message\""];
+  string license_policy = 9 [(formicary.v1.tags) = "yaml:\"external_id\" json:\"license_policy\""];
+  // configs has ForeignKey relationship.
+  repeated OrganizationConfig configs = 10 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:OrganizationID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  Subscription subscription = 11 [(formicary.v1.tags) = "json:\"subscription\" gorm:\"ForeignKey:OrganizationID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;\""];
+  bool active = 12 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  google.protobuf.Timestamp created_at = 13 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 14 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  map<string, string> errors = 15 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}
+
+// User represents a platform user.
+message User {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string name = 2 [(formicary.v1.tags) = "json:\"name\""];
+  string username = 3 [(formicary.v1.tags) = "json:\"username\""];
+  string email = 4 [(formicary.v1.tags) = "json:\"email\""];
+  string url = 5 [(formicary.v1.tags) = "json:\"url\""];
+  string picture_url = 6 [(formicary.v1.tags) = "json:\"picture_url\""];
+  string organization_id = 7 [(formicary.v1.tags) = "json:\"organization_id\""];
+  Organization organization = 8 [(formicary.v1.tags) = "gorm:\"foreignKey:OrganizationID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;\""];
+  string auth_id = 9 [(formicary.v1.tags) = "json:\"auth_id\" gorm:\"auth_id\""];
+  string auth_provider = 10 [(formicary.v1.tags) = "json:\"auth_provider\" gorm:\"auth_provider\""];
+  int32 max_concurrency = 11 [(formicary.v1.tags) = "yaml:\"max_concurrency,omitempty\" json:\"max_concurrency\""];
+  string notify_serialized = 12 [(formicary.v1.tags) = "yaml:\"-,omitempty\" json:\"-\" gorm:\"notify_serialized\""];
+  string sticky_message = 13 [(formicary.v1.tags) = "json:\"sticky_message\" gorm:\"sticky_message\""];
+  string bundle_id = 14 [(formicary.v1.tags) = "json:\"bundle_id\""];
+  string serialized_perms = 15 [(formicary.v1.tags) = "json:\"-\" gorm:\"serialized_perms\""];
+  string serialized_roles = 16 [(formicary.v1.tags) = "json:\"-\" gorm:\"serialized_roles\""];
+  string salt = 17 [(formicary.v1.tags) = "json:\"salt\""];
+  Subscription subscription = 18 [(formicary.v1.tags) = "json:\"subscription\" gorm:\"ForeignKey:UserID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;\""];
+  bool email_verified = 19 [(formicary.v1.tags) = "json:\"-\""];
+  bool locked = 20 [(formicary.v1.tags) = "json:\"-\""];
+  bool active = 21 [(formicary.v1.tags) = "json:\"-\""];
+  google.protobuf.Timestamp created_at = 22 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 23 [(formicary.v1.tags) = "json:\"updated_at\""];
+  // Transient fields.
+  map<string, string> errors = 24 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  string org_unit = 25 [(formicary.v1.tags) = "json:\"-\" gorm:\"-\""];
+  string invitation_code = 26 [(formicary.v1.tags) = "json:\"-\" gorm:\"-\""];
+  bool agree_terms = 27 [(formicary.v1.tags) = "json:\"-\" gorm:\"-\""];
+  // notify holds deserialized notification config (from notify_serialized).
+  string notify_json = 28 [(formicary.v1.tags) = "yaml:\"notify,omitempty\" json:\"notify\" gorm:\"-\""];
+}

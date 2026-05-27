@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.resource;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/resource;resource";
+
+// Artifact defines metadata for an artifact uploaded during job execution (logs, results, cache, etc.).
+message Artifact {
+  // ID is the primary key (ULID).
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  // bucket where the artifact is stored.
+  string bucket = 2 [(formicary.v1.tags) = "json:\"bucket\""];
+  // name of artifact for display.
+  string name = 3 [(formicary.v1.tags) = "json:\"name\""];
+  string organization_id = 4 [(formicary.v1.tags) = "json:\"organization_id\""];
+  string user_id = 5 [(formicary.v1.tags) = "json:\"user_id\""];
+  // artifact_group groups related artifacts.
+  string artifact_group = 6 [(formicary.v1.tags) = "json:\"artifact_group\""];
+  // kind classifies the artifact (LOGS, TASK_ARTIFACTS, USER_UPLOADED, CACHE).
+  string kind = 7 [(formicary.v1.tags) = "json:\"kind\""];
+  // etag from underlying storage (Minio/S3).
+  string etag = 8 [(formicary.v1.tags) = "json:\"etag\""];
+  int32 artifact_order = 9 [(formicary.v1.tags) = "json:\"artifact_order\""];
+  string job_request_id = 10 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  string job_execution_id = 11 [(formicary.v1.tags) = "json:\"job_execution_id\""];
+  string task_execution_id = 12 [(formicary.v1.tags) = "json:\"task_execution_id\""];
+  string task_type = 13 [(formicary.v1.tags) = "yaml:\"task_type\" json:\"task_type\""];
+  string sha256 = 14 [(formicary.v1.tags) = "json:\"sha256\""];
+  string content_type = 15 [(formicary.v1.tags) = "json:\"content_type\""];
+  int64 content_length = 16 [(formicary.v1.tags) = "json:\"content_length\""];
+  int32 permissions = 17 [(formicary.v1.tags) = "json:\"permissions\""];
+  // metadata_serialized stores JSON-encoded metadata map (not exposed in API).
+  string metadata_serialized = 18 [(formicary.v1.tags) = "json:\"-\""];
+  // tags_serialized stores JSON-encoded tags map (not exposed in API).
+  string tags_serialized = 19 [(formicary.v1.tags) = "json:\"-\""];
+  google.protobuf.Timestamp expires_at = 20 [(formicary.v1.tags) = "json:\"expires_at\""];
+  google.protobuf.Timestamp created_at = 21 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 22 [(formicary.v1.tags) = "json:\"updated_at\""];
+  bool active = 23 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  // Transient fields (not stored in DB).
+  map<string, string> metadata = 24 [(formicary.v1.tags) = "json:\"metadata\" gorm:\"-\""];
+  map<string, string> tags = 25 [(formicary.v1.tags) = "json:\"tags\" gorm:\"-\""];
+  string url = 26 [(formicary.v1.tags) = "json:\"url\" gorm:\"-\""];
+}

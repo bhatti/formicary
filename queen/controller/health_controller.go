@@ -44,13 +44,11 @@ func NewHealthController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/metrics health-metrics prometheusMetrics
 // Returns prometheus health metrics.
 // `This requires admin access`
 // responses:
 //   200: metricsQueryResponse
 
-// swagger:route GET /api/health health-metrics getHealth
 // Returns health status.
 // `This requires admin access`
 // responses:
@@ -69,7 +67,6 @@ func (h *HealthController) getHealth(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters prometheusMetrics getHealth
 // The params for health status and metrics
 type healthQueryParams struct {
 	// in:query
@@ -81,7 +78,6 @@ type HealthQueryResponse struct {
 	DependentServiceStatuses []*health.ServiceStatus `json:"dependent_service_statuses"`
 }
 
-// swagger:response healthQueryResponse
 // Results of health-status
 type healthQueryResponseBody struct {
 	// in:body
@@ -89,7 +85,6 @@ type healthQueryResponseBody struct {
 }
 
 // Results of prometheus-metrics
-// swagger:response metricsQueryResponse
 type metricsQueryResponseBody struct {
 	// in:body
 	Body []string

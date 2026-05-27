@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/system_config.proto";
+import "formicary/v1/queen/job_definition.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QuerySystemConfigsRequest carries filter params for listing system configs.
+message QuerySystemConfigsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string scope = 4;
+  string kind = 5;
+  string name = 6;
+}
+
+// QuerySystemConfigsResponse returns a paginated list of system configs.
+message QuerySystemConfigsResponse {
+  repeated formicary.v1.queen.SystemConfig records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetSystemConfigRequest identifies a system config by ID.
+message GetSystemConfigRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetSystemConfigResponse wraps a single system config.
+message GetSystemConfigResponse {
+  formicary.v1.queen.SystemConfig config = 1;
+}
+
+// SaveSystemConfigRequest creates or updates a system config.
+message SaveSystemConfigRequest {
+  string id = 1;
+  formicary.v1.queen.SystemConfig config = 2 [(buf.validate.field).required = true];
+}
+
+// SaveSystemConfigResponse returns the saved system config.
+message SaveSystemConfigResponse {
+  formicary.v1.queen.SystemConfig config = 1;
+}
+
+// DeleteSystemConfigRequest identifies a system config to delete.
+message DeleteSystemConfigRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// QueryJobConfigsRequest carries filter params for listing job definition configs.
+message QueryJobConfigsRequest {
+  string job_id = 1 [(buf.validate.field).string.min_len = 1];
+  int32 page = 2 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 3 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+}
+
+// QueryJobConfigsResponse returns a list of job definition configs.
+message QueryJobConfigsResponse {
+  repeated formicary.v1.queen.JobDefinitionConfig records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// SaveJobConfigRequest creates or updates a job definition config.
+message SaveJobConfigRequest {
+  string job_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2;
+  formicary.v1.queen.JobDefinitionConfig config = 3 [(buf.validate.field).required = true];
+}
+
+// SaveJobConfigResponse returns the saved job config.
+message SaveJobConfigResponse {
+  formicary.v1.queen.JobDefinitionConfig config = 1;
+}
+
+// DeleteJobConfigRequest removes a job definition config.
+message DeleteJobConfigRequest {
+  string job_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// ConfigService manages system-level and job-level configuration properties.
+service ConfigService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage system-level configurations and job definition config properties."
+    name: "configs"
+  };
+
+  // QuerySystemConfigs lists system configuration properties (admin only).
+  rpc QuerySystemConfigs(QuerySystemConfigsRequest) returns (QuerySystemConfigsResponse) {
+    option (google.api.http) = {get: "/api/v1/configs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List system configs"
+      description: "Returns a paginated list of system configuration properties. Requires admin role."
+      tags: ["configs"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated system config list."}
+      }
+    };
+  }
+
+  // GetSystemConfig returns a single system config by its ULID.
+  rpc GetSystemConfig(GetSystemConfigRequest) returns (GetSystemConfigResponse) {
+    option (google.api.http) = {get: "/api/v1/configs/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get system config"
+      description: "Returns a single system configuration property (looked up by ULID)."
+      tags: ["configs"]
+      responses: {
+        key: "200"
+        value: {description: "System config."}
+      }
+    };
+  }
+
+  // SaveSystemConfig creates or updates a system config property.
+  rpc SaveSystemConfig(SaveSystemConfigRequest) returns (SaveSystemConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/configs"
+      body: "config"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save system config"
+      description: "Creates or updates a system-level configuration property. Secret values are encrypted at rest."
+      tags: ["configs"]
+      responses: {
+        key: "200"
+        value: {description: "Saved config."}
+      }
+    };
+  }
+
+  // DeleteSystemConfig removes a system config property.
+  rpc DeleteSystemConfig(DeleteSystemConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/configs/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete system config"
+      description: "Removes a system-level configuration property."
+      tags: ["configs"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+
+  // QueryJobConfigs lists configuration properties for a job definition.
+  rpc QueryJobConfigs(QueryJobConfigsRequest) returns (QueryJobConfigsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/{job_id}/configs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List job configs"
+      description: "Returns all configuration properties for a job definition."
+      tags: ["configs"]
+      responses: {
+        key: "200"
+        value: {description: "Job config list."}
+      }
+    };
+  }
+
+  // SaveJobConfig creates or updates a job-level config property.
+  rpc SaveJobConfig(SaveJobConfigRequest) returns (SaveJobConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/jobs/{job_id}/configs"
+      body: "config"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save job config"
+      description: "Creates or updates a configuration property on a job definition. Applies to all versions."
+      tags: ["configs"]
+      responses: {
+        key: "200"
+        value: {description: "Saved job config."}
+      }
+    };
+  }
+
+  // DeleteJobConfig removes a job-level config property.
+  rpc DeleteJobConfig(DeleteJobConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/jobs/{job_id}/configs/{config_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete job config"
+      description: "Removes a configuration property from a job definition."
+      tags: ["configs"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

@@ -41,7 +41,6 @@ func NewUserController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/users users queryUsers
 // Queries users within the organization that is allowed.
 // responses:
 //   200: userQueryResponse
@@ -60,7 +59,6 @@ func (uc *UserController) queryUsers(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route PUT /api/users/{id}/notify users putUserNotify
 // Updates user notification.
 // responses:
 //   200: userResponse
@@ -81,7 +79,6 @@ func (uc *UserController) updateUserNotification(c web.APIContext) (err error) {
 	return c.JSON(http.StatusOK, user)
 }
 
-// swagger:route POST /api/users users postUser
 // Creates new user.
 // `This requires admin access`
 // responses:
@@ -109,7 +106,6 @@ func (uc *UserController) postUser(c web.APIContext) error {
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/users/{id} users putUser
 // Updates user profile.
 // responses:
 //   200: userResponse
@@ -129,7 +125,6 @@ func (uc *UserController) putUser(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/users/{id} users getUser
 // Finds user profile by its id.
 // responses:
 //   200: userResponse
@@ -142,7 +137,6 @@ func (uc *UserController) getUser(c web.APIContext) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-// swagger:route DELETE /api/users/{id} users deleteUser
 // Deletes the user profile by its id.
 // responses:
 //   200: emptyResponse
@@ -155,7 +149,6 @@ func (uc *UserController) deleteUser(c web.APIContext) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route GET /api/users/{userId}/tokens user-tokens queryUserTokens
 // Queries user-tokens for the API access.
 // responses:
 //   200: userTokenQueryResponse
@@ -169,7 +162,6 @@ func (uc *UserController) queryUserTokens(c web.APIContext) error {
 }
 
 // deleteUserToken - deletes user token by id
-// swagger:route DELETE /api/users/{userId}/tokens/{id} user-tokens deleteUserToken
 // Deletes user-token by its id so that it cannot be used for the API access.
 // responses:
 //   200: emptyResponse
@@ -182,7 +174,6 @@ func (uc *UserController) deleteUserToken(c web.APIContext) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/users/{userId}/tokens user-tokens createUserToken
 // Creates new user-token for the API access.
 // responses:
 //   200: userTokenResponse
@@ -204,7 +195,6 @@ func (uc *UserController) createUserToken(c web.APIContext) (err error) {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryUsers
 // The params for querying users.
 type userQueryParams struct {
 	// in:query
@@ -219,7 +209,6 @@ type userQueryParams struct {
 }
 
 // Paginated results of users matching query
-// swagger:response userQueryResponse
 type userQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -231,14 +220,12 @@ type userQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters userIDParams deleteUser getUser putUser
 // The parameters for finding user by id
 type userIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
-// swagger:parameters userNotifyParams putUserNotify
 // The parameters for finding user by id
 type userNotifyParams struct {
 	// in:path
@@ -249,7 +236,6 @@ type userNotifyParams struct {
 	When         string `json:"when"`
 }
 
-// swagger:parameters postUser putUser putUserNotify
 // The request body includes user for persistence.
 type userParams struct {
 	// in:body
@@ -257,20 +243,17 @@ type userParams struct {
 }
 
 // User of the system who can create job-definitions, submit and execute jobs.
-// swagger:response userResponse
 type userResponseBody struct {
 	// in:body
 	Body *common.User
 }
 
-// swagger:parameters queryUserTokens createUserToken
 // The params for querying or creating user tokens.
 type userTokenQueryParams struct {
 	// in:path
 	UserID string `json:"userId"`
 }
 
-// swagger:parameters deleteUserToken
 // The params for deleting user tokens.
 type userTokenDeleteParams struct {
 	// in:path
@@ -280,14 +263,12 @@ type userTokenDeleteParams struct {
 }
 
 // Results of user-tokens
-// swagger:response userTokenQueryResponse
 type userTokenQueryResponseBody struct {
 	// in:body
 	Body []types.UserToken
 }
 
 // User-token for the API access.
-// swagger:response userTokenResponse
 type userTokenResponseBody struct {
 	// in:body
 	Body types.UserToken

@@ -54,7 +54,7 @@ You can store the job configuration in a `YAML` file and then upload using dashb
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  --data-binary @artifacts-expiration.yaml $SERVER/api/jobs/definitions
+  --data-binary @artifacts-expiration.yaml $SERVER/api/v1/jobs/definitions
 ```
 
 You will need to create an API token to access the API using [Authentication](apidocs.md#Authentication) to the API
@@ -67,6 +67,6 @@ You can then submit the job as follows:
 ```yaml
  curl -v -H "Authorization: Bearer $TOKEN" \
    -H "Content-Type: application/json" \
-   --data '{"job_type": "artifacts-expiration" }' $SERVER/api/jobs/requests
+   --data '{"job_type": "artifacts-expiration" }' $SERVER/api/v1/jobs/requests
 ```
 

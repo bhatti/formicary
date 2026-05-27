@@ -38,7 +38,6 @@ func (br *BasicResource) String() string {
 }
 
 // ResourceCriteriaConfig defines properties to extract from a resource into job variables.
-// swagger:ignore
 type ResourceCriteriaConfig struct {
 	Properties    []string `yaml:"properties" json:"properties" gorm:"-"`
 	ContextPrefix string   `yaml:"context_prefix" json:"context_prefix" gorm:"-"`

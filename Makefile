@@ -14,7 +14,7 @@ EXPORT_RESULT?=false # for CI please set EXPORT_RESULT to true
 
 all: test vendor build
 
-build: vendor
+build: proto vendor
 	mkdir -p out/bin
 	$(GOCMD) build -mod vendor -ldflags "-X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.version=$(VERSION)" -o out/bin/$(BINARY_NAME) .
 
@@ -57,16 +57,27 @@ ifeq ($(EXPORT_RESULT), true)
 endif
 
 
-# npm install -g swagger-markdown
-check-swagger:
-	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
+PROTO_DIR=proto
+GEN_DIR=gen
 
-swagger: check-swagger
-	GO111MODULE=on go mod vendor  && swagger generate spec -o ./docs/swagger.yaml
-	swagger-markdown -i docs/swagger.yaml
+.PHONY: proto lint-proto openapi clean-proto
 
-serve-swagger: swagger
-	swagger serve -F=swagger docs/swagger.yaml
+lint-proto:
+	cd $(PROTO_DIR) && buf lint
+
+proto: lint-proto
+	cd $(PROTO_DIR) && buf generate
+
+openapi: proto
+	@cp $(GEN_DIR)/openapi/formicary.swagger.json $(GEN_DIR)/openapi/openapi.json
+	@cp $(GEN_DIR)/openapi/formicary.swagger.json public/docs/openapi.json
+	@echo "OpenAPI spec: $(GEN_DIR)/openapi/openapi.json + public/docs/openapi.json"
+
+clean-proto:
+	# Remove generated proto files only (*.pb.go, *_grpc.pb.go, *.pb.gw.go, swagger json).
+	# Hand-written _ext.go files are left untouched.
+	find $(GEN_DIR)/go -name "*.pb.go" -o -name "*_grpc.pb.go" -o -name "*.pb.gw.go" | xargs rm -f
+	rm -f $(GEN_DIR)/openapi/formicary.swagger.json $(GEN_DIR)/openapi/openapi.json public/docs/openapi.json
 
 docker-build:
 	docker build --rm --tag $(BINARY_NAME) .

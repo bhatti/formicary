@@ -33,7 +33,6 @@ func NewContainerExecutionController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/executors container-executions queryContainerExecutions
 // Queries container executions.
 // `This requires admin access`
 // responses:
@@ -48,7 +47,6 @@ func (cec *ContainerExecutionController) queryContainerExecutions(c web.APIConte
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, int64(total), page, len(recs)))
 }
 
-// swagger:route GET /api/executors/{id} container-executions deleteContainerExecution
 // Deletes container-executor by its id.
 // `This requires admin access`
 // responses:
@@ -76,14 +74,12 @@ func (cec *ContainerExecutionController) deleteContainerExecution(c web.APIConte
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryContainerExecutions
 // The params for querying container-executions
 type containerExecutionsQueryParams struct {
 	// in:query
 }
 
 // Paginated results of container-executions matching query
-// swagger:response containerExecutionsQueryResponse
 type containerExecutionsQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -95,7 +91,6 @@ type containerExecutionsQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters deleteContainerExecution
 // The parameters for finding container by id
 type containerIDParamsBody struct {
 	// in:path

@@ -7,7 +7,7 @@ Once a job configuration is defined and uploaded, you can submit a new job manua
 ```yaml
 curl -v -H "Authorization:
   Bearer $TOKEN" -H "Content-Type:
-    application/json" --data '{"job_type": "hello_world", "params": { "Target": "bob" } }' $SERVER/api/jobs/requests
+    application/json" --data '{"job_type": "hello_world", "params": { "Target": "bob" } }' $SERVER/api/v1/jobs/requests
 ```
 
 The above example will kick off `hello_world` immediately based on available resources.
@@ -19,7 +19,7 @@ You can submit a job at scheduled time by adding `scheduled_at` parameter as fol
 ```yaml
 curl -v -H "Authorization:
   Bearer $TOKEN" -H "Content-Type:
-    application/json" --data '{"job_type": "hello_world", "scheduled_at": "2025-06-15T00:00:00.0-00:00", "params": { "Target": "bob" } }' $SERVER/api/jobs/requests
+    application/json" --data '{"job_type": "hello_world", "scheduled_at": "2025-06-15T00:00:00.0-00:00", "params": { "Target": "bob" } }' $SERVER/api/v1/jobs/requests
 ```
 
 The above example will kick off `hello_world` job based on `scheduled_at` time in the future, however the job will be
@@ -41,14 +41,14 @@ updated using dashboard UI or API, e.g., following example stores organization s
 
 ```bash
 curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/yaml" \
-  $SERVER/api/orgs/<org-id>/configs -d '{"Name": "MyToken", "Value": "TokenValue"}'
+  $SERVER/api/v1/orgs/<org-id>/configs -d '{"Name": "MyToken", "Value": "TokenValue"}'
 ```
 
 Similarly, following example adds configuration for a specific job:
 
 ```bash
 curl -v -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/yaml" \
-  $SERVER/api/jobs/definitions/<job-id>/configs -d '{"Name": "MyToken", "Value": "TokenValue"}'
+  $SERVER/api/v1/jobs/definitions/<job-id>/configs -d '{"Name": "MyToken", "Value": "TokenValue"}'
 ```
 
 ### OnExitCode
@@ -134,7 +134,7 @@ a secret for the payload and add a job configuration for `GithubWebhookSecret`, 
 ```bash
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
-  $SERVER/api/jobs/definitions/<job-type>/configs -d '{"Name": "GithubWebhookSecret", "Value": "my-secret", "Secret": true}'
+  $SERVER/api/v1/jobs/definitions/<job-type>/configs -d '{"Name": "GithubWebhookSecret", "Value": "my-secret", "Secret": true}'
 ```
 
 Anytime, when someone checks in a code, the webhook will trigger the job to execute, and the job receives following
@@ -179,10 +179,10 @@ export COMMIT_MESSAGE=`git log -1 --pretty=%B`
 
 curl -v -H "Authorization: Bearer $FRM_TOKEN" \
   -H "Content-Type: application/yaml" \
-    --data-binary @node_build.yaml $FRM_SERVER/api/jobs/definitions || echo 'failed to upload ci job configuration for node_build'
+    --data-binary @node_build.yaml $FRM_SERVER/api/v1/jobs/definitions || echo 'failed to upload ci job configuration for node_build'
 curl -v -H "Authorization: Bearer $FRM_TOKEN" \
   -H "Content-Type: application/json" \
-    --data "{\"job_type\": \"node_build\", \"params\": {\"GitCommitID\": \"$COMMIT\", \"GitBranch\": \"$BRANCH\", \"GitCommitMessage\": \"$COMMIT_MESSAGE\"}}" $FRM_SERVER/api/jobs/requests || echo 'failed to submit ci job configuration for node_build'
+    --data "{\"job_type\": \"node_build\", \"params\": {\"GitCommitID\": \"$COMMIT\", \"GitBranch\": \"$BRANCH\", \"GitCommitMessage\": \"$COMMIT_MESSAGE\"}}" $FRM_SERVER/api/v1/jobs/requests || echo 'failed to submit ci job configuration for node_build'
 ```
 
 You can store the job configuration in your home folder and then use above script to submit the job request. Above

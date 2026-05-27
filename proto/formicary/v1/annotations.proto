@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1;v1";
+
+// Field-level option to inject additional Go struct tags into the generated .pb.go file.
+// Use protoc-gen-gotag to post-process the generated code and inject these tags.
+// The value is a raw Go struct tag string (without the backtick delimiters).
+// Example: yaml:"job_type" gorm:"primary_key" mapstructure:"job_type"
+extend google.protobuf.FieldOptions {
+  optional string tags = 50001;
+}

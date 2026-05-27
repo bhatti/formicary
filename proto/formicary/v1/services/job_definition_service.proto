@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/job_definition.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryJobDefinitionsRequest carries filter and pagination params for listing job definitions.
+message QueryJobDefinitionsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "QueryJobDefinitionsRequest"
+      description: "Filter parameters for querying job definitions."
+    }
+  };
+
+  int32 page = 1 [
+    (buf.validate.field).int32.gte = 0,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Zero-based page number." example: "0"}
+  ];
+  int32 page_size = 2 [
+    (buf.validate.field).int32 = {gte: 1, lte: 500},
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Records per page." example: "25"}
+  ];
+  repeated string order = 3;
+  // Filter by job_type substring.
+  string job_type = 4;
+  // Filter by platform string.
+  string platform = 5;
+  // Filter to public plugins only.
+  bool public_plugin = 6;
+  // Filter by tags (comma-separated).
+  string tags = 7;
+}
+
+// QueryJobDefinitionsResponse returns a paginated list of job definitions.
+message QueryJobDefinitionsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "QueryJobDefinitionsResponse"
+      description: "Paginated list of job definitions."
+    }
+  };
+
+  repeated formicary.v1.queen.JobDefinition records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetJobDefinitionRequest identifies a job definition by ID.
+message GetJobDefinitionRequest {
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job definition ID (ULID)."}
+  ];
+}
+
+// GetJobDefinitionResponse wraps a single job definition.
+message GetJobDefinitionResponse {
+  formicary.v1.queen.JobDefinition job_definition = 1;
+}
+
+// GetJobDefinitionByTypeRequest identifies a job definition by type string.
+message GetJobDefinitionByTypeRequest {
+  string job_type = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Unique job type string."}
+  ];
+}
+
+// CreateJobDefinitionRequest wraps a job definition for creation (JSON or YAML body).
+message CreateJobDefinitionRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "CreateJobDefinitionRequest"
+      description: "Job definition to create. Submit as JSON or set Content-Type: application/yaml for YAML."
+      required: ["job_definition"]
+    }
+  };
+
+  formicary.v1.queen.JobDefinition job_definition = 1 [(buf.validate.field).required = true];
+}
+
+// CreateJobDefinitionResponse returns the newly created job definition.
+message CreateJobDefinitionResponse {
+  formicary.v1.queen.JobDefinition job_definition = 1;
+}
+
+// UpdateJobDefinitionRequest carries an updated job definition.
+message UpdateJobDefinitionRequest {
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job definition ID (ULID) to update."}
+  ];
+  formicary.v1.queen.JobDefinition job_definition = 2 [(buf.validate.field).required = true];
+}
+
+// UpdateJobDefinitionResponse returns the updated job definition.
+message UpdateJobDefinitionResponse {
+  formicary.v1.queen.JobDefinition job_definition = 1;
+}
+
+// DeleteJobDefinitionRequest identifies the definition to delete.
+message DeleteJobDefinitionRequest {
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job definition ID (ULID) to delete."}
+  ];
+}
+
+// DisableJobDefinitionRequest disables scheduling for a job definition.
+message DisableJobDefinitionRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// EnableJobDefinitionRequest re-enables scheduling for a job definition.
+message EnableJobDefinitionRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// UpdateConcurrencyRequest changes the max_concurrency for a job definition.
+message UpdateConcurrencyRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  int32 concurrency = 2 [
+    (buf.validate.field).int32 = {gte: 1, lte: 1000},
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "New max concurrency value (1–1000)."}
+  ];
+}
+
+// GetJobDefinitionMermaidRequest requests a Mermaid.js diagram for a job definition.
+message GetJobDefinitionMermaidRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetJobDefinitionMermaidResponse carries the Mermaid diagram source.
+message GetJobDefinitionMermaidResponse {
+  string mermaid = 1;
+}
+
+// GetJobDefinitionStatsResponse carries job definition execution statistics.
+message GetJobDefinitionStatsResponse {
+  repeated JobDefinitionStat stats = 1;
+}
+
+// JobDefinitionStat aggregates execution stats for a single job type.
+message JobDefinitionStat {
+  string job_type = 1;
+  int64 total_executions = 2;
+  int64 succeeded = 3;
+  int64 failed = 4;
+  double success_rate = 5;
+  int64 avg_duration_secs = 6;
+}
+
+// JobDefinitionService manages the lifecycle of job definitions.
+// Job definitions are DAG-based workflow templates that define tasks and their execution order.
+service JobDefinitionService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage job definitions (workflow templates with DAG task graphs)."
+    name: "job-definitions"
+  };
+
+  // QueryJobDefinitions lists job definitions matching the given filters.
+  rpc QueryJobDefinitions(QueryJobDefinitionsRequest) returns (QueryJobDefinitionsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/definitions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List job definitions"
+      description: "Returns a paginated list of job definitions visible to the authenticated user."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated list of job definitions."}
+      }
+    };
+  }
+
+  // QueryPlugins lists publicly available plugin job definitions.
+  rpc QueryPlugins(QueryJobDefinitionsRequest) returns (QueryJobDefinitionsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/plugins"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List public plugins"
+      description: "Returns a paginated list of public plugin job definitions (no authentication required for listing)."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated list of plugin job definitions."}
+      }
+    };
+  }
+
+  // GetJobDefinition retrieves a single job definition by its ULID.
+  rpc GetJobDefinition(GetJobDefinitionRequest) returns (GetJobDefinitionResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/definitions/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job definition"
+      description: "Returns a single job definition by its ULID."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Job definition."}
+      }
+    };
+  }
+
+  // GetJobDefinitionYAML returns the YAML representation of a job definition by type string.
+  rpc GetJobDefinitionYAML(GetJobDefinitionByTypeRequest) returns (GetJobDefinitionResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/definitions/{job_type}/yaml"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job definition YAML"
+      description: "Returns the raw YAML of a job definition looked up by its job_type string."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Job definition with raw_yaml populated."}
+      }
+    };
+  }
+
+  // GetJobDefinitionMermaid returns a Mermaid.js DAG diagram for the job definition.
+  rpc GetJobDefinitionMermaid(GetJobDefinitionMermaidRequest) returns (GetJobDefinitionMermaidResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/definitions/{id}/mermaid"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get Mermaid diagram"
+      description: "Returns a Mermaid.js flowchart source string for the job definition DAG."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Mermaid diagram source."}
+      }
+    };
+  }
+
+  // GetJobDefinitionStats returns execution statistics for job definitions.
+  rpc GetJobDefinitionStats(QueryJobDefinitionsRequest) returns (GetJobDefinitionStatsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/definitions/stats"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job definition stats"
+      description: "Returns aggregated execution statistics (success rate, avg duration, etc.) for job definitions."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Statistics list."}
+      }
+    };
+  }
+
+  // CreateJobDefinition creates a new job definition from JSON or YAML.
+  rpc CreateJobDefinition(CreateJobDefinitionRequest) returns (CreateJobDefinitionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/jobs/definitions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create job definition"
+      description: "Creates a new job definition. Submit as JSON or YAML (Content-Type: application/yaml)."
+      tags: ["job-definitions"]
+      responses: {
+        key: "201"
+        value: {description: "Newly created job definition."}
+      }
+    };
+  }
+
+  // UpdateJobDefinition updates an existing job definition.
+  rpc UpdateJobDefinition(UpdateJobDefinitionRequest) returns (UpdateJobDefinitionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/jobs/definitions/{id}"
+      body: "job_definition"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update job definition"
+      description: "Updates an existing job definition. Creates a new version internally."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Updated job definition."}
+      }
+    };
+  }
+
+  // DeleteJobDefinition soft-deletes a job definition by ID.
+  rpc DeleteJobDefinition(DeleteJobDefinitionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/jobs/definitions/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete job definition"
+      description: "Soft-deletes a job definition. Existing running jobs are not affected."
+      tags: ["job-definitions"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+
+  // DisableJobDefinition prevents new job requests from being scheduled for this definition.
+  rpc DisableJobDefinition(DisableJobDefinitionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/definitions/{id}/disable" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Disable job definition"
+      description: "Disables scheduling of new jobs for this definition. Useful during maintenance."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Disabled successfully."}
+      }
+    };
+  }
+
+  // EnableJobDefinition re-enables scheduling for a previously disabled job definition.
+  rpc EnableJobDefinition(EnableJobDefinitionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {post: "/api/v1/jobs/definitions/{id}/enable" body: ""};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Enable job definition"
+      description: "Re-enables scheduling for a disabled job definition."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Enabled successfully."}
+      }
+    };
+  }
+
+  // UpdateConcurrency changes the maximum concurrency limit for a job definition.
+  rpc UpdateConcurrency(UpdateConcurrencyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/api/v1/jobs/definitions/{id}/concurrency"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update concurrency"
+      description: "Sets the maximum number of concurrent executions allowed for this job definition."
+      tags: ["job-definitions"]
+      responses: {
+        key: "200"
+        value: {description: "Updated successfully."}
+      }
+    };
+  }
+}

@@ -37,7 +37,6 @@ func NewArtifactController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/artifacts artifacts queryArtifacts
 // Queries artifacts by name, task-type, etc.
 // responses:
 //   200: artifactsQueryResponse
@@ -51,7 +50,6 @@ func (ac *ArtifactController) queryArtifacts(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(records, total, page, pageSize))
 }
 
-// swagger:route POST /api/artifacts artifacts uploadArtifact
 // Uploads artifact data from the request body and returns metadata for the uploaded data.
 // responses:
 //   200: artifactResponse
@@ -71,7 +69,6 @@ func (ac *ArtifactController) uploadArtifact(c web.APIContext) error {
 	return c.JSON(http.StatusOK, artifact)
 }
 
-// swagger:route GET /api/artifacts/{id} artifacts getArtifact
 // Retrieves artifact by its id
 // responses:
 //   200: artifactResponse
@@ -85,7 +82,6 @@ func (ac *ArtifactController) getArtifact(c web.APIContext) error {
 	return c.JSON(http.StatusOK, art)
 }
 
-// swagger:route GET /api/artifacts/{id}/download artifacts downloadArtifact
 // Download artifact by its id
 // responses:
 //   200: byteResponse
@@ -100,7 +96,6 @@ func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 	return c.Stream(http.StatusOK, contentType, reader)
 }
 
-// swagger:route GET /api/artifacts/{id}/logs artifacts downloadArtifact
 // Download artifact by its id
 // responses:
 //   200: byteResponse
@@ -125,7 +120,6 @@ func (ac *ArtifactController) downloadRawArtifact(c web.APIContext) error {
 	return types.NewValidationError(fmt.Sprintf("cannot return artifact %s of content-type %s", name, contentType))
 }
 
-// swagger:route DELETE /api/artifacts/{id} artifacts deleteArtifact
 // Deletes artifact by its id
 // responses:
 //   200: emptyResponse
@@ -140,7 +134,6 @@ func (ac *ArtifactController) deleteArtifact(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryArtifacts
 // The params for querying artifacts
 type artifactsQueryParamsBody struct {
 	// in:query
@@ -166,7 +159,6 @@ type artifactsQueryParamsBody struct {
 }
 
 // Paginated results of artifacts matching query
-// swagger:response artifactsQueryResponse
 type artifactsQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -179,13 +171,11 @@ type artifactsQueryResponseBody struct {
 }
 
 // Artifact body for upload
-// swagger:parameters uploadArtifact
 type artifactUploadParams struct {
 	// in:body
 	Body []byte
 }
 
-// swagger:parameters getArtifact deleteArtifact downloadArtifact
 // The parameter for id in path
 type artifactIDParamsBody struct {
 	// in:path
@@ -193,26 +183,22 @@ type artifactIDParamsBody struct {
 }
 
 // Artifact body
-// swagger:response artifactResponse
 type artifactResponseBody struct {
 	// in:body
 	Body types.Artifact
 }
 
 // Empty response body
-// swagger:response emptyResponse
 type emptyResponseBody struct {
 }
 
 // String response body
-// swagger:response stringResponse
 type stringResponseBody struct {
 	// in:body
 	Body string
 }
 
 // Byte Array response body
-// swagger:response byteResponse
 type byteResponseBody struct {
 	// in:body
 	Body []byte

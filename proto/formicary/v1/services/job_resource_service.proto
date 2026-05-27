@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/job_resource.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryJobResourcesRequest carries filter params for listing job resources.
+message QueryJobResourcesRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string resource_type = 4;
+  string platform = 5;
+  string tags = 6;
+  string organization_id = 7;
+}
+
+// QueryJobResourcesResponse returns a paginated list of job resources.
+message QueryJobResourcesResponse {
+  repeated formicary.v1.queen.JobResource records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetJobResourceRequest identifies a job resource by ID.
+message GetJobResourceRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetJobResourceResponse wraps a single job resource.
+message GetJobResourceResponse {
+  formicary.v1.queen.JobResource job_resource = 1;
+}
+
+// SaveJobResourceRequest creates or updates a job resource.
+message SaveJobResourceRequest {
+  string id = 1;
+  formicary.v1.queen.JobResource job_resource = 2 [(buf.validate.field).required = true];
+}
+
+// SaveJobResourceResponse returns the saved job resource.
+message SaveJobResourceResponse {
+  formicary.v1.queen.JobResource job_resource = 1;
+}
+
+// DeleteJobResourceRequest identifies a job resource to delete.
+message DeleteJobResourceRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// JobResourceService manages virtual resources used for job mutex/semaphore/quota enforcement.
+service JobResourceService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage virtual resources for job concurrency control (mutex, semaphores, quotas)."
+    name: "job-resources"
+  };
+
+  // QueryJobResources lists job resources matching the given filters.
+  rpc QueryJobResources(QueryJobResourcesRequest) returns (QueryJobResourcesResponse) {
+    option (google.api.http) = {get: "/api/v1/resources"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List job resources"
+      description: "Returns a paginated list of job resources (virtual locks, quotas, device pools), optionally filtered by type, platform, or tags."
+      tags: ["job-resources"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated list of job resources."}
+      }
+    };
+  }
+
+  // GetJobResource returns a single job resource by its ULID.
+  rpc GetJobResource(GetJobResourceRequest) returns (GetJobResourceResponse) {
+    option (google.api.http) = {get: "/api/v1/resources/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job resource"
+      description: "Returns a single job resource including its current allocation state and configuration."
+      tags: ["job-resources"]
+      responses: {
+        key: "200"
+        value: {description: "Job resource."}
+      }
+    };
+  }
+
+  // SaveJobResource creates or updates a job resource.
+  rpc SaveJobResource(SaveJobResourceRequest) returns (SaveJobResourceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/resources"
+      body: "job_resource"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save job resource"
+      description: "Creates or updates a job resource definition. The resource_type and quota must be set."
+      tags: ["job-resources"]
+      responses: {
+        key: "200"
+        value: {description: "Saved job resource."}
+      }
+    };
+  }
+
+  // DeleteJobResource removes a job resource.
+  rpc DeleteJobResource(DeleteJobResourceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/resources/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete job resource"
+      description: "Soft-deletes a job resource. Active allocations are not affected."
+      tags: ["job-resources"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

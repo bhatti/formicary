@@ -157,14 +157,14 @@ job_variables:
 <p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard UI or API such as:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/yaml&quot; \
-    --data-binary hello-world.yaml $SERVER/api/jobs/definitions
+    --data-binary hello-world.yaml $SERVER/api/v1/jobs/definitions
 </code></pre>
 <p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
 <h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
 <p>You can then submit the job as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;hello-world&quot;, &quot;params&quot;: {&quot;Target&quot;: &quot;bob&quot;}}&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;hello-world&quot;, &quot;params&quot;: {&quot;Target&quot;: &quot;bob&quot;}}&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>The above example kicks off <code>hello-world</code> job and passes <code>bob</code> as parameter to replace <code>Target</code> variable in the job definition.</p>
 <h3 id="scheduling-job-in-future">Scheduling Job in future</h3>

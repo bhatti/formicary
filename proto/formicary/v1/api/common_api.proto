@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.api;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/api;api";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Formicary API"
+    version: "1.0"
+    description: "Distributed job orchestration platform API"
+    contact: {
+      name: "Formicary"
+      url: "https://github.com/bhatti/formicary"
+    }
+    license: {
+      name: "AGPL-3.0"
+    }
+  }
+  host: "localhost:7777"
+  base_path: ""
+  schemes: HTTP
+  schemes: HTTPS
+  consumes: "application/json"
+  produces: "application/json"
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "BearerAuth"
+      value: {}
+    }
+  }
+  responses: {
+    key: "400"
+    value: {description: "Bad request — invalid parameters or request body"}
+  }
+  responses: {
+    key: "401"
+    value: {description: "Unauthorized — missing or invalid JWT token"}
+  }
+  responses: {
+    key: "403"
+    value: {description: "Forbidden — insufficient permissions"}
+  }
+  responses: {
+    key: "404"
+    value: {description: "Not found"}
+  }
+  responses: {
+    key: "409"
+    value: {description: "Conflict — duplicate resource"}
+  }
+  responses: {
+    key: "412"
+    value: {description: "Precondition failed — validation error"}
+  }
+  responses: {
+    key: "429"
+    value: {description: "Too many requests — rate limit exceeded"}
+  }
+  responses: {
+    key: "500"
+    value: {description: "Internal server error"}
+  }
+};
+
+// QueryRequest carries pagination and filter parameters for list endpoints.
+message QueryRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      description: "Common query parameters for paginated list endpoints."
+    }
+  };
+
+  int32 page = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Zero-based page number."
+      example: "0"
+    }
+  ];
+  int32 page_size = 2 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Number of records per page (1–500)."
+      example: "25"
+    }
+  ];
+  repeated string order = 3 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Sort columns, e.g. 'created_at desc'."
+    }
+  ];
+}
+
+// PaginatedResponse wraps a paginated list result.
+message PaginatedResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      description: "Paginated list envelope returned by all list endpoints."
+    }
+  };
+
+  int64 total_records = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Total number of matching records across all pages."
+  }];
+  int32 page = 2;
+  int32 page_size = 3;
+  int32 total_pages = 4;
+}

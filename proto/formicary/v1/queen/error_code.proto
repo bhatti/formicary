@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// ErrorCode defines a pattern-matched error code that triggers a specific action on task failure.
+// Error codes can map regex patterns or exit codes to retry/suspend/fail behaviors.
+message ErrorCode {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  // regex is the pattern matched against the task error message.
+  string regex = 2 [(formicary.v1.tags) = "json:\"regex\""];
+  // exit_code matches on process exit code (0 means not used).
+  int32 exit_code = 3 [(formicary.v1.tags) = "json:\"exit_code\""];
+  // error_code is the canonical error identifier (e.g. ERR_TASK_TIMED_OUT).
+  string error_code = 4 [(formicary.v1.tags) = "json:\"error_code\""];
+  string description = 5 [(formicary.v1.tags) = "json:\"description\""];
+  string display_message = 6 [(formicary.v1.tags) = "json:\"display_message\""];
+  string display_code = 7 [(formicary.v1.tags) = "json:\"display_code\""];
+  string job_type = 8 [(formicary.v1.tags) = "json:\"job_type\""];
+  string task_type_scope = 9 [(formicary.v1.tags) = "json:\"task_type_scope\""];
+  string platform_scope = 10 [(formicary.v1.tags) = "json:\"platform_scope\""];
+  string command_scope = 11 [(formicary.v1.tags) = "json:\"command_scope\""];
+  string user_id = 12 [(formicary.v1.tags) = "json:\"user_id\""];
+  string organization_id = 13 [(formicary.v1.tags) = "json:\"organization_id\""];
+  // action controls what happens when this error is triggered: RETRY_JOB, RETRY_TASK, SUSPEND_JOB, HARD_FAILURE.
+  string action = 14 [(formicary.v1.tags) = "json:\"action\""];
+  bool hard_failure = 15 [(formicary.v1.tags) = "json:\"hard_failure\""];
+  // retry specifies how many times to retry when this error code matches.
+  int32 retry = 16 [(formicary.v1.tags) = "json:\"retry\""];
+  google.protobuf.Timestamp created_at = 17 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 18 [(formicary.v1.tags) = "json:\"updated_at\""];
+  // Transient fields.
+  bool can_edit = 19 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  map<string, string> errors = 20 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}

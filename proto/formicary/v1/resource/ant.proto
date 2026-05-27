@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.resource;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/resource;resource";
+
+// AntAllocation tracks capacity allocation for a specific job request on an ant worker.
+message AntAllocation {
+  string job_request_id = 1 [(formicary.v1.tags) = "json:\"job_request_id\" mapstructure:\"job_request_id\""];
+  // task_types maps task-type to its current RequestState (stored as JSON in DB).
+  string task_types_json = 2 [(formicary.v1.tags) = "json:\"task_types_json,omitempty\""];
+  string ant_id = 3 [(formicary.v1.tags) = "json:\"ant_id\" mapstructure:\"ant_id\""];
+  string ant_topic = 4 [(formicary.v1.tags) = "json:\"ant_topic\" mapstructure:\"ant_topic\""];
+  google.protobuf.Timestamp allocated_at = 5 [(formicary.v1.tags) = "json:\"allocated_at\" mapstructure:\"allocated_at\""];
+  google.protobuf.Timestamp updated_at = 6 [(formicary.v1.tags) = "json:\"updated_at\" mapstructure:\"updated_at\""];
+}
+
+// AntRegistration registers a remote ant worker with the resource manager.
+// Ants broadcast this on the registration topic; the queen updates its capacity map.
+message AntRegistration {
+  string ant_id = 1 [(formicary.v1.tags) = "json:\"ant_id\" mapstructure:\"ant_id\""];
+  string ant_topic = 2 [(formicary.v1.tags) = "json:\"ant_topic\" mapstructure:\"ant_topic\""];
+  string encryption_key = 3 [(formicary.v1.tags) = "json:\"encryption_key\" mapstructure:\"encryption_key\""];
+  int32 max_capacity = 4 [(formicary.v1.tags) = "json:\"max_capacity\" mapstructure:\"max_capacity\""];
+  repeated string tags = 5 [(formicary.v1.tags) = "json:\"tags\" mapstructure:\"tags\""];
+  // methods lists the TaskMethod values this ant supports (stored as strings).
+  repeated string methods = 6 [(formicary.v1.tags) = "json:\"methods\" mapstructure:\"methods\""];
+  int32 current_load = 7 [(formicary.v1.tags) = "json:\"current_load\" mapstructure:\"current_load\""];
+  int32 total_executed = 8 [(formicary.v1.tags) = "json:\"total_executed\" mapstructure:\"total_executed\""];
+  // allocations maps job_request_id to AntAllocation (serialized as JSON for messaging).
+  map<string, AntAllocation> allocations = 9 [(formicary.v1.tags) = "json:\"allocations\" mapstructure:\"allocations\""];
+  google.protobuf.Timestamp created_at = 10 [(formicary.v1.tags) = "json:\"created_at\" mapstructure:\"created_at\""];
+  google.protobuf.Timestamp ant_started_at = 11 [(formicary.v1.tags) = "json:\"ant_started_at\" mapstructure:\"ant_started_at\""];
+  bool auto_refresh = 12 [(formicary.v1.tags) = "json:\"auto_refresh\" mapstructure:\"auto_refresh\""];
+  // config_info holds arbitrary ant configuration metadata.
+  map<string, string> config_info = 13 [(formicary.v1.tags) = "json:\"config_info\" mapstructure:\"config_info\""];
+}
+
+// AntReservation records a resource reservation made for a specific job/task.
+message AntReservation {
+  string job_request_id = 1 [(formicary.v1.tags) = "json:\"job_request_id\" mapstructure:\"job_request_id\""];
+  string task_type = 2 [(formicary.v1.tags) = "json:\"task_type\" mapstructure:\"task_type\""];
+  string ant_id = 3 [(formicary.v1.tags) = "json:\"ant_id\" mapstructure:\"ant_id\""];
+  string ant_topic = 4 [(formicary.v1.tags) = "json:\"ant_topic\" mapstructure:\"ant_topic\""];
+  string encryption_key = 5 [(formicary.v1.tags) = "json:\"encryption_key\" mapstructure:\"encryption_key\""];
+  google.protobuf.Timestamp allocated_at = 6 [(formicary.v1.tags) = "json:\"allocated_at\" mapstructure:\"allocated_at\""];
+  int32 current_load = 7 [(formicary.v1.tags) = "json:\"current_load\" mapstructure:\"current_load\""];
+  int32 total_executed = 8 [(formicary.v1.tags) = "json:\"total_executed\" mapstructure:\"total_executed\""];
+  int32 total_reservations = 9 [(formicary.v1.tags) = "json:\"total_reservations\" mapstructure:\"total_reservations\""];
+}

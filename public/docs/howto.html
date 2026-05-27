@@ -52,14 +52,14 @@
 <p>Once a job configuration is defined and uploaded, you can submit a new job manually as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization:
   Bearer $TOKEN&quot; -H &quot;Content-Type:
-    application/json&quot; --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/jobs/requests
+    application/json&quot; --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>The above example will kick off <code>hello_world</code> immediately based on available resources.</p>
 <h3 id="scheduling_future">Scheduling_Future</h3>
 <p>You can submit a job at scheduled time by adding <code>scheduled_at</code> parameter as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization:
   Bearer $TOKEN&quot; -H &quot;Content-Type:
-    application/json&quot; --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;scheduled_at&quot;: &quot;2025-06-15T00:00:00.0-00:00&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/jobs/requests
+    application/json&quot; --data &#39;{&quot;job_type&quot;: &quot;hello_world&quot;, &quot;scheduled_at&quot;: &quot;2025-06-15T00:00:00.0-00:00&quot;, &quot;params&quot;: { &quot;Target&quot;: &quot;bob&quot; } }&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>The above example will kick off <code>hello_world</code> job based on <code>scheduled_at</code> time in the future, however the job will be immediately scheduled if the <code>scheduled_at</code> is in the past.</p>
 <h3 id="cron">Cron</h3>
@@ -69,11 +69,11 @@
 <h3 id="configs">Configs</h3>
 <p>In addition to specifying variables in the job-configuration and pass as request parameters, you can store common or sensitive configuration separately, which can be references within the job definition. These configurations can be updated using dashboard UI or API, e.g., following example stores organization specific configurations:</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: application/yaml&quot; \
-  $SERVER/api/orgs/&lt;org-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
+  $SERVER/api/v1/orgs/&lt;org-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
 </code></pre>
 <p>Similarly, following example adds configuration for a specific job:</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: application/yaml&quot; \
-  $SERVER/api/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
+  $SERVER/api/v1/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;MyToken&quot;, &quot;Value&quot;: &quot;TokenValue&quot;}&#39;
 </code></pre>
 <h3 id="onexitcode">OnExitCode</h3>
 <p>See <a href="definition_options.html#on_exit">On Exit</a> for usage of multiple exit paths using on-exit.</p>
@@ -122,7 +122,7 @@
 <p>First set <code>Payload URL</code> to <code>$SERVER/auth/github/webhook?authorization=&lt;api-token&amp;job=&lt;job-type&gt;</code>, where the <code>api-token</code> can be generated from the dashboard-UI and <code>job</code> points to the job-type that you have configured. Next, set a secret for the payload and add a job configuration for <code>GithubWebhookSecret</code>, e.g.</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/yaml&quot; \
-  $SERVER/api/jobs/definitions/&lt;job-type&gt;/configs -d &#39;{&quot;Name&quot;: &quot;GithubWebhookSecret&quot;, &quot;Value&quot;: &quot;my-secret&quot;, &quot;Secret&quot;: true}&#39;
+  $SERVER/api/v1/jobs/definitions/&lt;job-type&gt;/configs -d &#39;{&quot;Name&quot;: &quot;GithubWebhookSecret&quot;, &quot;Value&quot;: &quot;my-secret&quot;, &quot;Secret&quot;: true}&#39;
 </code></pre>
 <p>Anytime, when someone checks in a code, the webhook will trigger the job to execute, and the job receives following parameters:</p>
 <ul>
@@ -159,10 +159,10 @@ export COMMIT_MESSAGE=`git log -1 --pretty=%B`
 
 curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
   -H &quot;Content-Type: application/yaml&quot; \
-    --data-binary @node_build.yaml $FRM_SERVER/api/jobs/definitions || echo &#39;failed to upload ci job configuration for node_build&#39;
+    --data-binary @node_build.yaml $FRM_SERVER/api/v1/jobs/definitions || echo &#39;failed to upload ci job configuration for node_build&#39;
 curl -v -H &quot;Authorization: Bearer $FRM_TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
-    --data &quot;{\&quot;job_type\&quot;: \&quot;node_build\&quot;, \&quot;params\&quot;: {\&quot;GitCommitID\&quot;: \&quot;$COMMIT\&quot;, \&quot;GitBranch\&quot;: \&quot;$BRANCH\&quot;, \&quot;GitCommitMessage\&quot;: \&quot;$COMMIT_MESSAGE\&quot;}}&quot; $FRM_SERVER/api/jobs/requests || echo &#39;failed to submit ci job configuration for node_build&#39;
+    --data &quot;{\&quot;job_type\&quot;: \&quot;node_build\&quot;, \&quot;params\&quot;: {\&quot;GitCommitID\&quot;: \&quot;$COMMIT\&quot;, \&quot;GitBranch\&quot;: \&quot;$BRANCH\&quot;, \&quot;GitCommitMessage\&quot;: \&quot;$COMMIT_MESSAGE\&quot;}}&quot; $FRM_SERVER/api/v1/jobs/requests || echo &#39;failed to submit ci job configuration for node_build&#39;
 </code></pre>
 <p>You can store the job configuration in your home folder and then use above script to submit the job request. Above script assumes the <code>$FRM_SERVER</code> points to formicary-server and <code>$FRM_TOKEN</code> points to the API token, it then uploads the job configuration and then submits the job passing the commit and branch as parameters. You can then refer to those parameters from the job configuration, e.g.</p>
 <pre><code class="lang-yaml">- task_type: build

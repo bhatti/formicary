@@ -126,7 +126,7 @@ tasks:
 </code></pre>
 <p>Note: We will store <code>GitToken</code> as a configuration variable for the job such as:</p>
 <pre><code class="lang-bash">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: application/yaml&quot; \
-  $SERVER/api/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;GitToken&quot;, &quot;Value&quot;: &quot;&lt;myvalue&gt;&quot;, &quot;Secret&quot;: true}&#39;
+  $SERVER/api/v1/jobs/definitions/&lt;job-id&gt;/configs -d &#39;{&quot;Name&quot;: &quot;GitToken&quot;, &quot;Value&quot;: &quot;&lt;myvalue&gt;&quot;, &quot;Secret&quot;: true}&#39;
 </code></pre>
 <p>The value of <code>GitToken</code> will be encrypted before storing in the database and any reference of this value in logs will be masked or redacted.</p>
 <h5 id="script-commands">Script Commands</h5>
@@ -175,14 +175,14 @@ tasks:
 <p>You can store the job configuration in a <code>YAML</code> file and then upload using dashboard or API such as:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/yaml&quot; \
-    --data-binary @node_build.yaml $SERVER/api/jobs/definitions
+    --data-binary @node_build.yaml $SERVER/api/v1/jobs/definitions
 </code></pre>
 <p>You will need to create an API token to access the API using <a href="apidocs.html#Authentication">Authentication</a> to the API sever defined by $SERVER environment variable passing token via $TOKEN environment variable.</p>
 <h3 id="submitting-job-request-manually">Submitting Job Request Manually</h3>
 <p>You can then submit the job as follows:</p>
 <pre><code class="lang-yaml">curl -v -H &quot;Authorization: Bearer $TOKEN&quot; \
     -H &quot;Content-Type: application/json&quot; \
-    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: {&quot;Platform&quot;: &quot;Ubuntu&quot;}}&#39; $SERVER/api/jobs/requests
+    --data &#39;{&quot;job_type&quot;: &quot;node_build&quot;, &quot;params&quot;: {&quot;Platform&quot;: &quot;Ubuntu&quot;}}&#39; $SERVER/api/v1/jobs/requests
 </code></pre>
 <p>The above example kicks off <code>node_build</code> job that you can see on the dashboard UI.</p>
 <h3 id="github-webhooks">Github-Webhooks</h3>

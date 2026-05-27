@@ -40,7 +40,6 @@ func NewOrganizationController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/orgs organizations queryOrganizations
 // Queries organizations by criteria such as org-unit, bundle, etc.
 // `This requires admin access`
 // responses:
@@ -56,7 +55,6 @@ func (oc *OrganizationController) queryOrganizations(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/orgs organizations postOrganization
 // Creates new organization.
 // `This requires admin access`
 // responses:
@@ -83,7 +81,6 @@ func (oc *OrganizationController) postOrganization(c web.APIContext) error {
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/orgs/{id} organizations putOrganization
 // Updates the organization profile.
 // responses:
 //
@@ -103,7 +100,6 @@ func (oc *OrganizationController) putOrganization(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/orgs/{id} organizations getOrganization
 // Finds the organization by its id.
 // responses:
 //
@@ -117,7 +113,6 @@ func (oc *OrganizationController) getOrganization(c web.APIContext) error {
 	return c.JSON(http.StatusOK, org)
 }
 
-// swagger:route DELETE /api/orgs/{id} organizations deleteOrganization
 // Deletes the organization by its id.
 // responses:
 //
@@ -131,7 +126,6 @@ func (oc *OrganizationController) deleteOrganization(c web.APIContext) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// swagger:route POST /api/orgs/{id}/invite organizations inviteUser
 // Invite a user to the organization.
 // responses:
 //
@@ -153,7 +147,6 @@ func (oc *OrganizationController) inviteUser(c web.APIContext) (err error) {
 	return c.JSON(http.StatusOK, inv)
 }
 
-// swagger:route POST /api/orgs/usage_report organizations usageReport
 // Generates usage report for the organization.
 // `This requires admin access`
 // Shows usage report by organization and user
@@ -169,7 +162,6 @@ func (oc *OrganizationController) usageReport(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryOrgs
 // The params for querying orgs.
 type orgQueryParams struct {
 	// in:query
@@ -182,7 +174,6 @@ type orgQueryParams struct {
 }
 
 // Paginated results of orgs matching query
-// swagger:response orgQueryResponse
 type orgQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -194,14 +185,12 @@ type orgQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters orgIDParams deleteOrganization getOrganization putOrganization inviteUser
 // The parameters for finding organization by id
 type orgIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
-// swagger:parameters usageReport
 // The parameters for finding usage report
 type usageReport struct {
 	// in:query
@@ -211,14 +200,12 @@ type usageReport struct {
 	To string `json:"to"`
 }
 
-// swagger:parameters postOrganization
 // The request body includes organization for persistence.
 type orgCreateParams struct {
 	// in:body
 	Body common.Organization
 }
 
-// swagger:parameters putOrganization
 // The request body includes organization for persistence.
 type orgUpdateParams struct {
 	// in:path
@@ -228,21 +215,18 @@ type orgUpdateParams struct {
 }
 
 // Org defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
-// swagger:response orgResponse
 type orgResponseBody struct {
 	// in:body
 	Body common.Organization
 }
 
 // User invitation
-// swagger:response userInvitationResponse
 type userInvitationResponseBody struct {
 	// in:body
 	Body types.UserInvitation
 }
 
 // Usage Report
-// swagger:response usageReportResponse
 type usageReportResponse struct {
 	// in:body
 	Body []types.CombinedResourceUsage

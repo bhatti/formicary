@@ -238,7 +238,7 @@ func (am *ArtifactManager) UpdateURL(
 			art.URL = url.String()
 		}
 	} else {
-		art.URL = am.serverCfg.Common.ExternalBaseURL + "/api/artifacts/" + art.SHA256 + "/download"
+		art.URL = am.serverCfg.Common.ExternalBaseURL + "/api/v1/artifacts/" + art.SHA256 + "/download"
 	}
 }
 

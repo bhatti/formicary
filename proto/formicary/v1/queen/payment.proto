@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// Payment records a billing transaction associated with a subscription.
+message Payment {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string subscription_id = 2 [(formicary.v1.tags) = "json:\"subscription_id\""];
+  string external_id = 3 [(formicary.v1.tags) = "json:\"external_id\""];
+  string user_id = 4 [(formicary.v1.tags) = "json:\"user_id\""];
+  string organization_id = 5 [(formicary.v1.tags) = "json:\"organization_id\""];
+  // state tracks the payment lifecycle: PENDING, COMPLETED, FAILED, REFUNDED.
+  string state = 6 [(formicary.v1.tags) = "json:\"state\""];
+  string payment_method = 7 [(formicary.v1.tags) = "json:\"payment_method\""];
+  string notes = 8 [(formicary.v1.tags) = "json:\"notes\""];
+  // amount in cents.
+  int64 amount = 9 [(formicary.v1.tags) = "json:\"amount\""];
+  google.protobuf.Timestamp refunded_at = 10 [(formicary.v1.tags) = "json:\"refunded_at\""];
+  google.protobuf.Timestamp started_at = 11 [(formicary.v1.tags) = "json:\"started_at\""];
+  google.protobuf.Timestamp ended_at = 12 [(formicary.v1.tags) = "json:\"ended_at\""];
+  bool active = 13 [(formicary.v1.tags) = "json:\"-\""];
+  google.protobuf.Timestamp created_at = 14 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 15 [(formicary.v1.tags) = "json:\"updated_at\""];
+}

@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+import "formicary/v1/resource/artifact.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// JobExecutionContext stores a context variable produced during job execution.
+message JobExecutionContext {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string job_execution_id = 2 [(formicary.v1.tags) = "json:\"job_execution_id\""];
+  string name = 3 [(formicary.v1.tags) = "json:\"name\""];
+  string value = 4 [(formicary.v1.tags) = "json:\"value\""];
+  string kind = 5 [(formicary.v1.tags) = "json:\"kind\""];
+  bool secret = 6 [(formicary.v1.tags) = "json:\"secret\""];
+}
+
+// TaskExecutionContext stores a context variable produced during task execution.
+message TaskExecutionContext {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string task_execution_id = 2 [(formicary.v1.tags) = "json:\"task_execution_id\""];
+  string name = 3 [(formicary.v1.tags) = "json:\"name\""];
+  string value = 4 [(formicary.v1.tags) = "json:\"value\""];
+  string kind = 5 [(formicary.v1.tags) = "json:\"kind\""];
+  bool secret = 6 [(formicary.v1.tags) = "json:\"secret\""];
+}
+
+// TaskExecution records the execution of one task within a job execution.
+message TaskExecution {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string job_execution_id = 2 [(formicary.v1.tags) = "json:\"job_execution_id\""];
+  string task_type = 3 [(formicary.v1.tags) = "json:\"task_type\""];
+  // method stores TaskMethod as string.
+  string method = 4 [(formicary.v1.tags) = "yaml:\"method\" json:\"method\""];
+  // task_state stores RequestState as string.
+  string task_state = 5 [(formicary.v1.tags) = "json:\"task_state\""];
+  bool allow_failure = 6 [(formicary.v1.tags) = "json:\"allow_failure\""];
+  string exit_code = 7 [(formicary.v1.tags) = "json:\"exit_code\""];
+  string exit_message = 8 [(formicary.v1.tags) = "json:\"exit_message\""];
+  string error_code = 9 [(formicary.v1.tags) = "json:\"error_code\""];
+  string error_message = 10 [(formicary.v1.tags) = "json:\"error_message\""];
+  string failed_command = 11 [(formicary.v1.tags) = "json:\"failed_command\""];
+  string comments = 12 [(formicary.v1.tags) = "json:\"comments\""];
+  string ant_id = 13 [(formicary.v1.tags) = "json:\"ant_id\""];
+  string ant_host = 14 [(formicary.v1.tags) = "json:\"ant_host\""];
+  string manual_reviewed_by = 15 [(formicary.v1.tags) = "json:\"manual_reviewed_by\" gorm:\"manual_reviewed_by\""];
+  google.protobuf.Timestamp manual_reviewed_at = 16 [(formicary.v1.tags) = "json:\"manual_reviewed_at\" gorm:\"manual_reviewed_at\""];
+  // reviewed_status stores RequestState as string.
+  string reviewed_status = 17 [(formicary.v1.tags) = "json:\"reviewed_status\" gorm:\"reviewed_status\""];
+  int32 retried = 18 [(formicary.v1.tags) = "json:\"retried\""];
+  repeated TaskExecutionContext contexts = 19 [(formicary.v1.tags) = "json:\"contexts\" gorm:\"ForeignKey:TaskExecutionID\" gorm:\"auto_preload\""];
+  repeated formicary.v1.resource.Artifact artifacts = 20 [(formicary.v1.tags) = "json:\"artifacts\" gorm:\"ForeignKey:TaskExecutionID\""];
+  int32 task_order = 21 [(formicary.v1.tags) = "json:\"task_order\""];
+  int32 count_services = 22 [(formicary.v1.tags) = "json:\"count_services\""];
+  double cost_factor = 23 [(formicary.v1.tags) = "json:\"cost_factor\""];
+  google.protobuf.Timestamp started_at = 24 [(formicary.v1.tags) = "json:\"started_at\""];
+  google.protobuf.Timestamp ended_at = 25 [(formicary.v1.tags) = "json:\"ended_at\""];
+  google.protobuf.Timestamp updated_at = 26 [(formicary.v1.tags) = "json:\"updated_at\""];
+  bool active = 27 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  repeated string stdout = 28 [(formicary.v1.tags) = "json:\"stdout\" gorm:\"-\""];
+}
+
+// JobExecution tracks a specific execution instance of a job request.
+message JobExecution {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string job_request_id = 2 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  string job_type = 3 [(formicary.v1.tags) = "json:\"job_type\""];
+  string job_version = 4 [(formicary.v1.tags) = "json:\"job_version\""];
+  // job_state stores RequestState as string.
+  string job_state = 5 [(formicary.v1.tags) = "json:\"job_state\""];
+  string organization_id = 6 [(formicary.v1.tags) = "json:\"organization_id\""];
+  string user_id = 7 [(formicary.v1.tags) = "json:\"user_id\""];
+  string current_task = 8 [(formicary.v1.tags) = "json:\"current_task\""];
+  string exit_code = 9 [(formicary.v1.tags) = "json:\"exit_code\""];
+  string exit_message = 10 [(formicary.v1.tags) = "json:\"exit_message\""];
+  string error_code = 11 [(formicary.v1.tags) = "json:\"error_code\""];
+  string error_message = 12 [(formicary.v1.tags) = "json:\"error_message\""];
+  repeated JobExecutionContext contexts = 13 [(formicary.v1.tags) = "json:\"contexts\" gorm:\"ForeignKey:JobExecutionID\" gorm:\"auto_preload\""];
+  repeated TaskExecution tasks = 14 [(formicary.v1.tags) = "json:\"tasks\" gorm:\"ForeignKey:JobExecutionID\" gorm:\"auto_preload\""];
+  google.protobuf.Timestamp started_at = 15 [(formicary.v1.tags) = "json:\"started_at\""];
+  google.protobuf.Timestamp ended_at = 16 [(formicary.v1.tags) = "json:\"ended_at\""];
+  google.protobuf.Timestamp updated_at = 17 [(formicary.v1.tags) = "json:\"updated_at\""];
+  int64 cpu_secs = 18 [(formicary.v1.tags) = "json:\"cpu_secs\""];
+  bool active = 19 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+}

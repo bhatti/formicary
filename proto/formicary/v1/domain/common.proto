@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.domain;
+
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/domain;domain";
+
+// RequestState defines the lifecycle state of a job or task request.
+enum RequestState {
+  REQUEST_STATE_UNSPECIFIED = 0;
+  PENDING = 1;
+  READY = 2;
+  COMPLETED = 3;
+  FAILED = 4;
+  EXECUTING = 5;
+  STARTED = 6;
+  CANCELLED = 7;
+  PAUSED = 8;
+  MANUAL_APPROVAL_REQUIRED = 9;
+  HISTORY = 10;
+  RUNNING = 11;
+  WAITING = 12;
+  FATAL = 13;
+  RESTART_JOB = 14;
+  PAUSE_JOB = 15;
+  WAIT_FOR_APPROVAL = 16;
+  RESTART_TASK = 17;
+  APPROVED = 18;
+  REJECTED = 19;
+  RESERVED = 20;
+  DELETED = 21;
+  UNKNOWN = 22;
+}
+
+// TaskMethod defines the execution method for a task.
+enum TaskMethod {
+  TASK_METHOD_UNSPECIFIED = 0;
+  KUBERNETES = 1;
+  DOCKER = 2;
+  SHELL = 3;
+  HTTP_GET = 4;
+  HTTP_POST_FORM = 5;
+  HTTP_POST_JSON = 6;
+  HTTP_PUT_FORM = 7;
+  HTTP_PUT_JSON = 8;
+  HTTP_DELETE = 9;
+  WEBSOCKET = 10;
+  FORK_JOB = 11;
+  AWAIT_FORKED_JOB = 12;
+  MESSAGING = 13;
+  EXPIRE_ARTIFACTS = 14;
+}
+
+// MessagingProvider defines the message queue backend.
+enum MessagingProvider {
+  MESSAGING_PROVIDER_UNSPECIFIED = 0;
+  REDIS_MESSAGING = 1;
+  KAFKA_MESSAGING = 2;
+  PULSAR_MESSAGING = 3;
+  WEBSOCKET_MESSAGING = 4;
+}
+
+// NotifyChannel defines the channel for job notifications.
+enum NotifyChannel {
+  NOTIFY_CHANNEL_UNSPECIFIED = 0;
+  EMAIL = 1;
+  SLACK = 2;
+  WEBHOOK = 3;
+}
+
+// Pagination holds paging parameters for list queries.
+message Pagination {
+  int32 page = 1 [(formicary.v1.tags) = "json:\"page\" form:\"page\""];
+  int32 page_size = 2 [(formicary.v1.tags) = "json:\"page_size\" form:\"page_size\""];
+  repeated string order = 3 [(formicary.v1.tags) = "json:\"order\" form:\"order\""];
+}
+
+// BasicResource captures basic CPU/disk resource constraints.
+message BasicResource {
+  int64 cpu_units = 1 [(formicary.v1.tags) = "yaml:\"cpu_units,omitempty\" json:\"cpu_units,omitempty\""];
+  int64 disk_mb = 2 [(formicary.v1.tags) = "yaml:\"disk_mb,omitempty\" json:\"disk_mb,omitempty\""];
+  int64 memory_mb = 3 [(formicary.v1.tags) = "yaml:\"memory_mb,omitempty\" json:\"memory_mb,omitempty\""];
+  int64 gpu_units = 4 [(formicary.v1.tags) = "yaml:\"gpu_units,omitempty\" json:\"gpu_units,omitempty\""];
+  int64 network_bandwidth_mb = 5 [(formicary.v1.tags) = "yaml:\"network_bandwidth_mb,omitempty\" json:\"network_bandwidth_mb,omitempty\""];
+  int64 iops_mb = 6 [(formicary.v1.tags) = "yaml:\"iops_mb,omitempty\" json:\"iops_mb,omitempty\""];
+  int64 ephemeral_storage_mb = 7 [(formicary.v1.tags) = "yaml:\"ephemeral_storage_mb,omitempty\" json:\"ephemeral_storage_mb,omitempty\""];
+}
+
+// VariableValue wraps a serialized value with its type and secret flag.
+message VariableValue {
+  string value = 1 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 2 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+}
+
+// NameTypeValue defines a named property with a typed value.
+message NameTypeValue {
+  string name = 1 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 2 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 3 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 4 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+}
+
+// Webhook defines callback configuration for HTTP notifications.
+message Webhook {
+  string url = 1 [(formicary.v1.tags) = "yaml:\"url\" json:\"url\""];
+  string headers = 2 [(formicary.v1.tags) = "yaml:\"headers,omitempty\" json:\"headers,omitempty\""];
+  string query = 3 [(formicary.v1.tags) = "yaml:\"query,omitempty\" json:\"query,omitempty\""];
+}
+
+// JobNotifyConfig defines notification targets for a job event.
+message JobNotifyConfig {
+  repeated string recipients = 1 [(formicary.v1.tags) = "yaml:\"recipients,omitempty\" json:\"recipients,omitempty\""];
+  repeated RequestState when = 2 [(formicary.v1.tags) = "yaml:\"when,omitempty\" json:\"when,omitempty\""];
+}
+
+// TLSConfig holds TLS parameters for queue/service connections.
+message TLSConfig {
+  string cert_file = 1 [(formicary.v1.tags) = "json:\"cert_file,omitempty\" yaml:\"cert_file,omitempty\""];
+  string key_file = 2 [(formicary.v1.tags) = "json:\"key_file,omitempty\" yaml:\"key_file,omitempty\""];
+  string ca_file = 3 [(formicary.v1.tags) = "json:\"ca_file,omitempty\" yaml:\"ca_file,omitempty\""];
+  string server_address = 4 [(formicary.v1.tags) = "json:\"server_address,omitempty\" yaml:\"server_address,omitempty\""];
+  bool server = 5 [(formicary.v1.tags) = "json:\"server,omitempty\" yaml:\"server,omitempty\""];
+  bool insecure_skip_verify = 6 [(formicary.v1.tags) = "json:\"insecure_skip_verify,omitempty\" yaml:\"insecure_skip_verify,omitempty\""];
+  bool enabled = 7 [(formicary.v1.tags) = "json:\"enabled,omitempty\" yaml:\"enabled,omitempty\""];
+  bool verify_ssl = 8 [(formicary.v1.tags) = "json:\"verify_ssl,omitempty\" yaml:\"verify_ssl,omitempty\""];
+  bool use_sasl = 9 [(formicary.v1.tags) = "json:\"use_sasl,omitempty\" yaml:\"use_sasl,omitempty\""];
+}
+
+// ProcessingOptions defines message processing behaviour.
+message ProcessingOptions {
+  int32 max_retries = 1 [(formicary.v1.tags) = "json:\"max_retries,omitempty\""];
+  int64 retry_delay_ns = 2 [(formicary.v1.tags) = "json:\"retry_delay_ns,omitempty\""];
+  int64 max_retry_delay_ns = 3 [(formicary.v1.tags) = "json:\"max_retry_delay_ns,omitempty\""];
+  string dead_letter_topic = 4 [(formicary.v1.tags) = "json:\"dead_letter_topic,omitempty\""];
+  int32 batch_size = 5 [(formicary.v1.tags) = "json:\"batch_size,omitempty\""];
+  int64 timeout_ns = 6 [(formicary.v1.tags) = "json:\"timeout_ns,omitempty\""];
+  int32 concurrency = 7 [(formicary.v1.tags) = "json:\"concurrency,omitempty\""];
+  bool ordered_processing = 8 [(formicary.v1.tags) = "json:\"ordered_processing,omitempty\""];
+}
+
+// QueueConfig configures the message queue backend.
+message QueueConfig {
+  MessagingProvider provider = 1 [(formicary.v1.tags) = "json:\"provider,omitempty\" env:\"PROVIDER\""];
+  repeated string endpoints = 2 [(formicary.v1.tags) = "json:\"endpoints,omitempty\""];
+  string topic_tenant = 3 [(formicary.v1.tags) = "yaml:\"topic_tenant\" mapstructure:\"topic_tenant\""];
+  string topic_namespace = 4 [(formicary.v1.tags) = "yaml:\"topic_namespace\" mapstructure:\"topic_namespace\""];
+  string username = 5 [(formicary.v1.tags) = "json:\"username,omitempty\""];
+  string password = 6 [(formicary.v1.tags) = "json:\"password,omitempty\""];
+  string token = 7 [(formicary.v1.tags) = "json:\"token,omitempty\""];
+  TLSConfig tls = 8 [(formicary.v1.tags) = "json:\"tls,omitempty\""];
+  ProcessingOptions default_options = 9 [(formicary.v1.tags) = "json:\"default_options,omitempty\""];
+  int32 max_connections = 10 [(formicary.v1.tags) = "json:\"max_connections,omitempty\""];
+  int32 max_message_size = 11 [(formicary.v1.tags) = "json:\"max_message_size,omitempty\""];
+  int32 max_fetch_size = 12 [(formicary.v1.tags) = "json:\"max_fetch_size,omitempty\""];
+  int64 connection_timeout_ns = 13 [(formicary.v1.tags) = "json:\"connection_timeout_ns,omitempty\""];
+  int64 operation_timeout_ns = 14 [(formicary.v1.tags) = "json:\"operation_timeout_ns,omitempty\""];
+  int64 commit_timeout_ns = 15 [(formicary.v1.tags) = "json:\"commit_timeout_ns,omitempty\""];
+  int32 retry_max = 16 [(formicary.v1.tags) = "json:\"retry_max,omitempty\""];
+  int64 retry_delay_ns = 17 [(formicary.v1.tags) = "json:\"retry_delay_ns,omitempty\""];
+}

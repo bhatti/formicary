@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/queen/error_code.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// QueryErrorCodesRequest carries filter params for listing error codes.
+message QueryErrorCodesRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string job_type = 4;
+  string error_code = 5;
+  string platform_scope = 6;
+  string task_type_scope = 7;
+}
+
+// QueryErrorCodesResponse returns a paginated list of error codes.
+message QueryErrorCodesResponse {
+  repeated formicary.v1.queen.ErrorCode records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetErrorCodeRequest identifies an error code by ID.
+message GetErrorCodeRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetErrorCodeResponse wraps a single error code.
+message GetErrorCodeResponse {
+  formicary.v1.queen.ErrorCode error_code = 1;
+}
+
+// SaveErrorCodeRequest creates or updates an error code.
+message SaveErrorCodeRequest {
+  string id = 1;
+  formicary.v1.queen.ErrorCode error_code = 2 [(buf.validate.field).required = true];
+}
+
+// SaveErrorCodeResponse returns the saved error code.
+message SaveErrorCodeResponse {
+  formicary.v1.queen.ErrorCode error_code = 1;
+}
+
+// DeleteErrorCodeRequest identifies an error code to delete.
+message DeleteErrorCodeRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ErrorCodeService manages error code definitions for automatic error handling in job tasks.
+service ErrorCodeService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage error code definitions for automatic retry/suspend/fail behavior on task errors."
+    name: "error-codes"
+  };
+
+  // QueryErrorCodes lists error codes matching the given filters.
+  rpc QueryErrorCodes(QueryErrorCodesRequest) returns (QueryErrorCodesResponse) {
+    option (google.api.http) = {get: "/api/v1/error-codes"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List error codes"
+      description: "Returns a paginated list of error code definitions, optionally filtered by job type, error code, or scope."
+      tags: ["error-codes"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated list of error codes."}
+      }
+    };
+  }
+
+  // GetErrorCode returns a single error code by its ULID.
+  rpc GetErrorCode(GetErrorCodeRequest) returns (GetErrorCodeResponse) {
+    option (google.api.http) = {get: "/api/v1/error-codes/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get error code"
+      description: "Returns a single error code definition."
+      tags: ["error-codes"]
+      responses: {
+        key: "200"
+        value: {description: "Error code."}
+      }
+    };
+  }
+
+  // SaveErrorCode creates or updates an error code definition.
+  rpc SaveErrorCode(SaveErrorCodeRequest) returns (SaveErrorCodeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/error-codes"
+      body: "error_code"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save error code"
+      description: "Creates or updates an error code definition. The error_code field and at least one of regex or exit_code must be set."
+      tags: ["error-codes"]
+      responses: {
+        key: "200"
+        value: {description: "Saved error code."}
+      }
+    };
+  }
+
+  // DeleteErrorCode removes an error code definition.
+  rpc DeleteErrorCode(DeleteErrorCodeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/error-codes/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete error code"
+      description: "Removes an error code definition."
+      tags: ["error-codes"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

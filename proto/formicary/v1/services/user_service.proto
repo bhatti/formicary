@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "buf/validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "formicary/v1/user/user.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// LoginRequest carries the username for OAuth token issuance.
+// Authentication is handled via OAuth (GitHub/Google). When auth is disabled,
+// no-auth mode is used. No password-based authentication exists.
+message LoginRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "LoginRequest"
+      description: "Issues a JWT token for an authenticated user. Use OAuth (GitHub/Google) for authentication."
+      required: ["username"]
+    }
+  };
+
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// LoginResponse returns a JWT token and user profile.
+message LoginResponse {
+  string token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "JWT Bearer token. Pass in Authorization header as 'Bearer <token>'."
+  }];
+  formicary.v1.user.User user = 2;
+}
+
+// QueryUsersRequest carries filter params for listing users (admin only).
+message QueryUsersRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  repeated string order = 3;
+  string username = 4;
+  string email = 5;
+  string organization_id = 6;
+}
+
+// QueryUsersResponse returns a paginated list of users.
+message QueryUsersResponse {
+  repeated formicary.v1.user.User records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// GetUserRequest identifies a user by ID.
+message GetUserRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetUserResponse wraps a single user.
+message GetUserResponse {
+  formicary.v1.user.User user = 1;
+}
+
+// CreateUserRequest wraps a new user.
+message CreateUserRequest {
+  formicary.v1.user.User user = 1 [(buf.validate.field).required = true];
+}
+
+// CreateUserResponse returns the created user.
+message CreateUserResponse {
+  formicary.v1.user.User user = 1;
+}
+
+// UpdateUserRequest wraps an updated user profile.
+message UpdateUserRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  formicary.v1.user.User user = 2 [(buf.validate.field).required = true];
+}
+
+// UpdateUserResponse returns the updated user.
+message UpdateUserResponse {
+  formicary.v1.user.User user = 1;
+}
+
+// DeleteUserRequest identifies the user to delete.
+message DeleteUserRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// UserService manages user accounts and authentication.
+service UserService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage user accounts, authentication, and profiles."
+    name: "users"
+  };
+
+  // Login issues a JWT token for a user authenticated via OAuth.
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Issue JWT token"
+      description: "Issues a JWT Bearer token for a user already authenticated via OAuth (GitHub/Google). No password required."
+      tags: ["users"]
+      security: {}
+      responses: {
+        key: "200"
+        value: {description: "Login successful."}
+      }
+    };
+  }
+
+  // GetProfile returns the profile of the currently authenticated user.
+  rpc GetProfile(google.protobuf.Empty) returns (GetUserResponse) {
+    option (google.api.http) = {get: "/api/v1/users/profile"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get current user profile"
+      description: "Returns the profile of the currently authenticated user."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "User profile."}
+      }
+    };
+  }
+
+  // QueryUsers lists all users (admin only).
+  rpc QueryUsers(QueryUsersRequest) returns (QueryUsersResponse) {
+    option (google.api.http) = {get: "/api/v1/users"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List users"
+      description: "Returns a paginated list of users. Requires admin role."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated user list."}
+      }
+    };
+  }
+
+  // GetUser returns a single user by ID (admin or own profile).
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {get: "/api/v1/users/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get user"
+      description: "Returns a single user by their ULID."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "User."}
+      }
+    };
+  }
+
+  // CreateUser creates a new user account (admin only).
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create user"
+      description: "Creates a new user account. Requires admin role."
+      tags: ["users"]
+      responses: {
+        key: "201"
+        value: {description: "Created user."}
+      }
+    };
+  }
+
+  // UpdateUser updates a user's profile.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/users/{id}"
+      body: "user"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update user"
+      description: "Updates a user profile. Users can update their own profile; admins can update any user."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "Updated user."}
+      }
+    };
+  }
+
+  // DeleteUser removes a user account (admin only).
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/users/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete user"
+      description: "Soft-deletes a user account. Requires admin role."
+      tags: ["users"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+}

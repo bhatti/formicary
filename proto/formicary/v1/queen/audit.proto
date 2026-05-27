@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// AuditRecord captures an auditable event in the system.
+message AuditRecord {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string target_id = 2 [(formicary.v1.tags) = "json:\"target_id\""];
+  string user_id = 3 [(formicary.v1.tags) = "json:\"user_id\""];
+  string organization_id = 4 [(formicary.v1.tags) = "json:\"organization_id\""];
+  // kind stores AuditKind as string (e.g., "JOB_DEFINITION_UPDATED").
+  string kind = 5 [(formicary.v1.tags) = "json:\"kind\""];
+  string job_type = 6 [(formicary.v1.tags) = "json:\"job_type\""];
+  string remote_ip = 7 [(formicary.v1.tags) = "json:\"remote_ip\""];
+  string url = 8 [(formicary.v1.tags) = "json:\"url\""];
+  string error = 9 [(formicary.v1.tags) = "json:\"error\""];
+  string message = 10 [(formicary.v1.tags) = "json:\"message\""];
+  google.protobuf.Timestamp created_at = 11 [(formicary.v1.tags) = "json:\"created_at\""];
+}

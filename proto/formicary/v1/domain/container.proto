@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.domain;
+
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/domain;domain";
+
+// ContainerDefinition defines the container image and resource configuration for a task executor.
+message ContainerDefinition {
+  string image = 1 [(formicary.v1.tags) = "json:\"image\" yaml:\"image\""];
+  repeated string volumes_from = 2 [(formicary.v1.tags) = "json:\"volumes_from,omitempty\" yaml:\"volumes_from,omitempty\""];
+  repeated string devices = 3 [(formicary.v1.tags) = "json:\"devices,omitempty\" yaml:\"devices,omitempty\""];
+  string bind_dir = 4 [(formicary.v1.tags) = "json:\"bind_dir,omitempty\" yaml:\"bind_dir,omitempty\""];
+  string cpu_limit = 5 [(formicary.v1.tags) = "json:\"cpu_limit,omitempty\" yaml:\"cpu_limit,omitempty\""];
+  string cpu_request = 6 [(formicary.v1.tags) = "json:\"cpu_request,omitempty\" yaml:\"cpu_request,omitempty\""];
+  string memory_limit = 7 [(formicary.v1.tags) = "json:\"memory_limit,omitempty\" yaml:\"memory_limit,omitempty\""];
+  string memory_request = 8 [(formicary.v1.tags) = "json:\"memory_request,omitempty\" yaml:\"memory_request,omitempty\""];
+  string ephemeral_storage_limit = 9 [(formicary.v1.tags) = "json:\"ephemeral_storage_limit,omitempty\" yaml:\"ephemeral_storage_limit,omitempty\""];
+  string ephemeral_storage_request = 10 [(formicary.v1.tags) = "json:\"ephemeral_storage_request,omitempty\" yaml:\"ephemeral_storage_request,omitempty\""];
+  string volume_driver = 11 [(formicary.v1.tags) = "json:\"volume_driver,omitempty\" yaml:\"volume_driver,omitempty\""];
+  // volumes_json stores the JSON-serialized volumes (docker map or k8s KubernetesVolumes).
+  string volumes_json = 12 [(formicary.v1.tags) = "json:\"volumes_json,omitempty\" yaml:\"volumes_json,omitempty\""];
+}
+
+// ArtifactsConfig specifies artifact upload/download paths.
+message ArtifactsConfig {
+  repeated string paths = 1 [(formicary.v1.tags) = "json:\"paths,omitempty\" yaml:\"paths,omitempty\""];
+  int64 expire_duration_ns = 2 [(formicary.v1.tags) = "json:\"expire_duration_ns,omitempty\" yaml:\"expire_duration_ns,omitempty\""];
+}
+
+// CacheConfig specifies cache paths for a task.
+message CacheConfig {
+  repeated string paths = 1 [(formicary.v1.tags) = "json:\"paths,omitempty\" yaml:\"paths,omitempty\""];
+  repeated string key_paths = 2 [(formicary.v1.tags) = "json:\"key_paths,omitempty\" yaml:\"key_paths,omitempty\""];
+  string key = 3 [(formicary.v1.tags) = "json:\"key,omitempty\" yaml:\"key,omitempty\""];
+}
+
+// Service defines a sidecar service container.
+message Service {
+  string name = 1 [(formicary.v1.tags) = "json:\"name\" yaml:\"name\""];
+  string alias = 2 [(formicary.v1.tags) = "json:\"alias,omitempty\" yaml:\"alias,omitempty\""];
+  string image = 3 [(formicary.v1.tags) = "json:\"image,omitempty\" yaml:\"image,omitempty\""];
+  repeated string command = 4 [(formicary.v1.tags) = "json:\"command,omitempty\" yaml:\"command,omitempty\""];
+  repeated string entrypoint = 5 [(formicary.v1.tags) = "json:\"entrypoint,omitempty\" yaml:\"entrypoint,omitempty\""];
+}
+
+// ExecutorOptions specifies settings for the underlying executor (Docker, Kubernetes, Shell, HTTP, etc.).
+message ExecutorOptions {
+  string name = 1 [(formicary.v1.tags) = "json:\"name\" yaml:\"name\""];
+  string method = 2 [(formicary.v1.tags) = "json:\"method\" yaml:\"method\""];
+  map<string, string> environment = 3 [(formicary.v1.tags) = "json:\"environment,omitempty\" yaml:\"environment,omitempty\""];
+  map<string, string> helper_environment = 4 [(formicary.v1.tags) = "json:\"helper_environment,omitempty\" yaml:\"helper_environment,omitempty\""];
+  string working_dir = 5 [(formicary.v1.tags) = "json:\"working_dir,omitempty\" yaml:\"working_dir,omitempty\""];
+  string artifacts_dir = 6 [(formicary.v1.tags) = "json:\"artifacts_dir,omitempty\" yaml:\"artifacts_dir,omitempty\""];
+  ArtifactsConfig artifacts = 7 [(formicary.v1.tags) = "json:\"artifacts,omitempty\" yaml:\"artifacts,omitempty\""];
+  string cache_dir = 8 [(formicary.v1.tags) = "json:\"cache_dir,omitempty\" yaml:\"cache_dir,omitempty\""];
+  CacheConfig cache = 9 [(formicary.v1.tags) = "json:\"cache,omitempty\" yaml:\"cache,omitempty\""];
+  repeated string dependent_artifact_ids = 10 [(formicary.v1.tags) = "json:\"dependent_artifact_ids,omitempty\" yaml:\"dependent_artifact_ids,omitempty\""];
+  ContainerDefinition main_container = 11 [(formicary.v1.tags) = "json:\"container,omitempty\" yaml:\"container,omitempty\""];
+  ContainerDefinition helper_container = 12 [(formicary.v1.tags) = "json:\"helper,omitempty\" yaml:\"helper,omitempty\""];
+  repeated Service services = 13 [(formicary.v1.tags) = "json:\"services,omitempty\" yaml:\"services,omitempty\""];
+  bool privileged = 14 [(formicary.v1.tags) = "json:\"privileged,omitempty\" yaml:\"privileged,omitempty\""];
+  map<string, string> node_selector = 15 [(formicary.v1.tags) = "json:\"node_selector,omitempty\" yaml:\"node_selector,omitempty\""];
+  map<string, string> node_tolerations = 16 [(formicary.v1.tags) = "json:\"node_tolerations,omitempty\" yaml:\"node_tolerations,omitempty\""];
+  map<string, string> pod_labels = 17 [(formicary.v1.tags) = "json:\"pod_labels,omitempty\" yaml:\"pod_labels,omitempty\""];
+  map<string, string> pod_annotations = 18 [(formicary.v1.tags) = "json:\"pod_annotations,omitempty\" yaml:\"pod_annotations,omitempty\""];
+  string network_mode = 19 [(formicary.v1.tags) = "json:\"network_mode,omitempty\" yaml:\"network_mode,omitempty\""];
+  bool host_network = 20 [(formicary.v1.tags) = "json:\"host_network,omitempty\" yaml:\"host_network,omitempty\""];
+  map<string, string> headers = 21 [(formicary.v1.tags) = "yaml:\"headers,omitempty\" json:\"headers\""];
+  map<string, string> query_params = 22 [(formicary.v1.tags) = "yaml:\"query,omitempty\" json:\"query\""];
+  bool report_stdout = 23 [(formicary.v1.tags) = "yaml:\"report_stdout,omitempty\" json:\"report_stdout\""];
+  string messaging_request_queue = 24 [(formicary.v1.tags) = "json:\"messaging_request_queue,omitempty\" yaml:\"messaging_request_queue,omitempty\""];
+  string messaging_reply_queue = 25 [(formicary.v1.tags) = "json:\"messaging_reply_queue,omitempty\" yaml:\"messaging_reply_queue,omitempty\""];
+  string fork_job_type = 26 [(formicary.v1.tags) = "json:\"fork_job_type,omitempty\" yaml:\"fork_job_type,omitempty\""];
+  string fork_job_version = 27 [(formicary.v1.tags) = "json:\"fork_job_version,omitempty\" yaml:\"fork_job_version,omitempty\""];
+  string artifact_key_prefix = 28 [(formicary.v1.tags) = "json:\"artifact_key_prefix,omitempty\" yaml:\"artifact_key_prefix,omitempty\""];
+  repeated string await_forked_tasks = 29 [(formicary.v1.tags) = "json:\"await_forked_tasks,omitempty\" yaml:\"await_forked_tasks,omitempty\""];
+  double cost_factor = 30 [(formicary.v1.tags) = "json:\"cost_factor,omitempty\" yaml:\"cost_factor,omitempty\""];
+  bool execute_command_without_shell = 31 [(formicary.v1.tags) = "json:\"execute_command_without_shell,omitempty\" yaml:\"execute_command_without_shell,omitempty\""];
+  bool debug = 32 [(formicary.v1.tags) = "json:\"debug,omitempty\" yaml:\"debug,omitempty\""];
+  // affinity_json stores the JSON-serialized KubernetesNodeAffinity.
+  string affinity_json = 33 [(formicary.v1.tags) = "json:\"affinity_json,omitempty\" yaml:\"affinity_json,omitempty\""];
+}

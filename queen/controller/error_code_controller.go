@@ -35,7 +35,6 @@ func NewErrorCodeController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/errors error-codes queryErrorCodes
 // Queries error-codes by type, regex.
 // `This requires admin access`
 // responses:
@@ -49,7 +48,6 @@ func (ecCtrl *ErrorCodeController) queryErrorCodes(c web.APIContext) error {
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, int64(len(recs)), 0, len(recs)))
 }
 
-// swagger:route POST /api/errors error-codes postErrorCode
 // Creates new error code based on request body.
 // `This requires admin access`
 // responses:
@@ -75,7 +73,6 @@ func (ecCtrl *ErrorCodeController) postErrorCode(c web.APIContext) error {
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/errors error-codes putErrorCode
 // Updates new error code based on request body.
 // `This requires admin access`
 // responses:
@@ -94,7 +91,6 @@ func (ecCtrl *ErrorCodeController) putErrorCode(c web.APIContext) error {
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/errors/{id} error-codes getErrorCode
 // Finds error code by id.
 // `This requires admin access`
 // responses:
@@ -108,7 +104,6 @@ func (ecCtrl *ErrorCodeController) getErrorCode(c web.APIContext) error {
 	return c.JSON(http.StatusOK, ec)
 }
 
-// swagger:route DELETE /api/errors/{id} error-codes deleteErrorCode
 // Deletes error code by id.
 // `This requires admin access`
 // responses:
@@ -124,7 +119,6 @@ func (ecCtrl *ErrorCodeController) deleteErrorCode(c web.APIContext) error {
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryErrorCodes
 // The params for querying error-codes
 type errorCodesQueryParams struct {
 	// in:query
@@ -145,7 +139,6 @@ type errorCodesQueryParams struct {
 }
 
 // Query results of error-codes
-// swagger:response errorCodesQueryResponse
 type errorCodesQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -157,7 +150,6 @@ type errorCodesQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters postErrorCode putErrorCode
 // The params for error-code
 type errorCodeParams struct {
 	// in:body
@@ -165,13 +157,11 @@ type errorCodeParams struct {
 }
 
 // ErrorCode body for update
-// swagger:response errorCodeResponse
 type errorCodeResponseBody struct {
 	// in:body
 	Body common.ErrorCode
 }
 
-// swagger:parameters deleteErrorCode getErrorCode
 // The parameters for finding error-code by id
 type errorCoderIDParams struct {
 	// in:path

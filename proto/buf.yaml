@@ -1,0 +1,23 @@
+version: v2
+modules:
+  - path: .
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/bufbuild/protovalidate
+  - buf.build/grpc-ecosystem/grpc-gateway
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    # Enum values intentionally use short names matching existing Go string constants.
+    # Renaming would break the string-based state machine in the existing codebase.
+    - ENUM_VALUE_PREFIX
+    # Several RPCs share request/response types for ergonomics (e.g., Empty for action RPCs,
+    # GetJobRequestRequest reused for wait-time/mermaid endpoints that take the same id param).
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE

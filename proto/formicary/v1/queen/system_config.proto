@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "google/protobuf/timestamp.proto";
+import "formicary/v1/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// SystemConfig holds a platform-level named configuration property.
+message SystemConfig {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  // scope defines the configuration scope (e.g., "default", org-unit name).
+  string scope = 2 [(formicary.v1.tags) = "json:\"scope\""];
+  string kind = 3 [(formicary.v1.tags) = "json:\"kind\""];
+  string name = 4 [(formicary.v1.tags) = "json:\"name\""];
+  string value = 5 [(formicary.v1.tags) = "json:\"value\""];
+  bool secret = 6 [(formicary.v1.tags) = "json:\"secret\""];
+  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "json:\"updated_at\""];
+  map<string, string> errors = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+}

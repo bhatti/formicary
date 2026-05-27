@@ -42,7 +42,6 @@ func NewOrganizationConfigController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/orgs/{orgId}/configs organization-configs queryOrganizationConfigs
 // Queries organization configs by criteria such as name, type, etc.
 // responses:
 //   200: orgConfigQueryResponse
@@ -56,7 +55,6 @@ func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.APIContex
 	return c.JSON(http.StatusOK, NewPaginatedResult(recs, total, page, pageSize))
 }
 
-// swagger:route POST /api/orgs/{orgId}/configs organization-configs postOrganizationConfig
 // Adds a config for the organization.
 // responses:
 //   200: orgConfig
@@ -91,7 +89,6 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.APIContext)
 	return c.JSON(status, saved)
 }
 
-// swagger:route PUT /api/orgs/{orgId}/configs/{id} organization-configs putOrganizationConfig
 // Updates a config for the organization.
 // responses:
 //   200: orgConfig
@@ -114,7 +111,6 @@ func (cc *OrganizationConfigController) putOrganizationConfig(c web.APIContext) 
 	return c.JSON(http.StatusOK, saved)
 }
 
-// swagger:route GET /api/orgs/{orgId}/configs/{id} organization-configs getOrganizationConfig
 // Finds a config for the organization by id.
 // responses:
 //   200: orgConfig
@@ -127,7 +123,6 @@ func (cc *OrganizationConfigController) getOrganizationConfig(c web.APIContext) 
 	return c.JSON(http.StatusOK, cfg)
 }
 
-// swagger:route DELETE /api/orgs/{orgId}/configs/{id} organization-configs deleteOrganizationConfig
 // Deletes a config for the organization by id.
 // responses:
 //   200: emptyResponse
@@ -143,7 +138,6 @@ func (cc *OrganizationConfigController) deleteOrganizationConfig(c web.APIContex
 
 // ********************************* Swagger types ***********************************
 
-// swagger:parameters queryOrgConfigs
 // The params for querying orgConfigs.
 type orgConfigQueryParams struct {
 	// in:query
@@ -154,7 +148,6 @@ type orgConfigQueryParams struct {
 }
 
 // Paginated results of orgConfigs matching query
-// swagger:response orgConfigQueryResponse
 type orgConfigQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -166,7 +159,6 @@ type orgConfigQueryResponseBody struct {
 	}
 }
 
-// swagger:parameters deleteOrganizationConfig getOrganizationConfig
 // The parameters for accessing org-config by id
 type orgConfigIDParams struct {
 	// in:path
@@ -175,7 +167,6 @@ type orgConfigIDParams struct {
 	ID string `json:"id"`
 }
 
-// swagger:parameters putOrganizationConfig
 // The parameters for updating org config by id
 type orgConfigUpdateParams struct {
 	// in:path
@@ -186,7 +177,6 @@ type orgConfigUpdateParams struct {
 	Body common.OrganizationConfig
 }
 
-// swagger:parameters postOrganizationConfig
 // The request body includes job-request for persistence.
 type orgConfigParams struct {
 	// in:body
@@ -194,7 +184,6 @@ type orgConfigParams struct {
 }
 
 // OrgConfig defines user request to process a job, which is saved in the database as PENDING and is then scheduled for job execution.
-// swagger:response orgConfig
 type orgConfigBody struct {
 	// in:body
 	Body common.OrganizationConfig

@@ -39,7 +39,7 @@ You can also submit a job at scheduled time as follows:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"job_type": "hello_world", "scheduled_at": "2025-06-15T00:00:00.0-00:00", "params": { "Target": "bob" } }' $SERVER/api/jobs/requests
+  --data '{"job_type": "hello_world", "scheduled_at": "2025-06-15T00:00:00.0-00:00", "params": { "Target": "bob" } }' $SERVER/api/v1/jobs/requests
 ```
 
 The above example will kick off `hello_world` job based on `scheduled_at` time in the future, however the job will be
@@ -82,7 +82,7 @@ submit jobs:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-    --data '{"job_type": "hello_world", "params": { "Target": "charlie" } }' $SERVER/api/jobs/requests
+    --data '{"job_type": "hello_world", "params": { "Target": "charlie" } }' $SERVER/api/v1/jobs/requests
 ```
 
 Following example shows how you can limit execution on a branch, e.g.,
@@ -98,7 +98,7 @@ submit jobs:
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-    --data '{"job_type": "node_build", "params": { "Branch": "feature-x" } }' $SERVER/api/jobs/requests
+    --data '{"job_type": "node_build", "params": { "Branch": "feature-x" } }' $SERVER/api/v1/jobs/requests
 ```
 #### hard_reset_after_retries
 
@@ -176,7 +176,7 @@ In above example, the `Name` and `Age` parameters must be given when submitting 
 ```yaml
 curl -v -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  --data '{"job_type": "test-job", "params": { "Name": "Bob", "Age": 30 } }' $SERVER/api/jobs/requests
+  --data '{"job_type": "test-job", "params": { "Name": "Bob", "Age": 30 } }' $SERVER/api/v1/jobs/requests
 ```
 
 #### resources

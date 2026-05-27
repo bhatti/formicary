@@ -29,7 +29,6 @@ func NewAntRegistrationController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// swagger:route GET /api/ants ant-registrations queryAntRegistrations
 // Queries ant registration.
 // `This requires admin access`
 // responses:
@@ -39,7 +38,6 @@ func (wrc *AntRegistrationController) queryAntRegistrations(c web.APIContext) er
 	return c.JSON(http.StatusOK, recs)
 }
 
-// swagger:route GET /api/ants/{id} ant-registrations getAntRegistration
 // Retrieves ant-registration by its id.
 // `This requires admin access`
 // responses:
@@ -55,12 +53,10 @@ func (wrc *AntRegistrationController) getAntRegistration(c web.APIContext) error
 // ********************************* Swagger types ***********************************
 
 // The parameter for querying ant registration
-// swagger:parameters queryAntRegistrations
 type antQueryParams struct {
 }
 
 // Paginated results of ant-registrations matching query
-// swagger:response antRegistrationsQueryResponse
 type antRegistrationsQueryResponseBody struct {
 	// in:body
 	Body struct {
@@ -73,14 +69,12 @@ type antRegistrationsQueryResponseBody struct {
 }
 
 // The parameter for finding ant registration by id
-// swagger:parameters getAntRegistration
 type antIDParams struct {
 	// in:path
 	ID string `json:"id"`
 }
 
 // Ant Registration body
-// swagger:response antRegistrationResponse
 type antRegistrationResponseBody struct {
 	// in:body
 	Body common.AntRegistration
