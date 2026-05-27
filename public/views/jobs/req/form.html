@@ -23,6 +23,11 @@
            placeholder="optional platform of the request">
 </div>
 <div class="mb-3">
+    <label for="description" class="form-label">Description</label>
+    <input type="text" class="form-control" name="description" id="description" value="{{ .Request.Description }}"
+           placeholder="Job description (supports [text](url) markdown links)">
+</div>
+<div class="mb-3">
     <label for="params" class="form-label">Params (JSON)</label>
     <input type="text" class="form-control" name="params" id="params" value="{{ .Request.ParamsJSON }}"
            placeholder="JSON parameters">

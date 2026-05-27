@@ -3,10 +3,10 @@ package security
 import (
 	"context"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"time"
 
-	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/sirupsen/logrus"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
@@ -31,8 +31,8 @@ func BuildToken(
 		PictureURL:   user.PictureURL,
 		AuthProvider: user.AuthProvider,
 		Admin:        user.IsAdmin(),
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expiration.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiration),
 		},
 	}
 

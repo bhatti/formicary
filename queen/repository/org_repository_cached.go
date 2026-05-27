@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 )
@@ -10,14 +10,14 @@ import (
 type OrganizationRepositoryCached struct {
 	serverConf *config.ServerConfig
 	adapter    OrganizationRepository
-	cache      *ccache.Cache
+	cache      *ccache.Cache[*common.Organization]
 }
 
 // NewOrganizationRepositoryCached creates new instance for job-definition-repository
 func NewOrganizationRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter OrganizationRepository) (*OrganizationRepositoryCached, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(100))
+	var cache = ccache.New(ccache.Configure[*common.Organization]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &OrganizationRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,
@@ -30,13 +30,13 @@ func (orc *OrganizationRepositoryCached) Get(
 	qc *common.QueryContext,
 	id string) (*common.Organization, error) {
 	item, err := orc.cache.Fetch("Org:"+id,
-		orc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		orc.serverConf.Jobs.DBObjectCache, func() (*common.Organization, error) {
 			return orc.adapter.Get(qc, id)
 		})
 	if err != nil {
 		return nil, err
 	}
-	return item.Value().(*common.Organization), nil
+	return item.Value(), nil
 }
 
 // GetByUnit method finds Organization by unit
@@ -44,13 +44,13 @@ func (orc *OrganizationRepositoryCached) GetByUnit(
 	qc *common.QueryContext,
 	unit string) (*common.Organization, error) {
 	item, err := orc.cache.Fetch("OrgUnit:"+unit,
-		orc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		orc.serverConf.Jobs.DBObjectCache, func() (*common.Organization, error) {
 			return orc.adapter.GetByUnit(qc, unit)
 		})
 	if err != nil {
 		return nil, err
 	}
-	return item.Value().(*common.Organization), nil
+	return item.Value(), nil
 }
 
 // GetByParentID method finds Organization by parent-id

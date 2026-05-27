@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/oklog/ulid/v2"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/async"

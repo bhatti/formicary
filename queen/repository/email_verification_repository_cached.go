@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
@@ -11,14 +11,14 @@ import (
 type EmailVerificationRepositoryCached struct {
 	serverConf *config.ServerConfig
 	adapter    EmailVerificationRepository
-	cache      *ccache.Cache
+	cache      *ccache.Cache[map[string]bool]
 }
 
 // NewEmailVerificationRepositoryCached creates new instance for user-repository
 func NewEmailVerificationRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter EmailVerificationRepository) (EmailVerificationRepository, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(1000))
+	var cache = ccache.New(ccache.Configure[map[string]bool]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &EmailVerificationRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,
@@ -56,13 +56,13 @@ func (urc *EmailVerificationRepositoryCached) GetVerifiedEmails(
 	user *common.User,
 ) map[string]bool {
 	item, err := urc.cache.Fetch("VerifiedEmails:"+user.ID,
-		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		urc.serverConf.Jobs.DBObjectCache, func() (map[string]bool, error) {
 			return urc.adapter.GetVerifiedEmails(qc, user), nil
 		})
 	if err != nil {
 		return make(map[string]bool)
 	}
-	return item.Value().(map[string]bool)
+	return item.Value()
 }
 
 // Query returns matching email verification records

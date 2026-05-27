@@ -11,7 +11,7 @@ import (
 )
 
 // ReservedRequestProperties reserved properties
-const ReservedRequestProperties = "platform,jobType,jobGroup,jobPriority,orgID,userID"
+const ReservedRequestProperties = "platform,jobType,jobGroup,jobPriority,orgID,userID,description"
 
 // ParentJobTypePrefix prefix for forked job id
 const ParentJobTypePrefix = "ParentJobType"
@@ -245,12 +245,44 @@ func (jr *JobRequest) ElapsedDuration() string {
 	return jr.UpdatedAt.Sub(jr.CreatedAt).String()
 }
 
+// ShortID returns first 6 characters of ID
+func (jr *JobRequest) ShortID() string {
+	if len(jr.ID) > 6 {
+		return jr.ID[0:6]
+	}
+	return jr.ID
+}
+
 // ShortUserID short user id
 func (jr *JobRequest) ShortUserID() string {
 	if len(jr.UserID) > 8 {
 		return jr.UserID[0:8] + "..."
 	}
 	return jr.UserID
+}
+
+// DescriptionShort returns description for display in listings.
+// Uses the struct Description field first, falls back to the "Description" param.
+// If the value is a markdown link, returns the full value for hyperlink rendering.
+// Otherwise truncates to 10 characters.
+func (jr *JobRequest) DescriptionShort() string {
+	val := jr.Description
+	if val == "" {
+		nv := jr.GetParam("Description")
+		if nv != nil {
+			val = nv.Value
+		}
+	}
+	if val == "" {
+		return ""
+	}
+	if strings.HasPrefix(val, "[") && strings.Contains(val, "](") {
+		return val
+	}
+	if len(val) > 10 {
+		return val[0:10] + "..."
+	}
+	return val
 }
 
 // IsForkedJob checks if job is forked

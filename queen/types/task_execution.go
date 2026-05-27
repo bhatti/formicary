@@ -81,7 +81,7 @@ type TaskExecution struct {
 }
 
 // TableName overrides default table name
-func (TaskExecution) TableName() string {
+func (*TaskExecution) TableName() string {
 	return "formicary_task_executions"
 }
 

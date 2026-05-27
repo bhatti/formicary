@@ -2,7 +2,7 @@ package web
 
 import (
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -239,8 +239,8 @@ func ParseToken(tokenString, secret string) (*JwtClaims, error) {
 
 // parseToken parses a JWT and returns Claims object
 func parseToken(tokenString string, secret string) (*JwtClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
+	claims := &JwtClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -249,46 +249,13 @@ func parseToken(tokenString string, secret string) (*JwtClaims, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if token.Valid {
-		if claims, ok := token.Claims.(*JwtClaims); ok {
-			return claims, nil
-		}
-		if claimsMap, ok := token.Claims.(jwt.MapClaims); ok {
-			if claimsMap["user_id"] == nil ||
-				claimsMap["username"] == nil ||
-				claimsMap["name"] == nil ||
-				claimsMap["org_id"] == nil ||
-				claimsMap["bundle_id"] == nil ||
-				claimsMap["picture_url"] == nil ||
-				claimsMap["admin"] == nil {
-				return nil, fmt.Errorf("invalid token %v", claimsMap)
-			}
-			claims := &JwtClaims{
-				UserID:       claimsMap["user_id"].(string),
-				UserName:     claimsMap["username"].(string),
-				Name:         claimsMap["name"].(string),
-				OrgID:        claimsMap["org_id"].(string),
-				BundleID:     claimsMap["bundle_id"].(string),
-				PictureURL:   claimsMap["picture_url"].(string),
-				AuthProvider: claimsMap["auth_provider"].(string),
-				Admin:        claimsMap["admin"].(bool),
-			}
-			return claims, nil
-		}
-		return nil, fmt.Errorf("unknown claims for token %v", token.Claims)
-	} else if ve, ok := err.(*jwt.ValidationError); ok {
-		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return nil, err
-		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-			// Token is either expired or not active yet
-			return nil, err
-		} else {
-			return nil, err
-		}
-	} else {
-		return nil, err
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
 	}
+	if c, ok := token.Claims.(*JwtClaims); ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("unknown claims for token %v", token.Claims)
 }
 
 // Strips 'Token' or 'Bearer' prefix from token string

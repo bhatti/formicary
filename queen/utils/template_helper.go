@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"html/template"
 	"math/rand"
+	"net/url"
 	"regexp"
 	"strings"
 )
+
+var markdownLinkRe = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
 // UnescapeHTML flag
 const UnescapeHTML = "UnescapeHTML"
@@ -75,6 +78,26 @@ func TemplateFuncs() template.FuncMap {
 		},
 		"Random": func(min, max int) int {
 			return rand.Intn(max-min) + min
+		},
+		"MarkdownLink": func(s string) template.HTML {
+			if s == "" {
+				return ""
+			}
+			matches := markdownLinkRe.FindStringSubmatch(s)
+			if matches == nil {
+				return template.HTML(template.HTMLEscapeString(s))
+			}
+			text := template.HTMLEscapeString(matches[1])
+			rawURL := matches[2]
+			parsed, err := url.Parse(rawURL)
+			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return template.HTML(template.HTMLEscapeString(s))
+			}
+			if strings.Contains(strings.ToLower(rawURL), "javascript:") {
+				return template.HTML(template.HTMLEscapeString(s))
+			}
+			return template.HTML(fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>`,
+				template.HTMLEscapeString(parsed.String()), text))
 		},
 	}
 }

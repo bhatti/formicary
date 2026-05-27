@@ -14,6 +14,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	dockerimage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
@@ -84,7 +85,7 @@ func (u *Utils) Execute(
 	} else {
 		cmds = []string{"/bin/sh", "-c", cmd}
 	}
-	execConfig := types.ExecConfig{
+	execConfig := container.ExecOptions{
 		AttachStdin:  false,
 		AttachStderr: true,
 		AttachStdout: true,
@@ -120,7 +121,7 @@ func (u *Utils) Execute(
 		return info, fmt.Errorf("failed to create execution %s due to %w", cmd, err)
 	}
 
-	execStartCheck := types.ExecStartCheck{
+	execStartOpts := container.ExecStartOptions{
 		Detach: false,
 		Tty:    false,
 	}
@@ -135,10 +136,10 @@ func (u *Utils) Execute(
 			return info, fmt.Errorf("failed to execute (ContainerStart) %s due to %w", cmd, err)
 		}
 	} else {
-		if hijack, err = u.cli.ContainerExecAttach(ctx, resp.ID, execStartCheck); err != nil {
+		if hijack, err = u.cli.ContainerExecAttach(ctx, resp.ID, execStartOpts); err != nil {
 			return info, fmt.Errorf("failed to attach to container %s due to %w", cmd, err)
 		}
-		if err := u.cli.ContainerExecStart(ctx, resp.ID, execStartCheck); err != nil {
+		if err := u.cli.ContainerExecStart(ctx, resp.ID, execStartOpts); err != nil {
 			return info, fmt.Errorf("failed to start execution %s due to %w", cmd, err)
 		}
 	}
@@ -149,9 +150,8 @@ func (u *Utils) Execute(
 	//}
 	info.Hijack = hijack
 	info.ID = resp.ID
-	if containerInfo.Node != nil {
-		info.HostName = containerInfo.Node.Addr
-		info.IPAddress = containerInfo.Node.IPAddress
+	if containerInfo.NetworkSettings != nil {
+		info.IPAddress = containerInfo.NetworkSettings.IPAddress
 	}
 	return
 }
@@ -323,7 +323,7 @@ func (u *Utils) Pull(ctx context.Context, image string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	//
-	options := types.ImagePullOptions{}
+	options := dockerimage.PullOptions{}
 	if strings.Contains(image, u.config.Server) {
 		options.RegistryAuth = base64.URLEncoding.EncodeToString(buf.Bytes())
 	}

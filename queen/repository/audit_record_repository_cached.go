@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
 )
@@ -10,14 +10,14 @@ import (
 type AuditRecordRepositoryCached struct {
 	serverConf *config.ServerConfig
 	adapter    AuditRecordRepository
-	cache      *ccache.Cache
+	cache      *ccache.Cache[[]types.AuditKind]
 }
 
 // NewAuditRecordRepositoryCached creates new instance for user-repository
 func NewAuditRecordRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter AuditRecordRepository) (AuditRecordRepository, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(1000))
+	var cache = ccache.New(ccache.Configure[[]types.AuditKind]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &AuditRecordRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,
@@ -28,13 +28,13 @@ func NewAuditRecordRepositoryCached(
 // GetKinds method finds kinds of AuditRecords
 func (arcu *AuditRecordRepositoryCached) GetKinds() ([]types.AuditKind, error) {
 	item, err := arcu.cache.Fetch("Kinds",
-		arcu.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		arcu.serverConf.Jobs.DBObjectCache, func() ([]types.AuditKind, error) {
 			return arcu.adapter.GetKinds()
 		})
 	if err != nil {
 		return nil, err
 	}
-	return item.Value().([]types.AuditKind), nil
+	return item.Value(), nil
 }
 
 // Query queries audit-record by parameters

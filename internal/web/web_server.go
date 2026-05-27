@@ -2,8 +2,10 @@ package web
 
 import (
 	"fmt"
-	"github.com/didip/tollbooth"
-	"github.com/didip/tollbooth/limiter"
+	"github.com/didip/tollbooth/v7"
+	"github.com/didip/tollbooth/v7/limiter"
+	"github.com/golang-jwt/jwt/v5"
+	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
@@ -76,18 +78,20 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 	}
 	if commonCfg.Auth.Enabled {
 		// TODO add check for revoked token **** MUST ****
-		apiConfig := middleware.JWTConfig{
-			Claims:       &JwtClaims{},
-			SigningKey:   []byte(commonCfg.Auth.JWTSecret),
-			TokenLookup:  "header:Authorization",
-			ErrorHandler: mapAuthErrors,
+		apiConfig := echojwt.Config{
+			NewClaimsFunc: func(c echo.Context) jwt.Claims { return &JwtClaims{} },
+			SigningKey:    []byte(commonCfg.Auth.JWTSecret),
+			TokenLookup:   "header:Authorization",
+			ErrorHandler: func(c echo.Context, err error) error {
+				return mapAuthErrors(err)
+			},
 		}
 
-		dashboardConfig := middleware.JWTConfig{
-			Claims:      &JwtClaims{},
-			SigningKey:  []byte(commonCfg.Auth.JWTSecret),
-			TokenLookup: "cookie:" + commonCfg.Auth.CookieName,
-			ErrorHandlerWithContext: func(err error, c echo.Context) error {
+		dashboardConfig := echojwt.Config{
+			NewClaimsFunc: func(c echo.Context) jwt.Claims { return &JwtClaims{} },
+			SigningKey:    []byte(commonCfg.Auth.JWTSecret),
+			TokenLookup:   "cookie:" + commonCfg.Auth.CookieName,
+			ErrorHandler: func(c echo.Context, err error) error {
 				// Redirects to the login form.
 				authCookie, _ := c.Cookie(commonCfg.Auth.CookieName)
 				logrus.WithFields(logrus.Fields{
@@ -101,11 +105,11 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 		}
 
 		ws.apiGroup = ws.e.Group("/api")
-		ws.apiGroup.Use(middleware.JWTWithConfig(apiConfig))
+		ws.apiGroup.Use(echojwt.WithConfig(apiConfig))
 		ws.apiGroup.Use(rateLimitMiddleware(commonCfg.RateLimitPerSecond))
 
 		ws.dashboardGroup = ws.e.Group("/dashboard")
-		ws.dashboardGroup.Use(middleware.JWTWithConfig(dashboardConfig))
+		ws.dashboardGroup.Use(echojwt.WithConfig(dashboardConfig))
 		ws.dashboardGroup.Use(rateLimitMiddleware(commonCfg.RateLimitPerSecond * 2))
 	}
 

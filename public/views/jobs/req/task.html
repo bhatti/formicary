@@ -152,7 +152,7 @@
       </thead>
       <tbody>
       {{range .Task.Contexts}}
-      <tr><td class="fw-semibold">{{.Name}}</td><td>{{.Value}}</td></tr>
+      <tr><td class="fw-semibold">{{.Name}}</td><td>{{MarkdownLink .Value}}</td></tr>
       {{end}}
       </tbody>
     </table>

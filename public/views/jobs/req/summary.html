@@ -47,7 +47,7 @@
           <dt class="col-5 text-secondary">Job Type</dt>
           <dd class="col-7"><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.JobTypeAndVersion}}</a></dd>
           <dt class="col-5 text-secondary">Description</dt>
-          <dd class="col-7">{{.Description}}</dd>
+          <dd class="col-7">{{MarkdownLink .Description}}</dd>
           <dt class="col-5 text-secondary">Platform</dt>
           <dd class="col-7">{{.Platform}}</dd>
           <dt class="col-5 text-secondary">Group</dt>
@@ -139,7 +139,7 @@
       </thead>
       <tbody>
       {{range .Params}}
-      <tr><td class="fw-semibold">{{.Name}}</td><td>{{.Value}}</td></tr>
+      <tr><td class="fw-semibold">{{.Name}}</td><td>{{MarkdownLink .Value}}</td></tr>
       {{end}}
       </tbody>
     </table>
@@ -147,6 +147,7 @@
 </div>
 {{end}}
 
+{{$req := .}}
 {{ with .Execution }}
 <div class="card mb-3">
   <div class="card-header"><h3 class="card-title">Job Execution</h3></div>
@@ -223,8 +224,49 @@
       <tbody>
       {{range .Contexts}}
       {{if .IsNameRegular}}
-      <tr><td class="fw-semibold">{{.Name}}</td><td>{{.Value}}</td></tr>
+      <tr><td class="fw-semibold">{{.Name}}</td><td>{{MarkdownLink .Value}}</td></tr>
       {{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+{{if .Tasks}}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Job &amp; Task Timeline</h3></div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-sm card-table">
+      <thead class="table-dark">
+        <tr><th>Name</th><th>Type</th><th>Created/Started</th><th>Started/Completed</th><th>Status</th><th>Duration</th></tr>
+      </thead>
+      <tbody>
+      <tr class="table-secondary">
+        <td class="fw-semibold">Job</td>
+        <td>{{$req.JobType}}</td>
+        <td>{{$req.CreatedAt}}</td>
+        <td>{{.StartedAt}}</td>
+        <td>
+          {{if .Completed}}<span class="badge badge-success">{{.JobState}}</span>
+          {{else if .Failed}}<span class="badge badge-failed">{{.JobState}}</span>
+          {{else}}<span class="badge badge-pending">{{.JobState}}</span>{{end}}
+        </td>
+        <td>{{.ElapsedDuration}}</td>
+      </tr>
+      {{range .Tasks}}
+      <tr>
+        <td class="fw-semibold">{{.TaskType}}</td>
+        <td>{{.Method}}</td>
+        <td>{{.StartedAt}}</td>
+        <td>{{if .EndedAt}}{{.EndedAt}}{{end}}</td>
+        <td>
+          {{if .Completed}}<span class="badge badge-success">{{.TaskState}}</span>
+          {{else if .Failed}}<span class="badge badge-failed">{{.TaskState}}</span>
+          {{else}}<span class="badge badge-pending">{{.TaskState}}</span>{{end}}
+        </td>
+        <td>{{.ElapsedDuration}}</td>
+      </tr>
       {{end}}
       </tbody>
     </table>

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"sort"
@@ -11,14 +11,14 @@ import (
 type ErrorCodeRepositoryCached struct {
 	serverConf *config.ServerConfig
 	adapter    *ErrorCodeRepositoryImpl
-	cache      *ccache.Cache
+	cache      *ccache.Cache[[]*common.ErrorCode]
 }
 
 // NewErrorCodeRepositoryCached creates new instance for error-code-repository
 func NewErrorCodeRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter *ErrorCodeRepositoryImpl) (*ErrorCodeRepositoryCached, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(200))
+	var cache = ccache.New(ccache.Configure[[]*common.ErrorCode]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &ErrorCodeRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,
@@ -151,7 +151,7 @@ func (ecc *ErrorCodeRepositoryCached) getAll(
 ) (errorCodes []*common.ErrorCode, err error) {
 	if qc.GetUserID() == "" && qc.GetOrganizationID() == "" {
 		item, err := ecc.cache.Fetch("errorCodes",
-			ecc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+			ecc.serverConf.Jobs.DBObjectCache, func() ([]*common.ErrorCode, error) {
 				all, err := ecc.adapter.GetAll(qc)
 				if err != nil {
 					return nil, err
@@ -162,7 +162,7 @@ func (ecc *ErrorCodeRepositoryCached) getAll(
 		if err != nil {
 			return nil, err
 		}
-		return item.Value().([]*common.ErrorCode), nil
+		return item.Value(), nil
 	}
 	all, err := ecc.adapter.GetAll(qc)
 	if err != nil {

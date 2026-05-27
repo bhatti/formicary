@@ -2,7 +2,7 @@ package manager
 
 import (
 	"fmt"
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	"plexobject.com/formicary/internal/health"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
@@ -21,7 +21,7 @@ type DashboardManager struct {
 	jobStatsRegistry  *stats.JobStatsRegistry
 	resourceManager   resource.Manager
 	heathMonitor      *health.Monitor
-	cache             *ccache.Cache
+	cache             *ccache.Cache[any]
 }
 
 // HealthStatusResponse response
@@ -38,7 +38,7 @@ func NewDashboardManager(
 	resourceManager resource.Manager,
 	heathMonitor *health.Monitor,
 ) *DashboardManager {
-	var cache = ccache.New(ccache.Configure().MaxSize(2000).ItemsToPrune(200))
+	var cache = ccache.New(ccache.Configure[any]().MaxSize(2000))
 	return &DashboardManager{
 		serverCfg:         serverCfg,
 		repositoryFactory: repositoryFactory,
@@ -151,7 +151,7 @@ func (s *DashboardManager) GetJobTypes(
 ) ([]types.JobTypeCronTrigger, error) {
 	key := fmt.Sprintf("GetJobTypes:%s", qc.String())
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache, func() (any, error) {
 			return s.repositoryFactory.JobDefinitionRepository.GetJobTypesAndCronTrigger(qc)
 		})
 	if err != nil {
@@ -212,7 +212,7 @@ func (s *DashboardManager) JobCounts(
 	end time.Time) ([]*types.JobCounts, error) {
 	key := fmt.Sprintf("JobCounts:%s:%s:%s", qc, start.Format("Jan _2"), end.Format("Jan _2"))
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache, func() (any, error) {
 			return s.repositoryFactory.JobRequestRepository.JobCounts(qc, start, end)
 		})
 	if err != nil {
@@ -224,7 +224,7 @@ func (s *DashboardManager) JobCounts(
 // OrgCounts - finds org counts
 func (s *DashboardManager) OrgCounts() (int64, error) {
 	item, err := s.cache.Fetch("OrgCounts",
-		s.serverCfg.Jobs.DBObjectCache*2, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache*2, func() (any, error) {
 			params := make(map[string]interface{})
 			return s.repositoryFactory.OrgRepository.Count(
 				common.NewQueryContext(nil, ""),
@@ -242,7 +242,7 @@ func (s *DashboardManager) JobDefinitionCounts(
 ) (int64, error) {
 	key := fmt.Sprintf("JobDefinitionCounts:%s", qc.String())
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache, func() (any, error) {
 			params := map[string]interface{}{"public_plugin": false}
 			return s.repositoryFactory.JobDefinitionRepository.Count(qc, params)
 		})
@@ -257,7 +257,7 @@ func (s *DashboardManager) PluginCounts() (int64, error) {
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	key := fmt.Sprintf("PluginCounts:%s", qc.String())
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache, func() (any, error) {
 			params := map[string]interface{}{"public_plugin": true}
 			return s.repositoryFactory.JobDefinitionRepository.Count(qc, params)
 		})
@@ -273,7 +273,7 @@ func (s *DashboardManager) UserCounts(
 ) (int64, error) {
 	key := fmt.Sprintf("UserCounts:%s", qc.String())
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache*2, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache*2, func() (any, error) {
 			params := make(map[string]interface{})
 			return s.repositoryFactory.UserRepository.Count(qc, params)
 		})
@@ -290,7 +290,7 @@ func (s *DashboardManager) JobCountsByDays(
 ) ([]*types.JobCountsByDay, error) {
 	key := fmt.Sprintf("JobCountsByDays:%s:%d", qc, limit)
 	item, err := s.cache.Fetch(key,
-		s.serverCfg.Jobs.DBObjectCache, func() (interface{}, error) {
+		s.serverCfg.Jobs.DBObjectCache, func() (any, error) {
 			counts, err := s.repositoryFactory.JobRequestRepository.JobCountsByDays(qc, limit)
 			if err != nil {
 				return nil, err

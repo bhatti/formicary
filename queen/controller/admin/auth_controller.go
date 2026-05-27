@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/golang-jwt/jwt/v5"
+	echojwt "github.com/labstack/echo-jwt/v4"
 
 	"plexobject.com/formicary/queen/types"
 
@@ -60,17 +61,17 @@ func NewAuthController(
 			ac.providerAuthCallback,
 			acl.NewPermission(acl.User, acl.Login)).Name = "provider_auth_callback"
 		if authProvider.AuthWebhookCallbackURL() != "" {
-			apiConfig := middleware.JWTConfig{
-				Claims:      &web.JwtClaims{},
-				SigningKey:  []byte(commonCfg.Auth.JWTSecret),
-				TokenLookup: "query:authorization",
+			apiConfig := echojwt.Config{
+				NewClaimsFunc: func(c echo.Context) jwt.Claims { return &web.JwtClaims{} },
+				SigningKey:    []byte(commonCfg.Auth.JWTSecret),
+				TokenLookup:   "query:authorization",
 			}
 
 			webServer.POST(
 				authProvider.AuthWebhookCallbackURL(),
 				authProvider.AuthWebhookCallbackHandle,
 				acl.NewPermission(acl.User, acl.Login),
-				middleware.JWTWithConfig(apiConfig)).Name = "provider_auth_webhook_callback"
+				echojwt.WithConfig(apiConfig)).Name = "provider_auth_webhook_callback"
 		}
 	}
 

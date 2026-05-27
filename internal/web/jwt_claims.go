@@ -1,6 +1,6 @@
 package web
 
-import "github.com/dgrijalva/jwt-go"
+import "github.com/golang-jwt/jwt/v5"
 
 // JwtClaims claims within JWT token
 type JwtClaims struct {
@@ -12,5 +12,5 @@ type JwtClaims struct {
 	PictureURL   string `json:"picture_url"`
 	AuthProvider string `json:"auth_provider"`
 	Admin        bool   `json:"admin"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }

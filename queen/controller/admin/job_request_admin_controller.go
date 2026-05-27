@@ -293,6 +293,7 @@ func (jraCtr *JobRequestAdminController) dotImageJobRequest(c web.APIContext) er
 func buildRequest(c web.APIContext) *types.JobRequest {
 	request := types.NewRequest()
 	request.Platform = c.FormValue("platform")
+	request.Description = c.FormValue("description")
 	request.JobType = c.FormValue("jobType")
 	request.JobGroup = c.FormValue("jobGroup")
 	request.JobPriority, _ = strconv.Atoi(c.FormValue("jobPriority"))

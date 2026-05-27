@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/types"
@@ -12,7 +12,7 @@ import (
 type UserRepositoryCached struct {
 	serverConf     *config.ServerConfig
 	adapter        UserRepository
-	cache          *ccache.Cache
+	cache          *ccache.Cache[*common.User]
 	lock           sync.RWMutex
 	orgIDToUserIDs map[string][]string
 }
@@ -21,7 +21,7 @@ type UserRepositoryCached struct {
 func NewUserRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter UserRepository) (*UserRepositoryCached, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(1000))
+	var cache = ccache.New(ccache.Configure[*common.User]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &UserRepositoryCached{
 		adapter:        adapter,
 		serverConf:     serverConf,
@@ -35,13 +35,13 @@ func (urc *UserRepositoryCached) Get(
 	qc *common.QueryContext,
 	id string) (user *common.User, err error) {
 	item, err := urc.cache.Fetch("User:"+id+qc.String(),
-		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		urc.serverConf.Jobs.DBObjectCache, func() (*common.User, error) {
 			return urc.adapter.Get(qc, id)
 		})
 	if err != nil {
 		return nil, err
 	}
-	user = item.Value().(*common.User)
+	user = item.Value()
 	urc.addUserOrgMapping(user)
 	return
 }
@@ -51,13 +51,13 @@ func (urc *UserRepositoryCached) GetByUsername(
 	qc *common.QueryContext,
 	username string) (user *common.User, err error) {
 	item, err := urc.cache.Fetch("Username:"+username+qc.String(),
-		urc.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		urc.serverConf.Jobs.DBObjectCache, func() (*common.User, error) {
 			return urc.adapter.GetByUsername(qc, username)
 		})
 	if err != nil {
 		return nil, err
 	}
-	user = item.Value().(*common.User)
+	user = item.Value()
 	urc.addUserOrgMapping(user)
 	return
 }

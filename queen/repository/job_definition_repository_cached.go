@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 
@@ -12,14 +12,14 @@ import (
 type JobDefinitionRepositoryCached struct {
 	serverConf *config.ServerConfig
 	adapter    JobDefinitionRepository
-	cache      *ccache.Cache
+	cache      *ccache.Cache[any]
 }
 
 // NewJobDefinitionRepositoryCached creates new instance for job-definition-repository
 func NewJobDefinitionRepositoryCached(
 	serverConf *config.ServerConfig,
 	adapter JobDefinitionRepository) (JobDefinitionRepository, error) {
-	var cache = ccache.New(ccache.Configure().MaxSize(serverConf.Jobs.DBObjectCacheSize).ItemsToPrune(100))
+	var cache = ccache.New(ccache.Configure[any]().MaxSize(serverConf.Jobs.DBObjectCacheSize))
 	return &JobDefinitionRepositoryCached{
 		adapter:    adapter,
 		serverConf: serverConf,
@@ -32,7 +32,7 @@ func (jdr *JobDefinitionRepositoryCached) Get(
 	qc *common.QueryContext,
 	id string) (*types.JobDefinition, error) {
 	item, err := jdr.cache.Fetch("jobDefinitionGet:"+id+qc.String(),
-		jdr.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		jdr.serverConf.Jobs.DBObjectCache, func() (any, error) {
 			return jdr.adapter.Get(qc, id)
 		})
 	if err != nil {
@@ -54,7 +54,7 @@ func (jdr *JobDefinitionRepositoryCached) GetByType(
 	qc *common.QueryContext,
 	jobType string) (*types.JobDefinition, error) {
 	item, err := jdr.cache.Fetch("jobDefinitionByType:"+jobType+qc.String(),
-		jdr.serverConf.Jobs.DBObjectCache, func() (interface{}, error) {
+		jdr.serverConf.Jobs.DBObjectCache, func() (any, error) {
 			return jdr.adapter.GetByType(qc, jobType)
 		})
 	if err != nil {
@@ -67,7 +67,7 @@ func (jdr *JobDefinitionRepositoryCached) GetByType(
 func (jdr *JobDefinitionRepositoryCached) GetJobTypesAndCronTrigger(
 	qc *common.QueryContext) ([]types.JobTypeCronTrigger, error) {
 	item, err := jdr.cache.Fetch("jobDefinitionsTypesAndCronTrigger:"+qc.String(),
-		jdr.serverConf.Jobs.DBObjectCache*2, func() (interface{}, error) {
+		jdr.serverConf.Jobs.DBObjectCache*2, func() (any, error) {
 			return jdr.adapter.GetJobTypesAndCronTrigger(qc)
 		})
 	if err != nil {
