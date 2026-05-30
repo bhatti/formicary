@@ -177,6 +177,19 @@ func (rs RequestState) Done() bool {
 	return rs == FAILED || rs == COMPLETED || rs == CANCELLED
 }
 
+// IsKnown returns true if the state is a valid, recognised RequestState constant.
+// Used to validate state strings passed from templates before forwarding to the database.
+func (rs RequestState) IsKnown() bool {
+	switch rs {
+	case PENDING, READY, COMPLETED, FAILED, EXECUTING, STARTED, CANCELLED,
+		PAUSED, MANUAL_APPROVAL_REQUIRED, HISTORY, RUNNING, WAITING,
+		FATAL, RESTART_JOB, PAUSE_JOB, WAIT_FOR_APPROVAL, RESTART_TASK,
+		APPROVED, REJECTED, RESERVED, DELETED, UNKNOWN:
+		return true
+	}
+	return false
+}
+
 // Unknown status
 func (rs RequestState) Unknown() bool {
 	return rs != FAILED &&

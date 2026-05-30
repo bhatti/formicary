@@ -211,6 +211,12 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 	if err != nil {
 		return err
 	}
+	logrus.WithFields(logrus.Fields{
+		"JobType": request.JobType,
+		"UserKey": request.UserKey,
+		"UserID":  request.UserID,
+		"OrgID":   request.OrganizationID,
+	}).Debugf("[cron-dedup] scheduleCronRequest called")
 	executing := jm.GetExecutionCount(request)
 	if executing > 0 {
 		logrus.WithFields(logrus.Fields{
@@ -242,16 +248,20 @@ func (jm *JobManager) scheduleCronRequest(jobDefinition *types.JobDefinition, ol
 		request.OrganizationID = oldReq.GetOrganizationID()
 	}
 
-	if _, err := jm.SaveJobRequest(qc, request); err != nil {
-		if !strings.Contains(err.Error(), "Duplicate entry") {
-			logrus.WithFields(logrus.Fields{
-				"JobRequestID": request.ID,
-				"UserKey":      request.UserKey,
-				"JobType":      request.JobType,
-				"Error":        err,
-			}).Warnf("failed to schedule job after updating job-definition")
-			return err
+	if request.UserKey != "" {
+		if existing, _ := jm.jobRequestRepository.GetByUserKey(qc.WithAdmin(), request.UserKey); existing != nil {
+			return nil // cron job for this schedule already exists
 		}
+	}
+
+	if _, err := jm.SaveJobRequest(qc, request); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"JobRequestID": request.ID,
+			"UserKey":      request.UserKey,
+			"JobType":      request.JobType,
+			"Error":        err,
+		}).Warnf("failed to schedule cron job")
+		return err
 	}
 	return nil
 }
@@ -1017,6 +1027,90 @@ func (jm *JobManager) GetExecutionCount(key types.UserJobTypeKey) int32 {
 	return jm.jobStatsRegistry.GetExecutionCount(key)
 }
 
+// CountByJobTypeAndState counts job-requests matching a job-type and one or more states.
+func (jm *JobManager) CountByJobTypeAndState(jobType string, states ...common.RequestState) (int64, error) {
+	return jm.jobRequestRepository.CountByJobTypeAndState(jobType, states...)
+}
+
+// CountByJobTypeAndStateStrings satisfies utils.JobCountQuerier for use in skip_if templates.
+// It uppercases each state string and validates it against the known RequestState values so
+// that a typo in a skip_if expression returns an error rather than silently returning 0.
+func (jm *JobManager) CountByJobTypeAndStateStrings(jobType string, states ...string) (int64, error) {
+	reqStates := make([]common.RequestState, 0, len(states))
+	for _, s := range states {
+		rs := common.NewRequestState(s) // normalises to upper-case
+		if !rs.IsKnown() {
+			return 0, fmt.Errorf("unknown job state %q in CountByJobTypeAndState", s)
+		}
+		reqStates = append(reqStates, rs)
+	}
+	return jm.jobRequestRepository.CountByJobTypeAndState(jobType, reqStates...)
+}
+
+// SubmitJob satisfies utils.JobTemplateHelper: it creates and saves a new job request
+// from a template expression (e.g. via SubmitJob / SubmitJobIfCapacity template functions).
+// It uses a system-level QueryContext (same pattern as scheduleCronRequest) so that
+// calls from the template engine — which has no user HTTP context — are still accepted.
+func (jm *JobManager) SubmitJob(jobType string, description string, params map[string]string) (uint64, error) {
+	request := types.NewRequest()
+	request.JobType = jobType
+	request.Description = description
+	for k, v := range params {
+		if k == "_user_key" {
+			// _user_key is a special sentinel — set as UserKey for dedup, not stored as a param.
+			request.UserKey = v
+			continue
+		}
+		if _, err := request.AddParam(k, v); err != nil {
+			return 0, fmt.Errorf("SubmitJob: invalid param %q: %w", k, err)
+		}
+	}
+	// Use an empty (system) query context — no user/org scoping for template-triggered submissions.
+	qc := common.NewQueryContextFromIDs("", "")
+
+	saved, err := jm.SaveJobRequest(qc, request)
+	if err != nil {
+		isDuplicate := strings.Contains(err.Error(), "Duplicate entry") ||
+			strings.Contains(err.Error(), "UNIQUE constraint failed")
+		if isDuplicate && request.UserKey != "" {
+			if existing, lookupErr := jm.jobRequestRepository.GetByUserKey(qc.WithAdmin(), request.UserKey); lookupErr == nil {
+				logrus.WithFields(logrus.Fields{
+					"Component":  "JobManager",
+					"JobType":    jobType,
+					"UserKey":    request.UserKey,
+					"ExistingID": existing.ID,
+					"JobState":   existing.JobState,
+				}).Infof("SubmitJob: duplicate UserKey, returning existing job")
+				return hashULIDToUint64(existing.ID), nil
+			}
+		}
+		return 0, fmt.Errorf("SubmitJob: SaveJobRequest failed for job-type %q: %w", jobType, err)
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component":   "JobManager",
+		"JobType":     jobType,
+		"Description": description,
+		"UserKey":     request.UserKey,
+		"JobID":       saved.ID,
+	}).Infof("submitted job via template SubmitJob")
+	// Convert the string ULID ID to uint64 for the interface.
+	// SaveJobRequest sets ID to a ULID string; we return a stable uint64 by hashing.
+	// For template use a simple incrementing approach is fine — use the DB row ID if
+	// the repository exposes it, otherwise hash the ULID.
+	return hashULIDToUint64(saved.ID), nil
+}
+
+// hashULIDToUint64 converts a ULID/string ID to a uint64 for template display.
+// It uses a simple FNV-1a hash — collisions are astronomically unlikely for job IDs.
+func hashULIDToUint64(id string) uint64 {
+	var h uint64 = 14695981039346656037
+	for i := 0; i < len(id); i++ {
+		h ^= uint64(id[i])
+		h *= 1099511628211
+	}
+	return h
+}
+
 // UserOrgExecuting return count of executing jobs by user and org
 func (jm *JobManager) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {
 	return jm.jobStatsRegistry.UserOrgExecuting(req)
@@ -1052,11 +1146,12 @@ func (jm *JobManager) TriggerJobRequest(
 	return
 }
 
-// RestartJobRequest - restarts job
+// RestartJobRequest - restarts job; hard=true forces all tasks to re-run from scratch
 func (jm *JobManager) RestartJobRequest(
 	qc *common.QueryContext,
-	id string) (err error) {
-	if err = jm.jobRequestRepository.Restart(qc, id); err == nil {
+	id string,
+	hard bool) (err error) {
+	if err = jm.jobRequestRepository.Restart(qc, id, hard); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			jm.metricsRegistry.Incr("job_restarted_total", map[string]string{"JobType": req.JobType})
 			_ = jm.fireJobRequestChange(req)

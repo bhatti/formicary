@@ -76,7 +76,9 @@ func (scr *OrganizationConfigRepositoryImpl) Save(
 	if err != nil {
 		return nil, common.NewValidationError(err)
 	}
-	config.OrganizationID = qc.GetOrganizationID()
+	if qc.GetOrganizationID() != "" {
+		config.OrganizationID = qc.GetOrganizationID()
+	}
 	err = scr.db.Transaction(func(tx *gorm.DB) error {
 		var res *gorm.DB
 		old, _ := scr.get(config.OrganizationID, config.Name)

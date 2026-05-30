@@ -421,6 +421,23 @@ func (m *UserManager) DeleteOrganization(
 	return m.orgRepository.Delete(qc, id)
 }
 
+// GetOrgConfigs returns all org configs for the given org ID.
+// Used by the job FSM to populate template variables for cron jobs that run
+// without an authenticated user (auth disabled or system-triggered jobs).
+func (m *UserManager) GetOrgConfigs(orgID string) ([]*common.OrganizationConfig, error) {
+	if orgID == "" {
+		return nil, nil
+	}
+	qc := common.NewQueryContextFromIDs("", orgID)
+	recs, _, err := m.orgConfigRepository.Query(qc, nil, 0, 200, nil)
+	return recs, err
+}
+
+// SaveOrgConfig saves a single org config. Used in tests and the org config controller.
+func (m *UserManager) SaveOrgConfig(qc *common.QueryContext, cfg *common.OrganizationConfig) (*common.OrganizationConfig, error) {
+	return m.orgConfigRepository.Save(qc, cfg)
+}
+
 // QueryOrgs find orgs
 func (m *UserManager) QueryOrgs(
 	qc *common.QueryContext,

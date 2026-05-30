@@ -97,6 +97,11 @@ type JobRequestRepository interface {
 	CountByOrgAndState(
 		org string,
 		state common.RequestState) (totalRecords int64, err error)
+	// CountByJobTypeAndState counts jobs matching given job-type and one or more states.
+	// States may be passed as a single comma-separated string (e.g. "PENDING,EXECUTING") or
+	// as individual common.RequestState values. Returns 0 on error so callers can use it
+	// safely inside skip_if templates.
+	CountByJobTypeAndState(jobType string, states ...common.RequestState) (int64, error)
 	// Cancel - cancel a job
 	Cancel(
 		qc *common.QueryContext,
@@ -108,10 +113,11 @@ type JobRequestRepository interface {
 	Trigger(
 		qc *common.QueryContext,
 		id string) error
-	// Restart restarts a job
+	// Restart restarts a job; hard=true sets hard_restart so all tasks re-run from scratch
 	Restart(
 		qc *common.QueryContext,
-		id string) error
+		id string,
+		hard bool) error
 	// Delete removes a job
 	Delete(
 		qc *common.QueryContext,

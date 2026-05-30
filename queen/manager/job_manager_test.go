@@ -64,6 +64,34 @@ func Test_ShouldNotThrowErrorWhenSavingCronJobDefinitionAgain(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Test_ShouldCountByJobTypeAndStateStringsValidation verifies that CountByJobTypeAndStateStrings
+// rejects unknown state strings rather than silently forwarding them to the database.
+func Test_ShouldCountByJobTypeAndStateStringsValidation(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, _, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+
+	// WHEN: a valid state is provided
+	_, err = jobManager.CountByJobTypeAndStateStrings("any-job", "PENDING")
+	// THEN: no validation error
+	require.NoError(t, err)
+
+	// WHEN: a lowercase state is provided (should be normalised to upper-case)
+	_, err = jobManager.CountByJobTypeAndStateStrings("any-job", "pending")
+	require.NoError(t, err)
+
+	// WHEN: an unknown state string is provided
+	_, err = jobManager.CountByJobTypeAndStateStrings("any-job", "PENDIN") // typo
+	// THEN: an error is returned so skip_if misconfiguration is surfaced
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "PENDIN")
+
+	// WHEN: multiple states are provided and one is invalid
+	_, err = jobManager.CountByJobTypeAndStateStrings("any-job", "PENDING", "BOGUS")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "BOGUS")
+}
+
 func verifyAutomaticallyCreatedJobRequest(
 	t *testing.T,
 	jobRequestRepository *repository.JobRequestRepositoryImpl,

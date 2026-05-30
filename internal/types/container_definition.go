@@ -5,11 +5,19 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	domain "plexobject.com/formicary/gen/go/formicary/v1/domain"
 	"reflect"
 	"strings"
 )
 
-// ContainerDefinition defines container config
+// EnvFromSource is a type alias for the proto-generated type.
+// Loads all keys from a Kubernetes Secret or ConfigMap as environment variables.
+type EnvFromSource = domain.EnvFromSource
+
+// EnvVarSource is a type alias for the proto-generated type.
+// References a single key from a Secret or ConfigMap as a named env var.
+type EnvVarSource = domain.EnvVarSource
+
 type ContainerDefinition struct {
 	Image                   string      `json:"image" yaml:"image"`
 	ImageDefinition         Image       `json:"imageDefinition,omitempty" yaml:"imageDefinition,omitempty"`
@@ -24,13 +32,18 @@ type ContainerDefinition struct {
 	MemoryRequest           string      `json:"memory_request,omitempty" yaml:"memory_request,omitempty"`
 	EphemeralStorageLimit   string      `json:"ephemeral_storage_limit,omitempty" yaml:"ephemeral_storage_limit,omitempty"`
 	EphemeralStorageRequest string      `json:"ephemeral_storage_request,omitempty" yaml:"ephemeral_storage_request,omitempty"`
+	ServiceAccount          string      `json:"service_account,omitempty" yaml:"service_account,omitempty"`
+	EnvFrom                 []*EnvFromSource `json:"env_from,omitempty" yaml:"env_from,omitempty"`
+	EnvValueFrom            []*EnvVarSource  `json:"env_value_from,omitempty" yaml:"env_value_from,omitempty"`
 }
 
 // NewContainerDefinition constructor
 func NewContainerDefinition() *ContainerDefinition {
 	return &ContainerDefinition{
-		VolumesFrom: make([]string, 0),
-		Devices:     make([]string, 0),
+		VolumesFrom:  make([]string, 0),
+		Devices:      make([]string, 0),
+		EnvFrom:      make([]*EnvFromSource, 0),
+		EnvValueFrom: make([]*EnvVarSource, 0),
 	}
 }
 

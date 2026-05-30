@@ -470,6 +470,7 @@ func (u *Utils) BuildPod(
 				serviceLimits,
 				volumeMounts,
 				buildVariables(&u.config.Kubernetes, opts, false, envMap),
+				nil, // services don't inherit main container envFrom
 				privileged)
 			podServices = append(podServices, podService)
 			serviceNames = append(serviceNames, podService.Name)
@@ -536,6 +537,7 @@ func (u *Utils) BuildPod(
 			limits,
 			volumeMounts,
 			buildVariables(&u.config.Kubernetes, opts, false, nil),
+			buildEnvFrom(opts.MainContainer.EnvFrom),
 			privileged)
 		podServices = append(podServices, mainContainer)
 		//serviceNames = append(serviceNames, opts.Name)
@@ -615,6 +617,7 @@ func (u *Utils) BuildPod(
 			helperLimits,
 			volumeMounts,
 			buildVariables(&u.config.Kubernetes, opts, true, nil),
+			buildEnvFrom(opts.HelperContainer.EnvFrom),
 			privileged)
 		podServices = append(podServices, helperContainer)
 		//serviceNames = append(serviceNames, helperName)
@@ -661,6 +664,7 @@ func (u *Utils) BuildPod(
 
 	podConfig, err := preparePodConfig(
 		u.config,
+		resolveServiceAccount(&u.config.Kubernetes, opts),
 		opts.Name,
 		podServices,
 		labels,
@@ -676,7 +680,7 @@ func (u *Utils) BuildPod(
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":    "KubernetesAdapter",
-			"POD":          podConfig.Name,
+			"POD":          opts.Name,
 			"Options":      opts.String(),
 			"Labels":       labels,
 			"CWD":          opts.WorkingDirectory,
@@ -985,6 +989,7 @@ func (u *Utils) cleanupServices(
 
 func preparePodConfig(
 	config *ant_config.AntConfig,
+	serviceAccount string,
 	name string,
 	containers []api.Container,
 	labels map[string]string,
@@ -1012,7 +1017,7 @@ func preparePodConfig(
 		},
 		Spec: api.PodSpec{
 			Volumes:                       volumes,
-			ServiceAccountName:            config.Kubernetes.ServiceAccount,
+			ServiceAccountName:            serviceAccount,
 			RestartPolicy:                 api.RestartPolicyNever,
 			NodeSelector:                  nodeSelector,
 			Tolerations:                   tolerations,
@@ -1032,6 +1037,15 @@ func preparePodConfig(
 	return &pod, nil
 }
 
+// resolveServiceAccount returns the per-task service account if set in opts, falling back to the
+// ant-worker default. This enables per-task IRSA (AWS) or Workload Identity (GCP) bindings.
+func resolveServiceAccount(config *ant_config.KubernetesConfig, opts *domain.ExecutorOptions) string {
+	if opts != nil && opts.MainContainer.ServiceAccount != "" {
+		return opts.MainContainer.ServiceAccount
+	}
+	return config.ServiceAccount
+}
+
 // buildContainer builds container with enhanced resource support while maintaining backward compatibility
 func buildContainer(
 	config *ant_config.KubernetesConfig,
@@ -1043,6 +1057,7 @@ func buildContainer(
 	limits api.ResourceList,
 	volumeMounts []api.VolumeMount,
 	env []api.EnvVar,
+	envFrom []api.EnvFromSource,
 	privileged bool,
 	containerCommand ...string) api.Container {
 
@@ -1071,6 +1086,7 @@ func buildContainer(
 		Command:         command,
 		Args:            args,
 		Env:             env,
+		EnvFrom:         envFrom,
 		Ports:           containerPorts,
 		Resources: api.ResourceRequirements{
 			Limits:   limits,
@@ -1248,6 +1264,7 @@ func (u *Utils) createPodWithContainers(
 	// Create pod configuration using existing preparePodConfig function
 	podConfig, err := preparePodConfig(
 		u.config,
+		resolveServiceAccount(&u.config.Kubernetes, opts),
 		opts.Name,
 		containers,
 		opts.PodLabels,
@@ -1331,7 +1348,7 @@ func (u *Utils) GetConfigInfo() map[string]any {
 	// Basic cluster info
 	config["cluster_name"] = u.config.Kubernetes.ClusterName
 	config["namespace"] = u.config.Kubernetes.Namespace
-	config["service_account"] = u.config.Kubernetes.ServiceAccount
+	config["service_account"] = u.config.Kubernetes.ServiceAccount // worker default; individual tasks may override via container.service_account
 	config["host"] = fmt.Sprintf("%s", u.config.Kubernetes.Host)
 
 	// Registry configuration

@@ -303,7 +303,7 @@ func (jd *JobDefinition) Webhook(vars map[string]common.VariableValue) (wh *comm
 }
 
 // ShouldSkip checks shouldSkip condition
-func (jd *JobDefinition) ShouldSkip(vars map[string]common.VariableValue) bool {
+func (jd *JobDefinition) ShouldSkip(vars map[string]common.VariableValue, querier utils.JobCountQuerier) bool {
 	if jd.SkipIf() == "" {
 		return false
 	}
@@ -311,7 +311,7 @@ func (jd *JobDefinition) ShouldSkip(vars map[string]common.VariableValue) bool {
 	for k, v := range vars {
 		data[k] = v.Value
 	}
-	resData, err := utils.ParseTemplate(jd.SkipIf(), data)
+	resData, err := utils.ParseTemplateWithQuerier(jd.SkipIf(), data, querier)
 	if err != nil {
 		return false
 	}
@@ -322,6 +322,16 @@ func (jd *JobDefinition) ShouldSkip(vars map[string]common.VariableValue) bool {
 func (jd *JobDefinition) GetDynamicTask(
 	taskType string,
 	vars map[string]common.VariableValue) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
+	return jd.GetDynamicTaskWithQuerier(taskType, vars, nil)
+}
+
+// GetDynamicTaskWithQuerier is like GetDynamicTask but accepts a querier so that
+// template functions like SubmitJobsFromJSON and CountByJobTypeAndState work when
+// rendering task environment variables.
+func (jd *JobDefinition) GetDynamicTaskWithQuerier(
+	taskType string,
+	vars map[string]common.VariableValue,
+	querier utils.JobTemplateHelper) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
 	data := make(map[string]interface{})
 	for k, v := range vars {
 		data[k] = v.Value
@@ -354,7 +364,7 @@ func (jd *JobDefinition) GetDynamicTask(
 		return nil, nil, fmt.Errorf("failed to find %s from Yaml definition", taskType)
 	}
 	if jd.UsesTemplate {
-		serData, err = utils.ParseTemplate(serData, data)
+		serData, err = utils.ParseTemplateWithQuerier(serData, data, querier)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"Component": "JobDefinition",
@@ -1087,7 +1097,11 @@ func GetCronScheduleTimeAndUserKey(orgIDOrUserID string, jobType string, cronTri
 	if nextTime.IsZero() {
 		return nil, ""
 	}
-	return &nextTime, fmt.Sprintf("%s-%s-%s", orgIDOrUserID, jobType, nextTime.Format(time.RFC3339))
+	prefix := orgIDOrUserID
+	if prefix == "" {
+		prefix = "default"
+	}
+	return &nextTime, fmt.Sprintf("%s-%s-%s", prefix, jobType, nextTime.Format(time.RFC3339))
 }
 
 // ValidateBeforeSave validates job-definition

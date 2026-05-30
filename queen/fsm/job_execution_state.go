@@ -200,7 +200,7 @@ func (jsm *JobExecutionStateMachine) ShouldSkip() error {
 	}
 
 	data := jsm.buildDynamicParams(nil)
-	if jsm.JobDefinition.ShouldSkip(data) {
+	if jsm.JobDefinition.ShouldSkip(data, jsm.JobManager) {
 		logrus.WithFields(logrus.Fields{
 			"Component":         "JobExecutionStateMachine",
 			"RequestID":         jsm.Request.GetID(),
@@ -751,8 +751,13 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPendingPaused(err error) (sa
 	return
 }
 
-// DoesRequireFullRestart returns true if job needs to be fully restarted
+// DoesRequireFullRestart returns true if job needs to be fully restarted from scratch.
+// This happens when hard_restart is set on the request, or when the retry count hits
+// the HardResetAfterRetries threshold defined on the job definition.
 func (jsm *JobExecutionStateMachine) DoesRequireFullRestart() bool {
+	if jsm.Request.GetHardRestart() {
+		return true
+	}
 	return jsm.JobDefinition.HardResetAfterRetries > 0 &&
 		jsm.Request.GetRetried() > 0 &&
 		jsm.Request.GetRetried()%(jsm.JobDefinition.HardResetAfterRetries+1) == 0
@@ -919,6 +924,22 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 		for _, v := range jsm.User.Organization.Configs {
 			if vv, err := v.GetVariableValue(); err == nil {
 				res[v.Name] = vv
+			}
+		}
+	} else if jsm.User == nil {
+		// Auth disabled or system-triggered cron job: no User is loaded, so org
+		// configs are not in memory. Load them directly from the DB using the
+		// request's org ID, falling back to "default" (the implicit org when auth
+		// is disabled and configs are stored via /api/orgs/default/configs).
+		orgID := jsm.Request.GetOrganizationID()
+		if orgID == "" {
+			orgID = "default"
+		}
+		if orgConfigs, err := jsm.userManager.GetOrgConfigs(orgID); err == nil {
+			for _, v := range orgConfigs {
+				if vv, err := v.GetVariableValue(); err == nil {
+					res[v.Name] = vv
+				}
 			}
 		}
 	}

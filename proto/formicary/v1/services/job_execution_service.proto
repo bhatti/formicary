@@ -105,6 +105,8 @@ message PauseJobRequest {
 // RestartJobRequest restarts a failed or cancelled job request.
 message RestartJobRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // hard forces all tasks to re-run from scratch, ignoring previously completed task results.
+  bool hard = 2;
 }
 
 // TriggerJobRequest manually triggers a waiting/paused job request.
@@ -252,7 +254,7 @@ service JobExecutionService {
 
   // RestartJob restarts a failed, cancelled, or paused job request.
   rpc RestartJob(RestartJobRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/restart" body: ""};
+    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/restart" body: "*"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Restart job"
       description: "Restarts a failed, cancelled, or paused job request. Only failed tasks are re-executed unless HardResetAfterRetries kicks in."

@@ -1,0 +1,421 @@
+# SHELL variant — runs on a bare ant worker (no Kubernetes required).
+# Auth: ant worker has ANTHROPIC_API_KEY set and gh auth login done.
+# Output tee'd to stdout so Formicary log streaming works.
+#
+# Context flows via artifact files in the executor working dir:
+#   setup     -> meta.env, branch.txt
+#   plan      -> plan_result.json, plan_summary.md
+#   implement -> impl_result.json
+#   fix-tests -> fix_result.json
+#   review    -> review_result.json
+#   create-pr -> pr_url.txt
+
+job_type: ai-gh-implement
+description: "AI agent: plan -> implement -> self-review -> create PR for a GitHub issue"
+max_concurrency: 5
+timeout: 90m
+
+tasks:
+# --- SETUP -------------------------------------------------------------------
+- task_type: setup
+  method: SHELL
+  timeout: 3m
+  environment:
+    GITHUB_TOKEN: "{{.GithubToken}}"
+    WS: "/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      echo "=== setup: WS=$WS ==="
+      mkdir -p "$WS"
+      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      BRANCH="ai/{{.IssueNumber}}-${SLUG}-{{.Nonce}}"
+      echo "Branch: $BRANCH"
+      git clone --depth=100 \
+        "https://x-access-token:${GITHUB_TOKEN}@github.com/{{.GitHubOrg}}/{{.GitHubRepo}}.git" \
+        "$WS/repo"
+      cd "$WS/repo"
+      git checkout -b "$BRANCH"
+      printf '# Issue #{{.IssueNumber}}: {{.IssueTitle}}\n\nURL: {{.IssueURL}}\n\n{{.IssueBody}}\n' \
+        > "$WS/repo/ISSUE_CONTEXT.md"
+      BRANCH_LINK="[${BRANCH}](https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}/tree/${BRANCH})"
+      printf 'WS=%s\nBRANCH=%s\n' "$WS" "$BRANCH" > "$TASK_DIR/meta.env"
+      printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
+      echo "Setup done: branch=$BRANCH"
+  artifacts:
+    paths:
+      - meta.env
+      - branch.txt
+    when: always
+  on_completed: plan
+
+# --- PLAN --------------------------------------------------------------------
+- task_type: plan
+  method: SHELL
+  timeout: 15m
+  dependencies:
+    - setup
+  environment:
+    MODEL: "{{.PlanModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      echo "=== plan: TASK_DIR=$TASK_DIR ==="
+      source "$TASK_DIR/meta.env"
+      echo "=== plan: WS=$WS MODEL=$MODEL ==="
+      cd "$WS/repo"
+
+      python3 - <<'PYEOF' 2>&1 | tee "$TASK_DIR/plan_raw.txt"
+      import subprocess, os, sys
+
+      issue = open("ISSUE_CONTEXT.md").read()
+      status_example = '{"status":"DONE","task_count":3,"total_complexity":"M","summary":"one line"}'
+      blocked_example = '{"status":"BLOCKED","blocked_reason":"specific reason"}'
+
+      prompt = (
+          "Work on this GitHub issue and produce PLAN.md.\n\n"
+          + issue + "\n\n"
+          "Apply the /ygs-wbs skill methodology (from you-got-skills) if available.\n"
+          "Otherwise:\n"
+          "- Explore the codebase to understand architecture and conventions\n"
+          "- Decompose into ordered vertical-slice tasks, each independently testable\n"
+          "- Write PLAN.md at repo root: ordered task list, description, files to change, acceptance criteria\n\n"
+          "On the LAST line of your response output ONLY this JSON:\n"
+          + status_example + "\n"
+          "If you cannot proceed: " + blocked_example + "\n"
+      )
+
+      cmd = ["claude", "--print", "--output-format", "json",
+             "--model", os.environ["MODEL"], "--max-turns", "30", prompt]
+      print("Running claude for planning (model=" + os.environ["MODEL"] + ") ...", flush=True)
+      result = subprocess.run(cmd, capture_output=False, text=True)
+      print("Claude exit: " + str(result.returncode), flush=True)
+      sys.exit(result.returncode)
+      PYEOF
+      PYTHON_EXIT=${PIPESTATUS[0]}
+      echo "=== plan python exit=$PYTHON_EXIT ==="
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/plan_raw.txt" 2>/dev/null || cat "$TASK_DIR/plan_raw.txt")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","task_count":0,"summary":"no status returned"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/plan_result.json"
+      echo "Plan result: $STATUS_JSON"
+
+      cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null \
+        || printf '(no PLAN.md)\n' > "$TASK_DIR/plan_summary.md"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/plan_result.json")
+      echo "Plan status: $STATUS"
+      [ "$STATUS" = "BLOCKED" ] && exit 2
+      exit 0
+  artifacts:
+    paths:
+      - plan_result.json
+      - plan_summary.md
+      - plan_raw.txt
+    when: always
+  on_exit_code:
+    COMPLETED: implement
+    "2": notify-blocked
+  on_failed: notify-blocked
+
+# --- IMPLEMENT ---------------------------------------------------------------
+- task_type: implement
+  method: SHELL
+  timeout: 45m
+  dependencies:
+    - setup
+    - plan
+  environment:
+    MODEL: "{{.ImplementModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      echo "=== implement: TASK_DIR=$TASK_DIR ==="
+      source "$TASK_DIR/meta.env"
+      echo "=== implement: WS=$WS MODEL=$MODEL ==="
+      cd "$WS/repo"
+      echo "=== PLAN.md ==="
+      cat PLAN.md 2>/dev/null || echo "(no PLAN.md)"
+
+      python3 - <<'PYEOF' 2>&1 | tee "$TASK_DIR/impl_raw.txt"
+      import subprocess, os, sys
+
+      issue = open("ISSUE_CONTEXT.md").read()
+      plan  = open("PLAN.md").read() if os.path.exists("PLAN.md") else "(no PLAN.md)"
+      done_example    = '{"status":"DONE","files_changed":["a.go"],"commits":2,"tests_status":"passing"}'
+      blocked_example = '{"status":"BLOCKED","blocked_reason":"reason"}'
+      tests_example   = '{"status":"TESTS_FAILING","failing_tests":["TestFoo"]}'
+
+      prompt = (
+          "Implement the plan for this GitHub issue.\n\n"
+          "Issue:\n" + issue + "\n\n"
+          "Plan:\n" + plan + "\n\n"
+          "Apply the /ygs-implement skill methodology (from you-got-skills) if available.\n"
+          "Otherwise:\n"
+          "- Execute each task in PLAN.md in order\n"
+          "- Run existing tests after each task if a test runner is available\n"
+          "- Make atomic git commits: git commit -m 'task: ...'\n"
+          "- If tests fail after 2 fix attempts: report TESTS_FAILING\n"
+          "- If blocked by missing info or impossible requirement: report BLOCKED\n"
+          "- Do NOT add features beyond the plan\n\n"
+          "On the LAST line of your response output ONLY this JSON:\n"
+          + done_example + "\n"
+          "If blocked: " + blocked_example + "\n"
+          "If tests failing: " + tests_example + "\n"
+      )
+
+      cmd = ["claude", "--print", "--output-format", "json",
+             "--model", os.environ["MODEL"], "--max-turns", "100", prompt]
+      print("Running claude for implementation (model=" + os.environ["MODEL"] + ") ...", flush=True)
+      result = subprocess.run(cmd, capture_output=False, text=True)
+      print("Claude exit: " + str(result.returncode), flush=True)
+      sys.exit(result.returncode)
+      PYEOF
+      PYTHON_EXIT=${PIPESTATUS[0]}
+      echo "=== implement python exit=$PYTHON_EXIT ==="
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/impl_raw.txt" 2>/dev/null || cat "$TASK_DIR/impl_raw.txt")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","files_changed":[],"commits":0}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/impl_result.json"
+      echo "Impl result: $STATUS_JSON"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/impl_result.json")
+      echo "Implement status: $STATUS"
+      [ "$STATUS" = "BLOCKED" ] && exit 2
+      [ "$STATUS" = "TESTS_FAILING" ] && exit 3
+      exit 0
+  artifacts:
+    paths:
+      - impl_result.json
+      - impl_raw.txt
+    when: always
+  on_exit_code:
+    COMPLETED: review
+    "2": notify-blocked
+    "3": fix-tests
+  on_failed: notify-blocked
+
+# --- FIX-TESTS ---------------------------------------------------------------
+- task_type: fix-tests
+  method: SHELL
+  timeout: 20m
+  retry: 2
+  delay_between_retries: 30s
+  dependencies:
+    - setup
+    - implement
+  environment:
+    MODEL: "{{.ImplementModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      echo "=== fix-tests: WS=$WS ==="
+      cd "$WS/repo"
+
+      FAILING=$(jq -r '.failing_tests[]? // empty' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
+      echo "Known failing: $FAILING"
+
+      python3 - "$FAILING" <<'PYEOF' 2>&1 | tee "$TASK_DIR/fix_raw.txt"
+      import subprocess, os, sys
+
+      failing = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+      done_example  = '{"status":"DONE","fixed_tests":["TestFoo"]}'
+      still_example = '{"status":"STILL_FAILING","still_failing":["TestFoo"]}'
+
+      prompt = (
+          "Tests are failing. Fix them.\n\n"
+          "Known failing tests: " + failing + "\n\n"
+          "Instructions:\n"
+          "1. Run the test suite to see current output\n"
+          "2. Read each error carefully - do not guess the cause\n"
+          "3. Fix the root cause\n"
+          "4. Re-run to verify\n"
+          "5. Commit: git commit -m 'fix: tests ...'\n\n"
+          "On the LAST line output ONLY this JSON:\n"
+          + done_example + "\n"
+          "If still failing: " + still_example + "\n"
+      )
+
+      cmd = ["claude", "--print", "--output-format", "json",
+             "--model", os.environ["MODEL"], "--max-turns", "50", prompt]
+      result = subprocess.run(cmd, capture_output=False, text=True)
+      sys.exit(result.returncode)
+      PYEOF
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/fix_raw.txt" 2>/dev/null || cat "$TASK_DIR/fix_raw.txt")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/fix_result.json"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/fix_result.json")
+      echo "Fix-tests status: $STATUS"
+      [ "$STATUS" = "STILL_FAILING" ] && exit 1
+      exit 0
+  artifacts:
+    paths:
+      - fix_result.json
+    when: always
+  on_completed: review
+  on_failed: review
+
+# --- REVIEW ------------------------------------------------------------------
+- task_type: review
+  method: SHELL
+  timeout: 15m
+  dependencies:
+    - setup
+    - implement
+  environment:
+    MODEL: "{{.ReviewModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      echo "=== review: WS=$WS ==="
+      cd "$WS/repo"
+
+      python3 - <<'PYEOF' 2>&1 | tee "$TASK_DIR/review_raw.txt"
+      import subprocess, os, sys
+
+      clean_example = '{"status":"CLEAN","critical_findings":0,"fixes_applied":0}'
+      fixed_example = '{"status":"FIXED","critical_findings":2,"fixes_applied":2}'
+
+      prompt = (
+          "Self-review the changes on this branch before creating a PR.\n\n"
+          "Apply the /ygs-code-review skill methodology (from you-got-skills) if available.\n"
+          "Otherwise:\n\n"
+          "Pass 1 - Critical (must fix):\n"
+          "- Correctness bugs, security issues (injection/XSS/hardcoded secrets), missing error handling\n"
+          "- For each critical finding: fix it, commit with 'review: fix ...'\n\n"
+          "Pass 2 - Informational only (do NOT fix): style, naming, clarity\n\n"
+          "On the LAST line output ONLY this JSON:\n"
+          + clean_example + "\n"
+          "If you fixed issues: " + fixed_example + "\n"
+      )
+
+      cmd = ["claude", "--print", "--output-format", "json",
+             "--model", os.environ["MODEL"], "--max-turns", "20", prompt]
+      print("Running claude for review (model=" + os.environ["MODEL"] + ") ...", flush=True)
+      result = subprocess.run(cmd, capture_output=False, text=True)
+      print("Claude exit: " + str(result.returncode), flush=True)
+      sys.exit(result.returncode)
+      PYEOF
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/review_raw.txt" 2>/dev/null || cat "$TASK_DIR/review_raw.txt")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"CLEAN","critical_findings":0,"fixes_applied":0}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/review_result.json"
+      echo "Review result: $STATUS_JSON"
+  artifacts:
+    paths:
+      - review_result.json
+      - review_raw.txt
+    when: always
+  on_completed: create-pr
+  on_failed: create-pr
+
+# --- CREATE-PR ---------------------------------------------------------------
+- task_type: create-pr
+  method: SHELL
+  timeout: 5m
+  dependencies:
+    - setup
+    - plan
+    - review
+  environment:
+    GITHUB_TOKEN: "{{.GithubToken}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      echo "=== create-pr: BRANCH=$BRANCH ==="
+      cd "$WS/repo"
+
+      git push origin "$BRANCH"
+
+      PLAN_SUMMARY=$(jq -r '.summary // "See PLAN.md"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "See commits")
+      COMPLEXITY=$(jq -r '.total_complexity // "?"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "?")
+      REVIEW_STATUS=$(jq -r '.status // "N/A"' "$TASK_DIR/review_result.json" 2>/dev/null || echo "N/A")
+      IMPL_COMMITS=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "0")
+      TESTS_STATUS=$(jq -r '.tests_status // "unknown"' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
+
+      PR_BODY=$(printf 'Closes #{{.IssueNumber}}\n\n## Summary\n%s\n\n## Stats\n- Complexity: %s | Commits: %s | Tests: %s | Review: %s\n\n_Models: plan={{.PlanModel}} impl={{.ImplementModel}} review={{.ReviewModel}}_' \
+        "$PLAN_SUMMARY" "$COMPLEXITY" "$IMPL_COMMITS" "$TESTS_STATUS" "$REVIEW_STATUS")
+
+      PR_URL=$(gh pr create \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --title "AI: {{.IssueTitle}}" \
+        --body "$PR_BODY" \
+        --base main --head "$BRANCH")
+
+      printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
+      echo "PR created: $PR_URL"
+      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" --add-label "ai-pr-open" 2>/dev/null || true
+  artifacts:
+    paths:
+      - pr_url.txt
+    when: always
+  on_completed: cleanup
+  on_failed: cleanup
+
+# --- NOTIFY-BLOCKED ----------------------------------------------------------
+- task_type: notify-blocked
+  method: SHELL
+  timeout: 2m
+  environment:
+    GITHUB_TOKEN: "{{.GithubToken}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      echo "=== notify-blocked ==="
+      REASON=$(jq -rs '[.[].blocked_reason?, .[].summary?] | map(select(. != null and . != "")) | first // "Unknown"' \
+        "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null || echo "Unknown")
+      [ -z "$REASON" ] && REASON="Unknown - check Formicary job logs"
+      echo "Blocked: $REASON"
+      BODY=$(printf '**AI Agent Blocked**\n\nReason: %s\n\nPlease fix and re-label as `ai-ready` to retry.' "$REASON")
+      gh issue comment "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" --body "$BODY" || true
+      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" --add-label "needs-human" 2>/dev/null || true
+  on_completed: cleanup
+  on_failed: cleanup
+
+# --- CLEANUP (always runs) ---------------------------------------------------
+- task_type: cleanup
+  method: SHELL
+  always_run: true
+  timeout: 1m
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      WS="/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+      echo "=== cleanup: WS=$WS ==="
+      if [ -d "$WS" ]; then
+        tar -czf "$TASK_DIR/workspace_logs.tar.gz" -C "$WS" . 2>/dev/null || true
+        rm -rf "$WS"
+        echo "Cleaned: $WS"
+      else
+        echo "Workspace not found"
+      fi
+  artifacts:
+    paths:
+      - workspace_logs.tar.gz
+    when: always
+
+job_variables:
+  PlanModel: "claude-opus-4-5"
+  ImplementModel: "claude-sonnet-4-5"
+  ReviewModel: "claude-opus-4-5"

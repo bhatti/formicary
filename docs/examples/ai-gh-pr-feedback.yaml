@@ -1,0 +1,100 @@
+# KUBERNETES variant -> runs in pods (production deployment).
+# Auth: pods load secrets from K8s Secret refs.
+#
+job_type: ai-gh-pr-feedback
+description: "AI agent: addresses PR review comments and pushes fixes"
+max_concurrency: 3
+timeout: 30m
+retry: 1
+delay_between_retries: 2m
+
+tasks:
+# --- ADDRESS-FEEDBACK --------------------------------------------------------
+- task_type: address-feedback
+  method: KUBERNETES
+  timeout: 25m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: claude-bedrock-settings
+      - secret_ref: ai-agent-secrets
+  environment:
+    MODEL: "{{.ImplementModel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+
+      WS="/tmp/formicary-ai/pr-{{.PRNumber}}-{{.JobID}}"
+      mkdir -p "$WS"
+
+      git clone --depth=100 \
+        "https://x-access-token:${GITHUB_TOKEN}@github.com/{{.GitHubOrg}}/{{.GitHubRepo}}.git" \
+        "$WS/repo"
+      cd "$WS/repo"
+      git checkout "{{.PRBranch}}"
+
+      REVIEWS=$(gh pr view "{{.PRNumber}}" \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --json reviews,comments,reviewRequests)
+
+      REVIEW_BODY=$(printf '%s' "$REVIEWS" | jq -r '
+        [ .reviews[].body, .comments[].body ]
+        | map(select(. != null and . != ""))
+        | join("\n\n---\n\n")
+      ')
+
+      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
+      {
+        printf 'You are addressing review feedback on PR #{{.PRNumber}}: {{.PRTitle}}\n\n'
+        printf '## Review comments to address:\n\n'
+        printf '%s\n\n' "$REVIEW_BODY"
+        printf '## Your task:\n\n'
+        printf '1. Read each comment carefully - understand what the reviewer wants.\n'
+        printf '2. For each actionable comment: make the change, run tests, commit.\n'
+        printf '3. For non-actionable comments (questions, praise): note but skip.\n'
+        printf '4. After all changes: push the branch.\n\n'
+        printf 'Do NOT make unrequested changes. Keep scope tight.\n\n'
+        printf 'Output ONLY this JSON:\n'
+        printf '{"status":"DONE","fixes":2,"skipped":1,"commits":2,"summary":"..."}\n'
+        printf 'If blocked: {"status":"BLOCKED","blocked_reason":"..."}\n'
+      } > "$PROMPT_FILE"
+
+      claude --print --model "$MODEL" --max-turns 50 \
+        "$(cat "$PROMPT_FILE")" > feedback_result.json 2>feedback.log
+      rm -f "$PROMPT_FILE"
+
+      STATUS=$(jq -r '.status // "DONE"' feedback_result.json)
+      FIXES=$(jq -r '.fixes // 0' feedback_result.json)
+      SUMMARY=$(jq -r '.summary // "Feedback addressed."' feedback_result.json)
+      echo "Feedback status: $STATUS fixes: $FIXES"
+      cat feedback.log
+
+      git push origin "{{.PRBranch}}"
+
+      PR_COMMENT=$(printf 'AI Agent addressed review feedback.\n\n%s\n\nFixes applied: %s' "$SUMMARY" "$FIXES")
+      gh pr comment "{{.PRNumber}}" \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --body "$PR_COMMENT"
+
+      rm -rf "$WS"
+  artifacts:
+    paths:
+      - feedback_result.json
+      - feedback.log
+    when: always
+  on_completed: done
+  on_failed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: KUBERNETES
+  timeout: 10s
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+  script:
+    - echo "PR feedback workflow complete for PR #{{.PRNumber}}"
+
+job_variables:
+  ImplementModel: "sonnet"
+  # PRNumber, PRTitle, PRBranch, GitHubOrg, GitHubRepo set via job params

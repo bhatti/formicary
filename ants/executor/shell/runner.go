@@ -42,8 +42,28 @@ func NewCommandRunner(
 	if e.ExecutorOptions.WorkingDirectory != "" {
 		runner.cmd.Dir = e.ExecutorOptions.WorkingDirectory
 	}
+	// Merge task env vars on top of the process environment so that tools like
+	// gh, jq, claude installed in Homebrew (/opt/homebrew/bin) or nvm/pyenv
+	// paths are available without requiring the YAML to re-declare PATH.
+	// Task env vars take precedence over inherited ones (overlay semantics).
+	merged := os.Environ()
 	if e.ExecutorOptions.Environment != nil {
-		runner.cmd.Env = e.ExecutorOptions.Environment.AsArray()
+		taskKeys := make(map[string]bool, len(e.ExecutorOptions.Environment))
+		for k := range e.ExecutorOptions.Environment {
+			taskKeys[k] = true
+		}
+		// Keep inherited vars whose keys are not overridden by the task.
+		filtered := merged[:0:0]
+		for _, kv := range merged {
+			idx := strings.IndexByte(kv, '=')
+			if idx > 0 && taskKeys[kv[:idx]] {
+				continue // will be added from task env below
+			}
+			filtered = append(filtered, kv)
+		}
+		runner.cmd.Env = append(filtered, e.ExecutorOptions.Environment.AsArray()...)
+	} else {
+		runner.cmd.Env = merged
 	}
 	// not supported on windows
 	runner.cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -116,6 +136,8 @@ func (scr *CommandRunner) Await(ctx context.Context) ([]byte, []byte, error) {
 			"ID":        scr.ID,
 			"Name":      scr.Name,
 			"StderrLen": len(scr.Stderr.Bytes()),
+			"Stderr":    string(scr.Stderr.Bytes()),
+			"Stdout":    string(scr.Stdout.Bytes()),
 			"Command":   scr.Command,
 			"Host":      scr.Host,
 			"IP":        scr.ContainerIP,

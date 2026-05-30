@@ -40,10 +40,13 @@ func NewTaskExecutionStateMachine(
 
 	_, tsm.TaskExecution = tsm.JobExecution.GetTask("", tsm.taskType)
 
-	// Load task definition using job params because task is not built yet
-	if tsm.TaskDefinition, tsm.ExecutorOptions, err = tsm.JobDefinition.GetDynamicTask(
+	// Load task definition using job params because task is not built yet.
+	// Pass JobManager as querier so SubmitJobsFromJSON / CountByJobTypeAndState
+	// work when rendering task environment variables (e.g. SUBMITTED_IDS).
+	if tsm.TaskDefinition, tsm.ExecutorOptions, err = tsm.JobDefinition.GetDynamicTaskWithQuerier(
 		tsm.taskType,
-		tsm.JobExecutionStateMachine.buildDynamicParams(nil)); err != nil {
+		tsm.JobExecutionStateMachine.buildDynamicParams(nil),
+		tsm.JobManager); err != nil {
 		return nil, err
 	}
 

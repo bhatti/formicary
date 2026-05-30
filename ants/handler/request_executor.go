@@ -244,9 +244,8 @@ func (re *RequestExecutorImpl) execute(
 		if err != nil && taskResp.FailedCommand == "" {
 			taskResp.FailedCommand = taskReq.Mask(cmd)
 		}
-		if len(stderr) > 0 {
-			// it's already logged on console
-			//container.WriteTraceError(string(stderr))
+		if len(stderr) > 0 && err != nil {
+			_ = container.WriteTraceError(ctx, fmt.Sprintf("stderr: %s", string(stderr)))
 		}
 		return stdout, err
 	}
@@ -271,6 +270,22 @@ func (re *RequestExecutorImpl) execute(
 					}).Debugf("adding stdout")
 			}
 			taskResp.Stdout = append(taskResp.Stdout, string(stdout))
+		}
+
+		// Parse ::set-output name=key::value lines from stdout into job context.
+		// Scripts can export variables for downstream tasks using:
+		//   echo "::set-output name=IssueNumber::42"
+		for _, line := range strings.Split(string(stdout), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "::set-output name=") && strings.Contains(line, "::") {
+				rest := strings.TrimPrefix(line, "::set-output name=")
+				idx := strings.Index(rest, "::")
+				if idx > 0 {
+					key := rest[:idx]
+					value := rest[idx+2:]
+					taskResp.AddJobContext(key, value)
+				}
+			}
 		}
 
 		// Note: this only works for SHELL/HTTP but containers will need to use it explicitly

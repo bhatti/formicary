@@ -182,7 +182,8 @@ func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.APIContext) err
 func (jraCtr *JobRequestAdminController) restartJobRequest(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	err := jraCtr.jobManager.RestartJobRequest(qc, id)
+	hard := c.QueryParam("hard") == "true"
+	err := jraCtr.jobManager.RestartJobRequest(qc, id, hard)
 	if err != nil {
 		return err
 	}

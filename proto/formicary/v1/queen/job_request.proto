@@ -59,6 +59,9 @@ message JobRequest {
   string name_value_params_json = 30 [(formicary.v1.tags) = "yaml:\"params,omitempty\" json:\"params\" gorm:\"-\""];
   string params_json = 31 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
   map<string, string> errors = 32 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  // hard_restart forces all tasks to re-run from scratch on next restart,
+  // ignoring any previously completed task results. Cleared after the job starts executing.
+  bool hard_restart = 33 [(formicary.v1.tags) = "json:\"hard_restart\" gorm:\"hard_restart\""];
 }
 
 // ReviewTaskRequest is used for manual approval of a task.

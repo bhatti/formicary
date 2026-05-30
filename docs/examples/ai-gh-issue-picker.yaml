@@ -1,0 +1,123 @@
+# Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs.
+#
+# The gather-issues task outputs items.json — a generic JSON array where each
+# object's fields become job params. Two reserved fields:
+#   _description  -> sets the job request description in the Formicary dashboard
+#   _user_key     -> dedup key; prevents re-submitting the same issue on repeat runs
+#
+# SubmitJobsFromJSON is a general-purpose Formicary template function: it submits
+# one child job per item in any JSON array. The GitHub-specific logic lives here
+# in the script, not in Formicary core.
+
+job_type: ai-gh-issue-picker
+description: "Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs"
+cron_trigger: "0 * * * * * *"
+max_concurrency: 1
+timeout: 5m
+
+skip_if: >-
+  {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING") 10}} true {{end}}
+
+tasks:
+- task_type: gather-issues
+  method: SHELL
+  timeout: 3m
+  environment:
+    MAX_PENDING: "{{.MaxPendingJobs}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PICKUP_LABEL: "{{.PickupLabel}}"
+    INPROGRESS_LABEL: "{{.InProgressLabel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      python3 - <<'PYEOF'
+      import json, os, subprocess, sys
+
+      gh_org      = os.environ["GH_ORG"]
+      gh_repo     = os.environ["GH_REPO"]
+      pickup_lbl  = os.environ["PICKUP_LABEL"]
+      inprog_lbl  = os.environ["INPROGRESS_LABEL"]
+      max_pending = int(os.environ.get("MAX_PENDING", "10"))
+      repo        = gh_org + "/" + gh_repo
+
+      def gh(*args):
+          r = subprocess.run(["gh"] + list(args), capture_output=True, text=True)
+          if r.returncode != 0:
+              print("gh " + " ".join(args) + " failed: " + r.stderr.strip(), file=sys.stderr)
+          return r
+
+      r = gh("issue", "list", "-R", repo,
+             "--label", pickup_lbl, "--state", "open",
+             "--limit", str(max_pending),
+             "--json", "number,title,body,url")
+      try:
+          issues = json.loads(r.stdout) if r.returncode == 0 else []
+      except json.JSONDecodeError:
+          issues = []
+
+      print("Fetched " + str(len(issues)) + " issue(s) from " + repo)
+
+      items = []
+      for issue in issues:
+          num   = str(issue["number"])
+          title = issue.get("title", "")
+          body  = issue.get("body", "")
+          url   = issue.get("url", "")
+          nonce = subprocess.check_output(
+              ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
+
+          # Transition label before submitting so a concurrent picker run won't pick it up again
+          gh("issue", "edit", num, "-R", repo,
+             "--remove-label", pickup_lbl, "--add-label", inprog_lbl)
+          print("  Labelled #" + num + ": " + title)
+
+          items.append({
+              # Generic fields — become job params directly
+              "IssueNumber": num,
+              "IssueTitle":  title,
+              "IssueBody":   body,
+              "IssueURL":    url,
+              "Nonce":       nonce,
+              "GitHubOrg":   gh_org,
+              "GitHubRepo":  gh_repo,
+              # Reserved: sets job request description and dedup key
+              "_description": "#" + num + ": " + title,
+              "_user_key":    "ai-gh-implement-" + gh_org + "-" + gh_repo + "-" + num,
+          })
+
+      with open("items.json", "w") as f:
+          json.dump(items, f, separators=(",", ":"))
+          f.write("\n")
+
+      print("items.json written: " + str(len(items)) + " item(s)")
+      PYEOF
+  artifacts:
+    paths:
+      - items.json
+  on_completed: submit-jobs
+
+- task_type: submit-jobs
+  method: SHELL
+  timeout: 1m
+  dependencies:
+    - gather-issues
+  environment:
+    # SubmitJobsFromJSON is a general Formicary template function:
+    #   submits one job per item in the JSON array, passing all fields as params.
+    SUBMITTED_IDS: '{{if .ItemsJSON}}{{SubmitJobsFromJSON "ai-gh-implement" .ItemsJSON}}{{end}}'
+    PENDING_COUNT: '{{CountByJobTypeAndState "ai-gh-implement" "PENDING"}}'
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+      echo "Submitted IDs: ${SUBMITTED_IDS:-none}"
+      echo "Pending count: ${PENDING_COUNT}"
+
+job_variables:
+  MaxPendingJobs: "10"
+  PickupLabel: "ai-ready"
+  InProgressLabel: "ai-in-progress"
+  # GitHubOrg, GitHubRepo, GithubToken -> set via org or job configs

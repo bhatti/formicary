@@ -1,0 +1,122 @@
+job_type: ai-gh-cleanup
+description: "Periodic maintenance: cleans stale workspaces, removes merged AI branches"
+cron_trigger: "0 0 */4 * * * *"
+max_concurrency: 1
+timeout: 10m
+
+# ─── Runs every 4 hours ───────────────────────────────────────────────────────
+#
+# Cleans up after completed AI agent jobs:
+#  1. Removes local workspaces older than 4 hours
+#  2. Deletes remote ai/* branches whose PRs are merged or closed
+#
+# Diagnostic artifacts: cleanup_report.txt (always uploaded)
+#
+
+tasks:
+# ─── CLEANUP-WORKSPACES: remove stale local directories ──────────────────────
+- task_type: cleanup-workspaces
+  method: KUBERNETES
+  timeout: 3m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      REPORT="cleanup_report.txt"
+      echo "=== Workspace Cleanup: $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" > "$REPORT"
+
+      WS_ROOT="/tmp/formicary-ai"
+      if [ ! -d "$WS_ROOT" ]; then
+        echo "No workspace directory found at $WS_ROOT" >> "$REPORT"
+        cat "$REPORT"
+        exit 0
+      fi
+
+      # Count workspaces before cleanup
+      BEFORE=$(find "$WS_ROOT" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l || echo 0)
+      echo "Workspaces before cleanup: $BEFORE" >> "$REPORT"
+
+      # Remove directories older than 4 hours (mmin = minutes, 240 = 4h)
+      find "$WS_ROOT" -maxdepth 1 -mindepth 1 -type d -mmin +240 -print \
+        | while read -r dir; do
+          echo "Removing stale workspace: $dir" >> "$REPORT"
+          rm -rf "$dir"
+        done
+
+      AFTER=$(find "$WS_ROOT" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l || echo 0)
+      REMOVED=$(( BEFORE - AFTER ))
+      echo "Removed: $REMOVED workspace(s), remaining: $AFTER" >> "$REPORT"
+      cat "$REPORT"
+  artifacts:
+    paths:
+      - cleanup_report.txt
+    when: always
+  on_completed: cleanup-branches
+
+# ─── CLEANUP-BRANCHES: delete merged/closed ai/* branches ────────────────────
+- task_type: cleanup-branches
+  method: KUBERNETES
+  timeout: 5m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: ai-agent-secrets
+  dependencies:
+    - cleanup-workspaces
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      REPORT="cleanup_report.txt"
+      echo "" >> "$REPORT"
+      echo "=== Branch Cleanup: $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$REPORT"
+
+      # List all ai/* branches
+      BRANCHES=$(gh api \
+        "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/branches?per_page=100" \
+        | jq -r '.[].name | select(startswith("ai/"))' 2>/dev/null || echo "")
+
+      BRANCH_COUNT=$(echo "$BRANCHES" | grep -c . || echo 0)
+      echo "Found $BRANCH_COUNT ai/* branch(es)" >> "$REPORT"
+
+      DELETED=0
+      for branch in $BRANCHES; do
+        # Fetch closed PR info: check for merged (merged_at set) OR abandoned
+        # (closed but not merged). Both cases allow safe branch deletion.
+        PR_JSON=$(gh api \
+          "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/pulls?head={{.GitHubOrg}}:${branch}&state=closed" \
+          2>/dev/null || echo "[]")
+
+        MERGED_AT=$(echo "$PR_JSON" | jq -r '.[0].merged_at // empty')
+        STATE=$(echo "$PR_JSON" | jq -r '.[0].state // empty')
+
+        if [ -n "$MERGED_AT" ]; then
+          gh api -X DELETE \
+            "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/git/refs/heads/${branch}" 2>/dev/null || true
+          echo "Deleted merged branch: $branch (merged: $MERGED_AT)" >> "$REPORT"
+          DELETED=$(( DELETED + 1 ))
+        elif [ "$STATE" = "closed" ]; then
+          # PR was closed without merging (e.g., agent blocked, issue cancelled).
+          # Delete the branch to avoid accumulating abandoned branches.
+          gh api -X DELETE \
+            "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/git/refs/heads/${branch}" 2>/dev/null || true
+          echo "Deleted abandoned branch: $branch (closed without merge)" >> "$REPORT"
+          DELETED=$(( DELETED + 1 ))
+        else
+          echo "Skipping active branch: $branch" >> "$REPORT"
+        fi
+      done
+
+      echo "Deleted $DELETED branch(es) (merged or abandoned)" >> "$REPORT"
+      cat "$REPORT"
+  artifacts:
+    paths:
+      - cleanup_report.txt
+    when: always
+
+job_variables:
+  GitHubOrg: "myorg"
+  GitHubRepo: "myrepo"
+  # GithubToken set via encrypted org config

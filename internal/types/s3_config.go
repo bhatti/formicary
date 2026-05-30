@@ -20,6 +20,10 @@ type S3Config struct {
 	LocalMode         bool   `yaml:"local_mode" mapstructure:"local_mode"`
 	LocalDataDir      string `yaml:"local_data_dir" mapstructure:"local_data_dir"`
 	LocalWeedBin      string `yaml:"local_weed_bin" mapstructure:"local_weed_bin"`
+	// LocalS3Port pins the embedded SeaweedFS S3 port to a fixed value (0 = dynamic).
+	// A fixed port survives server restarts: if weed is already listening on this port,
+	// StartLocalServer reuses it instead of spawning a second instance.
+	LocalS3Port       int    `yaml:"local_s3_port" mapstructure:"local_s3_port"`
 	// LocalContainerHost overrides the host used by Docker/K8s helper containers to reach the embedded store.
 	LocalContainerHost string `yaml:"local_container_host" mapstructure:"local_container_host"`
 }

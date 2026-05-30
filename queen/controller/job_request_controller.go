@@ -188,7 +188,8 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id)
+	hard := c.QueryParam("hard") == "true"
+	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id, hard)
 	if err != nil {
 		return err
 	}

@@ -230,7 +230,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.Error(t, err)
 
 	// WHEN restarting completed requests
-	err = repo.Restart(common.NewQueryContextFromIDs(loaded.UserID, ""), loaded.ID)
+	err = repo.Restart(common.NewQueryContextFromIDs(loaded.UserID, ""), loaded.ID, false)
 	// THEN it should fail
 	require.Error(t, err)
 }
@@ -573,6 +573,9 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				_, _ = req.AddParam("p2", "v2")
 				req.UserID = qc.User.ID
 				req.OrganizationID = qc.User.OrganizationID
+				if k > 0 || j > 0 {
+					req.UserKey = "" // avoid unique constraint violation for test data
+				}
 				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
 				req.JobState = jobState
@@ -921,7 +924,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 
 	for _, rec := range recs {
 		// WHEN restarting orphan requests
-		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID)
+		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID, false)
 		if rec.JobState == common.READY {
 			require.Error(t, err, rec.String())
 		} else {
@@ -1088,4 +1091,97 @@ func Test_ShouldGetJobCountsWithDifferentJobTypesStatusesAndErrorCodes(t *testin
 	_, err = repo.JobCounts(common.NewQueryContextFromIDs("", "org_0"), start, end)
 	// THEN it should not fail
 	require.NoError(t, err)
+}
+
+func Test_ShouldCountByJobTypeAndState(t *testing.T) {
+	// GIVEN a job-request repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	// AND two job definitions
+	jobA, err := SaveTestJobDefinition(qc, "count-test-job-a", "")
+	require.NoError(t, err)
+	jobB, err := SaveTestJobDefinition(qc, "count-test-job-b", "")
+	require.NoError(t, err)
+
+	// AND three requests for job-a: two PENDING, one EXECUTING
+	for i := 0; i < 2; i++ {
+		req, err := types.NewJobRequestFromDefinition(jobA)
+		require.NoError(t, err)
+		req.UserID = qc.User.ID
+		req.OrganizationID = qc.User.OrganizationID
+		req.JobState = common.PENDING
+		_, err = repo.Save(qc, req)
+		require.NoError(t, err)
+	}
+	reqExec, err := types.NewJobRequestFromDefinition(jobA)
+	require.NoError(t, err)
+	reqExec.UserID = qc.User.ID
+	reqExec.OrganizationID = qc.User.OrganizationID
+	saved, err := repo.Save(qc, reqExec)
+	require.NoError(t, err)
+	// Transition through required states to reach EXECUTING
+	err = repo.UpdateJobState(saved.ID, common.PENDING, common.READY, "", "", 0, 0)
+	require.NoError(t, err)
+	err = repo.UpdateJobState(saved.ID, common.READY, common.STARTED, "", "", 0, 0)
+	require.NoError(t, err)
+	err = repo.UpdateJobState(saved.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
+	require.NoError(t, err)
+
+	// AND one request for job-b in PENDING state (should not affect job-a counts)
+	reqB, err := types.NewJobRequestFromDefinition(jobB)
+	require.NoError(t, err)
+	reqB.UserID = qc.User.ID
+	reqB.OrganizationID = qc.User.OrganizationID
+	_, err = repo.Save(qc, reqB)
+	require.NoError(t, err)
+
+	// SaveTestJobDefinition prefixes the name with "io.formicary.test."
+	jobTypeA := jobA.JobType
+	jobTypeB := jobB.JobType
+
+	// WHEN counting job-a in PENDING state
+	count, err := repo.CountByJobTypeAndState(jobTypeA, common.PENDING)
+	// THEN it should return 2
+	require.NoError(t, err)
+	require.Equal(t, int64(2), count)
+
+	// WHEN counting job-a in EXECUTING state
+	count, err = repo.CountByJobTypeAndState(jobTypeA, common.EXECUTING)
+	// THEN it should return 1
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+
+	// WHEN counting job-a in PENDING or EXECUTING states
+	count, err = repo.CountByJobTypeAndState(jobTypeA, common.PENDING, common.EXECUTING)
+	// THEN it should return 3
+	require.NoError(t, err)
+	require.Equal(t, int64(3), count)
+
+	// WHEN counting job-a with no state filter
+	count, err = repo.CountByJobTypeAndState(jobTypeA)
+	// THEN it should return all 3
+	require.NoError(t, err)
+	require.Equal(t, int64(3), count)
+
+	// WHEN counting job-b in EXECUTING state (none exist)
+	count, err = repo.CountByJobTypeAndState(jobTypeB, common.EXECUTING)
+	// THEN it should return 0
+	require.NoError(t, err)
+	require.Equal(t, int64(0), count)
+
+	// WHEN counting job-b in PENDING state — verifies the job_type filter is active
+	// (job-a has 2 PENDING; if the filter were absent both would be counted)
+	count, err = repo.CountByJobTypeAndState(jobTypeB, common.PENDING)
+	// THEN it should return exactly 1 (only job-b's request)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+
+	// AND job-a PENDING count must remain 2 (unaffected by job-b's request)
+	count, err = repo.CountByJobTypeAndState(jobTypeA, common.PENDING)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), count)
 }

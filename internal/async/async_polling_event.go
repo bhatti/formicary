@@ -57,15 +57,14 @@ func (t *pollingEventTask) run(ctx context.Context) {
 		for {
 			t.polls++
 			if t.invokeHandlerAndCheckCompletion(ctx) {
-				break
+				return
 			}
 			select {
 			case <-t.signalQ:
-				continue
 			case <-ctx.Done():
-				break
+				t.invokeHandlerAndCheckCompletion(ctx)
+				return
 			case <-time.After(math.MinDuration(t.maxPollInterval, t.polls*t.pollInterval)):
-				continue
 			}
 		}
 	}()

@@ -33,8 +33,10 @@ type JobRequestInfo struct {
 	// UserID defines user who submitted the job
 	UserID string `json:"user_id"`
 	// CronTriggered is true if request was triggered by cron
-	CronTriggered bool   `json:"cron_triggered"`
-	CurrentTask   string `json:"current_task"`
+	CronTriggered bool `json:"cron_triggered"`
+	// HardRestart forces all tasks to re-run from scratch on next restart
+	HardRestart bool   `json:"hard_restart"`
+	CurrentTask string `json:"current_task"`
 	// Params are passed with job request
 	Params []*JobRequestParam `yaml:"-" json:"-" gorm:"-"`
 	// ScheduledAt defines schedule time
@@ -166,6 +168,11 @@ func (jri *JobRequestInfo) GetCronTriggered() bool {
 	return jri.CronTriggered
 }
 
+// GetHardRestart returns true if all tasks should re-run from scratch on restart
+func (jri *JobRequestInfo) GetHardRestart() bool {
+	return jri.HardRestart
+}
+
 // GetCreatedAt job creation time
 func (jri *JobRequestInfo) GetCreatedAt() time.Time {
 	return jri.CreatedAt
@@ -201,6 +208,7 @@ func NewJobRequestInfo(req IJobRequest) *JobRequestInfo {
 		UserID:             req.GetUserID(),
 		OrganizationID:     req.GetOrganizationID(),
 		CronTriggered:      req.GetCronTriggered(),
+		HardRestart:        req.GetHardRestart(),
 		Params:             req.GetParams(),
 		ScheduledAt:        req.GetScheduledAt(),
 		CreatedAt:          req.GetCreatedAt(),

@@ -92,13 +92,13 @@ func (t *pollingTask) run(ctx context.Context) {
 	go func() {
 		for {
 			if t.invokeHandlerAndCheckCompletion(ctx) {
-				break
+				return
 			}
 			select {
 			case <-ctx.Done():
-				break
+				t.invokeHandlerAndCheckCompletion(ctx)
+				return
 			case <-time.After(t.pollInterval):
-				continue
 			}
 		}
 	}()

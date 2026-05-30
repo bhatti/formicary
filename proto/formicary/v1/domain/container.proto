@@ -7,6 +7,30 @@ import "formicary/v1/annotations.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/domain;domain";
 
+// EnvFromSource loads all keys from a Kubernetes Secret or ConfigMap as environment variables.
+// Equivalent to K8s envFrom: [{secretRef: {name: ...}}] or [{configMapRef: {name: ...}}].
+message EnvFromSource {
+  // secret_ref loads all keys from the named Kubernetes Secret.
+  string secret_ref = 1 [(formicary.v1.tags) = "json:\"secret_ref,omitempty\" yaml:\"secret_ref,omitempty\""];
+  // config_map_ref loads all keys from the named Kubernetes ConfigMap.
+  string config_map_ref = 2 [(formicary.v1.tags) = "json:\"config_map_ref,omitempty\" yaml:\"config_map_ref,omitempty\""];
+  // prefix is an optional prefix applied to each injected key name.
+  string prefix = 3 [(formicary.v1.tags) = "json:\"prefix,omitempty\" yaml:\"prefix,omitempty\""];
+}
+
+// EnvVarSource references a single key from a Secret or ConfigMap as a named env var.
+// Equivalent to K8s env[].valueFrom.secretKeyRef / configMapKeyRef.
+message EnvVarSource {
+  // name is the environment variable name inside the container.
+  string name = 1 [(formicary.v1.tags) = "json:\"name\" yaml:\"name\""];
+  // secret_name is the Kubernetes Secret to read from.
+  string secret_name = 2 [(formicary.v1.tags) = "json:\"secret_name,omitempty\" yaml:\"secret_name,omitempty\""];
+  // config_map_name is the Kubernetes ConfigMap to read from.
+  string config_map_name = 3 [(formicary.v1.tags) = "json:\"config_map_name,omitempty\" yaml:\"config_map_name,omitempty\""];
+  // key is the key within the Secret or ConfigMap.
+  string key = 4 [(formicary.v1.tags) = "json:\"key\" yaml:\"key\""];
+}
+
 // ContainerDefinition defines the container image and resource configuration for a task executor.
 message ContainerDefinition {
   string image = 1 [(formicary.v1.tags) = "json:\"image\" yaml:\"image\""];
@@ -22,6 +46,12 @@ message ContainerDefinition {
   string volume_driver = 11 [(formicary.v1.tags) = "json:\"volume_driver,omitempty\" yaml:\"volume_driver,omitempty\""];
   // volumes_json stores the JSON-serialized volumes (docker map or k8s KubernetesVolumes).
   string volumes_json = 12 [(formicary.v1.tags) = "json:\"volumes_json,omitempty\" yaml:\"volumes_json,omitempty\""];
+  // service_account overrides the pod's service account for per-task IRSA/Workload Identity.
+  string service_account = 13 [(formicary.v1.tags) = "json:\"service_account,omitempty\" yaml:\"service_account,omitempty\""];
+  // env_from loads all keys from Secrets or ConfigMaps as environment variables.
+  repeated EnvFromSource env_from = 14 [(formicary.v1.tags) = "json:\"env_from,omitempty\" yaml:\"env_from,omitempty\""];
+  // env_value_from injects individual Secret or ConfigMap keys as named env vars.
+  repeated EnvVarSource env_value_from = 15 [(formicary.v1.tags) = "json:\"env_value_from,omitempty\" yaml:\"env_value_from,omitempty\""];
 }
 
 // ArtifactsConfig specifies artifact upload/download paths.

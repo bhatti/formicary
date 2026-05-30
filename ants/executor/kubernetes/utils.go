@@ -85,6 +85,61 @@ func buildVariables(
 		for k, v := range opts.Environment {
 			e = append(e, api.EnvVar{Name: k, Value: v})
 		}
+		// Inject individual Secret/ConfigMap key references (secretKeyRef / configMapKeyRef).
+		// These appear as named env vars in the container without the value ever passing
+		// through Formicary — the kubelet resolves them at pod start time.
+		for _, src := range opts.MainContainer.EnvValueFrom {
+			if src == nil || src.Name == "" {
+				continue // Kubernetes rejects pods with nameless env vars
+			}
+			ev := api.EnvVar{Name: src.Name}
+			if src.SecretName != "" {
+				ev.ValueFrom = &api.EnvVarSource{
+					SecretKeyRef: &api.SecretKeySelector{
+						LocalObjectReference: api.LocalObjectReference{Name: src.SecretName},
+						Key:                  src.Key,
+					},
+				}
+			} else if src.ConfigMapName != "" {
+				ev.ValueFrom = &api.EnvVarSource{
+					ConfigMapKeyRef: &api.ConfigMapKeySelector{
+						LocalObjectReference: api.LocalObjectReference{Name: src.ConfigMapName},
+						Key:                  src.Key,
+					},
+				}
+			}
+			if ev.ValueFrom != nil {
+				e = append(e, ev)
+			}
+		}
 	}
 	return e
+}
+
+// buildEnvFrom converts EnvFromSource slice to Kubernetes api.EnvFromSource slice.
+// This loads all keys from a Secret or ConfigMap as environment variables, equivalent
+// to K8s envFrom: [{secretRef: {name: ...}}, {configMapRef: {name: ...}}].
+func buildEnvFrom(sources []*domain.EnvFromSource) []api.EnvFromSource {
+	if len(sources) == 0 {
+		return nil
+	}
+	result := make([]api.EnvFromSource, 0, len(sources))
+	for _, src := range sources {
+		if src == nil {
+			continue
+		}
+		ef := api.EnvFromSource{Prefix: src.Prefix}
+		if src.SecretRef != "" {
+			ef.SecretRef = &api.SecretEnvSource{
+				LocalObjectReference: api.LocalObjectReference{Name: src.SecretRef},
+			}
+			result = append(result, ef)
+		} else if src.ConfigMapRef != "" {
+			ef.ConfigMapRef = &api.ConfigMapEnvSource{
+				LocalObjectReference: api.LocalObjectReference{Name: src.ConfigMapRef},
+			}
+			result = append(result, ef)
+		}
+	}
+	return result
 }

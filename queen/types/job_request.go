@@ -90,6 +90,8 @@ type IJobRequest interface {
 	IncrRetried() int
 	// GetCronTriggered is true if request was triggered by cron
 	GetCronTriggered() bool
+	// GetHardRestart returns true if all tasks should re-run from scratch
+	GetHardRestart() bool
 	// GetScheduledAt defines schedule time
 	GetScheduledAt() time.Time
 	// GetCreatedAt job creation time
@@ -113,7 +115,7 @@ type JobRequest struct {
 	// ParentID defines id for parent job
 	ParentID string `json:"parent_id"`
 	// UserKey defines user-defined UUID and can be used to detect duplicate jobs
-	UserKey string `json:"user_key"`
+	UserKey string `json:"user_key" gorm:"uniqueIndex"`
 	// JobDefinitionID points to the job-definition version
 	JobDefinitionID string `json:"job_definition_id"`
 	// JobExecutionID defines foreign key for JobExecution
@@ -164,6 +166,9 @@ type JobRequest struct {
 	CreatedAt time.Time `json:"created_at"`
 	// UpdatedAt job update time
 	UpdatedAt time.Time `json:"updated_at" gorm:"updated_at"`
+	// HardRestart forces all tasks to re-run from scratch on next restart,
+	// ignoring any previously completed task results. Cleared once the job starts executing.
+	HardRestart bool `json:"hard_restart" gorm:"hard_restart"`
 	// Execution refers to job-Execution
 	Execution       *JobExecution          `yaml:"-" json:"execution" gorm:"-"`
 	NameValueParams map[string]interface{} `yaml:"params,omitempty" json:"params" gorm:"-"`
@@ -259,6 +264,14 @@ func (jr *JobRequest) ShortUserID() string {
 		return jr.UserID[0:8] + "..."
 	}
 	return jr.UserID
+}
+
+// ShortUserKey returns last 20 characters of user_key for display (most distinctive part)
+func (jr *JobRequest) ShortUserKey() string {
+	if len(jr.UserKey) > 20 {
+		return "..." + jr.UserKey[len(jr.UserKey)-20:]
+	}
+	return jr.UserKey
 }
 
 // DescriptionShort returns description for display in listings.
@@ -423,6 +436,11 @@ func (jr *JobRequest) IncrRetried() int {
 // GetCronTriggered is true if request was triggered by cron
 func (jr *JobRequest) GetCronTriggered() bool {
 	return jr.CronTriggered
+}
+
+// GetHardRestart returns true if all tasks should re-run from scratch on restart
+func (jr *JobRequest) GetHardRestart() bool {
+	return jr.HardRestart
 }
 
 // GetJobState defines state of job that is maintained throughout the lifecycle of a job

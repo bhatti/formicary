@@ -3008,6 +3008,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/JobExecutionServiceRestartJobBody"
+            }
           }
         ],
         "tags": [
@@ -5078,6 +5086,16 @@
       },
       "description": "UpdateConcurrencyRequest changes the max_concurrency for a job definition."
     },
+    "JobExecutionServiceRestartJobBody": {
+      "type": "object",
+      "properties": {
+        "hard": {
+          "type": "boolean",
+          "description": "hard forces all tasks to re-run from scratch, ignoring previously completed task results."
+        }
+      },
+      "description": "RestartJobRequest restarts a failed or cancelled job request."
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -5638,6 +5656,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "hard_restart": {
+          "type": "boolean",
+          "description": "hard_restart forces all tasks to re-run from scratch on next restart,\nignoring any previously completed task results. Cleared after the job starts executing."
         }
       },
       "description": "JobRequest represents a user's request to execute a job definition."

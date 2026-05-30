@@ -6,6 +6,10 @@
       <form action="/dashboard/jobs/requests/{{.ID}}/restart" method="POST" enctype="multipart/form-data">
         <input type="submit" class="btn btn-sm btn-secondary" value="Restart">
       </form>
+      <form action="/dashboard/jobs/requests/{{.ID}}/restart?hard=true" method="POST" enctype="multipart/form-data"
+            onsubmit="return confirm('Hard restart will re-run ALL tasks from scratch. Continue?');">
+        <input type="submit" class="btn btn-sm btn-warning" value="Hard Restart">
+      </form>
       {{end}}
       {{if .CanTriggerCron}}
       <form action="/dashboard/jobs/requests/{{.ID}}/trigger" method="POST" enctype="multipart/form-data">
@@ -78,6 +82,8 @@
           <dd class="col-7">{{.Retried}}</dd>
           <dt class="col-5 text-secondary">Cron Triggered</dt>
           <dd class="col-7">{{.CronTriggered}}</dd>
+          <dt class="col-5 text-secondary">User Key</dt>
+          <dd class="col-7 text-secondary small">{{.UserKey}}</dd>
           <dt class="col-5 text-secondary">Elapsed</dt>
           <dd class="col-7">{{.ElapsedDuration}}</dd>
           <dt class="col-5 text-secondary">Created</dt>

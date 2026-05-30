@@ -17,6 +17,8 @@ common:
     s3:
         local_mode: true
         local_data_dir: ./data/seaweedfs
+        local_weed_bin: ./bin/weed
+        local_s3_port: 19000
         bucket: formicary-artifacts
         prefix: formicary/
         region: us-east-1

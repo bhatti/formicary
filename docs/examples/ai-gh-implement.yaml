@@ -1,0 +1,408 @@
+# KUBERNETES variant -> runs in pods (production deployment).
+# Auth: pods load secrets from K8s Secret refs.
+# Skills: you-got-skills must be installed at ~/.claude/skills/ in the container image.
+#
+# IMPORTANT: every script saves TASK_DIR="$PWD" before any cd so artifacts are
+# written back to the executor working dir (where the uploader expects them).
+#
+# JSON extraction: claude --output-format json wraps response in {"result":"..."}.
+# We pull the last {...} object from the result text as the status JSON.
+#
+job_type: ai-gh-implement
+description: "AI agent: plan -> implement -> self-review -> create PR for a GitHub issue"
+max_concurrency: 5
+timeout: 90m
+
+tasks:
+# --- SETUP -------------------------------------------------------------------
+- task_type: setup
+  method: KUBERNETES
+  timeout: 3m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: ai-agent-secrets
+  environment:
+    WS: "/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      mkdir -p "$WS"
+      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      BRANCH="ai/{{.IssueNumber}}-${SLUG}-{{.Nonce}}"
+
+      git clone --depth=100 \
+        "https://x-access-token:${GITHUB_TOKEN}@github.com/{{.GitHubOrg}}/{{.GitHubRepo}}.git" \
+        "$WS/repo"
+      cd "$WS/repo"
+      git checkout -b "$BRANCH"
+
+      {
+        printf 'Issue: #{{.IssueNumber}} {{.IssueTitle}}\n'
+        printf 'URL: {{.IssueURL}}\n'
+        printf 'Repo: https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}\n\n'
+        printf '{{.IssueBody}}\n'
+      } > "$WS/repo/ISSUE_CONTEXT.md"
+
+      BRANCH_LINK="[${BRANCH}](https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}/tree/${BRANCH})"
+
+      printf 'WS=%s\nBRANCH=%s\n' "$WS" "$BRANCH" > "$TASK_DIR/meta.env"
+      printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
+
+      echo "Setup done: branch=$BRANCH ws=$WS task_dir=$TASK_DIR"
+  artifacts:
+    paths:
+      - meta.env
+      - branch.txt
+    when: always
+  on_completed: plan
+
+# --- PLAN (ygs-wbs) ----------------------------------------------------------
+- task_type: plan
+  method: KUBERNETES
+  timeout: 15m
+  dependencies:
+    - setup
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: claude-bedrock-settings
+      - secret_ref: ai-agent-secrets
+  environment:
+    MODEL: "{{.PlanModel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      cd "$WS/repo"
+
+      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
+      {
+        printf 'Work on this GitHub issue:\n\n'
+        cat ISSUE_CONTEXT.md
+        printf '\nApply the ygs-wbs skill methodology:\n'
+        printf '%s\n' '- Explore the codebase to understand architecture, conventions, and test patterns'
+        printf '%s\n' '- Decompose into ordered vertical-slice tasks (each independently testable)'
+        printf '%s\n' '- Write PLAN.md at the repo root with task list, descriptions, and acceptance criteria'
+        printf '\nOn the LAST line of your response output ONLY this JSON (no text after it):\n'
+        printf '{"status":"DONE","task_count":3,"total_complexity":"M","summary":"one line"}\n'
+        printf 'If blocked: {"status":"BLOCKED","blocked_reason":"one line"}\n'
+      } > "$PROMPT_FILE"
+
+      claude --print --output-format json --model "$MODEL" --max-turns 30 \
+        --append-system-prompt-file ~/.claude/skills/ygs-wbs/SKILL.md \
+        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/plan_raw.json" 2>"$TASK_DIR/plan.log"
+      rm -f "$PROMPT_FILE"
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/plan_raw.json")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/plan_result.json"
+
+      cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null || printf '(no PLAN.md)\n' > "$TASK_DIR/plan_summary.md"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/plan_result.json")
+      echo "Plan status: $STATUS complexity=$(jq -r '.total_complexity // "?"' "$TASK_DIR/plan_result.json")"
+      cat "$TASK_DIR/plan.log"
+      [ "$STATUS" = "BLOCKED" ] && exit 2
+      exit 0
+  artifacts:
+    paths:
+      - plan_result.json
+      - plan_summary.md
+    when: always
+  on_exit_code:
+    COMPLETED: implement
+    "2": notify-blocked
+  on_failed: notify-blocked
+
+# --- IMPLEMENT (ygs-implement) ------------------------------------------------
+- task_type: implement
+  method: KUBERNETES
+  timeout: 45m
+  dependencies:
+    - setup
+    - plan
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: claude-bedrock-settings
+      - secret_ref: ai-agent-secrets
+  environment:
+    MODEL: "{{.ImplementModel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      cd "$WS/repo"
+
+      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
+      {
+        printf 'Implement the plan in PLAN.md for this issue:\n\n'
+        cat ISSUE_CONTEXT.md
+        printf '\nApply the ygs-implement skill methodology:\n'
+        printf '%s\n' '- Read PLAN.md and execute each task in order'
+        printf '%s\n' '- Run existing tests after each task'
+        printf '%s\n' '- Make atomic git commits: git commit -m "task: ..."'
+        printf '%s\n' '- If tests fail after 2 fix attempts, stop and report TESTS_FAILING'
+        printf '%s\n' '- If blocked (impossible requirement), stop and report BLOCKED'
+        printf '%s\n' '- Do NOT add features beyond the plan or refactor unrelated code'
+        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
+        printf '{"status":"DONE","files_changed":["a.go"],"commits":3,"tests_status":"passing"}\n'
+      } > "$PROMPT_FILE"
+
+      claude --print --output-format json --model "$MODEL" --max-turns 100 \
+        --append-system-prompt-file ~/.claude/skills/ygs-implement/SKILL.md \
+        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/impl_raw.json" 2>"$TASK_DIR/impl.log"
+      rm -f "$PROMPT_FILE"
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/impl_raw.json")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/impl_result.json"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/impl_result.json")
+      echo "Impl status: $STATUS commits=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json")"
+      cat "$TASK_DIR/impl.log"
+      [ "$STATUS" = "BLOCKED" ] && exit 2
+      [ "$STATUS" = "TESTS_FAILING" ] && exit 3
+      exit 0
+  artifacts:
+    paths:
+      - impl_result.json
+    when: always
+  on_exit_code:
+    COMPLETED: review
+    "2": notify-blocked
+    "3": fix-tests
+  on_failed: notify-blocked
+
+# --- FIX-TESTS ---------------------------------------------------------------
+- task_type: fix-tests
+  method: KUBERNETES
+  timeout: 20m
+  retry: 2
+  delay_between_retries: 30s
+  dependencies:
+    - setup
+    - implement
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: claude-bedrock-settings
+      - secret_ref: ai-agent-secrets
+  environment:
+    MODEL: "{{.ImplementModel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      cd "$WS/repo"
+
+      FAILING=$(jq -r '.failing_tests[]? // empty' "$TASK_DIR/impl_result.json" 2>/dev/null | head -20 || echo "unknown")
+
+      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
+      {
+        printf 'Tests are failing after implementation.\n\nKnown failing tests:\n%s\n\n' "$FAILING"
+        printf 'Apply the ygs-investigate skill methodology:\n'
+        printf '%s\n' '1. Run the test suite to see current output'
+        printf '%s\n' '2. Read each error carefully - do not guess the cause'
+        printf '%s\n' '3. Fix the root cause, not the symptom'
+        printf '%s\n' '4. Re-run to verify the fix'
+        printf '%s\n' '5. Commit: git commit -m "fix: tests ..."'
+        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
+        printf '{"status":"DONE","fixed_tests":[],"root_cause":"one line"}\n'
+        printf 'If still failing: {"status":"STILL_FAILING","still_failing":[]}\n'
+      } > "$PROMPT_FILE"
+
+      claude --print --output-format json --model "$MODEL" --max-turns 50 \
+        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/fix_raw.json" 2>"$TASK_DIR/fix.log"
+      rm -f "$PROMPT_FILE"
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/fix_raw.json")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/fix_result.json"
+
+      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/fix_result.json")
+      echo "Fix-tests: $STATUS"
+      cat "$TASK_DIR/fix.log"
+      [ "$STATUS" = "STILL_FAILING" ] && exit 1
+      exit 0
+  artifacts:
+    paths:
+      - fix_result.json
+    when: always
+  on_completed: review
+  on_failed: review
+
+# --- REVIEW (ygs-code-review) ------------------------------------------------
+- task_type: review
+  method: KUBERNETES
+  timeout: 15m
+  dependencies:
+    - setup
+    - implement
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: claude-bedrock-settings
+      - secret_ref: ai-agent-secrets
+  environment:
+    MODEL: "{{.ReviewModel}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      cd "$WS/repo"
+
+      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
+      {
+        printf 'Self-review the changes on this branch using the ygs-code-review skill methodology.\n\n'
+        printf 'Two-pass review:\n'
+        printf 'Pass 1 - Critical (must fix before PR): correctness bugs, security issues,\n'
+        printf '         missing error handling at system boundaries, missing tests for new code.\n'
+        printf '         For each critical finding: explain it, fix it, commit with "review: fix ..."\n\n'
+        printf 'Pass 2 - Informational only (do NOT fix): naming, clarity, unnecessary complexity.\n'
+        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
+        printf '{"status":"CLEAN","critical_findings":0,"fixes_applied":0,"findings_summary":[]}\n'
+      } > "$PROMPT_FILE"
+
+      claude --print --output-format json --model "$MODEL" --max-turns 20 \
+        --append-system-prompt-file ~/.claude/skills/ygs-code-review/SKILL.md \
+        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/review_raw.json" 2>"$TASK_DIR/review.log"
+      rm -f "$PROMPT_FILE"
+
+      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/review_raw.json")
+      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"CLEAN"}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/review_result.json"
+
+      echo "Review: status=$(jq -r '.status // "CLEAN"' "$TASK_DIR/review_result.json") critical=$(jq -r '.critical_findings // 0' "$TASK_DIR/review_result.json")"
+      cat "$TASK_DIR/review.log"
+  artifacts:
+    paths:
+      - review_result.json
+    when: always
+  on_completed: create-pr
+  on_failed: create-pr
+
+# --- CREATE-PR ---------------------------------------------------------------
+- task_type: create-pr
+  method: KUBERNETES
+  timeout: 5m
+  dependencies:
+    - setup
+    - plan
+    - review
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: ai-agent-secrets
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      cd "$WS/repo"
+
+      git push origin "$BRANCH"
+
+      PLAN_SUMMARY=$(jq -r '.summary // "See PLAN.md"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "See commits")
+      COMPLEXITY=$(jq -r '.total_complexity // "?"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "?")
+      REVIEW_STATUS=$(jq -r '.status // "N/A"' "$TASK_DIR/review_result.json" 2>/dev/null || echo "N/A")
+      IMPL_COMMITS=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "0")
+      TESTS_STATUS=$(jq -r '.tests_status // "unknown"' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
+
+      PR_BODY=$(printf 'Closes #{{.IssueNumber}}\n\nSummary: %s\nComplexity: %s | Commits: %s | Tests: %s\nSelf-review: %s\n\nIssue: {{.IssueLink}}\nModels: plan={{.PlanModel}} impl={{.ImplementModel}} review={{.ReviewModel}}' \
+        "$PLAN_SUMMARY" "$COMPLEXITY" "$IMPL_COMMITS" "$TESTS_STATUS" "$REVIEW_STATUS")
+
+      PR_URL=$(gh pr create \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --title "AI: {{.IssueTitle}}" \
+        --body "$PR_BODY" \
+        --base main --head "$BRANCH")
+
+      printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
+      echo "PR created: $PR_URL"
+
+      gh issue edit "{{.IssueNumber}}" \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" \
+        --add-label "ai-pr-open" 2>/dev/null || true
+  artifacts:
+    paths:
+      - pr_url.txt
+    when: always
+  on_completed: cleanup
+  on_failed: cleanup
+
+# --- NOTIFY-BLOCKED ----------------------------------------------------------
+- task_type: notify-blocked
+  method: KUBERNETES
+  timeout: 2m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+    env_from:
+      - secret_ref: ai-agent-secrets
+  script:
+    - |
+      #!/bin/bash
+      set -uo pipefail
+      TASK_DIR="$PWD"
+      REASON=$(jq -rs 'first(.[].blocked_reason? // .[].summary?) // empty' \
+        "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null \
+        || echo "Unknown - check Formicary job logs")
+      [ -z "$REASON" ] && REASON="Unknown - check Formicary job logs"
+
+      gh issue comment "{{.IssueNumber}}" \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --body "AI Agent Blocked on {{.IssueLink}} - Reason: ${REASON}" || true
+
+      gh issue edit "{{.IssueNumber}}" \
+        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" \
+        --add-label "needs-human" 2>/dev/null || true
+  on_completed: cleanup
+  on_failed: cleanup
+
+# --- CLEANUP (always runs) ---------------------------------------------------
+- task_type: cleanup
+  method: KUBERNETES
+  always_run: true
+  timeout: 1m
+  container:
+    image: ghcr.io/formicary-ai/agent-worker:latest
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      WS="/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+      if [ -d "$WS" ]; then
+        tar -czf "$TASK_DIR/workspace_logs_{{.JobID}}.tar.gz" -C "$WS" . 2>/dev/null || true
+        rm -rf "$WS"
+        echo "Workspace cleaned: $WS"
+      else
+        echo "Workspace not found (setup may have failed)"
+      fi
+  artifacts:
+    paths:
+      - "workspace_logs_{{.JobID}}.tar.gz"
+    when: always
+
+job_variables:
+  PlanModel: "opus"
+  ImplementModel: "sonnet"
+  ReviewModel: "opus"
+  # GitHubOrg, GitHubRepo, GithubToken set via job params from issue picker

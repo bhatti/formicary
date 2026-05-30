@@ -116,6 +116,16 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 		updates["error_message"] = errorMessage
 		updates["error_code"] = errorCode
 	}
+	// Free the unique user_key slot when job reaches a terminal state so the
+	// same issue can be re-submitted after failure.
+	if newState.IsTerminal() {
+		updates["user_key"] = ""
+	}
+	// Clear hard_restart once the job is executing — the FSM has already read it
+	// via DoesRequireFullRestart and any further restarts should be soft by default.
+	if newState == common.EXECUTING {
+		updates["hard_restart"] = false
+	}
 	if newState == common.PENDING || newState == common.PAUSED { // not common.MANUAL_APPROVAL_REQUIRED {
 		if scheduleDelay > 0 {
 			updates["scheduled_at"] = time.Now().Add(scheduleDelay)
@@ -736,16 +746,16 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 	return nil
 }
 
-// Restart the job
+// Restart the job; hard=true sets hard_restart so DoesRequireFullRestart returns true
+// and all tasks re-run from scratch instead of only the failed ones.
 func (jrr *JobRequestRepositoryImpl) Restart(
 	qc *common.QueryContext,
-	id string) error {
-	// TODO check for cron schedule
+	id string,
+	hard bool) error {
 	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
-		"retried = retried + 1, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
-	// TODO check PAUSED and MANUAL_APPROVAL_REQUIRED
-	args := []interface{}{common.PENDING, time.Now(), time.Now(), id, common.NotRestartableStates}
+		"retried = retried + 1, hard_restart = ?, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
+	args := []interface{}{common.PENDING, hard, time.Now(), time.Now(), id, common.NotRestartableStates}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
@@ -1012,6 +1022,27 @@ func (jrr *JobRequestRepositoryImpl) CountByOrgAndState(
 		err = res.Error
 	}
 	return
+}
+
+// CountByJobTypeAndState counts jobs matching the given job-type and one or more states.
+// States are passed as variadic common.RequestState; if none are provided, all states match.
+// Returns 0 on error so it is safe to use inside skip_if templates.
+func (jrr *JobRequestRepositoryImpl) CountByJobTypeAndState(
+	jobType string, states ...common.RequestState) (int64, error) {
+	var totalRecords int64
+	tx := jrr.db.Model(&types.JobRequest{}).Where("job_type = ?", jobType)
+	if len(states) > 0 {
+		stateVals := make([]string, len(states))
+		for i, s := range states {
+			stateVals[i] = string(s)
+		}
+		tx = tx.Where("job_state IN ?", stateVals)
+	}
+	res := tx.Count(&totalRecords)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return totalRecords, nil
 }
 
 // FindActiveCronScheduledJobsByJobType queries scheduled jobs that are either running or waiting to be run

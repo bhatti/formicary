@@ -48,6 +48,9 @@ func NewOrganizationConfigController(
 func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.APIContext) error {
 	params, order, page, pageSize, _, _ := ParseParams(c)
 	qc := web.BuildQueryContext(c)
+	if qc.GetOrganizationID() == "" && c.Param("org") != "" {
+		qc = common.NewQueryContextFromIDs("", c.Param("org"))
+	}
 	recs, total, err := cc.orgConfigRepository.Query(qc, params, page, pageSize, order)
 	if err != nil {
 		return err
@@ -60,8 +63,12 @@ func (cc *OrganizationConfigController) queryOrganizationConfigs(c web.APIContex
 //   200: orgConfig
 func (cc *OrganizationConfigController) postOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
+	orgID := qc.GetOrganizationID()
+	if orgID == "" {
+		orgID = c.Param("org")
+	}
 	now := time.Now()
-	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
+	cfg, err := common.NewOrganizationConfig(orgID, "", "", false)
 	if err != nil {
 		return err
 	}
@@ -69,7 +76,7 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.APIContext)
 	if err != nil {
 		return err
 	}
-	cfg.OrganizationID = qc.GetOrganizationID()
+	cfg.OrganizationID = orgID
 	saved, err := cc.orgConfigRepository.Save(qc, cfg)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -94,7 +101,11 @@ func (cc *OrganizationConfigController) postOrganizationConfig(c web.APIContext)
 //   200: orgConfig
 func (cc *OrganizationConfigController) putOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
-	cfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "", "", false)
+	orgID := qc.GetOrganizationID()
+	if orgID == "" {
+		orgID = c.Param("org")
+	}
+	cfg, err := common.NewOrganizationConfig(orgID, "", "", false)
 	if err != nil {
 		return err
 	}
@@ -102,7 +113,7 @@ func (cc *OrganizationConfigController) putOrganizationConfig(c web.APIContext) 
 	if err != nil {
 		return err
 	}
-	cfg.OrganizationID = qc.GetOrganizationID()
+	cfg.OrganizationID = orgID
 	saved, err := cc.orgConfigRepository.Save(qc, cfg)
 	if err != nil {
 		return err
@@ -116,6 +127,9 @@ func (cc *OrganizationConfigController) putOrganizationConfig(c web.APIContext) 
 //   200: orgConfig
 func (cc *OrganizationConfigController) getOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
+	if qc.GetOrganizationID() == "" && c.Param("org") != "" {
+		qc = common.NewQueryContextFromIDs("", c.Param("org"))
+	}
 	cfg, err := cc.orgConfigRepository.Get(qc, c.Param("id"))
 	if err != nil {
 		return err
@@ -129,6 +143,9 @@ func (cc *OrganizationConfigController) getOrganizationConfig(c web.APIContext) 
 // deleteOrganizationConfig - deletes org-config by id
 func (cc *OrganizationConfigController) deleteOrganizationConfig(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
+	if qc.GetOrganizationID() == "" && c.Param("org") != "" {
+		qc = common.NewQueryContextFromIDs("", c.Param("org"))
+	}
 	err := cc.orgConfigRepository.Delete(qc, c.Param("id"))
 	if err != nil {
 		return err
