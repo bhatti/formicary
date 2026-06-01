@@ -1051,21 +1051,23 @@ func (jm *JobManager) CountByJobTypeAndStateStrings(jobType string, states ...st
 // from a template expression (e.g. via SubmitJob / SubmitJobIfCapacity template functions).
 // It uses a system-level QueryContext (same pattern as scheduleCronRequest) so that
 // calls from the template engine — which has no user HTTP context — are still accepted.
-func (jm *JobManager) SubmitJob(jobType string, description string, params map[string]string) (uint64, error) {
+func (jm *JobManager) SubmitJob(jobType string, description string, params map[string]string) (string, error) {
 	request := types.NewRequest()
 	request.JobType = jobType
 	request.Description = description
 	for k, v := range params {
 		if k == "_user_key" {
-			// _user_key is a special sentinel — set as UserKey for dedup, not stored as a param.
 			request.UserKey = v
 			continue
 		}
+		if k == "_parent_id" {
+			request.ParentID = v
+			continue
+		}
 		if _, err := request.AddParam(k, v); err != nil {
-			return 0, fmt.Errorf("SubmitJob: invalid param %q: %w", k, err)
+			return "", fmt.Errorf("SubmitJob: invalid param %q: %w", k, err)
 		}
 	}
-	// Use an empty (system) query context — no user/org scoping for template-triggered submissions.
 	qc := common.NewQueryContextFromIDs("", "")
 
 	saved, err := jm.SaveJobRequest(qc, request)
@@ -1081,10 +1083,10 @@ func (jm *JobManager) SubmitJob(jobType string, description string, params map[s
 					"ExistingID": existing.ID,
 					"JobState":   existing.JobState,
 				}).Infof("SubmitJob: duplicate UserKey, returning existing job")
-				return hashULIDToUint64(existing.ID), nil
+				return existing.ID, nil
 			}
 		}
-		return 0, fmt.Errorf("SubmitJob: SaveJobRequest failed for job-type %q: %w", jobType, err)
+		return "", fmt.Errorf("SubmitJob: SaveJobRequest failed for job-type %q: %w", jobType, err)
 	}
 	logrus.WithFields(logrus.Fields{
 		"Component":   "JobManager",
@@ -1093,23 +1095,9 @@ func (jm *JobManager) SubmitJob(jobType string, description string, params map[s
 		"UserKey":     request.UserKey,
 		"JobID":       saved.ID,
 	}).Infof("submitted job via template SubmitJob")
-	// Convert the string ULID ID to uint64 for the interface.
-	// SaveJobRequest sets ID to a ULID string; we return a stable uint64 by hashing.
-	// For template use a simple incrementing approach is fine — use the DB row ID if
-	// the repository exposes it, otherwise hash the ULID.
-	return hashULIDToUint64(saved.ID), nil
+	return saved.ID, nil
 }
 
-// hashULIDToUint64 converts a ULID/string ID to a uint64 for template display.
-// It uses a simple FNV-1a hash — collisions are astronomically unlikely for job IDs.
-func hashULIDToUint64(id string) uint64 {
-	var h uint64 = 14695981039346656037
-	for i := 0; i < len(id); i++ {
-		h ^= uint64(id[i])
-		h *= 1099511628211
-	}
-	return h
-}
 
 // UserOrgExecuting return count of executing jobs by user and org
 func (jm *JobManager) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {

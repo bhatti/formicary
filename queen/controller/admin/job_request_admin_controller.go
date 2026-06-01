@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"plexobject.com/formicary/internal/utils"
@@ -193,6 +194,24 @@ func (jraCtr *JobRequestAdminController) restartJobRequest(c web.APIContext) err
 // newJobRequest - creates a new job request
 func (jraCtr *JobRequestAdminController) newJobRequest(c web.APIContext) error {
 	request := types.JobRequest{ParamsJSON: "{}"}
+
+	// Pre-populate params from job_variables when jobType is specified
+	if jobType := c.QueryParam("jobType"); jobType != "" {
+		request.JobType = jobType
+		qc := web.BuildQueryContext(c)
+		if jobDef, err := jraCtr.jobManager.GetJobDefinitionByType(qc, jobType, ""); err == nil {
+			if vars, ok := jobDef.NameValueVariables.(map[string]interface{}); ok && len(vars) > 0 {
+				paramsMap := make(map[string]string, len(vars))
+				for k, v := range vars {
+					paramsMap[k] = fmt.Sprintf("%v", v)
+				}
+				if paramsJSON, err := json.MarshalIndent(paramsMap, "", "  "); err == nil {
+					request.ParamsJSON = string(paramsJSON)
+				}
+			}
+		}
+	}
+
 	res := map[string]interface{}{
 		"Request":  request,
 		"JobTypes": jraCtr.getJobTypes(c),

@@ -1,5 +1,5 @@
-# KUBERNETES variant -> runs in pods (production deployment).
-# Auth: pods load secrets from K8s Secret refs.
+# SHELL variant -> runs on a bare ant worker (no Kubernetes required).
+# Auth: ant worker inherits ~/.claude/settings.json and `gh auth login` automatically.
 #
 job_type: ai-gh-pr-feedback
 description: "AI agent: addresses PR review comments and pushes fixes"
@@ -11,14 +11,10 @@ delay_between_retries: 2m
 tasks:
 # --- ADDRESS-FEEDBACK --------------------------------------------------------
 - task_type: address-feedback
-  method: KUBERNETES
+  method: SHELL
   timeout: 25m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: claude-bedrock-settings
-      - secret_ref: ai-agent-secrets
   environment:
+    GITHUB_TOKEN: "{{.GithubToken}}"
     MODEL: "{{.ImplementModel}}"
   script:
     - |
@@ -88,13 +84,11 @@ tasks:
 
 # --- DONE --------------------------------------------------------------------
 - task_type: done
-  method: KUBERNETES
+  method: SHELL
   timeout: 10s
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
   script:
     - echo "PR feedback workflow complete for PR #{{.PRNumber}}"
 
 job_variables:
   ImplementModel: "sonnet"
-  # PRNumber, PRTitle, PRBranch, GitHubOrg, GitHubRepo set via job params
+  # PRNumber, PRTitle, PRBranch, GitHubOrg, GitHubRepo, GithubToken set via job params

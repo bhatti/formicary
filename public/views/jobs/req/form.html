@@ -29,6 +29,6 @@
 </div>
 <div class="mb-3">
     <label for="params" class="form-label">Params (JSON)</label>
-    <input type="text" class="form-control" name="params" id="params" value="{{ .Request.ParamsJSON }}"
-           placeholder="JSON parameters">
+    <textarea class="form-control font-monospace" name="params" id="params" rows="12"
+              placeholder="JSON parameters">{{ .Request.ParamsJSON }}</textarea>
 </div>

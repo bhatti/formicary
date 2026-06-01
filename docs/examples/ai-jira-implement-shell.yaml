@@ -5,7 +5,7 @@
 # Output: tee'd to stdout for streaming logs + saved as artifacts.
 # report_stdout: true on all tasks so Formicary streams output in real-time.
 
-job_type: ai-gh-implement
+job_type: ai-jira-implement
 description: "AI agent: plan -> implement -> validate -> self-verify -> create PR"
 max_concurrency: 5
 timeout: 90m
@@ -23,12 +23,12 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
-      WS="$HOME/claude_workspace/{{.GitHubRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
+      WS="$HOME/claude_workspace/{{.BitbucketRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
       echo "=== SETUP ==="
       echo "TASK_DIR=$TASK_DIR"
       echo "WS=$WS"
       echo "Issue: #{{.IssueNumber}} {{.IssueTitle}}"
-      echo "Repo: {{.GitHubOrg}}/{{.GitHubRepo}}"
+      echo "Repo: {{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       echo "---"
 
       rm -rf "$WS"
@@ -38,8 +38,8 @@ tasks:
       BRANCH="ai/{{.IssueNumber}}-${SLUG}-{{.Nonce}}"
       echo "Branch: $BRANCH"
 
-      echo "Cloning git@github.com:{{.GitHubOrg}}/{{.GitHubRepo}}.git ..."
-      git clone --depth=100 "git@github.com:{{.GitHubOrg}}/{{.GitHubRepo}}.git" "$WS/repo"
+      echo "Cloning git@github.com:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git ..."
+      git clone --depth=100 "git@github.com:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git" "$WS/repo"
       cd "$WS/repo"
 
       git config user.name "{{.GitUserName}}"
@@ -58,7 +58,7 @@ tasks:
       echo "---"
 
       printf 'WS=%s\nBRANCH=%s\n' "$WS" "$BRANCH" > "$TASK_DIR/meta.env"
-      BRANCH_LINK="[${BRANCH}](https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}/tree/${BRANCH})"
+      BRANCH_LINK="[${BRANCH}](https://github.com/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/tree/${BRANCH})"
       printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
 
       echo "::set-output name=WorkspaceDir::$WS/repo"
@@ -555,11 +555,11 @@ tasks:
       - Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}"
 
       echo "Creating PR..."
-      PR_URL=$(gh pr create \
-        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+      PR_URL=$(acli bitbucket pr create \
+        --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" \
         --title "AI: {{.IssueTitle}}" \
         --body "$PR_BODY" \
-        --base "{{.GitBranch}}" --head "$BRANCH")
+        --source "$BRANCH" --destination "{{.GitBranch}}" -o json | jq -r .links.html.href)
 
       printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
       PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
@@ -567,7 +567,7 @@ tasks:
       echo "::set-output name=PRUrl::$PR_URL"
       echo "=== PR CREATED: $PR_URL (PR #$PR_NUM) ==="
 
-      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+      acli jira issue update "{{.IssueNumber}}" \
         --remove-label "ai-in-progress" --add-label "ai-pr-open" 2>/dev/null || true
   artifacts:
     paths:
@@ -592,7 +592,7 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
-      REPO="{{.GitHubOrg}}/{{.GitHubRepo}}"
+      REPO="{{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
       PROCESSED_FILE="$WS/.processed_comments"
       echo "=== MONITOR-PR ==="
@@ -623,9 +623,9 @@ tasks:
         fi
 
         # Fetch review comments (use --jq to handle control chars in body)
-        ALL_REVIEW=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+        ALL_REVIEW=$(acli bitbucket pr comment list --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" "$PR_NUMBER" -o json \
           --jq '[.[] | {id, body, path, user: .user.login}]' 2>/dev/null || echo "[]")
-        ALL_ISSUE=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+        ALL_ISSUE=$(echo "[]" # Bitbucket PR comments are in the same list \
           --jq '[.[] | {id, body, user: .user.login}]' 2>/dev/null || echo "[]")
 
         PROCESSED=$(cat "$PROCESSED_FILE" 2>/dev/null || echo "")
@@ -680,7 +680,7 @@ tasks:
             git push origin HEAD 2>/dev/null && echo "Pushed changes" || echo "Nothing to push"
 
             # Reply on PR
-            gh pr comment "$PR_NUMBER" -R "$REPO" \
+            acli bitbucket pr comment create --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" "$PR_NUMBER" \
               --body "Addressed feedback from @$COMMENT_USER. See latest commit." 2>/dev/null || true
 
             # Mark processed
@@ -726,9 +726,9 @@ tasks:
 
       PR_COMMENTS=""
       if [ -n "$PR_NUMBER" ]; then
-        PR_COMMENTS=$(gh api "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/pulls/$PR_NUMBER/comments" \
+        PR_COMMENTS=$(gh api "repos/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/pulls/$PR_NUMBER/comments" \
           --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
-        ISSUE_COMMENTS=$(gh api "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/issues/$PR_NUMBER/comments" \
+        ISSUE_COMMENTS=$(gh api "repos/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/issues/$PR_NUMBER/comments" \
           --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
       fi
 
@@ -742,7 +742,7 @@ tasks:
         printf '- What patterns should be repeated? What should be avoided?\n'
         printf '- Are there codebase conventions the AI missed?\n\n'
         printf 'Write a concise learning entry (max 20 lines) to:\n'
-        printf '  %s/{{.GitHubOrg}}_{{.GitHubRepo}}_issue{{.IssueNumber}}.md\n\n' "$LEARN_DIR"
+        printf '  %s/{{.BitbucketWorkspace}}_{{.BitbucketRepo}}_issue{{.IssueNumber}}.md\n\n' "$LEARN_DIR"
         printf 'Format:\n'
         printf '# Issue #{{.IssueNumber}}: {{.IssueTitle}}\n'
         printf '## What went well\n'
@@ -787,8 +787,8 @@ tasks:
       Reason: ${REASON}
 
       Please fix and re-label as ai-ready to retry."
-      gh issue comment "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" --body "$BODY" || true
-      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+      gh issue comment "{{.IssueNumber}}" -R "{{.BitbucketWorkspace}}/{{.BitbucketRepo}}" --body "$BODY" || true
+      acli jira issue update "{{.IssueNumber}}" \
         --remove-label "ai-in-progress" --add-label "needs-human" 2>/dev/null || true
   on_completed: cleanup
   on_failed: cleanup
@@ -803,7 +803,7 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      WS="$HOME/claude_workspace/{{.GitHubRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
+      WS="$HOME/claude_workspace/{{.BitbucketRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
       echo "=== CLEANUP ==="
       echo "WS=$WS"
       if [ -d "$WS" ]; then
@@ -820,6 +820,6 @@ job_variables:
   ReviewModel: "sonnet"
   GitUserName: "Shahzad Bhatti"
   GitUserEmail: "bhatti@plexobject.com"
-  GitHubOrg: "bhatti"
-  GitHubRepo: "todo-sample"
+  BitbucketWorkspace: "bhatti"
+  BitbucketRepo: "todo-sample"
   GitBranch: "main"

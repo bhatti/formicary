@@ -1,12 +1,10 @@
 ARG WEED_VERSION=3.68
 
-FROM golang:1.24 AS go-builder
+FROM golang:1.26 AS go-builder
 COPY . /src
 WORKDIR /src
-# Install ALL the static linking dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git make bash build-essential \
-    sqlite3 libsqlite3-dev pkg-config \
     ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
@@ -14,20 +12,20 @@ ARG WEED_VERSION=3.68
 RUN curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/${WEED_VERSION}/linux_amd64.tar.gz" \
     | tar -xz -C /usr/local/bin weed && \
     chmod +x /usr/local/bin/weed
-# Set CGO flags for static linking
-ENV CGO_ENABLED=1
-ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
-ENV CGO_LDFLAGS="-static -w -s"
-# Download dependencies and build
-RUN go mod download && make build-linux || (echo "Build failed"; exit 1)
-# Clear static flags for Goose install
-ENV CGO_LDFLAGS=""
-# Install Goose in the builder stage with explicit architecture
+
+# Pure Go build (modernc.org/sqlite — no CGO required)
+ENV CGO_ENABLED=0
+RUN go mod download && \
+    mkdir -p out/bin && \
+    GOOS=linux GOARCH=amd64 go build -mod=mod \
+    -ldflags "-X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%S) -X main.version=$(git rev-parse --short HEAD 2>/dev/null || echo dev)" \
+    -o out/bin/formicary . || (echo "Build failed"; exit 1)
+
+# Install Goose
 RUN GOARCH=$(go env GOARCH) GOOS=$(go env GOOS) go install github.com/pressly/goose/v3/cmd/goose@v3.17.0
 
 # Production stage
 FROM alpine:latest
-# Minimal runtime (static binary needs almost nothing)
 RUN apk add --no-cache ca-certificates bash mysql-client postgresql-client && \
     addgroup -S formicary-user && \
     adduser -S -G formicary-user formicary-user
@@ -44,9 +42,7 @@ COPY --from=go-builder /src/migrations /migrations
 # Copy and make migration script executable
 COPY migrations/migrate.sh /usr/local/bin/migrate.sh
 
-# Ensure binaries are executable and check they exist
 RUN chmod +x /usr/local/bin/migrate.sh /usr/local/bin/goose /formicary && \
-    # Verify goose is working
     /usr/local/bin/goose --version || (echo "Goose not working, trying to install in Alpine..."; \
     apk add --no-cache go git && \
     go install github.com/pressly/goose/v3/cmd/goose@v3.17.0 && \
@@ -54,12 +50,11 @@ RUN chmod +x /usr/local/bin/migrate.sh /usr/local/bin/goose /formicary && \
     chmod +x /usr/local/bin/goose && \
     apk del go git)
 
-# Create necessary directories with proper permissions BEFORE switching to non-root user
+# Create necessary directories
 RUN mkdir -p /data /app/data /tmp/formicary /var/log/formicary && \
     chown -R formicary-user:formicary-user /data /app /tmp/formicary /var/log/formicary && \
     chmod 755 /data /app/data /tmp/formicary /var/log/formicary
 
-# Set environment variables
 ENV DB_NAME="formicary_db" \
     DB_USER="formicary_user" \
     DB_HOST="localhost" \
@@ -70,11 +65,6 @@ ENV DB_NAME="formicary_db" \
     CONFIG_FILE="/config/formicary-queen.yaml" \
     DATA_DIR="/data"
 
-# Create a working directory for the application
 WORKDIR /app
-
-# Switch to non-root user AFTER creating directories
 USER formicary-user
-
-# Use the migration script as entrypoint
 ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/migrate.sh && exec /formicary --config $CONFIG_FILE"]

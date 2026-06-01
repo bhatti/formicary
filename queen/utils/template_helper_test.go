@@ -148,13 +148,14 @@ func (m *mockJobCountQuerier) CountByJobTypeAndStateStrings(jobType string, stat
 	return total, nil
 }
 
-func (m *mockJobCountQuerier) SubmitJob(jobType string, description string, params map[string]string) (uint64, error) {
+func (m *mockJobCountQuerier) SubmitJob(jobType string, description string, params map[string]string) (string, error) {
 	if m.submitError != "" {
-		return 0, fmt.Errorf("%s", m.submitError)
+		return "", fmt.Errorf("%s", m.submitError)
 	}
 	m.nextID++
+	id := fmt.Sprintf("01MOCK%012d", m.nextID)
 	m.submitted = append(m.submitted, submittedJob{jobType: jobType, description: description, params: params})
-	return m.nextID, nil
+	return id, nil
 }
 
 func Test_ShouldCountByJobTypeAndStateInTemplate(t *testing.T) {

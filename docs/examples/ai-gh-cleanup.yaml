@@ -1,3 +1,8 @@
+# SHELL variant of ai-gh-cleanup.yaml
+# Runs on a bare ant worker — no Kubernetes required.
+# Auth: the ant worker process inherits ~/.claude/settings.json automatically
+# (ANTHROPIC_BEDROCK_BASE_URL, CLAUDE_CODE_USE_BEDROCK, etc. from settings.env)
+# GITHUB_TOKEN: set by running `gh auth login` on the ant worker host.
 job_type: ai-gh-cleanup
 description: "Periodic maintenance: cleans stale workspaces, removes merged AI branches"
 cron_trigger: "0 0 */4 * * * *"
@@ -16,10 +21,8 @@ timeout: 10m
 tasks:
 # ─── CLEANUP-WORKSPACES: remove stale local directories ──────────────────────
 - task_type: cleanup-workspaces
-  method: KUBERNETES
+  method: SHELL
   timeout: 3m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
   script:
     - |
       #!/bin/bash
@@ -57,12 +60,8 @@ tasks:
 
 # ─── CLEANUP-BRANCHES: delete merged/closed ai/* branches ────────────────────
 - task_type: cleanup-branches
-  method: KUBERNETES
+  method: SHELL
   timeout: 5m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: ai-agent-secrets
   dependencies:
     - cleanup-workspaces
   script:

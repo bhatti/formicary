@@ -1,57 +1,71 @@
-# KUBERNETES variant -> runs in pods (production deployment).
-# Auth: pods load secrets from K8s Secret refs.
-# Skills: you-got-skills must be installed at ~/.claude/skills/ in the container image.
+# SHELL variant — runs on a bare ant worker with SSH keys and gh auth configured.
+# Prerequisites: claude CLI, gh CLI, git, python3, jq, SSH key for GitHub.
 #
-# IMPORTANT: every script saves TASK_DIR="$PWD" before any cd so artifacts are
-# written back to the executor working dir (where the uploader expects them).
-#
-# JSON extraction: claude --output-format json wraps response in {"result":"..."}.
-# We pull the last {...} object from the result text as the status JSON.
-#
+# Workspace: ~/claude_workspace/<IssueNumber>-<Nonce> (persisted for local inspection)
+# Output: tee'd to stdout for streaming logs + saved as artifacts.
+# report_stdout: true on all tasks so Formicary streams output in real-time.
+
 job_type: ai-gh-implement
-description: "AI agent: plan -> implement -> self-review -> create PR for a GitHub issue"
+description: "AI agent: plan -> implement -> validate -> self-verify -> create PR"
 max_concurrency: 5
 timeout: 90m
 
 tasks:
 # --- SETUP -------------------------------------------------------------------
 - task_type: setup
-  method: KUBERNETES
+  method: SHELL
   timeout: 3m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: ai-agent-secrets
+  report_stdout: true
   environment:
-    WS: "/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
   script:
     - |
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
+      WS="$HOME/claude_workspace/{{.GitHubRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
+      echo "=== SETUP ==="
+      echo "TASK_DIR=$TASK_DIR"
+      echo "WS=$WS"
+      echo "Issue: #{{.IssueNumber}} {{.IssueTitle}}"
+      echo "Repo: {{.GitHubOrg}}/{{.GitHubRepo}}"
+      echo "---"
+
+      rm -rf "$WS"
       mkdir -p "$WS"
+
       SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
       BRANCH="ai/{{.IssueNumber}}-${SLUG}-{{.Nonce}}"
+      echo "Branch: $BRANCH"
 
-      git clone --depth=100 \
-        "https://x-access-token:${GITHUB_TOKEN}@github.com/{{.GitHubOrg}}/{{.GitHubRepo}}.git" \
-        "$WS/repo"
+      echo "Cloning git@github.com:{{.GitHubOrg}}/{{.GitHubRepo}}.git ..."
+      git clone --depth=100 "git@github.com:{{.GitHubOrg}}/{{.GitHubRepo}}.git" "$WS/repo"
       cd "$WS/repo"
+
+      git config user.name "{{.GitUserName}}"
+      git config user.email "{{.GitUserEmail}}"
       git checkout -b "$BRANCH"
+      echo "Branch created: $BRANCH"
 
-      {
-        printf 'Issue: #{{.IssueNumber}} {{.IssueTitle}}\n'
-        printf 'URL: {{.IssueURL}}\n'
-        printf 'Repo: https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}\n\n'
-        printf '{{.IssueBody}}\n'
-      } > "$WS/repo/ISSUE_CONTEXT.md"
+      cat > "$WS/repo/ISSUE_CONTEXT.md" <<'ISSUEEOF'
+      # Issue #{{.IssueNumber}}: {{.IssueTitle}}
 
-      BRANCH_LINK="[${BRANCH}](https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}/tree/${BRANCH})"
+      {{.IssueBody}}
+      ISSUEEOF
+
+      echo "--- ISSUE_CONTEXT.md ---"
+      cat "$WS/repo/ISSUE_CONTEXT.md"
+      echo "---"
 
       printf 'WS=%s\nBRANCH=%s\n' "$WS" "$BRANCH" > "$TASK_DIR/meta.env"
+      BRANCH_LINK="[${BRANCH}](https://github.com/{{.GitHubOrg}}/{{.GitHubRepo}}/tree/${BRANCH})"
       printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
 
-      echo "Setup done: branch=$BRANCH ws=$WS task_dir=$TASK_DIR"
+      echo "::set-output name=WorkspaceDir::$WS/repo"
+      echo "=== SETUP COMPLETE ==="
+      echo "Workspace: $WS/repo"
+      echo "Branch: $BRANCH"
+      ls -la "$WS/repo"
   artifacts:
     paths:
       - meta.env
@@ -59,350 +73,753 @@ tasks:
     when: always
   on_completed: plan
 
-# --- PLAN (ygs-wbs) ----------------------------------------------------------
+# --- PLAN --------------------------------------------------------------------
 - task_type: plan
-  method: KUBERNETES
+  method: SHELL
   timeout: 15m
+  report_stdout: true
   dependencies:
     - setup
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: claude-bedrock-settings
-      - secret_ref: ai-agent-secrets
   environment:
     MODEL: "{{.PlanModel}}"
   script:
     - |
       #!/bin/bash
-      set -euo pipefail
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
+      echo "=== PLAN ==="
+      echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
 
-      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
-      {
-        printf 'Work on this GitHub issue:\n\n'
-        cat ISSUE_CONTEXT.md
-        printf '\nApply the ygs-wbs skill methodology:\n'
-        printf '%s\n' '- Explore the codebase to understand architecture, conventions, and test patterns'
-        printf '%s\n' '- Decompose into ordered vertical-slice tasks (each independently testable)'
-        printf '%s\n' '- Write PLAN.md at the repo root with task list, descriptions, and acceptance criteria'
-        printf '\nOn the LAST line of your response output ONLY this JSON (no text after it):\n'
-        printf '{"status":"DONE","task_count":3,"total_complexity":"M","summary":"one line"}\n'
-        printf 'If blocked: {"status":"BLOCKED","blocked_reason":"one line"}\n'
-      } > "$PROMPT_FILE"
+      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      PLAN_FILE="PLANS/${SLUG}-{{.IssueNumber}}-plan.md"
+      mkdir -p PLANS
+      echo "Plan file: $PLAN_FILE"
 
-      claude --print --output-format json --model "$MODEL" --max-turns 30 \
-        --append-system-prompt-file ~/.claude/skills/ygs-wbs/SKILL.md \
-        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/plan_raw.json" 2>"$TASK_DIR/plan.log"
-      rm -f "$PROMPT_FILE"
+      cat > /tmp/plan_prompt.txt <<PROMPTEOF
+      You are working in a git repository. Read ISSUE_CONTEXT.md for the issue details.
 
-      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/plan_raw.json")
-      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      Create the file $PLAN_FILE with an implementation plan.
+
+      Apply the /ygs-wbs skill methodology if available. Otherwise:
+      - Explore the codebase (ls, cat files) to understand architecture and conventions
+      - Decompose into ordered vertical-slice tasks, each independently testable
+      - Write $PLAN_FILE with: ordered task list, description, files to change, acceptance criteria
+
+      IMPORTANT: On the VERY LAST line of your response, output ONLY this JSON:
+      {"status":"DONE","task_count":3,"total_complexity":"M","summary":"one line summary"}
+      If you cannot proceed: {"status":"BLOCKED","blocked_reason":"specific reason"}
+      PROMPTEOF
+
+      echo "--- Prompt ---"
+      cat /tmp/plan_prompt.txt
+      echo "---"
+      echo "Calling claude (model=$MODEL, max-turns=30)..."
+      echo ""
+
+      set +e
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
+        "$(cat /tmp/plan_prompt.txt)" 2>&1 | tee "$TASK_DIR/plan_conversation.txt"
+      CLAUDE_EXIT=${PIPESTATUS[0]}
+      set -e
+
+      echo ""
+      echo "=== claude exit=$CLAUDE_EXIT ==="
+
+      # Show what claude produced
+      echo "--- git status after plan ---"
+      git status
+      echo "--- $PLAN_FILE ---"
+      cat "$PLAN_FILE" 2>/dev/null || cat PLAN.md 2>/dev/null || echo "(plan file not created)"
+
+      # Extract status JSON
+      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/plan_conversation.txt" | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","task_count":0,"summary":"no status JSON"}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/plan_result.json"
+      echo "Plan result: $STATUS_JSON"
 
-      cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null || printf '(no PLAN.md)\n' > "$TASK_DIR/plan_summary.md"
+      cp "$PLAN_FILE" "$TASK_DIR/plan_summary.md" 2>/dev/null || cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null || echo "(no plan file)" > "$TASK_DIR/plan_summary.md"
 
-      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/plan_result.json")
-      echo "Plan status: $STATUS complexity=$(jq -r '.total_complexity // "?"' "$TASK_DIR/plan_result.json")"
-      cat "$TASK_DIR/plan.log"
+      STATUS=$(echo "$STATUS_JSON" | jq -r '.status // "DONE"')
       [ "$STATUS" = "BLOCKED" ] && exit 2
       exit 0
   artifacts:
     paths:
       - plan_result.json
       - plan_summary.md
+      - plan_conversation.txt
     when: always
   on_exit_code:
     COMPLETED: implement
     "2": notify-blocked
   on_failed: notify-blocked
 
-# --- IMPLEMENT (ygs-implement) ------------------------------------------------
+# --- IMPLEMENT ---------------------------------------------------------------
 - task_type: implement
-  method: KUBERNETES
+  method: SHELL
   timeout: 45m
+  report_stdout: true
   dependencies:
     - setup
     - plan
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: claude-bedrock-settings
-      - secret_ref: ai-agent-secrets
   environment:
     MODEL: "{{.ImplementModel}}"
   script:
     - |
       #!/bin/bash
-      set -euo pipefail
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
+      echo "=== IMPLEMENT ==="
+      echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
 
-      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
-      {
-        printf 'Implement the plan in PLAN.md for this issue:\n\n'
-        cat ISSUE_CONTEXT.md
-        printf '\nApply the ygs-implement skill methodology:\n'
-        printf '%s\n' '- Read PLAN.md and execute each task in order'
-        printf '%s\n' '- Run existing tests after each task'
-        printf '%s\n' '- Make atomic git commits: git commit -m "task: ..."'
-        printf '%s\n' '- If tests fail after 2 fix attempts, stop and report TESTS_FAILING'
-        printf '%s\n' '- If blocked (impossible requirement), stop and report BLOCKED'
-        printf '%s\n' '- Do NOT add features beyond the plan or refactor unrelated code'
-        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
-        printf '{"status":"DONE","files_changed":["a.go"],"commits":3,"tests_status":"passing"}\n'
-      } > "$PROMPT_FILE"
+      echo "--- workspace state ---"
+      ls -la
+      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      PLAN_FILE="PLANS/${SLUG}-{{.IssueNumber}}-plan.md"
+      # Fallback to PLAN.md if specific plan file doesn't exist
+      [ ! -f "$PLAN_FILE" ] && PLAN_FILE="PLAN.md"
+      echo "--- $PLAN_FILE ---"
+      cat "$PLAN_FILE" 2>/dev/null || echo "(no plan file)"
+      echo "--- ISSUE_CONTEXT.md ---"
+      cat ISSUE_CONTEXT.md 2>/dev/null || echo "(no ISSUE_CONTEXT.md)"
+      echo "---"
 
-      claude --print --output-format json --model "$MODEL" --max-turns 100 \
-        --append-system-prompt-file ~/.claude/skills/ygs-implement/SKILL.md \
-        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/impl_raw.json" 2>"$TASK_DIR/impl.log"
-      rm -f "$PROMPT_FILE"
+      cat > /tmp/impl_prompt.txt <<PROMPTEOF
+      You are working in a git repository. Implement the plan for the issue.
 
-      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/impl_raw.json")
-      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+      Read ISSUE_CONTEXT.md for the issue and $PLAN_FILE for the plan.
+
+      Apply the /ygs-implement skill methodology if available. Otherwise:
+      - Execute each task in the plan file in order
+      - Actually create/modify the files using your tools
+      - Run existing tests after each task if a test runner is available
+      - Make atomic git commits after each task: git add -A && git commit -m "task: description"
+      - If tests fail after 2 fix attempts: stop and report TESTS_FAILING
+      - If blocked: stop and report BLOCKED
+      - Do NOT add features beyond the plan
+
+      IMPORTANT: You MUST make actual file changes and git commits.
+      On the VERY LAST line of your response, output ONLY this JSON:
+      {"status":"DONE","files_changed":["file1.go"],"commits":2,"tests_status":"passing"}
+      If blocked: {"status":"BLOCKED","blocked_reason":"reason"}
+      If tests failing: {"status":"TESTS_FAILING","failing_tests":["TestFoo"]}
+      PROMPTEOF
+
+      echo "Calling claude (model=$MODEL, max-turns=100)..."
+      echo ""
+
+      set +e
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 100 \
+        "$(cat /tmp/impl_prompt.txt)" 2>&1 | tee "$TASK_DIR/impl_conversation.txt"
+      CLAUDE_EXIT=${PIPESTATUS[0]}
+      set -e
+
+      echo ""
+      echo "=== claude exit=$CLAUDE_EXIT ==="
+
+      # If claude made changes but forgot to commit, commit them now
+      if [ -n "$(git status --porcelain)" ]; then
+        echo "--- uncommitted changes detected, committing ---"
+        git add -A
+        git commit -m "implement: changes from AI agent" || true
+      fi
+
+      echo "--- git log (commits on branch) ---"
+      git log --oneline main..HEAD 2>/dev/null || git log --oneline -5
+      echo "--- git diff --stat ---"
+      git diff --stat main 2>/dev/null || true
+      echo "--- git status ---"
+      git status
+
+      # Save git state as artifacts
+      git diff main > "$TASK_DIR/impl_diff.patch" 2>/dev/null || true
+      git log --oneline main..HEAD > "$TASK_DIR/impl_commits.txt" 2>/dev/null || true
+
+      # Extract status JSON
+      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/impl_conversation.txt" | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","files_changed":[],"commits":0}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/impl_result.json"
+      echo "Impl result: $STATUS_JSON"
 
-      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/impl_result.json")
-      echo "Impl status: $STATUS commits=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json")"
-      cat "$TASK_DIR/impl.log"
+      STATUS=$(echo "$STATUS_JSON" | jq -r '.status // "DONE"')
+      echo "=== IMPLEMENT STATUS: $STATUS ==="
       [ "$STATUS" = "BLOCKED" ] && exit 2
       [ "$STATUS" = "TESTS_FAILING" ] && exit 3
       exit 0
   artifacts:
     paths:
       - impl_result.json
+      - impl_conversation.txt
+      - impl_diff.patch
+      - impl_commits.txt
     when: always
   on_exit_code:
-    COMPLETED: review
+    COMPLETED: unit-test
     "2": notify-blocked
+    "3": fix-tests
+  on_failed: notify-blocked
+
+# --- UNIT-TEST (verify changes exist + run tests) ----------------------------
+- task_type: unit-test
+  method: SHELL
+  timeout: 10m
+  report_stdout: true
+  dependencies:
+    - setup
+    - implement
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      echo "=========================================="
+      echo "=== UNIT-TEST: Verify changes + run tests ==="
+      echo "=========================================="
+      cd "$WS/repo"
+
+      echo ""
+      echo "--- Commits on branch ---"
+      git log --oneline main..HEAD 2>/dev/null || echo "(none)"
+
+      COMMIT_COUNT=$(git rev-list --count main..HEAD 2>/dev/null || echo "0")
+      echo "Total commits: $COMMIT_COUNT"
+
+      if [ "$COMMIT_COUNT" -eq 0 ]; then
+        echo ""
+        echo "!!! ERROR: No commits were made by implement task !!!"
+        echo "Check impl_conversation.txt artifact for details."
+        exit 1
+      fi
+
+      echo ""
+      echo "--- Files changed ---"
+      git diff --stat main 2>/dev/null || echo "(no diff)"
+
+      echo ""
+      echo "--- Directory listing ---"
+      find . -not -path './.git/*' -not -path './target/*' -not -path './node_modules/*' -type f | sort | head -50
+
+      # Detect and run test suite
+      echo ""
+      echo "=== Running tests ==="
+      TEST_EXIT=0
+
+      if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
+        echo "Found Makefile with test target"
+        make test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "Cargo.toml" ]; then
+        echo "Found Cargo.toml - running cargo test"
+        cargo test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "package.json" ]; then
+        echo "Found package.json - running npm test"
+        npm install 2>&1 | tail -5
+        npm test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "go.mod" ]; then
+        echo "Found go.mod - running go test"
+        go test ./... 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+        echo "Found Python project - running pytest"
+        pip install -e . 2>/dev/null || true
+        pytest 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      else
+        echo "No recognized test runner found - skipping tests"
+        echo "skipped" > "$TASK_DIR/test_output.txt"
+      fi
+
+      echo ""
+      echo "Test exit code: $TEST_EXIT"
+
+      # Save artifacts
+      git diff main > "$TASK_DIR/verify_diff.patch" 2>/dev/null || true
+      git log --format="%h %s" main..HEAD > "$TASK_DIR/verify_commits.txt" 2>/dev/null || true
+
+      echo ""
+      if [ $TEST_EXIT -ne 0 ]; then
+        echo "=== UNIT-TEST FAILED (exit=$TEST_EXIT) ==="
+        exit 3
+      fi
+      echo "=== UNIT-TEST PASSED: $COMMIT_COUNT commit(s), tests green ==="
+  artifacts:
+    paths:
+      - verify_diff.patch
+      - verify_commits.txt
+      - test_output.txt
+    when: always
+  on_exit_code:
+    COMPLETED: self-verify
     "3": fix-tests
   on_failed: notify-blocked
 
 # --- FIX-TESTS ---------------------------------------------------------------
 - task_type: fix-tests
-  method: KUBERNETES
+  method: SHELL
   timeout: 20m
   retry: 2
   delay_between_retries: 30s
+  report_stdout: true
   dependencies:
     - setup
     - implement
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: claude-bedrock-settings
-      - secret_ref: ai-agent-secrets
   environment:
     MODEL: "{{.ImplementModel}}"
   script:
     - |
       #!/bin/bash
-      set -euo pipefail
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
+      echo "=== FIX-TESTS ==="
+      echo "WS=$WS"
       cd "$WS/repo"
 
-      FAILING=$(jq -r '.failing_tests[]? // empty' "$TASK_DIR/impl_result.json" 2>/dev/null | head -20 || echo "unknown")
+      FAILING=$(jq -r '.failing_tests[]? // empty' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
+      echo "Known failing: $FAILING"
 
-      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
       {
-        printf 'Tests are failing after implementation.\n\nKnown failing tests:\n%s\n\n' "$FAILING"
-        printf 'Apply the ygs-investigate skill methodology:\n'
-        printf '%s\n' '1. Run the test suite to see current output'
-        printf '%s\n' '2. Read each error carefully - do not guess the cause'
-        printf '%s\n' '3. Fix the root cause, not the symptom'
-        printf '%s\n' '4. Re-run to verify the fix'
-        printf '%s\n' '5. Commit: git commit -m "fix: tests ..."'
-        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
-        printf '{"status":"DONE","fixed_tests":[],"root_cause":"one line"}\n'
-        printf 'If still failing: {"status":"STILL_FAILING","still_failing":[]}\n'
-      } > "$PROMPT_FILE"
+        printf 'Tests are failing. Fix them.\n\nKnown failing tests: %s\n\n' "$FAILING"
+        printf 'Instructions:\n'
+        printf '1. Run the test suite to see current output\n'
+        printf '2. Read each error carefully - do not guess the cause\n'
+        printf '3. Fix the root cause\n'
+        printf '4. Re-run to verify\n'
+        printf '5. git add -A && git commit -m "fix: tests ..."\n\n'
+        printf 'On the LAST line output ONLY: {"status":"DONE","fixed_tests":["TestFoo"]}\n'
+        printf 'If still failing: {"status":"STILL_FAILING","still_failing":["TestFoo"]}\n'
+      } > /tmp/fix_prompt.txt
 
-      claude --print --output-format json --model "$MODEL" --max-turns 50 \
-        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/fix_raw.json" 2>"$TASK_DIR/fix.log"
-      rm -f "$PROMPT_FILE"
+      echo "Calling claude (model=$MODEL, max-turns=50)..."
+      set +e
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 50 \
+        "$(cat /tmp/fix_prompt.txt)" 2>&1 | tee "$TASK_DIR/fix_conversation.txt"
+      CLAUDE_EXIT=${PIPESTATUS[0]}
+      set -e
+      echo ""
+      echo "=== claude exit=$CLAUDE_EXIT ==="
 
-      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/fix_raw.json")
-      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
+      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/fix_conversation.txt" | tail -1 || true)
       [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/fix_result.json"
 
-      STATUS=$(jq -r '.status // "DONE"' "$TASK_DIR/fix_result.json")
-      echo "Fix-tests: $STATUS"
-      cat "$TASK_DIR/fix.log"
+      STATUS=$(echo "$STATUS_JSON" | jq -r '.status // "DONE"')
+      echo "Fix-tests status: $STATUS"
       [ "$STATUS" = "STILL_FAILING" ] && exit 1
       exit 0
   artifacts:
     paths:
       - fix_result.json
+      - fix_conversation.txt
     when: always
-  on_completed: review
-  on_failed: review
+  on_completed: self-verify
+  on_failed: notify-blocked
 
-# --- REVIEW (ygs-code-review) ------------------------------------------------
-- task_type: review
-  method: KUBERNETES
+# --- SELF-VERIFY (AI reviews its own work) -----------------------------------
+- task_type: self-verify
+  method: SHELL
   timeout: 15m
+  report_stdout: true
   dependencies:
     - setup
     - implement
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: claude-bedrock-settings
-      - secret_ref: ai-agent-secrets
   environment:
     MODEL: "{{.ReviewModel}}"
   script:
     - |
       #!/bin/bash
-      set -euo pipefail
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
+      echo "=== SELF-VERIFY ==="
+      echo "WS=$WS"
       cd "$WS/repo"
 
-      PROMPT_FILE=$(mktemp /tmp/prompt.XXXXXX)
-      {
-        printf 'Self-review the changes on this branch using the ygs-code-review skill methodology.\n\n'
-        printf 'Two-pass review:\n'
-        printf 'Pass 1 - Critical (must fix before PR): correctness bugs, security issues,\n'
-        printf '         missing error handling at system boundaries, missing tests for new code.\n'
-        printf '         For each critical finding: explain it, fix it, commit with "review: fix ..."\n\n'
-        printf 'Pass 2 - Informational only (do NOT fix): naming, clarity, unnecessary complexity.\n'
-        printf '\nOn the LAST line of your response output ONLY this JSON:\n'
-        printf '{"status":"CLEAN","critical_findings":0,"fixes_applied":0,"findings_summary":[]}\n'
-      } > "$PROMPT_FILE"
+      echo "--- commits to verify ---"
+      git log --oneline main..HEAD 2>/dev/null || echo "(no commits)"
+      echo "--- diff stat ---"
+      git diff --stat main 2>/dev/null || echo "(no diff)"
+      DIFF_SIZE=$(git diff main 2>/dev/null | wc -l || echo "0")
+      echo "Diff lines: $DIFF_SIZE"
 
-      claude --print --output-format json --model "$MODEL" --max-turns 20 \
-        --append-system-prompt-file ~/.claude/skills/ygs-code-review/SKILL.md \
-        "$(cat "$PROMPT_FILE")" > "$TASK_DIR/review_raw.json" 2>"$TASK_DIR/review.log"
-      rm -f "$PROMPT_FILE"
+      if [ "$DIFF_SIZE" -lt 2 ]; then
+        echo "No changes to verify - skipping"
+        printf '{"status":"SKIPPED","reason":"no changes","critical_findings":0,"fixes_applied":0}\n' > "$TASK_DIR/verify_result.json"
+        echo "No changes to verify" > "$TASK_DIR/verify_conversation.txt"
+        exit 0
+      fi
 
-      CLAUDE_TEXT=$(jq -r '.result // ""' "$TASK_DIR/review_raw.json")
-      STATUS_JSON=$(printf '%s' "$CLAUDE_TEXT" | grep -oE '\{[^{}]+\}' | tail -1)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"CLEAN"}'
-      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/review_result.json"
+      cat > /tmp/verify_prompt.txt <<'PROMPTEOF'
+      You are verifying changes made by an AI implementation agent on this branch.
+      Your job is to catch real problems before this becomes a PR.
 
-      echo "Review: status=$(jq -r '.status // "CLEAN"' "$TASK_DIR/review_result.json") critical=$(jq -r '.critical_findings // 0' "$TASK_DIR/review_result.json")"
-      cat "$TASK_DIR/review.log"
+      Apply the /ygs-code-review skill methodology if available. Otherwise:
+
+      Step 1 - Run tests:
+      - Find and run the project test suite (make test, npm test, go test, pytest, etc.)
+      - Report pass/fail with output
+
+      Step 2 - Check correctness (MUST FIX if found):
+      - Logic bugs: wrong conditions, off-by-one, nil/null dereference, wrong return values
+      - Security: SQL injection, XSS, hardcoded secrets, path traversal
+      - Missing error handling at I/O boundaries (network, file, DB)
+      - Incomplete implementation: does the code actually solve the issue described in ISSUE_CONTEXT.md?
+      - For each problem: explain it clearly, fix it, then: git add -A && git commit -m "verify: fix <problem>"
+
+      Step 3 - Summary:
+      - List what you verified, what passed, what you fixed
+
+      On the LAST line output ONLY:
+      {"status":"PASS","tests_pass":true,"critical_findings":0,"fixes_applied":0,"summary":"all tests pass, implementation correct"}
+      If you fixed issues: {"status":"FIXED","tests_pass":true,"critical_findings":2,"fixes_applied":2,"summary":"fixed null check and missing error handling"}
+      If tests fail and you cannot fix: {"status":"TESTS_FAILING","tests_pass":false,"critical_findings":1,"fixes_applied":0,"summary":"integration test fails due to missing DB migration"}
+      PROMPTEOF
+
+      echo "Calling claude for self-verify (model=$MODEL, max-turns=30)..."
+      echo ""
+      set +e
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
+        "$(cat /tmp/verify_prompt.txt)" 2>&1 | tee "$TASK_DIR/verify_conversation.txt"
+      CLAUDE_EXIT=${PIPESTATUS[0]}
+      set -e
+      echo ""
+      echo "=== claude self-verify exit=$CLAUDE_EXIT ==="
+
+      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/verify_conversation.txt" | tail -1 || true)
+      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"PASS","critical_findings":0,"fixes_applied":0}'
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/verify_result.json"
+
+      echo ""
+      echo "--- Self-verify result ---"
+      cat "$TASK_DIR/verify_result.json"
+      echo ""
+      echo "--- final git log ---"
+      git log --oneline main..HEAD 2>/dev/null || echo "(no commits)"
+      echo "--- final diff stat ---"
+      git diff --stat main 2>/dev/null || true
   artifacts:
     paths:
-      - review_result.json
+      - verify_result.json
+      - verify_conversation.txt
     when: always
   on_completed: create-pr
-  on_failed: create-pr
+  on_failed: notify-blocked
 
 # --- CREATE-PR ---------------------------------------------------------------
 - task_type: create-pr
-  method: KUBERNETES
+  method: SHELL
   timeout: 5m
+  report_stdout: true
   dependencies:
     - setup
     - plan
-    - review
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: ai-agent-secrets
+    - self-verify
+  environment:
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
   script:
     - |
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
       source "$TASK_DIR/meta.env"
+      echo "=== CREATE-PR ==="
+      echo "BRANCH=$BRANCH"
       cd "$WS/repo"
 
+      # Check if there are actually commits to push
+      COMMIT_COUNT=$(git rev-list --count main..HEAD 2>/dev/null || echo "0")
+      echo "Commits on branch: $COMMIT_COUNT"
+
+      if [ "$COMMIT_COUNT" -eq 0 ]; then
+        echo "ERROR: No commits on branch - nothing to push or PR"
+        echo "This means implement did not make any changes."
+        echo "--- git log ---"
+        git log --oneline -5
+        echo "--- git status ---"
+        git status
+        exit 1
+      fi
+
+      echo "Pushing branch..."
       git push origin "$BRANCH"
+      echo "Push successful"
 
       PLAN_SUMMARY=$(jq -r '.summary // "See PLAN.md"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "See commits")
-      COMPLEXITY=$(jq -r '.total_complexity // "?"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "?")
-      REVIEW_STATUS=$(jq -r '.status // "N/A"' "$TASK_DIR/review_result.json" 2>/dev/null || echo "N/A")
+      REVIEW_STATUS=$(jq -r '.status // "N/A"' "$TASK_DIR/verify_result.json" 2>/dev/null || echo "N/A")
       IMPL_COMMITS=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "0")
-      TESTS_STATUS=$(jq -r '.tests_status // "unknown"' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
 
-      PR_BODY=$(printf 'Closes #{{.IssueNumber}}\n\nSummary: %s\nComplexity: %s | Commits: %s | Tests: %s\nSelf-review: %s\n\nIssue: {{.IssueLink}}\nModels: plan={{.PlanModel}} impl={{.ImplementModel}} review={{.ReviewModel}}' \
-        "$PLAN_SUMMARY" "$COMPLEXITY" "$IMPL_COMMITS" "$TESTS_STATUS" "$REVIEW_STATUS")
+      PR_BODY="Closes #{{.IssueNumber}}
 
+      ## Summary
+      ${PLAN_SUMMARY}
+
+      ## Stats
+      - Commits: ${IMPL_COMMITS}
+      - Self-verify: ${REVIEW_STATUS}
+      - Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}"
+
+      echo "Creating PR..."
       PR_URL=$(gh pr create \
         -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
         --title "AI: {{.IssueTitle}}" \
         --body "$PR_BODY" \
-        --base main --head "$BRANCH")
+        --base "{{.GitBranch}}" --head "$BRANCH")
 
       printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
-      echo "PR created: $PR_URL"
+      PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+      echo "::set-output name=PRNumber::$PR_NUM"
+      echo "::set-output name=PRUrl::$PR_URL"
+      echo "=== PR CREATED: $PR_URL (PR #$PR_NUM) ==="
 
-      gh issue edit "{{.IssueNumber}}" \
-        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
-        --remove-label "ai-in-progress" \
-        --add-label "ai-pr-open" 2>/dev/null || true
+      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" --add-label "ai-pr-open" 2>/dev/null || true
   artifacts:
     paths:
       - pr_url.txt
+    when: always
+  on_completed: monitor-pr
+  on_failed: cleanup
+
+# --- MONITOR-PR (poll for comments, respond, wait for merge/close) -----------
+- task_type: monitor-pr
+  method: SHELL
+  timeout: 24h
+  report_stdout: true
+  dependencies:
+    - setup
+    - create-pr
+  environment:
+    MODEL: "{{.ImplementModel}}"
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      REPO="{{.GitHubOrg}}/{{.GitHubRepo}}"
+      PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
+      PROCESSED_FILE="$WS/.processed_comments"
+      echo "=== MONITOR-PR ==="
+      echo "PR: #$PR_NUMBER in $REPO"
+      echo "WS: $WS"
+      echo "Polling every 2 minutes for reviewer comments..."
+
+      if [ -z "$PR_NUMBER" ]; then
+        echo "ERROR: No PR number found in pr_url.txt"
+        exit 1
+      fi
+
+      cd "$WS/repo"
+      touch "$PROCESSED_FILE"
+
+      while true; do
+        echo ""
+        echo "[$(date +%H:%M:%S)] --- Poll cycle ---"
+
+        # Check PR state
+        PR_STATE=$(gh pr view "$PR_NUMBER" -R "$REPO" --json state -q '.state' 2>/dev/null || echo "UNKNOWN")
+        echo "PR #$PR_NUMBER state: $PR_STATE"
+
+        if [ "$PR_STATE" = "MERGED" ] || [ "$PR_STATE" = "CLOSED" ]; then
+          echo "PR is $PR_STATE - exiting monitor"
+          printf '{"status":"%s","pr_number":"%s"}\n' "$PR_STATE" "$PR_NUMBER" > "$TASK_DIR/monitor_result.json"
+          break
+        fi
+
+        # Fetch review comments (use --jq to handle control chars in body)
+        ALL_REVIEW=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+          --jq '[.[] | {id, body, path, user: .user.login}]' 2>/dev/null || echo "[]")
+        ALL_ISSUE=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+          --jq '[.[] | {id, body, user: .user.login}]' 2>/dev/null || echo "[]")
+
+        PROCESSED=$(cat "$PROCESSED_FILE" 2>/dev/null || echo "")
+
+        # Combine and filter out already processed (keep all users — we respond to all)
+        UNPROCESSED=$(echo "$ALL_REVIEW" "$ALL_ISSUE" | jq -s --arg processed "$PROCESSED" '
+          add // [] |
+          [.[] | select((.id | tostring) as $id | ($processed | split("\n") | map(select(. != "")) | index($id)) == null)]
+        ' 2>/dev/null || echo "[]")
+
+        COMMENT_COUNT=$(echo "$UNPROCESSED" | jq 'length' 2>/dev/null || echo "0")
+        TOTAL=$(echo "$NEW_COMMENTS" | jq 'length' 2>/dev/null || echo "0")
+        echo "Comments: total=$TOTAL, unprocessed=$COMMENT_COUNT"
+
+        if [ "$COMMENT_COUNT" -gt 0 ]; then
+          echo ""
+          echo "=== Processing $COMMENT_COUNT new comment(s) ==="
+
+          INDICES=$(echo "$UNPROCESSED" | jq -r 'keys[]' 2>/dev/null)
+          for idx in $INDICES; do
+            COMMENT_ID=$(echo "$UNPROCESSED" | jq -r ".[$idx].id")
+            COMMENT_BODY=$(echo "$UNPROCESSED" | jq -r ".[$idx].body")
+            COMMENT_USER=$(echo "$UNPROCESSED" | jq -r ".[$idx].user")
+            COMMENT_PATH=$(echo "$UNPROCESSED" | jq -r ".[$idx].path // empty")
+
+            echo ""
+            echo "--- Comment #$COMMENT_ID from $COMMENT_USER ---"
+            echo "Body: $COMMENT_BODY"
+            [ -n "$COMMENT_PATH" ] && echo "File: $COMMENT_PATH"
+
+            {
+              printf 'A reviewer left a comment on your PR. Address their feedback.\n\n'
+              printf 'Reviewer: %s\n' "$COMMENT_USER"
+              [ -n "$COMMENT_PATH" ] && printf 'File: %s\n' "$COMMENT_PATH"
+              printf 'Comment:\n%s\n\n' "$COMMENT_BODY"
+              printf 'Instructions:\n'
+              printf '- Make the requested change\n'
+              printf '- Run tests if available\n'
+              printf '- git add -A && git commit -m "feedback: address %s comment"\n' "$COMMENT_USER"
+              printf '- Do NOT make unrequested changes\n'
+            } > /tmp/respond_prompt.txt
+
+            echo "Calling claude..."
+            set +e
+            claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 20 \
+              "$(cat /tmp/respond_prompt.txt)" 2>&1 | tee "$TASK_DIR/respond_${COMMENT_ID}.txt"
+            CLAUDE_EXIT=$?
+            set -e
+            echo "Claude exit: $CLAUDE_EXIT"
+
+            # Push changes
+            git push origin HEAD 2>/dev/null && echo "Pushed changes" || echo "Nothing to push"
+
+            # Reply on PR
+            gh pr comment "$PR_NUMBER" -R "$REPO" \
+              --body "Addressed feedback from @$COMMENT_USER. See latest commit." 2>/dev/null || true
+
+            # Mark processed
+            echo "$COMMENT_ID" >> "$PROCESSED_FILE"
+            echo "Done: comment #$COMMENT_ID processed"
+          done
+        fi
+
+        echo "[$(date +%H:%M:%S)] Sleeping 120s..."
+        sleep 120
+      done
+
+      echo "=== MONITOR-PR COMPLETE ==="
+  artifacts:
+    paths:
+      - monitor_result.json
+    when: always
+  on_completed: learn
+  on_failed: learn
+
+# --- LEARN (capture learnings from the PR lifecycle) -------------------------
+- task_type: learn
+  method: SHELL
+  timeout: 10m
+  report_stdout: true
+  dependencies:
+    - setup
+  environment:
+    MODEL: "{{.ReviewModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      source "$TASK_DIR/meta.env"
+      echo "=== LEARN ==="
+      cd "$WS/repo"
+      LEARN_DIR="$HOME/claude_workspace/learn_context"
+      mkdir -p "$LEARN_DIR"
+
+      # Gather PR review comments and conversation
+      PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
+      echo "PR: #$PR_NUMBER"
+
+      PR_COMMENTS=""
+      if [ -n "$PR_NUMBER" ]; then
+        PR_COMMENTS=$(gh api "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/pulls/$PR_NUMBER/comments" \
+          --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
+        ISSUE_COMMENTS=$(gh api "repos/{{.GitHubOrg}}/{{.GitHubRepo}}/issues/$PR_NUMBER/comments" \
+          --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
+      fi
+
+      {
+        printf 'Review the PR lifecycle for issue #{{.IssueNumber}} and extract learnings.\n\n'
+        printf 'PR review comments:\n%s\n\n' "$PR_COMMENTS"
+        printf 'Issue comments:\n%s\n\n' "$ISSUE_COMMENTS"
+        printf 'Apply the /ygs-learn skill methodology if available. Otherwise:\n'
+        printf '- What went well in this implementation?\n'
+        printf '- What reviewer feedback indicated a gap in the AI approach?\n'
+        printf '- What patterns should be repeated? What should be avoided?\n'
+        printf '- Are there codebase conventions the AI missed?\n\n'
+        printf 'Write a concise learning entry (max 20 lines) to:\n'
+        printf '  %s/{{.GitHubOrg}}_{{.GitHubRepo}}_issue{{.IssueNumber}}.md\n\n' "$LEARN_DIR"
+        printf 'Format:\n'
+        printf '# Issue #{{.IssueNumber}}: {{.IssueTitle}}\n'
+        printf '## What went well\n'
+        printf '## What to improve\n'
+        printf '## Patterns to remember\n\n'
+        printf 'On the LAST line output: {"status":"DONE","learnings_file":"path"}\n'
+      } > /tmp/learn_prompt.txt
+
+      echo "Calling claude for learning capture..."
+      set +e
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 10 \
+        "$(cat /tmp/learn_prompt.txt)" 2>&1 | tee "$TASK_DIR/learn_conversation.txt"
+      set -e
+
+      echo ""
+      echo "=== LEARN COMPLETE ==="
+      echo "Learn context dir:"
+      ls -la "$LEARN_DIR/" 2>/dev/null || echo "(empty)"
+  artifacts:
+    paths:
+      - learn_conversation.txt
     when: always
   on_completed: cleanup
   on_failed: cleanup
 
 # --- NOTIFY-BLOCKED ----------------------------------------------------------
 - task_type: notify-blocked
-  method: KUBERNETES
+  method: SHELL
   timeout: 2m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
-    env_from:
-      - secret_ref: ai-agent-secrets
+  report_stdout: true
   script:
     - |
       #!/bin/bash
-      set -uo pipefail
       TASK_DIR="$PWD"
-      REASON=$(jq -rs 'first(.[].blocked_reason? // .[].summary?) // empty' \
-        "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null \
-        || echo "Unknown - check Formicary job logs")
+      echo "=== NOTIFY-BLOCKED ==="
+      REASON=$(jq -rs '[.[].blocked_reason?, .[].summary?] | map(select(. != null and . != "")) | first // "Unknown"' \
+        "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null || echo "Unknown")
       [ -z "$REASON" ] && REASON="Unknown - check Formicary job logs"
+      echo "Blocked: $REASON"
+      BODY="**AI Agent Blocked**
 
-      gh issue comment "{{.IssueNumber}}" \
-        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
-        --body "AI Agent Blocked on {{.IssueLink}} - Reason: ${REASON}" || true
+      Reason: ${REASON}
 
-      gh issue edit "{{.IssueNumber}}" \
-        -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
-        --remove-label "ai-in-progress" \
-        --add-label "needs-human" 2>/dev/null || true
+      Please fix and re-label as ai-ready to retry."
+      gh issue comment "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" --body "$BODY" || true
+      gh issue edit "{{.IssueNumber}}" -R "{{.GitHubOrg}}/{{.GitHubRepo}}" \
+        --remove-label "ai-in-progress" --add-label "needs-human" 2>/dev/null || true
   on_completed: cleanup
   on_failed: cleanup
 
 # --- CLEANUP (always runs) ---------------------------------------------------
 - task_type: cleanup
-  method: KUBERNETES
+  method: SHELL
   always_run: true
   timeout: 1m
-  container:
-    image: ghcr.io/formicary-ai/agent-worker:latest
+  report_stdout: true
   script:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      WS="/tmp/formicary-ai/{{.IssueNumber}}-{{.Nonce}}"
+      WS="$HOME/claude_workspace/{{.GitHubRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
+      echo "=== CLEANUP ==="
+      echo "WS=$WS"
       if [ -d "$WS" ]; then
-        tar -czf "$TASK_DIR/workspace_logs_{{.JobID}}.tar.gz" -C "$WS" . 2>/dev/null || true
-        rm -rf "$WS"
-        echo "Workspace cleaned: $WS"
+        echo "Workspace preserved at: $WS"
+        echo "Contents:"
+        find "$WS/repo" -maxdepth 2 -not -path '*/.git/*' | head -30
       else
-        echo "Workspace not found (setup may have failed)"
+        echo "Workspace not found"
       fi
-  artifacts:
-    paths:
-      - "workspace_logs_{{.JobID}}.tar.gz"
-    when: always
 
 job_variables:
-  PlanModel: "opus"
+  PlanModel: "sonnet"
   ImplementModel: "sonnet"
-  ReviewModel: "opus"
-  # GitHubOrg, GitHubRepo, GithubToken set via job params from issue picker
+  ReviewModel: "sonnet"
+  GitUserName: "Shahzad Bhatti"
+  GitUserEmail: "bhatti@plexobject.com"
+  GitHubOrg: "bhatti"
+  GitHubRepo: "todo-sample"
+  GitBranch: "main"

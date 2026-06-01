@@ -1353,7 +1353,7 @@ func ReloadFromYaml(rawYaml string) (loaded *JobDefinition, err error) {
 	loaded = &JobDefinition{}
 	var loadedYaml string
 	if loadedYaml, err = utils.ParseTemplate(rawYaml, make(map[string]interface{})); err == nil &&
-		rawYaml != loadedYaml {
+		rawYaml != loadedYaml && !strings.Contains(loadedYaml, "<no value>") {
 		err = yaml.Unmarshal([]byte(loadedYaml), loaded)
 	}
 	if err == nil {
@@ -1398,7 +1398,7 @@ func loadDynamicTasksFromYaml(yamlSource string) string {
 		}
 	}
 	if loadedYaml, err := utils.ParseTemplate(yamlSource, data); err == nil &&
-		yamlSource != loadedYaml {
+		yamlSource != loadedYaml && !strings.Contains(loadedYaml, "<no value>") {
 		yamlSource = loadedYaml
 	}
 	return yamlSource

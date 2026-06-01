@@ -1,0 +1,149 @@
+# Jira/Bitbucket variant — polls Jira for issues labeled for AI pickup.
+# Auth: acli configured at ~/.config/acli/config.json with jira + bitbucket profiles.
+#
+# Uses acli CLI (Atlassian CLI) instead of gh CLI.
+# Label convention: ai-ready → ai-in-progress → ai-pr-open → needs-human
+
+job_type: ai-jira-issue-picker
+description: "Polls Jira for ai-ready issues and submits ai-jira-implement jobs"
+cron_trigger: "0 * * * * * *"
+max_concurrency: 1
+timeout: 5m
+
+skip_if: >-
+  {{if ge (CountByJobTypeAndState "ai-jira-implement" "PENDING") 10}} true {{end}}
+
+tasks:
+- task_type: gather-issues
+  method: SHELL
+  timeout: 3m
+  report_stdout: true
+  environment:
+    JIRA_PROJECT: "{{.JiraProject}}"
+    PICKUP_LABEL: "{{.PickupLabel}}"
+    INPROGRESS_LABEL: "{{.InProgressLabel}}"
+    MAX_PENDING: "{{.MaxPendingJobs}}"
+    BB_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BB_REPO: "{{.BitbucketRepo}}"
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      python3 - <<'PYEOF'
+      import json, os, subprocess, sys
+
+      project      = os.environ["JIRA_PROJECT"]
+      pickup_lbl   = os.environ["PICKUP_LABEL"]
+      inprog_lbl   = os.environ["INPROGRESS_LABEL"]
+      max_pending  = int(os.environ.get("MAX_PENDING", "10"))
+      bb_workspace = os.environ["BB_WORKSPACE"]
+      bb_repo      = os.environ["BB_REPO"]
+
+      def acli(*args):
+          cmd = ["acli"] + list(args)
+          r = subprocess.run(cmd, capture_output=True, text=True)
+          if r.returncode != 0:
+              print(f"acli {' '.join(args[:4])} failed: {r.stderr.strip()}", file=sys.stderr)
+          return r
+
+      # Search Jira for issues with pickup label
+      # Issues must have "ai-ready" label AND a "repo:<name>:<branch>" label
+      # e.g. labels: ai-ready, repo:my-service:develop
+      jql = f'project = {project} AND labels = "{pickup_lbl}" AND status != Done ORDER BY priority DESC'
+      r = acli("jira", "search", "--jql", jql, "--limit", str(max_pending), "-o", "json")
+      try:
+          issues = json.loads(r.stdout) if r.returncode == 0 else []
+      except json.JSONDecodeError:
+          issues = []
+
+      print(f"Fetched {len(issues)} issue(s) from {project} (label: {pickup_lbl})")
+
+      import re
+      repo_label_re = re.compile(r"^repo:([^:]+):(.+)$")
+
+      items = []
+      for issue in issues:
+          key = issue.get("key", "")
+          summary = issue.get("fields", {}).get("summary", issue.get("summary", ""))
+          description = issue.get("fields", {}).get("description", issue.get("description", ""))
+          url = issue.get("self", "")
+          labels = issue.get("fields", {}).get("labels", issue.get("labels", []))
+
+          # Extract repo and branch from "repo:<name>:<branch>" label
+          issue_repo = bb_repo        # default from job variables
+          issue_branch = "main"       # default branch
+          for lbl in labels:
+              lbl_str = lbl if isinstance(lbl, str) else lbl.get("name", "")
+              m = repo_label_re.match(lbl_str)
+              if m:
+                  issue_repo = m.group(1)
+                  issue_branch = m.group(2)
+                  break
+
+          nonce = subprocess.check_output(
+              ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
+
+          # Move label: remove pickup, add in-progress
+          acli("jira", "issue", "update", key, "--remove-labels", pickup_lbl)
+          acli("jira", "issue", "update", key, "--add-labels", inprog_lbl)
+          print(f"  {key}: {summary} (repo={issue_repo}, branch={issue_branch})")
+
+          items.append({
+              "IssueNumber": key,
+              "IssueTitle": summary,
+              "IssueBody": description or "",
+              "IssueURL": url,
+              "Nonce": nonce,
+              "BitbucketWorkspace": bb_workspace,
+              "BitbucketRepo": issue_repo,
+              "GitBranch": issue_branch,
+              "JiraProject": project,
+              "_description": f"{key}: {summary} ({issue_repo}:{issue_branch})",
+              "_user_key": f"ai-jira-implement-{bb_workspace}-{issue_repo}-{key}",
+          })
+
+      items_json = json.dumps(items, separators=(",", ":"))
+      with open("issues.json", "w") as f:
+          f.write(items_json + "\n")
+
+      print(f"items.json written: {len(items)} item(s)")
+      print(f"::set-output name=IssuesJSON::{items_json}")
+      PYEOF
+  artifacts:
+    paths:
+      - issues.json
+  on_completed: submit-jobs
+
+- task_type: submit-jobs
+  method: SHELL
+  timeout: 1m
+  report_stdout: true
+  dependencies:
+    - gather-issues
+  environment:
+    SUBMITTED_IDS: '{{if .IssuesJSON}}{{SubmitJobsFromJSON "ai-jira-implement" .IssuesJSON (printf "_parent_id=%s" .JobID)}}{{end}}'
+    PENDING_COUNT: '{{CountByJobTypeAndState "ai-jira-implement" "PENDING"}}'
+    ISSUES_JSON: '{{.IssuesJSON}}'
+  script:
+    - |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== Jira Issue Picker Submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+      echo "Issues found: ${ISSUES_JSON:-none}"
+      if [ -n "${SUBMITTED_IDS:-}" ]; then
+        echo "Submitted job IDs:"
+        echo "$SUBMITTED_IDS" | while read -r id; do
+          [ -n "$id" ] && echo "  - $id"
+        done
+      else
+        echo "No jobs submitted"
+      fi
+      echo "Pending count: ${PENDING_COUNT}"
+
+job_variables:
+  MaxPendingJobs: "10"
+  PickupLabel: "ai-ready"
+  InProgressLabel: "ai-in-progress"
+  JiraProject: "PROJ"
+  BitbucketWorkspace: "myworkspace"
+  BitbucketRepo: "myrepo"

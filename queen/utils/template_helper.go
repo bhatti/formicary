@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	htmltemplate "html/template"
+	"text/template"
 	"math/rand"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -19,7 +19,7 @@ import (
 // internal/types. It is satisfied by manager.JobManager.
 type JobTemplateHelper interface {
 	CountByJobTypeAndStateStrings(jobType string, states ...string) (int64, error)
-	SubmitJob(jobType string, description string, params map[string]string) (uint64, error)
+	SubmitJob(jobType string, description string, params map[string]string) (string, error)
 }
 
 // JobCountQuerier is a backward-compatible alias for JobTemplateHelper.
@@ -100,31 +100,35 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 		"Add": func(n uint, plus uint) uint {
 			return n + plus
 		},
-		"Unescape": func(s string) template.HTML {
-			return template.HTML(s)
+		"Unescape": func(s string) htmltemplate.HTML {
+			return htmltemplate.HTML(s)
 		},
 		"Random": func(min, max int) int {
 			return rand.Intn(max-min) + min
 		},
-		"MarkdownLink": func(s string) template.HTML {
+		"MarkdownLink": func(s string) htmltemplate.HTML {
 			if s == "" {
 				return ""
 			}
 			matches := markdownLinkRe.FindStringSubmatch(s)
 			if matches == nil {
-				return template.HTML(template.HTMLEscapeString(s))
+				if parsed, err := url.Parse(s); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") {
+					escaped := htmltemplate.HTMLEscapeString(parsed.String())
+					return htmltemplate.HTML(fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>`, escaped, escaped))
+				}
+				return htmltemplate.HTML(htmltemplate.HTMLEscapeString(s))
 			}
-			text := template.HTMLEscapeString(matches[1])
+			text := htmltemplate.HTMLEscapeString(matches[1])
 			rawURL := matches[2]
 			parsed, err := url.Parse(rawURL)
 			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-				return template.HTML(template.HTMLEscapeString(s))
+				return htmltemplate.HTML(htmltemplate.HTMLEscapeString(s))
 			}
 			if strings.Contains(strings.ToLower(rawURL), "javascript:") {
-				return template.HTML(template.HTMLEscapeString(s))
+				return htmltemplate.HTML(htmltemplate.HTMLEscapeString(s))
 			}
-			return template.HTML(fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>`,
-				template.HTMLEscapeString(parsed.String()), text))
+			return htmltemplate.HTML(fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>`,
+				htmltemplate.HTMLEscapeString(parsed.String()), text))
 		},
 		// CountByJobTypeAndState counts job-requests matching a job-type and one or more states.
 		// States may be individual strings or comma-separated (e.g. "PENDING,EXECUTING").
@@ -175,7 +179,7 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 				}).WithError(err).Warn("SubmitJob failed; returning empty string")
 				return ""
 			}
-			return strconv.FormatUint(id, 10)
+			return id
 		},
 		// SubmitJobsFromJSON submits one child job per item in a JSON array.
 		// itemsJSON is a JSON array of objects — every field is passed as a job param.
@@ -256,8 +260,8 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 						"JobType":     jobType,
 						"ItemIndex":   i,
 						"SubmittedID": id,
-					}).Infof("[SubmitJobsFromJSON] submitted job id=%d", id)
-					ids = append(ids, strconv.FormatUint(id, 10))
+					}).Infof("[SubmitJobsFromJSON] submitted job id=%s", id)
+					ids = append(ids, id)
 				}
 			}
 			return strings.Join(ids, "\n")
