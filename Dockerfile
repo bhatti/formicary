@@ -5,6 +5,7 @@ COPY . /src
 WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git make bash build-essential \
+    graphviz libgraphviz-dev pkg-config \
     ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
@@ -13,11 +14,11 @@ RUN curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/${WEED_
     | tar -xz -C /usr/local/bin weed && \
     chmod +x /usr/local/bin/weed
 
-# Pure Go build (modernc.org/sqlite — no CGO required)
-ENV CGO_ENABLED=0
+# CGO required for go-graphviz
+ENV CGO_ENABLED=1
 RUN go mod download && \
     mkdir -p out/bin && \
-    GOOS=linux GOARCH=amd64 go build -mod=mod \
+    go build -mod=mod \
     -ldflags "-X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%S) -X main.version=$(git rev-parse --short HEAD 2>/dev/null || echo dev)" \
     -o out/bin/formicary . || (echo "Build failed"; exit 1)
 
@@ -25,10 +26,12 @@ RUN go mod download && \
 RUN GOARCH=$(go env GOARCH) GOOS=$(go env GOOS) go install github.com/pressly/goose/v3/cmd/goose@v3.17.0
 
 # Production stage
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates bash mysql-client postgresql-client && \
-    addgroup -S formicary-user && \
-    adduser -S -G formicary-user formicary-user
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates bash graphviz default-mysql-client postgresql-client && \
+    rm -rf /var/lib/apt/lists/* && \
+    addgroup --system formicary-user && \
+    adduser --system --ingroup formicary-user formicary-user
 
 # Copy binaries from builder stage
 COPY --from=go-builder /src/out/bin/formicary /formicary
@@ -43,12 +46,7 @@ COPY --from=go-builder /src/migrations /migrations
 COPY migrations/migrate.sh /usr/local/bin/migrate.sh
 
 RUN chmod +x /usr/local/bin/migrate.sh /usr/local/bin/goose /formicary && \
-    /usr/local/bin/goose --version || (echo "Goose not working, trying to install in Alpine..."; \
-    apk add --no-cache go git && \
-    go install github.com/pressly/goose/v3/cmd/goose@v3.17.0 && \
-    cp /root/go/bin/goose /usr/local/bin/goose && \
-    chmod +x /usr/local/bin/goose && \
-    apk del go git)
+    /usr/local/bin/goose --version
 
 # Create necessary directories
 RUN mkdir -p /data /app/data /tmp/formicary /var/log/formicary && \
