@@ -1,6 +1,8 @@
 ARG WEED_VERSION=3.68
+ARG APP_VERSION=0.1.0
 
 FROM golang:1.26 AS go-builder
+ARG APP_VERSION
 COPY . /src
 WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,7 +21,7 @@ ENV CGO_ENABLED=1
 RUN go mod download && \
     mkdir -p out/bin && \
     go build -mod=mod \
-    -ldflags "-X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%S) -X main.version=$(git rev-parse --short HEAD 2>/dev/null || echo dev)" \
+    -ldflags "-X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%S) -X main.version=${APP_VERSION}" \
     -o out/bin/formicary . || (echo "Build failed"; exit 1)
 
 # Install Goose
@@ -27,7 +29,10 @@ RUN GOARCH=$(go env GOARCH) GOOS=$(go env GOOS) go install github.com/pressly/go
 
 # Production stage
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && \
+    apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends \
     ca-certificates bash graphviz default-mysql-client postgresql-client && \
     rm -rf /var/lib/apt/lists/* && \
     addgroup --system formicary-user && \
