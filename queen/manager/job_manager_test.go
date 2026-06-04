@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -126,4 +127,125 @@ func newTestJobManager(
 		return nil, nil, err
 	}
 	return mgr, jobRequestRepository, err
+}
+
+func cancelJobRequest(t *testing.T, qc *common.QueryContext, jobRequestRepo *repository.JobRequestRepositoryImpl, id string) {
+	t.Helper()
+	err := jobRequestRepo.Cancel(qc, id)
+	require.NoError(t, err)
+}
+
+func Test_ShouldRestartHardDefaultsToLatest(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	// Save version 0
+	jobName := "restart-hard-" + ulid.Make().String()
+	job := repository.NewTestJobDefinition(qc.User, jobName)
+	saved, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+	oldDefID := saved.ID
+
+	// Create a request pinned to version 0 and set it to FAILED
+	request, err := types.NewJobRequestFromDefinition(saved)
+	require.NoError(t, err)
+	request.UserKey = ulid.Make().String()
+	savedReq, err := jobRequestRepo.Save(qc, request)
+	require.NoError(t, err)
+	cancelJobRequest(t, qc, jobRequestRepo, savedReq.ID)
+
+	// Save version 1 (new definition, same type)
+	job2 := repository.NewTestJobDefinition(qc.User, jobName)
+	saved2, err := jobManager.SaveJobDefinition(qc, job2)
+	require.NoError(t, err)
+	require.NotEqual(t, oldDefID, saved2.ID)
+
+	// WHEN: hard restart with no version specified
+	err = jobManager.RestartJobRequest(qc, savedReq.ID, true, "")
+	require.NoError(t, err)
+
+	// THEN: request should now point to latest definition
+	reloaded, err := jobRequestRepo.Get(qc, savedReq.ID)
+	require.NoError(t, err)
+	require.Equal(t, saved2.ID, reloaded.GetJobDefinitionID())
+}
+
+func Test_ShouldRestartSoftKeepsPinnedVersion(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	// Save version 0
+	jobName := "restart-soft-" + ulid.Make().String()
+	job := repository.NewTestJobDefinition(qc.User, jobName)
+	saved, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+	originalDefID := saved.ID
+
+	// Create a request pinned to version 0, set to FAILED
+	request, err := types.NewJobRequestFromDefinition(saved)
+	require.NoError(t, err)
+	request.UserKey = ulid.Make().String()
+	savedReq, err := jobRequestRepo.Save(qc, request)
+	require.NoError(t, err)
+	cancelJobRequest(t, qc, jobRequestRepo, savedReq.ID)
+
+	// Save version 1
+	job2 := repository.NewTestJobDefinition(qc.User, jobName)
+	_, err = jobManager.SaveJobDefinition(qc, job2)
+	require.NoError(t, err)
+
+	// WHEN: soft restart with no version specified
+	err = jobManager.RestartJobRequest(qc, savedReq.ID, false, "")
+	require.NoError(t, err)
+
+	// THEN: request should still point to original definition
+	reloaded, err := jobRequestRepo.Get(qc, savedReq.ID)
+	require.NoError(t, err)
+	require.Equal(t, originalDefID, reloaded.GetJobDefinitionID())
+}
+
+func Test_ShouldRestartWithSpecificDefinitionID(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	// Save version 0
+	jobName := "restart-id-" + ulid.Make().String()
+	job := repository.NewTestJobDefinition(qc.User, jobName)
+	saved, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+	v0ID := saved.ID
+
+	// Save version 1
+	job2 := repository.NewTestJobDefinition(qc.User, jobName)
+	saved2, err := jobManager.SaveJobDefinition(qc, job2)
+	require.NoError(t, err)
+
+	// Create a request pinned to version 1, set to FAILED
+	request, err := types.NewJobRequestFromDefinition(saved2)
+	require.NoError(t, err)
+	request.UserKey = ulid.Make().String()
+	savedReq, err := jobRequestRepo.Save(qc, request)
+	require.NoError(t, err)
+	cancelJobRequest(t, qc, jobRequestRepo, savedReq.ID)
+
+	// WHEN: restart with specific old definition ID
+	err = jobManager.RestartJobRequest(qc, savedReq.ID, false, v0ID)
+	require.NoError(t, err)
+
+	// THEN: request should point to version 0
+	reloaded, err := jobRequestRepo.Get(qc, savedReq.ID)
+	require.NoError(t, err)
+	require.Equal(t, v0ID, reloaded.GetJobDefinitionID())
 }

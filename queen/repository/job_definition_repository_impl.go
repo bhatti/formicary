@@ -116,7 +116,13 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 	} else {
 		res = tx.Where("sem_version = ? AND public_plugin = ?", semVersion, true).First(job)
 		if res.Error != nil {
-			res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(job)
+			res = jdr.db.Preload("Tasks").
+				Preload("Configs").
+				Preload("Variables").
+				Preload("Tasks.Variables").
+				Where("job_type = ?", jobType).
+				Where("sem_version = ?", semVersion).
+				Where(scopeCond, scopeArg).First(job)
 		}
 	}
 	if res.Error != nil {
@@ -144,6 +150,45 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 		sort.Slice(t.Variables, func(i, j int) bool { return t.Variables[i].Name < t.Variables[j].Name })
 	}
 	return job, nil
+}
+
+// GetVersionsByType returns all versions of a job definition ordered by version desc
+func (jdr *JobDefinitionRepositoryImpl) GetVersionsByType(
+	qc *common.QueryContext,
+	jobType string,
+	page int,
+	pageSize int) (jobs []*types.JobDefinition, totalRecords int64, err error) {
+	if jobType == "" {
+		return nil, 0, common.NewValidationError("job-type is required for version listing")
+	}
+	if pageSize <= 0 || pageSize > 500 {
+		pageSize = 200
+	}
+	if page < 0 {
+		page = 0
+	}
+	jobs = make([]*types.JobDefinition, 0)
+	scopeCond, scopeArg := qc.AddOrgUserWhereSQL(true)
+
+	res := jdr.db.Model(&types.JobDefinition{}).
+		Where("job_type = ?", jobType).
+		Where(scopeCond, scopeArg).
+		Count(&totalRecords)
+	if res.Error != nil {
+		return nil, 0, res.Error
+	}
+
+	res = jdr.db.
+		Where("job_type = ?", jobType).
+		Where(scopeCond, scopeArg).
+		Order("version DESC").
+		Limit(pageSize).
+		Offset(page * pageSize).
+		Find(&jobs)
+	if res.Error != nil {
+		return nil, 0, res.Error
+	}
+	return jobs, totalRecords, nil
 }
 
 // SetDisabled - sets disabled status job-definition -- only admin can do it so no need for query context

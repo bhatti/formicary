@@ -3,6 +3,7 @@ package tasklet
 import (
 	"context"
 	"fmt"
+	"plexobject.com/formicary/internal/tracing"
 	cutils "plexobject.com/formicary/internal/utils"
 	"time"
 
@@ -381,17 +382,19 @@ func (t *BaseTasklet) sendResponse(
 	if err == nil {
 		// we don't need to keep producer because each response topic is different so we
 		// will close producer right after sending it
+		responseHeaders := queue.NewMessageHeaders(
+			queue.ReusableTopicKey, "false",
+			queue.CorrelationIDKey, taskResp.CoRelationID,
+			queue.MessageTarget, t.ID,
+			"RequestID", taskResp.JobRequestID,
+			"TaskType", taskResp.TaskType,
+		)
+		tracing.InjectContext(ctx, responseHeaders)
 		_, err = t.QueueClient.Send(
 			ctx,
 			responseTopic,
 			b,
-			queue.NewMessageHeaders(
-				queue.ReusableTopicKey, "false",
-				queue.CorrelationIDKey, taskResp.CoRelationID,
-				queue.MessageTarget, t.ID,
-				"RequestID", taskResp.JobRequestID,
-				"TaskType", taskResp.TaskType,
-			))
+			responseHeaders)
 		if err == nil {
 			logrus.WithFields(fields).Infof("sent response with %s to %s", taskResp.Status, responseTopic)
 		} else {

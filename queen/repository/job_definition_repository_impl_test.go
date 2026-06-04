@@ -879,3 +879,66 @@ func Test_ShouldJobDefinitionQueryWithDifferentOperators(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), total)
 }
+
+// GetVersionsByType should return all versions including inactive ones
+func Test_ShouldGetVersionsByType(t *testing.T) {
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	jobType := "io.formicary.test.versions-list-job"
+	for i := 0; i < 5; i++ {
+		job := types.NewJobDefinition(jobType)
+		job.UserID = qc.User.ID
+		job.OrganizationID = qc.User.OrganizationID
+		task := types.NewTaskDefinition(fmt.Sprintf("task%d", i), common.Shell)
+		job.AddTask(task)
+		job.UpdateRawYaml()
+		saved, err := repo.Save(qc, job)
+		require.NoError(t, err)
+		require.Equal(t, int32(i), saved.Version)
+	}
+
+	// WHEN getting versions by type
+	versions, total, err := repo.GetVersionsByType(qc, jobType, 0, 10)
+
+	// THEN should return all 5 versions (4 inactive + 1 active)
+	require.NoError(t, err)
+	require.Equal(t, int64(5), total)
+	require.Equal(t, 5, len(versions))
+	// ordered by version DESC
+	require.Equal(t, int32(4), versions[0].Version)
+	require.Equal(t, int32(0), versions[4].Version)
+	// only latest is active
+	require.True(t, versions[0].Active)
+	require.False(t, versions[1].Active)
+}
+
+// GetByType with explicit sem_version that doesn't exist should return error
+func Test_ShouldFailGetByTypeWithNonExistingSemVersion(t *testing.T) {
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job := types.NewJobDefinition("io.formicary.test.sem-version-job")
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
+	task := types.NewTaskDefinition("task1", common.Shell)
+	job.AddTask(task)
+	job.UpdateRawYaml()
+	_, err = repo.Save(qc, job)
+	require.NoError(t, err)
+
+	// WHEN requesting a non-existent semantic version
+	_, err = repo.GetByType(qc, "io.formicary.test.sem-version-job:9.9.9")
+
+	// THEN it should fail with not-found
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not found")
+}

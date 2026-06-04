@@ -182,6 +182,7 @@ func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) erro
 }
 
 // Restarts a previously failed job so that it can re-execute, the restart may perform soft-restart where only failed tasks are executed or hard-restart where all tasks are executed.
+// Pass ?version=latest to upgrade to the latest deployed definition for this job type.
 // responses:
 //
 //	200: emptyResponse
@@ -189,7 +190,8 @@ func (jobReqCtrl *JobRequestController) restartJobRequest(c web.APIContext) erro
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
 	hard := c.QueryParam("hard") == "true"
-	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id, hard)
+	version := c.QueryParam("version")
+	err := jobReqCtrl.jobManager.RestartJobRequest(qc, id, hard, version)
 	if err != nil {
 		return err
 	}

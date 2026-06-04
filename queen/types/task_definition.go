@@ -61,6 +61,8 @@ type TaskDefinition struct {
 	Retry int `yaml:"retry,omitempty" json:"retry"`
 	// DelayBetweenRetries defines time between retry of task
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
+	// RetryBackoffPolicy defines exponential backoff policy for task retries
+	RetryBackoffPolicy *BackoffPolicy `yaml:"retry_backoff_policy,omitempty" json:"retry_backoff_policy" gorm:"-"`
 	// Webhook config
 	Webhook *common.Webhook `yaml:"webhook,omitempty" json:"webhook" gorm:"-"`
 	// OnExitCodeSerialized defines next task to execute
@@ -532,8 +534,17 @@ func (td *TaskDefinition) LoadOnExitCode() (map[common.RequestState]string, erro
 	return td.OnExitCode, nil
 }
 
-// GetDelayBetweenRetries between retries
-func (td *TaskDefinition) GetDelayBetweenRetries() time.Duration {
+// GetDelayBetweenRetries returns the delay for the given retry attempt.
+// If a BackoffPolicy is configured, it uses exponential backoff.
+// Otherwise falls back to the existing random delay behavior.
+func (td *TaskDefinition) GetDelayBetweenRetries(attempt ...int) time.Duration {
+	if td.RetryBackoffPolicy != nil && td.RetryBackoffPolicy.Min > 0 {
+		a := 0
+		if len(attempt) > 0 {
+			a = attempt[0]
+		}
+		return td.RetryBackoffPolicy.ToBackoff().ForAttempt(float64(a))
+	}
 	if td.DelayBetweenRetries <= 0 {
 		if n, err := rand.Int(rand.Reader, big.NewInt(2)); err == nil {
 			td.DelayBetweenRetries = time.Second * time.Duration(n.Int64()+1)

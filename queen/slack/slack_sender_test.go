@@ -16,13 +16,13 @@ import (
 func Test_ShouldFormatHTML(t *testing.T) {
 	content, err := ioutil.ReadFile("../../sample-report.html")
 	if err != nil {
-		panic(err)
+		t.Skipf("skipping: fixture file not found: %v", err)
 	}
 	inputHTML := string(content)
 
 	text, err := html2text.FromString(inputHTML, html2text.Options{PrettyTables: true})
 	if err != nil {
-		panic(err)
+		t.Fatalf("failed to convert HTML to text: %v", err)
 	}
 	fmt.Println(text)
 }

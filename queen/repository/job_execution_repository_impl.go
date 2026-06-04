@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	common "plexobject.com/formicary/internal/types"
@@ -21,7 +22,11 @@ type JobExecutionRepositoryImpl struct {
 
 // NewJobExecutionRepositoryImpl creates new instance for job-execution-repository
 func NewJobExecutionRepositoryImpl(db *gorm.DB, dbType string) (*JobExecutionRepositoryImpl, error) {
-	return &JobExecutionRepositoryImpl{db: db, dbType: dbType}, nil
+	impl := &JobExecutionRepositoryImpl{db: db, dbType: dbType}
+	// Set lock-wait timeout once at construction time so it applies to the
+	// session without the overhead of setting it on every Save() call.
+	setLockWaitTimeout(db, dbType)
+	return impl, nil
 }
 
 // Get method finds JobExecution by id
@@ -501,6 +506,26 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 	return task, err
 }
 
+// isDeadlockError returns true for MySQL deadlock (1213) and SQLite busy errors.
+func isDeadlockError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Error 1213") ||
+		strings.Contains(msg, "Deadlock found") ||
+		strings.Contains(msg, "SQLITE_BUSY") ||
+		strings.Contains(msg, "database is locked")
+}
+
+// setLockWaitTimeout sets a short lock-wait timeout to prevent indefinite blocking.
+func setLockWaitTimeout(db *gorm.DB, dbType string) {
+	switch dbType {
+	case "mysql":
+		db.Exec("SET innodb_lock_wait_timeout = 5")
+	}
+}
+
 // Save persists job-execution
 func (jer *JobExecutionRepositoryImpl) Save(
 	jobExec *types.JobExecution) (*types.JobExecution, error) {
@@ -515,92 +540,113 @@ func (jer *JobExecutionRepositoryImpl) Save(
 	if jobExec.StartedAt.IsZero() {
 		jobExec.StartedAt = now
 	}
-	err = jer.db.Transaction(func(tx *gorm.DB) error {
-		var res *gorm.DB
-		newJob := false
-		if jobExec.ID != "" {
-			jobExec.UpdatedAt = now
-			jer.clearOrphanJobTasks(tx, jobExec)
-			jer.clearOrphanJobContexts(tx, jobExec.ID, jobExec.Contexts)
-			if log.IsLevelEnabled(log.DebugLevel) {
-				log.WithFields(log.Fields{
-					"Component":    "JobExecutionRepositoryImpl",
-					"jobExecution": jobExec.String(),
-				}).
-					Debug("saving job-execution...")
-			}
-		} else {
-			jobExec.UpdatedAt = now
-			jobExec.ID = ulid.Make().String()
-			if log.IsLevelEnabled(log.DebugLevel) {
-				log.WithFields(log.Fields{
-					"Component":    "JobExecutionRepositoryImpl",
-					"jobExecution": jobExec.String(),
-				}).
-					Debug("creating job-execution...")
-			}
-			newJob = true
+	// Capture whether this is an insert before the retry loop.
+	// On a deadlock rollback the assigned ID must be discarded so the next
+	// attempt issues a fresh INSERT rather than an UPDATE on a non-existent row.
+	isNewJob := jobExec.ID == ""
+	originalID := jobExec.ID
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if isNewJob {
+			// Reset so each attempt gets a fresh ID and the INSERT path is taken.
+			jobExec.ID = originalID // empty string on every attempt
 		}
-		jobExec.Active = true
-		for _, c := range jobExec.Contexts {
-			if c.ID == "" {
-				c.ID = ulid.Make().String()
-			}
-			c.JobExecutionID = jobExec.ID
-		}
-		for _, t := range jobExec.Tasks {
-			t.JobExecutionID = jobExec.ID
-			t.Active = true
-		}
-		if jobExec.JobState.CanFinalize() {
-			jobExec.CPUSecs = jobExec.ExecutionCostSecs()
-			if !newJob {
-				cpuSecs := jer.calcCost(jobExec.ID)
-				if cpuSecs > 0 && cpuSecs > jobExec.CPUSecs {
-					jobExec.CPUSecs = cpuSecs
+		err = jer.db.Transaction(func(tx *gorm.DB) error {
+			var res *gorm.DB
+			newJob := false
+			if jobExec.ID != "" {
+				jobExec.UpdatedAt = now
+				jer.clearOrphanJobTasks(tx, jobExec)
+				jer.clearOrphanJobContexts(tx, jobExec.ID, jobExec.Contexts)
+				if log.IsLevelEnabled(log.DebugLevel) {
+					log.WithFields(log.Fields{
+						"Component":    "JobExecutionRepositoryImpl",
+						"jobExecution": jobExec.String(),
+					}).
+						Debug("saving job-execution...")
 				}
+			} else {
+				jobExec.UpdatedAt = now
+				jobExec.ID = ulid.Make().String()
+				if log.IsLevelEnabled(log.DebugLevel) {
+					log.WithFields(log.Fields{
+						"Component":    "JobExecutionRepositoryImpl",
+						"jobExecution": jobExec.String(),
+					}).
+						Debug("creating job-execution...")
+				}
+				newJob = true
 			}
-			jobExec.EndedAt = &now
-		}
-		if newJob {
-			res = tx.Omit("Tasks", "Contexts").Create(jobExec)
-		} else {
-			res = tx.Omit("Tasks", "Contexts").Save(jobExec)
-		}
-		if res.Error != nil {
-			return res.Error
-		}
-		err = tx.Model(jobExec).Association("Contexts").Replace(jobExec.Contexts)
-		if err != nil {
-			return err
-		}
-		for _, t := range jobExec.Tasks {
-			newTask := false
-			if t.ID == "" {
-				t.ID = ulid.Make().String()
-				newTask = true
-			}
-			for _, c := range t.Contexts {
+			jobExec.Active = true
+			for _, c := range jobExec.Contexts {
 				if c.ID == "" {
 					c.ID = ulid.Make().String()
 				}
-				c.TaskExecutionID = t.ID
+				c.JobExecutionID = jobExec.ID
 			}
-			if newTask {
-				res = tx.Omit("Contexts").Create(t)
+			for _, t := range jobExec.Tasks {
+				t.JobExecutionID = jobExec.ID
+				t.Active = true
+			}
+			if jobExec.JobState.CanFinalize() {
+				jobExec.CPUSecs = jobExec.ExecutionCostSecs()
+				if !newJob {
+					cpuSecs := jer.calcCost(jobExec.ID)
+					if cpuSecs > 0 && cpuSecs > jobExec.CPUSecs {
+						jobExec.CPUSecs = cpuSecs
+					}
+				}
+				jobExec.EndedAt = &now
+			}
+			if newJob {
+				res = tx.Omit("Tasks", "Contexts").Create(jobExec)
 			} else {
-				res = tx.Omit("Contexts").Save(t)
+				res = tx.Omit("Tasks", "Contexts").Save(jobExec)
 			}
 			if res.Error != nil {
 				return res.Error
 			}
-			err = tx.Model(t).Association("Contexts").Replace(t.Contexts)
+			err = tx.Model(jobExec).Association("Contexts").Replace(jobExec.Contexts)
 			if err != nil {
 				return err
 			}
+			for _, t := range jobExec.Tasks {
+				newTask := false
+				if t.ID == "" {
+					t.ID = ulid.Make().String()
+					newTask = true
+				}
+				for _, c := range t.Contexts {
+					if c.ID == "" {
+						c.ID = ulid.Make().String()
+					}
+					c.TaskExecutionID = t.ID
+				}
+				if newTask {
+					res = tx.Omit("Contexts").Create(t)
+				} else {
+					res = tx.Omit("Contexts").Save(t)
+				}
+				if res.Error != nil {
+					return res.Error
+				}
+				err = tx.Model(t).Association("Contexts").Replace(t.Contexts)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err == nil || !isDeadlockError(err) {
+			break
 		}
-		return nil
-	})
+		log.WithFields(log.Fields{
+			"Component": "JobExecutionRepositoryImpl",
+			"Attempt":   attempt + 1,
+			"Error":     err,
+		}).Warnf("deadlock detected in Save, retrying")
+		time.Sleep(50 * time.Millisecond * time.Duration(1<<uint(attempt)))
+	}
 	return jobExec, err
 }
 
@@ -739,13 +785,13 @@ func (jer *JobExecutionRepositoryImpl) createJobContexts(
 	tx *gorm.DB,
 	id string,
 	contexts []*types.JobExecutionContext) error {
-	//jer.clearOrphanJobContexts(tx, id, contexts)
+	jer.clearOrphanJobContexts(tx, id, contexts)
 	for _, c := range contexts {
 		c.JobExecutionID = id
 		var res *gorm.DB
 		if c.ID == "" {
 			c.ID = ulid.Make().String()
-			res = tx.Create(c) // TODO check deadlock
+			res = tx.Create(c)
 		} else {
 			res = tx.Save(c)
 		}

@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/queen/config"
 
 	"github.com/sirupsen/logrus"
@@ -188,7 +192,7 @@ func (ts *TaskSupervisor) tryExecuteTask(
 				taskResp.Status == common.FATAL {
 				break
 			}
-			sleepDuration := ts.taskStateMachine.TaskDefinition.GetDelayBetweenRetries()
+			sleepDuration := ts.taskStateMachine.TaskDefinition.GetDelayBetweenRetries(ts.taskStateMachine.TaskExecution.Retried)
 			logrus.WithFields(
 				ts.taskStateMachine.LogFields(
 					"TaskSupervisor",
@@ -240,21 +244,37 @@ func (ts *TaskSupervisor) invoke(
 		}).Infof("sending request to remote ant worker")
 	}
 
+	ctx, span := tracing.Tracer("formicary.queen").Start(ctx, "task.dispatch",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("task.type", taskReq.TaskType),
+			attribute.String("job.type", taskReq.JobType),
+			attribute.String("job.request_id", taskReq.JobRequestID),
+			attribute.String("messaging.destination", ts.taskStateMachine.Reservation.AntTopic),
+		),
+	)
+	defer span.End()
+
+	props := queue.NewMessageHeaders(
+		queue.DisableBatchingKey, "true",
+		queue.MessageTarget, ts.taskStateMachine.Reservation.AntID,
+		"RequestID", taskReq.JobRequestID,
+		"TaskType", taskReq.TaskType,
+		"UserID", taskReq.UserID,
+	)
+	tracing.InjectContext(ctx, props)
+
 	req := &queue.SendReceiveRequest{
 		OutTopic: ts.taskStateMachine.Reservation.AntTopic,
 		InTopic:  ts.serverCfg.GetResponseTopicTaskReply(),
 		Payload:  b,
 		Timeout:  taskReq.Timeout,
-		Props: queue.NewMessageHeaders(
-			queue.DisableBatchingKey, "true",
-			queue.MessageTarget, ts.taskStateMachine.Reservation.AntID,
-			"RequestID", taskReq.JobRequestID,
-			"TaskType", taskReq.TaskType,
-			"UserID", taskReq.UserID,
-		),
+		Props:    props,
 	}
 	res, err := ts.taskStateMachine.QueueClient.SendReceive(ctx, req)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		logrus.WithFields(logrus.Fields{
 			"Component":     "TaskSupervisor",
 			"AntID":         ts.taskStateMachine.Reservation.AntID,

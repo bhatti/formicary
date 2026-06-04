@@ -14,6 +14,135 @@ import (
 	common "plexobject.com/formicary/internal/types"
 )
 
+func Test_ShouldGetDelayBetweenRetriesWithBackoffPolicy(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+	jd.RetryBackoffPolicy = &BackoffPolicy{
+		Min:    100 * time.Millisecond,
+		Max:    10 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+
+	// Attempt 0 should return Min
+	d0 := jd.GetDelayBetweenRetries(0)
+	require.Equal(t, 100*time.Millisecond, d0)
+
+	// Attempt 1 should return Min * Factor
+	d1 := jd.GetDelayBetweenRetries(1)
+	require.Equal(t, 200*time.Millisecond, d1)
+
+	// Attempt 2 should return Min * Factor^2
+	d2 := jd.GetDelayBetweenRetries(2)
+	require.Equal(t, 400*time.Millisecond, d2)
+
+	// Should cap at Max
+	d10 := jd.GetDelayBetweenRetries(10)
+	require.Equal(t, 10*time.Second, d10)
+}
+
+func Test_ShouldGetDelayBetweenRetriesWithJitter(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+	jd.RetryBackoffPolicy = &BackoffPolicy{
+		Min:    1 * time.Second,
+		Max:    30 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	// With jitter, results should be bounded but non-deterministic
+	d := jd.GetDelayBetweenRetries(3)
+	// Attempt 3 without jitter = 8s, with jitter should be in [0, 8s]
+	require.True(t, d > 0 && d <= 8*time.Second, "expected jittered delay in (0, 8s], got %s", d)
+}
+
+func Test_ShouldFallbackToDelayBetweenRetriesWhenNoPolicy(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+	jd.DelayBetweenRetries = 5 * time.Second
+
+	// Without backoff policy, should return the fixed delay
+	d := jd.GetDelayBetweenRetries(3)
+	require.Equal(t, 5*time.Second, d)
+}
+
+func Test_ShouldFallbackToRandomDelayWhenNoPolicyAndNoDelay(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+
+	// Without backoff policy or fixed delay, should return random between 5-14s
+	d := jd.GetDelayBetweenRetries()
+	require.True(t, d >= 5*time.Second && d <= 14*time.Second, "expected delay in [5s, 14s], got %s", d)
+}
+
+func Test_ShouldFallbackWhenPolicyMinIsZero(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+	jd.RetryBackoffPolicy = &BackoffPolicy{
+		Min:    0,
+		Max:    10 * time.Second,
+		Factor: 2,
+	}
+	jd.DelayBetweenRetries = 3 * time.Second
+
+	// Policy with Min=0 should fall through to fixed delay
+	d := jd.GetDelayBetweenRetries(1)
+	require.Equal(t, 3*time.Second, d)
+}
+
+func Test_ShouldSerializeBackoffPolicyInYAML(t *testing.T) {
+	yamlContent := `
+job_type: test-job
+retry: 3
+retry_backoff_policy:
+  min: 1s
+  max: 30s
+  factor: 2
+  jitter: true
+tasks:
+  - task_type: task1
+    method: SHELL
+    retry_backoff_policy:
+      min: 500ms
+      max: 10s
+      factor: 3
+      jitter: false
+`
+	jd := NewJobDefinition("")
+	err := yaml.Unmarshal([]byte(yamlContent), jd)
+	require.NoError(t, err)
+	require.NotNil(t, jd.RetryBackoffPolicy)
+	require.Equal(t, 1*time.Second, jd.RetryBackoffPolicy.Min)
+	require.Equal(t, 30*time.Second, jd.RetryBackoffPolicy.Max)
+	require.Equal(t, float64(2), jd.RetryBackoffPolicy.Factor)
+	require.True(t, jd.RetryBackoffPolicy.Jitter)
+
+	require.Len(t, jd.Tasks, 1)
+	require.NotNil(t, jd.Tasks[0].RetryBackoffPolicy)
+	require.Equal(t, 500*time.Millisecond, jd.Tasks[0].RetryBackoffPolicy.Min)
+	require.Equal(t, 10*time.Second, jd.Tasks[0].RetryBackoffPolicy.Max)
+	require.Equal(t, float64(3), jd.Tasks[0].RetryBackoffPolicy.Factor)
+	require.False(t, jd.Tasks[0].RetryBackoffPolicy.Jitter)
+}
+
+func Test_ShouldRoundTripBackoffPolicyJSON(t *testing.T) {
+	jd := NewJobDefinition("test-job")
+	jd.RetryBackoffPolicy = &BackoffPolicy{
+		Min:    1 * time.Second,
+		Max:    30 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	data, err := json.Marshal(jd)
+	require.NoError(t, err)
+
+	jd2 := NewJobDefinition("")
+	err = json.Unmarshal(data, jd2)
+	require.NoError(t, err)
+	require.NotNil(t, jd2.RetryBackoffPolicy)
+	require.Equal(t, 1*time.Second, jd2.RetryBackoffPolicy.Min)
+	require.Equal(t, 30*time.Second, jd2.RetryBackoffPolicy.Max)
+	require.Equal(t, float64(2), jd2.RetryBackoffPolicy.Factor)
+	require.True(t, jd2.RetryBackoffPolicy.Jitter)
+}
+
 // Verify table names for job-definition and config
 func Test_ShouldJobDefinitionTableNames(t *testing.T) {
 	job := NewJobDefinition("io.formicary.test-job")

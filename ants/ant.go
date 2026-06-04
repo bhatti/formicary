@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/ants/executor/utils"
 	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/internal/tracing"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -65,6 +66,17 @@ func StartEmbedded(ctx context.Context, antCfg *ant_config.AntConfig,
 
 func startCommon(ctx context.Context, antCfg *ant_config.AntConfig,
 	queueClient queue.Client, artifactService artifacts.Service, shutdownFunc func()) (err error) {
+	tracingCfg := tracing.ConfigFromCommon(antCfg.Common.Tracing, "formicary-ant")
+	tracingShutdown, err := tracing.Init(ctx, tracingCfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize tracing: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tracingShutdown(shutdownCtx)
+	}()
+
 	requestTopic := antCfg.Common.GetRequestTopic()
 
 	metricsRegistry := metrics.New()

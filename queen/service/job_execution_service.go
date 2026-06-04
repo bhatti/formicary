@@ -139,7 +139,7 @@ func (s *JobExecutionService) RestartJob(ctx context.Context, req *svcpb.Restart
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	if err := s.jobManager.RestartJobRequest(qc, req.Id, req.Hard); err != nil {
+	if err := s.jobManager.RestartJobRequest(qc, req.Id, req.Hard, req.Version); err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &emptypb.Empty{}, nil

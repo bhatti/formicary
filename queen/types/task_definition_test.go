@@ -2,9 +2,11 @@ package types
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"testing"
 
 	common "plexobject.com/formicary/internal/types"
 
@@ -142,4 +144,33 @@ func Test_ShouldParseYamlTaskTag(t *testing.T) {
 			require.Equal(t, "connection", task.Resources.ExtractConfig.ContextPrefix)
 		}
 	}
+}
+
+func Test_ShouldGetTaskDelayBetweenRetriesWithBackoffPolicy(t *testing.T) {
+	td := NewTaskDefinition("test-task", common.Shell)
+	td.RetryBackoffPolicy = &BackoffPolicy{
+		Min:    200 * time.Millisecond,
+		Max:    5 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+
+	require.Equal(t, 200*time.Millisecond, td.GetDelayBetweenRetries(0))
+	require.Equal(t, 400*time.Millisecond, td.GetDelayBetweenRetries(1))
+	require.Equal(t, 800*time.Millisecond, td.GetDelayBetweenRetries(2))
+	require.Equal(t, 5*time.Second, td.GetDelayBetweenRetries(10))
+}
+
+func Test_ShouldFallbackToTaskDelayWhenNoPolicy(t *testing.T) {
+	td := NewTaskDefinition("test-task", common.Shell)
+	td.DelayBetweenRetries = 2 * time.Second
+
+	require.Equal(t, 2*time.Second, td.GetDelayBetweenRetries(5))
+}
+
+func Test_ShouldFallbackToRandomTaskDelayWhenNoPolicyAndNoDelay(t *testing.T) {
+	td := NewTaskDefinition("test-task", common.Shell)
+
+	d := td.GetDelayBetweenRetries()
+	require.True(t, d >= 1*time.Second && d <= 2*time.Second, "expected delay in [1s, 2s], got %s", d)
 }

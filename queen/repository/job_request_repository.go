@@ -113,11 +113,13 @@ type JobRequestRepository interface {
 	Trigger(
 		qc *common.QueryContext,
 		id string) error
-	// Restart restarts a job; hard=true sets hard_restart so all tasks re-run from scratch
+	// Restart restarts a job; hard=true sets hard_restart so all tasks re-run from scratch.
+	// newJobDefinitionID, when non-empty and different from the current pinned version, re-pins the request.
 	Restart(
 		qc *common.QueryContext,
 		id string,
-		hard bool) error
+		hard bool,
+		newJobDefinitionID string) error
 	// Delete removes a job
 	Delete(
 		qc *common.QueryContext,

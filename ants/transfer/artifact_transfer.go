@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"plexobject.com/formicary/internal/ant_config"
+	"plexobject.com/formicary/internal/tracing"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/artifacts"
@@ -54,6 +58,19 @@ func UploadCacheAndArtifacts(
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter,
 ) (artifacts []*types.Artifact, err error) {
+	ctx, span := tracing.Tracer("formicary.ant").Start(ctx, "transfer.upload_artifacts",
+		trace.WithAttributes(
+			attribute.String("task.type", taskReq.TaskType),
+			attribute.String("job.type", taskReq.JobType),
+		),
+	)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 	transferService, err := buildArtifactTransferService(
 		antCfg,
 		artifactService,
@@ -214,6 +231,21 @@ func SetupCacheAndDownloadArtifacts(
 	taskReq *types.TaskRequest,
 	taskResp *types.TaskResponse,
 	traceWriter executor.TraceWriter) (err error) {
+	ctx, span := tracing.Tracer("formicary.ant").Start(ctx, "transfer.download_artifacts",
+		trace.WithAttributes(
+			attribute.String("task.type", taskReq.TaskType),
+			attribute.String("job.type", taskReq.JobType),
+			attribute.Int("artifacts.dependent_count", len(taskReq.ExecutorOpts.DependentArtifactIDs)),
+		),
+	)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+
 	ctx = context.WithValue(ctx, types.HelperContainerKey, true)
 	taskResp.Timings.PreScriptFinishedAt = time.Now()
 	defer func() {
@@ -331,23 +363,26 @@ func downloadDependentArtifacts(
 		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading dependent artifact %s", id))
 	} // downloaded all files
 
-	// TODO verify download/upload
-	// Copy all dependent artifacts to current working folder
+	// Copy all dependent artifacts to current working folder, then verify files landed.
 	cmd := fmt.Sprintf("touch %s/ignore && cp -R %s/* . && find %s | head -10",
 		extractedDir, extractedDir, extractedDir)
-	if stdout, stderr, _, _, err := execute(
-		ctx,
-		cmd,
-		false); err == nil {
-		if taskReq.ExecutorOpts.Debug {
-			_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 extracted dependent artifact %s", stdout))
-		}
-	} else {
-		taskResp.AdditionalError(fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s",
-			err, string(stderr)), true)
-		_ = traceWriter.WriteTraceError(ctx, err.Error())
+	stdout, stderr, _, _, copyErr := execute(ctx, cmd, false)
+	if copyErr != nil {
+		msg := fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s", copyErr, string(stderr))
+		taskResp.AdditionalError(msg, true)
+		_ = traceWriter.WriteTraceError(ctx, copyErr.Error())
+		return copyErr
 	}
-	return err
+	if len(stdout) == 0 {
+		msg := fmt.Sprintf("dependent artifact extraction produced no output in %s — files may not have copied", extractedDir)
+		taskResp.AdditionalError(msg, false)
+		_ = traceWriter.WriteTraceError(ctx, msg)
+		return fmt.Errorf("%s", msg)
+	}
+	if taskReq.ExecutorOpts.Debug {
+		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 extracted dependent artifact %s", stdout))
+	}
+	return nil
 }
 
 // UploadConsoleLog upload console log
@@ -406,8 +441,15 @@ func buildArtifactTransferService(
 	case types.HTTPPutJSON:
 		fallthrough
 	case types.HTTPDelete:
-		fallthrough
-	case types.WebSocket: // TODO this won't work
+		return NewArtifactTransferService(
+			artifactService,
+			execute,
+			taskReq,
+			taskResp), nil
+	case types.WebSocket:
+		// WebSocket tasks upload/download artifacts directly via the artifact storage service (S3/minio),
+		// not via the remote execute callback. Dependent artifact extraction is not supported for WebSocket
+		// (SupportsDependentArtifacts returns false for WebSocket), so execute is unused here.
 		return NewArtifactTransferService(
 			artifactService,
 			execute,

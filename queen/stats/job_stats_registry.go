@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"plexobject.com/formicary/internal/cache"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/types"
 )
@@ -17,30 +18,50 @@ type RequestIDAndStatus struct {
 
 // JobStatsRegistry keeps latency stats of job
 type JobStatsRegistry struct {
-	// TODO move stats to redis
 	statsByJobType    map[string]*JobStats
 	countByUser       map[string]map[string]bool
 	countByOrg        map[string]map[string]bool
 	pendingJobsByType map[string]map[string]types.IJobRequestSummary
 	lastJobStatus     map[string]*RequestIDAndStatus
+	backend           statsBackend
 	lock              sync.RWMutex
 }
 
-// NewJobStatsRegistry constructor
+// NewJobStatsRegistry constructor — uses in-memory stats only.
 func NewJobStatsRegistry() *JobStatsRegistry {
+	return newRegistry(&memoryStatsBackend{})
+}
+
+// NewJobStatsRegistryWithCache constructor — persists stats to Redis when repo is non-nil,
+// otherwise falls back to in-memory.
+func NewJobStatsRegistryWithCache(repo cache.Repository) *JobStatsRegistry {
+	if repo == nil {
+		return newRegistry(&memoryStatsBackend{})
+	}
+	b := &redisStatsBackend{repo: repo}
+	r := newRegistry(b)
+	// Rehydrate from Redis on startup
+	for key, s := range b.loadAll() {
+		r.statsByJobType[key] = s
+	}
+	return r
+}
+
+func newRegistry(b statsBackend) *JobStatsRegistry {
 	return &JobStatsRegistry{
 		statsByJobType:    make(map[string]*JobStats),
 		countByUser:       make(map[string]map[string]bool),
 		countByOrg:        make(map[string]map[string]bool),
 		pendingJobsByType: make(map[string]map[string]types.IJobRequestSummary),
 		lastJobStatus:     make(map[string]*RequestIDAndStatus),
+		backend:           b,
 	}
 }
 
 // Pending - adds pending job
 func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary, reverted bool) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	pendingJobs := r.pendingJobsByType[req.GetUserJobTypeKey()]
 	if pendingJobs == nil {
 		pendingJobs = make(map[string]types.IJobRequestSummary)
@@ -57,14 +78,14 @@ func (r *JobStatsRegistry) Pending(req types.IJobRequestSummary, reverted bool) 
 // UserOrgExecuting running count
 func (r *JobStatsRegistry) UserOrgExecuting(req types.IJobRequestSummary) (int, int) {
 	r.lock.RLock()
-	r.lock.RUnlock()
+	defer r.lock.RUnlock()
 	return len(r.countByUser[req.GetUserID()]), len(r.countByOrg[req.GetOrganizationID()])
 }
 
 // LastJobStatus status of last job
 func (r *JobStatsRegistry) LastJobStatus(req types.IJobRequestSummary) common.RequestState {
 	r.lock.RLock()
-	r.lock.RUnlock()
+	defer r.lock.RUnlock()
 	result := r.lastJobStatus[req.GetUserJobTypeKey()]
 	if result == nil {
 		return common.UNKNOWN
@@ -75,7 +96,7 @@ func (r *JobStatsRegistry) LastJobStatus(req types.IJobRequestSummary) common.Re
 // Started - adds stats for job
 func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(req)
 	stats.Started()
 	r.removePendingJob(req)
@@ -95,55 +116,60 @@ func (r *JobStatsRegistry) Started(req types.IJobRequestSummary) {
 		m[req.GetID()] = true
 		r.countByOrg[req.GetOrganizationID()] = m
 	}
+	r.backend.save(req.GetUserJobTypeKey(), stats)
 }
 
 // Cancelled when job is cancelled
 func (r *JobStatsRegistry) Cancelled(req types.IJobRequestSummary) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(req)
 	stats.Cancelled()
 	r.removePendingJob(req)
 	r.decrUserOrgCount(req)
+	r.backend.save(req.GetUserJobTypeKey(), stats)
 }
 
 // Succeeded when job is succeeded
 func (r *JobStatsRegistry) Succeeded(req types.IJobRequestSummary, latency int64) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(req)
 	stats.Succeeded(latency)
 	r.removePendingJob(req)
 	r.decrUserOrgCount(req)
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
+	r.backend.save(req.GetUserJobTypeKey(), stats)
 }
 
 // Failed when job is failed
 func (r *JobStatsRegistry) Failed(req types.IJobRequestSummary, latency int64) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(req)
 	stats.Failed(latency)
 	r.removePendingJob(req)
 	r.decrUserOrgCount(req)
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
+	r.backend.save(req.GetUserJobTypeKey(), stats)
 }
 
 // Paused when job is paused
 func (r *JobStatsRegistry) Paused(req types.IJobRequestSummary, latency int64) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(req)
 	stats.Paused(latency)
 	r.removePendingJob(req)
 	r.decrUserOrgCount(req)
 	r.lastJobStatus[req.GetUserJobTypeKey()] = &RequestIDAndStatus{requestID: req.GetID(), state: req.GetJobState()}
+	r.backend.save(req.GetUserJobTypeKey(), stats)
 }
 
 // SetAntsAvailable marks job as available
 func (r *JobStatsRegistry) SetAntsAvailable(key types.UserJobTypeKey, available bool, unavailableError string) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(key)
 	stats.AntsAvailable = available
 	stats.AntUnavailableError = unavailableError
@@ -152,7 +178,7 @@ func (r *JobStatsRegistry) SetAntsAvailable(key types.UserJobTypeKey, available 
 // SetDisabled marks job as disabled
 func (r *JobStatsRegistry) SetDisabled(key types.UserJobTypeKey, disabled bool) {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	stats := r.createOrFindStat(key)
 	stats.JobDisabled = disabled
 }
@@ -161,7 +187,7 @@ func (r *JobStatsRegistry) SetDisabled(key types.UserJobTypeKey, disabled bool) 
 func (r *JobStatsRegistry) BuildWaitEstimate(key types.UserJobTypeKey) (q JobWaitEstimate) {
 	q.PendingJobIDs = make([]string, 0)
 	r.lock.RLock()
-	r.lock.RUnlock()
+	defer r.lock.RUnlock()
 	stat := r.statsByJobType[key.GetUserJobTypeKey()]
 	if stat == nil {
 		q.JobStats = NewJobStats(key)
@@ -179,7 +205,7 @@ func (r *JobStatsRegistry) BuildWaitEstimate(key types.UserJobTypeKey) (q JobWai
 		}
 		sort.Slice(q.PendingJobIDs, func(i, j int) bool {
 			t1 := pendingJobs[q.PendingJobIDs[i]]
-			t2 := pendingJobs[q.PendingJobIDs[i]]
+			t2 := pendingJobs[q.PendingJobIDs[j]]
 			if t1.GetJobPriority() == t2.GetJobPriority() {
 				return t1.GetCreatedAt().Before(t2.GetCreatedAt())
 			}
@@ -192,7 +218,7 @@ func (r *JobStatsRegistry) BuildWaitEstimate(key types.UserJobTypeKey) (q JobWai
 // GetExecutionCount return count of executing jobs
 func (r *JobStatsRegistry) GetExecutionCount(key types.UserJobTypeKey) int32 {
 	r.lock.RLock()
-	r.lock.RUnlock()
+	defer r.lock.RUnlock()
 	stat := r.statsByJobType[key.GetUserJobTypeKey()]
 	if stat == nil {
 		return 0
@@ -260,7 +286,7 @@ func (r *JobStatsRegistry) removePendingJob(req types.IJobRequestSummary) {
 // getStats return stats as array
 func (r *JobStatsRegistry) getStats() (stats []*JobStats) {
 	r.lock.RLock()
-	r.lock.RUnlock()
+	defer r.lock.RUnlock()
 	stats = make([]*JobStats, len(r.statsByJobType))
 	i := 0
 	for _, stat := range r.statsByJobType {

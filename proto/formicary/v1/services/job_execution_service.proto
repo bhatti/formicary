@@ -107,6 +107,10 @@ message RestartJobRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // hard forces all tasks to re-run from scratch, ignoring previously completed task results.
   bool hard = 2;
+  // version controls which job definition version to use on restart.
+  // Empty (default) keeps the currently pinned version.
+  // "latest" upgrades to the latest deployed definition for this job type.
+  string version = 3;
 }
 
 // TriggerJobRequest manually triggers a waiting/paused job request.

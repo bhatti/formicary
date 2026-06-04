@@ -17,6 +17,7 @@ import (
 	"plexobject.com/formicary/internal/events"
 
 	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/config"
 
@@ -674,11 +675,12 @@ func (jsm *JobExecutionStateMachine) RequiresManualApproval() (saveError error) 
 func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (saveError error) {
 	// release ant resources for the job
 	jsm.forceReleaseJobResources()
+	retried := jsm.Request.GetRetried()
 	fields := jsm.LogFields("JobExecutionStateMachine",
 		fmt.Errorf("setting job back to %s due to %s after %s secs - %s",
 			jsm.revertState,
 			err,
-			jsm.JobDefinition.GetDelayBetweenRetries().String(),
+			jsm.JobDefinition.GetDelayBetweenRetries(retried).String(),
 			reflect.TypeOf(jsm.Request)))
 
 	jsm.MetricsRegistry.Incr(
@@ -695,7 +697,7 @@ func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (s
 		jsm.revertState,
 		err.Error(),
 		"",
-		jsm.JobDefinition.GetDelayBetweenRetries(),
+		jsm.JobDefinition.GetDelayBetweenRetries(retried),
 		jsm.Request.IncrRetried(),
 		true); saveRequestErr != nil {
 		saveError = saveRequestErr
@@ -728,7 +730,7 @@ func (jsm *JobExecutionStateMachine) RevertRequestToPendingPaused(err error) (sa
 		jsm.revertState,
 		err.Error(),
 		"",
-		jsm.JobDefinition.GetDelayBetweenRetries(),
+		jsm.JobDefinition.GetDelayBetweenRetries(jsm.Request.GetRetried()),
 		0,
 		false); saveRequestErr != nil {
 		saveError = saveRequestErr
@@ -854,7 +856,7 @@ func (jsm *JobExecutionStateMachine) failed(
 			jsm.Request,
 			jsm.JobExecution,
 			oldState,
-			jsm.JobDefinition.GetDelayBetweenRetries(),
+			jsm.JobDefinition.GetDelayBetweenRetries(jsm.Request.GetRetried()),
 			jsm.Request.GetRetried(),
 		)
 		_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
@@ -864,7 +866,7 @@ func (jsm *JobExecutionStateMachine) failed(
 	}
 	delayBetweenRetries := time.Second
 	if jsm.JobDefinition != nil {
-		delayBetweenRetries = jsm.JobDefinition.GetDelayBetweenRetries()
+		delayBetweenRetries = jsm.JobDefinition.GetDelayBetweenRetries(jsm.Request.GetRetried())
 	}
 	// if failed to save job execution or don't have job-execution then just update job request
 	if jsm.JobExecution == nil || saveExecErr != nil {
@@ -1095,14 +1097,16 @@ func (jsm *JobExecutionStateMachine) sendLaunchJobEvent(
 	}
 
 	// Sends launch event to one of job launchers (using load balance via shared queue)
+	launchHeaders := queue.NewMessageHeaders(
+		queue.ReusableTopicKey, "false",
+		queue.MessageTarget, jsm.id,
+	)
+	tracing.InjectContext(ctx, launchHeaders)
 	if _, err = jsm.QueueClient.Send(
 		ctx,
 		jsm.serverCfg.GetJobExecutionLaunchTopic(),
 		initiateEvent,
-		queue.NewMessageHeaders(
-			queue.ReusableTopicKey, "false",
-			queue.MessageTarget, jsm.id,
-		),
+		launchHeaders,
 	); err != nil {
 		return fmt.Errorf("failed to send launch event due to %w", err)
 	}

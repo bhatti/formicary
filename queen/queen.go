@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/internal/tracing"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/email"
 	"plexobject.com/formicary/queen/notify"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"plexobject.com/formicary/internal/artifacts"
+	"plexobject.com/formicary/internal/cache"
 	ctasklet "plexobject.com/formicary/internal/tasklet"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
@@ -31,6 +33,17 @@ import (
 
 // Start starts all services for formicary server
 func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
+	tracingCfg := tracing.ConfigFromCommon(serverCfg.Common.Tracing, "formicary-queen")
+	tracingShutdown, err := tracing.Init(ctx, tracingCfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize tracing: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tracingShutdown(shutdownCtx)
+	}()
+
 	repoFactory, err := repository.NewLocator(serverCfg)
 	if err != nil {
 		return err
@@ -74,7 +87,18 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		"Bucket":    serverCfg.Common.S3.Bucket,
 	}).Info("artifact store initializing (ready on first use)")
 
-	jobStatsRegistry := stats.NewJobStatsRegistry()
+	var cacheRepo cache.Repository
+	if serverCfg.Common.Redis != nil && serverCfg.Common.Redis.Host != "" {
+		if cacheRepo, err = cache.New(serverCfg.Common.Redis); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "Queen",
+				"Host":      serverCfg.Common.Redis.Host,
+				"Error":     err,
+			}).Warnf("failed to connect to Redis for stats cache, using in-memory stats")
+			cacheRepo = nil
+		}
+	}
+	jobStatsRegistry := stats.NewJobStatsRegistryWithCache(cacheRepo)
 
 	dashboardStats := manager.NewDashboardManager(
 		serverCfg,

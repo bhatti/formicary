@@ -158,6 +158,15 @@ func (jdr *JobDefinitionRepositoryCached) DeleteConfig(
 	return err
 }
 
+// GetVersionsByType returns all versions of a job definition ordered by version desc
+func (jdr *JobDefinitionRepositoryCached) GetVersionsByType(
+	qc *common.QueryContext,
+	jobType string,
+	page int,
+	pageSize int) ([]*types.JobDefinition, int64, error) {
+	return jdr.adapter.GetVersionsByType(qc, jobType, page, pageSize)
+}
+
 // Query finds matching job-definition by parameters
 func (jdr *JobDefinitionRepositoryCached) Query(
 	qc *common.QueryContext,

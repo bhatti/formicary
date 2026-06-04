@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jpillora/backoff"
 	"github.com/sirupsen/logrus"
 
 	yaml "gopkg.in/yaml.v3"
@@ -31,6 +32,24 @@ const maxTasksPerJob = 100
 const keyRequiredParams = "required_params"
 
 var rangeRegex, _ = regexp.Compile("{{[-\\s]*range")
+
+// BackoffPolicy configures exponential backoff for retries
+type BackoffPolicy struct {
+	Min    time.Duration `yaml:"min,omitempty" json:"min"`
+	Max    time.Duration `yaml:"max,omitempty" json:"max"`
+	Factor float64       `yaml:"factor,omitempty" json:"factor"`
+	Jitter bool          `yaml:"jitter,omitempty" json:"jitter"`
+}
+
+// ToBackoff converts BackoffPolicy to a jpillora/backoff instance
+func (bp *BackoffPolicy) ToBackoff() *backoff.Backoff {
+	return &backoff.Backoff{
+		Min:    bp.Min,
+		Max:    bp.Max,
+		Factor: bp.Factor,
+		Jitter: bp.Jitter,
+	}
+}
 
 // JobTypeCronTrigger abstracts job-type and cron trigger
 type JobTypeCronTrigger struct {
@@ -108,6 +127,8 @@ type JobDefinition struct {
 	HardResetAfterRetries int `yaml:"hard_reset_after_retries,omitempty" json:"hard_reset_after_retries"`
 	// DelayBetweenRetries defines time between retry of job
 	DelayBetweenRetries time.Duration `yaml:"delay_between_retries,omitempty" json:"delay_between_retries"`
+	// RetryBackoffPolicy defines exponential backoff policy for retries
+	RetryBackoffPolicy *BackoffPolicy `yaml:"retry_backoff_policy,omitempty" json:"retry_backoff_policy" gorm:"-"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
 	// disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
@@ -185,8 +206,17 @@ func (jd *JobDefinition) Editable(userID string, organizationID string) bool {
 	return jd.UserID == userID
 }
 
-// GetDelayBetweenRetries delay between retries
-func (jd *JobDefinition) GetDelayBetweenRetries() time.Duration {
+// GetDelayBetweenRetries returns the delay for the given retry attempt.
+// If a BackoffPolicy is configured, it uses exponential backoff.
+// Otherwise falls back to the existing random delay behavior.
+func (jd *JobDefinition) GetDelayBetweenRetries(attempt ...int) time.Duration {
+	if jd.RetryBackoffPolicy != nil && jd.RetryBackoffPolicy.Min > 0 {
+		a := 0
+		if len(attempt) > 0 {
+			a = attempt[0]
+		}
+		return jd.RetryBackoffPolicy.ToBackoff().ForAttempt(float64(a))
+	}
 	if jd.DelayBetweenRetries <= 0 {
 		if n, err := rand.Int(rand.Reader, big.NewInt(10)); err == nil {
 			jd.DelayBetweenRetries = time.Second * time.Duration(n.Int64()+5)

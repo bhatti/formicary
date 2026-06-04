@@ -47,6 +47,18 @@ message TaskDefinitionVariable {
   google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
 }
 
+// BackoffPolicy configures exponential backoff with optional jitter for retries.
+message BackoffPolicy {
+  // min_ns is the minimum backoff duration in nanoseconds.
+  int64 min_ns = 1 [(formicary.v1.tags) = "yaml:\"min,omitempty\" json:\"min\""];
+  // max_ns is the maximum backoff duration in nanoseconds.
+  int64 max_ns = 2 [(formicary.v1.tags) = "yaml:\"max,omitempty\" json:\"max\""];
+  // factor is the exponential backoff multiplier (e.g., 2 for doubling).
+  double factor = 3 [(formicary.v1.tags) = "yaml:\"factor,omitempty\" json:\"factor\""];
+  // jitter adds randomization to prevent thundering herd.
+  bool jitter = 4 [(formicary.v1.tags) = "yaml:\"jitter,omitempty\" json:\"jitter\""];
+}
+
 // TaskDefinition specifies a unit of work within a job DAG.
 message TaskDefinition {
   string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
@@ -91,6 +103,8 @@ message TaskDefinition {
   string except = 31 [(formicary.v1.tags) = "yaml:\"except,omitempty\" json:\"except\" gorm:\"-\""];
   // executor_options_json stores serialized ExecutorOptions.
   string executor_options_json = 32 [(formicary.v1.tags) = "yaml:\"executor_options,omitempty\" json:\"executor_options\" gorm:\"-\""];
+  // retry_backoff_policy defines exponential backoff for task retries.
+  BackoffPolicy retry_backoff_policy = 33 [(formicary.v1.tags) = "yaml:\"retry_backoff_policy,omitempty\" json:\"retry_backoff_policy\" gorm:\"-\""];
 }
 
 // JobDefinition outlines a DAG of tasks executed by ant workers.
@@ -138,4 +152,6 @@ message JobDefinition {
   string notify_json = 35 [(formicary.v1.tags) = "yaml:\"notify,omitempty\" json:\"notify\" gorm:\"-\""];
   formicary.v1.domain.BasicResource resources = 36 [(formicary.v1.tags) = "yaml:\"resources,omitempty\" json:\"resources\" gorm:\"-\""];
   map<string, string> errors = 37 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  // retry_backoff_policy defines exponential backoff for job retries.
+  BackoffPolicy retry_backoff_policy = 38 [(formicary.v1.tags) = "yaml:\"retry_backoff_policy,omitempty\" json:\"retry_backoff_policy\" gorm:\"-\""];
 }

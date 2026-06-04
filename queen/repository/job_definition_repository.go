@@ -59,6 +59,12 @@ type JobDefinitionRepository interface {
 		jobID string,
 		configID string,
 	) error
+	// GetVersionsByType returns all versions of a job definition ordered by version desc
+	GetVersionsByType(
+		qc *common.QueryContext,
+		jobType string,
+		page int,
+		pageSize int) (jobs []*types.JobDefinition, totalRecords int64, err error)
 	// Clear - for testing
 	Clear()
 }

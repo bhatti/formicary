@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jpillora/backoff"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/queen/repository"
 
@@ -25,8 +26,6 @@ import (
 	"plexobject.com/formicary/queen/config"
 )
 
-const maxNoMoreJobs = 10
-
 // JobScheduler for scheduling jobs
 type JobScheduler struct {
 	id                               string
@@ -43,7 +42,8 @@ type JobScheduler struct {
 	lastJobSchedulerLeaderEventAt    time.Time
 	lock                             sync.RWMutex
 	busy                             bool
-	noJobsTries                      int
+	scheduleBackoff                  *backoff.Backoff
+	backoffUntil                     time.Time
 	totalPendingJobs                 uint64
 	totalScheduledJobs               uint64
 	done                             chan bool
@@ -78,7 +78,7 @@ func New(
 		jobSchedulerLeaderTopic:       serverCfg.Common.GetJobSchedulerLeaderTopic(),
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
 		busy:                          false,
-		noJobsTries:                   0,
+		scheduleBackoff:               &backoff.Backoff{Min: 100 * time.Millisecond, Max: 30 * time.Second, Factor: 2, Jitter: true},
 		done:                          make(chan bool, 1),
 		tickers:                       make([]*time.Ticker, 0),
 	}
@@ -139,9 +139,8 @@ func (js *JobScheduler) isStopped() bool {
 func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 	js.lockWithBusy()
 	defer js.unlockWithBusy()
-	if js.noJobsTries > 0 {
-		js.noJobsTries--
-		return
+	if time.Now().Before(js.backoffUntil) {
+		return nil
 	}
 
 	if js.serverCfg.Common.ShuttingDown {
@@ -161,14 +160,14 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 			"Error":     err,
 		}).Error("failed to schedule jobs because health monitor failed")
 		js.metricsRegistry.Incr("scheduler_bad_health", nil)
-		js.noJobsTries += 2
+		js.backoffUntil = time.Now().Add(js.scheduleBackoff.Duration())
 		return
 	}
 
 	js.metricsRegistry.Incr("scheduler_checked_pending_total", nil)
 	requests, err := js.jobManager.NextSchedulableJobRequestsByType(
 		[]string{},
-		[]common.RequestState{common.PENDING, common.PAUSED}, // MANUAL_APPROVAL_REQUIRED is not needed
+		[]common.RequestState{common.PENDING, common.PAUSED},
 		1000)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -177,15 +176,13 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 			"Error":     err,
 		}).
 			Error("failed to find pending jobs")
-		if js.noJobsTries < maxNoMoreJobs {
-			js.metricsRegistry.Incr("scheduler_no_more_jobs_total", nil)
-			js.noJobsTries++
-		}
+		js.metricsRegistry.Incr("scheduler_no_more_jobs_total", nil)
+		js.backoffUntil = time.Now().Add(js.scheduleBackoff.Duration())
 		return err
 	}
 
 	if len(requests) == 0 {
-		js.noJobsTries += 3 // TODO better backoff policy here
+		js.backoffUntil = time.Now().Add(js.scheduleBackoff.Duration())
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
 				"Component": "JobScheduler",
@@ -217,13 +214,12 @@ func (js *JobScheduler) schedulePendingJobs(ctx context.Context) (err error) {
 
 	}
 	atomic.AddUint64(&js.totalScheduledJobs, uint64(scheduled))
-	if scheduled == 0 {
-		if js.noJobsTries < maxNoMoreJobs {
-			js.noJobsTries++
-		}
-	} else {
-		js.noJobsTries = 0
+	if scheduled > 0 {
+		js.scheduleBackoff.Reset()
+		js.backoffUntil = time.Time{}
 	}
+	// When jobs exist but none scheduled (resource unavailable), don't exponentially
+	// back off — ants may reconnect at any moment. Those jobs retry via ScheduleAttempts.
 	return nil
 }
 

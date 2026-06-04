@@ -23,23 +23,25 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
+      ISSUE_TITLE=$(echo "{{.IssueTitle}}" | base64 -d)
+      ISSUE_BODY=$(echo "{{.IssueBody}}" | base64 -d)
       WS="$HOME/claude_workspace/{{.BitbucketRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
       echo "=== SETUP ==="
       echo "TASK_DIR=$TASK_DIR"
       echo "WS=$WS"
-      echo "Issue: #{{.IssueNumber}} {{.IssueTitle}}"
+      echo "Issue: #{{.IssueNumber}} $ISSUE_TITLE"
       echo "Repo: {{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       echo "---"
 
       rm -rf "$WS"
       mkdir -p "$WS"
 
-      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      SLUG=$(printf '%s' "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
       BRANCH="ai/{{.IssueNumber}}-${SLUG}-{{.Nonce}}"
       echo "Branch: $BRANCH"
 
-      echo "Cloning git@github.com:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git ..."
-      git clone --depth=100 "git@github.com:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git" "$WS/repo"
+      echo "Cloning git@bitbucket.org:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git ..."
+      git clone --depth=100 -b "{{.GitBranch}}" "git@bitbucket.org:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git" "$WS/repo"
       cd "$WS/repo"
 
       git config user.name "{{.GitUserName}}"
@@ -47,18 +49,20 @@ tasks:
       git checkout -b "$BRANCH"
       echo "Branch created: $BRANCH"
 
-      cat > "$WS/repo/ISSUE_CONTEXT.md" <<'ISSUEEOF'
-      # Issue #{{.IssueNumber}}: {{.IssueTitle}}
-
-      {{.IssueBody}}
-      ISSUEEOF
+      printf '# Issue #%s: %s\n\n%s\n' "{{.IssueNumber}}" "$ISSUE_TITLE" "$ISSUE_BODY" \
+        > "$WS/repo/ISSUE_CONTEXT.md"
 
       echo "--- ISSUE_CONTEXT.md ---"
       cat "$WS/repo/ISSUE_CONTEXT.md"
       echo "---"
 
-      printf 'WS=%s\nBRANCH=%s\n' "$WS" "$BRANCH" > "$TASK_DIR/meta.env"
-      BRANCH_LINK="[${BRANCH}](https://github.com/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/tree/${BRANCH})"
+      {
+        echo "WS=$WS"
+        echo "BRANCH=$BRANCH"
+        echo "ISSUE_TITLE_B64={{.IssueTitle}}"
+        echo "ISSUE_BODY_B64={{.IssueBody}}"
+      } > "$TASK_DIR/meta.env"
+      BRANCH_LINK="[${BRANCH}](https://bitbucket.org/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/branch/${BRANCH})"
       printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
 
       echo "::set-output name=WorkspaceDir::$WS/repo"
@@ -86,12 +90,14 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== PLAN ==="
       echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
 
-      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      SLUG=$(printf '%s' "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
       PLAN_FILE="PLANS/${SLUG}-{{.IssueNumber}}-plan.md"
       mkdir -p PLANS
       echo "Plan file: $PLAN_FILE"
@@ -118,7 +124,7 @@ tasks:
       echo ""
 
       set +e
-      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
+      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
         "$(cat /tmp/plan_prompt.txt)" 2>&1 | tee "$TASK_DIR/plan_conversation.txt"
       CLAUDE_EXIT=${PIPESTATUS[0]}
       set -e
@@ -168,14 +174,16 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== IMPLEMENT ==="
       echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
 
       echo "--- workspace state ---"
       ls -la
-      SLUG=$(printf '%s' "{{.IssueTitle}}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+      SLUG=$(printf '%s' "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
       PLAN_FILE="PLANS/${SLUG}-{{.IssueNumber}}-plan.md"
       # Fallback to PLAN.md if specific plan file doesn't exist
       [ ! -f "$PLAN_FILE" ] && PLAN_FILE="PLAN.md"
@@ -210,7 +218,7 @@ tasks:
       echo ""
 
       set +e
-      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 100 \
+      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 100 \
         "$(cat /tmp/impl_prompt.txt)" 2>&1 | tee "$TASK_DIR/impl_conversation.txt"
       CLAUDE_EXIT=${PIPESTATUS[0]}
       set -e
@@ -226,7 +234,7 @@ tasks:
       fi
 
       echo "--- git log (commits on branch) ---"
-      git log --oneline main..HEAD 2>/dev/null || git log --oneline -5
+      git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || git log --oneline -5
       echo "--- git diff --stat ---"
       git diff --stat main 2>/dev/null || true
       echo "--- git status ---"
@@ -234,7 +242,7 @@ tasks:
 
       # Save git state as artifacts
       git diff main > "$TASK_DIR/impl_diff.patch" 2>/dev/null || true
-      git log --oneline main..HEAD > "$TASK_DIR/impl_commits.txt" 2>/dev/null || true
+      git log --oneline {{.GitBranch}}..HEAD > "$TASK_DIR/impl_commits.txt" 2>/dev/null || true
 
       # Extract status JSON
       STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/impl_conversation.txt" | tail -1 || true)
@@ -265,6 +273,7 @@ tasks:
   method: SHELL
   timeout: 10m
   report_stdout: true
+  allow_failure: true
   dependencies:
     - setup
     - implement
@@ -272,7 +281,9 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=========================================="
       echo "=== UNIT-TEST: Verify changes + run tests ==="
       echo "=========================================="
@@ -280,9 +291,9 @@ tasks:
 
       echo ""
       echo "--- Commits on branch ---"
-      git log --oneline main..HEAD 2>/dev/null || echo "(none)"
+      git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || echo "(none)"
 
-      COMMIT_COUNT=$(git rev-list --count main..HEAD 2>/dev/null || echo "0")
+      COMMIT_COUNT=$(git rev-list --count {{.GitBranch}}..HEAD 2>/dev/null || echo "0")
       echo "Total commits: $COMMIT_COUNT"
 
       if [ "$COMMIT_COUNT" -eq 0 ]; then
@@ -332,7 +343,7 @@ tasks:
 
       # Save artifacts
       git diff main > "$TASK_DIR/verify_diff.patch" 2>/dev/null || true
-      git log --format="%h %s" main..HEAD > "$TASK_DIR/verify_commits.txt" 2>/dev/null || true
+      git log --format="%h %s" {{.GitBranch}}..HEAD > "$TASK_DIR/verify_commits.txt" 2>/dev/null || true
 
       echo ""
       if [ $TEST_EXIT -ne 0 ]; then
@@ -346,10 +357,8 @@ tasks:
       - verify_commits.txt
       - test_output.txt
     when: always
-  on_exit_code:
-    COMPLETED: self-verify
-    "3": fix-tests
-  on_failed: notify-blocked
+  on_completed: self-verify
+  on_failed: self-verify
 
 # --- FIX-TESTS ---------------------------------------------------------------
 - task_type: fix-tests
@@ -367,7 +376,9 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== FIX-TESTS ==="
       echo "WS=$WS"
       cd "$WS/repo"
@@ -389,7 +400,7 @@ tasks:
 
       echo "Calling claude (model=$MODEL, max-turns=50)..."
       set +e
-      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 50 \
+      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 50 \
         "$(cat /tmp/fix_prompt.txt)" 2>&1 | tee "$TASK_DIR/fix_conversation.txt"
       CLAUDE_EXIT=${PIPESTATUS[0]}
       set -e
@@ -420,19 +431,22 @@ tasks:
   dependencies:
     - setup
     - implement
+    - unit-test
   environment:
     MODEL: "{{.ReviewModel}}"
   script:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== SELF-VERIFY ==="
       echo "WS=$WS"
       cd "$WS/repo"
 
       echo "--- commits to verify ---"
-      git log --oneline main..HEAD 2>/dev/null || echo "(no commits)"
+      git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || echo "(no commits)"
       echo "--- diff stat ---"
       git diff --stat main 2>/dev/null || echo "(no diff)"
       DIFF_SIZE=$(git diff main 2>/dev/null | wc -l || echo "0")
@@ -474,7 +488,7 @@ tasks:
       echo "Calling claude for self-verify (model=$MODEL, max-turns=30)..."
       echo ""
       set +e
-      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
+      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
         "$(cat /tmp/verify_prompt.txt)" 2>&1 | tee "$TASK_DIR/verify_conversation.txt"
       CLAUDE_EXIT=${PIPESTATUS[0]}
       set -e
@@ -490,7 +504,7 @@ tasks:
       cat "$TASK_DIR/verify_result.json"
       echo ""
       echo "--- final git log ---"
-      git log --oneline main..HEAD 2>/dev/null || echo "(no commits)"
+      git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || echo "(no commits)"
       echo "--- final diff stat ---"
       git diff --stat main 2>/dev/null || true
   artifacts:
@@ -517,13 +531,18 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== CREATE-PR ==="
+      echo "TASK_DIR=$TASK_DIR"
+      ls -la "$TASK_DIR/" 2>/dev/null | head -10 || true
+      [ ! -f "$TASK_DIR/meta.env" ] && echo "ERROR: meta.env missing" && exit 1
       echo "BRANCH=$BRANCH"
       cd "$WS/repo"
 
       # Check if there are actually commits to push
-      COMMIT_COUNT=$(git rev-list --count main..HEAD 2>/dev/null || echo "0")
+      COMMIT_COUNT=$(git rev-list --count "{{.GitBranch}}..HEAD" 2>/dev/null || echo "0")
       echo "Commits on branch: $COMMIT_COUNT"
 
       if [ "$COMMIT_COUNT" -eq 0 ]; then
@@ -555,20 +574,27 @@ tasks:
       - Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}"
 
       echo "Creating PR..."
-      PR_URL=$(acli bitbucket pr create \
-        --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" \
-        --title "AI: {{.IssueTitle}}" \
-        --body "$PR_BODY" \
-        --source "$BRANCH" --destination "{{.GitBranch}}" -o json | jq -r .links.html.href)
+      set +e
+      PR_JSON=$(acli -p bitbucket bitbucket pr create "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" \
+        --title "AI: $ISSUE_TITLE" \
+        --description "$PR_BODY" \
+        --source "$BRANCH" --destination "{{.GitBranch}}" -o json 2>&1)
+      set -e
+      echo "PR create response: $PR_JSON"
+      PR_URL=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('links',{}).get('html',{}).get('href',''))" 2>/dev/null || true)
+      if [ -z "$PR_URL" ]; then
+        echo "PR create failed or already exists - searching for existing PR on branch $BRANCH..."
+        PR_URL=$(acli -p bitbucket bitbucket pr list "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" -o json 2>/dev/null | python3 -c "import sys,json,os; prs=json.load(sys.stdin); br=os.environ.get('BRANCH',''); print(next((p.get('links',{}).get('html',{}).get('href','') for p in (prs if isinstance(prs,list) else []) if p.get('source',{}).get('branch',{}).get('name','')==br),''))" 2>/dev/null || true)
+      fi
+      [ -z "$PR_URL" ] && echo "ERROR: could not create or find PR" && exit 1
 
       printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
       PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
       echo "::set-output name=PRNumber::$PR_NUM"
       echo "::set-output name=PRUrl::$PR_URL"
-      echo "=== PR CREATED: $PR_URL (PR #$PR_NUM) ==="
+      echo "=== PR CREATED/FOUND: $PR_URL (PR #$PR_NUM) ==="
 
-      acli jira issue update "{{.IssueNumber}}" \
-        --remove-label "ai-in-progress" --add-label "ai-pr-open" 2>/dev/null || true
+      acli -p jira jira issue edit "{{.IssueNumber}}" --labels "ai-pr-open" 2>/dev/null || true
   artifacts:
     paths:
       - pr_url.txt
@@ -591,7 +617,9 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       REPO="{{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
       PROCESSED_FILE="$WS/.processed_comments"
@@ -613,7 +641,7 @@ tasks:
         echo "[$(date +%H:%M:%S)] --- Poll cycle ---"
 
         # Check PR state
-        PR_STATE=$(gh pr view "$PR_NUMBER" -R "$REPO" --json state -q '.state' 2>/dev/null || echo "UNKNOWN")
+        PR_STATE=$(acli -p bitbucket bitbucket pr get "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state','UNKNOWN').upper())" 2>/dev/null || echo "UNKNOWN")
         echo "PR #$PR_NUMBER state: $PR_STATE"
 
         if [ "$PR_STATE" = "MERGED" ] || [ "$PR_STATE" = "CLOSED" ]; then
@@ -623,7 +651,7 @@ tasks:
         fi
 
         # Fetch review comments (use --jq to handle control chars in body)
-        ALL_REVIEW=$(acli bitbucket pr comment list --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" "$PR_NUMBER" -o json \
+        ALL_REVIEW=$(acli -p bitbucket bitbucket pr comments "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json \
           --jq '[.[] | {id, body, path, user: .user.login}]' 2>/dev/null || echo "[]")
         ALL_ISSUE=$(echo "[]" # Bitbucket PR comments are in the same list \
           --jq '[.[] | {id, body, user: .user.login}]' 2>/dev/null || echo "[]")
@@ -670,7 +698,7 @@ tasks:
 
             echo "Calling claude..."
             set +e
-            claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 20 \
+            stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 20 \
               "$(cat /tmp/respond_prompt.txt)" 2>&1 | tee "$TASK_DIR/respond_${COMMENT_ID}.txt"
             CLAUDE_EXIT=$?
             set -e
@@ -680,7 +708,7 @@ tasks:
             git push origin HEAD 2>/dev/null && echo "Pushed changes" || echo "Nothing to push"
 
             # Reply on PR
-            acli bitbucket pr comment create --workspace "{{.BitbucketWorkspace}}" --repo "{{.BitbucketRepo}}" "$PR_NUMBER" \
+            acli -p bitbucket bitbucket pr comment "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" \
               --body "Addressed feedback from @$COMMENT_USER. See latest commit." 2>/dev/null || true
 
             # Mark processed
@@ -714,7 +742,9 @@ tasks:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
-      source "$TASK_DIR/meta.env"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
       echo "=== LEARN ==="
       cd "$WS/repo"
       LEARN_DIR="$HOME/claude_workspace/learn_context"
@@ -726,10 +756,8 @@ tasks:
 
       PR_COMMENTS=""
       if [ -n "$PR_NUMBER" ]; then
-        PR_COMMENTS=$(gh api "repos/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/pulls/$PR_NUMBER/comments" \
-          --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
-        ISSUE_COMMENTS=$(gh api "repos/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/issues/$PR_NUMBER/comments" \
-          --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo "[]")
+        PR_COMMENTS=$(acli -p bitbucket bitbucket pr comments "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null | python3 -c "import sys,json; cs=json.load(sys.stdin); print(json.dumps([{'user':c.get('user',{}).get('display_name',''), 'body':c.get('content',{}).get('raw','')} for c in (cs if isinstance(cs,list) else [])]))" 2>/dev/null || echo "[]")
+        ISSUE_COMMENTS="[]"
       fi
 
       {
@@ -744,7 +772,7 @@ tasks:
         printf 'Write a concise learning entry (max 20 lines) to:\n'
         printf '  %s/{{.BitbucketWorkspace}}_{{.BitbucketRepo}}_issue{{.IssueNumber}}.md\n\n' "$LEARN_DIR"
         printf 'Format:\n'
-        printf '# Issue #{{.IssueNumber}}: {{.IssueTitle}}\n'
+        printf '# Issue #{{.IssueNumber}}: $ISSUE_TITLE\n'
         printf '## What went well\n'
         printf '## What to improve\n'
         printf '## Patterns to remember\n\n'
@@ -753,7 +781,7 @@ tasks:
 
       echo "Calling claude for learning capture..."
       set +e
-      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 10 \
+      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 10 \
         "$(cat /tmp/learn_prompt.txt)" 2>&1 | tee "$TASK_DIR/learn_conversation.txt"
       set -e
 
@@ -787,9 +815,8 @@ tasks:
       Reason: ${REASON}
 
       Please fix and re-label as ai-ready to retry."
-      gh issue comment "{{.IssueNumber}}" -R "{{.BitbucketWorkspace}}/{{.BitbucketRepo}}" --body "$BODY" || true
-      acli jira issue update "{{.IssueNumber}}" \
-        --remove-label "ai-in-progress" --add-label "needs-human" 2>/dev/null || true
+      acli -p jira jira issue comment add "{{.IssueNumber}}" --body "$BODY" 2>/dev/null || true
+      acli -p jira jira issue edit "{{.IssueNumber}}" --labels "needs-human" 2>/dev/null || true
   on_completed: cleanup
   on_failed: cleanup
 

@@ -144,7 +144,7 @@ func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (stri
 				"jobSchedulerLeaderEvent": jobSchedulerLeaderEvent,
 				"totalPendingJobs":        js.totalPendingJobs,
 				"totalScheduledJobs":      js.totalScheduledJobs,
-				"noJobsTries":             js.noJobsTries,
+				"backoffUntil":            js.backoffUntil,
 			}).Debug("received job scheduler leader event")
 		}
 

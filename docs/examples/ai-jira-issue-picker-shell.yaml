@@ -30,7 +30,7 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       python3 - <<'PYEOF'
-      import json, os, subprocess, sys
+      import base64, json, os, subprocess, sys
 
       project      = os.environ["JIRA_PROJECT"]
       pickup_lbl   = os.environ["PICKUP_LABEL"]
@@ -40,19 +40,32 @@ tasks:
       bb_repo      = os.environ["BB_REPO"]
 
       def acli(*args):
-          cmd = ["acli"] + list(args)
+          profile = "bitbucket" if args and args[0] == "bitbucket" else "jira"
+          cmd = ["acli", "-p", profile] + list(args)
           r = subprocess.run(cmd, capture_output=True, text=True)
           if r.returncode != 0:
               print(f"acli {' '.join(args[:4])} failed: {r.stderr.strip()}", file=sys.stderr)
           return r
 
+      def adf_to_text(node):
+          """Recursively extract plain text from Atlassian Document Format."""
+          if not node or not isinstance(node, dict):
+              return ""
+          if node.get("type") == "text":
+              return node.get("text", "")
+          parts = [adf_to_text(c) for c in node.get("content", [])]
+          sep = "\n" if node.get("type") in ("paragraph", "heading", "listItem", "bulletList", "orderedList") else ""
+          return sep.join(p for p in parts if p)
+
       # Search Jira for issues with pickup label
       # Issues must have "ai-ready" label AND a "repo:<name>:<branch>" label
       # e.g. labels: ai-ready, repo:my-service:develop
       jql = f'project = {project} AND labels = "{pickup_lbl}" AND status != Done ORDER BY priority DESC'
-      r = acli("jira", "search", "--jql", jql, "--limit", str(max_pending), "-o", "json")
+      r = acli("jira", "search", "--jql", jql, "--max-results", str(max_pending),
+               "--fields", "summary,description,labels", "-o", "json")
       try:
-          issues = json.loads(r.stdout) if r.returncode == 0 else []
+          data = json.loads(r.stdout) if r.returncode == 0 else {}
+          issues = data.get("issues", []) if isinstance(data, dict) else []
       except json.JSONDecodeError:
           issues = []
 
@@ -64,10 +77,12 @@ tasks:
       items = []
       for issue in issues:
           key = issue.get("key", "")
-          summary = issue.get("fields", {}).get("summary", issue.get("summary", ""))
-          description = issue.get("fields", {}).get("description", issue.get("description", ""))
+          fields = issue.get("fields", {})
+          summary = fields.get("summary", "")
+          desc_raw = fields.get("description", "")
+          description = adf_to_text(desc_raw) if isinstance(desc_raw, dict) else (desc_raw or "")
           url = issue.get("self", "")
-          labels = issue.get("fields", {}).get("labels", issue.get("labels", []))
+          labels = fields.get("labels", [])
 
           # Extract repo and branch from "repo:<name>:<branch>" label
           issue_repo = bb_repo        # default from job variables
@@ -83,15 +98,15 @@ tasks:
           nonce = subprocess.check_output(
               ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
 
-          # Move label: remove pickup, add in-progress
-          acli("jira", "issue", "update", key, "--remove-labels", pickup_lbl)
-          acli("jira", "issue", "update", key, "--add-labels", inprog_lbl)
+          # Move label: replace full label list (acli edit --labels sets all labels)
+          new_labels = [l for l in labels if l != pickup_lbl] + [inprog_lbl]
+          acli("jira", "issue", "edit", key, "--labels", ",".join(new_labels))
           print(f"  {key}: {summary} (repo={issue_repo}, branch={issue_branch})")
 
           items.append({
               "IssueNumber": key,
-              "IssueTitle": summary,
-              "IssueBody": description or "",
+              "IssueTitle": base64.b64encode(summary.encode()).decode(),
+              "IssueBody": base64.b64encode((description or "").encode()).decode(),
               "IssueURL": url,
               "Nonce": nonce,
               "BitbucketWorkspace": bb_workspace,
@@ -106,8 +121,10 @@ tasks:
       with open("issues.json", "w") as f:
           f.write(items_json + "\n")
 
-      print(f"items.json written: {len(items)} item(s)")
-      print(f"::set-output name=IssuesJSON::{items_json}")
+      # Replace single quotes so IssuesJSON is safe to embed in YAML single-quoted env vars
+      items_json_safe = items_json.replace("\x27", "&#39;")
+      print("items.json written: {} item(s)".format(len(items)))
+      print("::set-output name=IssuesJSON::{}".format(items_json_safe))
       PYEOF
   artifacts:
     paths:
@@ -123,13 +140,12 @@ tasks:
   environment:
     SUBMITTED_IDS: '{{if .IssuesJSON}}{{SubmitJobsFromJSON "ai-jira-implement" .IssuesJSON (printf "_parent_id=%s" .JobID)}}{{end}}'
     PENDING_COUNT: '{{CountByJobTypeAndState "ai-jira-implement" "PENDING"}}'
-    ISSUES_JSON: '{{.IssuesJSON}}'
   script:
     - |
       #!/bin/bash
       set -euo pipefail
       echo "=== Jira Issue Picker Submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-      echo "Issues found: ${ISSUES_JSON:-none}"
+      [ -f issues.json ] && echo "Issues JSON:" && cat issues.json
       if [ -n "${SUBMITTED_IDS:-}" ]; then
         echo "Submitted job IDs:"
         echo "$SUBMITTED_IDS" | while read -r id; do

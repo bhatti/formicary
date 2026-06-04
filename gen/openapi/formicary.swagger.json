@@ -5092,6 +5092,10 @@
         "hard": {
           "type": "boolean",
           "description": "hard forces all tasks to re-run from scratch, ignoring previously completed task results."
+        },
+        "version": {
+          "type": "string",
+          "description": "version controls which job definition version to use on restart.\nEmpty (default) keeps the currently pinned version.\n\"latest\" upgrades to the latest deployed definition for this job type."
         }
       },
       "description": "RestartJobRequest restarts a failed or cancelled job request."
@@ -5145,6 +5149,31 @@
         }
       },
       "description": "AuditRecord captures an auditable event in the system."
+    },
+    "queenBackoffPolicy": {
+      "type": "object",
+      "properties": {
+        "min_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "min_ns is the minimum backoff duration in nanoseconds."
+        },
+        "max_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "max_ns is the maximum backoff duration in nanoseconds."
+        },
+        "factor": {
+          "type": "number",
+          "format": "double",
+          "description": "factor is the exponential backoff multiplier (e.g., 2 for doubling)."
+        },
+        "jitter": {
+          "type": "boolean",
+          "description": "jitter adds randomization to prevent thundering herd."
+        }
+      },
+      "description": "BackoffPolicy configures exponential backoff with optional jitter for retries."
     },
     "queenErrorCode": {
       "type": "object",
@@ -5367,6 +5396,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "retry_backoff_policy": {
+          "$ref": "#/definitions/queenBackoffPolicy",
+          "description": "retry_backoff_policy defines exponential backoff for job retries."
         }
       },
       "description": "JobDefinition outlines a DAG of tasks executed by ant workers.\nA new JobExecution is created when a JobRequest is scheduled against this definition."
@@ -6065,6 +6098,10 @@
         "executor_options_json": {
           "type": "string",
           "description": "executor_options_json stores serialized ExecutorOptions."
+        },
+        "retry_backoff_policy": {
+          "$ref": "#/definitions/queenBackoffPolicy",
+          "description": "retry_backoff_policy defines exponential backoff for task retries."
         }
       },
       "description": "TaskDefinition specifies a unit of work within a job DAG."

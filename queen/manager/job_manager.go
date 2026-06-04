@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oklog/ulid/v2"
+
 	"plexobject.com/formicary/queen/notify"
 
 	"gopkg.in/yaml.v3"
@@ -832,56 +834,65 @@ func (jm *JobManager) ReviewTaskRequestForManualApproval(ctx context.Context,
 	return nil
 }
 
-// Fire event to start the job by job-launcher that listens to incoming request in queue and executes it
+// sendReviewNotification fires a background goroutine that delivers the review notification
+// with up to 3 attempts and exponential back-off so transient errors are retried.
 func (jm *JobManager) sendReviewNotification(_ context.Context, qc *common.QueryContext,
-	request *types.JobRequest, reviewRequest *types.ReviewTaskRequest) (err error) {
-	// TODO add background process for message notifications with database persistence
+	request *types.JobRequest, reviewRequest *types.ReviewTaskRequest) error {
 	go func() {
-		job, err := jm.jobDefinitionRepository.GetByType(qc, request.JobType)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "JobManager",
-				"User":      qc.User,
-				"Request":   request,
-				"Status":    reviewRequest.Status,
-			}).WithError(err).Warnf("failed to find job-type %s", request.JobType)
-			return
+		fields := logrus.Fields{
+			"Component": "JobManager",
+			"User":      qc.User,
+			"Request":   request,
+			"Status":    reviewRequest.Status,
 		}
-		jobExec, err := jm.jobExecutionRepository.Get(request.JobExecutionID)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "JobManager",
-				"User":      qc.User,
-				"Request":   request,
-				"Status":    reviewRequest.Status,
-			}).WithError(err).Warnf("failed to find job-execution %s", request.JobExecutionID)
+
+		var job *types.JobDefinition
+		if err := retryNotify(func() error {
+			var e error
+			job, e = jm.jobDefinitionRepository.GetByType(qc, request.JobType)
+			return e
+		}, 3, 200*time.Millisecond); err != nil {
+			logrus.WithFields(fields).WithError(err).Errorf("failed to find job-type %s after retries", request.JobType)
 			return
 		}
 
-		// Convert review status to appropriate notification state
+		var jobExec *types.JobExecution
+		if err := retryNotify(func() error {
+			var e error
+			jobExec, e = jm.jobExecutionRepository.Get(request.JobExecutionID)
+			return e
+		}, 3, 200*time.Millisecond); err != nil {
+			logrus.WithFields(fields).WithError(err).Errorf("failed to find job-execution %s after retries", request.JobExecutionID)
+			return
+		}
+
 		var notificationState common.RequestState
 		if reviewRequest.Status == common.APPROVED {
 			notificationState = common.APPROVED
 		} else {
-			notificationState = common.FAILED // Use FAILED for rejected tasks
+			notificationState = common.FAILED
 		}
-		if notifyErr := jm.NotifyJobMessage(
-			qc,
-			qc.User,
-			job,
-			request,
-			jobExec,
-			notificationState); notifyErr != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "JobManager",
-				"User":      qc.User,
-				"Request":   request,
-				"Status":    reviewRequest.Status,
-				"Error":     notifyErr,
-			}).Warnf("failed to send job notification")
+		if err := retryNotify(func() error {
+			return jm.NotifyJobMessage(qc, qc.User, job, request, jobExec, notificationState)
+		}, 3, 200*time.Millisecond); err != nil {
+			logrus.WithFields(fields).WithError(err).Errorf("failed to send job notification after retries")
 		}
 	}()
 	return nil
+}
+
+// retryNotify retries fn up to maxAttempts times with exponential back-off starting at delay.
+func retryNotify(fn func() error, maxAttempts int, delay time.Duration) error {
+	var err error
+	for i := 0; i < maxAttempts; i++ {
+		if err = fn(); err == nil {
+			return nil
+		}
+		if i < maxAttempts-1 {
+			time.Sleep(delay * time.Duration(1<<uint(i)))
+		}
+	}
+	return err
 }
 
 // RequeueOrphanJobRequests queries jobs with EXECUTING/STARTED status and puts them back to PENDING/PAUSED
@@ -1134,12 +1145,42 @@ func (jm *JobManager) TriggerJobRequest(
 	return
 }
 
-// RestartJobRequest - restarts job; hard=true forces all tasks to re-run from scratch
+// RestartJobRequest - restarts job; hard=true forces all tasks to re-run from scratch.
+// version="" keeps the pinned definition for soft restart, uses latest for hard restart.
+// version="latest" always upgrades to the latest deployed definition.
+// version="<sem_version>" or version="<definition_id>" pins to a specific version.
 func (jm *JobManager) RestartJobRequest(
 	qc *common.QueryContext,
 	id string,
-	hard bool) (err error) {
-	if err = jm.jobRequestRepository.Restart(qc, id, hard); err == nil {
+	hard bool,
+	version string) (err error) {
+	newJobDefinitionID := ""
+	resolveLatest := version == "latest" || (hard && version == "")
+
+	if resolveLatest {
+		req, reqErr := jm.jobRequestRepository.Get(qc, id)
+		if reqErr != nil {
+			return reqErr
+		}
+		latest, defErr := jm.GetJobDefinitionByType(qc, req.GetJobType(), "")
+		if defErr != nil {
+			return defErr
+		}
+		if latest.ID != req.GetJobDefinitionID() {
+			newJobDefinitionID = latest.ID
+		}
+	} else if version != "" {
+		req, reqErr := jm.jobRequestRepository.Get(qc, id)
+		if reqErr != nil {
+			return reqErr
+		}
+		newJobDefinitionID, err = jm.resolveVersionToDefinitionID(qc, req.GetJobType(), version)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = jm.jobRequestRepository.Restart(qc, id, hard, newJobDefinitionID); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			jm.metricsRegistry.Incr("job_restarted_total", map[string]string{"JobType": req.JobType})
 			_ = jm.fireJobRequestChange(req)
@@ -1155,6 +1196,34 @@ func (jm *JobManager) RestartJobRequest(
 		}
 	}
 	return
+}
+
+// resolveVersionToDefinitionID resolves a version string to a job definition ID.
+// Accepts a semantic version (e.g. "1.2.3") or a definition ID (ULID).
+func (jm *JobManager) resolveVersionToDefinitionID(
+	qc *common.QueryContext,
+	jobType string,
+	version string) (string, error) {
+	if _, parseErr := ulid.Parse(version); parseErr == nil {
+		def, err := jm.GetJobDefinition(qc, version)
+		if err == nil {
+			return def.ID, nil
+		}
+	}
+	def, err := jm.GetJobDefinitionByType(qc, jobType, version)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve version %q for job type %q: %w", version, jobType, err)
+	}
+	return def.ID, nil
+}
+
+// GetJobDefinitionVersions returns all versions of a job definition
+func (jm *JobManager) GetJobDefinitionVersions(
+	qc *common.QueryContext,
+	jobType string,
+	page int,
+	pageSize int) ([]*types.JobDefinition, int64, error) {
+	return jm.jobDefinitionRepository.GetVersionsByType(qc, jobType, page, pageSize)
 }
 
 // GetResourceUsage usage

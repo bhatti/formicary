@@ -12,6 +12,7 @@ import (
 
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/grpc/interceptors"
+	"plexobject.com/formicary/internal/tracing"
 )
 
 // ServerConfig holds the parameters needed to build a gRPC server.
@@ -64,10 +65,12 @@ func NewServer(cfg ServerConfig) *grpc.Server {
 	unary := []grpc.UnaryServerInterceptor{
 		interceptors.Recovery(),
 		interceptors.Logging(logger),
+		tracing.UnaryServerInterceptor(),
 	}
 	stream := []grpc.StreamServerInterceptor{
 		interceptors.RecoveryStream(),
 		interceptors.LoggingStream(logger),
+		tracing.StreamServerInterceptor(),
 	}
 
 	if cfg.RequestTimeout > 0 {

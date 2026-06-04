@@ -230,7 +230,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.Error(t, err)
 
 	// WHEN restarting completed requests
-	err = repo.Restart(common.NewQueryContextFromIDs(loaded.UserID, ""), loaded.ID, false)
+	err = repo.Restart(common.NewQueryContextFromIDs(loaded.UserID, ""), loaded.ID, false, "")
 	// THEN it should fail
 	require.Error(t, err)
 }
@@ -924,7 +924,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 
 	for _, rec := range recs {
 		// WHEN restarting orphan requests
-		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID, false)
+		err = repo.Restart(common.NewQueryContextFromIDs(rec.UserID, ""), rec.ID, false, "")
 		if rec.JobState == common.READY {
 			require.Error(t, err, rec.String())
 		} else {

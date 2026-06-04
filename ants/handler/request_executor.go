@@ -12,7 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"plexobject.com/formicary/ants/logs"
+	"plexobject.com/formicary/internal/tracing"
 
 	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/internal/web"
@@ -66,6 +70,21 @@ func NewRequestExecutor(
 func (re *RequestExecutorImpl) Execute(
 	ctx context.Context,
 	taskReq *types.TaskRequest) (taskResp *types.TaskResponse) {
+	ctx, span := tracing.Tracer("formicary.ant").Start(ctx, "task.execute",
+		trace.WithAttributes(
+			attribute.String("task.type", taskReq.TaskType),
+			attribute.String("job.type", taskReq.JobType),
+			attribute.String("job.request_id", taskReq.JobRequestID),
+			attribute.String("executor.method", string(taskReq.ExecutorOpts.Method)),
+		),
+	)
+	defer func() {
+		if taskResp != nil && taskResp.Status == types.FAILED {
+			span.SetStatus(codes.Error, taskResp.ErrorMessage)
+		}
+		span.End()
+	}()
+
 	// Create task-response
 	taskResp = types.NewTaskResponse(taskReq)
 
@@ -80,7 +99,13 @@ func (re *RequestExecutorImpl) Execute(
 			}).Debugf("pre-processing...")
 	}
 	// prepare executor options and build container based on request method
-	container, err := re.preProcess(ctx, taskReq)
+	preCtx, preSpan := tracing.Tracer("formicary.ant").Start(ctx, "task.pre_process")
+	container, err := re.preProcess(preCtx, taskReq)
+	if err != nil {
+		preSpan.RecordError(err)
+		preSpan.SetStatus(codes.Error, err.Error())
+	}
+	preSpan.End()
 	if err != nil {
 		taskResp.Status = types.FAILED
 		taskResp.ErrorMessage = taskReq.Mask(err.Error())
@@ -113,8 +138,14 @@ func (re *RequestExecutorImpl) Execute(
 				"Task":      taskReq.String(),
 			}).Debugf("executing...")
 	}
+	scriptCtx, scriptSpan := tracing.Tracer("formicary.ant").Start(ctx, "task.execute_script",
+		trace.WithAttributes(
+			attribute.Int("script.before_count", len(taskReq.BeforeScript)),
+			attribute.Int("script.main_count", len(taskReq.Script)),
+		),
+	)
 	if err := re.execute(
-		ctx,
+		scriptCtx,
 		container,
 		taskReq,
 		taskResp,
@@ -124,7 +155,7 @@ func (re *RequestExecutorImpl) Execute(
 		taskResp.Status = types.FAILED
 		taskResp.ErrorMessage = taskReq.Mask(err.Error())
 	} else if err := transfer.SetupCacheAndDownloadArtifacts(
-		ctx,
+		scriptCtx,
 		re.antCfg,
 		re.artifactService,
 		cmdExecutor,
@@ -136,7 +167,7 @@ func (re *RequestExecutorImpl) Execute(
 		taskResp.Status = types.FAILED
 		taskResp.ErrorMessage = err.Error()
 	} else if err := re.execute(
-		ctx,
+		scriptCtx,
 		container,
 		taskReq,
 		taskResp,
@@ -148,6 +179,10 @@ func (re *RequestExecutorImpl) Execute(
 	} else {
 		taskResp.Status = types.COMPLETED
 	}
+	if taskResp.Status == types.FAILED {
+		scriptSpan.SetStatus(codes.Error, taskResp.ErrorMessage)
+	}
+	scriptSpan.End()
 
 	taskResp.Timings.ScriptFinishedAt = time.Now()
 	if len(taskReq.AfterScript) > 0 {
@@ -169,8 +204,9 @@ func (re *RequestExecutorImpl) Execute(
 				"Task":      taskReq.String(),
 			}).Debugf("post-processing...")
 	}
+	postCtx, postSpan := tracing.Tracer("formicary.ant").Start(ctx, "task.post_process")
 	if err := re.execute(
-		ctx,
+		postCtx,
 		container,
 		taskReq,
 		taskResp,
@@ -178,6 +214,7 @@ func (re *RequestExecutorImpl) Execute(
 		false); err != nil {
 		taskResp.AdditionalError(err.Error(), false)
 	}
+	postSpan.End()
 	taskResp.Timings.PostScriptFinishedAt = time.Now()
 	// copy applied limits
 	taskResp.CostFactor = taskReq.ExecutorOpts.CostFactor

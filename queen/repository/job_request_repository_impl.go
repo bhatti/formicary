@@ -748,14 +748,22 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 
 // Restart the job; hard=true sets hard_restart so DoesRequireFullRestart returns true
 // and all tasks re-run from scratch instead of only the failed ones.
+// newJobDefinitionID, when non-empty, re-pins the request to a different job definition version.
 func (jrr *JobRequestRepositoryImpl) Restart(
 	qc *common.QueryContext,
 	id string,
-	hard bool) error {
-	sql := "UPDATE formicary_job_requests SET job_state = ?, last_job_execution_id = job_execution_id, " +
+	hard bool,
+	newJobDefinitionID string) error {
+	setClauses := "job_state = ?, last_job_execution_id = job_execution_id, " +
 		"job_execution_id = NULL, error_code = NULL, error_message = NULL, schedule_attempts = 0, " +
-		"retried = retried + 1, hard_restart = ?, scheduled_at = ?, updated_at = ? WHERE id = ? AND job_state NOT IN ?"
-	args := []interface{}{common.PENDING, hard, time.Now(), time.Now(), id, common.NotRestartableStates}
+		"retried = retried + 1, hard_restart = ?, scheduled_at = ?, updated_at = ?"
+	args := []interface{}{common.PENDING, hard, time.Now(), time.Now()}
+	if newJobDefinitionID != "" {
+		setClauses += ", job_definition_id = ?"
+		args = append(args, newJobDefinitionID)
+	}
+	sql := "UPDATE formicary_job_requests SET " + setClauses + " WHERE id = ? AND job_state NOT IN ?"
+	args = append(args, id, common.NotRestartableStates)
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"

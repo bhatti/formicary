@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/types"
 	"strings"
 	"time"
@@ -72,6 +73,7 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 	}
 	ws.e.Use(middleware.LoggerWithConfig(defaultLoggerConfig))
 	ws.e.Use(middleware.Recover())
+	ws.e.Use(tracing.EchoMiddleware())
 	ws.e.HTTPErrorHandler = func(err error, c echo.Context) {
 		err = mapAPIErrors(err)
 		ws.e.DefaultHTTPErrorHandler(err, c)

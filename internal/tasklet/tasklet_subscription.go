@@ -5,8 +5,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/types"
 )
 
@@ -18,10 +22,25 @@ func (t *BaseTasklet) subscribeToIncomingRequests(ctx context.Context) (string, 
 		if err != nil {
 			return err
 		}
+		// Extract distributed trace context from message headers
+		ctx = tracing.ExtractContext(ctx, map[string]string(event.Properties))
 		go func() {
+			ctx, span := tracing.Tracer("formicary.ant").Start(ctx, "task.receive",
+				trace.WithSpanKind(trace.SpanKindConsumer),
+				trace.WithAttributes(
+					attribute.String("task.type", req.TaskType),
+					attribute.String("job.type", req.JobType),
+					attribute.String("job.request_id", req.JobRequestID),
+					attribute.String("messaging.correlation_id", event.CoRelationID()),
+				),
+			)
+			defer span.End()
+
 			req.StartedAt = time.Now()
 			req.CoRelationID = event.CoRelationID()
 			if err := t.handleRequest(ctx, req, event.ReplyTopic()); err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
 				logrus.WithFields(
 					logrus.Fields{
 						"Component":       "BaseTasklet",

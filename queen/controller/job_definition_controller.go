@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
@@ -43,6 +44,7 @@ func NewJobDefinitionController(
 	webserver.GET("/api/jobs/definitions/:id/mermaid", jobDefCtrl.mermaidJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "mermaid_job_definition"
 	webserver.GET("/api/jobs/definitions/:id/dot", jobDefCtrl.dotJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_job_definition"
 	webserver.GET("/api/jobs/definitions/:id/dot.png", jobDefCtrl.dotImageJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "dot_png_job_definition"
+	webserver.GET("/api/jobs/definitions/type/:type/versions", jobDefCtrl.getJobDefinitionVersions, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_job_definition_versions"
 	webserver.GET("/api/jobs/definitions/:type/yaml", jobDefCtrl.getYamlJobDefinition, acl.NewPermission(acl.JobDefinition, acl.View)).Name = "get_yaml_job_definition"
 	webserver.GET("/api/jobs/definitions/stats", jobDefCtrl.statsJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Metrics)).Name = "stats_job_definition"
 	webserver.POST("/api/jobs/definitions", jobDefCtrl.postJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Create)).Name = "create_job_definition"
@@ -219,6 +221,40 @@ func (jobDefCtrl *JobDefinitionController) getYamlJobDefinition(c web.APIContext
 		return err
 	}
 	return c.String(http.StatusOK, string(b))
+}
+
+// Returns all versions of a job definition by type, ordered by version descending.
+// responses:
+//
+//	200: jobDefinitionVersionsResponse
+func (jobDefCtrl *JobDefinitionController) getJobDefinitionVersions(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	jobType := c.Param("type")
+	_, _, page, pageSize, _, _ := ParseParams(c)
+	versions, total, err := jobDefCtrl.jobManager.GetJobDefinitionVersions(qc, jobType, page, pageSize)
+	if err != nil {
+		return err
+	}
+	type VersionSummary struct {
+		ID         string `json:"id"`
+		Version    int32  `json:"version"`
+		SemVersion string `json:"sem_version"`
+		Active     bool   `json:"active"`
+		CreatedAt  string `json:"created_at"`
+		UpdatedAt  string `json:"updated_at"`
+	}
+	summaries := make([]VersionSummary, len(versions))
+	for i, v := range versions {
+		summaries[i] = VersionSummary{
+			ID:         v.ID,
+			Version:    v.Version,
+			SemVersion: v.SemVersion,
+			Active:     v.Active,
+			CreatedAt:  v.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:  v.UpdatedAt.UTC().Format(time.RFC3339),
+		}
+	}
+	return c.JSON(http.StatusOK, NewPaginatedResult(summaries, total, page, pageSize))
 }
 
 // Updates the concurrency for job-definition by id to limit the maximum jobs that can be executed at the same time.

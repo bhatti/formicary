@@ -3,7 +3,11 @@ package launcher
 import (
 	"context"
 	evbus "github.com/asaskevich/EventBus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
@@ -171,6 +175,8 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 	callback := func(ctx context.Context, event *queue.MessageEvent,
 		ack queue.AckHandler, nack queue.AckHandler) error {
 		defer ack()
+		ctx = tracing.ExtractContext(ctx, map[string]string(event.Properties))
+
 		jobLaunchEvent, err := events.UnmarshalJobExecutionLaunchEvent(event.Payload)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
@@ -182,6 +188,16 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 			return err
 		}
 
+		ctx, span := tracing.Tracer("formicary.queen").Start(ctx, "job.launch",
+			trace.WithSpanKind(trace.SpanKindConsumer),
+			trace.WithAttributes(
+				attribute.String("job.type", jobLaunchEvent.JobType),
+				attribute.String("job.request_id", jobLaunchEvent.JobRequestID),
+				attribute.String("job.execution_id", jobLaunchEvent.JobExecutionID),
+			),
+		)
+		defer span.End()
+
 		// Launching job
 		if err := jl.launchJob(
 			ctx,
@@ -190,6 +206,8 @@ func (jl *JobLauncher) subscribeToJobLaunch(ctx context.Context) (string, error)
 			jobLaunchEvent.JobExecutionID,
 			jobLaunchEvent.Reservations,
 		); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			logrus.WithFields(logrus.Fields{
 				"Component":      "JobLauncher",
 				"ID":             jl.serverCfg.Common.ID,

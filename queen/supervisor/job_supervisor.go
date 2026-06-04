@@ -7,7 +7,11 @@ import (
 	"time"
 
 	evbus "github.com/asaskevich/EventBus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"plexobject.com/formicary/internal/events"
+	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/queen/types"
 
 	"github.com/sirupsen/logrus"
@@ -59,6 +63,21 @@ func (js *JobSupervisor) AsyncExecute(
 // executing job and all tasks within it
 func (js *JobSupervisor) tryExecuteJob(
 	ctx context.Context) (err error) {
+	ctx, span := tracing.Tracer("formicary.queen").Start(ctx, "job.supervise",
+		trace.WithAttributes(
+			attribute.String("job.type", js.jobStateMachine.JobDefinition.JobType),
+			attribute.String("job.request_id", js.jobStateMachine.Request.GetID()),
+			attribute.String("job.execution_id", js.jobStateMachine.JobExecution.ID),
+		),
+	)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+
 	logrus.WithFields(js.jobStateMachine.LogFields(
 		"JobSupervisor",
 	)).Infof("starting job %s...", js.jobStateMachine.JobDefinition.JobType)
@@ -164,7 +183,7 @@ func (js *JobSupervisor) tryExecuteJob(
 		}
 
 		// retry after a short delay
-		sleepDuration := js.jobStateMachine.JobDefinition.GetDelayBetweenRetries()
+		sleepDuration := js.jobStateMachine.JobDefinition.GetDelayBetweenRetries(js.jobStateMachine.Request.GetRetried())
 
 		logrus.WithFields(js.jobStateMachine.LogFields("JobSupervisor")).
 			Warnf("retrying job='%s' retried=%d error-code=%s error=%s wait=%s ...",
