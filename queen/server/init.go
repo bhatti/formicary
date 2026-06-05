@@ -34,6 +34,7 @@ import (
 	queenService "plexobject.com/formicary/queen/service"
 	"plexobject.com/formicary/queen/stats"
 	"plexobject.com/formicary/queen/tasklet/wstask"
+	"plexobject.com/formicary/queen/trigger"
 	"plexobject.com/formicary/queen/webhook"
 )
 
@@ -52,6 +53,7 @@ type services struct {
 	jobRes    *queenService.JobResourceService
 	health    *queenService.HealthService
 	admin     *queenService.AdminService
+	triggers  *queenService.TriggerService
 }
 
 // StartWebServer starts controllers that register REST APIs and admin dashboard,
@@ -106,6 +108,18 @@ func StartWebServer(
 
 	grpcSrv := buildGRPCServer(serverCfg, repoFactory, svcs)
 
+	// Start TriggerManager (leader-aware: activates S3/queue triggers only on scheduler leader).
+	triggerMgr, err := startTriggerManager(ctx, serverCfg, repoFactory, jobManager, queueClient, webServer)
+	if err != nil {
+		return fmt.Errorf("trigger manager start failed: %w", err)
+	}
+	if triggerMgr != nil {
+		go func() {
+			<-ctx.Done()
+			triggerMgr.Stop(context.Background())
+		}()
+	}
+
 	// Determine auth parameters (same logic as buildGRPCServer).
 	jwtSecret := ""
 	cookieName := ""
@@ -129,6 +143,7 @@ func StartWebServer(
 		func() error { return svcpb.RegisterJobResourceServiceHandlerServer(ctx, gwMux, svcs.jobRes) },
 		func() error { return svcpb.RegisterHealthServiceHandlerServer(ctx, gwMux, svcs.health) },
 		func() error { return svcpb.RegisterAdminServiceHandlerServer(ctx, gwMux, svcs.admin) },
+		func() error { return svcpb.RegisterTriggerServiceHandlerServer(ctx, gwMux, svcs.triggers) },
 	} {
 		if err := reg(); err != nil {
 			return fmt.Errorf("grpc-gateway registration failed: %w", err)
@@ -163,6 +178,8 @@ func buildServices(
 	dashboardStats *manager.DashboardManager,
 	artifactManager *manager.ArtifactManager,
 ) *services {
+	triggerEvaluator := trigger.NewEvaluator(repoFactory.TriggerStateRepository)
+	triggerSubmitter := trigger.NewSubmitter(jobManager, repoFactory.TriggerStateRepository)
 	return &services{
 		jobDef:    queenService.NewJobDefinitionService(jobManager),
 		jobExec:   queenService.NewJobExecutionService(jobManager),
@@ -176,6 +193,7 @@ func buildServices(
 		jobRes:    queenService.NewJobResourceService(repoFactory.JobResourceRepository),
 		health:    queenService.NewHealthService(dashboardStats),
 		admin:     queenService.NewAdminService(dashboardStats, userManager),
+		triggers:  queenService.NewTriggerService(jobManager, repoFactory.TriggerStateRepository, triggerEvaluator, triggerSubmitter),
 	}
 }
 
@@ -219,6 +237,7 @@ func buildGRPCServer(
 	svcpb.RegisterJobResourceServiceServer(grpcSrv, svcs.jobRes)
 	svcpb.RegisterHealthServiceServer(grpcSrv, svcs.health)
 	svcpb.RegisterAdminServiceServer(grpcSrv, svcs.admin)
+	svcpb.RegisterTriggerServiceServer(grpcSrv, svcs.triggers)
 	if serverCfg.Common.Debug {
 		reflection.Register(grpcSrv)
 	}
@@ -420,6 +439,11 @@ func buildMethodPermissions() map[string]*acl.Permission {
 	// Dashboard stats (admin-only)
 	p[svcpb.AdminService_GetDashboardStats_FullMethodName] = acl.NewPermission(acl.Dashboard, acl.View)
 
+	// Trigger management
+	p[svcpb.TriggerService_ListTriggerStates_FullMethodName] = acl.NewPermission(acl.JobDefinition, acl.View)
+	p[svcpb.TriggerService_ResetTriggerState_FullMethodName] = acl.NewPermission(acl.JobDefinition, acl.Write)
+	p[svcpb.TriggerService_FireWebhookTrigger_FullMethodName] = acl.NewPermission(acl.JobRequest, acl.Execute)
+
 	return p
 }
 
@@ -431,6 +455,36 @@ type dbUserLoader struct {
 func (l *dbUserLoader) GetUserByUsername(_ context.Context, username string) (*commonTypes.User, error) {
 	qc := commonTypes.NewQueryContext(nil, "")
 	return l.repo.GetByUsername(qc, username)
+}
+
+func startTriggerManager(
+	ctx context.Context,
+	serverCfg *config.ServerConfig,
+	repoFactory *repository.Locator,
+	jobManager *manager.JobManager,
+	queueClient queue.Client,
+	webServer web.Server,
+) (*trigger.Manager, error) {
+	if serverCfg.Jobs.DisableTriggers {
+		return nil, nil
+	}
+	evaluator := trigger.NewEvaluator(repoFactory.TriggerStateRepository)
+	submitter := trigger.NewSubmitter(jobManager, repoFactory.TriggerStateRepository)
+	webhookHandler := trigger.NewWebhookHandler(
+		jobManager, evaluator, submitter,
+		serverCfg.Jobs.TriggerWebhookBodyMaxBytes,
+		webServer,
+	)
+	mgr := trigger.New(
+		serverCfg,
+		queueClient,
+		jobManager,
+		repoFactory.TriggerStateRepository,
+		evaluator,
+		submitter,
+		webhookHandler,
+	)
+	return mgr, mgr.Start(ctx)
 }
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
@@ -532,7 +586,7 @@ func startAdminControllers(
 	admin.NewOrganizationConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.OrgConfigRepository, webServer)
 	admin.NewOrganizationAdminController(userManager, webServer)
 	admin.NewInvitationAdminController(userManager, webServer)
-	admin.NewJobDefinitionAdminController(jobManager, resourceManager, statsRegistry, webServer)
+	admin.NewJobDefinitionAdminController(jobManager, resourceManager, statsRegistry, repoFactory.TriggerStateRepository, webServer)
 	admin.NewJobConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.JobDefinitionRepository, webServer)
 	admin.NewJobResourceAdminController(repoFactory.AuditRecordRepository, repoFactory.JobResourceRepository, webServer)
 	admin.NewSystemConfigAdminController(repoFactory.SystemConfigRepository, webServer)

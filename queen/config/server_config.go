@@ -81,6 +81,16 @@ type JobsConfig struct {
 	ExpireArtifactsTaskletCapacity       int           `yaml:"expire_artifacts_tasklet_capacity" mapstructure:"expire_artifacts_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
 	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`
+	// TriggerPollDefaultInterval is the default S3 poll interval when not specified in the trigger.
+	TriggerPollDefaultInterval           time.Duration `yaml:"trigger_poll_default_interval" mapstructure:"trigger_poll_default_interval"`
+	// TriggerMaxPerJobDefinition limits the number of triggers per job definition.
+	TriggerMaxPerJobDefinition           int           `yaml:"trigger_max_per_job_definition" mapstructure:"trigger_max_per_job_definition"`
+	// TriggerWebhookBodyMaxBytes limits inbound webhook request body size.
+	TriggerWebhookBodyMaxBytes           int64         `yaml:"trigger_webhook_body_max_bytes" mapstructure:"trigger_webhook_body_max_bytes"`
+	// TriggerS3PollMaxObjects is unused for now (future: cap per-poll batch size).
+	TriggerS3PollMaxObjects              int           `yaml:"trigger_s3_poll_max_objects" mapstructure:"trigger_s3_poll_max_objects"`
+	// DisableTriggers disables all event-driven triggers when true.
+	DisableTriggers                      bool          `yaml:"disable_triggers" mapstructure:"disable_triggers"`
 }
 
 // NewServerConfig -- Initializes the default config
@@ -225,6 +235,18 @@ func (c *JobsConfig) Validate() error {
 	}
 	if c.ExpireArtifactsTaskletCapacity == 0 {
 		c.ExpireArtifactsTaskletCapacity = 100
+	}
+	if c.TriggerPollDefaultInterval == 0 {
+		c.TriggerPollDefaultInterval = 60 * time.Second
+	}
+	if c.TriggerMaxPerJobDefinition == 0 {
+		c.TriggerMaxPerJobDefinition = 5
+	}
+	if c.TriggerWebhookBodyMaxBytes == 0 {
+		c.TriggerWebhookBodyMaxBytes = 1024 * 1024 // 1MB
+	}
+	if c.TriggerS3PollMaxObjects == 0 {
+		c.TriggerS3PollMaxObjects = 1000
 	}
 	return nil
 }

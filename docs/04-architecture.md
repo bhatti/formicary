@@ -76,9 +76,10 @@ Ants are the followers that perform the actual work. They are stateless and hori
 
 ### Supporting Infrastructure
 
--   **Message Queue:** The communication backbone between the Queen and Ants. It provides asynchronous, reliable message delivery. Supported backends include Redis, Apache Pulsar, and Kafka.
+-   **Message Queue:** The communication backbone between the Queen and Ants. It provides asynchronous, reliable message delivery. Supported backends: Redis streams, Apache Pulsar, Kafka, `CHANNEL_MESSAGING` (in-process, for testing), and `WEBSOCKET_MESSAGING` (built-in WebSocket server on the queen — ants connect directly, no external broker needed). The WebSocket provider includes an SQLite-backed offline buffer on ants for store-and-forward when the connection is temporarily lost.
 -   **Database:** The single source of truth for all state, including job definitions, request history, execution state, users, and organizations.
 -   **Object Store:** A durable, S3-compatible store for large binary data, primarily **artifacts** and **caches** from job tasks.
+-   **Observability (OTel):** Every component emits OpenTelemetry traces. The Queen instruments HTTP routes, gRPC handlers, job supervision, and task dispatch. The Ant instruments task receipt, script execution, and artifact transfer. Trace context is propagated across queue messages so the entire path from API call to ant execution appears as a single distributed trace. See [Observability Guide](./observability.md) for configuration details.
 
 ---
 

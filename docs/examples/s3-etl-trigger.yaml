@@ -1,0 +1,72 @@
+job_type: s3-etl-trigger
+description: >
+  ETL pipeline that starts automatically whenever a new .parquet file appears
+  in an S3 bucket. Demonstrates S3 poll trigger with prefix/suffix filtering,
+  deduplication by ETag, and rate limiting to protect downstream systems.
+
+  The trigger polls every 60 seconds. On first startup it records the current
+  watermark and skips all existing objects — only files uploaded AFTER the first
+  poll cycle are processed. Use the Reset API to reprocess from the beginning.
+
+  Requirements:
+    - AWS credentials must be available to the Formicary server (env vars, IAM role, etc.)
+    - Set the bucket/prefix/suffix below to match your data landing zone.
+
+  Register:
+    curl -X POST http://localhost:7777/api/jobs/definitions \
+      -H "Content-Type: application/x-yaml" --data-binary @s3-etl-trigger.yaml
+
+  Reset the S3 poll cursor (reprocess from scratch):
+    curl -X DELETE \
+      http://localhost:7777/api/v1/jobs/definitions/s3-etl-trigger/triggers/new-file/state \
+      -H "Authorization: Bearer <token>"
+
+  Testing locally with MinIO:
+    mc cp mydata.parquet local/data-warehouse/raw/2024/mydata.parquet
+    # Wait up to 60 seconds for the poller to detect the file.
+
+max_concurrency: 10
+
+triggers:
+  - type: s3
+    name: new-file
+    mode: poll
+    bucket: data-warehouse
+    prefix: raw/
+    suffix: .parquet
+    poll_interval: 60s
+    params:
+      object_key:  '{{ .Object.Key }}'
+      bucket_name: '{{ .Object.Bucket }}'
+      size_bytes:  '{{ .Object.Size }}'
+      etag:        '{{ .Object.ETag }}'
+    # Deduplicate by ETag — re-uploads of identical content are skipped.
+    dedup_key: 's3-{{ .Object.ETag }}'
+    rate_limit:
+      max: 200
+      window: 10m
+
+tasks:
+  - task_type: validate
+    method: SHELL
+    script:
+      - echo "Validating s3://{{.bucket_name}}/{{.object_key}} size={{.size_bytes}} etag={{.etag}}"
+    on_completed: transform
+
+  - task_type: transform
+    method: SHELL
+    script:
+      - echo "Transforming {{.object_key}}"
+      - echo "transformed" > output.txt
+    artifacts:
+      paths:
+        - output.txt
+    on_completed: load
+
+  - task_type: load
+    method: SHELL
+    dependencies:
+      - transform
+    script:
+      - echo "Loading results for {{.object_key}}"
+      - cat output.txt

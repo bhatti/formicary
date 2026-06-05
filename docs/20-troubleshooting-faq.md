@@ -48,3 +48,30 @@ The full stack trace will be printed to the standard output of the process, whic
 ### **Q: My job failed with the error "ant resources not available".**
 
 This error comes directly from the Job Scheduler. It means that while there might be Ants that *could* run the job, none are currently available (i.e., they are all at their `max_capacity`). The scheduler will automatically retry scheduling the job after a short, exponentially increasing delay.
+
+### **Q: My job keeps retrying but the delays between attempts seem the same. How do I get exponential backoff?**
+
+By default, Formicary uses a small random delay between retries (5–14 seconds for jobs, 1–3 seconds for tasks) to prevent thundering-herd problems when many jobs fail at the same time. To get deterministic exponential backoff, add a `retry_backoff_policy` to your job or task definition:
+
+```yaml
+retry: 5
+retry_backoff_policy:
+  min: 2s      # first retry waits 2s
+  max: 5m      # never wait longer than 5 minutes
+  factor: 2.0  # 2s → 4s → 8s → 16s → 32s
+  jitter: true # ±50% random noise to spread concurrent retries
+```
+
+See [Advanced Workflows — Exponential Backoff](./14-advanced-workflows.md#exponential-backoff-for-retries) for the full reference.
+
+### **Q: How do I trace a specific job execution end-to-end?**
+
+Enable OTel tracing in your configuration (see [Observability Guide](./observability.md)) and point the `endpoint` at a Jaeger or Grafana Tempo instance. Every job request generates a trace tree covering the full path: HTTP API → scheduler → job supervisor → task dispatch → ant execution. The `job.request_id` span attribute is present on every span, so you can search by it directly in Jaeger.
+
+```yaml
+common:
+  tracing:
+    enabled: true
+    endpoint: http://jaeger:4318
+    sample_ratio: 1.0
+```

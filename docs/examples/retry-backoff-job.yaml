@@ -1,0 +1,45 @@
+job_type: retry-backoff-job
+description: >
+  Demonstrates exponential backoff retry policies at both the job and task level.
+  The job retries up to 5 times with doubling delays (1s → 2s → 4s → 8s → 16s, capped at 30s).
+  The flaky-task retries up to 3 times with 500ms base delay growing by 1.5× each attempt.
+  Jitter is enabled on both to avoid thundering-herd problems when many jobs fail together.
+
+  retry_backoff_policy overrides delay_between_retries when both are present.
+  If retry_backoff_policy is absent, Formicary falls back to delay_between_retries
+  or a small random default (1-3s for tasks, 5-14s for jobs).
+
+  Register:
+    curl -X POST http://localhost:7777/api/jobs/definitions \
+      -H "Content-Type: application/x-yaml" --data-binary @retry-backoff-job.yaml
+
+  Submit:
+    curl -X POST http://localhost:7777/api/jobs/requests \
+      -H "Content-Type: application/json" \
+      -d '{"job_type":"retry-backoff-job"}'
+
+retry: 5
+retry_backoff_policy:
+  min: 1s        # wait 1s before the first job-level retry
+  max: 30s       # never wait more than 30s between job retries
+  factor: 2.0    # double delay each attempt: 1s → 2s → 4s → 8s → 16s
+  jitter: true   # add up to ±50% random noise to spread bursts
+
+tasks:
+  - task_type: flaky-task
+    method: SHELL
+    retry: 3
+    retry_backoff_policy:
+      min: 500ms   # wait 500ms before first task retry
+      max: 5s      # cap task retry delays at 5s
+      factor: 1.5  # 500ms → 750ms → 1.125s
+      jitter: true
+    script:
+      # Simulate a flaky task that fails ~70% of the time.
+      - exit $(( RANDOM % 10 < 7 ? 1 : 0 ))
+    on_completed: stable-task
+
+  - task_type: stable-task
+    method: SHELL
+    script:
+      - echo "Stable task complete — backoff retry succeeded"

@@ -12,6 +12,7 @@ import (
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
 	"plexobject.com/formicary/queen/stats"
 
@@ -22,11 +23,12 @@ import (
 
 // JobDefinitionAdminController structure
 type JobDefinitionAdminController struct {
-	jobManager       *manager.JobManager
-	resourceManager  resource.Manager
-	jobStatsRegistry *stats.JobStatsRegistry
-	webserver        web.Server
-	startedAt        time.Time
+	jobManager        *manager.JobManager
+	resourceManager   resource.Manager
+	jobStatsRegistry  *stats.JobStatsRegistry
+	triggerStateRepo  repository.TriggerStateRepository
+	webserver         web.Server
+	startedAt         time.Time
 }
 
 // NewJobDefinitionAdminController admin dashboard for managing job-definitions
@@ -34,11 +36,14 @@ func NewJobDefinitionAdminController(
 	jobManager *manager.JobManager,
 	resourceManager resource.Manager,
 	jobStatsRegistry *stats.JobStatsRegistry,
-	webserver web.Server) *JobDefinitionAdminController {
+	triggerStateRepo repository.TriggerStateRepository,
+	webserver web.Server,
+) *JobDefinitionAdminController {
 	jdaCtr := &JobDefinitionAdminController{
 		jobManager:       jobManager,
 		jobStatsRegistry: jobStatsRegistry,
 		resourceManager:  resourceManager,
+		triggerStateRepo: triggerStateRepo,
 		webserver:        webserver,
 		startedAt:        time.Now(),
 	}
@@ -57,6 +62,7 @@ func NewJobDefinitionAdminController(
 	webserver.POST("/dashboard/jobs/definitions/:id/disable", jdaCtr.disableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Disable)).Name = "disable_admin_job_definitions"
 	webserver.POST("/dashboard/jobs/definitions/:id/enable", jdaCtr.enableJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Enable)).Name = "enable_admin_job_definitions"
 	webserver.POST("/dashboard/jobs/definitions/:id/delete", jdaCtr.deleteJobDefinition, acl.NewPermission(acl.JobDefinition, acl.Delete)).Name = "delete_admin_job_definitions"
+	webserver.POST("/dashboard/jobs/definitions/:id/triggers/:triggerName/reset", jdaCtr.resetTriggerState, acl.NewPermission(acl.JobDefinition, acl.Update)).Name = "reset_admin_job_trigger_state"
 	return jdaCtr
 }
 
@@ -309,14 +315,43 @@ func (jdaCtr *JobDefinitionAdminController) getJobDefinition(c web.APIContext) (
 	}
 
 	reservations, err := jdaCtr.resourceManager.CheckJobResources(job)
+
+	// Load trigger states indexed by trigger name for the view template.
+	triggerStates := make(map[string]*types.TriggerState)
+	if jdaCtr.triggerStateRepo != nil && len(job.Triggers) > 0 {
+		if states, loadErr := jdaCtr.triggerStateRepo.FindByJobDefinitionID(job.ID); loadErr == nil {
+			for _, s := range states {
+				triggerStates[s.TriggerName] = s
+			}
+		}
+	}
+
 	res := map[string]interface{}{
 		"Definition":      job,
 		"AllocationError": err,
 		"Allocations":     reservations,
+		"TriggerStates":   triggerStates,
 	}
 
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/view", res)
+}
+
+// resetTriggerState clears the trigger state for one trigger on a job definition.
+func (jdaCtr *JobDefinitionAdminController) resetTriggerState(c web.APIContext) error {
+	if jdaCtr.triggerStateRepo == nil {
+		return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions/"+c.Param("id"))
+	}
+	// Load the job definition with the caller's query context to enforce tenant ownership.
+	qc := web.BuildQueryContext(c)
+	job, err := jdaCtr.jobManager.GetJobDefinition(qc, c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := jdaCtr.triggerStateRepo.Reset(job.ID, c.Param("triggerName")); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusFound, "/dashboard/jobs/definitions/"+c.Param("id"))
 }
 
 // disableJobDefinition - disable job-definition by id

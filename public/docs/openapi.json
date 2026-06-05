@@ -58,6 +58,10 @@
       "description": "Manage ant worker registrations and user quota subscriptions."
     },
     {
+      "name": "triggers",
+      "description": "Inspect and manage event-driven trigger state for job definitions."
+    },
+    {
       "name": "users",
       "description": "Manage user accounts, authentication, and profiles."
     }
@@ -2153,6 +2157,221 @@
         ]
       }
     },
+    "/api/v1/jobs/definitions/{job_type}/triggers": {
+      "get": {
+        "summary": "ListTriggerStates returns the runtime state (poll markers, rate-limit windows)\nfor all triggers configured on a job definition.",
+        "operationId": "TriggerService_ListTriggerStates",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/servicesListTriggerStatesResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_type",
+            "description": "The job type whose trigger states to retrieve.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "TriggerService"
+        ]
+      }
+    },
+    "/api/v1/jobs/definitions/{job_type}/triggers/{trigger_name}/fire": {
+      "post": {
+        "summary": "FireWebhookTrigger programmatically fires a webhook trigger. The caller must\nbe authenticated via gRPC/JWT; trigger-level HTTP auth (HMAC, bearer) is\nbypassed. Useful for testing pipelines and CI integrations.",
+        "operationId": "TriggerService_FireWebhookTrigger",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/servicesFireWebhookTriggerResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_type",
+            "description": "The job type containing the trigger.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "trigger_name",
+            "description": "The trigger name to fire.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TriggerServiceFireWebhookTriggerBody"
+            }
+          }
+        ],
+        "tags": [
+          "TriggerService"
+        ]
+      }
+    },
+    "/api/v1/jobs/definitions/{job_type}/triggers/{trigger_name}/state": {
+      "delete": {
+        "summary": "ResetTriggerState clears poll markers and rate-limit counters for one trigger,\nallowing it to reprocess events from the beginning.",
+        "operationId": "TriggerService_ResetTriggerState",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_type",
+            "description": "The job type containing the trigger.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "trigger_name",
+            "description": "The trigger name to reset.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "TriggerService"
+        ]
+      }
+    },
     "/api/v1/jobs/definitions/{job_type}/yaml": {
       "get": {
         "summary": "Get job definition YAML",
@@ -3008,6 +3227,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/JobExecutionServiceRestartJobBody"
+            }
           }
         ],
         "tags": [
@@ -5078,6 +5305,39 @@
       },
       "description": "UpdateConcurrencyRequest changes the max_concurrency for a job definition."
     },
+    "JobExecutionServiceRestartJobBody": {
+      "type": "object",
+      "properties": {
+        "hard": {
+          "type": "boolean",
+          "description": "hard forces all tasks to re-run from scratch, ignoring previously completed task results."
+        },
+        "version": {
+          "type": "string",
+          "description": "version controls which job definition version to use on restart.\nEmpty (default) keeps the currently pinned version.\n\"latest\" upgrades to the latest deployed definition for this job type."
+        }
+      },
+      "description": "RestartJobRequest restarts a failed or cancelled job request."
+    },
+    "TriggerServiceFireWebhookTriggerBody": {
+      "type": "object",
+      "properties": {
+        "payload": {
+          "type": "string",
+          "format": "byte",
+          "description": "JSON payload passed to the trigger evaluator as .Body."
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional headers forwarded to the trigger evaluator as .Headers."
+        }
+      },
+      "description": "Programmatically fire a webhook trigger. Caller is authenticated via JWT; HTTP auth on the trigger is bypassed.",
+      "title": "FireWebhookTriggerRequest"
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -5127,6 +5387,31 @@
         }
       },
       "description": "AuditRecord captures an auditable event in the system."
+    },
+    "queenBackoffPolicy": {
+      "type": "object",
+      "properties": {
+        "min_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "min_ns is the minimum backoff duration in nanoseconds."
+        },
+        "max_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "max_ns is the maximum backoff duration in nanoseconds."
+        },
+        "factor": {
+          "type": "number",
+          "format": "double",
+          "description": "factor is the exponential backoff multiplier (e.g., 2 for doubling)."
+        },
+        "jitter": {
+          "type": "boolean",
+          "description": "jitter adds randomization to prevent thundering herd."
+        }
+      },
+      "description": "BackoffPolicy configures exponential backoff with optional jitter for retries."
     },
     "queenErrorCode": {
       "type": "object",
@@ -5349,6 +5634,18 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "retry_backoff_policy": {
+          "$ref": "#/definitions/queenBackoffPolicy",
+          "description": "retry_backoff_policy defines exponential backoff for job retries."
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenTriggerDefinition"
+          },
+          "description": "triggers defines event-driven trigger configurations (transient, parsed from raw_yaml)."
         }
       },
       "description": "JobDefinition outlines a DAG of tasks executed by ant workers.\nA new JobExecution is created when a JobRequest is scheduled against this definition."
@@ -5638,6 +5935,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "hard_restart": {
+          "type": "boolean",
+          "description": "hard_restart forces all tasks to re-run from scratch on next restart,\nignoring any previously completed task results. Cleared after the job starts executing."
         }
       },
       "description": "JobRequest represents a user's request to execute a job definition."
@@ -6043,6 +6344,10 @@
         "executor_options_json": {
           "type": "string",
           "description": "executor_options_json stores serialized ExecutorOptions."
+        },
+        "retry_backoff_policy": {
+          "$ref": "#/definitions/queenBackoffPolicy",
+          "description": "retry_backoff_policy defines exponential backoff for task retries."
         }
       },
       "description": "TaskDefinition specifies a unit of work within a job DAG."
@@ -6214,6 +6519,153 @@
         }
       },
       "description": "TaskExecutionContext stores a context variable produced during task execution."
+    },
+    "queenTriggerAuth": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "$ref": "#/definitions/queenTriggerAuthMethod"
+        },
+        "secret_config": {
+          "type": "string",
+          "description": "secret_config references a JobDefinitionConfig name whose value holds the secret."
+        },
+        "header": {
+          "type": "string",
+          "description": "header is the HTTP header carrying the signature or token."
+        }
+      },
+      "description": "TriggerAuth defines authentication configuration for webhook triggers."
+    },
+    "queenTriggerAuthMethod": {
+      "type": "string",
+      "enum": [
+        "TRIGGER_AUTH_METHOD_UNSPECIFIED",
+        "TRIGGER_AUTH_HMAC_SHA256",
+        "TRIGGER_AUTH_BEARER_TOKEN",
+        "TRIGGER_AUTH_API_KEY_HEADER"
+      ],
+      "default": "TRIGGER_AUTH_METHOD_UNSPECIFIED",
+      "description": "TriggerAuthMethod defines how inbound webhook requests are authenticated."
+    },
+    "queenTriggerDefinition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "title": "Webhook-specific: path suffix for the inbound route POST /api/triggers/{job_type}/{name}"
+        },
+        "auth": {
+          "$ref": "#/definitions/queenTriggerAuth"
+        },
+        "mode": {
+          "type": "string",
+          "description": "S3-specific: mode is \"poll\" (default) or \"notification\"."
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "suffix": {
+          "type": "string"
+        },
+        "poll_interval_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "poll_interval_ns stores the S3 poll interval in nanoseconds."
+        },
+        "topic": {
+          "type": "string",
+          "description": "Queue-specific."
+        },
+        "group": {
+          "type": "string"
+        },
+        "shared": {
+          "type": "boolean"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Common: params maps job param names to Go template expressions over event data."
+        },
+        "filter": {
+          "type": "string",
+          "description": "filter is a Go template expression; trigger fires only when trimmed result is \"true\"."
+        },
+        "dedup_key": {
+          "type": "string",
+          "description": "dedup_key is a Go template expression whose result becomes JobRequest.UserKey."
+        },
+        "rate_limit": {
+          "$ref": "#/definitions/queenTriggerRateLimit"
+        }
+      },
+      "description": "TriggerDefinition describes a single event trigger on a job definition.\ntype must be one of: \"webhook\", \"s3\", \"queue\"."
+    },
+    "queenTriggerRateLimit": {
+      "type": "object",
+      "properties": {
+        "max": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "window_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "window_ns stores the rate-limit window duration in nanoseconds."
+        }
+      },
+      "description": "TriggerRateLimit caps how many job requests a trigger can create per window."
+    },
+    "queenTriggerState": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "job_definition_id": {
+          "type": "string"
+        },
+        "trigger_name": {
+          "type": "string"
+        },
+        "last_seen_key": {
+          "type": "string",
+          "description": "last_seen_key is the S3 object key of the last successfully processed object."
+        },
+        "last_seen_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_count": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "TriggerState persists per-trigger runtime state: S3 poll marker and rate-limit window."
     },
     "resourceAntAllocation": {
       "type": "object",
@@ -6606,6 +7058,15 @@
       },
       "description": "DashboardStatsResponse contains all metrics displayed on the main dashboard."
     },
+    "servicesFireWebhookTriggerResponse": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "description": "JobRequest ID created by this trigger. Empty if filtered or deduped."
+        }
+      }
+    },
     "servicesGetAntRegistrationResponse": {
       "type": "object",
       "properties": {
@@ -6866,6 +7327,18 @@
         }
       },
       "description": "JobWaitTimeResponse returns estimated wait time information."
+    },
+    "servicesListTriggerStatesResponse": {
+      "type": "object",
+      "properties": {
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenTriggerState"
+          }
+        }
+      }
     },
     "servicesLoginRequest": {
       "type": "object",

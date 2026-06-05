@@ -1,0 +1,56 @@
+# formicary-queen.yaml — zero-dependency local/edge deployment
+#
+# Uses WEBSOCKET_MESSAGING (no Redis/Kafka/Pulsar needed) and embedded SeaweedFS
+# (no external S3/MinIO needed). The queen serves:
+#   - REST/dashboard on :7777
+#   - WebSocket queue endpoint at ws://localhost:7777/ws/queue  (for ants)
+#   - Embedded SeaweedFS S3 gateway on a random free port (printed at startup)
+#
+# Start:
+#   ./formicary-queen --config websocket-queen.yaml
+#
+# Then start one or more ants:
+#   ./formicary-ant --config websocket-ant.yaml
+
+common:
+    id: queen-local
+    external_base_url: http://localhost:7777
+    public_dir: ./public/
+    http_port: 7777
+    debug: true
+
+    queue:
+        provider: WEBSOCKET_MESSAGING
+        websocket:
+            # No server_endpoint here — queen mode: serves connections from ants
+            path: /ws/queue
+            ping_interval: 10s
+
+    s3:
+        # Embedded SeaweedFS — queen starts the weed binary as a subprocess.
+        # The 'weed' binary must be on $PATH: https://github.com/seaweedfs/seaweedfs/releases
+        local_mode: true
+        local_data_dir: ./data/seaweedfs
+        local_weed_bin: weed
+        # For Docker/K8s helper containers to reach the embedded store:
+        local_container_host: host.docker.internal
+        bucket: formicary-artifacts
+        prefix: formicary/
+        region: us-east-1
+
+    auth:
+        enabled: false
+        jwt_secret: changeme-in-prod
+        cookie_name: formicary-session
+
+    monitor_interval: 2s
+    container_reaper_interval: 1m
+
+db:
+    type: sqlite
+    data_source: formicary_db.sqlite
+    encryption_key: changeme-db-key
+
+jobs:
+    job_scheduler_leader_interval: 15s
+    job_scheduler_check_pending_jobs_interval: 1s

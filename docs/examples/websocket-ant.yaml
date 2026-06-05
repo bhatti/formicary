@@ -1,0 +1,52 @@
+# formicary-ant.yaml — ant worker for a WebSocket/embedded-SeaweedFS queen
+#
+# Connects to the queen via WebSocket (no Redis/Kafka/Pulsar needed).
+# Artifacts are uploaded directly to the queen's embedded SeaweedFS S3 endpoint.
+#
+# Assumes the queen is running with websocket-queen.yaml on localhost:7777.
+# SeaweedFS binds to a free port at queen startup; the ant uses port 8333 by default
+# (or whatever the queen printed at startup — update 'endpoint' below to match).
+#
+# Start (after the queen is running):
+#   ./formicary-ant --config websocket-ant.yaml
+
+common:
+    id: ant-worker-local
+    debug: true
+
+    queue:
+        provider: WEBSOCKET_MESSAGING
+        websocket:
+            # Ant mode: server_endpoint points at the queen's WebSocket queue endpoint
+            server_endpoint: ws://localhost:7777/ws/queue
+            # SQLite offline buffer — messages sent while disconnected are stored here
+            buffer_db_path: /tmp/formicary-ant-buffer.db
+            ping_interval: 10s
+            reconnect_min_delay: 1s
+            reconnect_max_delay: 30s
+
+    s3:
+        # Point at the queen's embedded SeaweedFS S3 endpoint.
+        # Check the queen startup log for the actual port if it differs from 8333.
+        local_mode: false
+        endpoint: localhost:8333
+        access_key_id: localkey
+        secret_access_key: localsecret
+        bucket: formicary-artifacts
+        prefix: formicary/
+        region: us-east-1
+        useSSL: false
+
+    auth:
+        enabled: false
+
+tags: ["local", "shell", "docker"]
+methods:
+    - SHELL
+    - DOCKER
+    - HTTP_GET
+    - HTTP_POST_JSON
+
+docker:
+    host: unix:///var/run/docker.sock
+    pull_policy: if-not-present

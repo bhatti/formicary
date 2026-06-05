@@ -7,6 +7,7 @@ import "google/protobuf/timestamp.proto";
 import "buf/validate/validate.proto";
 import "formicary/v1/annotations.proto";
 import "formicary/v1/domain/common.proto";
+import "formicary/v1/queen/trigger.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
 
@@ -154,4 +155,6 @@ message JobDefinition {
   map<string, string> errors = 37 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
   // retry_backoff_policy defines exponential backoff for job retries.
   BackoffPolicy retry_backoff_policy = 38 [(formicary.v1.tags) = "yaml:\"retry_backoff_policy,omitempty\" json:\"retry_backoff_policy\" gorm:\"-\""];
+  // triggers defines event-driven trigger configurations (transient, parsed from raw_yaml).
+  repeated TriggerDefinition triggers = 39 [(formicary.v1.tags) = "yaml:\"triggers,omitempty\" json:\"triggers\" gorm:\"-\""];
 }

@@ -54,29 +54,160 @@ This block contains settings shared by both the Queen and Ant services.
 | `auth` | Object | Authentication settings. See `auth` block below. |
 | `monitor_interval`| | duration | `2s` | How often the health monitor checks dependent services. |
 | `container_reaper_interval` | | duration | `1m` | How often to check for and terminate orphan containers. |
+| `tracing` | Object | | OpenTelemetry distributed tracing. See `tracing` block below. |
+
+#### `common.tracing` Block
+
+Formicary supports OpenTelemetry (OTel) distributed tracing. Traces cover the full request path: HTTP handler → gRPC service → job scheduler → job supervisor → task dispatcher → ant worker. Trace context is propagated across queue messages so every hop appears as a child span in your observability backend.
+
+| Key | Env Variable | Type | Default | Description |
+|-----|-------------|------|---------|-------------|
+| `enabled` | `COMMON_TRACING_ENABLED` | boolean | `false` | Enable OTel trace export. |
+| `endpoint` | `COMMON_TRACING_ENDPOINT` | string | `http://localhost:4318` | OTLP/HTTP exporter endpoint (e.g. Jaeger, Grafana Tempo, Honeycomb). |
+| `sample_ratio` | `COMMON_TRACING_SAMPLE_RATIO` | float | `1.0` | Fraction of traces to sample. `1.0` = 100%, `0.1` = 10%. Reduce in high-traffic production deployments. |
+
+**Example configuration:**
+
+```yaml
+common:
+  tracing:
+    enabled: true
+    endpoint: http://jaeger:4318
+    sample_ratio: 0.1   # sample 10% in production
+```
+
+**Span catalogue** — tracer names and span operation names emitted by each component:
+
+| Tracer | Span | Emitted by |
+|--------|------|------------|
+| `formicary.http` | `HTTP {METHOD} {path}` | Echo HTTP middleware (all API routes) |
+| `formicary.grpc` | gRPC method path | gRPC server unary + stream interceptors |
+| `formicary.queen` | `job.launch` | Job launcher (consumer, on queue message) |
+| `formicary.queen` | `job.supervise` | Job supervisor (full job lifecycle) |
+| `formicary.queen` | `task.dispatch` | Task supervisor (producer, sending to ant) |
+| `formicary.ant` | `task.receive` | Ant tasklet subscription (consumer) |
+| `formicary.ant` | `task.execute` | Request executor (full task lifecycle) |
+| `formicary.ant` | `task.pre_process` | Container setup / image pull |
+| `formicary.ant` | `task.execute_script` | before_script + script phase |
+| `formicary.ant` | `task.post_process` | after_script phase |
+| `formicary.trigger` | `trigger.evaluate` | Trigger evaluator |
+| `formicary.trigger` | `trigger.submit_job` | Trigger job submitter |
+| `formicary.trigger` | `trigger.webhook` | Webhook handler |
+| `formicary.trigger` | `trigger.s3_poll` | S3 poll trigger |
+| `formicary.trigger` | `trigger.queue_message` | Queue trigger |
 
 #### `common.queue` Block
 
 | Key | Env Variable | Type | Default | Description |
 |---|---|---|---|---|
-| `provider`|`COMMON_QUEUE_PROVIDER`| string | `REDIS_MESSAGING` | The message queue provider. Options: `REDIS_MESSAGING`, `PULSAR_MESSAGING`, `KAFKA_MESSAGING`, `CHANNEL_MESSAGING` (in-memory). |
+| `provider`|`COMMON_QUEUE_PROVIDER`| string | `REDIS_MESSAGING` | The message queue provider. Options: `REDIS_MESSAGING`, `PULSAR_MESSAGING`, `KAFKA_MESSAGING`, `CHANNEL_MESSAGING` (in-memory), `WEBSOCKET_MESSAGING` (edge/embedded). |
 | `endpoints`|`COMMON_QUEUE_ENDPOINTS`| list | `[]` | A list of broker endpoints for Kafka or Pulsar. |
 | `topic_tenant`| | string | `public` | Pulsar topic tenant. |
 | `topic_namespace`| | string | `default` | Pulsar topic namespace. |
-| `pulsar` | Object | Pulsar-specific settings. |
-| `kafka` | Object | Kafka-specific settings. |
+| `pulsar` | Object | | Pulsar-specific settings. |
+| `kafka` | Object | | Kafka-specific settings. |
+| `websocket` | Object | | WebSocket messaging settings. Required when `provider: WEBSOCKET_MESSAGING`. See `queue.websocket` block below. |
+
+#### `common.queue.websocket` Block
+
+`WEBSOCKET_MESSAGING` is a lightweight built-in provider designed for edge deployments or local development where installing Redis, Kafka, or Pulsar is undesirable. The queen serves a WebSocket endpoint at `<http_port>/ws/queue`; ants connect to it directly. No external broker process is required.
+
+**Ant clients** maintain an SQLite-backed offline buffer (`buffer_db_path`) — messages sent while disconnected are persisted locally and drained automatically after reconnection.
+
+**Queen configuration** (no `server_endpoint` — it _serves_ connections):
+
+```yaml
+common:
+  queue:
+    provider: WEBSOCKET_MESSAGING
+    websocket:
+      path: /ws/queue          # endpoint path; default /ws/queue
+      ping_interval: 10s
+```
+
+**Ant configuration** (`server_endpoint` points at the queen):
+
+```yaml
+common:
+  queue:
+    provider: WEBSOCKET_MESSAGING
+    websocket:
+      server_endpoint: ws://queen.example.com:7777/ws/queue
+      buffer_db_path: /var/lib/formicary/ant-buffer.db
+      ping_interval: 10s
+      reconnect_min_delay: 1s
+      reconnect_max_delay: 30s
+```
+
+Full `websocket` field reference:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `server_endpoint` | `""` | Queen WebSocket URL. **Empty = queen mode** (serve). Non-empty = ant mode (connect). |
+| `path` | `/ws/queue` | HTTP path for the WebSocket endpoint (queen only). |
+| `ping_interval` | `10s` | How often to send WebSocket keepalive ping frames. |
+| `reconnect_min_delay` | `1s` | Initial reconnect backoff delay (ants only). |
+| `reconnect_max_delay` | `30s` | Maximum reconnect backoff delay (ants only). |
+| `buffer_db_path` | `./formicary-buffer.db` | SQLite offline buffer path (ants only). Messages sent while disconnected are stored here and drained after reconnection. |
+| `buffer_ttl` | `24h` | How long buffered messages are retained before being discarded. |
+| `max_buffer_size` | `10000` | Maximum number of messages held in the offline buffer. |
+| `write_timeout` | `10s` | Timeout for writing a single WebSocket frame. |
+| `max_message_size` | `1048576` (1 MiB) | Maximum WebSocket message size in bytes. |
+| `read_buffer_size` | `4096` | WebSocket upgrader/dialer read buffer size. |
+| `write_buffer_size` | `4096` | WebSocket upgrader/dialer write buffer size. |
 
 #### `common.s3` Block
 
+Formicary uses the AWS SDK v2 S3 client for artifact storage. It works with AWS S3, MinIO, SeaweedFS, or any S3-compatible store. For zero-dependency local development, set `local_mode: true` to have the queen start an embedded [SeaweedFS](https://github.com/seaweedfs/seaweedfs) subprocess — no external object store installation needed.
+
 | Key | Env Variable | Type | Default | Description |
 |---|---|---|---|---|
-| `endpoint` | `COMMON_S3_ENDPOINT`| string|`s3.amazonaws.com`| The S3 API endpoint. For MinIO, this would be `minio:9000`. |
-| `access_key_id`|`COMMON_S3_ACCESS_KEY_ID`|string| | Your S3 access key. |
-| `secret_access_key`|`COMMON_S3_SECRET_ACCESS_KEY`|string| | Your S3 secret key. |
-| `bucket` | `COMMON_S3_BUCKET`| string| | The bucket to use for storing artifacts and caches. |
-| `region` | `COMMON_S3_REGION`| string|`us-west-2`| The S3 region. |
-| `useSSL` | `COMMON_S3_USE_SSL`| boolean | `true` | Whether to use HTTPS to connect to the S3 endpoint. Set to `false` for local MinIO. |
+| `endpoint` | `COMMON_S3_ENDPOINT`| string|`s3.amazonaws.com`| The S3 API endpoint. For MinIO use `minio:9000`; for embedded SeaweedFS this is set automatically. |
+| `access_key_id`|`COMMON_S3_ACCESS_KEY_ID`|string| `localkey` (local mode) | Your S3 access key. |
+| `secret_access_key`|`COMMON_S3_SECRET_ACCESS_KEY`|string| `localsecret` (local mode) | Your S3 secret key. |
+| `bucket` | `COMMON_S3_BUCKET`| string| `formicary-artifacts` (local mode) | The bucket to use for storing artifacts and caches. |
+| `region` | `COMMON_S3_REGION`| string|`us-east-1`| The S3 region. |
+| `useSSL` | `COMMON_S3_USE_SSL`| boolean | `false` (local mode), `true` otherwise | Whether to use HTTPS. Set to `false` for local MinIO or embedded SeaweedFS. |
 | `prefix` | `COMMON_S3_PREFIX`| string|`formicary/`| A prefix to prepend to all object keys in the bucket. |
+| `local_mode` | | boolean | `false` | Start an embedded SeaweedFS subprocess as the artifact store. No external S3 service needed. |
+| `local_data_dir` | | string | `./data/seaweedfs` | Directory where SeaweedFS stores its data. Created automatically. |
+| `local_weed_bin` | | string | `weed` | Path to the `weed` binary. Must be on `$PATH` or specified as an absolute path. |
+| `local_container_host` | | string | `host.docker.internal` | Host used by Docker/Kubernetes helper containers to reach the embedded store. Use `host-gateway` for Linux. |
+
+**Zero-dependency local setup** (queen config):
+
+```yaml
+common:
+  queue:
+    provider: WEBSOCKET_MESSAGING   # no Redis/Kafka needed
+    websocket:
+      path: /ws/queue
+  s3:
+    local_mode: true                # start embedded SeaweedFS
+    local_data_dir: ./data/seaweedfs
+    bucket: formicary-artifacts
+    prefix: formicary/
+    region: us-east-1
+```
+
+**Ant config** for local mode (points at the queen's embedded store):
+
+```yaml
+common:
+  queue:
+    provider: WEBSOCKET_MESSAGING
+    websocket:
+      server_endpoint: ws://localhost:7777/ws/queue
+  s3:
+    local_mode: false
+    endpoint: localhost:8333        # SeaweedFS S3 port (set automatically by the queen)
+    access_key_id: localkey
+    secret_access_key: localsecret
+    bucket: formicary-artifacts
+    prefix: formicary/
+    region: us-east-1
+    useSSL: false
+```
 
 #### `common.redis` Block
 

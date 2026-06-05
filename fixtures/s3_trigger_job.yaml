@@ -1,0 +1,39 @@
+job_type: s3-file-processor
+description: Starts a pipeline whenever a new .parquet file appears in S3. Demonstrates S3 poll trigger with suffix filtering, deduplication by ETag, and rate limiting.
+
+max_concurrency: 10
+
+triggers:
+  - type: s3
+    name: new-parquet-file
+    mode: poll
+    bucket: data-lake
+    prefix: incoming/
+    suffix: .parquet
+    poll_interval: 30s
+    params:
+      object_key:  '{{ .Object.Key }}'
+      bucket_name: '{{ .Object.Bucket }}'
+      size_bytes:  '{{ .Object.Size }}'
+      etag:        '{{ .Object.ETag }}'
+    # Dedup by ETag so re-uploaded identical files are not re-processed.
+    dedup_key: 's3-{{ .Object.ETag }}'
+    rate_limit:
+      max: 50
+      window: 5m
+
+tasks:
+  - task_type: validate
+    method: SHELL
+    script:
+      - echo "Validating s3://{{.bucket_name}}/{{.object_key}} ({{.size_bytes}} bytes)"
+    on_completed: transform
+
+  - task_type: transform
+    method: SHELL
+    script:
+      - echo "Transforming {{.object_key}}"
+      - echo "done" > result.txt
+    artifacts:
+      paths:
+        - result.txt

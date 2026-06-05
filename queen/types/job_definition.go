@@ -170,6 +170,8 @@ type JobDefinition struct {
 	NameValueVariables interface{}                                     `yaml:"job_variables,omitempty" json:"job_variables" gorm:"-"`
 	Notify             map[common.NotifyChannel]common.JobNotifyConfig `yaml:"notify,omitempty" json:"notify" gorm:"-"`
 	Resources          BasicResource                                   `yaml:"resources,omitempty" json:"resources" gorm:"-"`
+	// Triggers defines event-driven trigger configurations (transient, parsed from raw_yaml).
+	Triggers           []*TriggerDefinition                            `yaml:"triggers,omitempty" json:"triggers" gorm:"-"`
 	Errors             map[string]string                               `yaml:"-" json:"-" gorm:"-"`
 	shouldSkip         string
 	lookupTasks        *cutils.SafeMap
@@ -866,6 +868,10 @@ func (jd *JobDefinition) AfterLoad(key []byte) (err error) {
 			return err
 		}
 	}
+	// Triggers are not stored in the DB (gorm:"-"); re-parse them from RawYaml on every load.
+	if jd.RawYaml != "" {
+		jd.Triggers = parseTriggerDefinitions(jd.RawYaml)
+	}
 	if err = jd.Validate(); err != nil {
 		return err
 	}
@@ -1039,6 +1045,20 @@ func (jd *JobDefinition) Validate() (err error) {
 	if _, err = jd.GetFirstTask(); err != nil {
 		jd.Errors["Tasks"] = err.Error()
 		return err
+	}
+	// Validate triggers: check per-type required fields and no duplicate names.
+	triggerNames := make(map[string]struct{})
+	for _, t := range jd.Triggers {
+		if _, dup := triggerNames[t.Name]; dup {
+			err = fmt.Errorf("duplicate trigger name %q in job %s", t.Name, jd.JobType)
+			jd.Errors["Triggers"] = err.Error()
+			return err
+		}
+		triggerNames[t.Name] = struct{}{}
+		if err = t.Validate(); err != nil {
+			jd.Errors["Triggers"] = err.Error()
+			return err
+		}
 	}
 	return nil
 }
@@ -1369,6 +1389,8 @@ func NewJobDefinitionFromYaml(b []byte) (job *JobDefinition, err error) {
 		task.TaskOrder = i
 	}
 	job.RawYaml = yamlSource
+	// Populate transient Triggers from raw YAML so callers don't need to round-trip through the DB.
+	job.Triggers = parseTriggerDefinitions(yamlSource)
 	if err = job.Validate(); err != nil {
 		return nil, err
 	}
@@ -1394,6 +1416,57 @@ func ReloadFromYaml(rawYaml string) (loaded *JobDefinition, err error) {
 		err = loaded.Validate()
 	}
 	return
+}
+
+// parseTriggerDefinitions extracts trigger definitions from raw YAML.
+// Triggers contain Go template expressions in param values, so we strip template
+// expressions before unmarshalling (they are metadata for the trigger engine, not
+// YAML values the parser needs to understand).
+func parseTriggerDefinitions(rawYaml string) []*TriggerDefinition {
+	type triggerDoc struct {
+		Triggers []*TriggerDefinition `yaml:"triggers"`
+	}
+	// Strip lines that contain template expressions so yaml.Unmarshal can parse the structure.
+	var sb strings.Builder
+	for _, line := range strings.Split(rawYaml, "\n") {
+		if strings.Contains(line, "{{") {
+			continue
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+	var doc triggerDoc
+	if err := yaml.Unmarshal([]byte(sb.String()), &doc); err != nil {
+		logrus.WithError(err).Warn("parseTriggerDefinitions: failed to unmarshal trigger structure from YAML")
+		return nil
+	}
+	// Re-parse each trigger's params/filter/dedup_key from the original YAML so
+	// template expressions are preserved for the evaluator.
+	type rawTriggerDoc struct {
+		Triggers []map[string]interface{} `yaml:"triggers"`
+	}
+	var raw rawTriggerDoc
+	if err := yaml.Unmarshal([]byte(rawYaml), &raw); err == nil {
+		for i, t := range doc.Triggers {
+			if i >= len(raw.Triggers) {
+				break
+			}
+			rm := raw.Triggers[i]
+			if params, ok := rm["params"].(map[string]interface{}); ok {
+				t.Params = make(map[string]string, len(params))
+				for k, v := range params {
+					t.Params[k] = fmt.Sprintf("%v", v)
+				}
+			}
+			if f, ok := rm["filter"].(string); ok {
+				t.Filter = f
+			}
+			if dk, ok := rm["dedup_key"].(string); ok {
+				t.DedupKey = dk
+			}
+		}
+	}
+	return doc.Triggers
 }
 
 func removeTemplateVariables(

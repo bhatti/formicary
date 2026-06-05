@@ -40,6 +40,7 @@ type Locator struct {
 	SubscriptionRepository      SubscriptionRepository
 	EmailVerificationRepository EmailVerificationRepository
 	AuditRecordRepository       AuditRecordRepository
+	TriggerStateRepository      TriggerStateRepository
 }
 
 // NewLocator creates new repository locator
@@ -211,6 +212,10 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	if err != nil {
 		return nil, err
 	}
+	triggerStateRepository, err := NewTriggerStateRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
 
 	// tests use sqlite
 	if serverCfg.DB.Type == "sqlite" {
@@ -287,6 +292,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		InvitationRepository:        invRepository,
 		SubscriptionRepository:      subscriptionRepository,
 		EmailVerificationRepository: cachedEmailVerificationRepository,
+		TriggerStateRepository:      triggerStateRepository,
 	}
 	return f, nil
 }
@@ -376,6 +382,9 @@ func migrate(db *gorm.DB) error {
 		return err
 	}
 	if err := db.AutoMigrate(&types.EmailVerification{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&types.TriggerState{}); err != nil {
 		return err
 	}
 

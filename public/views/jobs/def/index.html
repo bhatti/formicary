@@ -67,7 +67,7 @@
             </form>
             {{else}}
             <form action="/dashboard/jobs/requests/new" method="GET">
-              <input type="submit" class="btn btn-sm btn-success" value="Trigger">
+              <input type="submit" class="btn btn-sm btn-success" value="Run">
               <input type="hidden" name="jobType" value="{{.JobType}}">
             </form>
             <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">

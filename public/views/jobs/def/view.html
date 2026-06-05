@@ -6,29 +6,6 @@
     <div class="col">
       <h2 class="page-title">Job Definition: {{ .JobType }}</h2>
     </div>
-    <div class="col-auto d-flex gap-2">
-      <form action="/dashboard/jobs/definitions/{{.ID}}/edit" method="GET">
-        <input type="submit" class="btn btn-sm btn-secondary" value="Edit">
-      </form>
-      <form action="/dashboard/jobs/definitions/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
-            onsubmit="return confirm('Please confirm deleting this job definition (' + this[\'id\'].value + ')?');">
-        <input type="submit" class="btn btn-sm btn-danger" value="Delete">
-        <input type="hidden" name="id" value="{{.JobType}}">
-      </form>
-      {{if .Disabled}}
-      <form action="/dashboard/jobs/definitions/{{.ID}}/enable" method="POST" enctype="multipart/form-data">
-        <input type="submit" class="btn btn-sm btn-warning" value="Enable">
-      </form>
-      {{else}}
-      <form action="/dashboard/jobs/requests/new" method="GET">
-        <input type="submit" class="btn btn-sm btn-success" value="Trigger">
-        <input type="hidden" name="jobType" value="{{.JobType}}">
-      </form>
-      <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
-        <input type="submit" class="btn btn-sm btn-warning" value="Disable">
-      </form>
-      {{end}}
-    </div>
   </div>
 </div>
 
@@ -52,6 +29,12 @@
        role="tab" aria-controls="job-graph-tabs" aria-selected="false"
        onclick="loadMermaidDiagram('/dashboard/jobs/definitions/{{.ID}}/mermaid')">Graph</a>
   </li>
+  {{ if .Triggers }}
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" id="job-triggers-tab" data-bs-toggle="tab" href="#job-triggers-tabs"
+       role="tab" aria-controls="job-triggers-tabs" aria-selected="false">Triggers</a>
+  </li>
+  {{ end }}
 </ul>
 {{ end }}
 
@@ -100,6 +83,62 @@
         </div>
         <div id="definition-mermaid-error" class="alert alert-danger d-none mt-2" role="alert">
           <strong>Error:</strong> <span id="definition-error-message"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{ end }}
+
+  {{ if .Definition.Triggers }}
+  <div class="tab-pane fade" id="job-triggers-tabs" role="tabpanel" aria-labelledby="job-triggers-tab">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Event Triggers</h3>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Configuration</th>
+                <th>Last Fired</th>
+                <th title="Jobs fired in the current rate-limit window / window maximum">Window (fired/max)</th>
+                <th>
+                  Actions
+                  <span class="ms-1 text-muted" style="font-weight:normal;font-size:.8em"
+                        title="Reset clears the rate-limit counter and, for S3 poll triggers, resets the key cursor so new objects are re-processed from the beginning.">&#9432;</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ $states := .TriggerStates }}
+              {{ $def := .Definition }}
+              {{ range .Definition.Triggers }}
+              {{ $state := index $states .Name }}
+              <tr>
+                <td><code>{{ .Name }}</code></td>
+                <td><span class="badge bg-primary">{{ .Type }}</span></td>
+                <td>
+                  {{ if eq .Type "webhook" }}<code>POST /api/triggers/{{ $def.JobType }}/{{ .Name }}</code>{{ end }}
+                  {{ if eq .Type "s3" }}<code>{{ .Bucket }}/{{ .Prefix }}*{{ .Suffix }}</code>{{ end }}
+                  {{ if eq .Type "queue" }}<code>{{ .Topic }}</code>{{ end }}
+                </td>
+                <td>{{ if $state }}{{ $state.LastSeenTime | formatTime }}{{ else }}<span class="text-muted">never</span>{{ end }}</td>
+                <td>{{ if $state }}{{ $state.WindowCount }}{{ if .RateLimit }}/{{ .RateLimit.Max }}{{ end }}{{ else }}<span class="text-muted">&mdash;</span>{{ end }}</td>
+                <td>
+                  <form action="/dashboard/jobs/definitions/{{ $def.ID }}/triggers/{{ .Name }}/reset" method="POST" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-warning"
+                            style="color:#fff"
+                            title="Reset rate-limit counter{{ if eq .Type "s3" }} and S3 key cursor{{ end }} for this trigger"
+                            onclick="return confirm('Reset trigger state for &#34;{{ .Name }}&#34;?\n\nThis clears the rate-limit window counter{{ if eq .Type "s3" }} and the S3 poll cursor (objects will be re-processed from the start){{ end }}.')">Reset</button>
+                  </form>
+                </td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

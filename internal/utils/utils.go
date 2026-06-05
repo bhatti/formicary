@@ -128,15 +128,18 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-// VerifySignature verifies sha256 hash
+// VerifySignature verifies an HMAC-SHA256 signature using constant-time comparison.
+// expectedHash256 may optionally carry a "sha256=" prefix; it is stripped before comparison.
 func VerifySignature(secret string, expectedHash256 string, body []byte) error {
-	hash := hmac.New(sha256.New, []byte(secret))
-	if _, err := hash.Write(body); err != nil {
+	h := hmac.New(sha256.New, []byte(secret))
+	if _, err := h.Write(body); err != nil {
 		return err
 	}
-	actualHash := hex.EncodeToString(hash.Sum(nil))
-	if actualHash != expectedHash256 {
-		return fmt.Errorf("failed to match '%s' sha256 with '%s'", actualHash, expectedHash256)
+	actualHex := hex.EncodeToString(h.Sum(nil))
+	// Strip optional prefix from the expected value so callers need not normalise.
+	expected := strings.TrimPrefix(expectedHash256, "sha256=")
+	if !hmac.Equal([]byte(actualHex), []byte(expected)) {
+		return fmt.Errorf("signature mismatch")
 	}
 	return nil
 }

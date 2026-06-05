@@ -1,0 +1,59 @@
+job_type: webhook-triggered-pipeline
+description: Pipeline triggered by HTTP webhook. Demonstrates HMAC-SHA256 auth, param extraction, filter expressions, and deduplication.
+
+max_concurrency: 5
+
+triggers:
+  - type: webhook
+    name: on-push
+    auth:
+      method: hmac_sha256
+      # References a JobDefinitionConfig entry whose value holds the HMAC secret.
+      # Set this via the UI or API: POST /api/jobs/definitions/{id}/configs
+      secret_config: WebhookSecret
+      header: X-Hub-Signature-256
+    # Only process push events targeting the main branch.
+    filter: '{{ if and (hasPrefix .Body.ref "refs/heads/") (eq .Body.ref "refs/heads/main") }}true{{ end }}'
+    params:
+      branch:     '{{ trimPrefix .Body.ref "refs/heads/" }}'
+      commit_sha: '{{ .Body.head_commit.id }}'
+      repo:       '{{ .Body.repository.full_name }}'
+    # Deduplicate by commit SHA so replays don't re-run the same commit.
+    dedup_key: 'push-{{ .Body.head_commit.id }}'
+    rate_limit:
+      max: 20
+      window: 1m
+
+  # Unauthenticated trigger for local dev / smoke testing.
+  # Remove or replace with auth in production.
+  - type: webhook
+    name: on-push-dev
+    filter: '{{ if .Body.ref }}true{{ end }}'
+    params:
+      branch:     '{{ default "unknown" .Body.ref }}'
+      commit_sha: '{{ default "unknown" .Body.head_commit.id }}'
+    rate_limit:
+      max: 5
+      window: 1m
+
+tasks:
+  - task_type: clone
+    method: SHELL
+    script:
+      - echo "Cloning repo {{.repo}} at commit {{.commit_sha}} (branch {{.branch}})"
+    on_completed: build
+
+  - task_type: build
+    method: SHELL
+    script:
+      - echo "Building {{.repo}}@{{.commit_sha}}"
+      - echo "build ok" > build.log
+    artifacts:
+      paths:
+        - build.log
+    on_completed: notify
+
+  - task_type: notify
+    method: SHELL
+    script:
+      - echo "Pipeline complete for {{.repo}}@{{.commit_sha}}"

@@ -1,0 +1,45 @@
+job_type: order-processor
+description: >
+  Processes high-value orders (total > $1000) from the orders.completed queue.
+  Demonstrates queue trigger with JSON payload extraction, numeric filter,
+  and deduplication by order ID.
+
+  Testing with the channel queue provider (local dev):
+    # Publish a test message using the formicary admin API or directly via the
+    # internal queue client in an integration test.
+
+max_concurrency: 20
+
+triggers:
+  - type: queue
+    name: high-value-order
+    topic: orders.completed
+    group: formicary-order-processor
+    shared: false
+    # Only process orders over $1000.
+    filter: '{{ if gt (atoi (printf "%v" .Message.total)) 1000 }}true{{ end }}'
+    params:
+      order_id:      '{{ .Message.order_id }}'
+      customer_name: '{{ .Message.customer_name }}'
+      total:         '{{ printf "%v" .Message.total }}'
+      currency:      '{{ default "USD" .Message.currency }}'
+    dedup_key: 'order-{{ .Message.order_id }}'
+    rate_limit:
+      max: 100
+      window: 1m
+
+tasks:
+  - task_type: process-payment
+    method: SHELL
+    script:
+      - echo "Processing payment for order {{.order_id}} ({{.customer_name}}): ${{.total}} {{.currency}}"
+    on_completed: fulfill
+
+  - task_type: fulfill
+    method: SHELL
+    script:
+      - echo "Fulfilling order {{.order_id}}"
+      - echo "fulfilled" > fulfillment.txt
+    artifacts:
+      paths:
+        - fulfillment.txt

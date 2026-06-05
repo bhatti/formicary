@@ -1,0 +1,63 @@
+job_type: webhook-ci-trigger
+description: >
+  CI pipeline that starts automatically when a GitHub push webhook fires.
+  Test without auth (local dev):
+    curl -s -X POST http://localhost:7777/api/triggers/webhook-ci-trigger/on-push-dev \
+      -H "Content-Type: application/json" \
+      -d '{"ref":"refs/heads/main","head_commit":{"id":"abc123"},"repository":{"full_name":"acme/api"}}'
+
+max_concurrency: 5
+
+triggers:
+  # Production trigger: HMAC-SHA256 authenticated, main branch only.
+  - type: webhook
+    name: on-push
+    auth:
+      method: hmac_sha256
+      secret_config: CIWebhookSecret
+      header: X-Hub-Signature-256
+    filter: '{{ if eq .Body.ref "refs/heads/main" }}true{{ end }}'
+    params:
+      branch:     '{{ trimPrefix .Body.ref "refs/heads/" }}'
+      commit_sha: '{{ index .Body.head_commit "id" }}'
+      repo:       '{{ index .Body.repository "full_name" }}'
+      pusher:     '{{ default "unknown" .Body.pusher.name }}'
+    dedup_key: 'ci-{{ index .Body.head_commit "id" }}'
+    rate_limit:
+      max: 30
+      window: 5m
+
+  # Dev trigger: no auth, any branch — for local testing only.
+  - type: webhook
+    name: on-push-dev
+    filter: '{{ if .Body.ref }}true{{ end }}'
+    params:
+      branch:     '{{ default "unknown" (trimPrefix .Body.ref "refs/heads/") }}'
+      commit_sha: '{{ default "dev" (index .Body.head_commit "id") }}'
+      repo:       '{{ default "local" (index .Body.repository "full_name") }}'
+      pusher:     'dev'
+    rate_limit:
+      max: 10
+      window: 1m
+
+tasks:
+  - task_type: clone
+    method: SHELL
+    script:
+      - echo "Cloning {{.repo}} branch={{.branch}} commit={{.commit_sha}} pusher={{.pusher}}"
+    on_completed: test
+
+  - task_type: test
+    method: SHELL
+    script:
+      - echo "Running tests for {{.repo}}@{{.commit_sha}}"
+      - echo "tests passed" > test.log
+    artifacts:
+      paths:
+        - test.log
+    on_completed: notify
+
+  - task_type: notify
+    method: SHELL
+    script:
+      - echo "CI complete for {{.repo}} commit={{.commit_sha}} branch={{.branch}}"

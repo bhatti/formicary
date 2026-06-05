@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	htmltemplate "html/template"
-	"text/template"
 	"math/rand"
 	"net/url"
 	"regexp"
 	"strings"
+	"text/template"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -99,6 +100,34 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 		},
 		"Add": func(n uint, plus uint) uint {
 			return n + plus
+		},
+		// String helpers used in trigger filter/param templates.
+		"default": func(def interface{}, val interface{}) interface{} {
+			if val == nil {
+				return def
+			}
+			if s, ok := val.(string); ok && s == "" {
+				return def
+			}
+			return val
+		},
+		"trimPrefix": func(s, prefix string) string {
+			return strings.TrimPrefix(s, prefix)
+		},
+		"trimSuffix": func(s, suffix string) string {
+			return strings.TrimSuffix(s, suffix)
+		},
+		"hasPrefix": func(s, prefix string) bool {
+			return strings.HasPrefix(s, prefix)
+		},
+		"hasSuffix": func(s, suffix string) bool {
+			return strings.HasSuffix(s, suffix)
+		},
+		"lower": strings.ToLower,
+		"upper": strings.ToUpper,
+		"contains": strings.Contains,
+		"replace": func(s, old, new string) string {
+			return strings.ReplaceAll(s, old, new)
 		},
 		"Unescape": func(s string) htmltemplate.HTML {
 			return htmltemplate.HTML(s)
@@ -191,6 +220,12 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 		//
 		// Example — submit one job per row returned by a query script:
 		//   {{SubmitJobsFromJSON "process-order" .ItemsJSON "Region=us-east"}}
+		"formatTime": func(t time.Time) string {
+			if t.IsZero() {
+				return "—"
+			}
+			return t.Format("2006-01-02 15:04:05")
+		},
 		"SubmitJobsFromJSON": func(jobType string, itemsJSON string, extraParams ...string) string {
 			snip := itemsJSON
 			if len(snip) > 200 {

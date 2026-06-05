@@ -1,0 +1,69 @@
+job_type: queue-order-trigger
+description: >
+  Order fulfillment pipeline that starts automatically for every high-value order
+  (total > $500) arriving on the orders.completed queue. Demonstrates queue trigger
+  with JSON payload extraction, numeric filtering using atoi, and deduplication
+  by order ID to prevent double-processing on message replay.
+
+  The trigger subscribes to the queue on the scheduler leader. If the leader
+  changes, the new leader automatically resumes the subscription within 15 seconds.
+
+  Register:
+    curl -X POST http://localhost:7777/api/jobs/definitions \
+      -H "Content-Type: application/x-yaml" --data-binary @queue-order-trigger.yaml
+
+  Publish a test message (Redis streams / channel provider in local dev):
+    # Via the Formicary messaging API — replace <token>:
+    curl -X POST http://localhost:7777/api/messaging/orders.completed \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"order_id":"ord-001","customer_name":"Alice","total":1500,"currency":"USD"}'
+
+  Low-value order (filtered out, no job created):
+    curl -X POST http://localhost:7777/api/messaging/orders.completed \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"order_id":"ord-002","customer_name":"Bob","total":50,"currency":"USD"}'
+
+max_concurrency: 20
+
+triggers:
+  - type: queue
+    name: high-value-order
+    topic: orders.completed
+    group: formicary-order-processor
+    shared: false
+    # Only fulfil orders over $500.
+    filter: '{{ if gt (atoi (printf "%v" .Message.total)) 500 }}true{{ end }}'
+    params:
+      order_id:      '{{ .Message.order_id }}'
+      customer_name: '{{ default "unknown" .Message.customer_name }}'
+      total:         '{{ printf "%v" .Message.total }}'
+      currency:      '{{ default "USD" .Message.currency }}'
+    # Deduplicate by order ID so replayed messages don't create duplicate jobs.
+    dedup_key: 'order-{{ .Message.order_id }}'
+    rate_limit:
+      max: 500
+      window: 1m
+
+tasks:
+  - task_type: validate-payment
+    method: SHELL
+    script:
+      - echo "Validating payment for order {{.order_id}} customer={{.customer_name}} total={{.total}} {{.currency}}"
+    on_completed: fulfill
+
+  - task_type: fulfill
+    method: SHELL
+    script:
+      - echo "Fulfilling order {{.order_id}}"
+      - echo "fulfilled at $(date)" > fulfillment.txt
+    artifacts:
+      paths:
+        - fulfillment.txt
+    on_completed: notify
+
+  - task_type: notify
+    method: SHELL
+    script:
+      - echo "Order {{.order_id}} fulfilled for {{.customer_name}} ({{.total}} {{.currency}})"

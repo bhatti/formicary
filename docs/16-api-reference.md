@@ -68,6 +68,33 @@ Enables a disabled job definition.
     -   `id` (string): The UUID of the definition.
 -   **Success Response (200 OK):** Empty body.
 
+### `GET /api/jobs/definitions/type/{type}/versions`
+Lists all stored versions of a job definition identified by its `job_type`, ordered by version number descending. Useful for auditing history or pinning a restart to a specific version.
+
+-   **Permissions:** `JobDefinition:View`
+-   **Path Parameters:**
+    -   `type` (string): The `job_type` of the definition.
+-   **Query Parameters:**
+    -   `page`, `page_size` (int): Pagination.
+-   **Success Response (200 OK):** Paginated list of version summaries.
+    ```json
+    {
+      "records": [
+        {
+          "id": "01JXY...",
+          "version": 3,
+          "sem_version": "1.2.0",
+          "active": true,
+          "created_at": "2026-06-04T12:00:00Z",
+          "updated_at": "2026-06-04T12:00:00Z"
+        }
+      ],
+      "total_records": 3,
+      "page": 0,
+      "page_size": 10
+    }
+    ```
+
 ---
 
 ## Job Requests
@@ -117,12 +144,35 @@ Cancels a pending or executing job request.
 -   **Success Response (200 OK):** Empty body.
 
 ### `POST /api/jobs/requests/{id}/restart`
-Restarts a failed or completed job request.
+Restarts a failed or completed job request. Supports pinning the restart to a specific version of the job definition.
 
 -   **Permissions:** `JobRequest:Restart`
 -   **Path Parameters:**
     -   `id` (string): The ID of the job request to restart.
+-   **Query Parameters:**
+    -   `hard` (boolean, default `false`): If `true`, forces all tasks to re-run from scratch rather than resuming from the last failed task. A hard restart also upgrades to the latest job definition unless `version` is specified.
+    -   `version` (string, optional): Pin the restart to a specific job definition version. Accepted values:
+        -   `latest` — always use the most recently deployed definition (default for hard restarts).
+        -   `<sem_version>` — e.g. `"1.2.0"`, matches the definition's `sem_version` field.
+        -   `<definition_id>` — the UUID of a specific definition row (from the versions API).
+        -   `""` (empty, default for soft restart) — keep the same definition the original request used.
 -   **Success Response (200 OK):** Empty body.
+
+**Examples:**
+
+```bash
+# Soft restart — resume from the last failed task using the original definition
+curl -X POST http://localhost:7777/api/jobs/requests/01JXY.../restart \
+  -H "Authorization: Bearer <token>"
+
+# Hard restart — re-run all tasks using the latest definition
+curl -X POST "http://localhost:7777/api/jobs/requests/01JXY.../restart?hard=true" \
+  -H "Authorization: Bearer <token>"
+
+# Soft restart pinned to semantic version 1.2.0
+curl -X POST "http://localhost:7777/api/jobs/requests/01JXY.../restart?version=1.2.0" \
+  -H "Authorization: Bearer <token>"
+```
 
 ### `POST /api/jobs/requests/{id}/review`
 Approves a task that is awaiting manual intervention, allowing the job to continue.

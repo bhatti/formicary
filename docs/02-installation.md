@@ -54,6 +54,37 @@ This is the fastest way to start a complete Formicary environment, including the
     -   **Formicary Dashboard:** Open your web browser to [http://localhost:7777](http://localhost:7777).
     -   **MinIO Console:** Check the object storage console at [http://localhost:9001](http://localhost:9001) (Use the credentials from your `.env` file, default is `admin`/`password`).
 
+## Zero-Dependency Local Setup (WebSocket + Embedded SeaweedFS)
+
+For local development or edge deployments where you don't want to install Redis, Kafka, MinIO, or any external broker, Formicary can run in a fully self-contained mode:
+
+- **`WEBSOCKET_MESSAGING`** — the queen serves a WebSocket endpoint that ants connect to directly; no external message broker needed.
+- **`s3.local_mode: true`** — the queen starts an embedded [SeaweedFS](https://github.com/seaweedfs/seaweedfs) subprocess as the artifact store; no external S3/MinIO needed.
+
+**Prerequisites:**
+
+1. Install the `weed` binary from [SeaweedFS releases](https://github.com/seaweedfs/seaweedfs/releases) and ensure it is on your `$PATH`.
+
+**Start the queen:**
+
+```bash
+./formicary-queen --config docs/examples/websocket-queen.yaml
+```
+
+The queen prints the SeaweedFS S3 endpoint at startup (default port 8333). The WebSocket queue endpoint is always at `ws://localhost:7777/ws/queue`.
+
+**Start an ant** (in a separate terminal):
+
+```bash
+./formicary-ant --config docs/examples/websocket-ant.yaml
+```
+
+The ant connects to the queen via WebSocket and uses the embedded SeaweedFS for artifacts. If the ant is restarted while the queen is unreachable, undelivered messages are buffered in a local SQLite file (`/tmp/formicary-ant-buffer.db`) and drained automatically after reconnection.
+
+See `docs/examples/websocket-queen.yaml` and `docs/examples/websocket-ant.yaml` for annotated configuration files, and [Configuration — queue.websocket](./15-configuration.md#commonqueuewebsocket-block) for the full field reference.
+
+---
+
 ## Running from Source (for Development)
 
 If you plan to contribute to Formicary, you'll want to run it directly from source.
@@ -63,8 +94,10 @@ If you plan to contribute to Formicary, you'll want to run it directly from sour
     ```bash
     docker-compose up -d redis minio mysql
     ```
+    Or use the zero-dependency WebSocket + embedded SeaweedFS mode described above — no Docker needed.
+
 2.  **Configure Queen Server:**
-    Ensure your configuration file (`.formicary-queen.yaml` or a custom one) points to the correct addresses for Redis, MinIO, and your database.
+    Ensure your configuration file points to the correct addresses for your chosen queue provider, object store, and database.
 
 3.  **Run the Queen Server:**
     ```bash

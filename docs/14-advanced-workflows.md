@@ -97,6 +97,42 @@ tasks:
   delay_between_retries: 5s
 ```
 
+### Exponential Backoff for Retries
+
+For resilient retry behaviour under load, use `retry_backoff_policy` instead of a fixed `delay_between_retries`. The policy uses the [jpillora/backoff](https://github.com/jpillora/backoff) algorithm, which multiplies the delay by `factor` on each successive attempt and optionally adds random jitter to avoid thundering-herd problems.
+
+`retry_backoff_policy` can be set at the **job** level (controls how long to wait before re-queuing the whole job after a failure) or at the **task** level (controls the wait between individual task retries within a job run).
+
+```yaml
+job_type: resilient-job-with-backoff
+retry: 5
+retry_backoff_policy:
+  min: 1s        # wait at least 1 second before the first retry
+  max: 2m        # never wait more than 2 minutes
+  factor: 2.0    # double the delay on each attempt: 1s, 2s, 4s, 8s, 16s…
+  jitter: true   # add random jitter to spread retries in high-concurrency scenarios
+
+tasks:
+- task_type: call-external-api
+  method: HTTP_GET
+  url: "https://api.example.com/data"
+  retry: 4
+  retry_backoff_policy:
+    min: 500ms
+    max: 30s
+    factor: 1.5
+    jitter: true
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `min` | duration | `1s` | Starting delay for attempt 0. |
+| `max` | duration | `no limit` | Upper bound on the computed delay. |
+| `factor` | float | `2.0` | Multiplier applied to the delay each attempt. |
+| `jitter` | bool | `false` | Add random noise ±50% to the computed delay. |
+
+When `retry_backoff_policy` is absent, Formicary falls back to the static `delay_between_retries` value (or a small random default if that is also unset).
+
 ### Advanced Control with `on_exit_code`
 
 For the most control, use `on_exit_code` to define different workflow paths based on the numeric exit code of a task's script.
