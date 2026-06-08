@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Example: Job fan-out — process multiple datasets by spawning child jobs.
+#
+# In job fan-out mode (fork_job_type is set), one child JobRequest is spawned per
+# array item using the same FORK_JOB machinery as FORK_JOB tasks. Children appear
+# as real JobRequest records, have cascade_cancel=true (cancelled with parent), and
+# support full sub_workflow input/output variable mapping.
+#
+# IMPORTANT: The fan_out.source variable must be in the job execution context.
+# Use job_variables (available to all tasks) or ::set-output from a script.
+# Task-level variables: only apply within that task and do NOT propagate.
+#
+# This example requires the child job type to be registered first:
+#   curl -X POST http://localhost:7777/api/jobs/definitions \
+#     -H 'Content-Type: application/yaml' \
+#     --data-binary @docs/examples/sub-workflow-etl-child.yaml
+#
+# Usage — register parent:
+#   curl -X POST http://localhost:7777/api/jobs/definitions \
+#     -H 'Content-Type: application/yaml' \
+#     --data-binary @docs/examples/fan-out-job-etl.yaml
+#
+# Submit a request:
+#   curl -X POST http://localhost:7777/api/jobs/requests \
+#     -H 'Content-Type: application/json' \
+#     -d '{"job_type":"fan-out-job-etl"}'
+#
+# See: docs/14-advanced-workflows.md#dynamic-task-fan-out
+
+job_type: fan-out-job-etl
+description: Process multiple datasets by spawning child ETL jobs (job fan-out)
+
+# job_variables are available to ALL tasks in the job execution context.
+# Override at submission time via request params.
+job_variables:
+  datasets: '["sales_2024","inventory_2024","orders_2024"]'
+  batch_size: "500"
+
+tasks:
+  - task_type: setup
+    method: SHELL
+    description: Verify dataset list and log it
+    script:
+      - echo "Processing datasets"
+    on_completed: process-datasets
+
+  - task_type: process-datasets
+    method: FORK_JOB
+    description: |
+      Spawn one child ETL job per dataset.
+      fork_job_type in fan_out activates job fan-out mode.
+      Each child is a real JobRequest with cascade_cancel=true.
+      sub_workflow controls which params flow in and which outputs flow back.
+    fan_out:
+      source: datasets                         # job_variables key — JSON array
+      item_var: dataset                        # injected into each child as a job param
+      fork_job_type: io.formicary.examples.child-etl  # activates job fan-out
+      fork_job_version: "1.0"
+      max_parallel: 2                          # at most 2 child jobs run concurrently
+      fail_fast: false                         # collect all results even if one fails
+    sub_workflow:
+      input_params:
+        - name: source_table
+          value: "{{ .dataset }}"
+        - name: batch_size
+          value: "{{ .batch_size }}"
+      output_variables:
+        - name: row_count
+          value: etl_row_count
+      wait_for_completion: true
+    on_completed: summarize
+
+  - task_type: summarize
+    method: SHELL
+    description: Print aggregated results from all child ETL jobs
+    script:
+      - echo "ETL fan-out complete"
+      - echo "  total={{.FanOutItemCount}} mode={{.FanOutMode}}"
+      - echo "  dataset_0_status={{.dataset_0_status}}"
+      - echo "  dataset_1_status={{.dataset_1_status}}"
+      - echo "  dataset_2_status={{.dataset_2_status}}"

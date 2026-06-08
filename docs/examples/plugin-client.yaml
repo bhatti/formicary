@@ -6,8 +6,10 @@ tasks:
   method: FORK_JOB
   fork_job_type: io.formicary.stock-plugin
   fork_job_version: 1.0-dev
-  variables:
-    Symbol: {{.Symbol}}
+  sub_workflow:
+    input_params:
+      - name: Symbol
+        value: "{{.Symbol}}"
   on_completed: wait-plugin
 - task_type: wait-plugin
   method: AWAIT_FORKED_JOB

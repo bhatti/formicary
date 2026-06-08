@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Sub-Workflow Composition Example — Parent ETL workflow
+# ========================================================
+# Demonstrates FORK_JOB with sub_workflow configuration.
+#
+# Before submitting this job, register the child workflow first:
+#   curl -X POST http://localhost:7777/api/v1/jobs/definitions \
+#        -H "Content-Type: application/yaml" \
+#        --data-binary @docs/examples/sub-workflow-etl-child.yaml
+#
+# Then submit the parent:
+#   curl -X POST http://localhost:7777/api/v1/jobs/definitions \
+#        -H "Content-Type: application/yaml" \
+#        --data-binary @docs/examples/sub-workflow-etl.yaml
+#
+job_type: io.formicary.examples.parent-etl
+description: "Parent ETL workflow demonstrating sub_workflow composition"
+tasks:
+  # Step 1 — validate inputs before forking
+  - task_type: validate-inputs
+    method: SHELL
+    script:
+      - echo "Validating source_table={{ .source_table }} batch_size={{ .batch_size }}"
+      - test -n "{{ .source_table }}"
+    on_completed: run-child-etl
+
+  # Step 2 — fork the child ETL workflow and wait inline for its result.
+  # Only source_table and batch_size are forwarded to the child.
+  # The child's row_count and status are promoted back under different names.
+  - task_type: run-child-etl
+    method: FORK_JOB
+    fork_job_type: io.formicary.examples.child-etl
+    fork_job_version: "1.0"
+    sub_workflow:
+      input_params:
+        - name: source_table
+          value: "{{ .source_table }}"
+        - name: batch_size
+          value: "{{ .batch_size }}"
+      output_variables:
+        - name: row_count
+          value: etl_row_count
+        - name: status
+          value: child_status
+      wait_for_completion: true
+    on_completed: report-results
+
+  # Step 3 — use promoted output variables from the child
+  - task_type: report-results
+    method: SHELL
+    script:
+      - echo "ETL finished {{ .etl_row_count }} rows processed status={{ .child_status }}"

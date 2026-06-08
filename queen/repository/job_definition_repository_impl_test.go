@@ -942,3 +942,134 @@ func Test_ShouldFailGetByTypeWithNonExistingSemVersion(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not found")
 }
+
+// Test_FanOut_JobVariablesSurviveDbRoundTripWithTemplateVars verifies that job_variables
+// are preserved after a DB save+load cycle even when the YAML contains Go template
+// expressions like {{.region}} in script lines. This is the bug where ReloadFromYaml
+// would produce an empty job (because ParseTemplate emits "<no value>" for unknown
+// variables) and postProcessJob would replace the DB-loaded job with the empty one,
+// losing all job_variables in GetDynamicConfigAndVariables.
+func Test_FanOut_JobVariablesSurviveDbRoundTripWithTemplateVars(t *testing.T) {
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	// Job YAML with template vars in script — these cause ReloadFromYaml to fail silently.
+	jobYaml := `job_type: io.formicary.test.fanout-template-roundtrip
+job_variables:
+  regions: '["us-east-1","us-west-2","eu-west-1"]'
+tasks:
+  - task_type: setup
+    method: SHELL
+    script:
+      - echo "setup"
+    on_completed: deploy
+  - task_type: deploy
+    method: SHELL
+    fan_out:
+      source: regions
+      item_var: region
+      max_parallel: 2
+      fail_fast: false
+    script:
+      - echo "Deploying to {{.region}}"
+    on_completed: done
+  - task_type: done
+    method: SHELL
+    script:
+      - echo "done total={{.FanOutItemCount}}"
+`
+	job, err := types.NewJobDefinitionFromYaml([]byte(jobYaml))
+	require.NoError(t, err)
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
+
+	saved, err := repo.Save(qc, job)
+	require.NoError(t, err)
+
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+
+	// job_variables must survive the round-trip.
+	vars := loaded.GetDynamicConfigAndVariables(nil)
+	v, ok := vars["regions"]
+	require.True(t, ok, "job_variables 'regions' must survive DB save+load when YAML has {{.region}} template vars")
+	require.NotNil(t, v.Value)
+	require.Equal(t, `["us-east-1","us-west-2","eu-west-1"]`, v.Value)
+
+	// Fan-out config must also survive.
+	deployTask, opts, err := loaded.GetDynamicTask("deploy", vars)
+	require.NoError(t, err)
+	require.NotNil(t, deployTask)
+	require.NotNil(t, opts.FanOut, "fan_out config must survive DB round-trip")
+	require.Equal(t, "regions", opts.FanOut.Source)
+	require.Equal(t, "region", opts.FanOut.ItemVar)
+}
+
+// Test_FanOut_FanOutDeployJobVariablesSurviveDbRoundTrip verifies fan-out-deploy.yaml
+// fixture: job_variables with template expressions in scripts survive DB round-trip.
+func Test_FanOut_FanOutDeployJobVariablesSurviveDbRoundTrip(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/fan_out_job.yaml")
+	require.NoError(t, err)
+
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
+
+	saved, err := repo.Save(qc, job)
+	require.NoError(t, err)
+
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+
+	vars := loaded.GetDynamicConfigAndVariables(nil)
+	_, ok := vars["regions"]
+	require.True(t, ok, "regions must be present in Variables after DB round-trip")
+
+	_, opts, err := loaded.GetDynamicTask("deploy", vars)
+	require.NoError(t, err)
+	require.NotNil(t, opts.FanOut)
+	require.Equal(t, "regions", opts.FanOut.Source)
+}
+
+// Test_FanOut_FanOutTaskJobVariablesSurviveDbRoundTrip verifies fan_out_task_job.yaml
+// fixture: job_variables survive DB round-trip and fan-out source is resolvable.
+func Test_FanOut_FanOutTaskJobVariablesSurviveDbRoundTrip(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/fan_out_task_job.yaml")
+	require.NoError(t, err)
+
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+	job.UserID = qc.User.ID
+	job.OrganizationID = qc.User.OrganizationID
+
+	saved, err := repo.Save(qc, job)
+	require.NoError(t, err)
+
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+
+	vars := loaded.GetDynamicConfigAndVariables(nil)
+	_, ok := vars["items"]
+	require.True(t, ok, "items must be present after DB round-trip for fan_out_task_job.yaml")
+
+	_, opts, err := loaded.GetDynamicTask("process", vars)
+	require.NoError(t, err)
+	require.NotNil(t, opts.FanOut)
+	require.Equal(t, "items", opts.FanOut.Source)
+}

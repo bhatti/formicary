@@ -661,6 +661,23 @@ func (jrr *JobRequestRepositoryImpl) Cancel(
 	})
 }
 
+// FindActiveChildRequests returns non-terminal child job requests marked for cascade
+// cancellation (cascade_cancel = true) for the given parent job request ID.
+func (jrr *JobRequestRepositoryImpl) FindActiveChildRequests(parentID string) ([]*types.JobRequest, error) {
+	if parentID == "" {
+		return nil, common.NewValidationError(fmt.Errorf("parentID is not specified"))
+	}
+	var requests []*types.JobRequest
+	res := jrr.db.Where(
+		"parent_id = ? AND cascade_cancel = ? AND job_state NOT IN ?",
+		parentID, true, common.TerminalStates,
+	).Find(&requests)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	return requests, nil
+}
+
 // Delete - deletes job-request
 func (jrr *JobRequestRepositoryImpl) Delete(
 	qc *common.QueryContext,

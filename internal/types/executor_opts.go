@@ -120,6 +120,10 @@ type ExecutorOptions struct {
 	ForkJobVersion             string                  `json:"fork_job_version,omitempty" yaml:"fork_job_version,omitempty"`
 	ArtifactKeyPrefix          string                  `json:"artifact_key_prefix,omitempty" yaml:"artifact_key_prefix,omitempty"`
 	AwaitForkedTasks           []string                `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty"`
+	// SubWorkflow configures child-workflow composition when method is FORK_JOB.
+	SubWorkflow                *SubWorkflowConfig      `json:"sub_workflow,omitempty" yaml:"sub_workflow,omitempty"`
+	// FanOut configures dynamic fan-out when method is FAN_OUT_JOB.
+	FanOut                     *FanOutConfig           `json:"fan_out,omitempty" yaml:"fan_out,omitempty"`
 	CostFactor                 float64                 `json:"cost_factor,omitempty" yaml:"cost_factor,omitempty"`
 	ExecuteCommandWithoutShell bool                    `json:"execute_command_without_shell,omitempty" yaml:"execute_command_without_shell,omitempty"`
 	Debug                      bool                    `json:"debug,omitempty" yaml:"debug,omitempty"`

@@ -106,6 +106,9 @@ type JobRequestRepository interface {
 	Cancel(
 		qc *common.QueryContext,
 		id string) error
+	// FindActiveChildRequests returns non-terminal child job requests that are
+	// marked for cascade cancellation (cascade_cancel = true) for the given parent ID.
+	FindActiveChildRequests(parentID string) ([]*types.JobRequest, error)
 	RejectManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error
 	// ApproveManualTask - approves task
 	ApproveManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error

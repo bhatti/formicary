@@ -113,21 +113,29 @@ func (jobDefCtrl *JobDefinitionController) postJobDefinition(c web.APIContext) (
 		return common.NewValidationError(
 			fmt.Errorf("failed to load yaml job due to %w", err))
 	}
-	// checking yaml format
+	// Parse body: try YAML when content-type says so or when JSON unmarshal fails.
+	// This lets callers POST YAML without worrying about setting Content-Type.
 	if yamlFormat {
 		job, err = types.NewJobDefinitionFromYaml(b)
 	} else {
 		err = json.Unmarshal(b, job)
-		job.UpdateRawYaml()
+		if err != nil {
+			// Fallback: try YAML (common mistake: curl with YAML body but no content-type header).
+			if yamlJob, yamlErr := types.NewJobDefinitionFromYaml(b); yamlErr == nil {
+				job = yamlJob
+				err = nil
+			}
+		} else {
+			job.UpdateRawYaml()
+		}
 	}
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":  "JobDefinitionController",
 			"YAMLFormat": yamlFormat,
 			"Length":     len(b),
-			"YAML":       string(b),
 			"Error":      err,
-		}).Warnf("failed to unmarshal")
+		}).Warnf("failed to unmarshal job definition body")
 		return common.NewValidationError(
 			fmt.Errorf("unable to unmarshal due to %w", err))
 	}

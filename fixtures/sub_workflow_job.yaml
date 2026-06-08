@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Parent workflow fixture for sub_workflow composition tests.
+job_type: io.formicary.test.parent-etl-workflow
+tasks:
+  - task_type: prepare
+    method: SHELL
+    script:
+      - echo "preparing parent workflow table={{ .source_table }}"
+    on_completed: run-child-etl
+
+  - task_type: run-child-etl
+    method: FORK_JOB
+    fork_job_type: io.formicary.test.child-etl-workflow
+    fork_job_version: "1.0"
+    sub_workflow:
+      input_params:
+        - name: source_table
+          value: "{{ .source_table }}"
+        - name: batch_size
+          value: "{{ .batch_size }}"
+      output_variables:
+        - name: row_count
+          value: etl_row_count
+        - name: status
+          value: child_status
+      wait_for_completion: true
+    on_completed: summarize
+
+  - task_type: summarize
+    method: SHELL
+    script:
+      - echo "ETL complete processed {{ .etl_row_count }} rows status={{ .child_status }}"

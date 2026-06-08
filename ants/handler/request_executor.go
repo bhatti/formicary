@@ -692,8 +692,12 @@ func removeTemporaryFiles(taskReq *types.TaskRequest) {
 			}).Debugf("failed to remove local artifact path")
 		}
 	}
-	// remove any other files with job-request prefix
-	if files, err := filepath.Glob(fmt.Sprintf("%s_*", taskReq.JobRequestID)); err == nil {
+	// remove any other stdout files created for this specific task.
+	// Pattern includes TaskType so fan-out children (which share JobRequestID but have
+	// unique TaskType values like deploy-fo-0, deploy-fo-1) don't delete each other's
+	// files when running concurrently on the same ant worker.
+	taskTypeKey := cutils.MakeDNS1123Compatible(taskReq.TaskType)
+	if files, err := filepath.Glob(fmt.Sprintf("%s_%s_*", taskReq.JobRequestID, taskTypeKey)); err == nil {
 		for _, f := range files {
 			_ = os.Remove(f)
 		}

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Fan-out fixture: deploys to multiple regions using task fan-out (SHELL).
+# job_variables makes regions available to all tasks in the execution context.
+job_type: io.formicary.test.fan-out-deploy
+description: Deploy to multiple regions using fan-out task expansion
+
+job_variables:
+  regions: '["us-east-1","us-west-2","eu-west-1"]'
+
+tasks:
+  - task_type: setup
+    method: SHELL
+    script:
+      - echo "Setting up deployment"
+    on_completed: deploy
+
+  - task_type: deploy
+    method: SHELL
+    fan_out:
+      source: regions
+      item_var: region
+      max_parallel: 2
+      fail_fast: false
+    script:
+      - echo "Deploying to {{.region}}"
+    on_completed: summarize
+
+  - task_type: summarize
+    method: SHELL
+    script:
+      - echo "All deployments complete — total={{.FanOutItemCount}}"

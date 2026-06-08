@@ -799,19 +799,26 @@ func (kc *KubernetesConfig) validateEnhancedConfig(result *types.ValidationResul
 	// Validate cluster selection
 	clusterName := kc.ClusterName
 	if clusterName == "" {
-		if config.CurrentContext == "" {
-			result.AddError("No current context in kubeconfig and no cluster name specified")
+		if config.CurrentContext != "" {
+			// Use the cluster from the active context.
+			ctx, exists := config.Contexts[config.CurrentContext]
+			if !exists {
+				result.AddError(fmt.Sprintf("Current context '%s' not found in kubeconfig", config.CurrentContext))
+				return
+			}
+			clusterName = ctx.Cluster
+			result.AddInfo(fmt.Sprintf("Using cluster from current context: %s", clusterName))
+		} else if len(config.Clusters) > 0 {
+			// No current context — use the first available cluster from ~/.kube/config.
+			for name := range config.Clusters {
+				clusterName = name
+				break
+			}
+			result.AddInfo(fmt.Sprintf("No current context set; using first available cluster: %s", clusterName))
+		} else {
+			result.AddInfo("No clusters found in kubeconfig, will attempt in-cluster configuration")
 			return
 		}
-
-		context, exists := config.Contexts[config.CurrentContext]
-		if !exists {
-			result.AddError(fmt.Sprintf("Current context '%s' not found in kubeconfig", config.CurrentContext))
-			return
-		}
-
-		clusterName = context.Cluster
-		result.AddInfo(fmt.Sprintf("Using cluster from current context: %s", clusterName))
 	} else {
 		result.AddInfo(fmt.Sprintf("Using specified cluster: %s", clusterName))
 	}

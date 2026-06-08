@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Fixture: job fan-out — spawns child jobs via FORK_JOB pattern.
+# The fork_job_type references io.formicary.test.child-job (registered separately).
+# job_variables makes datasets available to all tasks.
+job_type: io.formicary.test.fan-out-fork-job
+
+job_variables:
+  datasets: '["ds-1","ds-2"]'
+
+tasks:
+  - task_type: setup
+    method: SHELL
+    script:
+      - echo "preparing"
+    on_completed: process
+
+  - task_type: process
+    method: FORK_JOB
+    fan_out:
+      source: datasets
+      item_var: dataset
+      fork_job_type: io.formicary.test.child-job
+      max_parallel: 2
+      fail_fast: false
+    on_completed: summarize
+
+  - task_type: summarize
+    method: SHELL
+    script:
+      - echo "done FanOutMode={{.FanOutMode}} count={{.FanOutItemCount}}"

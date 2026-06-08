@@ -237,15 +237,16 @@ func prepareProps(req *SendReceiveRequest) MessageHeaders {
 	return props
 }
 
+// createTimeoutContext wraps ctx with a timeout. If timeout > 0 it adds an explicit
+// deadline on top of ctx. If timeout == 0 (caller defers to ctx's own deadline), the
+// parent ctx is returned as-is via WithCancel so the caller's deadline governs.
+// TaskSupervisor always wraps the context with MaxTaskTimeout before calling SendReceive,
+// so server-side tasklets (FanOutTasklet, ForkJobTasklet) naturally inherit that budget.
 func createTimeoutContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	if timeout <= 0 {
-		timeout = getDefaultTimeout()
+	if timeout > 0 {
+		return context.WithTimeout(ctx, timeout)
 	}
-	return context.WithTimeout(ctx, timeout)
-}
-
-func getDefaultTimeout() time.Duration {
-	return 30 * time.Second // Could be made configurable
+	return context.WithCancel(ctx)
 }
 
 func getRetryDelay(attempt int) time.Duration {

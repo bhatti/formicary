@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Child workflow fixture for sub_workflow composition tests.
+job_type: io.formicary.test.child-etl-workflow
+sem_version: "1.0"
+tasks:
+  - task_type: etl-step
+    method: SHELL
+    script:
+      - echo "processing table={{ .source_table }} batch={{ .batch_size }}"
+      - echo "done"

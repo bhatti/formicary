@@ -60,6 +60,68 @@ message BackoffPolicy {
   bool jitter = 4 [(formicary.v1.tags) = "yaml:\"jitter,omitempty\" json:\"jitter\""];
 }
 
+// SubWorkflowVariable is a name/value pair used in sub_workflow param and output mappings.
+message SubWorkflowVariable {
+  // name is the variable name.
+  // For input_params: the child job param name.
+  // For output_variables: the child execution-context variable name.
+  string name = 1 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\"", (buf.validate.field).string.min_len = 1];
+  // value is the variable value.
+  // For input_params: a Go template expression resolved against the parent's non-secret vars.
+  // For output_variables: the parent execution-context variable name to publish under.
+  string value = 2 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+}
+
+// FanOutConfig configures dynamic fan-out for a single task definition.
+//
+// Two modes:
+//   - Task fan-out (default): dispatches one TaskRequest per array item to ant workers
+//     using the task's original execution method (SHELL, KUBERNETES, etc.).
+//   - Job fan-out: when fork_job_type is set, spawns one child JobRequest per array item
+//     using the FORK_JOB machinery, with full sub_workflow input/output mapping support.
+//
+// Results are aggregated back to the parent under keys prefixed `{item_var}_{index}_`.
+message FanOutConfig {
+  // source is the job execution context variable name that holds a JSON array of items.
+  string source = 1 [(formicary.v1.tags) = "yaml:\"source\" json:\"source\""];
+  // item_var is the variable name injected into each child task/job for its specific item value.
+  string item_var = 2 [(formicary.v1.tags) = "yaml:\"item_var\" json:\"item_var\""];
+  // max_parallel caps how many concurrent children run at a time (0 = unlimited).
+  int32 max_parallel = 3 [(formicary.v1.tags) = "yaml:\"max_parallel,omitempty\" json:\"max_parallel\""];
+  // fail_fast cancels remaining in-flight children on the first failure.
+  bool fail_fast = 4 [(formicary.v1.tags) = "yaml:\"fail_fast,omitempty\" json:\"fail_fast\""];
+  // execution_method is the TaskMethod used to dispatch child tasks in task fan-out mode.
+  // Set automatically from the task definition's method when fan_out is configured.
+  string execution_method = 5 [(formicary.v1.tags) = "yaml:\"execution_method,omitempty\" json:\"execution_method,omitempty\""];
+  // fork_job_type switches to job fan-out mode: spawns one child JobRequest per array item
+  // of this registered job type. Supports sub_workflow input/output mapping.
+  // Mutually exclusive with execution_method (task fan-out mode).
+  string fork_job_type = 6 [(formicary.v1.tags) = "yaml:\"fork_job_type,omitempty\" json:\"fork_job_type,omitempty\""];
+  // fork_job_version is the optional semver of the fork_job_type to use.
+  string fork_job_version = 7 [(formicary.v1.tags) = "yaml:\"fork_job_version,omitempty\" json:\"fork_job_version,omitempty\""];
+}
+
+// SubWorkflowConfig configures child workflow composition for FORK_JOB tasks.
+// All forked children are always cascade-cancelled when their parent is cancelled.
+message SubWorkflowConfig {
+  // input_params defines which params to pass to the child job request.
+  // Each entry: name = child param name, value = Go template expression resolved
+  // against the parent's non-secret execution context variables.
+  // When empty no parent variables are forwarded.
+  repeated SubWorkflowVariable input_params = 1 [
+    (formicary.v1.tags) = "yaml:\"input_params,omitempty\" json:\"input_params,omitempty\" gorm:\"-\""
+  ];
+  // output_variables defines which child execution-context variables to promote to the parent.
+  // Each entry: name = child context key, value = parent context key to publish under.
+  // When empty all child context variables are copied verbatim.
+  repeated SubWorkflowVariable output_variables = 2 [
+    (formicary.v1.tags) = "yaml:\"output_variables,omitempty\" json:\"output_variables,omitempty\" gorm:\"-\""
+  ];
+  // wait_for_completion makes the FORK_JOB task block until the child completes,
+  // combining fork + await in a single task step.
+  bool wait_for_completion = 3 [(formicary.v1.tags) = "yaml:\"wait_for_completion,omitempty\" json:\"wait_for_completion,omitempty\""];
+}
+
 // TaskDefinition specifies a unit of work within a job DAG.
 message TaskDefinition {
   string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
@@ -106,6 +168,11 @@ message TaskDefinition {
   string executor_options_json = 32 [(formicary.v1.tags) = "yaml:\"executor_options,omitempty\" json:\"executor_options\" gorm:\"-\""];
   // retry_backoff_policy defines exponential backoff for task retries.
   BackoffPolicy retry_backoff_policy = 33 [(formicary.v1.tags) = "yaml:\"retry_backoff_policy,omitempty\" json:\"retry_backoff_policy\" gorm:\"-\""];
+  // sub_workflow configures child workflow composition for FORK_JOB tasks (transient, parsed from YAML).
+  SubWorkflowConfig sub_workflow = 34 [(formicary.v1.tags) = "yaml:\"sub_workflow,omitempty\" json:\"sub_workflow,omitempty\" gorm:\"-\""];
+  // fan_out configures dynamic fan-out for this task (transient, parsed from YAML).
+  // When set, the engine expands this task into N parallel child jobs at runtime.
+  FanOutConfig fan_out = 35 [(formicary.v1.tags) = "yaml:\"fan_out,omitempty\" json:\"fan_out,omitempty\" gorm:\"-\""];
 }
 
 // JobDefinition outlines a DAG of tasks executed by ant workers.

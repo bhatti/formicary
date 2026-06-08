@@ -115,6 +115,11 @@ type TaskDefinition struct {
 	AwaitForkedTasks      []string `json:"await_forked_tasks,omitempty" yaml:"await_forked_tasks,omitempty" gorm:"-"`
 	MessagingRequestQueue string   `json:"messaging_request_queue,omitempty" yaml:"messaging_request_queue,omitempty" gorm:"-"`
 	MessagingReplyQueue   string   `json:"messaging_reply_queue,omitempty" yaml:"messaging_reply_queue,omitempty" gorm:"-"`
+	// SubWorkflow configures child-workflow composition for FORK_JOB tasks (transient, from YAML).
+	SubWorkflow *common.SubWorkflowConfig `json:"sub_workflow,omitempty" yaml:"sub_workflow,omitempty" gorm:"-"`
+	// FanOut configures dynamic fan-out expansion for this task (transient, from YAML).
+	// When set, the engine spawns one child job per item in the source array.
+	FanOut *common.FanOutConfig `json:"fan_out,omitempty" yaml:"fan_out,omitempty" gorm:"-"`
 	unknownKeys           map[string]interface{}
 	lookupVariables       *cutils.SafeMap
 	lock                  sync.RWMutex
@@ -408,6 +413,17 @@ func (td *TaskDefinition) Validate() error {
 	// TODO added here because deserialization doesn't initialize on-exit
 	if td.OnExitCode == nil {
 		td.OnExitCode = make(map[common.RequestState]string)
+	}
+	if td.FanOut != nil {
+		// Capture the real execution method before overriding to FAN_OUT_JOB.
+		if td.FanOut.ExecutionMethod == "" {
+			td.FanOut.ExecutionMethod = td.Method
+		}
+		if err := td.FanOut.Validate(); err != nil {
+			return err
+		}
+		// Route fan-out tasks through the FanOutTasklet.
+		td.Method = common.FanOutJob
 	}
 	return nil
 }

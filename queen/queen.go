@@ -261,6 +261,18 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return fmt.Errorf("failed to create fork-job tasklet due to %w", err)
 	}
 
+	// starts fan-out tasklet that handles tasks with fan_out configured
+	if err = tasklet.NewFanOutTasklet(
+		serverCfg,
+		requestRegistry,
+		resourceManager,
+		jobManager,
+		queueClient,
+		serverCfg.Common.GetFanOutJobTaskletTopic(),
+	).Start(ctx); err != nil {
+		return fmt.Errorf("failed to create fan-out tasklet due to %w", err)
+	}
+
 	// Register job launcher that listen to event topic and starts executing job in goroutine
 	jobLauncher := launcher.New(
 		serverCfg,

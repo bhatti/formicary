@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Fixture: task fan-out over a JSON array using SHELL method.
+# job_variables makes items available to all tasks in the execution context.
+job_type: io.formicary.test.fan-out-task
+
+job_variables:
+  items: '["a","b","c"]'
+
+tasks:
+  - task_type: setup
+    method: SHELL
+    script:
+      - echo "setting up"
+    on_completed: process
+
+  - task_type: process
+    method: SHELL
+    fan_out:
+      source: items
+      item_var: item
+      max_parallel: 2
+      fail_fast: false
+    script:
+      - echo "processing {{.item}}"
+    on_completed: done
+
+  - task_type: done
+    method: SHELL
+    script:
+      - echo "all done total={{.FanOutItemCount}}"

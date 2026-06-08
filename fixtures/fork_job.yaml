@@ -45,9 +45,12 @@ tasks:
 - task_type: fork-task
   method: FORK_JOB
   fork_job_type: http-job
-  variables:
-    f1: 1000
-    f2: mykey
+  sub_workflow:
+    input_params:
+      - name: f1
+        value: "{{ .f1 }}"
+      - name: f2
+        value: "{{ .f2 }}"
   on_completed: fork-wait
 - task_type: fork-wait
   method: AWAIT_FORKED_JOB

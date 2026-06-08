@@ -361,6 +361,15 @@ func (c *CommonConfig) GetWaitForkJobTaskletTopic() string {
 		"wait-fork-job-tasklet")
 }
 
+// GetFanOutJobTaskletTopic topic for the fan-out tasklet
+func (c *CommonConfig) GetFanOutJobTaskletTopic() string {
+	return PersistentTopic(
+		c.Queue.Provider,
+		c.Queue.TopicTenant,
+		c.Queue.TopicNamespace,
+		"fan-out-job-tasklet")
+}
+
 // GetMessagingQueue topic
 func (c *CommonConfig) GetMessagingQueue(q string) string {
 	return PersistentTopic(

@@ -62,6 +62,9 @@ message JobRequest {
   // hard_restart forces all tasks to re-run from scratch on next restart,
   // ignoring any previously completed task results. Cleared after the job starts executing.
   bool hard_restart = 33 [(formicary.v1.tags) = "json:\"hard_restart\" gorm:\"hard_restart\""];
+  // cascade_cancel marks this child job for automatic cancellation when its parent job is cancelled.
+  // Always set to true by the FORK_JOB tasklet — all forked children are cascade-cancelled.
+  bool cascade_cancel = 34 [(formicary.v1.tags) = "json:\"cascade_cancel\" gorm:\"cascade_cancel\""];
 }
 
 // ReviewTaskRequest is used for manual approval of a task.

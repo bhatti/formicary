@@ -91,7 +91,7 @@ embedded_ant:
       kubeconfig: ""
       host: ""
       allow_privilege_escalation: true
-      cluster_name: "docker-desktop"
+      cluster_name: ""
       namespace: "default"
       pod_security_context:
         run_as_user: 0

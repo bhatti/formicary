@@ -80,6 +80,7 @@ type JobsConfig struct {
 	MessagingEncryptionKey               string        `yaml:"messaging_encryption_key" mapstructure:"messaging_encryption_key"`
 	ExpireArtifactsTaskletCapacity       int           `yaml:"expire_artifacts_tasklet_capacity" mapstructure:"expire_artifacts_tasklet_capacity"`
 	MaxForkAwaitTaskletCapacity          int           `yaml:"max_fork_await_tasklet_capacity" mapstructure:"max_fork_await_tasklet_capacity"`
+	MaxFanOutTaskletCapacity             int           `yaml:"max_fan_out_tasklet_capacity" mapstructure:"max_fan_out_tasklet_capacity"`
 	LaunchTopicSuffix                    string        `yaml:"launch_topic_suffix" mapstructure:"launch_topic_suffix"`
 	// TriggerPollDefaultInterval is the default S3 poll interval when not specified in the trigger.
 	TriggerPollDefaultInterval           time.Duration `yaml:"trigger_poll_default_interval" mapstructure:"trigger_poll_default_interval"`
@@ -229,6 +230,9 @@ func (c *JobsConfig) Validate() error {
 	}
 	if c.MaxForkAwaitTaskletCapacity == 0 {
 		c.MaxForkAwaitTaskletCapacity = 100
+	}
+	if c.MaxFanOutTaskletCapacity == 0 {
+		c.MaxFanOutTaskletCapacity = 100
 	}
 	if c.MaxMessagingTaskletCapacity == 0 {
 		c.MaxMessagingTaskletCapacity = 100

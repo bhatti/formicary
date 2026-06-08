@@ -36,9 +36,12 @@ tasks:
 - task_type: bad-fork-task
   method: FORK_JOB
   fork_job_type: fork-job
-  variables:
-    f1: 1000
-    f2: mykey
+  sub_workflow:
+    input_params:
+      - name: f1
+        value: "1000"
+      - name: f2
+        value: "mykey"
   on_completed: bad-fork-wait
 - task_type: bad-fork-wait
   method: AWAIT_FORKED_JOB

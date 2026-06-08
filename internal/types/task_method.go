@@ -36,6 +36,10 @@ const (
 	Kubernetes TaskMethod = "KUBERNETES"
 	// Manual method runs manual task
 	Manual TaskMethod = "MANUAL"
+	// FanOutJob is the internal method used when a task has fan_out configured.
+	// Users set the original execution method (KUBERNETES, SHELL, etc.) on the task;
+	// the engine rewrites it to FAN_OUT_JOB before dispatching.
+	FanOutJob TaskMethod = "FAN_OUT_JOB"
 )
 
 // SupportsCaptureStdout checks method can store stdout to a file
@@ -78,7 +82,8 @@ func (m TaskMethod) IsValid() bool {
 		m == AwaitForkedJob ||
 		m == Messaging ||
 		m == Manual ||
-		m == ExpireArtifacts
+		m == ExpireArtifacts ||
+		m == FanOutJob
 }
 
 // SupportsDependentArtifacts  checks if method allows downloading dependent artifacts

@@ -24,6 +24,7 @@
       quick_search TEXT,
       error_code VARCHAR(100),
       error_message TEXT,
+      cascade_cancel BOOLEAN NOT NULL DEFAULT FALSE,
       scheduled_at TIMESTAMP DEFAULT NOW(),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP NULL,
@@ -31,6 +32,7 @@
     );
 
     CREATE INDEX formicary_job_parent_id_ndx ON formicary_job_requests(parent_id);
+    CREATE INDEX formicary_job_requests_parent_cascade_ndx ON formicary_job_requests(parent_id, cascade_cancel);
     CREATE INDEX formicary_job_requests_org_ndx ON formicary_job_requests(organization_id);
     CREATE INDEX formicary_job_requests_user_id_ndx ON formicary_job_requests(user_id);
     CREATE INDEX formicary_job_requests_job_def_ndx ON formicary_job_requests(job_definition_id);

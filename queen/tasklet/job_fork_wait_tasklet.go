@@ -96,53 +96,43 @@ func (t *JobForkWaitTasklet) Execute(
 	if err != nil {
 		return taskReq.ErrorResponse(err), nil
 	}
-	if err = t.EventBus.Subscribe(
-		t.Config.GetJobExecutionLifecycleTopic(),
-		waiter.UpdateFromJobLifecycleEvent); err != nil {
-		return taskReq.ErrorResponse(fmt.Errorf("failed to subscribe to event bus %w", err)), nil
+	waitCtx := ctx
+	var cancelWait context.CancelFunc
+	if taskReq.Timeout > 0 {
+		waitCtx, cancelWait = context.WithTimeout(ctx, taskReq.Timeout)
+		defer cancelWait()
 	}
-
-	defer func() {
-		_ = t.EventBus.Unsubscribe(
-			t.Config.GetJobExecutionLifecycleTopic(), waiter.UpdateFromJobLifecycleEvent)
-	}()
-
-	sleep := 1 * time.Second
-	for {
-		done, err := waiter.Poll()
-		if err != nil {
-			return taskReq.ErrorResponse(fmt.Errorf("failed to poll job due to %w", err)), nil
-		}
-		if done {
-			break
-		}
-		_ = waiter.Await(ctx, sleep)
-		if sleep*2 <= 10*time.Second {
-			sleep *= 2
-		}
+	topic := t.Config.GetJobExecutionLifecycleTopic()
+	if err = waiter.RunAndWait(waitCtx,
+		func(h func(*events.JobExecutionLifecycleEvent) error) error {
+			return t.EventBus.Subscribe(topic, h)
+		},
+		func(h func(*events.JobExecutionLifecycleEvent) error) {
+			_ = t.EventBus.Unsubscribe(topic, h)
+		},
+	); err != nil {
+		return taskReq.ErrorResponse(fmt.Errorf("failed to wait for forked jobs: %w", err)), nil
 	}
 
 	taskResp, err = waiter.BuildTaskResponse(taskReq)
 	if err == nil {
-		taskResp.AddContext("RequestIDs", waiter.requestIDs)
-		taskResp.AddContext("TotalRequests", len(waiter.requests))
+		taskResp.AddContext("RequestIDs", waiter.RequestIDs())
+		taskResp.AddContext("TotalRequests", len(waiter.RequestIDs()))
 		logrus.WithFields(
 			logrus.Fields{
 				"Component":         "JobForkWaitTasklet",
-				"RequestIDs":        waiter.requestIDs,
-				"CompletedRequests": len(waiter.requests),
+				"RequestIDs":        waiter.RequestIDs(),
+				"CompletedRequests": len(waiter.RequestIDs()),
 				"UserID":            taskReq.UserID,
-				"Completed":         waiter.completed(),
 				"Elapsed":           time.Since(started),
 			}).Info("returning with response")
 	} else {
 		logrus.WithFields(
 			logrus.Fields{
 				"Component":         "JobForkWaitTasklet",
-				"RequestIDs":        waiter.requestIDs,
-				"CompletedRequests": len(waiter.requests),
+				"RequestIDs":        waiter.RequestIDs(),
+				"CompletedRequests": len(waiter.RequestIDs()),
 				"UserID":            taskReq.UserID,
-				"Completed":         waiter.completed(),
 				"Elapsed":           time.Since(started),
 				"Error":             err,
 			}).Warnf("returning with error")

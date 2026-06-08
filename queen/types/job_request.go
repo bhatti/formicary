@@ -169,6 +169,9 @@ type JobRequest struct {
 	// HardRestart forces all tasks to re-run from scratch on next restart,
 	// ignoring any previously completed task results. Cleared once the job starts executing.
 	HardRestart bool `json:"hard_restart" gorm:"hard_restart"`
+	// CascadeCancel marks this child job for automatic cancellation when its parent is cancelled.
+	// Always set to true by the FORK_JOB tasklet — every forked child is cascade-cancelled.
+	CascadeCancel bool `json:"cascade_cancel" gorm:"cascade_cancel"`
 	// Execution refers to job-Execution
 	Execution       *JobExecution          `yaml:"-" json:"execution" gorm:"-"`
 	NameValueParams map[string]interface{} `yaml:"params,omitempty" json:"params" gorm:"-"`

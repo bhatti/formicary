@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -395,6 +394,25 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 	if serData == "" {
 		return nil, nil, fmt.Errorf("failed to find %s from Yaml definition", taskType)
 	}
+
+	// For fan-out tasks, extract raw scripts BEFORE template rendering so that
+	// per-item placeholders ({{.region}}) survive for later per-item rendering
+	// by FanOutTasklet. Queen-side rendering only has job-level variables, not
+	// per-item ones, so item-var placeholders would become "<no value>" otherwise.
+	//
+	// We always pre-parse to detect fan_out — avoids a brittle string heuristic.
+	// The parse is cheap (small YAML fragment). If it fails the main parse below
+	// will also fail and return an error, so silent ignore here is safe.
+	var rawFanOutScripts, rawFanOutBeforeScripts, rawFanOutAfterScripts []string
+	{
+		rawTaskForScripts := NewTaskDefinition("", "")
+		if yamlErr := yaml.Unmarshal([]byte(serData), rawTaskForScripts); yamlErr == nil && rawTaskForScripts.FanOut != nil {
+			rawFanOutScripts = rawTaskForScripts.Script
+			rawFanOutBeforeScripts = rawTaskForScripts.BeforeScript
+			rawFanOutAfterScripts = rawTaskForScripts.AfterScript
+		}
+	}
+
 	if jd.UsesTemplate {
 		serData, err = utils.ParseTemplateWithQuerier(serData, data, querier)
 		if err != nil {
@@ -407,8 +425,6 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 				"DataTask":  task.MaskTaskVariables(),
 				"Error":     err,
 			}).Error("failed to parse yaml task")
-			fmt.Printf("%s\n", serData)
-			//debug.PrintStack()
 			return nil, nil, fmt.Errorf("failed to parse task yaml for '%s' task due to %w", taskType, err)
 		}
 	}
@@ -425,8 +441,6 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 			"DataTask":  task.MaskTaskVariables(),
 			"Error":     err,
 		}).Errorf("failed to unmarshal yaml task '%s", taskType)
-		fmt.Printf("%s\n", serData)
-		debug.PrintStack()
 		return nil, nil, fmt.Errorf("failed to parse '%s' of '%s' due to %w", taskType, jd.JobType, err)
 	}
 	_ = task.addVariablesFromNameValueVariables()
@@ -462,6 +476,22 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 	task.AwaitForkedTasks = opts.AwaitForkedTasks
 	task.MessagingRequestQueue = opts.MessagingRequestQueue
 	task.MessagingReplyQueue = opts.MessagingReplyQueue
+	task.SubWorkflow = opts.SubWorkflow
+	// FanOut is set directly from YAML (not via executor_options); copy it back into opts
+	// so that taskReq.ExecutorOpts.FanOut is populated when FanOutTasklet executes.
+	// Also attach raw (un-rendered) scripts so FanOutTasklet can render them per-item.
+	if task.FanOut != nil {
+		if len(rawFanOutScripts) > 0 {
+			task.FanOut.RawScript = rawFanOutScripts
+		}
+		if len(rawFanOutBeforeScripts) > 0 {
+			task.FanOut.RawBeforeScript = rawFanOutBeforeScripts
+		}
+		if len(rawFanOutAfterScripts) > 0 {
+			task.FanOut.RawAfterScript = rawFanOutAfterScripts
+		}
+		opts.FanOut = task.FanOut
+	}
 	return task, opts, nil
 }
 

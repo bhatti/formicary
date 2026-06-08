@@ -5492,6 +5492,41 @@
       },
       "description": "ErrorCode defines a pattern-matched error code that triggers a specific action on task failure.\nError codes can map regex patterns or exit codes to retry/suspend/fail behaviors."
     },
+    "queenFanOutConfig": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "source is the job execution context variable name that holds a JSON array of items."
+        },
+        "item_var": {
+          "type": "string",
+          "description": "item_var is the variable name injected into each child task/job for its specific item value."
+        },
+        "max_parallel": {
+          "type": "integer",
+          "format": "int32",
+          "description": "max_parallel caps how many concurrent children run at a time (0 = unlimited)."
+        },
+        "fail_fast": {
+          "type": "boolean",
+          "description": "fail_fast cancels remaining in-flight children on the first failure."
+        },
+        "execution_method": {
+          "type": "string",
+          "description": "execution_method is the TaskMethod used to dispatch child tasks in task fan-out mode.\nSet automatically from the task definition's method when fan_out is configured."
+        },
+        "fork_job_type": {
+          "type": "string",
+          "description": "fork_job_type switches to job fan-out mode: spawns one child JobRequest per array item\nof this registered job type. Supports sub_workflow input/output mapping.\nMutually exclusive with execution_method (task fan-out mode)."
+        },
+        "fork_job_version": {
+          "type": "string",
+          "description": "fork_job_version is the optional semver of the fork_job_type to use."
+        }
+      },
+      "description": "FanOutConfig configures dynamic fan-out for a single task definition.\n\nTwo modes:\n  - Task fan-out (default): dispatches one TaskRequest per array item to ant workers\n    using the task's original execution method (SHELL, KUBERNETES, etc.).\n  - Job fan-out: when fork_job_type is set, spawns one child JobRequest per array item\n    using the FORK_JOB machinery, with full sub_workflow input/output mapping support.\n\nResults are aggregated back to the parent under keys prefixed `{item_var}_{index}_`."
+    },
     "queenJobDefinition": {
       "type": "object",
       "properties": {
@@ -5939,6 +5974,10 @@
         "hard_restart": {
           "type": "boolean",
           "description": "hard_restart forces all tasks to re-run from scratch on next restart,\nignoring any previously completed task results. Cleared after the job starts executing."
+        },
+        "cascade_cancel": {
+          "type": "boolean",
+          "description": "cascade_cancel marks this child job for automatic cancellation when its parent job is cancelled.\nAlways set to true by the FORK_JOB tasklet — all forked children are cascade-cancelled."
         }
       },
       "description": "JobRequest represents a user's request to execute a job definition."
@@ -6175,6 +6214,46 @@
       },
       "description": "ReviewTaskRequest is used for manual approval of a task."
     },
+    "queenSubWorkflowConfig": {
+      "type": "object",
+      "properties": {
+        "input_params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenSubWorkflowVariable"
+          },
+          "description": "input_params defines which params to pass to the child job request.\nEach entry: name = child param name, value = Go template expression resolved\nagainst the parent's non-secret execution context variables.\nWhen empty no parent variables are forwarded."
+        },
+        "output_variables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenSubWorkflowVariable"
+          },
+          "description": "output_variables defines which child execution-context variables to promote to the parent.\nEach entry: name = child context key, value = parent context key to publish under.\nWhen empty all child context variables are copied verbatim."
+        },
+        "wait_for_completion": {
+          "type": "boolean",
+          "description": "wait_for_completion makes the FORK_JOB task block until the child completes,\ncombining fork + await in a single task step."
+        }
+      },
+      "description": "SubWorkflowConfig configures child workflow composition for FORK_JOB tasks.\nAll forked children are always cascade-cancelled when their parent is cancelled."
+    },
+    "queenSubWorkflowVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "name is the variable name.\nFor input_params: the child job param name.\nFor output_variables: the child execution-context variable name."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the variable value.\nFor input_params: a Go template expression resolved against the parent's non-secret vars.\nFor output_variables: the parent execution-context variable name to publish under."
+        }
+      },
+      "description": "SubWorkflowVariable is a name/value pair used in sub_workflow param and output mappings."
+    },
     "queenSystemConfig": {
       "type": "object",
       "properties": {
@@ -6348,6 +6427,14 @@
         "retry_backoff_policy": {
           "$ref": "#/definitions/queenBackoffPolicy",
           "description": "retry_backoff_policy defines exponential backoff for task retries."
+        },
+        "sub_workflow": {
+          "$ref": "#/definitions/queenSubWorkflowConfig",
+          "description": "sub_workflow configures child workflow composition for FORK_JOB tasks (transient, parsed from YAML)."
+        },
+        "fan_out": {
+          "$ref": "#/definitions/queenFanOutConfig",
+          "description": "fan_out configures dynamic fan-out for this task (transient, parsed from YAML).\nWhen set, the engine expands this task into N parallel child jobs at runtime."
         }
       },
       "description": "TaskDefinition specifies a unit of work within a job DAG."

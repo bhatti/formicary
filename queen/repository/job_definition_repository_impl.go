@@ -562,8 +562,34 @@ func (jdr *JobDefinitionRepositoryImpl) postProcessJob(
 	qc *common.QueryContext,
 	job *types.JobDefinition,
 ) (*types.JobDefinition, error) {
-	// job.UsesTemplate
-	if parsedJob, err := types.ReloadFromYaml(job.RawYaml); err == nil {
+	// ReloadFromYaml re-hydrates transient fields (UsesTemplate, Triggers, fan_out, etc.)
+	// from RawYaml. Only replace the DB-loaded job when parsing produces a non-empty result
+	// (i.e. when the YAML has no unresolved template variables like {{.region}} that cause
+	// ParseTemplate to emit "<no value>" and skip yaml.Unmarshal). If the YAML has template
+	// expressions that can't be evaluated here, the DB-loaded job already contains all
+	// persistent fields (Variables, Configs, Tasks) and AfterLoad will hydrate the rest.
+	if parsedJob, err := types.ReloadFromYaml(job.RawYaml); err == nil && len(parsedJob.Tasks) > 0 {
+		// Preserve all DB-resident identity and association fields that YAML parse doesn't produce.
+		parsedJob.ID = job.ID
+		parsedJob.UserID = job.UserID
+		parsedJob.OrganizationID = job.OrganizationID
+		parsedJob.Active = job.Active
+		parsedJob.Disabled = job.Disabled
+		parsedJob.Version = job.Version
+		parsedJob.RawYaml = job.RawYaml
+		parsedJob.CreatedAt = job.CreatedAt
+		parsedJob.UpdatedAt = job.UpdatedAt
+		parsedJob.Variables = job.Variables
+		parsedJob.Configs = job.Configs
+		for i, parsedTask := range parsedJob.Tasks {
+			for _, dbTask := range job.Tasks {
+				if parsedTask.TaskType == dbTask.TaskType {
+					parsedTask.Variables = dbTask.Variables
+					parsedJob.Tasks[i] = parsedTask
+					break
+				}
+			}
+		}
 		job = parsedJob
 	}
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {

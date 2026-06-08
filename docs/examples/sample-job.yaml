@@ -46,10 +46,14 @@ tasks:
 - task_type: fork
   method: FORK_JOB
   fork_job_type: video-encoding
-  variables:
-    URL: http://blah
-    InputEncoding: {{.InputEncoding}}
-    OutputEncoding: {{.OutputEncoding}}
+  sub_workflow:
+    input_params:
+      - name: URL
+        value: "http://blah"
+      - name: InputEncoding
+        value: "{{.InputEncoding}}"
+      - name: OutputEncoding
+        value: "{{.OutputEncoding}}"
   on_completed: post
 - task_type: post
   method: HTTP_POST_JSON

@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Sub-Workflow Composition Example — Child ETL workflow
+# ======================================================
+# This is the child workflow invoked by sub-workflow-etl.yaml.
+# Register this first before submitting the parent job.
+#
+job_type: io.formicary.examples.child-etl
+sem_version: "1.0"
+description: "Child ETL workflow — processes a single table batch"
+tasks:
+  - task_type: extract
+    method: SHELL
+    script:
+      - echo "Extracting from table={{ .source_table }} batch_size={{ .batch_size }}"
+    on_completed: transform
+
+  - task_type: transform
+    method: SHELL
+    script:
+      - echo "Transforming data..."
+      - echo "row_count=12345"
+      - echo "status=success"
+    on_completed: load
+
+  - task_type: load
+    method: SHELL
+    script:
+      - echo "Loading complete"

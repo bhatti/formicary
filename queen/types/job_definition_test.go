@@ -1165,3 +1165,104 @@ tasks:
 	// PENDING_COUNT should have been rendered (CountByJobTypeAndState returns 0 with no querier)
 	require.Contains(t, opts.Environment["PENDING_COUNT"], "0")
 }
+
+// Test that sub_workflow block parses correctly from YAML.
+// Template expressions in input_variables values ({{ .x }}) are stripped during YAML
+// parsing (NewJobDefinitionFromYaml resolves templates before unmarshalling), so
+// we verify structural fields: output_variables values and wait_for_completion.
+func Test_ShouldParseSubWorkflowFromYAML(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/sub_workflow_job.yaml")
+	require.NoError(t, err)
+
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+
+	task := job.GetTask("run-child-etl")
+	require.NotNil(t, task, "run-child-etl task must exist")
+	require.NotNil(t, task.SubWorkflow, "sub_workflow must be parsed")
+
+	// output_variables use plain string values and survive parsing intact.
+	om, err := task.SubWorkflow.OutputMap()
+	require.NoError(t, err)
+	require.Equal(t, "etl_row_count", om["row_count"])
+	require.Equal(t, "child_status", om["status"])
+	require.True(t, task.SubWorkflow.WaitForCompletion)
+}
+
+// Test that fan_out config is parsed and validated from YAML.
+func Test_ShouldParseFanOutFromYAML(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/fan_out_job.yaml")
+	require.NoError(t, err)
+
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+
+	task := job.GetTask("deploy")
+	require.NotNil(t, task, "deploy task must exist")
+	require.NotNil(t, task.FanOut, "fan_out must be parsed")
+	require.Equal(t, "regions", task.FanOut.Source)
+	require.Equal(t, "region", task.FanOut.ItemVar)
+	require.Equal(t, 2, task.FanOut.MaxParallel)
+	require.False(t, task.FanOut.FailFast)
+}
+
+// Test that fan_out round-trips through JSON serialisation.
+func Test_ShouldRoundTripFanOutViaJSON(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/fan_out_job.yaml")
+	require.NoError(t, err)
+
+	original, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+
+	raw, err := json.Marshal(original)
+	require.NoError(t, err)
+
+	var roundTripped JobDefinition
+	err = json.Unmarshal(raw, &roundTripped)
+	require.NoError(t, err)
+
+	var deployTask *TaskDefinition
+	for _, task := range roundTripped.Tasks {
+		if task.TaskType == "deploy" {
+			deployTask = task
+			break
+		}
+	}
+	require.NotNil(t, deployTask, "deploy task must survive JSON roundtrip")
+	require.NotNil(t, deployTask.FanOut, "fan_out must survive JSON roundtrip")
+	require.Equal(t, "regions", deployTask.FanOut.Source)
+	require.Equal(t, "region", deployTask.FanOut.ItemVar)
+	require.Equal(t, 2, deployTask.FanOut.MaxParallel)
+}
+
+// Test that sub_workflow round-trips through JSON serialisation.
+func Test_ShouldRoundTripSubWorkflowViaJSON(t *testing.T) {
+	b, err := ioutil.ReadFile("../../fixtures/sub_workflow_job.yaml")
+	require.NoError(t, err)
+	original, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+
+	raw, err := json.Marshal(original)
+	require.NoError(t, err)
+
+	var roundTripped JobDefinition
+	err = json.Unmarshal(raw, &roundTripped)
+	require.NoError(t, err)
+
+	// After JSON roundtrip, GetTask requires the task lookup map to be initialised.
+	// Use GetTask only after unmarshalling via the proper constructor path, or
+	// iterate tasks directly.
+	var forkTask *TaskDefinition
+	for _, task := range roundTripped.Tasks {
+		if task.TaskType == "run-child-etl" {
+			forkTask = task
+			break
+		}
+	}
+	require.NotNil(t, forkTask, "run-child-etl task must survive JSON roundtrip")
+	require.NotNil(t, forkTask.SubWorkflow, "sub_workflow must survive JSON roundtrip")
+	om, err := forkTask.SubWorkflow.OutputMap()
+	require.NoError(t, err)
+	require.Equal(t, "etl_row_count", om["row_count"])
+	require.True(t, forkTask.SubWorkflow.WaitForCompletion)
+}

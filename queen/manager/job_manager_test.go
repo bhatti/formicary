@@ -249,3 +249,123 @@ func Test_ShouldRestartWithSpecificDefinitionID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, v0ID, reloaded.GetJobDefinitionID())
 }
+
+// Cancelling a parent must cascade to its active child (cascade_cancel=true).
+func Test_ShouldCancelJobCascadesToActiveChild(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	// Save a job definition to anchor both parent and child.
+	jobDef := repository.NewTestJobDefinition(qc.User, "cascade-parent-"+ulid.Make().String())
+	savedDef, err := jobManager.SaveJobDefinition(qc, jobDef)
+	require.NoError(t, err)
+
+	// Create parent request.
+	parentReq, err := types.NewJobRequestFromDefinition(savedDef)
+	require.NoError(t, err)
+	parentReq.UserKey = ulid.Make().String()
+	savedParent, err := jobRequestRepo.Save(qc, parentReq)
+	require.NoError(t, err)
+
+	// Create child request with CascadeCancel=true and ParentID set.
+	childDef := repository.NewTestJobDefinition(qc.User, "cascade-child-"+ulid.Make().String())
+	savedChildDef, err := jobManager.SaveJobDefinition(qc, childDef)
+	require.NoError(t, err)
+	childReq, err := types.NewJobRequestFromDefinition(savedChildDef)
+	require.NoError(t, err)
+	childReq.UserKey = ulid.Make().String()
+	childReq.ParentID = savedParent.ID
+	childReq.CascadeCancel = true
+	savedChild, err := jobRequestRepo.Save(qc, childReq)
+	require.NoError(t, err)
+	require.Equal(t, common.PENDING, savedChild.JobState)
+
+	// WHEN: parent is cancelled
+	err = jobManager.CancelJobRequest(qc, savedParent.ID)
+	require.NoError(t, err)
+
+	// THEN: child must also be cancelled (BFS cascade runs synchronously in goroutine;
+	// poll briefly until the state propagates).
+	var childState common.RequestState
+	for i := 0; i < 20; i++ {
+		updated, getErr := jobRequestRepo.Get(qc, savedChild.ID)
+		require.NoError(t, getErr)
+		childState = updated.JobState
+		if childState == common.CANCELLED {
+			break
+		}
+		// tiny yield — the goroutine needs to run
+		require.Eventually(t, func() bool {
+			updated2, _ := jobRequestRepo.Get(qc, savedChild.ID)
+			return updated2 != nil && updated2.JobState == common.CANCELLED
+		}, 2e9, 50e6, "child job must be cascade-cancelled within 2s")
+		break
+	}
+}
+
+// Child without cascade_cancel=true must NOT be cancelled when parent is cancelled.
+func Test_ShouldCancelJobSkipsChildWithoutCascadeFlag(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	jobDef := repository.NewTestJobDefinition(qc.User, "no-cascade-parent-"+ulid.Make().String())
+	savedDef, err := jobManager.SaveJobDefinition(qc, jobDef)
+	require.NoError(t, err)
+
+	parentReq, err := types.NewJobRequestFromDefinition(savedDef)
+	require.NoError(t, err)
+	parentReq.UserKey = ulid.Make().String()
+	savedParent, err := jobRequestRepo.Save(qc, parentReq)
+	require.NoError(t, err)
+
+	childDef := repository.NewTestJobDefinition(qc.User, "no-cascade-child-"+ulid.Make().String())
+	savedChildDef, err := jobManager.SaveJobDefinition(qc, childDef)
+	require.NoError(t, err)
+	childReq, err := types.NewJobRequestFromDefinition(savedChildDef)
+	require.NoError(t, err)
+	childReq.UserKey = ulid.Make().String()
+	childReq.ParentID = savedParent.ID
+	childReq.CascadeCancel = false // explicitly no cascade
+	savedChild, err := jobRequestRepo.Save(qc, childReq)
+	require.NoError(t, err)
+
+	// WHEN: parent is cancelled
+	err = jobManager.CancelJobRequest(qc, savedParent.ID)
+	require.NoError(t, err)
+
+	// THEN: child should remain PENDING (not cascaded)
+	updated, err := jobRequestRepo.Get(qc, savedChild.ID)
+	require.NoError(t, err)
+	require.Equal(t, common.PENDING, updated.JobState, "child without cascade_cancel=true must not be cancelled")
+}
+
+// CancelJobRequest on a parent with no children must not error.
+func Test_ShouldCancelJobNoErrorWhenNoChildren(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	jobManager, jobRequestRepo, err := newTestJobManager(serverCfg)
+	require.NoError(t, err)
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	jobDef := repository.NewTestJobDefinition(qc.User, "no-children-"+ulid.Make().String())
+	savedDef, err := jobManager.SaveJobDefinition(qc, jobDef)
+	require.NoError(t, err)
+
+	req, err := types.NewJobRequestFromDefinition(savedDef)
+	require.NoError(t, err)
+	req.UserKey = ulid.Make().String()
+	saved, err := jobRequestRepo.Save(qc, req)
+	require.NoError(t, err)
+
+	// WHEN: parent with no forked children is cancelled
+	err = jobManager.CancelJobRequest(qc, saved.ID)
+
+	// THEN: no error
+	require.NoError(t, err)
+}

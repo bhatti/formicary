@@ -1185,3 +1185,119 @@ func Test_ShouldCountByJobTypeAndState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), count)
 }
+
+// FindActiveChildRequests should return only non-terminal children with cascade_cancel=true
+func Test_ShouldFindActiveChildRequestsWithCascadeCancel(t *testing.T) {
+	// GIVEN a job-request repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "test-child-cascade-job", "")
+	require.NoError(t, err)
+
+	parentID := "parent-" + ulid.Make().String()
+
+	// Create a child with cascade_cancel=true in PENDING state
+	child, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	child.UserID = qc.User.ID
+	child.OrganizationID = qc.User.OrganizationID
+	child.ParentID = parentID
+	child.CascadeCancel = true
+	_, err = repo.Save(qc, child)
+	require.NoError(t, err)
+
+	// WHEN querying active children
+	children, err := repo.FindActiveChildRequests(parentID)
+	require.NoError(t, err)
+
+	// THEN the pending child should be returned
+	require.Len(t, children, 1)
+	require.Equal(t, child.ID, children[0].ID)
+}
+
+// FindActiveChildRequests should NOT return children with cascade_cancel=false
+func Test_ShouldNotFindChildWithoutCascadeCancel(t *testing.T) {
+	// GIVEN a job-request repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "test-no-cascade-job", "")
+	require.NoError(t, err)
+
+	parentID := "parent-" + ulid.Make().String()
+
+	// Create a child with cascade_cancel=false
+	child, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	child.UserID = qc.User.ID
+	child.OrganizationID = qc.User.OrganizationID
+	child.ParentID = parentID
+	child.CascadeCancel = false
+	_, err = repo.Save(qc, child)
+	require.NoError(t, err)
+
+	// WHEN querying active children
+	children, err := repo.FindActiveChildRequests(parentID)
+	require.NoError(t, err)
+
+	// THEN no children should be returned
+	require.Len(t, children, 0)
+}
+
+// FindActiveChildRequests should NOT return children in terminal states
+func Test_ShouldExcludeTerminalChildRequests(t *testing.T) {
+	// GIVEN a job-request repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "test-terminal-child-job", "")
+	require.NoError(t, err)
+
+	parentID := "parent-" + ulid.Make().String()
+
+	// Create a child with cascade_cancel=true, then cancel it
+	child, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	child.UserID = qc.User.ID
+	child.OrganizationID = qc.User.OrganizationID
+	child.ParentID = parentID
+	child.CascadeCancel = true
+	_, err = repo.Save(qc, child)
+	require.NoError(t, err)
+	err = repo.Cancel(qc, child.ID)
+	require.NoError(t, err)
+
+	// WHEN querying active children
+	children, err := repo.FindActiveChildRequests(parentID)
+	require.NoError(t, err)
+
+	// THEN cancelled child should NOT be returned
+	require.Len(t, children, 0)
+}
+
+// FindActiveChildRequests should return empty for non-existent parent
+func Test_ShouldReturnEmptyForNonExistentParent(t *testing.T) {
+	// GIVEN a job-request repository
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+
+	// WHEN querying children for a parent that doesn't exist
+	children, err := repo.FindActiveChildRequests("nonexistent-parent")
+	require.NoError(t, err)
+
+	// THEN empty slice returned
+	require.Len(t, children, 0)
+}
+
+// FindActiveChildRequests should error on empty parentID
+func Test_ShouldErrorOnEmptyParentID(t *testing.T) {
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+
+	_, err = repo.FindActiveChildRequests("")
+	require.Error(t, err)
+}

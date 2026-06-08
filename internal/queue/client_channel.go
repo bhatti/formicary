@@ -336,6 +336,14 @@ func (c *ClientChannel) SendReceive(ctx context.Context, req *SendReceiveRequest
 				msg.CoRelationID(), correlationID)
 
 			if msg.CoRelationID() == correlationID {
+				// Guard against send-on-closed-channel panic: the defer in SendReceive closes
+				// responseChan on timeout, but the subscriber callback may still fire briefly
+				// after that (late response from a slow worker). Recover and nack to discard.
+				defer func() {
+					if r := recover(); r != nil {
+						nack()
+					}
+				}()
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -381,9 +389,7 @@ func (c *ClientChannel) SendReceive(ctx context.Context, req *SendReceiveRequest
 
 	// Wait for response with timeout
 	timeoutCtx, cancel := createTimeoutContext(ctx, req.Timeout)
-	if false {
-		defer cancel()
-	}
+	defer cancel()
 
 	select {
 	case msg := <-responseChan:

@@ -774,7 +774,116 @@ func (jm *JobManager) CancelJobRequest(
 		"UserKey":      req.UserKey,
 	}).Infof("canceled request")
 	_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestCancelled, qc))
+
+	// Cascade cancellation to any active child jobs that were forked with cascade_cancel=true.
+	// Runs asynchronously to avoid blocking the parent cancel call.
+	go jm.cascadeCancelToChildren(id)
 	return nil
+}
+
+// cascadeCancelBFSMaxDepth caps how many generations deep cascade cancel will traverse to
+// prevent unbounded work when job graphs are unexpectedly deep.
+const cascadeCancelBFSMaxDepth = 20
+
+// cascadeCancelToChildren uses BFS with a visited set to cancel all active descendant jobs
+// that have cascade_cancel=true without spawning recursive goroutines or risking cycles.
+func (jm *JobManager) cascadeCancelToChildren(rootParentID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobManager",
+				"ParentID":  rootParentID,
+				"Panic":     r,
+			}).Errorf("cascade cancel: recovered from panic")
+		}
+	}()
+
+	type workItem struct {
+		parentID string
+		depth    int
+	}
+
+	visited := make(map[string]struct{})
+	queue := []workItem{{parentID: rootParentID, depth: 0}}
+
+	for len(queue) > 0 {
+		item := queue[0]
+		queue = queue[1:]
+
+		if item.depth >= cascadeCancelBFSMaxDepth {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobManager",
+				"ParentID":  item.parentID,
+				"Depth":     item.depth,
+			}).Warnf("cascade cancel: max depth %d reached, stopping traversal", cascadeCancelBFSMaxDepth)
+			continue
+		}
+
+		children, err := jm.jobRequestRepository.FindActiveChildRequests(item.parentID)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobManager",
+				"ParentID":  item.parentID,
+				"Error":     err,
+			}).Warnf("cascade cancel: failed to find child jobs")
+			continue
+		}
+
+		if len(children) == 0 {
+			continue
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"Component":     "JobManager",
+			"ParentID":      item.parentID,
+			"ChildrenCount": len(children),
+			"Depth":         item.depth,
+		}).Infof("cascade cancel: cancelling child jobs")
+
+		for _, child := range children {
+			if _, seen := visited[child.ID]; seen {
+				continue
+			}
+			visited[child.ID] = struct{}{}
+
+			childQC := common.NewQueryContextFromIDs(child.UserID, child.OrganizationID)
+			// Cancel directly via repository to avoid triggering another goroutine
+			// cascade — the BFS loop below handles all descendants.
+			var cancelErr error
+			if child.JobState == common.PENDING || child.JobState == common.PAUSED ||
+				child.JobState == common.MANUAL_APPROVAL_REQUIRED {
+				cancelErr = jm.jobRequestRepository.Cancel(childQC, child.ID)
+				if cancelErr == nil {
+					child.JobState = common.CANCELLED
+					_ = jm.fireJobRequestChange(child)
+				}
+			} else {
+				cancelErr = jm.cancelJob(childQC, child)
+			}
+
+			if cancelErr != nil {
+				logrus.WithFields(logrus.Fields{
+					"Component": "JobManager",
+					"ParentID":  item.parentID,
+					"ChildID":   child.ID,
+					"JobType":   child.JobType,
+					"Error":     cancelErr,
+				}).Warnf("cascade cancel: failed to cancel child job")
+			} else {
+				logrus.WithFields(logrus.Fields{
+					"Component": "JobManager",
+					"ParentID":  item.parentID,
+					"ChildID":   child.ID,
+					"JobType":   child.JobType,
+					"Depth":     item.depth,
+				}).Infof("cascade cancel: child job cancelled")
+			}
+			// Always enqueue grandchildren regardless of whether this cancel succeeded.
+			// If cancel failed, the child may still be running and its own descendants
+			// must still be cancelled when/if it completes.
+			queue = append(queue, workItem{parentID: child.ID, depth: item.depth + 1})
+		}
+	}
 }
 
 // ReviewTaskRequestForManualApproval approves/rejects a manually paused job - scheduler will resume it

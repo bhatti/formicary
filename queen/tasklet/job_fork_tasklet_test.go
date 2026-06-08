@@ -2,6 +2,9 @@ package tasklet
 
 import (
 	"context"
+	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/metrics"
@@ -11,7 +14,6 @@ import (
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
-	"testing"
 )
 
 func Test_ShouldTerminateForkTasklet(t *testing.T) {
@@ -104,4 +106,207 @@ func newTestForkTasklet(jobManager *manager.JobManager) *JobForkTasklet {
 		"requestTopic",
 	)
 	return tasklet
+}
+
+func Test_ShouldForkWithInputMapResolvesTemplates(t *testing.T) {
+	// GIVEN a fork tasklet and a saved job definition
+	jobManager := manager.AssertTestJobManager(nil, t)
+	forkTasklet := newTestForkTasklet(jobManager)
+	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
+	user.ID = "555"
+	qc := common.NewQueryContext(user, "")
+	job := repository.NewTestJobDefinition(user, "my-job")
+	_, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	req := &common.TaskRequest{
+		JobType:         "parent-job",
+		TaskType:        "fork-task",
+		JobRequestID:    "parent-101",
+		JobExecutionID:  "parent-201",
+		TaskExecutionID: "parent-301",
+		UserID:          user.ID,
+		OrganizationID:  user.OrganizationID,
+		Action:          common.EXECUTE,
+		ExecutorOpts:    common.NewExecutorOptions("name", common.ForkJob),
+		Variables:       map[string]common.VariableValue{},
+	}
+	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.SubWorkflow = &common.SubWorkflowConfig{
+		InputParams: []common.SubWorkflowVariable{
+			{Name: "child_param", Value: "{{ .parent_value }}"},
+		},
+	}
+	req.Variables["parent_value"] = common.NewVariableValue("resolved-value", false)
+
+	// WHEN executing with sub_workflow.input_variables
+	res, err := forkTasklet.Execute(context.Background(), req)
+
+	// THEN it should succeed
+	require.NoError(t, err)
+	require.Equal(t, common.COMPLETED, res.Status)
+	require.NotEmpty(t, res.TaskContext["fork-task"+forkedJobIDSuffix])
+}
+
+func Test_ShouldForkWithInputMapErrorOnBadTemplate(t *testing.T) {
+	// GIVEN a fork tasklet
+	jobManager := manager.AssertTestJobManager(nil, t)
+	forkTasklet := newTestForkTasklet(jobManager)
+	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
+	user.ID = "555"
+	qc := common.NewQueryContext(user, "")
+	job := repository.NewTestJobDefinition(user, "my-job")
+	_, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	req := &common.TaskRequest{
+		JobType:         "parent-job",
+		TaskType:        "fork-task",
+		JobRequestID:    "parent-102",
+		JobExecutionID:  "parent-202",
+		TaskExecutionID: "parent-302",
+		UserID:          user.ID,
+		OrganizationID:  user.OrganizationID,
+		Action:          common.EXECUTE,
+		ExecutorOpts:    common.NewExecutorOptions("name", common.ForkJob),
+		Variables:       map[string]common.VariableValue{},
+	}
+	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.SubWorkflow = &common.SubWorkflowConfig{
+		InputParams: []common.SubWorkflowVariable{
+			{Name: "child_param", Value: "{{ .unclosed_template"},
+		},
+	}
+
+	// WHEN executing with invalid template expression
+	res, err := forkTasklet.Execute(context.Background(), req)
+
+	// THEN it should return FAILED response
+	require.NoError(t, err)
+	require.Equal(t, common.FAILED, res.Status)
+	require.Contains(t, res.ErrorMessage, "input_params")
+}
+
+func Test_ShouldForkSetsAlwaysCascadeCancel(t *testing.T) {
+	// GIVEN a fork tasklet with a sub_workflow definition
+	jobManager := manager.AssertTestJobManager(nil, t)
+	forkTasklet := newTestForkTasklet(jobManager)
+	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
+	user.ID = "777"
+	qc := common.NewQueryContext(user, "")
+	job := repository.NewTestJobDefinition(user, "my-job")
+	_, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	req := &common.TaskRequest{
+		JobType:         "parent-job",
+		TaskType:        "fork-task",
+		JobRequestID:    "parent-103",
+		JobExecutionID:  "parent-203",
+		TaskExecutionID: "parent-303",
+		UserID:          user.ID,
+		OrganizationID:  user.OrganizationID,
+		Action:          common.EXECUTE,
+		ExecutorOpts:    common.NewExecutorOptions("name", common.ForkJob),
+		Variables:       map[string]common.VariableValue{},
+	}
+	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.SubWorkflow = &common.SubWorkflowConfig{}
+
+	// WHEN executing a FORK_JOB with sub_workflow
+	res, err := forkTasklet.Execute(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, common.COMPLETED, res.Status)
+
+	// THEN the child request must always have cascade_cancel=true
+	childID := res.TaskContext["fork-task"+forkedJobIDSuffix].(string)
+	childReq, err := jobManager.GetJobRequest(qc, childID)
+	require.NoError(t, err)
+	require.True(t, childReq.CascadeCancel, "cascade_cancel must always be true for forked children")
+}
+
+func Test_ShouldForkWithNoInputMapForwardsNothing(t *testing.T) {
+	// GIVEN a fork tasklet with sub_workflow but no input_map
+	jobManager := manager.AssertTestJobManager(nil, t)
+	forkTasklet := newTestForkTasklet(jobManager)
+	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
+	user.ID = "888"
+	qc := common.NewQueryContext(user, "")
+	job := repository.NewTestJobDefinition(user, "my-job")
+	_, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	req := &common.TaskRequest{
+		JobType:         "parent-job",
+		TaskType:        "fork-task",
+		JobRequestID:    "parent-104",
+		JobExecutionID:  "parent-204",
+		TaskExecutionID: "parent-304",
+		UserID:          user.ID,
+		OrganizationID:  user.OrganizationID,
+		Action:          common.EXECUTE,
+		ExecutorOpts:    common.NewExecutorOptions("name", common.ForkJob),
+		Variables:       map[string]common.VariableValue{},
+	}
+	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.SubWorkflow = &common.SubWorkflowConfig{} // no input_variables
+	req.Variables["sensitive_key"] = common.NewVariableValue("should-not-forward", false)
+
+	// WHEN executing without input_variables
+	res, err := forkTasklet.Execute(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, common.COMPLETED, res.Status)
+
+	// THEN the child request should have no params from the parent (only ForkedJob marker)
+	childID := res.TaskContext["fork-task"+forkedJobIDSuffix].(string)
+	childReq, err := jobManager.GetJobRequest(qc, childID)
+	require.NoError(t, err)
+	require.Nil(t, childReq.GetParam("sensitive_key"), "parent variable must not be forwarded when input_variables is absent")
+}
+
+func Test_ShouldForkSecretNotAccessibleViaInputMap(t *testing.T) {
+	// GIVEN a fork tasklet with input_variables that references a secret variable
+	jobManager := manager.AssertTestJobManager(nil, t)
+	forkTasklet := newTestForkTasklet(jobManager)
+	user := common.NewUser("", "user@formicary.io", "name", "", acl.NewRoles(""))
+	user.ID = "999"
+	qc := common.NewQueryContext(user, "")
+	job := repository.NewTestJobDefinition(user, "my-job")
+	_, err := jobManager.SaveJobDefinition(qc, job)
+	require.NoError(t, err)
+
+	req := &common.TaskRequest{
+		JobType:         "parent-job",
+		TaskType:        "fork-task",
+		JobRequestID:    "parent-105",
+		JobExecutionID:  "parent-205",
+		TaskExecutionID: "parent-305",
+		UserID:          user.ID,
+		OrganizationID:  user.OrganizationID,
+		Action:          common.EXECUTE,
+		ExecutorOpts:    common.NewExecutorOptions("name", common.ForkJob),
+		Variables:       map[string]common.VariableValue{},
+	}
+	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.SubWorkflow = &common.SubWorkflowConfig{
+		InputParams: []common.SubWorkflowVariable{
+			{Name: "child_token", Value: "{{ .api_token }}"},
+		},
+	}
+	// Mark api_token as secret — it must NOT be accessible via template
+	req.Variables["api_token"] = common.NewVariableValue("super-secret", true)
+
+	// WHEN executing with input_variables that references a secret
+	res, err := forkTasklet.Execute(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, common.COMPLETED, res.Status)
+
+	// THEN child_token should not contain the secret value (template resolved against masked vars)
+	childID := res.TaskContext["fork-task"+forkedJobIDSuffix].(string)
+	childReq, err := jobManager.GetJobRequest(qc, childID)
+	require.NoError(t, err)
+	p := childReq.GetParam("child_token")
+	if p != nil {
+		require.NotEqual(t, "super-secret", fmt.Sprintf("%v", p.Value), "secret must not be accessible via input_variables template")
+	}
 }

@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Example: Task fan-out — deploy to multiple regions in parallel.
+#
+# In task fan-out mode (no fork_job_type), one TaskRequest is dispatched per array
+# item directly to an ant worker. Children share the parent JobExecutionID and
+# are invisible as separate job records. Results appear in the parent context
+# under keys: {item_var}_{index}_{original_key}.
+#
+# The source array must live in the job execution context. Two ways to provide it:
+#   1. job_variables (static list, available to all tasks from the start)
+#   2. ::set-output name=key::value from a setup script (dynamic list)
+# Task-level variables: only apply within that task and do NOT propagate.
+#
+# Usage:
+#   curl -X POST http://localhost:7777/api/jobs/definitions \
+#     -H 'Content-Type: application/yaml' \
+#     --data-binary @docs/examples/fan-out-task-regions.yaml
+#
+# Submit a request:
+#   curl -X POST http://localhost:7777/api/jobs/requests \
+#     -H 'Content-Type: application/json' \
+#     -d '{"job_type":"fan-out-task-regions"}'
+#
+# Override regions at request time:
+#   curl -X POST http://localhost:7777/api/jobs/requests \
+#     -H 'Content-Type: application/json' \
+#     -d '{"job_type":"fan-out-task-regions","params":{"regions":"[\"us-east-1\",\"eu-west-1\"]"}}'
+#
+# See: docs/14-advanced-workflows.md#dynamic-task-fan-out
+
+job_type: fan-out-task-regions
+description: Deploy to multiple regions using task fan-out (direct TaskRequest dispatch)
+
+# job_variables are available to ALL tasks in the job execution context.
+# They can be overridden at submission time via job request params.
+job_variables:
+  regions: '["us-east-1","us-west-2","eu-west-1"]'
+
+tasks:
+  - task_type: setup
+    method: SHELL
+    description: Verify the region list is available and echo it for the log
+    script:
+      - echo "Deploying to regions"
+    on_completed: deploy
+
+  - task_type: deploy
+    method: SHELL
+    description: Deploy to one region — fan_out expands this per item in the regions array
+    fan_out:
+      source: regions       # job_variables key — JSON array
+      item_var: region      # variable name injected per child task
+      max_parallel: 2       # at most 2 children run at a time
+      fail_fast: false      # collect all results even if one region fails
+    script:
+      - echo "Deploying to region {{.region}}"
+    on_completed: report
+
+  - task_type: report
+    method: SHELL
+    description: Summarise per-region results from the fan-out context
+    script:
+      - echo "All deployments done"
+      - echo "  total={{.FanOutItemCount}} mode={{.FanOutMode}}"
+      - echo "  region_0_status={{.region_0_status}}"
+      - echo "  region_1_status={{.region_1_status}}"
+      - echo "  region_2_status={{.region_2_status}}"

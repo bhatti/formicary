@@ -35,18 +35,26 @@ tasks:
 - task_type: fork-encode1
   method: FORK_JOB
   fork_job_type: video-encoding
-  variables:
-    URL: {{.split_ArtifactURL_1}}
-    InputEncoding: {{.InputEncoding}}
-    OutputEncoding: {{.OutputEncoding}}
+  sub_workflow:
+    input_params:
+      - name: URL
+        value: "{{.split_ArtifactURL_1}}"
+      - name: InputEncoding
+        value: "{{.InputEncoding}}"
+      - name: OutputEncoding
+        value: "{{.OutputEncoding}}"
   on_completed: fork-encode2
 - task_type: fork-encode2
   method: FORK_JOB
   fork_job_type: video-encoding
-  variables:
-    URL: {{.split_ArtifactURL_2}}
-    InputEncoding: {{.InputEncoding}}
-    OutputEncoding: {{.OutputEncoding}}
+  sub_workflow:
+    input_params:
+      - name: URL
+        value: "{{.split_ArtifactURL_2}}"
+      - name: InputEncoding
+        value: "{{.InputEncoding}}"
+      - name: OutputEncoding
+        value: "{{.OutputEncoding}}"
   on_completed: fork-await
 - task_type: fork-await
   method: AWAIT_FORKED_JOB
