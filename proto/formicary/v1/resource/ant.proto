@@ -3,8 +3,8 @@ syntax = "proto3";
 
 package formicary.v1.resource;
 
-import "google/protobuf/timestamp.proto";
 import "formicary/v1/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/resource;resource";
 

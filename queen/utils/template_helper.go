@@ -301,6 +301,27 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 			}
 			return strings.Join(ids, "\n")
 		},
+		// Percent100 returns the integer percentage of received out of required,
+		// capped at 100, for use in progress bars.
+		"Percent100": func(received, required int) int {
+			if required <= 0 {
+				return 100
+			}
+			p := received * 100 / required
+			if p > 100 {
+				return 100
+			}
+			return p
+		},
+		// FormatTime formats a time.Time for display; returns "—" for zero values.
+		"FormatTime": func(t time.Time) string {
+			if t.IsZero() {
+				return "—"
+			}
+			return t.Format("2006-01-02 15:04:05")
+		},
+		// urlquery percent-encodes a string for safe inclusion in URL query parameters.
+		"urlquery": url.QueryEscape,
 	}
 }
 

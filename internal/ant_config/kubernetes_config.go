@@ -512,18 +512,29 @@ func (kc *KubernetesConfig) GetKubeConfigForCluster() (*rest.Config, error) {
 		return nil, fmt.Errorf("error loading kubeconfig from %s: %w", kubeconfigPath, err)
 	}
 
-	// If no cluster name is specified, use the current context's cluster
+	// If no cluster name is specified, derive it from the current context.
+	// When CurrentContext is empty (e.g. Docker Desktop with Kubernetes disabled),
+	// fall back to the single cluster in the file, then to in-cluster config.
 	if clusterName == "" {
-		if config.CurrentContext == "" {
-			return nil, fmt.Errorf("no current context found in kubeconfig and no cluster name specified")
+		if config.CurrentContext != "" {
+			ctx, exists := config.Contexts[config.CurrentContext]
+			if !exists {
+				return nil, fmt.Errorf("current context %q not found in kubeconfig", config.CurrentContext)
+			}
+			clusterName = ctx.Cluster
+		} else if len(config.Clusters) == 1 {
+			// Exactly one cluster defined — use it even without a current context.
+			for name := range config.Clusters {
+				clusterName = name
+			}
+		} else {
+			// No current context and multiple (or zero) clusters — try in-cluster last.
+			if inCluster, err := rest.InClusterConfig(); err == nil {
+				return inCluster, nil
+			}
+			return nil, fmt.Errorf("no current context in kubeconfig %q and no cluster_name configured — "+
+				"run: kubectl config use-context <name>  or set kubernetes.cluster_name in the ant config", kubeconfigPath)
 		}
-
-		context, exists := config.Contexts[config.CurrentContext]
-		if !exists {
-			return nil, fmt.Errorf("current context %s not found in kubeconfig", config.CurrentContext)
-		}
-
-		clusterName = context.Cluster
 	}
 
 	// Check if the specified cluster exists

@@ -444,11 +444,6 @@ func (te *TaskExecution) CanCancel() bool { return canCancel(te.TaskState) }
 // CanApprove returns true if the task requires manual approval.
 func (te *TaskExecution) CanApprove() bool { return canApprove(te.TaskState) }
 
-// IsManuallyApproved returns true if the task has been manually reviewed.
-func (te *TaskExecution) IsManuallyApproved() bool {
-	return te.ManualReviewedBy != "" && te.ManualReviewedAt != nil
-}
-
 // Completed returns true if the task completed successfully.
 func (te *TaskExecution) Completed() bool { return te.TaskState == "COMPLETED" }
 

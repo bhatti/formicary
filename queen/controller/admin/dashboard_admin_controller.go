@@ -219,6 +219,18 @@ func (ctr *DashboardAdminController) dashboard(c web.APIContext) error {
 			res["ResourcesUsage"] = "{}"
 		}
 	}
+	recentActivity, err := ctr.dashboardStats.RecentAuditEvents(qc, 10)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "DashboardAdminController",
+			"Org":       qc,
+			"Error":     err,
+		}).Warnf("failed to get recent audit events")
+		recentActivity = nil
+	}
+	res["RecentActivity"] = recentActivity
+	res["TopFailingJobs"] = ctr.dashboardStats.TopFailingJobs(jobStats, 5)
+
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "dashboard/dashboard", res)
 }

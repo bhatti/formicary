@@ -3,11 +3,11 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/queen/job_definition.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/queen/job_definition.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
@@ -22,11 +22,20 @@ message QueryJobDefinitionsRequest {
 
   int32 page = 1 [
     (buf.validate.field).int32.gte = 0,
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Zero-based page number." example: "0"}
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Zero-based page number."
+      example: "0"
+    }
   ];
   int32 page_size = 2 [
-    (buf.validate.field).int32 = {gte: 1, lte: 500},
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Records per page." example: "25"}
+    (buf.validate.field).int32 = {
+      gte: 1
+      lte: 500
+    },
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Records per page."
+      example: "25"
+    }
   ];
   repeated string order = 3;
   // Filter by job_type substring.
@@ -130,7 +139,10 @@ message EnableJobDefinitionRequest {
 message UpdateConcurrencyRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   int32 concurrency = 2 [
-    (buf.validate.field).int32 = {gte: 1, lte: 1000},
+    (buf.validate.field).int32 = {
+      gte: 1
+      lte: 1000
+    },
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "New max concurrency value (1–1000)."}
   ];
 }
@@ -302,7 +314,10 @@ service JobDefinitionService {
 
   // DisableJobDefinition prevents new job requests from being scheduled for this definition.
   rpc DisableJobDefinition(DisableJobDefinitionRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/definitions/{id}/disable" body: ""};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/definitions/{id}/disable"
+      body: ""
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Disable job definition"
       description: "Disables scheduling of new jobs for this definition. Useful during maintenance."
@@ -316,7 +331,10 @@ service JobDefinitionService {
 
   // EnableJobDefinition re-enables scheduling for a previously disabled job definition.
   rpc EnableJobDefinition(EnableJobDefinitionRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/definitions/{id}/enable" body: ""};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/definitions/{id}/enable"
+      body: ""
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Enable job definition"
       description: "Re-enables scheduling for a disabled job definition."

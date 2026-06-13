@@ -41,6 +41,7 @@ type Locator struct {
 	EmailVerificationRepository EmailVerificationRepository
 	AuditRecordRepository       AuditRecordRepository
 	TriggerStateRepository      TriggerStateRepository
+	DB                          *gorm.DB
 }
 
 // NewLocator creates new repository locator
@@ -277,6 +278,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 
 	f := &Locator{
 		db:                          db,
+		DB:                          db,
 		ArtifactRepository:          artifactRepository,
 		LogEventRepository:          logEventRepository,
 		AuditRecordRepository:       cachedAuditRepository,
@@ -385,6 +387,15 @@ func migrate(db *gorm.DB) error {
 		return err
 	}
 	if err := db.AutoMigrate(&types.TriggerState{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&types.ApprovalPolicy{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&types.ApprovalVote{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&types.ApprovalDeadline{}); err != nil {
 		return err
 	}
 

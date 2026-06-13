@@ -66,7 +66,16 @@ ENV DB_NAME="formicary_db" \
     DB_SSL_MODE="disable" \
     PUBLIC_DIR="/public" \
     CONFIG_FILE="/config/formicary-queen.yaml" \
-    DATA_DIR="/data"
+    DATA_DIR="/data" \
+    # Auth — supply these at runtime via --env or an env_file; never bake secrets into the image
+    COMMON_AUTH_ENABLED="false" \
+    COMMON_AUTH_JWT_SECRET="" \
+    COMMON_AUTH_GOOGLE_CLIENT_ID="" \
+    COMMON_AUTH_GOOGLE_CLIENT_SECRET="" \
+    COMMON_AUTH_GOOGLE_CALLBACK_HOST="localhost" \
+    COMMON_AUTH_GITHUB_CLIENT_ID="" \
+    COMMON_AUTH_GITHUB_CLIENT_SECRET="" \
+    COMMON_AUTH_GITHUB_CALLBACK_HOST="localhost"
 
 WORKDIR /app
 USER formicary-user

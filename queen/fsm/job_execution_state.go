@@ -626,7 +626,7 @@ func (jsm *JobExecutionStateMachine) RequiresManualApproval() (saveError error) 
 	jsm.Request.SetJobState(common.MANUAL_APPROVAL_REQUIRED)
 	jsm.JobExecution.EndedAt = &now
 	jsm.JobExecution.JobState = common.MANUAL_APPROVAL_REQUIRED
-	jsm.JobExecution.ErrorCode = common.ErrorMarshalingFailed
+	jsm.JobExecution.ErrorCode = common.ErrorManualApprovalRequired
 	jsm.JobExecution.EndedAt = &now
 
 	fields := jsm.LogFields("JobExecutionStateMachine", nil)

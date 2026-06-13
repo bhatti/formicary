@@ -3,11 +3,11 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/queen/trigger.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/queen/trigger.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
@@ -34,7 +34,10 @@ message ResetTriggerStateRequest {
     json_schema: {
       title: "ResetTriggerStateRequest"
       description: "Request to reset the runtime state of one trigger."
-      required: ["job_type", "trigger_name"]
+      required: [
+        "job_type",
+        "trigger_name"
+      ]
     }
   };
   string job_type = 1 [
@@ -52,7 +55,10 @@ message FireWebhookTriggerRequest {
     json_schema: {
       title: "FireWebhookTriggerRequest"
       description: "Programmatically fire a webhook trigger. Caller is authenticated via JWT; HTTP auth on the trigger is bypassed."
-      required: ["job_type", "trigger_name"]
+      required: [
+        "job_type",
+        "trigger_name"
+      ]
     }
   };
   string job_type = 1 [
@@ -64,19 +70,13 @@ message FireWebhookTriggerRequest {
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "The trigger name to fire."}
   ];
   // payload is the raw JSON body forwarded to the trigger evaluator.
-  bytes payload = 3 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "JSON payload passed to the trigger evaluator as .Body."}
-  ];
-  map<string, string> headers = 4 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional headers forwarded to the trigger evaluator as .Headers."}
-  ];
+  bytes payload = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "JSON payload passed to the trigger evaluator as .Body."}];
+  map<string, string> headers = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional headers forwarded to the trigger evaluator as .Headers."}];
 }
 
 message FireWebhookTriggerResponse {
   // request_id is the created JobRequest ID; empty string if filtered out or deduped.
-  string request_id = 1 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "JobRequest ID created by this trigger. Empty if filtered or deduped."}
-  ];
+  string request_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "JobRequest ID created by this trigger. Empty if filtered or deduped."}];
 }
 
 // TriggerService inspects trigger runtime state and provides a programmatic
@@ -96,9 +96,7 @@ service TriggerService {
   // ResetTriggerState clears poll markers and rate-limit counters for one trigger,
   // allowing it to reprocess events from the beginning.
   rpc ResetTriggerState(ResetTriggerStateRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      delete: "/api/v1/jobs/definitions/{job_type}/triggers/{trigger_name}/state"
-    };
+    option (google.api.http) = {delete: "/api/v1/jobs/definitions/{job_type}/triggers/{trigger_name}/state"};
   }
 
   // FireWebhookTrigger programmatically fires a webhook trigger. The caller must

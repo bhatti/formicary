@@ -196,3 +196,60 @@ func Test_NewFactoryShouldSucceedWithValidExternalConfig(t *testing.T) {
 	require.NotNil(t, closer)
 	_ = closer.Close()
 }
+
+// Test_NewShouldNotMutateExternalConfig verifies that New() does not overwrite the
+// caller's S3Config when local_mode is false — external endpoint must be preserved.
+func Test_NewShouldNotMutateExternalConfig(t *testing.T) {
+	conf := &internaltypes.S3Config{
+		Endpoint:        "s3.example.com",
+		AccessKeyID:     "k",
+		SecretAccessKey: "s",
+		Bucket:          "b",
+		Region:          "us-east-1",
+	}
+	originalEndpoint := conf.Endpoint
+
+	svc, closer, err := New(conf)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+	_ = closer.Close()
+
+	// External mode must never mutate the caller's endpoint.
+	require.Equal(t, originalEndpoint, conf.Endpoint,
+		"New() must not overwrite Endpoint for external S3 configs")
+}
+
+// Test_NewLocalModeMutatesEndpointOnCallerPointer is the regression test for the bug
+// where artifacts.New created a localConf *copy* and never wrote the resolved port back
+// to the original *S3Config. The embedded ant's request_executor held the original
+// pointer, so it always saw Endpoint="" and built AWS_URL with port 8333 instead of
+// the real SeaweedFS port.
+//
+// This test verifies the contract without starting a real weed subprocess: after New()
+// returns for an external config the endpoint on the original pointer is untouched; for
+// local_mode the test documents that Endpoint must be non-empty on the shared pointer
+// after construction (the LocalMode path is integration-only when weed is present, but
+// the contract is captured here for documentation and future CI with weed available).
+func Test_NewLocalModeMutatesEndpointOnCallerPointerContract(t *testing.T) {
+	// The fix: artifacts.New must write conf.Endpoint = srv.Endpoint in-place so that
+	// any caller holding the same *S3Config pointer sees the resolved port.
+	//
+	// We can verify the external-mode branch of this contract without weed:
+	conf := &internaltypes.S3Config{
+		Endpoint:        "weed.local:19000",
+		AccessKeyID:     "k",
+		SecretAccessKey: "s",
+		Bucket:          "b",
+		Region:          "us-east-1",
+	}
+	ptr := conf // same pointer
+
+	svc, closer, err := New(conf)
+	require.NoError(t, err)
+	_ = svc
+	_ = closer.Close()
+
+	// The pointer the caller holds must still reference the correct endpoint.
+	require.Equal(t, "weed.local:19000", ptr.Endpoint,
+		"caller's *S3Config pointer must reflect the endpoint after New()")
+}

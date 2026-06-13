@@ -102,6 +102,8 @@ func UnmarshalRoles(s string) []*Role {
 				}
 			}
 			res = append(res, NewRole(role, scope...))
+		} else if r := strings.TrimSpace(line); r != "" {
+			res = append(res, NewRole(RoleType(r)))
 		}
 	}
 	return res

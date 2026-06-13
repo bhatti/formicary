@@ -228,7 +228,7 @@
       {{ range .JobStats }}
       <tr>
         <td>
-          <a href="/dashboard/jobs/requests?job_type={{.JobKey.GetJobType}}" class="fw-medium">
+          <a href="/dashboard/jobs/requests?job_type={{urlquery .JobKey.GetJobType}}" class="fw-medium">
             {{.JobKey.GetJobType}}
           </a>
         </td>
@@ -268,6 +268,101 @@
     </table>
   </div>
 </div>
+
+<!-- ── Recent Activity + Top Failing Jobs ────────────────────── -->
+<div class="row row-cards mb-4">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title">Recent Activity</h3>
+        <div class="card-options">
+          <a href="/dashboard/audits" class="btn btn-sm btn-link text-muted">View All</a>
+        </div>
+      </div>
+      <div class="table-responsive" style="max-height:280px;overflow-y:auto">
+        <table class="table table-vcenter table-hover table-sm card-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Kind</th>
+              <th>User</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+          {{ range .RecentActivity }}
+          <tr>
+            <td class="text-muted small text-nowrap">{{.CreatedAt.Format "01-02 15:04"}}</td>
+            <td><span class="badge bg-secondary-lt small">{{.Kind}}</span></td>
+            <td class="small text-nowrap">{{.UserID}}</td>
+            <td class="small text-truncate" style="max-width:220px">{{.Message}}</td>
+          </tr>
+          {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title">Top Failing Jobs</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+          <thead>
+            <tr>
+              <th>Job Type</th>
+              <th>Failed</th>
+              <th>Success Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+          {{ range .TopFailingJobs }}
+          <tr>
+            <td><a href="/dashboard/jobs/requests?job_type={{urlquery .JobKey.GetJobType}}" class="small fw-medium">{{.JobKey.GetJobType}}</a></td>
+            <td><span class="metric-red fw-medium">{{.FailedJobs}}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <div class="flex-fill progress" style="height:4px">
+                  <div class="progress-bar bg-success" style="width:{{.SucceededJobsPercentages}}%"></div>
+                </div>
+                <span class="small">{{.SucceededJobsPercentages}}%</span>
+              </div>
+            </td>
+          </tr>
+          {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ant Workers ────────────────────────────────────────────── -->
+{{ if $.ReadAdmin }}
+{{ if .AntRegistrations }}
+<div class="card mb-4">
+  <div class="card-header">
+    <h3 class="card-title">Ant Workers</h3>
+    <div class="card-options">
+      <a href="/dashboard/ants" class="btn btn-sm btn-link text-muted">View All</a>
+    </div>
+  </div>
+  <div class="card-body py-2">
+    <div class="d-flex flex-wrap gap-2">
+    {{ range .AntRegistrations }}
+      <div class="d-flex align-items-center gap-1 border rounded px-2 py-1 bg-white">
+        <span class="status-indicator status-green status-indicator-animated"></span>
+        <span class="small text-truncate" style="max-width:160px" title="{{.AntID}}">{{.AntID}}</span>
+        <span class="text-muted small">({{.CurrentLoad}}/{{.MaxCapacity}})</span>
+      </div>
+    {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}
+{{ end }}
 
 <script>
 (function() {

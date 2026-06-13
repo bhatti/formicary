@@ -101,11 +101,25 @@
 
           {{ if $.ReadAdmin }}
           <li class="nav-item">
-            <a class="nav-link" href="#admin-submenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="admin-submenu">
+            <a class="nav-link" href="javascript:void(0)">
+              <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
+              <span class="nav-link-title">Reports</span>
+            </a>
+            <ul class="navbar-nav ps-4" id="reports-submenu">
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs/usage_report"><i class="ti ti-activity me-2"></i>Resource Usage Report</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/definitions/stats"><i class="ti ti-trending-up me-2"></i>Realtime Stats</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/requests/stats"><i class="ti ti-database me-2"></i>Historical Stats</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/health"><i class="ti ti-heart-rate-monitor me-2"></i>Health Status</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits"><i class="ti ti-file-text me-2"></i>Audit Logs</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits/job_submissions"><i class="ti ti-report-analytics me-2"></i>Job Submissions</a></li>
+            </ul>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:void(0)">
               <span class="nav-link-icon"><i class="ti ti-shield"></i></span>
               <span class="nav-link-title">Admin</span>
             </a>
-            <ul class="navbar-nav collapse ps-4" id="admin-submenu">
+            <ul class="navbar-nav ps-4" id="admin-submenu">
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/users"><i class="ti ti-user me-2"></i>Users</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs"><i class="ti ti-users me-2"></i>Organizations</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/users/email_verifications"><i class="ti ti-mail me-2"></i>Email Verifications</a></li>
@@ -113,19 +127,6 @@
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/ants"><i class="ti ti-cpu me-2"></i>Ant Workers</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/executors"><i class="ti ti-box me-2"></i>Ant Executors</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/configs"><i class="ti ti-adjustments me-2"></i>Sys Configs</a></li>
-            </ul>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#reports-submenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="reports-submenu">
-              <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
-              <span class="nav-link-title">Reports</span>
-            </a>
-            <ul class="navbar-nav collapse ps-4" id="reports-submenu">
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs/usage_report"><i class="ti ti-activity me-2"></i>Usage Report</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/definitions/stats"><i class="ti ti-trending-up me-2"></i>Realtime Stats</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/requests/stats"><i class="ti ti-database me-2"></i>Historical Stats</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/health"><i class="ti ti-heart-rate-monitor me-2"></i>Health Status</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits"><i class="ti ti-file-text me-2"></i>Audit Logs</a></li>
             </ul>
           </li>
           {{ end }}
@@ -143,8 +144,9 @@
             {{ end }}
             <div class="flex-fill overflow-hidden">
               <div class="fw-semibold small text-truncate">
-                <a href="/dashboard/users/{{.ID}}" class="text-reset">{{.Name}}</a>
+                <a href="/dashboard/users/{{.ID}}" class="text-reset">{{.Name}}{{ if $.Admin }} (Admin){{ end }}</a>
               </div>
+              <div class="text-muted small text-truncate">{{.Email}}</div>
               <a href="/logout" class="text-muted small"><i class="ti ti-logout me-1"></i>Sign out</a>
             </div>
           </div>
@@ -165,14 +167,6 @@
                style="width:240px" placeholder="Search jobs…"
                onkeypress="if(event.key==='Enter'){window.location='/dashboard/jobs/requests?q='+encodeURIComponent(this.value)}">
       </div>
-      {{ with .DBUser }}
-      <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
-        <span class="text-muted small d-none d-md-inline">{{.Username}}</span>
-        <a href="/logout" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
-          <i class="ti ti-logout"></i>Sign out
-        </a>
-      </div>
-      {{ end }}
     </div>
   </header>
 

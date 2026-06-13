@@ -145,6 +145,39 @@ func (s *DashboardManager) GetJobStats(qc *common.QueryContext) []*stats.JobStat
 	return s.jobStatsRegistry.GetStats(qc, 0, 500)
 }
 
+// RecentAuditEvents returns the most recent audit events scoped to the caller's org.
+// Admins (empty org in qc) see events across all orgs.
+func (s *DashboardManager) RecentAuditEvents(qc *common.QueryContext, limit int) ([]*types.AuditRecord, error) {
+	params := make(map[string]interface{})
+	if orgID := qc.GetOrganizationID(); orgID != "" {
+		params["organization_id"] = orgID
+	}
+	recs, _, err := s.repositoryFactory.AuditRecordRepository.Query(
+		params,
+		0,
+		limit,
+		[]string{"created_at desc"},
+	)
+	return recs, err
+}
+
+// TopFailingJobs returns up to n job stats sorted by failure count descending
+func (s *DashboardManager) TopFailingJobs(jobStats []*stats.JobStats, n int) []*stats.JobStats {
+	filtered := make([]*stats.JobStats, 0, len(jobStats))
+	for _, st := range jobStats {
+		if st.FailedJobs > 0 {
+			filtered = append(filtered, st)
+		}
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].FailedJobs > filtered[j].FailedJobs
+	})
+	if len(filtered) > n {
+		filtered = filtered[:n]
+	}
+	return filtered
+}
+
 // GetJobTypes - finds job types
 func (s *DashboardManager) GetJobTypes(
 	qc *common.QueryContext,

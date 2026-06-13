@@ -48,12 +48,6 @@ type TaskExecution struct {
 	AntID string `json:"ant_id"`
 	// AntHost - host where ant ran the task
 	AntHost string `json:"ant_host"`
-	// ManualReviewedBy for manual task
-	ManualReviewedBy string `json:"manual_reviewed_by" gorm:"manual_reviewed_by"`
-	// ManualReviewedAt for manual task
-	ManualReviewedAt *time.Time `json:"manual_reviewed_at" gorm:"manual_reviewed_at"`
-	// ReviewedStatus for manual task
-	ReviewedStatus types.RequestState `json:"reviewed_status" gorm:"reviewed_status"`
 	// Retried keeps track of retry attempts
 	Retried int `json:"retried"`
 	// Contexts defines context variables of task
@@ -145,11 +139,6 @@ func (te *TaskExecution) CanCancel() bool {
 // CanApprove checks if task can be approved
 func (te *TaskExecution) CanApprove() bool {
 	return te.TaskState.CanApprove()
-}
-
-// IsManuallyApproved checks if task was manually approved
-func (te *TaskExecution) IsManuallyApproved() bool {
-	return te.ManualReviewedBy != "" && te.ManualReviewedAt != nil
 }
 
 // Completed task

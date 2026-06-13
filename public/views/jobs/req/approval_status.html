@@ -1,0 +1,74 @@
+{{define "jobs/req/approval_status"}}
+<div class="card mb-3 border-warning">
+  <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">
+      <i class="ti ti-users me-2"></i>Approval Progress
+    </h3>
+    <span class="badge bg-warning text-dark fs-6">
+      {{.ApprovalsReceived}} / {{.MinApprovalsRequired}} approvals received
+    </span>
+  </div>
+  <div class="card-body">
+
+    {{if .Policy}}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <span class="badge bg-secondary">Requires {{.MinApprovalsRequired}} approval{{if gt .MinApprovalsRequired 1}}s{{end}}</span>
+      {{if .Policy.RequireUnanimous}}
+      <span class="badge bg-danger">Unanimous — any rejection fails immediately</span>
+      {{end}}
+      {{if .Policy.AllowedUsers}}
+      <span class="badge bg-info text-dark">Eligible voters: {{.Policy.AllowedUsers}}</span>
+      {{end}}
+      {{if .Policy.AllowedRoles}}
+      <span class="badge bg-info text-dark">Eligible roles: {{.Policy.AllowedRoles}}</span>
+      {{end}}
+      {{if and (eq .Policy.AllowedUsers "") (eq .Policy.AllowedRoles "")}}
+      <span class="badge bg-success">Open — any authenticated user may vote</span>
+      {{end}}
+    </div>
+    {{end}}
+
+    <div class="progress mb-3" style="height:24px">
+      <div class="progress-bar bg-success fw-semibold" role="progressbar"
+           style="width:{{Percent100 .ApprovalsReceived .MinApprovalsRequired}}%; min-width:2em"
+           aria-valuenow="{{.ApprovalsReceived}}" aria-valuemin="0" aria-valuemax="{{.MinApprovalsRequired}}">
+        {{.ApprovalsReceived}}/{{.MinApprovalsRequired}}
+      </div>
+    </div>
+
+    {{if .Votes}}
+    <h6 class="text-secondary mb-2">Cast votes</h6>
+    <table class="table table-sm table-bordered mb-0">
+      <thead class="table-light">
+        <tr><th>Voter</th><th>Decision</th><th>Comments</th><th>When</th></tr>
+      </thead>
+      <tbody>
+      {{range .Votes}}
+      <tr>
+        <td class="fw-semibold">{{.VoterID}}</td>
+        <td>
+          {{if eq (print .Decision) "APPROVED"}}
+            <span class="badge bg-success">APPROVED</span>
+          {{else}}
+            <span class="badge bg-danger">REJECTED</span>
+          {{end}}
+        </td>
+        <td>{{.Comments}}</td>
+        <td class="text-secondary small">{{FormatTime .VotedAt}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="text-muted mb-0"><i class="ti ti-clock me-1"></i>No votes cast yet — click <strong>Review for Approval</strong> above to cast the first vote.</p>
+    {{end}}
+
+    {{if .Rejected}}
+    <div class="alert alert-danger mt-3 mb-0">
+      <i class="ti ti-x me-1"></i><strong>Rejected</strong> — this gate has been rejected and the job will fail.
+    </div>
+    {{end}}
+
+  </div>
+</div>
+{{end}}

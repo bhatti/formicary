@@ -30,7 +30,9 @@ const (
 	JobExecutionService_PauseJob_FullMethodName             = "/formicary.v1.services.JobExecutionService/PauseJob"
 	JobExecutionService_RestartJob_FullMethodName           = "/formicary.v1.services.JobExecutionService/RestartJob"
 	JobExecutionService_TriggerJob_FullMethodName           = "/formicary.v1.services.JobExecutionService/TriggerJob"
-	JobExecutionService_ReviewJob_FullMethodName            = "/formicary.v1.services.JobExecutionService/ReviewJob"
+	JobExecutionService_VoteOnApproval_FullMethodName       = "/formicary.v1.services.JobExecutionService/VoteOnApproval"
+	JobExecutionService_GetApprovalStatus_FullMethodName    = "/formicary.v1.services.JobExecutionService/GetApprovalStatus"
+	JobExecutionService_ListPendingApprovals_FullMethodName = "/formicary.v1.services.JobExecutionService/ListPendingApprovals"
 	JobExecutionService_GetJobWaitTime_FullMethodName       = "/formicary.v1.services.JobExecutionService/GetJobWaitTime"
 	JobExecutionService_GetJobRequestMermaid_FullMethodName = "/formicary.v1.services.JobExecutionService/GetJobRequestMermaid"
 	JobExecutionService_GetJobStats_FullMethodName          = "/formicary.v1.services.JobExecutionService/GetJobStats"
@@ -58,8 +60,12 @@ type JobExecutionServiceClient interface {
 	RestartJob(ctx context.Context, in *RestartJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// TriggerJob manually triggers a waiting or paused job.
 	TriggerJob(ctx context.Context, in *TriggerJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// ReviewJob submits a manual approval decision (APPROVED or REJECTED) for a job awaiting review.
-	ReviewJob(ctx context.Context, in *ReviewJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// VoteOnApproval casts an approval vote on a task awaiting multi-party approval.
+	VoteOnApproval(ctx context.Context, in *VoteOnApprovalRequest, opts ...grpc.CallOption) (*VoteOnApprovalResponse, error)
+	// GetApprovalStatus returns the current vote tally for a task awaiting approval.
+	GetApprovalStatus(ctx context.Context, in *GetApprovalStatusRequest, opts ...grpc.CallOption) (*GetApprovalStatusResponse, error)
+	// ListPendingApprovals returns tasks awaiting the authenticated user's vote.
+	ListPendingApprovals(ctx context.Context, in *ListPendingApprovalsRequest, opts ...grpc.CallOption) (*ListPendingApprovalsResponse, error)
 	// GetJobWaitTime returns the estimated wait time for a job request.
 	GetJobWaitTime(ctx context.Context, in *GetJobRequestRequest, opts ...grpc.CallOption) (*JobWaitTimeResponse, error)
 	// GetJobRequestMermaid returns a Mermaid.js diagram for a job request's execution graph.
@@ -156,10 +162,30 @@ func (c *jobExecutionServiceClient) TriggerJob(ctx context.Context, in *TriggerJ
 	return out, nil
 }
 
-func (c *jobExecutionServiceClient) ReviewJob(ctx context.Context, in *ReviewJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *jobExecutionServiceClient) VoteOnApproval(ctx context.Context, in *VoteOnApprovalRequest, opts ...grpc.CallOption) (*VoteOnApprovalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, JobExecutionService_ReviewJob_FullMethodName, in, out, cOpts...)
+	out := new(VoteOnApprovalResponse)
+	err := c.cc.Invoke(ctx, JobExecutionService_VoteOnApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobExecutionServiceClient) GetApprovalStatus(ctx context.Context, in *GetApprovalStatusRequest, opts ...grpc.CallOption) (*GetApprovalStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetApprovalStatusResponse)
+	err := c.cc.Invoke(ctx, JobExecutionService_GetApprovalStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobExecutionServiceClient) ListPendingApprovals(ctx context.Context, in *ListPendingApprovalsRequest, opts ...grpc.CallOption) (*ListPendingApprovalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPendingApprovalsResponse)
+	err := c.cc.Invoke(ctx, JobExecutionService_ListPendingApprovals_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,8 +244,12 @@ type JobExecutionServiceServer interface {
 	RestartJob(context.Context, *RestartJobRequest) (*emptypb.Empty, error)
 	// TriggerJob manually triggers a waiting or paused job.
 	TriggerJob(context.Context, *TriggerJobRequest) (*emptypb.Empty, error)
-	// ReviewJob submits a manual approval decision (APPROVED or REJECTED) for a job awaiting review.
-	ReviewJob(context.Context, *ReviewJobRequest) (*emptypb.Empty, error)
+	// VoteOnApproval casts an approval vote on a task awaiting multi-party approval.
+	VoteOnApproval(context.Context, *VoteOnApprovalRequest) (*VoteOnApprovalResponse, error)
+	// GetApprovalStatus returns the current vote tally for a task awaiting approval.
+	GetApprovalStatus(context.Context, *GetApprovalStatusRequest) (*GetApprovalStatusResponse, error)
+	// ListPendingApprovals returns tasks awaiting the authenticated user's vote.
+	ListPendingApprovals(context.Context, *ListPendingApprovalsRequest) (*ListPendingApprovalsResponse, error)
 	// GetJobWaitTime returns the estimated wait time for a job request.
 	GetJobWaitTime(context.Context, *GetJobRequestRequest) (*JobWaitTimeResponse, error)
 	// GetJobRequestMermaid returns a Mermaid.js diagram for a job request's execution graph.
@@ -259,8 +289,14 @@ func (UnimplementedJobExecutionServiceServer) RestartJob(context.Context, *Resta
 func (UnimplementedJobExecutionServiceServer) TriggerJob(context.Context, *TriggerJobRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerJob not implemented")
 }
-func (UnimplementedJobExecutionServiceServer) ReviewJob(context.Context, *ReviewJobRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReviewJob not implemented")
+func (UnimplementedJobExecutionServiceServer) VoteOnApproval(context.Context, *VoteOnApprovalRequest) (*VoteOnApprovalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteOnApproval not implemented")
+}
+func (UnimplementedJobExecutionServiceServer) GetApprovalStatus(context.Context, *GetApprovalStatusRequest) (*GetApprovalStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetApprovalStatus not implemented")
+}
+func (UnimplementedJobExecutionServiceServer) ListPendingApprovals(context.Context, *ListPendingApprovalsRequest) (*ListPendingApprovalsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPendingApprovals not implemented")
 }
 func (UnimplementedJobExecutionServiceServer) GetJobWaitTime(context.Context, *GetJobRequestRequest) (*JobWaitTimeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobWaitTime not implemented")
@@ -435,20 +471,56 @@ func _JobExecutionService_TriggerJob_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _JobExecutionService_ReviewJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReviewJobRequest)
+func _JobExecutionService_VoteOnApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VoteOnApprovalRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(JobExecutionServiceServer).ReviewJob(ctx, in)
+		return srv.(JobExecutionServiceServer).VoteOnApproval(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: JobExecutionService_ReviewJob_FullMethodName,
+		FullMethod: JobExecutionService_VoteOnApproval_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(JobExecutionServiceServer).ReviewJob(ctx, req.(*ReviewJobRequest))
+		return srv.(JobExecutionServiceServer).VoteOnApproval(ctx, req.(*VoteOnApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _JobExecutionService_GetApprovalStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetApprovalStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobExecutionServiceServer).GetApprovalStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: JobExecutionService_GetApprovalStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobExecutionServiceServer).GetApprovalStatus(ctx, req.(*GetApprovalStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _JobExecutionService_ListPendingApprovals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPendingApprovalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobExecutionServiceServer).ListPendingApprovals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: JobExecutionService_ListPendingApprovals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobExecutionServiceServer).ListPendingApprovals(ctx, req.(*ListPendingApprovalsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -547,8 +619,16 @@ var JobExecutionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _JobExecutionService_TriggerJob_Handler,
 		},
 		{
-			MethodName: "ReviewJob",
-			Handler:    _JobExecutionService_ReviewJob_Handler,
+			MethodName: "VoteOnApproval",
+			Handler:    _JobExecutionService_VoteOnApproval_Handler,
+		},
+		{
+			MethodName: "GetApprovalStatus",
+			Handler:    _JobExecutionService_GetApprovalStatus_Handler,
+		},
+		{
+			MethodName: "ListPendingApprovals",
+			Handler:    _JobExecutionService_ListPendingApprovals_Handler,
 		},
 		{
 			MethodName: "GetJobWaitTime",

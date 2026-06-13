@@ -1,0 +1,36 @@
+job_type: approval-auto-reject-demo
+description: Time-sensitive hotfix deployment. Approval window is 1 hour — if no decision is made the deployment is automatically rejected to prevent unauthorized changes.
+max_concurrency: 1
+tasks:
+- task_type: prepare-hotfix
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Hotfix package prepared and validated."
+  on_completed: hotfix-approval
+
+- task_type: hotfix-approval
+  method: MANUAL
+  description: "Hotfix ready. Approve within 1 hour or the deployment will be automatically rejected."
+  approval_policy:
+    min_approvals: 1
+    sla_deadline: 1h
+    timeout_action: AUTO_REJECT
+  on_exit_code:
+    APPROVED: deploy-hotfix
+    REJECTED: abort-hotfix
+
+- task_type: deploy-hotfix
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Hotfix deployed successfully."
+
+- task_type: abort-hotfix
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Hotfix deployment aborted — approval window expired or rejected."

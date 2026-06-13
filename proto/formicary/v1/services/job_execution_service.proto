@@ -3,12 +3,13 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/queen/approval.proto";
+import "formicary/v1/queen/job_execution.proto";
+import "formicary/v1/queen/job_request.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/queen/job_request.proto";
-import "formicary/v1/queen/job_execution.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
@@ -27,17 +28,16 @@ message SubmitJobRequest {
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "The job type to execute (must match an existing job definition)."}
   ];
   // params are key-value pairs passed to the job (merged with job definition variables).
-  map<string, string> params = 2 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Runtime parameters passed to the job template."}
-  ];
+  map<string, string> params = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Runtime parameters passed to the job template."}];
   // scheduled_at is an optional RFC3339 timestamp to delay execution.
-  string scheduled_at = 3 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional RFC3339 timestamp to delay execution."}
-  ];
+  string scheduled_at = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional RFC3339 timestamp to delay execution."}];
   // job_group allows grouping related jobs.
   string job_group = 4;
   int32 job_priority = 5 [
-    (buf.validate.field).int32 = {gte: 0, lte: 100},
+    (buf.validate.field).int32 = {
+      gte: 0
+      lte: 100
+    },
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Priority 0–100 (higher = scheduled first)."}
   ];
   // user_key allows deduplication — a second submit with the same user_key for the same job type is rejected.
@@ -60,7 +60,10 @@ message QueryJobRequestsRequest {
   };
 
   int32 page = 1 [(buf.validate.field).int32.gte = 0];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
   repeated string order = 3;
   string job_type = 4;
   // job_state filters by state string (e.g., "PENDING", "EXECUTING", "COMPLETED").
@@ -118,10 +121,58 @@ message TriggerJobRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// ReviewJobRequest submits a manual approval decision for a job awaiting review.
-message ReviewJobRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  formicary.v1.queen.ReviewTaskRequest review = 2 [(buf.validate.field).required = true];
+// VoteOnApprovalRequest casts a vote on a task awaiting multi-party approval.
+message VoteOnApprovalRequest {
+  string request_id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job request ID."}
+  ];
+  string task_type = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Task type awaiting approval."}
+  ];
+  formicary.v1.queen.ApprovalVoteRequest vote = 3 [(buf.validate.field).required = true];
+}
+
+// VoteOnApprovalResponse returns the updated approval status after the vote.
+message VoteOnApprovalResponse {
+  formicary.v1.queen.ApprovalStatus status = 1;
+}
+
+// GetApprovalStatusRequest identifies a task execution's approval state.
+message GetApprovalStatusRequest {
+  string request_id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job request ID."}
+  ];
+  string task_type = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Task type awaiting approval."}
+  ];
+}
+
+// GetApprovalStatusResponse returns the current approval status.
+message GetApprovalStatusResponse {
+  formicary.v1.queen.ApprovalStatus status = 1;
+}
+
+// ListPendingApprovalsRequest queries tasks awaiting the authenticated user's vote.
+message ListPendingApprovalsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
+  string organization_id = 3;
+  string user_id = 4;
+}
+
+// ListPendingApprovalsResponse returns pending approvals the user can act on.
+message ListPendingApprovalsResponse {
+  repeated formicary.v1.queen.PendingApproval approvals = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 
 // JobWaitTimeResponse returns estimated wait time information.
@@ -230,7 +281,10 @@ service JobExecutionService {
 
   // CancelJob cancels a running or pending job request.
   rpc CancelJob(CancelJobRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/cancel" body: ""};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/{id}/cancel"
+      body: ""
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Cancel job"
       description: "Cancels a running or pending job request. Sends a cancellation signal to the executing ant worker."
@@ -244,7 +298,10 @@ service JobExecutionService {
 
   // PauseJob pauses an executing job request.
   rpc PauseJob(PauseJobRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/pause" body: ""};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/{id}/pause"
+      body: ""
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Pause job"
       description: "Pauses an executing job at the next task boundary."
@@ -258,7 +315,10 @@ service JobExecutionService {
 
   // RestartJob restarts a failed, cancelled, or paused job request.
   rpc RestartJob(RestartJobRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/restart" body: "*"};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/{id}/restart"
+      body: "*"
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Restart job"
       description: "Restarts a failed, cancelled, or paused job request. Only failed tasks are re-executed unless HardResetAfterRetries kicks in."
@@ -272,7 +332,10 @@ service JobExecutionService {
 
   // TriggerJob manually triggers a waiting or paused job.
   rpc TriggerJob(TriggerJobRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {post: "/api/v1/jobs/requests/{id}/trigger" body: ""};
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/{id}/trigger"
+      body: ""
+    };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Trigger job"
       description: "Manually triggers a job that is waiting for scheduled time or in a paused state."
@@ -284,19 +347,47 @@ service JobExecutionService {
     };
   }
 
-  // ReviewJob submits a manual approval decision (APPROVED or REJECTED) for a job awaiting review.
-  rpc ReviewJob(ReviewJobRequest) returns (google.protobuf.Empty) {
+  // VoteOnApproval casts an approval vote on a task awaiting multi-party approval.
+  rpc VoteOnApproval(VoteOnApprovalRequest) returns (VoteOnApprovalResponse) {
     option (google.api.http) = {
-      post: "/api/v1/jobs/requests/{id}/review"
-      body: "review"
+      post: "/api/v1/jobs/requests/{request_id}/tasks/{task_type}/vote"
+      body: "vote"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Review job (manual approval)"
-      description: "Submits an APPROVED or REJECTED decision for a job that requires manual approval. The reviewer must have the required_manual_roles specified in the task definition."
+      summary: "Vote on approval"
+      description: "Casts an APPROVED or REJECTED vote for a task awaiting multi-party approval. The job proceeds when quorum is reached."
       tags: ["job-executions"]
       responses: {
         key: "200"
-        value: {description: "Review submitted."}
+        value: {description: "Vote recorded; returns updated approval status."}
+      }
+    };
+  }
+
+  // GetApprovalStatus returns the current vote tally for a task awaiting approval.
+  rpc GetApprovalStatus(GetApprovalStatusRequest) returns (GetApprovalStatusResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/{request_id}/tasks/{task_type}/approval"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get approval status"
+      description: "Returns the current vote tally, deadline, and all votes for a task awaiting multi-party approval."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Approval status with votes."}
+      }
+    };
+  }
+
+  // ListPendingApprovals returns tasks awaiting the authenticated user's vote.
+  rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListPendingApprovalsResponse) {
+    option (google.api.http) = {get: "/api/v1/approvals/pending"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List pending approvals"
+      description: "Returns a paginated list of task executions awaiting the current user's vote."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Pending approvals list."}
       }
     };
   }

@@ -3,18 +3,21 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/user/user.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/user/user.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
 // QueryOrgsRequest carries filter params for listing organizations.
 message QueryOrgsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 0];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
   repeated string order = 3;
   string org_unit = 4;
   string bundle_id = 5;
@@ -69,7 +72,10 @@ message DeleteOrgRequest {
 message QueryOrgConfigsRequest {
   string organization_id = 1 [(buf.validate.field).string.min_len = 1];
   int32 page = 2 [(buf.validate.field).int32.gte = 0];
-  int32 page_size = 3 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  int32 page_size = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
 }
 
 // QueryOrgConfigsResponse returns a paginated list of org configs.

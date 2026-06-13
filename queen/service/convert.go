@@ -161,7 +161,6 @@ func toProtoTaskDefinition(t *queenTypes.TaskDefinition) *protoQueen.TaskDefinit
 		DelayBetweenRetriesNs: ns(t.DelayBetweenRetries),
 		OnCompleted:           t.OnCompleted,
 		OnFailed:              t.OnFailed,
-		RequiredManualRoles:   t.RequiredManualRoles,
 		TaskOrder:             int32(t.TaskOrder),
 		ReportStdout:          t.ReportStdout,
 		Headers:               t.Headers,
@@ -200,7 +199,6 @@ func fromProtoTaskDefinition(p *protoQueen.TaskDefinition) *queenTypes.TaskDefin
 	t.DelayBetweenRetries = fromNs(p.DelayBetweenRetriesNs)
 	t.OnCompleted = p.OnCompleted
 	t.OnFailed = p.OnFailed
-	t.RequiredManualRoles = p.RequiredManualRoles
 	t.TaskOrder = int(p.TaskOrder)
 	t.ReportStdout = p.ReportStdout
 	t.Headers = p.Headers
@@ -521,8 +519,6 @@ func toProtoTaskExecution(t *queenTypes.TaskExecution) *protoQueen.TaskExecution
 		Comments:         t.Comments,
 		AntId:            t.AntID,
 		AntHost:          t.AntHost,
-		ManualReviewedBy: t.ManualReviewedBy,
-		ReviewedStatus:   string(t.ReviewedStatus),
 		Retried:          int32(t.Retried),
 		TaskOrder:        int32(t.TaskOrder),
 		CountServices:    int32(t.CountServices),
@@ -531,9 +527,6 @@ func toProtoTaskExecution(t *queenTypes.TaskExecution) *protoQueen.TaskExecution
 		Active:           t.Active,
 		StartedAt:        timestamppb.New(t.StartedAt),
 		UpdatedAt:        timestamppb.New(t.UpdatedAt),
-	}
-	if t.ManualReviewedAt != nil {
-		p.ManualReviewedAt = timestamppb.New(*t.ManualReviewedAt)
 	}
 	if t.EndedAt != nil {
 		p.EndedAt = timestamppb.New(*t.EndedAt)

@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.queen;
+
+import "buf/validate/validate.proto";
+import "formicary/v1/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
+
+// ApprovalPolicy defines quorum rules for a task requiring multi-party approval.
+message ApprovalPolicy {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string task_definition_id = 2 [(formicary.v1.tags) = "json:\"task_definition_id\""];
+  // min_approvals is the quorum threshold (N of M).
+  int32 min_approvals = 3 [(formicary.v1.tags) = "yaml:\"min_approvals\" json:\"min_approvals\""];
+  // allowed_roles: comma-separated roles that may vote.
+  string allowed_roles = 4 [(formicary.v1.tags) = "yaml:\"allowed_roles,omitempty\" json:\"allowed_roles\""];
+  // allowed_users: comma-separated user IDs that may vote.
+  string allowed_users = 5 [(formicary.v1.tags) = "yaml:\"allowed_users,omitempty\" json:\"allowed_users\""];
+  // require_unanimous: ALL allowed approvers must approve (overrides min_approvals).
+  bool require_unanimous = 6 [(formicary.v1.tags) = "yaml:\"require_unanimous,omitempty\" json:\"require_unanimous\""];
+  // sla_deadline_ns: max wait time (nanoseconds) before timeout_action fires. 0 = no SLA.
+  int64 sla_deadline_ns = 7 [(formicary.v1.tags) = "yaml:\"sla_deadline,omitempty\" json:\"sla_deadline_ns\""];
+  // timeout_action: AUTO_APPROVE, AUTO_REJECT, or ESCALATE.
+  string timeout_action = 8 [(formicary.v1.tags) = "yaml:\"timeout_action,omitempty\" json:\"timeout_action\""];
+  // escalation_recipients: comma-separated emails/Slack channels for SLA breach.
+  string escalation_recipients = 9 [(formicary.v1.tags) = "yaml:\"escalation_recipients,omitempty\" json:\"escalation_recipients\""];
+  string escalation_message = 10 [(formicary.v1.tags) = "yaml:\"escalation_message,omitempty\" json:\"escalation_message\""];
+  google.protobuf.Timestamp created_at = 11 [(formicary.v1.tags) = "json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 12 [(formicary.v1.tags) = "json:\"updated_at\""];
+}
+
+// ApprovalVote records a single approver's decision on a task execution.
+message ApprovalVote {
+  string id = 1 [(formicary.v1.tags) = "json:\"id\" gorm:\"primary_key\""];
+  string task_execution_id = 2 [(formicary.v1.tags) = "json:\"task_execution_id\""];
+  string job_request_id = 3 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  string voter_id = 4 [(formicary.v1.tags) = "json:\"voter_id\""];
+  string voter_name = 5 [(formicary.v1.tags) = "json:\"voter_name\""];
+  // decision: "APPROVED" or "REJECTED"
+  string decision = 6 [(formicary.v1.tags) = "json:\"decision\""];
+  string comments = 7 [(formicary.v1.tags) = "json:\"comments\""];
+  google.protobuf.Timestamp voted_at = 8 [(formicary.v1.tags) = "json:\"voted_at\""];
+}
+
+// ApprovalVoteRequest is the input for casting a vote.
+message ApprovalVoteRequest {
+  string request_id = 1 [
+    (formicary.v1.tags) = "json:\"request_id\" form:\"request_id\"",
+    (buf.validate.field).string.min_len = 1
+  ];
+  string task_type = 2 [
+    (formicary.v1.tags) = "json:\"task_type\" form:\"task_type\"",
+    (buf.validate.field).string.min_len = 1
+  ];
+  string voter_id = 3 [(formicary.v1.tags) = "json:\"voter_id\" form:\"voter_id\""];
+  string voter_name = 4 [(formicary.v1.tags) = "json:\"voter_name\" form:\"voter_name\""];
+  // decision: "APPROVED" or "REJECTED"
+  string decision = 5 [(formicary.v1.tags) = "json:\"decision\" form:\"decision\""];
+  string comments = 6 [(formicary.v1.tags) = "json:\"comments\" form:\"comments\""];
+}
+
+// ApprovalStatus is the aggregate state for a task execution's approval.
+message ApprovalStatus {
+  string task_execution_id = 1 [(formicary.v1.tags) = "json:\"task_execution_id\""];
+  string job_request_id = 2 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  int32 approvals_received = 3 [(formicary.v1.tags) = "json:\"approvals_received\""];
+  int32 rejections_received = 4 [(formicary.v1.tags) = "json:\"rejections_received\""];
+  int32 min_approvals_required = 5 [(formicary.v1.tags) = "json:\"min_approvals_required\""];
+  bool quorum_reached = 6 [(formicary.v1.tags) = "json:\"quorum_reached\""];
+  bool rejected = 7 [(formicary.v1.tags) = "json:\"rejected\""];
+  bool sla_breached = 8 [(formicary.v1.tags) = "json:\"sla_breached\""];
+  google.protobuf.Timestamp deadline = 9 [(formicary.v1.tags) = "json:\"deadline,omitempty\""];
+  repeated ApprovalVote votes = 10 [(formicary.v1.tags) = "json:\"votes\""];
+  ApprovalPolicy policy = 11 [(formicary.v1.tags) = "json:\"policy,omitempty\""];
+}

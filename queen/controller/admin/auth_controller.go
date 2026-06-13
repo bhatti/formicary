@@ -24,6 +24,7 @@ import (
 type AuthController struct {
 	commonCfg             *common.CommonConfig
 	authProviders         map[string]auth.Provider
+	loginRedirectURL      string // direct provider URL if only one, otherwise /login
 	auditRecordRepository repository.AuditRecordRepository
 	userRepository        repository.UserRepository
 	orgRepository         repository.OrganizationRepository
@@ -74,6 +75,17 @@ func NewAuthController(
 				echojwt.WithConfig(apiConfig)).Name = "provider_auth_webhook_callback"
 		}
 	}
+	// Compute once: use AuthLoginURL() directly — no suffix guessing.
+	ac.loginRedirectURL = "/login"
+	if len(authProviders) == 1 {
+		ac.loginRedirectURL = authProviders[0].AuthLoginURL()
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component":        "AuthController",
+		"LoginRedirectURL": ac.loginRedirectURL,
+		"Providers":        len(authProviders),
+	}).Info("auth controller initialized")
+	webServer.SetLoginRedirectURL(ac.loginRedirectURL)
 
 	if commonCfg.Auth.Enabled {
 		ac.addSessionMiddleware(webServer)
@@ -160,15 +172,10 @@ func (ac *AuthController) providerAuthCallback(c web.APIContext) error {
 
 // providerAuth - authentication
 func (ac *AuthController) providerAuth(c web.APIContext) error {
-	stateCookie, err := c.Cookie(ac.commonCfg.Auth.LoginStateCookieName())
-	if err != nil || stateCookie.Value == "" {
-		logrus.WithFields(logrus.Fields{
-			"Component": "AuthController",
-			"Error":     err,
-		}).Warnf("no state cookie configured")
-		http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
-		return nil
-	}
+	// Always issue a fresh state cookie to prevent CSRF state reuse across flows
+	// (e.g. stale cookies from abandoned logins or post-logout redirects).
+	stateCookie := ac.commonCfg.Auth.LoginStateCookie()
+	c.SetCookie(stateCookie)
 
 	authProvider := ac.authProviders[c.Path()]
 	if authProvider == nil {
@@ -189,6 +196,10 @@ func (ac *AuthController) providerAuth(c web.APIContext) error {
 // login - authentication
 func (ac *AuthController) login(c web.APIContext) error {
 	c.SetCookie(ac.commonCfg.Auth.LoginStateCookie())
+	if ac.loginRedirectURL != "/login" {
+		http.Redirect(c.Response(), c.Request(), ac.loginRedirectURL, http.StatusTemporaryRedirect)
+		return nil
+	}
 	res := map[string]interface{}{
 		"HasGoogleOAuth": ac.commonCfg.Auth.HasGoogleOAuth(),
 		"HasGithubOAuth": ac.commonCfg.Auth.HasGithubOAuth(),
@@ -207,7 +218,7 @@ func (ac *AuthController) logout(c web.APIContext) error {
 	if user != nil {
 		_, _ = ac.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserLogout, qc))
 	}
-	http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
+	http.Redirect(c.Response(), c.Request(), ac.loginRedirectURL, http.StatusTemporaryRedirect)
 	return nil
 }
 
@@ -282,9 +293,10 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 					"User":      user,
 				}).Error("failed to add session")
 				if strings.HasPrefix(c.Path(), "/dashboard") {
-					http.Redirect(c.Response(), c.Request(), "/login", http.StatusTemporaryRedirect)
+					http.Redirect(c.Response(), c.Request(), ac.loginRedirectURL, http.StatusTemporaryRedirect)
 					return nil
 				}
+
 				return &echo.HTTPError{
 					Code:     http.StatusUnauthorized,
 					Message:  "JWT token is required for api access (002)",

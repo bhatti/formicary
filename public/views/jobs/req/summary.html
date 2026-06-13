@@ -104,13 +104,21 @@
         <h5 class="modal-title" id="approveModalLabel">Review Job Request</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form id="jobReviewForm" action="/dashboard/jobs/requests/{{.ID}}/review" method="POST"
-            onsubmit="return handleReviewSubmit(this)" enctype="multipart/form-data">
+      <form id="jobReviewForm"
+            action="/dashboard/jobs/requests/{{.ID}}/tasks/{{.CurrentTask}}/vote"
+            method="POST">
         <div class="modal-body">
           <div class="alert alert-info">
             <strong>Job ID:</strong> {{.ID}}<br>
             <strong>Job Type:</strong> {{.JobType}}<br>
-            <strong>Task Requiring Review:</strong> {{.GetCurrentTask}}
+            <strong>Task Requiring Approval:</strong> {{.GetCurrentTask}}
+          </div>
+          <div class="mb-3">
+            <label for="approvalVoterID" class="form-label">Your Name / ID</label>
+            <input type="text" class="form-control" id="approvalVoterID" name="voter_id"
+                   value=""
+                   placeholder="Enter your name or ID" required>
+            <div class="form-text">Identifies who cast this vote in the audit trail.</div>
           </div>
           <div class="mb-3">
             <label for="approvalComments" class="form-label">Comments</label>
@@ -118,7 +126,6 @@
                       placeholder="Add comments about your decision..."></textarea>
             <div class="form-text">Required for rejections, optional for approvals.</div>
           </div>
-          <input type="hidden" name="taskType" value="{{.CurrentTask}}">
           <div class="alert alert-warning">
             <strong>Approve:</strong> The job will continue execution<br>
             <strong>Reject:</strong> The job will be marked as failed
@@ -126,10 +133,31 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="review-btn review-btn-danger" name="statusB" value="REJECTED">Reject</button>
-          <button type="submit" class="review-btn review-btn-success" name="statusB" value="APPROVED">Approve</button>
+          <button type="button" class="btn btn-danger" id="jobRejectBtn">Reject</button>
+          <button type="submit" class="btn btn-success" name="decision" value="APPROVED">Approve</button>
         </div>
       </form>
+      <script>
+      document.getElementById('jobRejectBtn').addEventListener('click', function() {
+        var comments = document.getElementById('approvalComments').value.trim();
+        if (!comments) {
+          document.getElementById('approvalComments').setCustomValidity('Comments are required for rejection.');
+          document.getElementById('approvalComments').reportValidity();
+          return;
+        }
+        document.getElementById('approvalComments').setCustomValidity('');
+        var form = document.getElementById('jobReviewForm');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'decision';
+        input.value = 'REJECTED';
+        form.appendChild(input);
+        form.submit();
+      });
+      document.getElementById('approvalComments').addEventListener('input', function() {
+        this.setCustomValidity('');
+      });
+      </script>
     </div>
   </div>
 </div>

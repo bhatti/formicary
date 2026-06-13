@@ -3,10 +3,11 @@ syntax = "proto3";
 
 package formicary.v1.queen;
 
-import "google/protobuf/timestamp.proto";
 import "buf/validate/validate.proto";
 import "formicary/v1/annotations.proto";
+import "formicary/v1/queen/approval.proto";
 import "formicary/v1/queen/job_execution.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
 
@@ -67,13 +68,12 @@ message JobRequest {
   bool cascade_cancel = 34 [(formicary.v1.tags) = "json:\"cascade_cancel\" gorm:\"cascade_cancel\""];
 }
 
-// ReviewTaskRequest is used for manual approval of a task.
-message ReviewTaskRequest {
-  string request_id = 1 [(formicary.v1.tags) = "json:\"request_id\" form:\"request_id\""];
-  string execution_id = 2 [(formicary.v1.tags) = "json:\"execution_id\" form:\"execution_id\""];
-  string task_type = 3 [(formicary.v1.tags) = "json:\"task_type\" form:\"task_type\""];
-  string reviewed_by = 4 [(formicary.v1.tags) = "json:\"reviewed_by\" form:\"reviewed_by\""];
-  string comments = 5 [(formicary.v1.tags) = "json:\"comments\" form:\"comments\""];
-  // status is "APPROVED" or "REJECTED".
-  string status = 6 [(formicary.v1.tags) = "json:\"status\" form:\"status\""];
+// PendingApproval describes a task execution awaiting votes.
+message PendingApproval {
+  string job_request_id = 1 [(formicary.v1.tags) = "json:\"job_request_id\""];
+  string task_execution_id = 2 [(formicary.v1.tags) = "json:\"task_execution_id\""];
+  string job_type = 3 [(formicary.v1.tags) = "json:\"job_type\""];
+  string task_type = 4 [(formicary.v1.tags) = "json:\"task_type\""];
+  ApprovalStatus status = 5 [(formicary.v1.tags) = "json:\"status\""];
+  google.protobuf.Timestamp requested_at = 6 [(formicary.v1.tags) = "json:\"requested_at\""];
 }

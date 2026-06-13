@@ -73,8 +73,8 @@ type TaskDefinition struct {
 	OnCompleted string `yaml:"on_completed,omitempty" json:"on_completed" gorm:"on_completed"`
 	// OnFailed defines next task to run based on failure
 	OnFailed string `yaml:"on_failed,omitempty" json:"on_failed" gorm:"on_failed"`
-	// RequiredManualRoles for manual approval
-	RequiredManualRoles string `yaml:"required_manual_roles,omitempty" json:"required_manual_roles" gorm:"required_manual_roles"`
+	// ApprovalPolicy defines multi-party approval quorum rules for MANUAL tasks.
+	ApprovalPolicy *ApprovalPolicy `yaml:"approval_policy,omitempty" json:"approval_policy" gorm:"-"`
 	// Variables defines properties of task
 	Variables []*TaskDefinitionVariable `yaml:"-" json:"-" gorm:"ForeignKey:TaskDefinitionID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
 	// CreatedAt job creation time

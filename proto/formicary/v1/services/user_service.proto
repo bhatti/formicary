@@ -3,11 +3,11 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/user/user.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/user/user.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
@@ -28,16 +28,17 @@ message LoginRequest {
 
 // LoginResponse returns a JWT token and user profile.
 message LoginResponse {
-  string token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "JWT Bearer token. Pass in Authorization header as 'Bearer <token>'."
-  }];
+  string token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "JWT Bearer token. Pass in Authorization header as 'Bearer <token>'."}];
   formicary.v1.user.User user = 2;
 }
 
 // QueryUsersRequest carries filter params for listing users (admin only).
 message QueryUsersRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 0];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
   repeated string order = 3;
   string username = 4;
   string email = 5;

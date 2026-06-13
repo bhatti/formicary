@@ -3,9 +3,9 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "formicary/v1/resource/ant.proto";
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/resource/ant.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 

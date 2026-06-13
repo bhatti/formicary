@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -96,6 +97,51 @@ func Test_ShouldBuildVariablesSkipsEmptyEnvVarName(t *testing.T) {
 	}
 	_, ok := varMap["VALID_KEY"]
 	require.True(t, ok, "valid entry should still be present")
+}
+
+// ---- BuildRegistryCredentials regression tests ----
+// Before the fix, BuildRegistryCredentials always called the Kubernetes API to create
+// a pull secret — even when Registry.Server and Username were empty strings (the
+// default). Every Kubernetes job failed with "connection refused" because the API call
+// hit 127.0.0.1:<random-port> before any pod was scheduled.
+//
+// The fix: return nil, nil immediately when no credentials are configured.
+// These tests verify the guard without requiring a live Kubernetes cluster.
+
+// Test_ShouldBuildRegistryCredentialsReturnsNilWhenNotConfigured is the primary
+// regression test: with an empty registry, BuildRegistryCredentials must not touch
+// the Kubernetes API and must return (nil, nil).
+func Test_ShouldBuildRegistryCredentialsReturnsNilWhenNotConfigured(t *testing.T) {
+	cfg := &ant_config.AntConfig{}
+	cfg.Kubernetes.Namespace = "default"
+	cfg.Kubernetes.Registry.Server = ""
+	cfg.Kubernetes.Registry.Username = ""
+	cfg.Kubernetes.Registry.Password = ""
+
+	// cli is nil — any API call would panic. The guard must return before touching it.
+	u, err := NewKubernetesUtils(cfg, nil, nil)
+	require.NoError(t, err)
+
+	secret, err := u.BuildRegistryCredentials(context.Background())
+	require.NoError(t, err, "no registry configured must not cause an error")
+	require.Nil(t, secret, "no registry configured must return nil secret")
+}
+
+// Test_ShouldBuildRegistryCredentialsReturnsNilWhenServerSetButNoUsername verifies
+// that a server with no username is also treated as "not configured" — a server name
+// alone is insufficient to authenticate and must not trigger an API call.
+func Test_ShouldBuildRegistryCredentialsReturnsNilWhenServerSetButNoUsername(t *testing.T) {
+	cfg := &ant_config.AntConfig{}
+	cfg.Kubernetes.Namespace = "default"
+	cfg.Kubernetes.Registry.Server = "registry.example.com"
+	cfg.Kubernetes.Registry.Username = "" // no creds
+
+	u, err := NewKubernetesUtils(cfg, nil, nil)
+	require.NoError(t, err)
+
+	secret, err := u.BuildRegistryCredentials(context.Background())
+	require.NoError(t, err)
+	require.Nil(t, secret)
 }
 
 // Test_ShouldBuildVariablesHelperIgnoresEnvValueFrom verifies that EnvValueFrom on

@@ -92,6 +92,8 @@ type JobsConfig struct {
 	TriggerS3PollMaxObjects              int           `yaml:"trigger_s3_poll_max_objects" mapstructure:"trigger_s3_poll_max_objects"`
 	// DisableTriggers disables all event-driven triggers when true.
 	DisableTriggers                      bool          `yaml:"disable_triggers" mapstructure:"disable_triggers"`
+	// ApprovalSLACheckInterval is how often the scheduler checks for breached approval deadlines.
+	ApprovalSLACheckInterval             time.Duration `yaml:"approval_sla_check_interval" mapstructure:"approval_sla_check_interval"`
 }
 
 // NewServerConfig -- Initializes the default config
@@ -251,6 +253,9 @@ func (c *JobsConfig) Validate() error {
 	}
 	if c.TriggerS3PollMaxObjects == 0 {
 		c.TriggerS3PollMaxObjects = 1000
+	}
+	if c.ApprovalSLACheckInterval == 0 {
+		c.ApprovalSLACheckInterval = 60 * time.Second
 	}
 	return nil
 }

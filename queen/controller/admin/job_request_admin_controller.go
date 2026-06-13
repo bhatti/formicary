@@ -39,7 +39,7 @@ func NewJobRequestAdminController(
 	webserver.GET("/dashboard/jobs/requests/new", jraCtr.newJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "new_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests", jraCtr.createJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
-	webserver.POST("/dashboard/jobs/requests/:id/review", jraCtr.reviewJobRequestForApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "approve_admin_job_requests"
+	webserver.POST("/dashboard/jobs/requests/:id/tasks/:taskType/vote", jraCtr.voteOnApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "vote_admin_approval"
 	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
@@ -137,32 +137,42 @@ func (jraCtr *JobRequestAdminController) cancelJobRequest(c web.APIContext) erro
 }
 
 // approveJobRequests - approve job-request
-func (jraCtr *JobRequestAdminController) reviewJobRequestForApproval(c web.APIContext) error {
+func (jraCtr *JobRequestAdminController) voteOnApproval(c web.APIContext) error {
 	id := c.Param("id")
+	taskType := c.Param("taskType")
 	qc := web.BuildQueryContext(c)
 
-	status := c.FormValue("status")
-	taskType := c.FormValue("taskType")
+	decision := c.FormValue("decision")
 	comments := c.FormValue("comments")
 
-	// Validate required fields
-	if status == "" {
-		return fmt.Errorf("status is required")
+	if decision == "" {
+		return fmt.Errorf("decision is required (APPROVED or REJECTED)")
 	}
-
-	if status == "REJECTED" && comments == "" {
+	if decision == "REJECTED" && comments == "" {
 		return fmt.Errorf("comments are required for rejection")
 	}
 
-	request := &types.ReviewTaskRequest{
-		RequestID:  id,
-		TaskType:   taskType,
-		ReviewedBy: qc.GetUserID(),
-		Comments:   comments,
-		Status:     common.RequestState(status),
+	// Resolve voter identity: prefer DB user ID, fall back to username.
+	// When auth is disabled the session has no user, so accept the form-supplied
+	// voter_id — but ONLY in no-auth mode to prevent identity spoofing.
+	voterID := qc.GetUserID()
+	if voterID == "" {
+		voterID = qc.GetUsername()
+	}
+	if voterID == "" && c.Get(web.AuthDisabled) != nil {
+		voterID = c.FormValue("voter_id")
 	}
 
-	if err := jraCtr.jobManager.ReviewTaskRequestForManualApproval(context.Background(), qc, request); err != nil {
+	voteReq := &types.ApprovalVoteRequest{
+		RequestID: id,
+		TaskType:  taskType,
+		VoterID:   voterID,
+		VoterName: qc.GetUsername(),
+		Decision:  types.ApprovalDecision(decision),
+		Comments:  comments,
+	}
+
+	if _, err := jraCtr.jobManager.CastApprovalVote(context.Background(), qc, voteReq); err != nil {
 		return err
 	}
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
@@ -276,6 +286,14 @@ func (jraCtr *JobRequestAdminController) getJobRequest(c web.APIContext) error {
 	}
 	res := map[string]interface{}{
 		"Request": request,
+	}
+	// If a MANUAL task is waiting for approval, fetch the live vote tally so the
+	// template can show progress (quorum, who voted, policy requirements).
+	if request.CanApprove() && request.CurrentTask != "" {
+		if status, sErr := jraCtr.jobManager.GetApprovalStatus(
+			context.Background(), qc, id, request.CurrentTask); sErr == nil {
+			res["ApprovalStatus"] = status
+		}
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/req/view", res)

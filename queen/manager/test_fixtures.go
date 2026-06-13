@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/artifacts"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/queue"
+	"plexobject.com/formicary/queen/approval"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/notify"
 	"plexobject.com/formicary/queen/repository"
@@ -218,5 +219,81 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 		metrics.New(),
 		queueClient,
 		notifier,
+		nil, // approvalSvc - not needed for unit tests
+	)
+}
+
+// NewTestJobManagerWithApproval creates a JobManager wired with the given approval.Service.
+// templateRoot is an optional path prefix for notification templates, relative to the
+// test's working directory (e.g. "../../../public/views/notify" when called from
+// queen/controller/admin). When empty, the TestServerConfig defaults are used.
+func NewTestJobManagerWithApproval(approvalSvc *approval.Service, templateRoot ...string) (*JobManager, error) {
+	serverCfg := config.TestServerConfig()
+	if len(templateRoot) > 0 && templateRoot[0] != "" {
+		root := templateRoot[0]
+		serverCfg.Notify.EmailJobsTemplateFile = root + "/email_notify_job.html"
+		serverCfg.Notify.SlackJobsTemplateFile = root + "/slack_notify_job.txt"
+		serverCfg.Notify.VerifyEmailTemplateFile = root + "/verify_email.html"
+		serverCfg.Notify.UserInvitationTemplateFile = root + "/user_invitation.html"
+	}
+	if err := serverCfg.Validate(); err != nil {
+		return nil, err
+	}
+	auditRepo, err := repository.NewTestAuditRecordRepository()
+	if err != nil {
+		return nil, err
+	}
+	jobDefRepo, err := repository.NewTestJobDefinitionRepository()
+	if err != nil {
+		return nil, err
+	}
+	jobReqRepo, err := repository.NewTestJobRequestRepository()
+	if err != nil {
+		return nil, err
+	}
+	jobExecRepo, err := repository.NewTestJobExecutionRepository()
+	if err != nil {
+		return nil, err
+	}
+	emailVerifRepo, err := repository.NewTestEmailVerificationRepository()
+	if err != nil {
+		return nil, err
+	}
+	logRepo, err := repository.NewTestLogEventRepository()
+	if err != nil {
+		return nil, err
+	}
+	artifactManager, err := TestArtifactManager(serverCfg)
+	if err != nil {
+		return nil, err
+	}
+	notifier, err := notify.New(serverCfg, logRepo, emailVerifRepo)
+	if err != nil {
+		return nil, err
+	}
+	userManager, err := TestUserManager(serverCfg)
+	if err != nil {
+		return nil, err
+	}
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	if err != nil {
+		return nil, err
+	}
+	resourceManager := resource.New(serverCfg, queueClient)
+	return NewJobManager(
+		context.Background(),
+		serverCfg,
+		auditRepo,
+		jobDefRepo,
+		jobReqRepo,
+		jobExecRepo,
+		userManager,
+		resourceManager,
+		artifactManager,
+		stats.NewJobStatsRegistry(),
+		metrics.New(),
+		queueClient,
+		notifier,
+		approvalSvc,
 	)
 }

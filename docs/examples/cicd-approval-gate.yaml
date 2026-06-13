@@ -1,0 +1,71 @@
+job_type: cicd-approval-gate
+description: Full CI/CD pipeline with multi-party approval gate before production deployment. Build → test → security scan → 2-of-3 ops approval → deploy.
+max_concurrency: 1
+tasks:
+- task_type: build
+  method: KUBERNETES
+  container:
+    image: golang:1.22-alpine
+  script:
+    - echo "Building application..."
+    - echo "Build successful."
+  on_completed: test
+
+- task_type: test
+  method: KUBERNETES
+  container:
+    image: golang:1.22-alpine
+  script:
+    - echo "Running unit and integration tests..."
+    - echo "All tests passed."
+  on_completed: security-scan
+
+- task_type: security-scan
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Running SAST and dependency vulnerability scan..."
+    - echo "Security scan complete — report generated."
+  artifacts:
+    paths:
+      - security-report.txt
+  on_completed: production-approval
+
+- task_type: production-approval
+  method: MANUAL
+  description: "Build, tests, and security scan completed. Security report is attached. 2 of 3 ops/sre leads must approve before production deployment proceeds."
+  approval_policy:
+    min_approvals: 2
+    require_unanimous: false
+    sla_deadline: 4h
+    timeout_action: ESCALATE
+    escalation_recipients: "vp-eng@example.com,#ops-escalation"
+    escalation_message: "Production deployment approval stalled — 4h SLA breached"
+  on_exit_code:
+    APPROVED: deploy-production
+    REJECTED: notify-rejection
+
+- task_type: deploy-production
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deploying to production — quorum approved by ops/sre team."
+    - echo "Production deployment complete."
+  on_completed: post-deploy-verification
+
+- task_type: post-deploy-verification
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Running smoke tests against production..."
+    - echo "Smoke tests passed. Deployment verified."
+
+- task_type: notify-rejection
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Production deployment rejected by ops/sre team. Rolling back to last known good state."

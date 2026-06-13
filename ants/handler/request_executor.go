@@ -433,14 +433,13 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 
 	// See https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-	s3Endpoint := re.antCfg.Common.S3.Endpoint
-	if re.antCfg.Common.S3.IsLocalMode() {
-		// Helper containers (Docker/K8s) cannot reach localhost; use the host-accessible address.
-		s3Endpoint = re.antCfg.Common.S3.LocalContainerEndpoint()
-	}
-	s3EndpointURL := re.antCfg.Common.S3.BuildEndpoint()
-	if re.antCfg.Common.S3.IsLocalMode() {
-		s3EndpointURL = "http://" + s3Endpoint
+	// BuildContainerEndpoint returns the full URL reachable from inside Docker/K8s pods:
+	// - LocalMode: http://<local_container_host>:<port>  (host.docker.internal or node IP)
+	// - External:  same as BuildEndpoint (uses the configured S3 endpoint as-is)
+	s3EndpointURL := re.antCfg.Common.S3.BuildContainerEndpoint()
+	s3Endpoint := re.antCfg.Common.S3.LocalContainerEndpoint()
+	if !re.antCfg.Common.S3.IsLocalMode() {
+		s3Endpoint = re.antCfg.Common.S3.Endpoint
 	}
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_URL"] = s3EndpointURL
 	taskReq.ExecutorOpts.HelperEnvironment["AWS_ENDPOINT"] = s3Endpoint

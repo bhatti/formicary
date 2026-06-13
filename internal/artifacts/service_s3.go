@@ -53,13 +53,12 @@ func New(conf *internaltypes.S3Config) (Service, io.Closer, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		// Point the config at the embedded subprocess endpoint.
-		// The subprocess starts in the background; WaitReady is called lazily
-		// on the first S3 operation so startup doesn't block server init.
-		localConf := *conf
-		localConf.Endpoint = srv.Endpoint
-		localConf.UseSSL = false
-		conf = &localConf
+		// Write the resolved port back to the original config pointer so that
+		// any code that holds a reference to it (e.g. the embedded ant's
+		// request_executor building AWS_URL for helper containers) sees the
+		// real endpoint instead of the empty string it had before startup.
+		conf.Endpoint = srv.Endpoint
+		conf.UseSSL = false
 		closer = srv
 		localSrv = srv
 	}

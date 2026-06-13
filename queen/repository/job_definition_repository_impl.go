@@ -569,28 +569,17 @@ func (jdr *JobDefinitionRepositoryImpl) postProcessJob(
 	// expressions that can't be evaluated here, the DB-loaded job already contains all
 	// persistent fields (Variables, Configs, Tasks) and AfterLoad will hydrate the rest.
 	if parsedJob, err := types.ReloadFromYaml(job.RawYaml); err == nil && len(parsedJob.Tasks) > 0 {
-		// Preserve all DB-resident identity and association fields that YAML parse doesn't produce.
-		parsedJob.ID = job.ID
-		parsedJob.UserID = job.UserID
-		parsedJob.OrganizationID = job.OrganizationID
-		parsedJob.Active = job.Active
-		parsedJob.Disabled = job.Disabled
-		parsedJob.Version = job.Version
-		parsedJob.RawYaml = job.RawYaml
-		parsedJob.CreatedAt = job.CreatedAt
-		parsedJob.UpdatedAt = job.UpdatedAt
-		parsedJob.Variables = job.Variables
-		parsedJob.Configs = job.Configs
-		for i, parsedTask := range parsedJob.Tasks {
-			for _, dbTask := range job.Tasks {
-				if parsedTask.TaskType == dbTask.TaskType {
-					parsedTask.Variables = dbTask.Variables
-					parsedJob.Tasks[i] = parsedTask
-					break
-				}
+		// Build a lookup of YAML-parsed tasks so we can overlay ApprovalPolicy (gorm:"-",
+		// never persisted) onto the authoritative DB task rows.
+		parsedByType := make(map[string]*types.TaskDefinition, len(parsedJob.Tasks))
+		for _, pt := range parsedJob.Tasks {
+			parsedByType[pt.TaskType] = pt
+		}
+		for _, dbTask := range job.Tasks {
+			if pt, ok := parsedByType[dbTask.TaskType]; ok {
+				dbTask.ApprovalPolicy = pt.ApprovalPolicy
 			}
 		}
-		job = parsedJob
 	}
 	if err := job.AfterLoad(jdr.encryptionKey(qc)); err != nil {
 		return nil, err

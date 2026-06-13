@@ -21,27 +21,36 @@ This is the fastest way to start a complete Formicary environment, including the
     cd formicary
     ```
 
-2.  **Create an Environment File**
-    Formicary uses a `.env` file to manage secrets and environment-specific settings. An example is provided.
+2.  **Create a Secrets File**
+    The `.env` file in the repository contains the template. Copy it to `.env.local` for your secrets — this file is gitignored and never committed.
 
     ```bash
-    # Copy the example file
-    cp .env.example .env
+    cp .env .env.local
     ```
 
-3.  **Generate a Session Secret**
-    You **must** replace the placeholder secret in the `.env` file. This key is used for securing user sessions.
+3.  **Generate a JWT Secret**
+    You **must** set `COMMON_AUTH_JWT_SECRET` in `.env.local`. This key signs all user sessions.
 
-    Run this command on Linux or macOS to generate a secure key and update the file:
     ```bash
-    # This command generates a random key and replaces the placeholder in-place.
-    SECRET_KEY=$(openssl rand -base64 32)
-    sed -i.bak "s/your_strong_secret_key_here/$SECRET_KEY/" .env
+    echo "COMMON_AUTH_JWT_SECRET=$(openssl rand -base64 32)" >> .env.local
     ```
-    On other systems, generate a 32-byte, base64-encoded random string and manually paste it into `.env` for the `COMMON_AUTH_SESSION_KEY` variable.
 
-4.  **(Optional) Configure OAuth**
-    To enable login via GitHub or Google, you must create an OAuth application with the respective provider and add the Client ID and Secret to your `.env` file.
+4.  **Configure OAuth**
+    To enable login via Google or GitHub, create an OAuth application with the provider and add the credentials to `.env.local`:
+
+    ```bash
+    # Google — https://console.cloud.google.com → APIs & Services → Credentials
+    # Authorized redirect URI: http://localhost:7777/auth/google/callback
+    COMMON_AUTH_GOOGLE_CLIENT_ID=<your-client-id>
+    COMMON_AUTH_GOOGLE_CLIENT_SECRET=<your-client-secret>
+
+    # GitHub — https://github.com/settings/developers → OAuth Apps
+    # Authorization callback URL: http://localhost:7777/auth/github/callback
+    COMMON_AUTH_GITHUB_CLIENT_ID=<your-client-id>
+    COMMON_AUTH_GITHUB_CLIENT_SECRET=<your-client-secret>
+    ```
+
+    See [Configuration — common.auth](./15-configuration.md#commonauth-block) for the full list of auth environment variables.
 
 5.  **Start the System**
     From the root of the repository, run the `sqlite-docker-compose.yaml` file:

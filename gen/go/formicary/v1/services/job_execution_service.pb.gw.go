@@ -319,45 +319,147 @@ func local_request_JobExecutionService_TriggerJob_0(ctx context.Context, marshal
 	return msg, metadata, err
 }
 
-func request_JobExecutionService_ReviewJob_0(ctx context.Context, marshaler runtime.Marshaler, client JobExecutionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_JobExecutionService_VoteOnApproval_0(ctx context.Context, marshaler runtime.Marshaler, client JobExecutionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ReviewJobRequest
+		protoReq VoteOnApprovalRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Review); err != nil && !errors.Is(err, io.EOF) {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Vote); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	val, ok := pathParams["id"]
+	val, ok := pathParams["request_id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "request_id")
 	}
-	protoReq.Id, err = runtime.String(val)
+	protoReq.RequestId, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "request_id", err)
 	}
-	msg, err := client.ReviewJob(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	val, ok = pathParams["task_type"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_type")
+	}
+	protoReq.TaskType, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_type", err)
+	}
+	msg, err := client.VoteOnApproval(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
 
-func local_request_JobExecutionService_ReviewJob_0(ctx context.Context, marshaler runtime.Marshaler, server JobExecutionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_JobExecutionService_VoteOnApproval_0(ctx context.Context, marshaler runtime.Marshaler, server JobExecutionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ReviewJobRequest
+		protoReq VoteOnApprovalRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Review); err != nil && !errors.Is(err, io.EOF) {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Vote); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	val, ok := pathParams["id"]
+	val, ok := pathParams["request_id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "request_id")
 	}
-	protoReq.Id, err = runtime.String(val)
+	protoReq.RequestId, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "request_id", err)
 	}
-	msg, err := server.ReviewJob(ctx, &protoReq)
+	val, ok = pathParams["task_type"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_type")
+	}
+	protoReq.TaskType, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_type", err)
+	}
+	msg, err := server.VoteOnApproval(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+func request_JobExecutionService_GetApprovalStatus_0(ctx context.Context, marshaler runtime.Marshaler, client JobExecutionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetApprovalStatusRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	io.Copy(io.Discard, req.Body)
+	val, ok := pathParams["request_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "request_id")
+	}
+	protoReq.RequestId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "request_id", err)
+	}
+	val, ok = pathParams["task_type"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_type")
+	}
+	protoReq.TaskType, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_type", err)
+	}
+	msg, err := client.GetApprovalStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_JobExecutionService_GetApprovalStatus_0(ctx context.Context, marshaler runtime.Marshaler, server JobExecutionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetApprovalStatusRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["request_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "request_id")
+	}
+	protoReq.RequestId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "request_id", err)
+	}
+	val, ok = pathParams["task_type"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_type")
+	}
+	protoReq.TaskType, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_type", err)
+	}
+	msg, err := server.GetApprovalStatus(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_JobExecutionService_ListPendingApprovals_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+
+func request_JobExecutionService_ListPendingApprovals_0(ctx context.Context, marshaler runtime.Marshaler, client JobExecutionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListPendingApprovalsRequest
+		metadata runtime.ServerMetadata
+	)
+	io.Copy(io.Discard, req.Body)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_JobExecutionService_ListPendingApprovals_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := client.ListPendingApprovals(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_JobExecutionService_ListPendingApprovals_0(ctx context.Context, marshaler runtime.Marshaler, server JobExecutionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListPendingApprovalsRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_JobExecutionService_ListPendingApprovals_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.ListPendingApprovals(ctx, &protoReq)
 	return msg, metadata, err
 }
 
@@ -634,25 +736,65 @@ func RegisterJobExecutionServiceHandlerServer(ctx context.Context, mux *runtime.
 		}
 		forward_JobExecutionService_TriggerJob_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_JobExecutionService_ReviewJob_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_JobExecutionService_VoteOnApproval_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/ReviewJob", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{id}/review"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/VoteOnApproval", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{request_id}/tasks/{task_type}/vote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_JobExecutionService_ReviewJob_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_JobExecutionService_VoteOnApproval_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_JobExecutionService_ReviewJob_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_JobExecutionService_VoteOnApproval_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_JobExecutionService_GetApprovalStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/GetApprovalStatus", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{request_id}/tasks/{task_type}/approval"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_JobExecutionService_GetApprovalStatus_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_JobExecutionService_GetApprovalStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_JobExecutionService_ListPendingApprovals_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/ListPendingApprovals", runtime.WithHTTPPathPattern("/api/v1/approvals/pending"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_JobExecutionService_ListPendingApprovals_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_JobExecutionService_ListPendingApprovals_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_JobExecutionService_GetJobWaitTime_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -890,22 +1032,56 @@ func RegisterJobExecutionServiceHandlerClient(ctx context.Context, mux *runtime.
 		}
 		forward_JobExecutionService_TriggerJob_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_JobExecutionService_ReviewJob_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_JobExecutionService_VoteOnApproval_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/ReviewJob", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{id}/review"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/VoteOnApproval", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{request_id}/tasks/{task_type}/vote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_JobExecutionService_ReviewJob_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_JobExecutionService_VoteOnApproval_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_JobExecutionService_ReviewJob_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_JobExecutionService_VoteOnApproval_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_JobExecutionService_GetApprovalStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/GetApprovalStatus", runtime.WithHTTPPathPattern("/api/v1/jobs/requests/{request_id}/tasks/{task_type}/approval"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_JobExecutionService_GetApprovalStatus_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_JobExecutionService_GetApprovalStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_JobExecutionService_ListPendingApprovals_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/formicary.v1.services.JobExecutionService/ListPendingApprovals", runtime.WithHTTPPathPattern("/api/v1/approvals/pending"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_JobExecutionService_ListPendingApprovals_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_JobExecutionService_ListPendingApprovals_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_JobExecutionService_GetJobWaitTime_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -970,7 +1146,9 @@ var (
 	pattern_JobExecutionService_PauseJob_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "pause"}, ""))
 	pattern_JobExecutionService_RestartJob_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "restart"}, ""))
 	pattern_JobExecutionService_TriggerJob_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "trigger"}, ""))
-	pattern_JobExecutionService_ReviewJob_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "review"}, ""))
+	pattern_JobExecutionService_VoteOnApproval_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6, 2, 7}, []string{"api", "v1", "jobs", "requests", "request_id", "tasks", "task_type", "vote"}, ""))
+	pattern_JobExecutionService_GetApprovalStatus_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6, 2, 7}, []string{"api", "v1", "jobs", "requests", "request_id", "tasks", "task_type", "approval"}, ""))
+	pattern_JobExecutionService_ListPendingApprovals_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "approvals", "pending"}, ""))
 	pattern_JobExecutionService_GetJobWaitTime_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "wait_time"}, ""))
 	pattern_JobExecutionService_GetJobRequestMermaid_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "jobs", "requests", "id", "mermaid"}, ""))
 	pattern_JobExecutionService_GetJobStats_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "jobs", "requests", "stats"}, ""))
@@ -985,7 +1163,9 @@ var (
 	forward_JobExecutionService_PauseJob_0             = runtime.ForwardResponseMessage
 	forward_JobExecutionService_RestartJob_0           = runtime.ForwardResponseMessage
 	forward_JobExecutionService_TriggerJob_0           = runtime.ForwardResponseMessage
-	forward_JobExecutionService_ReviewJob_0            = runtime.ForwardResponseMessage
+	forward_JobExecutionService_VoteOnApproval_0       = runtime.ForwardResponseMessage
+	forward_JobExecutionService_GetApprovalStatus_0    = runtime.ForwardResponseMessage
+	forward_JobExecutionService_ListPendingApprovals_0 = runtime.ForwardResponseMessage
 	forward_JobExecutionService_GetJobWaitTime_0       = runtime.ForwardResponseMessage
 	forward_JobExecutionService_GetJobRequestMermaid_0 = runtime.ForwardResponseMessage
 	forward_JobExecutionService_GetJobStats_0          = runtime.ForwardResponseMessage

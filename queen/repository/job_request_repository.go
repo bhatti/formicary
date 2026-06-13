@@ -109,9 +109,6 @@ type JobRequestRepository interface {
 	// FindActiveChildRequests returns non-terminal child job requests that are
 	// marked for cascade cancellation (cascade_cancel = true) for the given parent ID.
 	FindActiveChildRequests(parentID string) ([]*types.JobRequest, error)
-	RejectManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error
-	// ApproveManualTask - approves task
-	ApproveManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error
 	// Trigger triggers a scheduled job
 	Trigger(
 		qc *common.QueryContext,
@@ -123,6 +120,15 @@ type JobRequestRepository interface {
 		id string,
 		hard bool,
 		newJobDefinitionID string) error
+	// QueryJobSubmissions aggregates job submission counts from formicary_job_requests,
+	// grouped by user_id/organization_id/job_type.
+	// submitted_count = COUNT(*); succeeded_count = COMPLETED; failed_count = FAILED.
+	// Params: organization_id (equality), from/to (created_at range). Order is validated.
+	QueryJobSubmissions(
+		params map[string]interface{},
+		page int,
+		pageSize int,
+		order []string) (records []*JobSubmissionSummary, totalRecords int64, err error)
 	// Delete removes a job
 	Delete(
 		qc *common.QueryContext,

@@ -44,6 +44,7 @@
 <div class="tab-content">
   <div class="tab-pane fade show active" id="job-context-tabs-1" role="tabpanel" aria-labelledby="job-context-tab-1">
     {{ template "jobs/req/summary" . }}
+    {{if $.ApprovalStatus}}{{ template "jobs/req/approval_status" $.ApprovalStatus }}{{end}}
   </div>
 
   {{ with .Execution }}

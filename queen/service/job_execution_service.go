@@ -9,10 +9,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	commonTypes "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/grpc/interceptors"
 	svcpb "plexobject.com/formicary/gen/go/formicary/v1/services"
+	protoQueen "plexobject.com/formicary/gen/go/formicary/v1/queen"
 	queenTypes "plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/manager"
 )
@@ -156,27 +157,68 @@ func (s *JobExecutionService) TriggerJob(ctx context.Context, req *svcpb.Trigger
 	return &emptypb.Empty{}, nil
 }
 
-func (s *JobExecutionService) ReviewJob(ctx context.Context, req *svcpb.ReviewJobRequest) (*emptypb.Empty, error) {
+func (s *JobExecutionService) VoteOnApproval(ctx context.Context, req *svcpb.VoteOnApprovalRequest) (*svcpb.VoteOnApprovalResponse, error) {
 	qc := interceptors.QueryContextFromContext(ctx)
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	review := req.Review
-	if review == nil {
-		return nil, status.Error(codes.InvalidArgument, "review is required")
+	if req.Vote == nil {
+		return nil, status.Error(codes.InvalidArgument, "vote is required")
 	}
-	reviewReq := &queenTypes.ReviewTaskRequest{
-		RequestID:   review.RequestId,
-		ExecutionID: review.ExecutionId,
-		TaskType:    review.TaskType,
-		ReviewedBy:  review.ReviewedBy,
-		Comments:    review.Comments,
-		Status:      commonTypes.RequestState(review.Status),
+	voteReq := &queenTypes.ApprovalVoteRequest{
+		RequestID: req.RequestId,
+		TaskType:  req.TaskType,
+		VoterID:   qc.GetUserID(),
+		VoterName: req.Vote.VoterName,
+		Decision:  queenTypes.ApprovalDecision(req.Vote.Decision),
+		Comments:  req.Vote.Comments,
 	}
-	if err := s.jobManager.ReviewTaskRequestForManualApproval(ctx, qc, reviewReq); err != nil {
+	approvalStatus, err := s.jobManager.CastApprovalVote(ctx, qc, voteReq)
+	if err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
-	return &emptypb.Empty{}, nil
+	return &svcpb.VoteOnApprovalResponse{
+		Status: toProtoApprovalStatus(approvalStatus),
+	}, nil
+}
+
+func (s *JobExecutionService) GetApprovalStatus(ctx context.Context, req *svcpb.GetApprovalStatusRequest) (*svcpb.GetApprovalStatusResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	approvalStatus, err := s.jobManager.GetApprovalStatus(ctx, qc, req.RequestId, req.TaskType)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.GetApprovalStatusResponse{
+		Status: toProtoApprovalStatus(approvalStatus),
+	}, nil
+}
+
+func (s *JobExecutionService) ListPendingApprovals(ctx context.Context, req *svcpb.ListPendingApprovalsRequest) (*svcpb.ListPendingApprovalsResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	page := int(req.Page)
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	pendingApprovals, total, err := s.jobManager.ListPendingApprovals(ctx, qc, page, pageSize)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	resp := &svcpb.ListPendingApprovalsResponse{
+		TotalRecords: total,
+		Page:         int32(page),
+		PageSize:     int32(pageSize),
+	}
+	for _, pa := range pendingApprovals {
+		resp.Approvals = append(resp.Approvals, toProtoPendingApproval(pa))
+	}
+	return resp, nil
 }
 
 func (s *JobExecutionService) GetJobWaitTime(ctx context.Context, req *svcpb.GetJobRequestRequest) (*svcpb.JobWaitTimeResponse, error) {
@@ -224,4 +266,80 @@ func (s *JobExecutionService) GetJobStats(ctx context.Context, req *svcpb.QueryJ
 			{JobType: req.JobType, Total: total},
 		},
 	}, nil
+}
+
+func toProtoApprovalStatus(s *queenTypes.ApprovalStatus) *protoQueen.ApprovalStatus {
+	if s == nil {
+		return nil
+	}
+	p := &protoQueen.ApprovalStatus{
+		TaskExecutionId:   s.TaskExecutionID,
+		JobRequestId:      s.JobRequestID,
+		ApprovalsReceived: int32(s.ApprovalsReceived),
+		RejectionsReceived: int32(s.RejectionsReceived),
+		MinApprovalsRequired: int32(s.MinApprovalsRequired),
+		QuorumReached:     s.QuorumReached,
+		Rejected:          s.Rejected,
+		SlaBreached:       s.SLABreached,
+	}
+	if s.Deadline != nil {
+		p.Deadline = timestamppb.New(*s.Deadline)
+	}
+	for _, v := range s.Votes {
+		p.Votes = append(p.Votes, toProtoApprovalVote(v))
+	}
+	if s.Policy != nil {
+		p.Policy = toProtoApprovalPolicy(s.Policy)
+	}
+	return p
+}
+
+func toProtoApprovalVote(v *queenTypes.ApprovalVote) *protoQueen.ApprovalVote {
+	if v == nil {
+		return nil
+	}
+	return &protoQueen.ApprovalVote{
+		Id:              v.ID,
+		TaskExecutionId: v.TaskExecutionID,
+		JobRequestId:    v.JobRequestID,
+		VoterId:         v.VoterID,
+		VoterName:       v.VoterName,
+		Decision:        string(v.Decision),
+		Comments:        v.Comments,
+		VotedAt:         timestamppb.New(v.VotedAt),
+	}
+}
+
+func toProtoApprovalPolicy(p *queenTypes.ApprovalPolicy) *protoQueen.ApprovalPolicy {
+	if p == nil {
+		return nil
+	}
+	return &protoQueen.ApprovalPolicy{
+		Id:                   p.ID,
+		TaskDefinitionId:     p.TaskDefinitionID,
+		MinApprovals:         int32(p.MinApprovals),
+		AllowedRoles:         p.AllowedRoles,
+		AllowedUsers:         p.AllowedUsers,
+		RequireUnanimous:     p.RequireUnanimous,
+		SlaDeadlineNs:        int64(p.SLADeadline),
+		TimeoutAction:        string(p.TimeoutAction),
+		EscalationRecipients: p.EscalationRecipients,
+		EscalationMessage:    p.EscalationMessage,
+		CreatedAt:            timestamppb.New(p.CreatedAt),
+		UpdatedAt:            timestamppb.New(p.UpdatedAt),
+	}
+}
+
+func toProtoPendingApproval(pa *queenTypes.PendingApproval) *protoQueen.PendingApproval {
+	if pa == nil {
+		return nil
+	}
+	return &protoQueen.PendingApproval{
+		JobRequestId:    pa.JobRequestID,
+		TaskExecutionId: pa.TaskExecutionID,
+		JobType:         pa.JobType,
+		TaskType:        pa.TaskType,
+		Status:          toProtoApprovalStatus(pa.Status),
+		RequestedAt:     timestamppb.New(pa.RequestedAt),
+	}
 }

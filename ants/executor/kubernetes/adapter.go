@@ -729,27 +729,38 @@ func (u *Utils) BuildPod(
 	return pod, serviceNames, aliasNames, totalCost, err
 }
 
-// BuildRegistryCredentials - stores docker credentials as a secret
+// BuildRegistryCredentials creates a Kubernetes docker pull secret for the configured
+// registry. Returns nil, nil when no registry credentials are configured so that
+// the caller proceeds without a pull secret (public images, or credentials already
+// baked into the cluster via imagePullSecrets / service-account annotation).
 func (u *Utils) BuildRegistryCredentials(ctx context.Context) (*api.Secret, error) {
-	authConfigs := make(map[string]interface{})
-	logrus.WithFields(logrus.Fields{
-		"Component": "KubernetesAdapter",
-		"Username":  u.config.Kubernetes.Username,
-	}).Info("adding registry secret")
-	authConfigs[u.config.Kubernetes.Registry.Server] = map[string]string{
-		"Username": u.config.Kubernetes.Username, "Password": u.config.Kubernetes.Password}
+	if u.config.Kubernetes.Registry.Server == "" || u.config.Kubernetes.Username == "" {
+		return nil, nil
+	}
+
+	authConfigs := map[string]interface{}{
+		u.config.Kubernetes.Registry.Server: map[string]string{
+			"Username": u.config.Kubernetes.Username,
+			"Password": u.config.Kubernetes.Password,
+		},
+	}
 
 	serialized, err := json.Marshal(authConfigs)
 	if err != nil {
 		return nil, err
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"Component": "KubernetesAdapter",
+		"Registry":  u.config.Kubernetes.Registry.Server,
+		"Username":  u.config.Kubernetes.Username,
+	}).Info("creating registry pull-secret")
+
 	secret := api.Secret{}
 	secret.GenerateName = utils.MakeDNS1123Compatible("credential-secret")
 	secret.Namespace = u.config.Kubernetes.Namespace
 	secret.Type = api.SecretTypeDockercfg
-	secret.Data = map[string][]byte{}
-	secret.Data[api.DockerConfigKey] = serialized
+	secret.Data = map[string][]byte{api.DockerConfigKey: serialized}
 	return u.cli.CoreV1().Secrets(u.config.Kubernetes.Namespace).Create(ctx, &secret, metav1.CreateOptions{})
 }
 

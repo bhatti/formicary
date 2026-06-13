@@ -123,6 +123,74 @@ func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.
 	return ticker
 }
 
+// startTickerToCheckApprovalSLAs fires HandleSLABreach for each overdue approval deadline.
+func (js *JobScheduler) startTickerToCheckApprovalSLAs(ctx context.Context) *time.Ticker {
+	ticker := time.NewTicker(js.serverCfg.Jobs.ApprovalSLACheckInterval)
+	go func() {
+		for !js.isStopped() {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-js.done:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if err := js.checkApprovalSLABreaches(ctx); err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component": "JobScheduler",
+						"Error":     err,
+					}).Warn("failed to check approval SLA breaches")
+				}
+			}
+		}
+	}()
+	return ticker
+}
+
+func (js *JobScheduler) checkApprovalSLABreaches(ctx context.Context) error {
+	if js.approvalService == nil {
+		return nil
+	}
+	deadlines, err := js.approvalService.FindBreachedDeadlines(time.Now(), 100)
+	if err != nil {
+		return fmt.Errorf("failed to find breached deadlines: %w", err)
+	}
+	qc := common.NewQueryContextFromIDs("", "")
+	for _, deadline := range deadlines {
+		request, reqErr := js.jobManager.GetJobRequest(qc, deadline.JobRequestID)
+		if reqErr != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":  "JobScheduler",
+				"DeadlineID": deadline.ID,
+				"RequestID":  deadline.JobRequestID,
+				"Error":      reqErr,
+			}).Warn("failed to load job request for SLA breach handling")
+			continue
+		}
+		taskType := ""
+		if jobExec, execErr := js.jobManager.GetJobExecution(request.JobExecutionID); execErr == nil {
+			for _, t := range jobExec.Tasks {
+				if t.ID == deadline.TaskExecutionID {
+					taskType = t.TaskType
+					break
+				}
+			}
+		}
+		notifyFn := func(recipients []string, message string) error {
+			return js.jobManager.SendApprovalEscalationNotification(ctx, qc, recipients, message)
+		}
+		if slaErr := js.approvalService.HandleSLABreach(ctx, qc, deadline, request, taskType, notifyFn); slaErr != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component":  "JobScheduler",
+				"DeadlineID": deadline.ID,
+				"Error":      slaErr,
+			}).Warn("failed to handle SLA breach")
+		}
+	}
+	return nil
+}
+
 // Subscribing to job-scheduler event in failover mode
 // TODO Failover mode is not working and is sending events to multiple subscribers as opposed to exclusive
 func (js *JobScheduler) subscribeToJobSchedulerLeader(ctx context.Context) (string, error) {

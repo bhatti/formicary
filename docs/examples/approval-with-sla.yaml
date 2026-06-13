@@ -1,0 +1,38 @@
+job_type: approval-with-sla-demo
+description: Approval gate with a 4-hour SLA. If no decision is made within 4 hours the escalation_recipients are notified and the gate remains open for manual resolution.
+max_concurrency: 1
+tasks:
+- task_type: build
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Build complete."
+  on_completed: security-approval
+
+- task_type: security-approval
+  method: MANUAL
+  description: "Build succeeded. Security team must approve before deployment to production. SLA: 4 hours."
+  approval_policy:
+    min_approvals: 1
+    sla_deadline: 4h
+    timeout_action: ESCALATE
+    escalation_recipients: "security-oncall@example.com,vp-eng@example.com"
+    escalation_message: "Security approval SLA breached — deployment blocked pending manual action"
+  on_exit_code:
+    APPROVED: deploy-prod
+    REJECTED: notify-rejected
+
+- task_type: deploy-prod
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deploying to production after security approval."
+
+- task_type: notify-rejected
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deployment rejected by security team."

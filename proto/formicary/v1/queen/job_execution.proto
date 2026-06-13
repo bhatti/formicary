@@ -3,9 +3,9 @@ syntax = "proto3";
 
 package formicary.v1.queen;
 
-import "google/protobuf/timestamp.proto";
 import "formicary/v1/annotations.proto";
 import "formicary/v1/resource/artifact.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
 
@@ -47,21 +47,17 @@ message TaskExecution {
   string comments = 12 [(formicary.v1.tags) = "json:\"comments\""];
   string ant_id = 13 [(formicary.v1.tags) = "json:\"ant_id\""];
   string ant_host = 14 [(formicary.v1.tags) = "json:\"ant_host\""];
-  string manual_reviewed_by = 15 [(formicary.v1.tags) = "json:\"manual_reviewed_by\" gorm:\"manual_reviewed_by\""];
-  google.protobuf.Timestamp manual_reviewed_at = 16 [(formicary.v1.tags) = "json:\"manual_reviewed_at\" gorm:\"manual_reviewed_at\""];
-  // reviewed_status stores RequestState as string.
-  string reviewed_status = 17 [(formicary.v1.tags) = "json:\"reviewed_status\" gorm:\"reviewed_status\""];
-  int32 retried = 18 [(formicary.v1.tags) = "json:\"retried\""];
-  repeated TaskExecutionContext contexts = 19 [(formicary.v1.tags) = "json:\"contexts\" gorm:\"ForeignKey:TaskExecutionID\" gorm:\"auto_preload\""];
-  repeated formicary.v1.resource.Artifact artifacts = 20 [(formicary.v1.tags) = "json:\"artifacts\" gorm:\"ForeignKey:TaskExecutionID\""];
-  int32 task_order = 21 [(formicary.v1.tags) = "json:\"task_order\""];
-  int32 count_services = 22 [(formicary.v1.tags) = "json:\"count_services\""];
-  double cost_factor = 23 [(formicary.v1.tags) = "json:\"cost_factor\""];
-  google.protobuf.Timestamp started_at = 24 [(formicary.v1.tags) = "json:\"started_at\""];
-  google.protobuf.Timestamp ended_at = 25 [(formicary.v1.tags) = "json:\"ended_at\""];
-  google.protobuf.Timestamp updated_at = 26 [(formicary.v1.tags) = "json:\"updated_at\""];
-  bool active = 27 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
-  repeated string stdout = 28 [(formicary.v1.tags) = "json:\"stdout\" gorm:\"-\""];
+  int32 retried = 15 [(formicary.v1.tags) = "json:\"retried\""];
+  repeated TaskExecutionContext contexts = 16 [(formicary.v1.tags) = "json:\"contexts\" gorm:\"ForeignKey:TaskExecutionID\" gorm:\"auto_preload\""];
+  repeated formicary.v1.resource.Artifact artifacts = 17 [(formicary.v1.tags) = "json:\"artifacts\" gorm:\"ForeignKey:TaskExecutionID\""];
+  int32 task_order = 18 [(formicary.v1.tags) = "json:\"task_order\""];
+  int32 count_services = 19 [(formicary.v1.tags) = "json:\"count_services\""];
+  double cost_factor = 20 [(formicary.v1.tags) = "json:\"cost_factor\""];
+  google.protobuf.Timestamp started_at = 21 [(formicary.v1.tags) = "json:\"started_at\""];
+  google.protobuf.Timestamp ended_at = 22 [(formicary.v1.tags) = "json:\"ended_at\""];
+  google.protobuf.Timestamp updated_at = 23 [(formicary.v1.tags) = "json:\"updated_at\""];
+  bool active = 24 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
+  repeated string stdout = 25 [(formicary.v1.tags) = "json:\"stdout\" gorm:\"-\""];
 }
 
 // JobExecution tracks a specific execution instance of a job request.

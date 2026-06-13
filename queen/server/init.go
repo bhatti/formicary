@@ -332,9 +332,15 @@ func buildMethodPermissions() map[string]*acl.Permission {
 		svcpb.JobExecutionService_TriggerJob_FullMethodName,
 		svcpb.JobExecutionService_RestartJob_FullMethodName,
 		svcpb.JobExecutionService_PauseJob_FullMethodName,
-		svcpb.JobExecutionService_ReviewJob_FullMethodName,
 	} {
 		p[m] = acl.NewPermission(acl.JobRequest, acl.Execute)
+	}
+	p[svcpb.JobExecutionService_VoteOnApproval_FullMethodName] = acl.NewPermission(acl.JobRequest, acl.Approve)
+	for _, m := range []string{
+		svcpb.JobExecutionService_GetApprovalStatus_FullMethodName,
+		svcpb.JobExecutionService_ListPendingApprovals_FullMethodName,
+	} {
+		p[m] = acl.NewPermission(acl.JobRequest, acl.View)
 	}
 	p[svcpb.JobExecutionService_CancelJob_FullMethodName] = acl.NewPermission(acl.JobRequest, acl.Delete)
 
@@ -572,7 +578,7 @@ func startAdminControllers(
 	healthMonitor *health.Monitor,
 	authProviders []auth.Provider,
 	webServer web.Server) {
-	admin.NewAuditAdminController(repoFactory.AuditRecordRepository, webServer)
+	admin.NewAuditAdminController(repoFactory.AuditRecordRepository, repoFactory.JobRequestRepository, webServer)
 	admin.NewAuthController(
 		&serverCfg.Common,
 		authProviders,

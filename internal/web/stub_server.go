@@ -49,6 +49,10 @@ func NewStubWebServer() Server {
 func (w *stubWebServer) AddMiddleware(_ echo.MiddlewareFunc) {
 }
 
+func (w *stubWebServer) SetLoginRedirectURL(_ string) {
+}
+
+
 func (w *stubWebServer) GET(string, HandlerFunc, *acl.Permission, ...echo.MiddlewareFunc) *echo.Route {
 	return &echo.Route{}
 }

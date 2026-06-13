@@ -1434,11 +1434,20 @@ func ReloadFromYaml(rawYaml string) (loaded *JobDefinition, err error) {
 	}
 	loaded = &JobDefinition{}
 	var loadedYaml string
-	if loadedYaml, err = utils.ParseTemplate(rawYaml, make(map[string]interface{})); err == nil &&
-		rawYaml != loadedYaml && !strings.Contains(loadedYaml, "<no value>") {
+	loadedYaml, err = utils.ParseTemplate(rawYaml, make(map[string]interface{}))
+	if err != nil {
+		return
+	}
+	// Always unmarshal: even when the YAML has no template expressions (rawYaml == loadedYaml)
+	// we must parse to hydrate transient fields such as ApprovalPolicy that are gorm:"-".
+	// Skip only when ParseTemplate introduced "<no value>" (unresolvable template variables).
+	if !strings.Contains(loadedYaml, "<no value>") {
 		err = yaml.Unmarshal([]byte(loadedYaml), loaded)
 	}
 	if err == nil {
+		if loaded.RawYaml == "" {
+			loaded.RawYaml = rawYaml
+		}
 		_ = loaded.addVariablesFromNameValueVariables()
 		for i, task := range loaded.Tasks {
 			task.TaskOrder = i

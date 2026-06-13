@@ -38,7 +38,9 @@ func NewJobRequestController(
 	webserver.GET("/api/jobs/requests/:id/dot.png", jobReqCtrl.dotImageJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_png_job_request"
 	webserver.POST("/api/jobs/requests", jobReqCtrl.submitJobRequest, acl.NewPermission(acl.JobRequest, acl.Submit)).Name = "create_job_request"
 	webserver.POST("/api/jobs/requests/:id/cancel", jobReqCtrl.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_job_request"
-	webserver.POST("/api/jobs/requests/:id/review", jobReqCtrl.reviewJobRequestForApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "review_job_request"
+	webserver.POST("/api/jobs/requests/:id/tasks/:taskType/vote", jobReqCtrl.voteOnApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "vote_on_approval"
+	webserver.GET("/api/jobs/requests/:id/tasks/:taskType/approval", jobReqCtrl.getApprovalStatus, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_approval_status"
+	webserver.GET("/api/approvals/pending", jobReqCtrl.listPendingApprovals, acl.NewPermission(acl.JobRequest, acl.Query)).Name = "list_pending_approvals"
 	webserver.POST("/api/jobs/requests/:id/pause", jobReqCtrl.pauseJobRequest, acl.NewPermission(acl.JobRequest, acl.Pause)).Name = "pause_job_request"
 	webserver.POST("/api/jobs/requests/:id/restart", jobReqCtrl.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_job_request"
 	webserver.POST("/api/jobs/requests/:id/trigger", jobReqCtrl.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_job_request"
@@ -132,26 +134,75 @@ func (jobReqCtrl *JobRequestController) cancelJobRequest(c web.APIContext) error
 	return c.NoContent(http.StatusOK)
 }
 
-// Approves a job-request that is pending for manually approve.
+// Casts a vote on a task awaiting multi-party approval.
 // responses:
 //
-//	200: emptyResponse
-func (jobReqCtrl *JobRequestController) reviewJobRequestForApproval(c web.APIContext) error {
+//	200: approvalStatus
+func (jobReqCtrl *JobRequestController) voteOnApproval(c web.APIContext) error {
 	id := c.Param("id")
+	taskType := c.Param("taskType")
 	qc := web.BuildQueryContext(c)
-	request := &types.ReviewTaskRequest{}
-	err := json.NewDecoder(c.Request().Body).Decode(request)
+	voteReq := &types.ApprovalVoteRequest{}
+	if err := json.NewDecoder(c.Request().Body).Decode(voteReq); err != nil {
+		return err
+	}
+	// Auth-enabled: always override voter_id and voter_name from the verified session identity.
+	// Auth-disabled: accept voter_id/voter_name from the request body (no verified identity).
+	if authedID := qc.GetUserID(); authedID != "" {
+		voteReq.VoterID = authedID
+		voteReq.VoterName = qc.GetUsername()
+	} else if authedName := qc.GetUsername(); authedName != "" {
+		voteReq.VoterID = authedName
+		voteReq.VoterName = authedName
+	}
+	// When auth is disabled, voteReq.VoterID and VoterName retain the body-supplied values.
+	voteReq.RequestID = id
+	voteReq.TaskType = taskType
+	approvalStatus, err := jobReqCtrl.jobManager.CastApprovalVote(context.Background(), qc, voteReq)
 	if err != nil {
 		return err
 	}
+	return c.JSON(http.StatusOK, approvalStatus)
+}
 
-	request.ReviewedBy = qc.GetUserID()
-	request.RequestID = id
-
-	if err = jobReqCtrl.jobManager.ReviewTaskRequestForManualApproval(context.Background(), qc, request); err != nil {
+// Returns the current approval status for a task awaiting multi-party approval.
+// responses:
+//
+//	200: approvalStatus
+func (jobReqCtrl *JobRequestController) getApprovalStatus(c web.APIContext) error {
+	id := c.Param("id")
+	taskType := c.Param("taskType")
+	qc := web.BuildQueryContext(c)
+	approvalStatus, err := jobReqCtrl.jobManager.GetApprovalStatus(context.Background(), qc, id, taskType)
+	if err != nil {
 		return err
 	}
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, approvalStatus)
+}
+
+// Lists tasks currently awaiting approval votes.
+// responses:
+//
+//	200: pendingApprovalsResponse
+func (jobReqCtrl *JobRequestController) listPendingApprovals(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	page := 0
+	pageSize := 20
+	if p := c.QueryParam("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil {
+			page = n
+		}
+	}
+	if ps := c.QueryParam("page_size"); ps != "" {
+		if n, err := strconv.Atoi(ps); err == nil {
+			pageSize = n
+		}
+	}
+	pending, total, err := jobReqCtrl.jobManager.ListPendingApprovals(context.Background(), qc, page, pageSize)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, NewPaginatedResult(pending, total, page, pageSize))
 }
 
 // Pauses a job-request that is already executing.
@@ -321,12 +372,6 @@ type jobRequestQueryResponseBody struct {
 type jobRequestIDParams struct {
 	// in:path
 	ID string `json:"id"`
-}
-
-// The request body for reviewing manual job.
-type reviewJobRequestBody struct {
-	// in:body
-	Body types.ReviewTaskRequest
 }
 
 // The request body includes job-request for persistence.

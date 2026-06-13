@@ -3,9 +3,9 @@ syntax = "proto3";
 
 package formicary.v1.queen;
 
-import "google/protobuf/timestamp.proto";
 import "buf/validate/validate.proto";
 import "formicary/v1/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
 
@@ -19,17 +19,11 @@ enum TriggerAuthMethod {
 
 // TriggerAuth defines authentication configuration for webhook triggers.
 message TriggerAuth {
-  TriggerAuthMethod method = 1 [
-    (formicary.v1.tags) = "yaml:\"method\" json:\"method\""
-  ];
+  TriggerAuthMethod method = 1 [(formicary.v1.tags) = "yaml:\"method\" json:\"method\""];
   // secret_config references a JobDefinitionConfig name whose value holds the secret.
-  string secret_config = 2 [
-    (formicary.v1.tags) = "yaml:\"secret_config\" json:\"secret_config\""
-  ];
+  string secret_config = 2 [(formicary.v1.tags) = "yaml:\"secret_config\" json:\"secret_config\""];
   // header is the HTTP header carrying the signature or token.
-  string header = 3 [
-    (formicary.v1.tags) = "yaml:\"header\" json:\"header\""
-  ];
+  string header = 3 [(formicary.v1.tags) = "yaml:\"header\" json:\"header\""];
 }
 
 // TriggerRateLimit caps how many job requests a trigger can create per window.
@@ -39,16 +33,20 @@ message TriggerRateLimit {
     (formicary.v1.tags) = "yaml:\"max\" json:\"max\""
   ];
   // window_ns stores the rate-limit window duration in nanoseconds.
-  int64 window_ns = 2 [
-    (formicary.v1.tags) = "yaml:\"window\" json:\"window\""
-  ];
+  int64 window_ns = 2 [(formicary.v1.tags) = "yaml:\"window\" json:\"window\""];
 }
 
 // TriggerDefinition describes a single event trigger on a job definition.
 // type must be one of: "webhook", "s3", "queue".
 message TriggerDefinition {
   string type = 1 [
-    (buf.validate.field).string = {in: ["webhook", "s3", "queue"]},
+    (buf.validate.field).string = {
+      in: [
+        "webhook",
+        "s3",
+        "queue"
+      ]
+    },
     (formicary.v1.tags) = "yaml:\"type\" json:\"type\""
   ];
   string name = 2 [
@@ -57,57 +55,29 @@ message TriggerDefinition {
   ];
 
   // Webhook-specific: path suffix for the inbound route POST /api/triggers/{job_type}/{name}
-  string path = 3 [
-    (formicary.v1.tags) = "yaml:\"path,omitempty\" json:\"path,omitempty\""
-  ];
-  TriggerAuth auth = 4 [
-    (formicary.v1.tags) = "yaml:\"auth,omitempty\" json:\"auth,omitempty\""
-  ];
+  string path = 3 [(formicary.v1.tags) = "yaml:\"path,omitempty\" json:\"path,omitempty\""];
+  TriggerAuth auth = 4 [(formicary.v1.tags) = "yaml:\"auth,omitempty\" json:\"auth,omitempty\""];
 
   // S3-specific: mode is "poll" (default) or "notification".
-  string mode = 5 [
-    (formicary.v1.tags) = "yaml:\"mode,omitempty\" json:\"mode,omitempty\""
-  ];
-  string bucket = 6 [
-    (formicary.v1.tags) = "yaml:\"bucket,omitempty\" json:\"bucket,omitempty\""
-  ];
-  string prefix = 7 [
-    (formicary.v1.tags) = "yaml:\"prefix,omitempty\" json:\"prefix,omitempty\""
-  ];
-  string suffix = 8 [
-    (formicary.v1.tags) = "yaml:\"suffix,omitempty\" json:\"suffix,omitempty\""
-  ];
+  string mode = 5 [(formicary.v1.tags) = "yaml:\"mode,omitempty\" json:\"mode,omitempty\""];
+  string bucket = 6 [(formicary.v1.tags) = "yaml:\"bucket,omitempty\" json:\"bucket,omitempty\""];
+  string prefix = 7 [(formicary.v1.tags) = "yaml:\"prefix,omitempty\" json:\"prefix,omitempty\""];
+  string suffix = 8 [(formicary.v1.tags) = "yaml:\"suffix,omitempty\" json:\"suffix,omitempty\""];
   // poll_interval_ns stores the S3 poll interval in nanoseconds.
-  int64 poll_interval_ns = 9 [
-    (formicary.v1.tags) = "yaml:\"poll_interval,omitempty\" json:\"poll_interval,omitempty\""
-  ];
+  int64 poll_interval_ns = 9 [(formicary.v1.tags) = "yaml:\"poll_interval,omitempty\" json:\"poll_interval,omitempty\""];
 
   // Queue-specific.
-  string topic = 10 [
-    (formicary.v1.tags) = "yaml:\"topic,omitempty\" json:\"topic,omitempty\""
-  ];
-  string group = 11 [
-    (formicary.v1.tags) = "yaml:\"group,omitempty\" json:\"group,omitempty\""
-  ];
-  bool shared = 12 [
-    (formicary.v1.tags) = "yaml:\"shared,omitempty\" json:\"shared,omitempty\""
-  ];
+  string topic = 10 [(formicary.v1.tags) = "yaml:\"topic,omitempty\" json:\"topic,omitempty\""];
+  string group = 11 [(formicary.v1.tags) = "yaml:\"group,omitempty\" json:\"group,omitempty\""];
+  bool shared = 12 [(formicary.v1.tags) = "yaml:\"shared,omitempty\" json:\"shared,omitempty\""];
 
   // Common: params maps job param names to Go template expressions over event data.
-  map<string, string> params = 13 [
-    (formicary.v1.tags) = "yaml:\"params,omitempty\" json:\"params,omitempty\""
-  ];
+  map<string, string> params = 13 [(formicary.v1.tags) = "yaml:\"params,omitempty\" json:\"params,omitempty\""];
   // filter is a Go template expression; trigger fires only when trimmed result is "true".
-  string filter = 14 [
-    (formicary.v1.tags) = "yaml:\"filter,omitempty\" json:\"filter,omitempty\""
-  ];
+  string filter = 14 [(formicary.v1.tags) = "yaml:\"filter,omitempty\" json:\"filter,omitempty\""];
   // dedup_key is a Go template expression whose result becomes JobRequest.UserKey.
-  string dedup_key = 15 [
-    (formicary.v1.tags) = "yaml:\"dedup_key,omitempty\" json:\"dedup_key,omitempty\""
-  ];
-  TriggerRateLimit rate_limit = 16 [
-    (formicary.v1.tags) = "yaml:\"rate_limit,omitempty\" json:\"rate_limit,omitempty\""
-  ];
+  string dedup_key = 15 [(formicary.v1.tags) = "yaml:\"dedup_key,omitempty\" json:\"dedup_key,omitempty\""];
+  TriggerRateLimit rate_limit = 16 [(formicary.v1.tags) = "yaml:\"rate_limit,omitempty\" json:\"rate_limit,omitempty\""];
 }
 
 // TriggerState persists per-trigger runtime state: S3 poll marker and rate-limit window.

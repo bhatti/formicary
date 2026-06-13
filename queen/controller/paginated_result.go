@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"net/url"
 	"plexobject.com/formicary/internal/web"
 	"strconv"
 )
@@ -22,8 +23,8 @@ func NewPaginatedResult(
 	page int,
 	pageSize int) *PaginatedResult {
 	totalPages := int64(0)
-	if totalRecords > 0 {
-		totalPages = int64(pageSize) / totalRecords
+	if pageSize > 0 {
+		totalPages = totalRecords / int64(pageSize)
 	}
 	return &PaginatedResult{
 		Records:      records,
@@ -73,6 +74,20 @@ func Pagination(page int, pageSize int, total int64, baseURL string) (res map[st
 	}
 	res["NextPages"] = nextPages
 	return
+}
+
+// BuildBaseURL constructs a pagination base URL from the current (post-enforcement) params map
+// and pageSize. Using this instead of the raw query string ensures server-side enforced filters
+// (e.g., organization_id) are always reflected in pagination links.
+func BuildBaseURL(path string, params map[string]interface{}, pageSize int) string {
+	q := url.Values{}
+	for k, v := range params {
+		if v != nil && fmt.Sprintf("%v", v) != "" {
+			q.Set(k, fmt.Sprintf("%v", v))
+		}
+	}
+	q.Set("pageSize", strconv.Itoa(pageSize))
+	return path + "?" + q.Encode() + "&"
 }
 
 // ParseParams parses params

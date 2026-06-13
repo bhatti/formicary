@@ -89,3 +89,58 @@ func Test_ShouldBuildEndpointWithHTTPS(t *testing.T) {
 	c := &S3Config{Endpoint: "s3.example.com", UseSSL: true}
 	require.Equal(t, "https://s3.example.com", c.BuildEndpoint())
 }
+
+// ---- BuildContainerEndpoint regression tests ----
+// These cover the bug where helper-container upload commands got http://host.docker.internal:8333
+// instead of the real SeaweedFS port because the resolved endpoint was not written back to the
+// original *S3Config after StartLocalServer set it.
+
+// Test_ShouldBuildContainerEndpointUsesResolvedPort verifies that once the caller
+// sets Endpoint (as artifacts.New does after StartLocalServer), BuildContainerEndpoint
+// returns the correct port — not the stale default 8333.
+func Test_ShouldBuildContainerEndpointUsesResolvedPort(t *testing.T) {
+	c := &S3Config{LocalMode: true}
+	require.NoError(t, c.Validate())
+
+	// Simulate what artifacts.New does: write the real port back.
+	c.Endpoint = "127.0.0.1:19000"
+
+	ep := c.BuildContainerEndpoint()
+	require.Equal(t, "http://host.docker.internal:19000", ep)
+}
+
+// Test_ShouldBuildContainerEndpointFallsBackToDefaultPortWhenEndpointEmpty reproduces
+// the original bug: if Endpoint is never written back, port falls to 8333.
+func Test_ShouldBuildContainerEndpointFallsBackToDefaultPortWhenEndpointEmpty(t *testing.T) {
+	c := &S3Config{LocalMode: true}
+	require.NoError(t, c.Validate())
+	// Endpoint intentionally left empty to show the old broken behaviour.
+	ep := c.BuildContainerEndpoint()
+	require.Equal(t, "http://host.docker.internal:8333", ep)
+}
+
+// Test_ShouldBuildContainerEndpointUsesCustomHostForKubernetes verifies that on a
+// Linux K8s cluster, setting local_container_host to the node IP produces a routable URL.
+func Test_ShouldBuildContainerEndpointUsesCustomHostForKubernetes(t *testing.T) {
+	c := &S3Config{
+		LocalMode:          true,
+		Endpoint:           "127.0.0.1:19000",
+		LocalContainerHost: "192.168.1.50", // node IP visible from pods
+	}
+	ep := c.BuildContainerEndpoint()
+	require.Equal(t, "http://192.168.1.50:19000", ep)
+}
+
+// Test_ShouldBuildContainerEndpointExternalModeUsesEndpointAsIs verifies that for an
+// external S3-compatible store (not LocalMode) BuildContainerEndpoint returns the
+// same URL as BuildEndpoint.
+func Test_ShouldBuildContainerEndpointExternalModeUsesEndpointAsIs(t *testing.T) {
+	c := &S3Config{Endpoint: "minio.example.com:9000", UseSSL: false}
+	require.Equal(t, c.BuildEndpoint(), c.BuildContainerEndpoint())
+}
+
+// Test_ShouldBuildContainerEndpointExternalModeHTTPS verifies HTTPS passthrough.
+func Test_ShouldBuildContainerEndpointExternalModeHTTPS(t *testing.T) {
+	c := &S3Config{Endpoint: "s3.amazonaws.com", UseSSL: true}
+	require.Equal(t, "https://s3.amazonaws.com", c.BuildContainerEndpoint())
+}

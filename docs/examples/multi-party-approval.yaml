@@ -1,0 +1,44 @@
+job_type: multi-party-approval-demo
+description: Demonstrates quorum-based multi-party approval — 2-of-3 approvers must vote APPROVED before the job continues.
+max_concurrency: 1
+tasks:
+- task_type: prepare
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Preparing deployment package..."
+    - echo "Package ready for review."
+  on_completed: team-approval
+
+- task_type: team-approval
+  method: MANUAL
+  description: "Deployment package prepared. Any two authenticated users must approve before the deploy proceeds. Remove the min_approvals restriction or set allowed_users to restrict to specific reviewers."
+  approval_policy:
+    min_approvals: 2
+    require_unanimous: false
+  on_exit_code:
+    APPROVED: deploy
+    REJECTED: notify-rejection
+
+- task_type: deploy
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deploying — quorum approved."
+  on_completed: notify-success
+
+- task_type: notify-success
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deployment complete and notified."
+
+- task_type: notify-rejection
+  method: KUBERNETES
+  container:
+    image: alpine:latest
+  script:
+    - echo "Deployment rejected by team. No action taken."

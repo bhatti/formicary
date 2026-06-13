@@ -3,6 +3,8 @@ package types
 import (
 	"fmt"
 	"strings"
+
+	logrus "github.com/sirupsen/logrus"
 )
 
 // S3Config S3 config
@@ -17,14 +19,19 @@ type S3Config struct {
 	EncryptionPassword string `yaml:"encryption_password" mapstructure:"encryption_password" env:"PASSWORD"`
 	UseSSL             bool   `yaml:"useSSL" mapstructure:"useSSL"`
 	// LocalMode starts an embedded SeaweedFS subprocess instead of using an external endpoint.
-	LocalMode         bool   `yaml:"local_mode" mapstructure:"local_mode"`
-	LocalDataDir      string `yaml:"local_data_dir" mapstructure:"local_data_dir"`
-	LocalWeedBin      string `yaml:"local_weed_bin" mapstructure:"local_weed_bin"`
+	LocalMode    bool   `yaml:"local_mode" mapstructure:"local_mode"`
+	LocalDataDir string `yaml:"local_data_dir" mapstructure:"local_data_dir"`
+	LocalWeedBin string `yaml:"local_weed_bin" mapstructure:"local_weed_bin"`
 	// LocalS3Port pins the embedded SeaweedFS S3 port to a fixed value (0 = dynamic).
-	// A fixed port survives server restarts: if weed is already listening on this port,
-	// StartLocalServer reuses it instead of spawning a second instance.
-	LocalS3Port       int    `yaml:"local_s3_port" mapstructure:"local_s3_port"`
-	// LocalContainerHost overrides the host used by Docker/K8s helper containers to reach the embedded store.
+	// REQUIRED when Kubernetes helper containers must upload/download artifacts:
+	// the port must be known at config time so BuildContainerEndpoint can construct
+	// a stable URL before weed starts. Use a fixed value (e.g. 19000).
+	// Dynamic (0) only works when all tasks run on Docker or Shell executors.
+	LocalS3Port int `yaml:"local_s3_port" mapstructure:"local_s3_port"`
+	// LocalContainerHost is the hostname/IP Kubernetes helper containers use to reach
+	// the embedded SeaweedFS running on the host machine. Defaults to host.docker.internal
+	// (works on Docker Desktop for Mac/Windows). On a Linux K8s cluster set this to the
+	// host node's IP visible from pods (e.g. the node's eth0 address or a NodePort service).
 	LocalContainerHost string `yaml:"local_container_host" mapstructure:"local_container_host"`
 }
 
@@ -66,6 +73,11 @@ func (c *S3Config) Validate() error {
 		if c.LocalWeedBin == "" {
 			c.LocalWeedBin = "weed"
 		}
+		if c.LocalS3Port == 0 {
+			logrus.Warn("s3.local_s3_port is not set; Kubernetes helper containers may fail to reach " +
+				"embedded SeaweedFS — set a fixed port (e.g. local_s3_port: 19000) and expose it " +
+				"from the host via local_container_host")
+		}
 		return nil
 	}
 	if c.AccessKeyID == "" {
@@ -92,4 +104,23 @@ func (c *S3Config) BuildEndpoint() string {
 	} else {
 		return fmt.Sprintf("%s://%s", httpPrefix, c.Endpoint)
 	}
+}
+
+// BuildContainerEndpoint returns the S3 URL reachable from inside Docker/K8s
+// helper containers. In LocalMode the embedded SeaweedFS runs on the host so
+// containers must use LocalContainerEndpoint (e.g. host.docker.internal:8333).
+// For a regular external S3 endpoint BuildEndpoint is used as-is.
+func (c *S3Config) BuildContainerEndpoint() string {
+	if c.LocalMode {
+		host := c.LocalContainerHost
+		if host == "" {
+			host = "host.docker.internal"
+		}
+		port := "8333"
+		if idx := strings.LastIndex(c.Endpoint, ":"); idx >= 0 {
+			port = c.Endpoint[idx+1:]
+		}
+		return fmt.Sprintf("%s://%s:%s", httpPrefix, host, port)
+	}
+	return c.BuildEndpoint()
 }

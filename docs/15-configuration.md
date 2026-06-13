@@ -222,10 +222,45 @@ common:
 | Key | Env Variable | Type | Default | Description |
 |---|---|---|---|---|
 | `enabled`| `COMMON_AUTH_ENABLED` | boolean | `false`| Enables or disables authentication for the entire system. |
-| `jwt_secret`|`COMMON_AUTH_JWT_SECRET`|string | | **Required if enabled.** A strong, 32-byte secret key for signing JWTs. |
+| `jwt_secret`|`COMMON_AUTH_JWT_SECRET`|string | | **Required if enabled.** A strong, 32-byte secret key for signing JWTs. Generate with `openssl rand -base64 32`. |
 | `cookie_name` |`COMMON_AUTH_COOKIE_NAME`|string |`formicary-session`| The name of the browser cookie used for session management. |
+| `secure` |`COMMON_AUTH_SECURE`|boolean |`false`| Set to `true` in production (requires HTTPS) to mark session cookies as Secure. |
+| `google_client_id`|`COMMON_AUTH_GOOGLE_CLIENT_ID`|string | | Client ID from your Google OAuth 2.0 application. |
+| `google_client_secret`|`COMMON_AUTH_GOOGLE_CLIENT_SECRET`|string | | Client Secret from your Google OAuth 2.0 application. |
+| `google_callback_host`|`COMMON_AUTH_GOOGLE_CALLBACK_HOST`|string |`localhost`| Hostname used in the Google OAuth callback URL. |
 | `github_client_id`|`COMMON_AUTH_GITHUB_CLIENT_ID`|string | | Client ID from your GitHub OAuth App. |
 | `github_client_secret`|`COMMON_AUTH_GITHUB_CLIENT_SECRET`|string | | Client Secret from your GitHub OAuth App. |
+| `github_callback_host`|`COMMON_AUTH_GITHUB_CALLBACK_HOST`|string |`localhost`| Hostname used in the GitHub OAuth callback URL. |
+
+**Keeping secrets out of config files**
+
+Leave the secret fields empty in your YAML files (safe to commit) and supply them via environment variables at runtime. Viper's `AutomaticEnv()` picks them up automatically — env vars always override YAML values.
+
+```bash
+# .env.local  (add to .gitignore — never commit this file)
+COMMON_AUTH_ENABLED=true
+COMMON_AUTH_JWT_SECRET=<output of: openssl rand -base64 32>
+
+# Google OAuth — https://console.cloud.google.com → APIs & Services → Credentials
+# Authorized redirect URI: http://<your-host>/auth/google/callback
+COMMON_AUTH_GOOGLE_CLIENT_ID=<your-client-id>
+COMMON_AUTH_GOOGLE_CLIENT_SECRET=<your-client-secret>
+
+# GitHub OAuth — https://github.com/settings/developers → OAuth Apps
+# Authorization callback URL: http://<your-host>/auth/github/callback
+COMMON_AUTH_GITHUB_CLIENT_ID=<your-client-id>
+COMMON_AUTH_GITHUB_CLIENT_SECRET=<your-client-secret>
+```
+
+Run locally:
+```bash
+source .env.local && ./formicary --config config/formicary-queen.yaml
+```
+
+Run with Docker:
+```bash
+docker run --env-file .env.local -p 7777:7777 plexobject/formicary
+```
 
 ### `db` Block
 

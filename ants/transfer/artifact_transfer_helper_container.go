@@ -118,7 +118,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	// TODO verify download/upload
 	// zip all artifacts and copy them to S3
 	zipFile := filepath.Join(dir, name)
-	zipCmd := fmt.Sprintf("cd %s && ls -l && python /usr/lib64/python2.7/zipfile.py -c %s %s && python /usr/lib64/python2.7/zipfile.py -l %s",
+	zipCmd := fmt.Sprintf("cd %s && ls -l && python3 -m zipfile -c %s %s && python3 -m zipfile -l %s",
 		dir, zipFile, names.String(), zipFile)
 
 	var stdout, stderr []byte
@@ -130,7 +130,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			zipFile, zipCmd, err, string(stderr))
 	}
 
-	shaCmd := fmt.Sprintf("sha256sum %s && ls -l %s && python /usr/lib64/python2.7/zipfile.py -l %s|head -10",
+	shaCmd := fmt.Sprintf("sha256sum %s && ls -l %s && python3 -m zipfile -l %s|head -10",
 		zipFile, zipFile, zipFile)
 
 	if stdout, stderr, _, _, err = t.execute(
@@ -171,7 +171,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 
 	// endpoint is $AWS_URL
 	uploadCmd := fmt.Sprintf("%s && ls -l %s && aws s3 --endpoint-url %s cp %s s3://%s/%s",
-		configureCmd, zipFile, t.antCfg.Common.S3.BuildEndpoint(), zipFile, t.antCfg.Common.S3.Bucket, id)
+		configureCmd, zipFile, t.antCfg.Common.S3.BuildContainerEndpoint(), zipFile, t.antCfg.Common.S3.Bucket, id)
 
 	if expiration.Unix() > time.Now().Unix() {
 		uploadCmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
@@ -211,8 +211,8 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	cmds := []string{
 		// endpoint is $AWS_URL
 		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url %s cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
-			extractedDir, t.antCfg.Common.S3.BuildEndpoint(), t.antCfg.Common.S3.Bucket, id),
-		fmt.Sprintf("python /usr/lib64/python2.7/zipfile.py -e all_artifacts.zip %s", extractedDir),
+			extractedDir, t.antCfg.Common.S3.BuildContainerEndpoint(), t.antCfg.Common.S3.Bucket, id),
+		fmt.Sprintf("python3 -m zipfile -e all_artifacts.zip %s", extractedDir),
 		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),
 	}
 
@@ -236,14 +236,15 @@ func (t *ArtifactTransferHelperContainer) debugPreUpload(ctx context.Context, zi
 		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("📄 File: %s", strings.TrimSpace(string(stdout))))
 	}
 
-	// Test MinIO connectivity (try most likely endpoints)
-	endpoints := []string{"$AWS_URL", "http://minio:9000", "http://host.docker.internal:9000"}
+	// Test S3 store connectivity (SeaweedFS uses port 8333 by default).
+	containerEndpoint := t.antCfg.Common.S3.BuildContainerEndpoint()
+	endpoints := []string{containerEndpoint, "$AWS_URL"}
 	connected := false
 
 	workingEndpoint := ""
 	for _, endpoint := range endpoints {
-		if _, _, _, _, err := t.execute(ctx, fmt.Sprintf("curl -f --connect-timeout 3 -s '%s/minio/health/live'", endpoint), true); err == nil {
-			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("✅ MinIO reachable: %s", endpoint))
+		if _, _, _, _, err := t.execute(ctx, fmt.Sprintf("curl -f --connect-timeout 3 -s -o /dev/null -w '%%{http_code}' '%s'", endpoint), true); err == nil {
+			_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("✅ S3 store reachable: %s", endpoint))
 			connected = true
 			workingEndpoint = endpoint
 			break
@@ -251,13 +252,13 @@ func (t *ArtifactTransferHelperContainer) debugPreUpload(ctx context.Context, zi
 	}
 
 	if !connected {
-		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("❌ MinIO not reachable from any endpoint: working=%s", workingEndpoint))
+		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("❌ S3 store not reachable from any endpoint: tried %v", endpoints))
 	}
 
 	// Test S3 access with simple command (no --max-items for older AWS CLI)
 	// endpoint is $AWS_URL
 	if stdout, stderr, _, _, err := t.execute(ctx, fmt.Sprintf("aws s3 --endpoint-url %s ls s3://%s/",
-		t.antCfg.Common.S3.BuildEndpoint(), t.antCfg.Common.S3.Bucket), true); err == nil {
+		t.antCfg.Common.S3.BuildContainerEndpoint(), t.antCfg.Common.S3.Bucket), true); err == nil {
 		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("✅ S3 access OK: working=%s - %s", workingEndpoint, stdout))
 	} else {
 		_ = t.jobWriter.WriteTrace(ctx, fmt.Sprintf("❌ S3 access failed: %v, endpoint: working=%s", err, workingEndpoint))

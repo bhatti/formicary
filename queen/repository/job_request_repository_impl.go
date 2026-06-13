@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -310,309 +311,6 @@ func (jrr *JobRequestRepositoryImpl) UpdatePriority(
 			fmt.Errorf("failed to update priority for job-request with id %v", id))
 	}
 	return nil
-}
-
-// Add this method to JobRequestRepositoryImpl in job_request_repository_impl.go
-
-// RejectManualTask rejects a job and updates job-request, job-execution, and task-execution atomically
-// This finalizes the job as FAILED similar to FinalizeJobRequestAndExecutionState
-func (jrr *JobRequestRepositoryImpl) RejectManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error {
-	if request.RequestID == "" {
-		return common.NewValidationError(fmt.Errorf("job request is not defined"))
-	}
-	if request.TaskType == "" {
-		return common.NewValidationError(fmt.Errorf("task type is not defined"))
-	}
-	if request.Status != common.REJECTED {
-		return common.NewValidationError(fmt.Errorf("status is not valid: %s", request.Status))
-	}
-
-	// Get the job request first
-	req, err := jrr.Get(qc, request.RequestID)
-	if err != nil {
-		return err
-	}
-
-	// Verify job is in manual approval state
-	if req.JobState != common.MANUAL_APPROVAL_REQUIRED {
-		return common.NewConflictError(fmt.Sprintf("request %s is not waiting for manual approval but has state %s",
-			req.ID, req.JobState))
-	}
-
-	// Verify we have a job execution
-	if req.JobExecutionID == "" {
-		return common.NewValidationError(fmt.Errorf("job request %s has no job execution ID", req.ID))
-	}
-	request.ExecutionID = req.JobExecutionID
-
-	return jrr.db.Transaction(func(db *gorm.DB) error {
-		now := time.Now()
-		errorCode := common.ErrorManualRejection
-		errorMessage := fmt.Sprintf("Manually rejected by %s", request.ReviewedBy)
-		if request.Comments != "" {
-			errorMessage = fmt.Sprintf("%s: %s", errorMessage, request.Comments)
-		}
-
-		// 1. Update the task execution that required approval to FAILED
-		if request.TaskType != "" {
-			taskUpdateRes := db.Model(&types.TaskExecution{}).
-				Where("job_execution_id = ? AND task_type = ? AND task_state = ?",
-					req.JobExecutionID, request.TaskType, common.MANUAL_APPROVAL_REQUIRED).
-				Updates(map[string]interface{}{
-					"task_state":         common.FAILED,
-					"exit_code":          request.Status,
-					"exit_message":       errorMessage,
-					"error_code":         errorCode,
-					"error_message":      errorMessage,
-					"comments":           request.Comments,
-					"manual_reviewed_by": request.ReviewedBy,
-					"manual_reviewed_at": now,
-					"ended_at":           now,
-					"updated_at":         now,
-				})
-
-			if taskUpdateRes.Error != nil {
-				return common.NewNotFoundError(taskUpdateRes.Error)
-			}
-
-			if taskUpdateRes.RowsAffected == 0 {
-				logrus.WithFields(logrus.Fields{
-					"Component":      "JobRequestRepositoryImpl",
-					"JobExecutionID": req.JobExecutionID,
-					"TaskType":       request.TaskType,
-					"UserID":         request.ReviewedBy,
-				}).Warn("No task found to reject - task may have already been processed")
-			}
-
-			// Add rejection context to the task
-			_, contextErr := jrr.addTaskContext(db, req.JobExecutionID, request.TaskType, request.ReviewedBy,
-				"ManuallyRejectedBy", now)
-			if contextErr != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "JobRequestRepositoryImpl",
-					"Error":     contextErr,
-				}).Warn("Failed to add rejection context to task")
-			}
-		}
-
-		// 2. Update job execution state to FAILED (finalize it)
-		jobExecUpdateRes := db.Model(&types.JobExecution{}).
-			Where("id = ? AND job_state = ?", req.JobExecutionID, common.MANUAL_APPROVAL_REQUIRED).
-			Updates(map[string]interface{}{
-				"job_state":     common.FAILED,
-				"error_code":    errorCode,
-				"error_message": errorMessage,
-				"ended_at":      now,
-				"updated_at":    now,
-			})
-
-		if jobExecUpdateRes.Error != nil {
-			return common.NewNotFoundError(jobExecUpdateRes.Error)
-		}
-
-		if jobExecUpdateRes.RowsAffected != 1 {
-			return common.NewNotFoundError(
-				fmt.Errorf("failed to update job execution state for job-execution-id %s", req.JobExecutionID))
-		}
-
-		// 3. Update job request state to FAILED (finalize it)
-		jobReqUpdateRes := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).
-			Where("id = ? AND job_state = ?", request.RequestID, common.MANUAL_APPROVAL_REQUIRED).
-			Updates(map[string]interface{}{
-				"job_state":     common.FAILED,
-				"error_code":    errorCode,
-				"error_message": errorMessage,
-				"updated_at":    now,
-			})
-
-		if jobReqUpdateRes.Error != nil {
-			return common.NewNotFoundError(jobReqUpdateRes.Error)
-		}
-
-		if jobReqUpdateRes.RowsAffected != 1 {
-			return common.NewNotFoundError(
-				fmt.Errorf("failed to mark job-request as manually rejected with id %s", request.RequestID))
-		}
-
-		logrus.WithFields(logrus.Fields{
-			"Component":      "JobRequestRepositoryImpl",
-			"JobRequestID":   request.RequestID,
-			"JobExecutionID": req.JobExecutionID,
-			"TaskType":       request.TaskType,
-			"ReviewedBy":     request.ReviewedBy,
-			"Status":         request.Status,
-		}).Infof("Job manually rejected and marked as FAILED")
-
-		return nil
-	})
-}
-
-// ApproveManualTask approves a job and updates job-request, job-execution, and task-execution atomically
-func (jrr *JobRequestRepositoryImpl) ApproveManualTask(qc *common.QueryContext, request *types.ReviewTaskRequest) error {
-	if request.RequestID == "" {
-		return common.NewValidationError(fmt.Errorf("job request is not defined"))
-	}
-	if request.TaskType == "" {
-		return common.NewValidationError(fmt.Errorf("task type is not defined"))
-	}
-	if request.Status != common.APPROVED {
-		return common.NewValidationError(fmt.Errorf("status is not valid: %s", request.Status))
-	}
-	// Get the job request first
-	req, err := jrr.Get(qc, request.RequestID)
-	if err != nil {
-		return err
-	}
-
-	// Verify job is in manual approval state
-	if req.JobState != common.MANUAL_APPROVAL_REQUIRED {
-		return common.NewConflictError(fmt.Sprintf("request %s is not waiting for manual approval but has state %s",
-			req.ID, req.JobState))
-	}
-
-	// Verify we have a job execution
-	if req.JobExecutionID == "" {
-		return common.NewValidationError(fmt.Errorf("job request %s has no job execution ID", req.ID))
-	}
-	request.ExecutionID = req.JobExecutionID // ugg
-	var taskState common.RequestState
-	if request.Status == common.APPROVED {
-		taskState = common.COMPLETED
-	} else {
-		taskState = common.FAILED
-	}
-	return jrr.db.Transaction(func(db *gorm.DB) error {
-		now := time.Now()
-
-		// 1. Update the task execution that required approval
-		if request.TaskType != "" {
-			taskUpdateRes := db.Model(&types.TaskExecution{}).
-				Where("job_execution_id = ? AND task_type = ? AND task_state = ?",
-					req.JobExecutionID, request.TaskType, common.MANUAL_APPROVAL_REQUIRED).
-				Updates(map[string]interface{}{
-					"task_state":         taskState,
-					"exit_code":          request.Status,
-					"exit_message":       fmt.Sprintf("Manually %s by %s", request.Status, request.ReviewedBy),
-					"comments":           request.Comments,
-					"manual_reviewed_by": request.ReviewedBy,
-					"manual_reviewed_at": now,
-					"ended_at":           now,
-					"updated_at":         now,
-				})
-
-			if taskUpdateRes.Error != nil {
-				return common.NewNotFoundError(taskUpdateRes.Error)
-			}
-
-			if taskUpdateRes.RowsAffected == 0 {
-				logrus.WithFields(logrus.Fields{
-					"Component":      "JobRequestRepositoryImpl",
-					"JobExecutionID": req.JobExecutionID,
-					"TaskType":       request.TaskType,
-					"UserID":         request.ReviewedBy,
-				}).Warn("No task found to approve - task may have already been processed")
-			}
-
-			// Add approval context to the task
-			_, contextErr := jrr.addTaskContext(db, req.JobExecutionID, request.TaskType, request.ReviewedBy,
-				"ManuallyApprovedBy", now)
-			if contextErr != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "JobRequestRepositoryImpl",
-					"Error":     contextErr,
-				}).Warn("Failed to add approval context to task")
-			}
-		}
-
-		if false {
-			// 2. Update job execution state from MANUAL_APPROVAL_REQUIRED to PENDING
-			//    (scheduler will pick it up and resume from next task)
-			jobExecUpdateRes := db.Model(&types.JobExecution{}).
-				Where("id = ? AND job_state = ?", req.JobExecutionID, common.MANUAL_APPROVAL_REQUIRED).
-				Updates(map[string]interface{}{
-					"job_state":     common.PENDING,
-					"error_code":    "",
-					"error_message": "",
-					"updated_at":    now,
-				})
-
-			if jobExecUpdateRes.Error != nil {
-				return common.NewNotFoundError(jobExecUpdateRes.Error)
-			}
-
-			if jobExecUpdateRes.RowsAffected != 1 {
-				return common.NewNotFoundError(
-					fmt.Errorf("failed to update job execution state for job-execution-id %s", req.JobExecutionID))
-			}
-		}
-
-		// 3. Update job request state from MANUAL_APPROVAL_REQUIRED to PENDING
-		//    (scheduler will pick up PENDING jobs and resume execution)
-		jobReqUpdateRes := qc.AddOrgElseUserWhere(db, false).Model(&types.JobRequest{}).
-			Where("id = ? AND job_state = ?", request.RequestID, common.MANUAL_APPROVAL_REQUIRED).
-			Updates(map[string]interface{}{
-				"job_state":     common.PENDING,
-				"error_code":    "",
-				"error_message": "",
-				"updated_at":    now,
-			})
-
-		if jobReqUpdateRes.Error != nil {
-			return common.NewNotFoundError(jobReqUpdateRes.Error)
-		}
-
-		if jobReqUpdateRes.RowsAffected != 1 {
-			return common.NewNotFoundError(
-				fmt.Errorf("failed to mark job-request as manually approved with id %s", request.RequestID))
-		}
-
-		logrus.WithFields(logrus.Fields{
-			"Component":      "JobRequestRepositoryImpl",
-			"JobRequestID":   request.RequestID,
-			"JobExecutionID": req.JobExecutionID,
-			"TaskType":       request.TaskType,
-			"ReviewedBy":     request.ReviewedBy,
-			"Status":         request.Status,
-		}).Infof("Job manually %s and set back to PENDING for scheduler pickup", request.Status)
-
-		return nil
-	})
-}
-
-// Helper method to add approval context to task execution
-func (jrr *JobRequestRepositoryImpl) addTaskContext(
-	db *gorm.DB,
-	jobExecutionID string,
-	taskType string,
-	userId string,
-	contextName string,
-	time time.Time) (*types.TaskExecutionContext, error) {
-	// Find the task execution
-	var taskExec types.TaskExecution
-	err := db.Where("job_execution_id = ? AND task_type = ?", jobExecutionID, taskType).First(&taskExec).Error
-	if err != nil {
-		return nil, err
-	}
-
-	nv, err := common.NewNameTypeValue(contextName, userId, false)
-	if err != nil {
-		return nil, err
-	}
-	// Create approval context
-	approvalContext := &types.TaskExecutionContext{
-		ID:              ulid.Make().String(),
-		TaskExecutionID: taskExec.ID,
-		NameTypeValue:   nv,
-		CreatedAt:       time,
-	}
-
-	// Save context
-	err = db.Create(approvalContext).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return approvalContext, nil
 }
 
 // Cancel a job
@@ -1329,4 +1027,103 @@ func (jrr *JobRequestRepositoryImpl) addQuery(params map[string]interface{}, tx 
 		}
 	}
 	return addQueryParamsWhere(filterParams(params, "q"), tx)
+}
+
+// JobSubmissionSummary holds aggregated job submission counts per user/org/job_type.
+type JobSubmissionSummary struct {
+	UserID         string `json:"user_id"`
+	OrganizationID string `json:"organization_id"`
+	JobType        string `json:"job_type"`
+	SubmittedCount int64  `json:"submitted_count"`
+	SucceededCount int64  `json:"succeeded_count"`
+	FailedCount    int64  `json:"failed_count"`
+}
+
+// jobSubmissionOrderCols is the allowlist of sortable columns for QueryJobSubmissions.
+var jobSubmissionOrderCols = map[string]bool{
+	"user_id": true, "organization_id": true, "job_type": true,
+	"submitted_count": true, "succeeded_count": true, "failed_count": true,
+}
+
+// validatedJobSubmissionOrder returns safe ORDER BY clauses or an error.
+func validatedJobSubmissionOrder(order []string) ([]string, error) {
+	safe := make([]string, 0, len(order))
+	for _, ord := range order {
+		parts := strings.Fields(strings.ToLower(ord))
+		if len(parts) == 0 || len(parts) > 2 {
+			return nil, fmt.Errorf("invalid order clause: %q", ord)
+		}
+		if !jobSubmissionOrderCols[parts[0]] {
+			return nil, fmt.Errorf("sort column not allowed: %q", parts[0])
+		}
+		if len(parts) == 2 && parts[1] != "asc" && parts[1] != "desc" {
+			return nil, fmt.Errorf("invalid sort direction: %q", parts[1])
+		}
+		safe = append(safe, ord)
+	}
+	return safe, nil
+}
+
+// QueryJobSubmissions aggregates job submission counts from formicary_job_requests,
+// grouped by user_id/organization_id/job_type.
+// submitted_count = COUNT(*); succeeded_count = COMPLETED; failed_count = FAILED.
+// Params: organization_id (equality), from/to (created_at range, RFC3339 or YYYY-MM-DD).
+func (jrr *JobRequestRepositoryImpl) QueryJobSubmissions(
+	params map[string]interface{},
+	page int,
+	pageSize int,
+	order []string) (records []*JobSubmissionSummary, totalRecords int64, err error) {
+	records = make([]*JobSubmissionSummary, 0)
+
+	safeOrder, err := validatedJobSubmissionOrder(order)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Translate from/to into the colon-operator keys that addQueryParamsWhere understands,
+	// then delegate all WHERE-clause building to the shared helper.
+	normalized := make(map[string]interface{})
+	for k, v := range params {
+		switch k {
+		case "from":
+			normalized["created_at:>="] = v
+		case "to":
+			normalized["created_at:<="] = v
+		default:
+			normalized[k] = v
+		}
+	}
+
+	base := jrr.db.Table("formicary_job_requests")
+	base = addQueryParamsWhere(normalized, base)
+
+	// Count distinct (user, org, job_type) groups.
+	// Use a multi-char separator so values containing '|' cannot produce false collisions.
+	countRes := base.Session(&gorm.Session{}).
+		Select("COUNT(DISTINCT COALESCE(user_id,'') || '||SEP||' || COALESCE(organization_id,'') || '||SEP||' || COALESCE(job_type,''))").
+		Scan(&totalRecords)
+	if countRes.Error != nil {
+		return nil, 0, countRes.Error
+	}
+
+	q := base.Session(&gorm.Session{}).
+		Select("user_id, organization_id, job_type, " +
+			"COUNT(*) as submitted_count, " +
+			"SUM(CASE WHEN job_state = 'COMPLETED' THEN 1 ELSE 0 END) as succeeded_count, " +
+			"SUM(CASE WHEN job_state = 'FAILED' THEN 1 ELSE 0 END) as failed_count").
+		Group("user_id, organization_id, job_type")
+
+	if len(safeOrder) == 0 {
+		q = q.Order("submitted_count DESC")
+	} else {
+		for _, ord := range safeOrder {
+			q = q.Order(ord)
+		}
+	}
+	q = q.Limit(pageSize).Offset(page * pageSize)
+	res := q.Scan(&records)
+	if res.Error != nil {
+		return nil, 0, res.Error
+	}
+	return records, totalRecords, nil
 }

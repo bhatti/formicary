@@ -49,6 +49,35 @@ Roles grant broad permissions that can bypass standard ACL checks. Formicary has
 
 An administrator can assign these roles to users to grant them system-wide privileges.
 
+## Enabling OAuth
+
+Set `auth.enabled: true` in your queen config. Leave the client ID/secret fields empty in the YAML (safe to commit) and inject them via environment variables:
+
+```bash
+# .env.local — never commit this file
+COMMON_AUTH_ENABLED=true
+COMMON_AUTH_JWT_SECRET=$(openssl rand -base64 32)
+
+# Google OAuth
+COMMON_AUTH_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+COMMON_AUTH_GOOGLE_CLIENT_SECRET=GOCSPX-...
+
+# GitHub OAuth
+COMMON_AUTH_GITHUB_CLIENT_ID=your-github-client-id
+COMMON_AUTH_GITHUB_CLIENT_SECRET=your-github-client-secret
+```
+
+The callback URLs to register with each provider:
+
+| Provider | Callback URL |
+|---|---|
+| Google | `http://<host>/auth/google/callback` |
+| GitHub | `http://<host>/auth/github/callback` |
+
+**Create credentials:**
+- **Google:** [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application)
+- **GitHub:** GitHub → Settings → Developer settings → OAuth Apps → New OAuth App
+
 ## Secrets Management
 
 Properly managing secrets like API keys, tokens, and passwords is vital for security.

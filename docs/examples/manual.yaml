@@ -11,6 +11,11 @@ tasks:
   on_completed: make-doe
 - task_type: make-doe
   method: MANUAL
+  approval_policy:
+    min_approvals: 1
+    sla_deadline: 2h
+    timeout_action: ESCALATE
+    escalation_recipients: "admin@example.com"
   on_completed: cook
 - task_type: cook
   method: "KUBERNETES"
@@ -21,6 +26,11 @@ tasks:
   on_completed: check-doe
 - task_type: check-doe
   method: MANUAL
+  approval_policy:
+    min_approvals: 2
+    require_unanimous: false
+    sla_deadline: 4h
+    timeout_action: AUTO_REJECT
   on_completed: serve
 - task_type: serve
   method: "KUBERNETES"

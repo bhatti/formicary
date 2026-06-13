@@ -27,6 +27,13 @@ tasks:
 - task_type: verify-failover
   method: MANUAL
   description: "Secondary infrastructure in us-west-2 has been provisioned. The terraform.tfstate file is available as an artifact. Please VERIFY COSTS and readiness. Approve to switch live traffic."
+  approval_policy:
+    min_approvals: 2
+    require_unanimous: false
+    sla_deadline: 1h
+    timeout_action: AUTO_REJECT
+    escalation_recipients: "cto@example.com"
+    escalation_message: "DR failover approval stalled — auto-rejecting after 1 hour"
   on_exit_code:
     APPROVED: switch-dns
     REJECTED: teardown-secondary-infra

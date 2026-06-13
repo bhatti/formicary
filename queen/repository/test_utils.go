@@ -200,4 +200,7 @@ func clearDB(db *gorm.DB) {
 	db.Where("id != ''").Delete(common.Subscription{})
 	db.Where("id != ''").Delete(common.Payment{})
 	db.Where("id != ''").Delete(types.EmailVerification{})
+	db.Where("id != ''").Delete(types.ApprovalDeadline{})
+	db.Where("id != ''").Delete(types.ApprovalVote{})
+	db.Where("id != ''").Delete(types.ApprovalPolicy{})
 }

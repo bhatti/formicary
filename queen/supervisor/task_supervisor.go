@@ -372,6 +372,21 @@ func (ts *TaskSupervisor) invokeManual(
 	taskResp.ExitMessage = fmt.Sprintf("Task '%s' requires manual approval", ts.taskStateMachine.TaskDefinition.TaskType)
 	taskResp.ErrorMessage = taskResp.ExitMessage
 
+	// Create SLA deadline if the task definition has an approval policy with an SLA.
+	if ts.taskStateMachine.TaskExecution != nil && ts.taskStateMachine.TaskExecution.ID != "" {
+		if dlErr := ts.taskStateMachine.JobManager.CreateApprovalDeadlineIfNeeded(
+			ts.taskStateMachine.TaskExecution.ID,
+			ts.taskStateMachine.Request.GetID(),
+			ts.taskStateMachine.TaskDefinition.ApprovalPolicy,
+		); dlErr != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "TaskSupervisor",
+				"TaskType":  ts.taskStateMachine.TaskDefinition.TaskType,
+				"Error":     dlErr,
+			}).Warn("failed to create approval SLA deadline")
+		}
+	}
+
 	logrus.WithFields(logrus.Fields{
 		"Component":         "TaskSupervisor",
 		"Task":              ts.taskStateMachine.TaskDefinition,

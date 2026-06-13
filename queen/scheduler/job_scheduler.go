@@ -9,6 +9,7 @@ import (
 
 	"github.com/jpillora/backoff"
 	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/queen/approval"
 	"plexobject.com/formicary/queen/repository"
 
 	"plexobject.com/formicary/internal/math"
@@ -36,6 +37,7 @@ type JobScheduler struct {
 	userManager                      *manager.UserManager
 	errorRepository                  repository.ErrorCodeRepository
 	resourceManager                  resource.Manager
+	approvalService                  *approval.Service
 	metricsRegistry                  *metrics.Registry
 	monitor                          *health.Monitor
 	jobSchedulerLeaderTopic          string
@@ -63,6 +65,7 @@ func New(
 	errorRepository repository.ErrorCodeRepository,
 	monitor *health.Monitor,
 	metricsRegistry *metrics.Registry,
+	approvalSvc *approval.Service,
 ) *JobScheduler {
 	return &JobScheduler{
 		id:                            serverCfg.Common.ID + "-job-scheduler",
@@ -73,6 +76,7 @@ func New(
 		errorRepository:               errorRepository,
 		userManager:                   userManager,
 		resourceManager:               resourceManager,
+		approvalService:               approvalSvc,
 		monitor:                       monitor,
 		metricsRegistry:               metricsRegistry,
 		jobSchedulerLeaderTopic:       serverCfg.Common.GetJobSchedulerLeaderTopic(),
@@ -98,6 +102,9 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	js.tickers = append(js.tickers, js.startTickerToSchedulePendingJobs(ctx))
 	js.tickers = append(js.tickers, js.startTickerToCheckOrphanJobs(ctx))
 	js.tickers = append(js.tickers, js.startTickerToCheckMissingCronJobs(ctx))
+	if js.approvalService != nil {
+		js.tickers = append(js.tickers, js.startTickerToCheckApprovalSLAs(ctx))
+	}
 	logrus.WithFields(logrus.Fields{
 		"Component": "JobScheduler",
 		"ID":        js.serverCfg.Common.ID,

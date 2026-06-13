@@ -61,5 +61,4 @@ type JobExecutionRepository interface {
 		qc *common.QueryContext,
 		ranges []types.DateRange) ([]types.ResourceUsage, error)
 
-	ResumeFromManualApproval(request types.ReviewTaskRequest) error
 }

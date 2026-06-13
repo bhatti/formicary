@@ -24,6 +24,18 @@ const (
 	JobRequestApproved AuditKind = "JOB_REQUEST_APPROVED"
 	// JobRequestRejected manual
 	JobRequestRejected AuditKind = "JOB_REQUEST_REJECTED"
+	// ApprovalVoteCast records each individual vote
+	ApprovalVoteCast AuditKind = "APPROVAL_VOTE_CAST"
+	// ApprovalQuorumReached when quorum is reached and job proceeds
+	ApprovalQuorumReached AuditKind = "APPROVAL_QUORUM_REACHED"
+	// ApprovalRejectedKind when rejection threshold is met
+	ApprovalRejectedKind AuditKind = "APPROVAL_REJECTED"
+	// ApprovalSLABreached when deadline passes without resolution
+	ApprovalSLABreached AuditKind = "APPROVAL_SLA_BREACHED"
+	// ApprovalEscalated when escalation notification is sent
+	ApprovalEscalated AuditKind = "APPROVAL_ESCALATED"
+	// ApprovalAutoResolved when system auto-approves or auto-rejects due to SLA timeout
+	ApprovalAutoResolved AuditKind = "APPROVAL_AUTO_RESOLVED"
 	// JobRequestFailed failed
 	JobRequestFailed AuditKind = "JOB_REQUEST_FAILED"
 	// JobRequestCancelled cancelled

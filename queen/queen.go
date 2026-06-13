@@ -24,6 +24,7 @@ import (
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/approval"
 	"plexobject.com/formicary/queen/launcher"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
@@ -165,6 +166,12 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		notifier.AddSender(common.SlackChannel, slackSender)
 	}
 
+	approvalRepo, err := approval.NewRepositoryImpl(repoFactory.DB)
+	if err != nil {
+		return fmt.Errorf("failed to create approval repository: %w", err)
+	}
+	approvalSvc := approval.NewService(repoFactory.DB, approvalRepo)
+
 	jobManager, err := manager.NewJobManager(
 		ctx,
 		serverCfg,
@@ -179,6 +186,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		metricsRegistry,
 		queueClient,
 		notifier,
+		approvalSvc,
 	)
 	if err != nil {
 		return err
@@ -199,6 +207,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			repoFactory.ErrorCodeRepository,
 			healthMonitor,
 			metricsRegistry,
+			approvalSvc,
 		)
 		if err = jobScheduler.Start(ctx); err != nil {
 			return err

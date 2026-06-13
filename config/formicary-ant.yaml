@@ -27,9 +27,9 @@ common:
         prefix: formicary/
         region: us-east-1
     auth:
-        enabled: false
-        cookie_name: ""
-        jwt_secret: ""
+        enabled: true
+        cookie_name: formicary-session
+        jwt_secret: ""        # override: COMMON_AUTH_JWT_SECRET
         secure: false
     container_reaper_interval: 0s
     monitor_interval: 0s

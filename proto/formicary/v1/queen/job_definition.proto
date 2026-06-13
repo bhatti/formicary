@@ -3,11 +3,12 @@ syntax = "proto3";
 
 package formicary.v1.queen;
 
-import "google/protobuf/timestamp.proto";
 import "buf/validate/validate.proto";
 import "formicary/v1/annotations.proto";
 import "formicary/v1/domain/common.proto";
+import "formicary/v1/queen/approval.proto";
 import "formicary/v1/queen/trigger.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/queen;queen";
 
@@ -65,7 +66,10 @@ message SubWorkflowVariable {
   // name is the variable name.
   // For input_params: the child job param name.
   // For output_variables: the child execution-context variable name.
-  string name = 1 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\"", (buf.validate.field).string.min_len = 1];
+  string name = 1 [
+    (formicary.v1.tags) = "yaml:\"name\" json:\"name\"",
+    (buf.validate.field).string.min_len = 1
+  ];
   // value is the variable value.
   // For input_params: a Go template expression resolved against the parent's non-secret vars.
   // For output_variables: the parent execution-context variable name to publish under.
@@ -108,15 +112,11 @@ message SubWorkflowConfig {
   // Each entry: name = child param name, value = Go template expression resolved
   // against the parent's non-secret execution context variables.
   // When empty no parent variables are forwarded.
-  repeated SubWorkflowVariable input_params = 1 [
-    (formicary.v1.tags) = "yaml:\"input_params,omitempty\" json:\"input_params,omitempty\" gorm:\"-\""
-  ];
+  repeated SubWorkflowVariable input_params = 1 [(formicary.v1.tags) = "yaml:\"input_params,omitempty\" json:\"input_params,omitempty\" gorm:\"-\""];
   // output_variables defines which child execution-context variables to promote to the parent.
   // Each entry: name = child context key, value = parent context key to publish under.
   // When empty all child context variables are copied verbatim.
-  repeated SubWorkflowVariable output_variables = 2 [
-    (formicary.v1.tags) = "yaml:\"output_variables,omitempty\" json:\"output_variables,omitempty\" gorm:\"-\""
-  ];
+  repeated SubWorkflowVariable output_variables = 2 [(formicary.v1.tags) = "yaml:\"output_variables,omitempty\" json:\"output_variables,omitempty\" gorm:\"-\""];
   // wait_for_completion makes the FORK_JOB task block until the child completes,
   // combining fork + await in a single task step.
   bool wait_for_completion = 3 [(formicary.v1.tags) = "yaml:\"wait_for_completion,omitempty\" json:\"wait_for_completion,omitempty\""];
@@ -148,7 +148,8 @@ message TaskDefinition {
   string on_exit_code_json = 15 [(formicary.v1.tags) = "yaml:\"on_exit_code,omitempty\" json:\"on_exit_code\" gorm:\"-\""];
   string on_completed = 16 [(formicary.v1.tags) = "yaml:\"on_completed,omitempty\" json:\"on_completed\" gorm:\"on_completed\""];
   string on_failed = 17 [(formicary.v1.tags) = "yaml:\"on_failed,omitempty\" json:\"on_failed\" gorm:\"on_failed\""];
-  string required_manual_roles = 18 [(formicary.v1.tags) = "yaml:\"required_manual_roles,omitempty\" json:\"required_manual_roles\" gorm:\"required_manual_roles\""];
+  // approval_policy defines multi-party approval quorum rules for MANUAL tasks.
+  ApprovalPolicy approval_policy = 18 [(formicary.v1.tags) = "yaml:\"approval_policy,omitempty\" json:\"approval_policy\" gorm:\"-\""];
   repeated TaskDefinitionVariable variables = 19 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:TaskDefinitionID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
   google.protobuf.Timestamp created_at = 20 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
   google.protobuf.Timestamp updated_at = 21 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];

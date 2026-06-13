@@ -41,6 +41,7 @@ type Server interface {
 	// a given path prefix, bypassing all apiGroup/dashboardGroup middleware (JWT, rate limit, etc.).
 	// Used by grpc-gateway so its own gRPC interceptors handle auth exclusively.
 	RegisterRootHandler(pathPrefix string, h http.Handler)
+	SetLoginRedirectURL(url string)
 	Start(address string)
 	// StartWithListener starts the server using an already-created net.Listener.
 	// Used by cmux to share a single TCP port between gRPC and HTTP.
@@ -50,16 +51,23 @@ type Server interface {
 
 // DefaultWebServer defines default web server
 type DefaultWebServer struct {
-	commonCfg      *types.CommonConfig
-	e              *echo.Echo
-	apiGroup       *echo.Group
-	dashboardGroup *echo.Group
-	authEnabled    bool
+	commonCfg        *types.CommonConfig
+	e                *echo.Echo
+	apiGroup         *echo.Group
+	dashboardGroup   *echo.Group
+	authEnabled      bool
+	loginRedirectURL string
 }
+
+// SetLoginRedirectURL sets the URL to redirect unauthenticated dashboard requests to.
+func (w *DefaultWebServer) SetLoginRedirectURL(url string) {
+	w.loginRedirectURL = url
+}
+
 
 // NewDefaultWebServer creates new instance of web server
 func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
-	ws := &DefaultWebServer{commonCfg: commonCfg, e: echo.New(), authEnabled: commonCfg.Auth.Enabled}
+	ws := &DefaultWebServer{commonCfg: commonCfg, e: echo.New(), authEnabled: commonCfg.Auth.Enabled, loginRedirectURL: "/login"}
 	ws.e.Static("/", commonCfg.PublicDir+"assets")
 	ws.e.Static("/docs", commonCfg.PublicDir+"docs")
 	ws.e.File("/favicon.ico", commonCfg.PublicDir+"assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
@@ -94,7 +102,6 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 			SigningKey:    []byte(commonCfg.Auth.JWTSecret),
 			TokenLookup:   "cookie:" + commonCfg.Auth.CookieName,
 			ErrorHandler: func(c echo.Context, err error) error {
-				// Redirects to the login form.
 				authCookie, _ := c.Cookie(commonCfg.Auth.CookieName)
 				logrus.WithFields(logrus.Fields{
 					"Component":  "DefaultWebServer",
@@ -102,7 +109,7 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 					"AuthCookie": authCookie,
 				}).Warn("redirecting to login")
 				c.SetCookie(commonCfg.Auth.RedirectCookie(c.Request().URL.String()))
-				return c.Redirect(http.StatusTemporaryRedirect, "/login")
+				return c.Redirect(http.StatusTemporaryRedirect, ws.loginRedirectURL)
 			},
 		}
 

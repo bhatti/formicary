@@ -3,18 +3,21 @@ syntax = "proto3";
 
 package formicary.v1.services;
 
+import "buf/validate/validate.proto";
+import "formicary/v1/resource/artifact.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "buf/validate/validate.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
-import "formicary/v1/resource/artifact.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
 
 // QueryArtifactsRequest carries filter parameters for listing artifacts.
 message QueryArtifactsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 0];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
   repeated string order = 3;
   string job_request_id = 4;
   string job_execution_id = 5;

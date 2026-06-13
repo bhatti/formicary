@@ -1,0 +1,50 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Jobs Submitted by User</h2>
+        </div>
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            <form action="/dashboard/audits/job_submissions" method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+                <label for="organization_id" class="form-label mb-0">Org:</label>
+                <input type="text" class="form-control form-control-sm" name="organization_id" id="organization_id" value="{{ .OrgID }}" placeholder="Organization ID" style="width:160px">
+                <label for="from" class="form-label mb-0">From:</label>
+                <input type="text" class="form-control form-control-sm" name="from" id="from" value="{{ .FromDate }}" placeholder="YYYY-MM-DD" style="width:120px">
+                <label for="to" class="form-label mb-0">To:</label>
+                <input type="text" class="form-control form-control-sm" name="to" id="to" value="{{ .ToDate }}" placeholder="YYYY-MM-DD" style="width:120px">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th><a href="{{.BaseURL}}&order=user_id+asc">User</a></th>
+                <th><a href="{{.BaseURL}}&order=organization_id+asc">Organization</a></th>
+                <th><a href="{{.BaseURL}}&order=job_type+asc">Job Type</a></th>
+                <th><a href="{{.BaseURL}}&order=submitted_count+desc">Submitted</a></th>
+                <th><a href="{{.BaseURL}}&order=succeeded_count+desc">Succeeded</a></th>
+                <th><a href="{{.BaseURL}}&order=failed_count+desc">Failed</a></th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Records}}
+            <tr>
+                <td>{{.UserID}}</td>
+                <td>{{.OrganizationID}}</td>
+                <td>{{.JobType}}</td>
+                <td>{{.SubmittedCount}}</td>
+                <td><span class="text-success fw-medium">{{.SucceededCount}}</span></td>
+                <td><span class="text-danger fw-medium">{{.FailedCount}}</span></td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+{{ template "layouts/footer" }}

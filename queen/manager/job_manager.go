@@ -24,6 +24,7 @@ import (
 	"plexobject.com/formicary/queen/resource"
 
 	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/queen/approval"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 )
@@ -44,6 +45,7 @@ type JobManager struct {
 	metricsRegistry         *metrics.Registry
 	queueClient             queue.Client
 	jobsNotifier            notify.Notifier
+	approvalService         *approval.Service
 	jobIdsTicker            *time.Ticker
 }
 
@@ -61,7 +63,8 @@ func NewJobManager(
 	jobStatsRegistry *stats.JobStatsRegistry,
 	metricsRegistry *metrics.Registry,
 	queueClient queue.Client,
-	jobsNotifier notify.Notifier) (*JobManager, error) {
+	jobsNotifier notify.Notifier,
+	approvalSvc *approval.Service) (*JobManager, error) {
 	if serverCfg == nil {
 		return nil, fmt.Errorf("server-config is not specified")
 	}
@@ -111,6 +114,7 @@ func NewJobManager(
 		metricsRegistry:         metricsRegistry,
 		queueClient:             queueClient,
 		jobsNotifier:            jobsNotifier,
+		approvalService:         approvalSvc,
 	}
 
 	if err := jm.startRecentlyCompletedJobIdsTicker(ctx); err != nil {
@@ -886,107 +890,211 @@ func (jm *JobManager) cascadeCancelToChildren(rootParentID string) {
 	}
 }
 
-// ReviewTaskRequestForManualApproval approves/rejects a manually paused job - scheduler will resume it
-func (jm *JobManager) ReviewTaskRequestForManualApproval(ctx context.Context,
-	qc *common.QueryContext, reviewRequest *types.ReviewTaskRequest) error {
-	// Validate request
-	if reviewRequest.Status != common.APPROVED && reviewRequest.Status != common.REJECTED {
-		return common.NewValidationError(fmt.Errorf("status must be APPROVED or REJECTED, got: %s", reviewRequest.Status))
+// CastApprovalVote records an approval vote for a manually-paused task.
+// When quorum is reached or rejection threshold is met, transitions the task/job state.
+func (jm *JobManager) CastApprovalVote(ctx context.Context,
+	qc *common.QueryContext, voteRequest *types.ApprovalVoteRequest) (*types.ApprovalStatus, error) {
+	if voteRequest.Decision != types.ApprovalDecisionApproved && voteRequest.Decision != types.ApprovalDecisionRejected {
+		return nil, common.NewValidationError(fmt.Errorf("decision must be APPROVED or REJECTED, got: %s", voteRequest.Decision))
 	}
 
-	var err error
-	var auditType types.AuditKind
+	// Load current job request.
+	request, err := jm.jobRequestRepository.Get(qc, voteRequest.RequestID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job request %s: %w", voteRequest.RequestID, err)
+	}
 
-	// Route to appropriate repository method based on status
-	if reviewRequest.Status == common.APPROVED {
-		err = jm.jobRequestRepository.ApproveManualTask(qc, reviewRequest)
-		auditType = types.JobRequestApproved
+	// Load job execution to find the task execution.
+	jobExec, err := jm.jobExecutionRepository.Get(request.JobExecutionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job execution %s: %w", request.JobExecutionID, err)
+	}
+	var taskExec *types.TaskExecution
+	for _, t := range jobExec.Tasks {
+		if t.TaskType == voteRequest.TaskType {
+			taskExec = t
+			break
+		}
+	}
+	if taskExec == nil {
+		return nil, common.NewNotFoundError(fmt.Errorf("task %s not found in job execution %s",
+			voteRequest.TaskType, request.JobExecutionID))
+	}
+
+	// Load the approval policy if one exists.
+	var policy *types.ApprovalPolicy
+	if jm.approvalService != nil {
+		// Load policy via job definition task.
+		jobDef, defErr := jm.jobDefinitionRepository.GetByType(qc, request.JobType)
+		if defErr == nil {
+			for _, taskDef := range jobDef.Tasks {
+				if taskDef.TaskType == voteRequest.TaskType {
+					policy = taskDef.ApprovalPolicy
+					break
+				}
+			}
+		}
+	}
+
+	// Cast the vote.
+	var status *types.ApprovalStatus
+	if jm.approvalService != nil {
+		status, err = jm.approvalService.CastVote(ctx, qc, request, voteRequest.TaskType,
+			taskExec.ID, policy, voteRequest.VoterID, voteRequest.VoterName,
+			voteRequest.Decision, voteRequest.Comments)
 	} else {
-		err = jm.jobRequestRepository.RejectManualTask(qc, reviewRequest)
-		auditType = types.JobRequestRejected
+		return nil, fmt.Errorf("approval service not configured")
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to %s job request: %w", strings.ToLower(string(reviewRequest.Status)), err)
+	// Determine audit kind.
+	auditKind := types.ApprovalVoteCast
+	if status.QuorumReached {
+		auditKind = types.ApprovalQuorumReached
+	} else if status.Rejected {
+		auditKind = types.ApprovalRejectedKind
 	}
 
-	// Get the updated job request for notifications/audit
-	request, err := jm.jobRequestRepository.Get(qc, reviewRequest.RequestID)
-	if err != nil {
+	// Reload request for accurate state in audit/notification.
+	updatedRequest, getErr := jm.jobRequestRepository.Get(qc, voteRequest.RequestID)
+	if getErr != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "JobManager",
-			"RequestID": reviewRequest.RequestID,
-			"Task":      reviewRequest.TaskType,
-			"Status":    reviewRequest.Status,
-			"Error":     err,
-		}).Warn("Failed to get job request after review for audit/notification")
-	} else {
-		// Create audit record
-		_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(request, auditType, qc))
-
-		// Send notifications
-		_ = jm.sendReviewNotification(ctx, qc, request, reviewRequest)
+			"RequestID": voteRequest.RequestID,
+			"Error":     getErr,
+		}).Warn("Failed to reload job request after vote for audit/notification")
+		updatedRequest = request
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Component":   "JobManager",
-		"RequestID":   reviewRequest.RequestID,
-		"TaskType":    reviewRequest.TaskType,
-		"ReviewedBy":  reviewRequest.ReviewedBy,
-		"Comments":    reviewRequest.Comments,
-		"Status":      reviewRequest.Status,
-		"CurrentTask": request.CurrentTask,
-		"Retried":     request.Retried,
-		"JobState":    request.JobState,
-	}).Infof("Job %s successfully", reviewRequest.Status)
+	_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(updatedRequest, auditKind, qc))
+	go jm.sendApprovalNotification(ctx, qc, updatedRequest, voteRequest, status)
 
-	return nil
+	logrus.WithFields(logrus.Fields{
+		"Component":  "JobManager",
+		"RequestID":  voteRequest.RequestID,
+		"TaskType":   voteRequest.TaskType,
+		"VoterID":    voteRequest.VoterID,
+		"Decision":   voteRequest.Decision,
+		"Approvals":  status.ApprovalsReceived,
+		"MinNeeded":  status.MinApprovalsRequired,
+		"Quorum":     status.QuorumReached,
+		"Rejected":   status.Rejected,
+	}).Infof("Approval vote cast")
+
+	return status, nil
 }
 
-// sendReviewNotification fires a background goroutine that delivers the review notification
-// with up to 3 attempts and exponential back-off so transient errors are retried.
-func (jm *JobManager) sendReviewNotification(_ context.Context, qc *common.QueryContext,
-	request *types.JobRequest, reviewRequest *types.ReviewTaskRequest) error {
-	go func() {
-		fields := logrus.Fields{
-			"Component": "JobManager",
-			"User":      qc.User,
-			"Request":   request,
-			"Status":    reviewRequest.Status,
-		}
+// sendApprovalNotification fires a background goroutine that sends job state notification.
+func (jm *JobManager) sendApprovalNotification(_ context.Context, qc *common.QueryContext,
+	request *types.JobRequest, voteRequest *types.ApprovalVoteRequest, status *types.ApprovalStatus) {
+	fields := logrus.Fields{
+		"Component": "JobManager",
+		"RequestID": request.ID,
+		"Decision":  voteRequest.Decision,
+	}
 
-		var job *types.JobDefinition
-		if err := retryNotify(func() error {
-			var e error
-			job, e = jm.jobDefinitionRepository.GetByType(qc, request.JobType)
-			return e
-		}, 3, 200*time.Millisecond); err != nil {
-			logrus.WithFields(fields).WithError(err).Errorf("failed to find job-type %s after retries", request.JobType)
-			return
-		}
+	var job *types.JobDefinition
+	if err := retryNotify(func() error {
+		var e error
+		job, e = jm.jobDefinitionRepository.GetByType(qc, request.JobType)
+		return e
+	}, 3, 200*time.Millisecond); err != nil {
+		logrus.WithFields(fields).WithError(err).Errorf("failed to find job-type %s", request.JobType)
+		return
+	}
 
-		var jobExec *types.JobExecution
-		if err := retryNotify(func() error {
-			var e error
-			jobExec, e = jm.jobExecutionRepository.Get(request.JobExecutionID)
-			return e
-		}, 3, 200*time.Millisecond); err != nil {
-			logrus.WithFields(fields).WithError(err).Errorf("failed to find job-execution %s after retries", request.JobExecutionID)
-			return
-		}
+	var jobExec *types.JobExecution
+	if err := retryNotify(func() error {
+		var e error
+		jobExec, e = jm.jobExecutionRepository.Get(request.JobExecutionID)
+		return e
+	}, 3, 200*time.Millisecond); err != nil {
+		logrus.WithFields(fields).WithError(err).Errorf("failed to find job-execution %s", request.JobExecutionID)
+		return
+	}
 
-		var notificationState common.RequestState
-		if reviewRequest.Status == common.APPROVED {
-			notificationState = common.APPROVED
-		} else {
-			notificationState = common.FAILED
+	var notificationState common.RequestState
+	if status.QuorumReached {
+		notificationState = common.APPROVED
+	} else if status.Rejected {
+		notificationState = common.FAILED
+	} else {
+		notificationState = common.MANUAL_APPROVAL_REQUIRED
+	}
+
+	if err := retryNotify(func() error {
+		return jm.NotifyJobMessage(qc, qc.User, job, request, jobExec, notificationState)
+	}, 3, 200*time.Millisecond); err != nil {
+		logrus.WithFields(fields).WithError(err).Errorf("failed to send approval notification")
+	}
+}
+
+// GetApprovalStatus returns the current approval status for a task execution.
+func (jm *JobManager) GetApprovalStatus(ctx context.Context,
+	qc *common.QueryContext, requestID string, taskType string) (*types.ApprovalStatus, error) {
+	if jm.approvalService == nil {
+		return nil, fmt.Errorf("approval service not configured")
+	}
+	request, err := jm.jobRequestRepository.Get(qc, requestID)
+	if err != nil {
+		return nil, err
+	}
+	jobExec, err := jm.jobExecutionRepository.Get(request.JobExecutionID)
+	if err != nil {
+		return nil, err
+	}
+	var taskExec *types.TaskExecution
+	for _, t := range jobExec.Tasks {
+		if t.TaskType == taskType {
+			taskExec = t
+			break
 		}
-		if err := retryNotify(func() error {
-			return jm.NotifyJobMessage(qc, qc.User, job, request, jobExec, notificationState)
-		}, 3, 200*time.Millisecond); err != nil {
-			logrus.WithFields(fields).WithError(err).Errorf("failed to send job notification after retries")
+	}
+	if taskExec == nil {
+		return nil, common.NewNotFoundError(fmt.Errorf("task %s not found in job execution %s", taskType, request.JobExecutionID))
+	}
+	var policy *types.ApprovalPolicy
+	jobDef, defErr := jm.jobDefinitionRepository.GetByType(qc, request.JobType)
+	if defErr == nil {
+		for _, taskDef := range jobDef.Tasks {
+			if taskDef.TaskType == taskType {
+				policy = taskDef.ApprovalPolicy
+				break
+			}
 		}
-	}()
+	}
+	return jm.approvalService.GetStatus(taskExec.ID, request.ID, policy)
+}
+
+// ListPendingApprovals returns tasks in MANUAL_APPROVAL_REQUIRED state that the caller may vote on.
+func (jm *JobManager) ListPendingApprovals(_ context.Context,
+	qc *common.QueryContext, page int, pageSize int) ([]*types.PendingApproval, int64, error) {
+	if jm.approvalService == nil {
+		return nil, 0, fmt.Errorf("approval service not configured")
+	}
+	return jm.approvalService.ListPendingApprovals(qc, page, pageSize)
+}
+
+// CreateApprovalDeadlineIfNeeded creates an SLA deadline row when a task enters MANUAL_APPROVAL_REQUIRED.
+func (jm *JobManager) CreateApprovalDeadlineIfNeeded(
+	taskExecutionID string, jobRequestID string, policy *types.ApprovalPolicy) error {
+	if jm.approvalService == nil {
+		return nil
+	}
+	return jm.approvalService.CreateDeadlineIfNeeded(taskExecutionID, jobRequestID, policy)
+}
+
+// SendApprovalEscalationNotification logs an escalation notification to the given recipients.
+// Best-effort: individual send failures are logged but not propagated.
+func (jm *JobManager) SendApprovalEscalationNotification(
+	_ context.Context, _ *common.QueryContext, recipients []string, message string) error {
+	logrus.WithFields(logrus.Fields{
+		"Component":  "JobManager",
+		"Recipients": recipients,
+		"Message":    message,
+	}).Info("Approval SLA escalation notification")
 	return nil
 }
 

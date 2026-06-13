@@ -33,6 +33,7 @@
                 <th>User</th>
                 <th>IP Address</th>
                 <th>Message</th>
+                <th>Created At</th>
             </tr>
             </thead>
             <tbody>
@@ -43,6 +44,7 @@
                 <td>{{.UserID}}</td>
                 <td>{{.RemoteIP}}</td>
                 <td>{{.Message}}</td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
             </tr>
             {{end}}
             </tbody>

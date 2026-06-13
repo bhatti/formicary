@@ -39,6 +39,12 @@ tasks:
 - task_type: verify-production-deploy
   method: MANUAL
   description: "Staging deployment complete. A security scan report is available as an artifact. Please verify the staging environment and the report before promoting to production."
+  approval_policy:
+    min_approvals: 2
+    sla_deadline: 4h
+    timeout_action: ESCALATE
+    escalation_recipients: "vp-eng@example.com,#ops-escalation"
+    escalation_message: "Production deployment approval stalled — SLA breached"
   on_exit_code:
     APPROVED: promote-production
     REJECTED: rollback-staging

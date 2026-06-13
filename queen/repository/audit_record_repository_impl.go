@@ -2,11 +2,12 @@ package repository
 
 import (
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 	"plexobject.com/formicary/queen/types"
-	"sort"
-	"time"
 )
 
 // AuditRecordRepositoryImpl implements AuditRecordRepository using gorm O/R mapping
@@ -86,9 +87,24 @@ func (arr *AuditRecordRepositoryImpl) Count(
 	return
 }
 
-// clear - for testing
+// clear truncates all audit records; used only in tests.
 func (arr *AuditRecordRepositoryImpl) clear() {
 	clearDB(arr.db)
+}
+
+// clearAuditRecords truncates audit records via any AuditRecordRepository.
+// It unwraps the cached layer if present; panics with a clear message if the
+// underlying impl is not *AuditRecordRepositoryImpl (which means the test
+// setup has changed and needs updating).
+func clearAuditRecords(repo AuditRecordRepository) {
+	switch r := repo.(type) {
+	case *AuditRecordRepositoryCached:
+		clearAuditRecords(r.adapter)
+	case *AuditRecordRepositoryImpl:
+		r.clear()
+	default:
+		panic("clearAuditRecords: unsupported repository type — update test setup")
+	}
 }
 
 func (arr *AuditRecordRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {

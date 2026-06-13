@@ -16,14 +16,14 @@ const ReservedRequestProperties = "platform,jobType,jobGroup,jobPriority,orgID,u
 // ParentJobTypePrefix prefix for forked job id
 const ParentJobTypePrefix = "ParentJobType"
 
-// ReviewTaskRequest type for the request structure for manuall approval.
-type ReviewTaskRequest struct {
-	RequestID   string             `json:"request_id" form:"request_id"`
-	ExecutionID string             `json:"execution_id" form:"execution_id"`
-	TaskType    string             `json:"task_type" form:"task_type"`
-	ReviewedBy  string             `json:"reviewed_by" form:"reviewed_by"`
-	Comments    string             `json:"comments" form:"comments"`
-	Status      types.RequestState `json:"status" form:"status"` // "APPROVED" or "REJECTED"
+// ApprovalVoteRequest is the input for casting a vote on a task awaiting approval.
+type ApprovalVoteRequest struct {
+	RequestID  string          `json:"request_id" form:"request_id"`
+	TaskType   string          `json:"task_type" form:"task_type"`
+	VoterID    string          `json:"voter_id" form:"voter_id"`
+	VoterName  string          `json:"voter_name" form:"voter_name"`
+	Decision   ApprovalDecision `json:"decision" form:"decision"` // "APPROVED" or "REJECTED"
+	Comments   string          `json:"comments" form:"comments"`
 }
 
 // UserJobTypeKey defines key for job-type by user/org

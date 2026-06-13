@@ -33,11 +33,11 @@ func NewGithubAuth(
 	callbackURL := fmt.Sprintf("%s/auth/github/callback",
 		commonConfig.GetExternalBaseURL())
 
-	if commonConfig.Auth.GoogleClientID == "" {
-		return nil, fmt.Errorf("google oauth client-id is not specified")
+	if commonConfig.Auth.GithubClientID == "" {
+		return nil, fmt.Errorf("github oauth client-id is not specified")
 	}
-	if commonConfig.Auth.GoogleClientSecret == "" {
-		return nil, fmt.Errorf("google oauth client-secret is not specified")
+	if commonConfig.Auth.GithubClientSecret == "" {
+		return nil, fmt.Errorf("github oauth client-secret is not specified")
 	}
 
 	githubOauthConfig := &oauth2.Config{
