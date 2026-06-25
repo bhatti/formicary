@@ -11,9 +11,92 @@ This guide covers how to get Formicary up and running. The recommended method fo
 -   **(Optional) Kubernetes:** If you want to use the Kubernetes executor, you need access to a Kubernetes cluster (e.g., [MicroK8s](https://microk8s.io/), [k3s](https://k3s.io/), minikube, or a cloud provider's managed service).
 -   **(Optional) Go:** To build from source, you need Go version 1.22 or newer.
 
+## Quickstart: Run from Docker Hub (no git clone required)
+
+The official image is on Docker Hub as `plexobject/formicary:latest`. You only need two files — grab them from the repo or copy them manually:
+
+| File | Purpose |
+|------|---------|
+| `config/formicary-docker.yaml` | Self-contained config; all paths point inside the container |
+| `docker-compose.yaml` | Compose file (already includes everything) |
+
+### Steps
+
+1. **Download the two required files** (no git clone needed)
+
+   ```bash
+   mkdir -p formicary && cd formicary
+   curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/docker-compose.yaml -o docker-compose.yaml
+   mkdir -p config
+   curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/config/formicary-docker.yaml -o config/formicary-docker.yaml
+   ```
+
+2. **Set credentials**
+
+   ```bash
+   export COMMON_AUTH_JWT_SECRET=$(openssl rand -base64 32)
+   export COMMON_AUTH_GOOGLE_CLIENT_ID=<your-client-id>
+   export COMMON_AUTH_GOOGLE_CLIENT_SECRET=<your-client-secret>
+   # Google OAuth redirect URI must be: http://localhost:7777/auth/google/callback
+   ```
+
+3. **Start**
+
+   ```bash
+   docker compose up
+   ```
+
+   All state (SQLite DB + SeaweedFS blobs) lands in the `formicary-data` Docker volume. To use a host directory instead, set the env var before starting:
+
+   ```bash
+   DATA_DIR=~/formicary-data docker compose up
+   ```
+
+4. **Open the dashboard:** [http://localhost:7777](http://localhost:7777)
+
+### Makefile shortcut
+
+```bash
+make docker-run
+```
+
+Reads `COMMON_AUTH_JWT_SECRET`, `COMMON_AUTH_GOOGLE_CLIENT_ID`, and `COMMON_AUTH_GOOGLE_CLIENT_SECRET` from your environment. Data stored in `~/formicary-data`; override with `DATA_DIR=/some/path`.
+
+### Disabling auth for local testing
+
+If you just want to explore the UI without setting up OAuth credentials, disable auth entirely:
+
+```bash
+# docker compose
+COMMON_AUTH_ENABLED=false docker compose up
+
+# make
+make docker-run COMMON_AUTH_ENABLED=false
+
+# plain docker (download config first, or copy from the repo)
+curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/config/formicary-docker.yaml \
+  -o /tmp/formicary-docker.yaml
+docker run --rm -p 7777:7777 \
+  -e COMMON_AUTH_ENABLED=false \
+  -v ~/formicary-data:/data \
+  -v /tmp/formicary-docker.yaml:/config/formicary-queen.yaml:ro \
+  plexobject/formicary:latest
+```
+
+With auth disabled, no login is required and no OAuth credentials are needed.
+
+---
+
 ## Recommended: Running with Docker Compose
 
-This is the fastest way to start a complete Formicary environment, including the Queen server, an embedded Ant worker, Redis for messaging, and MinIO for artifact storage. This setup uses a local SQLite database for simplicity.
+This is the fastest way to start a complete Formicary environment. A single container runs everything:
+
+- **Queen server** — web UI, API, job scheduler
+- **Embedded Ant worker** — executes jobs (SHELL, DOCKER, KUBERNETES, HTTP)
+- **Embedded SeaweedFS** — artifact storage (no external S3/MinIO needed)
+- **SQLite** — database (no external Postgres/MySQL needed)
+
+No Redis, no MinIO, no separate ant container — everything is self-contained in `plexobject/formicary:latest`.
 
 1.  **Clone the Repository**
     ```bash

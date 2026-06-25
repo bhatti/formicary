@@ -120,7 +120,7 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 	// Free the unique user_key slot when job reaches a terminal state so the
 	// same issue can be re-submitted after failure.
 	if newState.IsTerminal() {
-		updates["user_key"] = ""
+		updates["user_key"] = ulid.Make().String()
 	}
 	// Clear hard_restart once the job is executing — the FSM has already read it
 	// via DoesRequireFullRestart and any further restarts should be soft by default.

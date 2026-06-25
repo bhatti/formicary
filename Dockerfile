@@ -50,6 +50,11 @@ COPY --from=go-builder /src/migrations /migrations
 # Copy and make migration script executable
 COPY migrations/migrate.sh /usr/local/bin/migrate.sh
 
+# Bake in the default config (embedded ant + embedded SeaweedFS + SQLite).
+# No volume mount required — just run: docker run -p 7777:7777 formicary:latest
+RUN mkdir -p /config
+COPY --from=go-builder /src/config/formicary-docker.yaml /config/formicary-queen.yaml
+
 RUN chmod +x /usr/local/bin/migrate.sh /usr/local/bin/goose /formicary && \
     /usr/local/bin/goose --version
 
@@ -64,18 +69,11 @@ ENV DB_NAME="formicary_db" \
     DB_PORT="5432" \
     DB_TYPE="sqlite" \
     DB_SSL_MODE="disable" \
-    PUBLIC_DIR="/public" \
+    PUBLIC_DIR="/app/public/" \
     CONFIG_FILE="/config/formicary-queen.yaml" \
-    DATA_DIR="/data" \
-    # Auth — supply these at runtime via --env or an env_file; never bake secrets into the image
-    COMMON_AUTH_ENABLED="false" \
-    COMMON_AUTH_JWT_SECRET="" \
-    COMMON_AUTH_GOOGLE_CLIENT_ID="" \
-    COMMON_AUTH_GOOGLE_CLIENT_SECRET="" \
-    COMMON_AUTH_GOOGLE_CALLBACK_HOST="localhost" \
-    COMMON_AUTH_GITHUB_CLIENT_ID="" \
-    COMMON_AUTH_GITHUB_CLIENT_SECRET="" \
-    COMMON_AUTH_GITHUB_CALLBACK_HOST="localhost"
+    DATA_DIR="/data"
+    # Auth env vars (COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, etc.)
+    # must be supplied at runtime — never bake secrets or auth defaults into the image.
 
 WORKDIR /app
 USER formicary-user

@@ -1,0 +1,127 @@
+# =============================================================================
+# Formicary — Complete Ant Configuration Reference
+# =============================================================================
+# Copy this to formicary-ant.yaml and trim to only what you need.
+# Run an ant:  ./formicary ant --config config/formicary-ant.yaml
+# =============================================================================
+
+common:
+    # Unique ID for this ant (auto-generated if empty)
+    id: my-ant-id
+
+    # Ants don't serve HTTP — set to 0 to disable
+    http_port: 0
+
+    # Outbound proxy (optional)
+    proxy_url: ""
+
+    debug: false
+
+    # -------------------------------------------------------------------------
+    # queue — must match the queen's provider
+    # -------------------------------------------------------------------------
+    queue:
+        provider: WEBSOCKET_MESSAGING
+
+        websocket:
+            # URL of the queen's WebSocket queue endpoint
+            server_endpoint: "ws://localhost:7777/ws/queue"
+
+            # SQLite buffer for messages while the queen is unreachable.
+            # Drained automatically on reconnect.
+            buffer_db_path: "/tmp/formicary-ant-buffer.db"
+
+            ping_interval: 10s
+            reconnect_min_delay: 1s
+            reconnect_max_delay: 30s
+
+        retrymax: 5
+        retrydelay: 1s
+
+    # -------------------------------------------------------------------------
+    # s3 — must point at the same artifact store as the queen
+    # -------------------------------------------------------------------------
+    s3:
+        # Point at the queen's embedded SeaweedFS (default port 8333)
+        local_mode: false
+        endpoint: "localhost:8333"
+        access_key_id: "localkey"
+        secret_access_key: "localsecret"
+        bucket: formicary-artifacts
+        prefix: formicary/
+        region: us-east-1
+
+        # External MinIO / S3 example:
+        # endpoint: "minio:9000"
+        # access_key_id: "minioadmin"
+        # secret_access_key: "minioadmin"
+
+    # -------------------------------------------------------------------------
+    # auth — JWT secret must match the queen's
+    # -------------------------------------------------------------------------
+    auth:
+        enabled: true
+        # COMMON_AUTH_JWT_SECRET env var
+        jwt_secret: ""
+
+    # Optional: URLs of Docker daemons to report metrics for
+    monitoring_urls:
+        docker: "localhost:2375"
+
+# -----------------------------------------------------------------------------
+# Ant worker configuration (top-level, not under common)
+# -----------------------------------------------------------------------------
+
+# Tags used when the queen assigns tasks to this ant
+tags: ["docker", "kubernetes", "shell", "builder"]
+
+# Executor methods this ant supports
+methods:
+    - DOCKER
+    - KUBERNETES
+    - SHELL
+    - HTTP_GET
+    - HTTP_POST_FORM
+    - HTTP_POST_JSON
+    - HTTP_PUT_FORM
+    - HTTP_PUT_JSON
+    - HTTP_DELETE
+
+# Maximum concurrent tasks
+max_capacity: 10
+
+# How often (seconds) to poll for new task assignments
+poll_interval: 3
+
+# Max bytes of task stdout/stderr to capture (64 MB)
+output_limit: 67108864
+
+# -------------------------------------------------------------------------
+# docker executor
+# -------------------------------------------------------------------------
+docker:
+    host: "unix:///var/run/docker.sock"
+    # host: "tcp://remote-docker:2375"
+
+# -------------------------------------------------------------------------
+# kubernetes executor
+# -------------------------------------------------------------------------
+kubernetes:
+    namespace: "default"
+    # kubeconfig: "/home/user/.kube/config"   # omit for in-cluster config
+    allow_privilege_escalation: true
+    helper_image: ""
+    registry:
+        registry: ""
+        username: ""
+        password: ""
+        pull_policy: ""    # Always | IfNotPresent | Never
+    pod_security_context:
+        run_as_user: 0
+    default_resources:
+        cpuRequest: "500m"
+        memoryRequest: "512Mi"
+        cpuLimit: "1"
+        memoryLimit: "1Gi"
+        ephemeralStorageRequest: "1Gi"
+        ephemeralStorageLimit: "2Gi"

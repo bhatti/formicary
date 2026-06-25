@@ -33,6 +33,12 @@ type S3Config struct {
 	// (works on Docker Desktop for Mac/Windows). On a Linux K8s cluster set this to the
 	// host node's IP visible from pods (e.g. the node's eth0 address or a NodePort service).
 	LocalContainerHost string `yaml:"local_container_host" mapstructure:"local_container_host"`
+	// PublicEndpoint overrides the host:port used in presigned artifact download URLs shown
+	// in the UI and returned by the API. Useful when the S3/SeaweedFS port is only reachable
+	// inside the container (e.g. 127.0.0.1:19000) but the browser needs an externally-reachable
+	// address (e.g. localhost:19000 when the port is published via -p 19000:19000).
+	// If empty, the internal Endpoint is used as-is.
+	PublicEndpoint string `yaml:"public_endpoint" mapstructure:"public_endpoint"`
 }
 
 // IsLocalMode returns true when an embedded SeaweedFS subprocess should be used.

@@ -30,7 +30,7 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       python3 - <<'PYEOF'
-      import base64, json, os, subprocess, sys
+      import json, os, subprocess, sys
 
       project      = os.environ["JIRA_PROJECT"]
       pickup_lbl   = os.environ["PICKUP_LABEL"]
@@ -103,10 +103,20 @@ tasks:
           acli("jira", "issue", "edit", key, "--labels", ",".join(new_labels))
           print(f"  {key}: {summary} (repo={issue_repo}, branch={issue_branch})")
 
+          # Sanitize title: strip Go template markers and control chars so it is
+          # safe to embed directly in YAML templates without any encoding.
+          safe_title = re.sub(r'[{}\x00-\x1f\x7f]', ' ', summary).strip()
+
+          # Write body to a per-issue file; implement reads it from the artifact.
+          # This avoids encoding entirely — Claude gets the full unmodified body.
+          body_file = f"issue_body_{key}.txt"
+          with open(body_file, "w") as bf:
+              bf.write(description or "")
+
           items.append({
               "IssueNumber": key,
-              "IssueTitle": base64.b64encode(summary.encode()).decode(),
-              "IssueBody": base64.b64encode((description or "").encode()).decode(),
+              "IssueTitle": safe_title,
+              "IssueBodyFile": body_file,
               "IssueURL": url,
               "Nonce": nonce,
               "BitbucketWorkspace": bb_workspace,
@@ -121,14 +131,14 @@ tasks:
       with open("issues.json", "w") as f:
           f.write(items_json + "\n")
 
-      # Replace single quotes so IssuesJSON is safe to embed in YAML single-quoted env vars
-      items_json_safe = items_json.replace("\x27", "&#39;")
       print("items.json written: {} item(s)".format(len(items)))
-      print("::set-output name=IssuesJSON::{}".format(items_json_safe))
+      print("::set-output name=IssuesJSON::{}".format(items_json))
+      print("::set-output name=IssueCount::{}".format(len(items)))
       PYEOF
   artifacts:
     paths:
       - issues.json
+      - "issue_body_*.txt"
   on_completed: submit-jobs
 
 - task_type: submit-jobs
@@ -138,6 +148,7 @@ tasks:
   dependencies:
     - gather-issues
   environment:
+    ISSUE_COUNT:   '{{.IssueCount}}'
     SUBMITTED_IDS: '{{if .IssuesJSON}}{{SubmitJobsFromJSON "ai-jira-implement" .IssuesJSON (printf "_parent_id=%s" .JobID)}}{{end}}'
     PENDING_COUNT: '{{CountByJobTypeAndState "ai-jira-implement" "PENDING"}}'
   script:
@@ -145,14 +156,25 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       echo "=== Jira Issue Picker Submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-      [ -f issues.json ] && echo "Issues JSON:" && cat issues.json
+      echo "Issues found: ${ISSUE_COUNT:-0}"
+      [ -f issues.json ] && python3 -c "import json; [print('  {} ({}/{})'.format(it.get('IssueNumber','?'),it.get('BitbucketWorkspace','?'),it.get('BitbucketRepo','?'))) for it in json.load(open('issues.json'))]" 2>/dev/null || true
+      # Fail immediately if SubmitJobsFromJSON returned an error sentinel
+      case "${SUBMITTED_IDS:-}" in
+        ERROR:*) echo "ERROR: job submission failed: ${SUBMITTED_IDS}" >&2; exit 1 ;;
+      esac
+
       if [ -n "${SUBMITTED_IDS:-}" ]; then
         echo "Submitted job IDs:"
         echo "$SUBMITTED_IDS" | while read -r id; do
           [ -n "$id" ] && echo "  - $id"
         done
+        echo "::set-output name=SubmittedIDs::${SUBMITTED_IDS}"
       else
         echo "No jobs submitted"
+        if [ "${ISSUE_COUNT:-0}" -gt 0 ]; then
+          echo "ERROR: found ${ISSUE_COUNT} issue(s) but submitted 0 jobs — check server logs for SubmitJobsFromJSON errors" >&2
+          exit 1
+        fi
       fi
       echo "Pending count: ${PENDING_COUNT}"
 

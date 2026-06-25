@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"os"
+	"path/filepath"
 	common "plexobject.com/formicary/internal/types"
 	cutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/config"
@@ -354,8 +355,8 @@ func (n *DefaultNotifier) loadJobsTemplate(sender types.Sender) (string, error) 
 
 func loadTemplate(name string, dir string) ([]byte, error) {
 	b, err := os.ReadFile(name)
-	if err != nil {
-		b, err = os.ReadFile(dir + name)
+	if err != nil && !filepath.IsAbs(name) {
+		b, err = os.ReadFile(filepath.Join(dir, name))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error loading template: '%s' due to %w", name, err)

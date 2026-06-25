@@ -194,6 +194,9 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 			"retried":       retried,
 			"updated_at":    time.Now(),
 		}
+		if newState.IsTerminal() {
+			updates["user_key"] = ulid.Make().String()
+		}
 		if newState == common.PAUSED { // not common.MANUAL_APPROVAL_REQUIRED {
 			if scheduleDelay > 0 {
 				updates["scheduled_at"] = time.Now().Add(scheduleDelay)

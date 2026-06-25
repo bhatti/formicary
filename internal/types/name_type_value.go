@@ -11,7 +11,7 @@ import (
 )
 
 // local constants
-const maxConfigValueLength = 10000
+const maxConfigValueLength = 1000000 // 1MB — large enough for JSON arrays (e.g. IssuesJSON)
 const encryptedPrefix = "_ENCRYPTED_"
 
 // NameTypeValue defines structure for name, type, value

@@ -1,27 +1,32 @@
-# Local dev — self-contained, no external services needed.
+# Docker deployment config — self-contained, no external services needed.
 #
-# Runs everything in a single process:
+# Runs everything in a single container:
 #   - Queen server         (web UI, API, scheduler)
 #   - Embedded Ant worker  (SHELL, DOCKER, KUBERNETES, HTTP executors)
 #   - Embedded SeaweedFS   (artifact storage — no MinIO/S3 required)
 #   - SQLite               (database — no Postgres/MySQL required)
 #
-# Run: make run
+# Auth secrets are injected via environment variables at runtime.
+# See: COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, etc.
 common:
-    public_dir: ./public/
+    public_dir: /app/public/
     http_port: 7777
     rate_limit_sec: 100
     s3:
         local_mode: true
-        local_data_dir: ./data/seaweedfs
-        local_weed_bin: ./bin/weed
+        local_data_dir: /data/seaweedfs
+        local_weed_bin: /usr/local/bin/weed
         local_s3_port: 19000
         bucket: formicary-artifacts
+        # Presigned artifact URLs must use the externally-reachable address.
+        # 127.0.0.1:19000 is only reachable inside the container; the browser needs localhost:19000.
+        public_endpoint: localhost:19000
     auth:
         enabled: true
+        # Secrets injected at runtime — never bake into image
         # COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, COMMON_AUTH_GOOGLE_CLIENT_SECRET
 db:
-    data_source: formicary_db.sqlite
+    data_source: /data/formicary.db
     type: sqlite
 embedded_ant:
     tags: ["docker", "kubernetes", "shell", "builder"]

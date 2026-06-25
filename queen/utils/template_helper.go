@@ -287,17 +287,17 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 						"Component": "TemplateHelper",
 						"JobType":   jobType,
 						"ItemIndex": i,
-					}).WithError(err).Warn("SubmitJobsFromJSON: SubmitJob failed")
-					ids = append(ids, "")
-				} else {
-					logrus.WithFields(logrus.Fields{
-						"Component":   "TemplateHelper",
-						"JobType":     jobType,
-						"ItemIndex":   i,
-						"SubmittedID": id,
-					}).Infof("[SubmitJobsFromJSON] submitted job id=%s", id)
-					ids = append(ids, id)
+					}).WithError(err).Error("SubmitJobsFromJSON: SubmitJob failed")
+					// Return error sentinel so the consuming script can detect and fail the task.
+					return fmt.Sprintf("ERROR:SubmitJob failed for %s item %d: %v", jobType, i, err)
 				}
+				logrus.WithFields(logrus.Fields{
+					"Component":   "TemplateHelper",
+					"JobType":     jobType,
+					"ItemIndex":   i,
+					"SubmittedID": id,
+				}).Infof("[SubmitJobsFromJSON] submitted job id=%s", id)
+				ids = append(ids, id)
 			}
 			return strings.Join(ids, "\n")
 		},

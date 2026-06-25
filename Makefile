@@ -92,6 +92,32 @@ docker-release:
 	docker push $(DOCKER_REGISTRY)$(BINARY_NAME):latest
 	docker push $(DOCKER_REGISTRY)$(BINARY_NAME):$(VERSION)
 
+DOCKER_IMAGE ?= formicary:latest
+COMMON_AUTH_GOOGLE_CALLBACK_HOST ?= localhost
+# Set COMMON_AUTH_ENABLED=false to disable auth for local testing (no OAuth creds needed)
+COMMON_AUTH_ENABLED ?= true
+
+DATA_DIR ?= $(HOME)/formicary-data
+# Config is mounted from the repo — embedded ant + embedded SeaweedFS + SQLite, no external services needed.
+CONFIG_FILE ?= $(PWD)/config/formicary-docker.yaml
+
+# docker-run: queen + embedded ant + embedded SeaweedFS + SQLite in one container.
+# No Redis, MinIO, or separate ant container needed.
+# Override DOCKER_IMAGE=formicary:latest to use a locally-built image.
+docker-run:
+	mkdir -p $(DATA_DIR)
+	docker run --rm -p 7777:7777 -p 19000:19000 \
+		-e COMMON_AUTH_ENABLED="$(COMMON_AUTH_ENABLED)" \
+		-e COMMON_AUTH_JWT_SECRET="$(COMMON_AUTH_JWT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_ID="$(COMMON_AUTH_GOOGLE_CLIENT_ID)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_SECRET="$(COMMON_AUTH_GOOGLE_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CALLBACK_HOST="$(COMMON_AUTH_GOOGLE_CALLBACK_HOST)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
+		-v $(DATA_DIR):/data \
+		-v $(CONFIG_FILE):/config/formicary-queen.yaml:ro \
+		$(DOCKER_IMAGE)
+
 lint: 
 	golangci-lint run --enable-all
 
@@ -172,5 +198,5 @@ bump-major:
 	echo "Bumped VERSION_MAJOR to $$NEW_MAJOR, reset VERSION_MINOR to 0 in Makefile"
 	@$(MAKE) tag-release
 
-.PHONY: vendor build test tag-release bump-patch bump-minor bump-major
+.PHONY: vendor build test tag-release bump-patch bump-minor bump-major docker-run
 

@@ -238,6 +238,9 @@ func (a *Adapter) Delete(ctx context.Context, id string) error {
 }
 
 // PresignedGetURL returns a time-limited download URL.
+// If s3.public_endpoint is set, the internal host:port in the presigned URL is
+// replaced with the public endpoint so browser downloads work when SeaweedFS
+// is only reachable internally (e.g. 127.0.0.1:19000 inside a container).
 func (a *Adapter) PresignedGetURL(ctx context.Context, id string, fileName string, expires time.Duration) (*url.URL, error) {
 	req, err := a.presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket:                     aws.String(a.conf.Bucket),
@@ -247,7 +250,22 @@ func (a *Adapter) PresignedGetURL(ctx context.Context, id string, fileName strin
 	if err != nil {
 		return nil, err
 	}
-	return url.Parse(req.URL)
+	u, err := url.Parse(req.URL)
+	if err != nil {
+		return nil, err
+	}
+	if a.conf.PublicEndpoint != "" {
+		pub := a.conf.PublicEndpoint
+		if !strings.HasPrefix(pub, "http://") && !strings.HasPrefix(pub, "https://") {
+			pub = "http://" + pub
+		}
+		pubURL, err := url.Parse(pub)
+		if err == nil {
+			u.Scheme = pubURL.Scheme
+			u.Host = pubURL.Host
+		}
+	}
+	return u, nil
 }
 
 // PresignedPutURL returns a time-limited upload URL.

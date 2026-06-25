@@ -2,25 +2,48 @@ package artifacts
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
-// ZipFiles zip files
+// ZipFiles zip files — entries containing glob characters (* ? [) are expanded
+// via filepath.Glob; glob patterns that match nothing are silently skipped.
 func ZipFiles(newZipFile *os.File, files []string) (err error) {
 	zipWriter := zip.NewWriter(newZipFile)
 	defer func() {
 		_ = zipWriter.Close()
 	}()
 
-	for _, file := range files {
-		if err = addFileToZip(zipWriter, file); err != nil {
-			return err
+	for _, pattern := range files {
+		if isGlob(pattern) {
+			matches, globErr := filepath.Glob(pattern)
+			if globErr != nil {
+				return fmt.Errorf("invalid glob pattern %q: %w", pattern, globErr)
+			}
+			for _, file := range matches {
+				if err = addFileToZip(zipWriter, file); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err = addFileToZip(zipWriter, pattern); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func isGlob(pattern string) bool {
+	for _, ch := range pattern {
+		if ch == '*' || ch == '?' || ch == '[' {
+			return true
+		}
+	}
+	return false
 }
 
 // UnzipFile unzips file into destination directory

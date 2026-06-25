@@ -13,6 +13,7 @@ import (
 	"plexobject.com/formicary/queen/controller"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/security"
 	"plexobject.com/formicary/queen/types"
 )
 
@@ -131,8 +132,15 @@ func (uc *UserAdminController) createUser(c web.APIContext) (err error) {
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "users/new", res)
 	}
-	//return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/users/%s", user.ID))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard"))
+	// Issue a fresh JWT for the newly created user so they land directly in the dashboard.
+	token, expiration, tokenErr := security.BuildToken(
+		user,
+		uc.commonCfg.Auth.JWTSecret,
+		uc.commonCfg.Auth.MaxAge)
+	if tokenErr == nil {
+		c.SetCookie(uc.commonCfg.Auth.SessionCookie(token, expiration))
+	}
+	return c.Redirect(http.StatusFound, "/dashboard")
 }
 
 // getUser - finds user by id

@@ -113,15 +113,25 @@ PYEOF
   tmpfile="${tmpfile}.yaml"
   printf '%s' "$patched" > "$tmpfile"
 
-  local args=(-sf -X POST "${FORMICARY_URL}/api/jobs/definitions"
-              -H "Content-Type: application/yaml"
-              --data-binary "@${tmpfile}")
-  [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
+  local response http_code
+  # Capture both body and HTTP status; don't use -f so we always get the body for diagnostics.
+  local curl_args=(-s -o /tmp/formicary-upload-resp.json -w "%{http_code}"
+                   -X POST "${FORMICARY_URL}/api/jobs/definitions"
+                   -H "Content-Type: application/yaml"
+                   --data-binary "@${tmpfile}")
+  [[ -n "$TOKEN" ]] && curl_args+=(-H "Authorization: Bearer ${TOKEN}")
+  http_code=$(curl "${curl_args[@]}" 2>/tmp/formicary-upload-err.txt) || true
+  response=$(cat /tmp/formicary-upload-resp.json 2>/dev/null || true)
+  rm -f "$tmpfile" /tmp/formicary-upload-resp.json
 
-  local response
-  response=$(curl "${args[@]}" 2>&1)
-  rm -f "$tmpfile"
-  [[ $? -ne 0 ]] && fail "curl failed for $name: $response"
+  if [[ "$http_code" == 401 ]]; then
+    fail "Upload failed for $name: 401 Unauthorized — FORMICARY_TOKEN is missing, expired, or from a different server. Get a fresh token from ${FORMICARY_URL}/dashboard/users and re-export it."
+  elif [[ "$http_code" == 403 ]]; then
+    fail "Upload failed for $name: 403 Forbidden — token is valid but lacks permission."
+  elif [[ "$http_code" != 2?? ]]; then
+    echo "  HTTP $http_code: $response" >&2
+    fail "Upload failed for $name (HTTP $http_code)"
+  fi
 
   local job_type
   job_type=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('job_type','?'))" 2>/dev/null || echo "?")
@@ -130,7 +140,7 @@ PYEOF
     ok "Registered job_type=$job_type"
   else
     echo "  Response: $response" >&2
-    fail "Upload failed for $name"
+    fail "Upload failed for $name — unexpected response"
   fi
 }
 
@@ -234,9 +244,16 @@ fi
 
 # ── Verify server ──────────────────────────────────────────────────────────────
 log "Checking Formicary at ${FORMICARY_URL} ..."
-curl -sf "${FORMICARY_URL}/api/jobs/definitions" -o /dev/null \
-  || fail "Cannot reach ${FORMICARY_URL} — is 'make run' running?"
-ok "Server reachable"
+_health_args=(-s -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
+[[ -n "$TOKEN" ]] && _health_args+=(-H "Authorization: Bearer ${TOKEN}")
+_http_status=$(curl "${_health_args[@]}" 2>/dev/null || echo "000")
+case "$_http_status" in
+  2*) ok "Server reachable (HTTP ${_http_status})" ;;
+  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running?" ;;
+  401) fail "Server returned 401 — auth is enabled but FORMICARY_TOKEN is not set. Export your API token." ;;
+  403) fail "Server returned 403 — token is invalid or expired. Get a fresh token from the UI: ${FORMICARY_URL}/dashboard/users and update FORMICARY_TOKEN in ~/.zshrc." ;;
+  *)   fail "Server returned HTTP ${_http_status} — unexpected response from ${FORMICARY_URL}" ;;
+esac
 
 # ── Upload ─────────────────────────────────────────────────────────────────────
 echo ""
@@ -252,10 +269,9 @@ ok "All Jira workflows registered."
 # ── List registered AI workflows ───────────────────────────────────────────────
 echo ""
 log "Currently registered AI job types:"
-CURL_ARGS=(-sf "${FORMICARY_URL}/api/jobs/definitions")
+CURL_ARGS=(-s "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && CURL_ARGS+=(-H "Authorization: Bearer ${TOKEN}")
-curl "${CURL_ARGS[@]}" \
-  | python3 -c "
+curl "${CURL_ARGS[@]}" 2>/dev/null | python3 -c "
 import sys, json
 defs = json.load(sys.stdin).get('Records', [])
 for d in defs:
@@ -264,7 +280,7 @@ for d in defs:
         cron = d.get('cron_trigger','')
         conc = d.get('max_concurrency','')
         print(f'  {jt:<40} cron={cron or \"-\":<20} max_concurrency={conc}')
-"
+" 2>/dev/null || true
 
 # ── Next steps ─────────────────────────────────────────────────────────────────
 echo ""

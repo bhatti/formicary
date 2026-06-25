@@ -1,48 +1,22 @@
+# Ant worker — connects to queen via WebSocket. Run after starting queen with formicary-queen.yaml.
+# Run: make ant
 common:
-    id: ant-worker-id
-    user_agent: "formicary-agent"
-    proxy_url: ""
-    external_base_url: ""
-    block_user_agents: []
-    public_dir: ./public/
     http_port: 0
     queue:
         provider: "WEBSOCKET_MESSAGING"
         websocket:
-            # Ant mode: server_endpoint points at the queen's WebSocket queue endpoint
             server_endpoint: "ws://localhost:7777/ws/queue"
             buffer_db_path: "/tmp/formicary-ant-buffer.db"
-            ping_interval: 10s
             reconnect_min_delay: 1s
             reconnect_max_delay: 30s
-        retrymax: 5
-        retrydelay: 1s
     s3:
-        # Point at the queen's embedded SeaweedFS S3 endpoint (default port 8333)
-        local_mode: false
         endpoint: "localhost:8333"
         access_key_id: "localkey"
         secret_access_key: "localsecret"
         bucket: formicary-artifacts
-        prefix: formicary/
-        region: us-east-1
-    auth:
-        enabled: true
-        cookie_name: formicary-session
-        jwt_secret: ""        # override: COMMON_AUTH_JWT_SECRET
-        secure: false
-    container_reaper_interval: 0s
-    monitor_interval: 0s
-    monitoring_urls:
-      docker: "192.168.1.102:2375"
-    registration_interval: 0s
-    development: true
-    encryptionkey: ""
-    debug: true
-tags: ["docker", "kubernetes", "embedded", "builder"]
+tags: ["docker", "shell", "builder"]
 methods:
     - DOCKER
-    - KUBERNETES
     - SHELL
     - HTTP_GET
     - HTTP_POST_FORM
@@ -51,25 +25,12 @@ methods:
     - HTTP_PUT_JSON
     - HTTP_DELETE
 docker:
-  host: "tcp://192.168.1.100:2375"
+  host: "unix:///var/run/docker.sock"
 kubernetes:
-    registry:
-        registry: ""
-        username: '@bhatti'
-        password: "test"
-        pull_policy: ""
-    kubeconfig: ""
-    host: ""
-    helper_image: ""
-    allow_privilege_escalation: true
-    cluster_name: "docker-desktop"
     namespace: "default"
-    pod_security_context:
-      run_as_user: 0
+    allow_privilege_escalation: true
     default_resources:
       cpuRequest: "500m"
       memoryRequest: "512Mi"
       cpuLimit: "1"
       memoryLimit: "1Gi"
-      ephemeralStorageRequest: "1Gi"
-      ephemeralStorageLimit: "2Gi"

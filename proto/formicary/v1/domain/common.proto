@@ -160,3 +160,26 @@ message QueueConfig {
   int32 retry_max = 16 [(formicary.v1.tags) = "json:\"retry_max,omitempty\""];
   int64 retry_delay_ns = 17 [(formicary.v1.tags) = "json:\"retry_delay_ns,omitempty\""];
 }
+
+// S3Config holds S3 / S3-compatible object-storage configuration.
+// In local_mode an embedded SeaweedFS subprocess is started instead of connecting to an external endpoint.
+message S3Config {
+  string endpoint            = 1  [(formicary.v1.tags) = "yaml:\"endpoint\" mapstructure:\"endpoint\" env:\"ENDPOINT\""];
+  string access_key_id       = 2  [(formicary.v1.tags) = "yaml:\"access_key_id\" mapstructure:\"access_key_id\" env:\"ACCESS_KEY_ID\""];
+  string secret_access_key   = 3  [(formicary.v1.tags) = "yaml:\"secret_access_key\" mapstructure:\"secret_access_key\" env:\"SECRET_ACCESS_KEY\""];
+  string token               = 4  [(formicary.v1.tags) = "yaml:\"token\" mapstructure:\"token\""];
+  string region              = 5  [(formicary.v1.tags) = "yaml:\"region\" mapstructure:\"region\" env:\"REGION\""];
+  string prefix              = 6  [(formicary.v1.tags) = "yaml:\"prefix\" mapstructure:\"prefix\" env:\"PREFIX\""];
+  string bucket              = 7  [(formicary.v1.tags) = "yaml:\"bucket\" mapstructure:\"bucket\" env:\"BUCKET\""];
+  string encryption_password = 8  [(formicary.v1.tags) = "yaml:\"encryption_password\" mapstructure:\"encryption_password\" env:\"PASSWORD\""];
+  bool   use_ssl             = 9  [(formicary.v1.tags) = "yaml:\"useSSL\" mapstructure:\"useSSL\""];
+  bool   local_mode          = 10 [(formicary.v1.tags) = "yaml:\"local_mode\" mapstructure:\"local_mode\""];
+  string local_data_dir      = 11 [(formicary.v1.tags) = "yaml:\"local_data_dir\" mapstructure:\"local_data_dir\""];
+  string local_weed_bin      = 12 [(formicary.v1.tags) = "yaml:\"local_weed_bin\" mapstructure:\"local_weed_bin\""];
+  int32  local_s3_port       = 13 [(formicary.v1.tags) = "yaml:\"local_s3_port\" mapstructure:\"local_s3_port\""];
+  string local_container_host = 14 [(formicary.v1.tags) = "yaml:\"local_container_host\" mapstructure:\"local_container_host\""];
+  // public_endpoint overrides the host used in presigned artifact download URLs returned to browsers.
+  // Set to the externally-reachable address when the internal endpoint (e.g. 127.0.0.1:19000) is not
+  // accessible from outside the container (e.g. localhost:19000 with -p 19000:19000).
+  string public_endpoint     = 15 [(formicary.v1.tags) = "yaml:\"public_endpoint\" mapstructure:\"public_endpoint\""];
+}

@@ -1296,7 +1296,18 @@ func (jm *JobManager) SubmitJob(jobType string, description string, params map[s
 			return "", fmt.Errorf("SubmitJob: invalid param %q: %w", k, err)
 		}
 	}
-	qc := common.NewQueryContextFromIDs("", "")
+
+	// Derive user/org from the parent job so the child is submitted in the
+	// same tenant context and can find the job definition.
+	var userID, orgID string
+	if request.ParentID != "" {
+		if parent, err := jm.jobRequestRepository.Get(
+			common.NewQueryContext(nil, ""), request.ParentID); err == nil {
+			userID = parent.UserID
+			orgID = parent.OrganizationID
+		}
+	}
+	qc := common.NewQueryContextFromIDs(userID, orgID)
 
 	saved, err := jm.SaveJobRequest(qc, request)
 	if err != nil {
@@ -1304,13 +1315,36 @@ func (jm *JobManager) SubmitJob(jobType string, description string, params map[s
 			strings.Contains(err.Error(), "UNIQUE constraint failed")
 		if isDuplicate && request.UserKey != "" {
 			if existing, lookupErr := jm.jobRequestRepository.GetByUserKey(qc.WithAdmin(), request.UserKey); lookupErr == nil {
+				if existing.JobState.IsTerminal() {
+					// The terminal job still holds the semantic user_key — normally cleared
+					// by FinalizeJobRequestAndExecutionState, but may have been missed (e.g.
+					// direct-DB approval rejection before that fix landed). Rotate the stale
+					// key on the finished job so the slot is free, then retry the insert.
+					// oldState="" skips the transition-guard check; newState=existing.JobState
+					// is terminal, so IsTerminal() fires and the ULID rotation runs.
+					logrus.WithFields(logrus.Fields{
+						"Component":  "JobManager",
+						"JobType":    jobType,
+						"UserKey":    request.UserKey,
+						"ExistingID": existing.ID,
+						"JobState":   existing.JobState,
+					}).Warnf("SubmitJob: rotating stale user_key on terminal job, retrying insert")
+					if rotateErr := jm.jobRequestRepository.UpdateJobState(existing.ID, "", existing.JobState, "", "", 0, 0); rotateErr != nil {
+						return "", fmt.Errorf("SubmitJob: failed to rotate stale user_key for job %s: %w", existing.ID, rotateErr)
+					}
+					saved2, err2 := jm.SaveJobRequest(qc, request)
+					if err2 != nil {
+						return "", fmt.Errorf("SubmitJob: SaveJobRequest retry failed for job-type %q: %w", jobType, err2)
+					}
+					return saved2.ID, nil
+				}
 				logrus.WithFields(logrus.Fields{
 					"Component":  "JobManager",
 					"JobType":    jobType,
 					"UserKey":    request.UserKey,
 					"ExistingID": existing.ID,
 					"JobState":   existing.JobState,
-				}).Infof("SubmitJob: duplicate UserKey, returning existing job")
+				}).Infof("SubmitJob: duplicate UserKey, returning existing active job")
 				return existing.ID, nil
 			}
 		}

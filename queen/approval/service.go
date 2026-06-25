@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -467,6 +468,7 @@ func (s *Service) finalizeRejection(
 				"job_state":     common.FAILED,
 				"error_code":    common.ErrorManualRejection,
 				"error_message": msg,
+				"user_key":      ulid.Make().String(),
 				"updated_at":    now,
 			}); res.Error != nil {
 			return res.Error

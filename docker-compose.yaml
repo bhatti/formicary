@@ -1,48 +1,41 @@
+# Single-container deployment: queen + embedded ant + embedded SeaweedFS + SQLite.
+# No Redis, MinIO, or separate ant container needed.
+#
+# Quickstart (no git clone required):
+#   curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/docker-compose.yaml -o docker-compose.yaml
+#   mkdir -p config
+#   curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/config/formicary-docker.yaml -o config/formicary-docker.yaml
+#   export COMMON_AUTH_JWT_SECRET=$(openssl rand -base64 32)
+#   docker compose up
+#
+# Disable auth for local testing (no OAuth creds needed):
+#   COMMON_AUTH_ENABLED=false docker compose up
+
 services:
-  formicary-server:
-    image: plexobject/formicary
-    container_name: formicary-server
+  formicary:
+    image: plexobject/formicary:latest
+    container_name: formicary
     environment:
-      COMMON_DEBUG: 'true'
-      # Use SQLite for simplicity
-      DB_TYPE: 'sqlite'
-      DB_NAME: '/data/formicary.db'
-      # Embedded SeaweedFS — no external object store needed
-      COMMON_S3_LOCAL_MODE: 'true'
-      COMMON_S3_LOCAL_DATA_DIR: '/data/seaweedfs'
-      COMMON_S3_BUCKET: '${BUCKET:-formicary-artifacts}'
-      COMMON_S3_PREFIX: '${PREFIX:-formicary}'
-      # Auth settings — set values in .env (never commit secrets)
-      COMMON_AUTH_ENABLED: 'true'
-      COMMON_AUTH_JWT_SECRET: '${COMMON_AUTH_JWT_SECRET}'
-      COMMON_AUTH_GITHUB_CLIENT_ID: '${COMMON_AUTH_GITHUB_CLIENT_ID:-}'
-      COMMON_AUTH_GITHUB_CLIENT_SECRET: '${COMMON_AUTH_GITHUB_CLIENT_SECRET:-}'
+      # Auth — set these in your shell or a .env file (never commit secrets)
+      # Set COMMON_AUTH_ENABLED=false to disable auth for local testing
+      COMMON_AUTH_ENABLED: '${COMMON_AUTH_ENABLED:-true}'
+      COMMON_AUTH_JWT_SECRET: '${COMMON_AUTH_JWT_SECRET:-}'
       COMMON_AUTH_GOOGLE_CLIENT_ID: '${COMMON_AUTH_GOOGLE_CLIENT_ID:-}'
       COMMON_AUTH_GOOGLE_CLIENT_SECRET: '${COMMON_AUTH_GOOGLE_CLIENT_SECRET:-}'
-      COMMON_HTTP_PORT: '${HTTP_PORT:-7777}'
-      # Kubernetes access (if you want to use Docker Desktop Kubernetes)
-      COMMON_KUBERNETES_CLUSTER_NAME: 'docker-desktop'
-      COMMON_KUBERNETES_NAMESPACE: 'default'
-      # Set home directory for the formicary user
-      HOME: '/home/formicary-user'
+      COMMON_AUTH_GOOGLE_CALLBACK_HOST: '${COMMON_AUTH_GOOGLE_CALLBACK_HOST:-localhost}'
+      COMMON_AUTH_GITHUB_CLIENT_ID: '${COMMON_AUTH_GITHUB_CLIENT_ID:-}'
+      COMMON_AUTH_GITHUB_CLIENT_SECRET: '${COMMON_AUTH_GITHUB_CLIENT_SECRET:-}'
     ports:
       - "7777:7777"
+      - "19000:19000"  # SeaweedFS S3 — required for artifact download links in the UI
     volumes:
-      # Map your local config directory to /app/config
-      - ./config:/app/config:ro
-      # Map your local ~/.kube directory for Kubernetes config
-      - ~/.kube:/home/formicary-user/.kube:ro
-      # Map Docker socket for Docker executor (if needed)
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Data volumes
+      # Config is baked into the image — no config mount needed.
+      # Persistent state: SQLite DB + SeaweedFS blobs
       - formicary-data:/data
-      - formicary-logs:/var/log/formicary
+      # Docker socket — remove if you don't need the Docker executor
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-    # Update migrate.sh to pass config file as argument
-    entrypoint: ["/bin/bash", "-c", "/usr/local/bin/migrate.sh && exec /formicary --config /app/config/.formicary.yaml"]
 
 volumes:
   formicary-data:
-    driver: local
-  formicary-logs:
     driver: local

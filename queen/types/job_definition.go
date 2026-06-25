@@ -365,7 +365,21 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 	querier utils.JobTemplateHelper) (task *TaskDefinition, opts *common.ExecutorOptions, err error) {
 	data := make(map[string]interface{})
 	for k, v := range vars {
-		data[k] = v.Value
+		// Template functions like SubmitJobsFromJSON expect string arguments.
+		// Context values that were stored as JSON arrays/objects get parsed back
+		// into []interface{} / map[string]interface{} by GetParsedValue, which
+		// causes a type mismatch when the template tries to pass them as strings.
+		// Re-serialize non-primitive values to JSON so templates always see a string.
+		switch val := v.Value.(type) {
+		case []interface{}, map[string]interface{}:
+			if b, jerr := json.Marshal(val); jerr == nil {
+				data[k] = string(b)
+			} else {
+				data[k] = v.Value
+			}
+		default:
+			data[k] = v.Value
+		}
 	}
 	data["UnescapeHTML"] = true
 	data["DateYear"] = time.Now().Year()

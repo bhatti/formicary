@@ -276,7 +276,7 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 					web.IsWhiteListURL(c.Request().RequestURI, c.Request().Method) {
 					// ok
 				} else if strings.HasPrefix(c.Path(), "/dashboard") {
-					http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusTemporaryRedirect)
+					http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusFound)
 					return nil
 				} else {
 					return &echo.HTTPError{
@@ -293,7 +293,7 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 					"User":      user,
 				}).Error("failed to add session")
 				if strings.HasPrefix(c.Path(), "/dashboard") {
-					http.Redirect(c.Response(), c.Request(), ac.loginRedirectURL, http.StatusTemporaryRedirect)
+					http.Redirect(c.Response(), c.Request(), ac.loginRedirectURL, http.StatusFound)
 					return nil
 				}
 
@@ -350,8 +350,9 @@ func (ac *AuthController) addSessionUser(c web.APIContext) (
 	// not using query-context here because we just need to find user
 	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext(nil, ""), user.Username)
 	if err != nil {
-		// can't delete cookie
-		//c.SetCookie(ac.commonCfg.Auth.ExpiredCookie(ac.commonCfg.Auth.CookieName))
+		// User not found in DB yet — may be a new OAuth user in the middle of signup.
+		// Do NOT expire the cookie here; the signup handler will issue a fresh JWT after saving.
+		err = nil
 	} else {
 		if dbUser.OrganizationID != "" && dbUser.Organization == nil {
 			dbUser.Organization, _ = ac.orgRepository.Get(

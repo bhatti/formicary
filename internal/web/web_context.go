@@ -123,6 +123,7 @@ func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *co
 		acl.NewRoles(""),
 	)
 
+	user.ID = claims.UserID
 	user.Name = claims.Name
 	user.BundleID = claims.BundleID
 	user.PictureURL = claims.PictureURL

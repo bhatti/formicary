@@ -91,7 +91,7 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 		apiConfig := echojwt.Config{
 			NewClaimsFunc: func(c echo.Context) jwt.Claims { return &JwtClaims{} },
 			SigningKey:    []byte(commonCfg.Auth.JWTSecret),
-			TokenLookup:   "header:Authorization",
+			TokenLookup:   "header:Authorization:Bearer ",
 			ErrorHandler: func(c echo.Context, err error) error {
 				return mapAuthErrors(err)
 			},

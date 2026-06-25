@@ -23,8 +23,10 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
-      ISSUE_TITLE=$(echo "{{.IssueTitle}}" | base64 -d)
-      ISSUE_BODY=$(echo "{{.IssueBody}}" | base64 -d)
+      # IssueTitle is plain sanitized text — no decoding needed.
+      ISSUE_TITLE="{{.IssueTitle}}"
+      # IssueBody is in the artifact file written by gather-issues.
+      ISSUE_BODY=$(cat "$TASK_DIR/{{.IssueBodyFile}}" 2>/dev/null || echo "")
       WS="$HOME/claude_workspace/{{.BitbucketRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
       echo "=== SETUP ==="
       echo "TASK_DIR=$TASK_DIR"
@@ -59,13 +61,17 @@ tasks:
       {
         echo "WS=$WS"
         echo "BRANCH=$BRANCH"
-        echo "ISSUE_TITLE_B64={{.IssueTitle}}"
-        echo "ISSUE_BODY_B64={{.IssueBody}}"
+        echo "ISSUE_TITLE=$ISSUE_TITLE"
+        echo "ISSUE_BODY_FILE=$TASK_DIR/{{.IssueBodyFile}}"
       } > "$TASK_DIR/meta.env"
       BRANCH_LINK="[${BRANCH}](https://bitbucket.org/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/branch/${BRANCH})"
       printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
 
       echo "::set-output name=WorkspaceDir::$WS/repo"
+
+      # Emit structured issue context as a job-level variable for debug/tracing
+      python3 -c "import json; issue={'IssueNumber':'{{.IssueNumber}}','IssueURL':'{{.IssueURL}}','IssueTitle':'{{.IssueTitle}}','BitbucketWorkspace':'{{.BitbucketWorkspace}}','BitbucketRepo':'{{.BitbucketRepo}}','GitBranch':'{{.GitBranch}}'}; print('::set-output name=IssueJSON::'+json.dumps(issue,separators=(',',':')))" 2>/dev/null || true
+
       echo "=== SETUP COMPLETE ==="
       echo "Workspace: $WS/repo"
       echo "Branch: $BRANCH"
@@ -91,8 +97,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== PLAN ==="
       echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
@@ -175,8 +181,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== IMPLEMENT ==="
       echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
@@ -282,8 +288,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=========================================="
       echo "=== UNIT-TEST: Verify changes + run tests ==="
       echo "=========================================="
@@ -377,8 +383,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== FIX-TESTS ==="
       echo "WS=$WS"
       cd "$WS/repo"
@@ -439,8 +445,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== SELF-VERIFY ==="
       echo "WS=$WS"
       cd "$WS/repo"
@@ -532,8 +538,8 @@ tasks:
       set -euo pipefail
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== CREATE-PR ==="
       echo "TASK_DIR=$TASK_DIR"
       ls -la "$TASK_DIR/" 2>/dev/null | head -10 || true
@@ -556,45 +562,48 @@ tasks:
       fi
 
       echo "Pushing branch..."
-      git push origin "$BRANCH"
+      git push origin "$BRANCH" || git push --force-with-lease origin "$BRANCH"
       echo "Push successful"
 
-      PLAN_SUMMARY=$(jq -r '.summary // "See PLAN.md"' "$TASK_DIR/plan_result.json" 2>/dev/null || echo "See commits")
-      REVIEW_STATUS=$(jq -r '.status // "N/A"' "$TASK_DIR/verify_result.json" 2>/dev/null || echo "N/A")
-      IMPL_COMMITS=$(jq -r '.commits // 0' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "0")
+      PLAN_SUMMARY=$(python3 -c "import json; d=json.load(open('$TASK_DIR/plan_result.json')); print(d.get('summary','See PLAN.md'))" 2>/dev/null || echo "See commits")
+      REVIEW_STATUS=$(python3 -c "import json; d=json.load(open('$TASK_DIR/verify_result.json')); print(d.get('status','N/A'))" 2>/dev/null || echo "N/A")
+      IMPL_COMMITS=$(python3 -c "import json; d=json.load(open('$TASK_DIR/impl_result.json')); print(d.get('commits',0))" 2>/dev/null || echo "0")
 
-      PR_BODY="Closes #{{.IssueNumber}}
-
-      ## Summary
-      ${PLAN_SUMMARY}
-
-      ## Stats
-      - Commits: ${IMPL_COMMITS}
-      - Self-verify: ${REVIEW_STATUS}
-      - Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}"
+      printf 'Closes #{{.IssueNumber}}\n\n## Summary\n%s\n\n## Stats\n- Commits: %s\n- Self-verify: %s\n- Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}\n' \
+        "$PLAN_SUMMARY" "$IMPL_COMMITS" "$REVIEW_STATUS" > /tmp/pr_body.txt
+      PR_BODY=$(cat /tmp/pr_body.txt)
 
       echo "Creating PR..."
-      set +e
+      # Capture stdout only so git-push remote hints don't corrupt the JSON.
       PR_JSON=$(acli -p bitbucket bitbucket pr create "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" \
         --title "AI: $ISSUE_TITLE" \
         --description "$PR_BODY" \
-        --source "$BRANCH" --destination "{{.GitBranch}}" -o json 2>&1)
-      set -e
+        --source "$BRANCH" --destination "{{.GitBranch}}" -o json 2>/tmp/pr_create_err.txt || true)
+      cat /tmp/pr_create_err.txt >&2 || true
       echo "PR create response: $PR_JSON"
-      PR_URL=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('links',{}).get('html',{}).get('href',''))" 2>/dev/null || true)
+
+      PR_URL=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('data',d).get('links',{}).get('html',{}).get('href',''))" 2>/dev/null || true)
+
       if [ -z "$PR_URL" ]; then
-        echo "PR create failed or already exists - searching for existing PR on branch $BRANCH..."
-        PR_URL=$(acli -p bitbucket bitbucket pr list "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" -o json 2>/dev/null | python3 -c "import sys,json,os; prs=json.load(sys.stdin); br=os.environ.get('BRANCH',''); print(next((p.get('links',{}).get('html',{}).get('href','') for p in (prs if isinstance(prs,list) else []) if p.get('source',{}).get('branch',{}).get('name','')==br),''))" 2>/dev/null || true)
+        echo "PR create response was not parseable or returned no URL - searching existing PRs on branch $BRANCH..."
+        PR_URL=$(BRANCH="$BRANCH" acli -p bitbucket bitbucket pr list "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" -o json 2>/dev/null \
+          | python3 -c "import sys,json,os; br=os.environ['BRANCH']; prs=json.load(sys.stdin); prs=prs if isinstance(prs,list) else prs.get('values',[]); print(next((p.get('links',{}).get('html',{}).get('href','') for p in prs if p.get('source',{}).get('branch',{}).get('name','')==br),''))" 2>/dev/null || true)
       fi
-      [ -z "$PR_URL" ] && echo "ERROR: could not create or find PR" && exit 1
+
+      if [ -z "$PR_URL" ]; then
+        echo "ERROR: could not create or find PR for branch $BRANCH"
+        exit 1
+      fi
 
       printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
-      PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
-      echo "::set-output name=PRNumber::$PR_NUM"
-      echo "::set-output name=PRUrl::$PR_URL"
-      echo "=== PR CREATED/FOUND: $PR_URL (PR #$PR_NUM) ==="
+      PR_NUM=$(echo "$PR_URL" | python3 -c "import sys,re; m=re.search(r'/(\d+)$',sys.stdin.read().strip()); print(m.group(1) if m else '')" 2>/dev/null || true)
+      echo "::set-output name=PRNumber::${PR_NUM}"
+      echo "::set-output name=PRUrl::${PR_URL}"
+      echo "=== PR CREATED/FOUND: $PR_URL (PR #${PR_NUM}) ==="
 
-      acli -p jira jira issue edit "{{.IssueNumber}}" --labels "ai-pr-open" 2>/dev/null || true
+      # Non-critical: update Jira label — failure here must not fail the task
+      acli -p jira jira issue edit "{{.IssueNumber}}" --labels "ai-pr-open" 2>/dev/null || \
+        echo "WARN: could not update Jira label to ai-pr-open (non-fatal)"
   artifacts:
     paths:
       - pr_url.txt
@@ -618,8 +627,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       REPO="{{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
       PROCESSED_FILE="$WS/.processed_comments"
@@ -650,34 +659,31 @@ tasks:
           break
         fi
 
-        # Fetch review comments (use --jq to handle control chars in body)
-        ALL_REVIEW=$(acli -p bitbucket bitbucket pr comments "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json \
-          --jq '[.[] | {id, body, path, user: .user.login}]' 2>/dev/null || echo "[]")
-        ALL_ISSUE=$(echo "[]" # Bitbucket PR comments are in the same list \
-          --jq '[.[] | {id, body, user: .user.login}]' 2>/dev/null || echo "[]")
+        # Fetch PR comments — normalize to JSON array [{id,body,path,user}]
+        ALL_COMMENTS=$(acli -p bitbucket bitbucket pr comments \
+          "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null \
+          | python3 -c "import sys,json; raw=json.load(sys.stdin); items=raw if isinstance(raw,list) else raw.get('values',[]); print(json.dumps([{'id':str(c.get('id','')),'body':c.get('content',{}).get('raw',c.get('body','')),'path':c.get('inline',{}).get('path',''),'user':c.get('author',{}).get('display_name',c.get('user',{}).get('login','?'))} for c in items]))" \
+          2>/dev/null || echo "[]")
 
         PROCESSED=$(cat "$PROCESSED_FILE" 2>/dev/null || echo "")
 
-        # Combine and filter out already processed (keep all users — we respond to all)
-        UNPROCESSED=$(echo "$ALL_REVIEW" "$ALL_ISSUE" | jq -s --arg processed "$PROCESSED" '
-          add // [] |
-          [.[] | select((.id | tostring) as $id | ($processed | split("\n") | map(select(. != "")) | index($id)) == null)]
-        ' 2>/dev/null || echo "[]")
+        # Filter out already-processed comment IDs
+        UNPROCESSED=$(echo "$ALL_COMMENTS" \
+          | python3 -c "import sys,json,os; cs=json.load(sys.stdin); done=set(os.environ.get('PROCESSED','').split('\n')); print(json.dumps([c for c in cs if c['id'] not in done]))" \
+          PROCESSED="$PROCESSED" 2>/dev/null || echo "[]")
 
-        COMMENT_COUNT=$(echo "$UNPROCESSED" | jq 'length' 2>/dev/null || echo "0")
-        TOTAL=$(echo "$NEW_COMMENTS" | jq 'length' 2>/dev/null || echo "0")
+        TOTAL=$(echo "$ALL_COMMENTS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        COMMENT_COUNT=$(echo "$UNPROCESSED" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
         echo "Comments: total=$TOTAL, unprocessed=$COMMENT_COUNT"
 
         if [ "$COMMENT_COUNT" -gt 0 ]; then
           echo ""
           echo "=== Processing $COMMENT_COUNT new comment(s) ==="
 
-          INDICES=$(echo "$UNPROCESSED" | jq -r 'keys[]' 2>/dev/null)
-          for idx in $INDICES; do
-            COMMENT_ID=$(echo "$UNPROCESSED" | jq -r ".[$idx].id")
-            COMMENT_BODY=$(echo "$UNPROCESSED" | jq -r ".[$idx].body")
-            COMMENT_USER=$(echo "$UNPROCESSED" | jq -r ".[$idx].user")
-            COMMENT_PATH=$(echo "$UNPROCESSED" | jq -r ".[$idx].path // empty")
+          # Emit tab-separated lines: id<TAB>user<TAB>path<TAB>body for iteration
+          echo "$UNPROCESSED" \
+            | python3 -c "import sys,json; [print('{}\t{}\t{}\t{}'.format(c['id'],c['user'],c['path'],c['body'].replace('\n',' ')[:500])) for c in json.load(sys.stdin)]" \
+            2>/dev/null | while IFS=$'\t' read -r COMMENT_ID COMMENT_USER COMMENT_PATH COMMENT_BODY; do
 
             echo ""
             echo "--- Comment #$COMMENT_ID from $COMMENT_USER ---"
@@ -743,8 +749,8 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE=$(echo "${ISSUE_TITLE_B64:-}" | base64 -d 2>/dev/null || true)
-      ISSUE_BODY=$(echo "${ISSUE_BODY_B64:-}" | base64 -d 2>/dev/null || true)
+      ISSUE_TITLE="${ISSUE_TITLE:-}"
+      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== LEARN ==="
       cd "$WS/repo"
       LEARN_DIR="$HOME/claude_workspace/learn_context"

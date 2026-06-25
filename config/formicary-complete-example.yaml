@@ -1,0 +1,324 @@
+# =============================================================================
+# Formicary — Complete Configuration Reference
+# =============================================================================
+# This file documents every supported configuration option with descriptions.
+# Do NOT use this file directly — copy one of the minimal configs instead:
+#   formicary-docker.yaml          Docker / docker compose deployment
+#   formicary-queen-embedded.yaml  Local dev (embedded ant, no external services)
+#   formicary-queen.yaml           Queen-only (ants connect via WebSocket)
+#
+# Environment variable overrides follow viper's dot→underscore mapping:
+#   common.auth.jwt_secret  →  COMMON_AUTH_JWT_SECRET
+#   db.data_source          →  DB_DATA_SOURCE
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# common — shared settings for both queen and ant
+# -----------------------------------------------------------------------------
+common:
+    # Unique ID for this node (defaults to generated ID if empty)
+    id: my-queen-id
+
+    # HTTP port the UI and API listen on
+    http_port: 7777
+
+    # Base URL used for generating OAuth callback URLs and artifact links.
+    # Set this to your public hostname in production.
+    external_base_url: http://localhost:7777
+
+    # Directory containing UI templates, assets, and docs.
+    # Docker image: /app/public/   Local dev: ./public/
+    public_dir: /app/public/
+
+    # Outbound HTTP proxy for artifact uploads/downloads (optional)
+    proxy_url: ""
+
+    # User-Agent strings that will be blocked from the UI (bot/scraper suppression)
+    block_user_agents:
+        - Slackbot-LinkExpanding
+
+    # Maximum wall-clock time for any single job or task
+    max_job_timeout: 24h
+    max_task_timeout: 1h
+
+    # Max size (bytes) of a single log message streamed over gRPC
+    max_streaming_log_message_size: 1048576   # 1 MB
+
+    # Intervals for background maintenance loops
+    container_reaper_interval: 1m   # Reap stale Docker/k8s containers
+    monitor_interval: 2s            # Resource-monitor polling
+    registration_interval: 5s      # Ant heartbeat / re-registration
+
+    # API rate limit (requests per second per IP)
+    rate_limit_sec: 10
+
+    # Enable development mode (relaxed CORS, extra debug endpoints)
+    development: false
+
+    # Enable verbose debug logging
+    debug: false
+
+    # Global data-at-rest encryption key (hex string, optional)
+    encryptionkey: ""
+
+    # -------------------------------------------------------------------------
+    # queue — message transport between queen and ants
+    # -------------------------------------------------------------------------
+    queue:
+        # provider options:
+        #   ""                    in-memory channel queue (embedded ant only)
+        #   CHANNEL_MESSAGING     alias for ""
+        #   WEBSOCKET_MESSAGING   WebSocket (queen serves /ws/queue; no broker needed)
+        #   REDIS_MESSAGING       Redis pub/sub
+        #   PULSAR_MESSAGING      Apache Pulsar
+        provider: WEBSOCKET_MESSAGING
+
+        # Retry settings for message delivery
+        retrymax: 5
+        retrydelay: 1s
+
+        # WebSocket transport (used when provider = WEBSOCKET_MESSAGING)
+        websocket:
+            # Queen mode: omit server_endpoint; set path to serve on
+            path: "/ws/queue"
+            # Ant mode: set server_endpoint to queen's WebSocket URL
+            # server_endpoint: "ws://queen-host:7777/ws/queue"
+            # buffer_db_path: "/tmp/formicary-ant-buffer.db"  # offline buffer
+            ping_interval: 10s
+            reconnect_min_delay: 1s
+            reconnect_max_delay: 30s
+
+        # Redis transport (used when provider = REDIS_MESSAGING)
+        # redis:
+        #   host: localhost
+        #   port: 6379
+        #   password: ""
+
+    # -------------------------------------------------------------------------
+    # s3 — artifact storage
+    # -------------------------------------------------------------------------
+    s3:
+        # local_mode: true starts an embedded SeaweedFS subprocess (no MinIO needed)
+        local_mode: true
+        local_data_dir: /data/seaweedfs       # Where SeaweedFS stores blobs
+        local_weed_bin: /usr/local/bin/weed   # Path to the weed binary
+        local_s3_port: 19000                  # SeaweedFS S3 API port
+
+        # External S3 / MinIO (set local_mode: false and fill these in)
+        # endpoint: "minio:9000"
+        # access_key_id: "minioadmin"
+        # secret_access_key: "minioadmin"
+        # region: "us-east-1"
+        # use_tls: false
+
+        bucket: formicary-artifacts
+        prefix: formicary/
+        region: us-east-1
+
+    # -------------------------------------------------------------------------
+    # auth — authentication and OAuth
+    # -------------------------------------------------------------------------
+    auth:
+        enabled: true
+
+        # JWT secret for signing session tokens. REQUIRED when enabled.
+        # Override with: COMMON_AUTH_JWT_SECRET
+        jwt_secret: ""
+
+        # Session cookie name
+        cookie_name: formicary-session
+
+        # Set true if serving over HTTPS (marks cookies Secure)
+        secure: false
+
+        # Session lifetime (default 7 days)
+        max_age: 168h
+        # API token lifetime (default 90 days)
+        token_max_age: 2160h
+
+        # Google OAuth2. Override with COMMON_AUTH_GOOGLE_CLIENT_ID / _SECRET.
+        # Callback URL: http://<google_callback_host>:<http_port>/auth/google/callback
+        google_client_id: ""
+        google_client_secret: ""
+        google_callback_host: localhost
+
+        # GitHub OAuth2. Override with COMMON_AUTH_GITHUB_CLIENT_ID / _SECRET.
+        # Callback URL: http://<github_callback_host>:<http_port>/auth/github/callback
+        github_client_id: ""
+        github_client_secret: ""
+        github_callback_host: localhost
+
+    # -------------------------------------------------------------------------
+    # tracing — OpenTelemetry / Jaeger (optional)
+    # -------------------------------------------------------------------------
+    tracing:
+        enabled: false
+        endpoint: "http://jaeger:14268/api/traces"
+        sample_ratio: 0.1   # Fraction of requests to trace (0.0–1.0)
+
+    # -------------------------------------------------------------------------
+    # monitoring_urls — external endpoints to scrape for container metrics
+    # -------------------------------------------------------------------------
+    monitoring_urls:
+        docker: "localhost:2375"
+
+# -----------------------------------------------------------------------------
+# db — database connection
+# -----------------------------------------------------------------------------
+db:
+    # SQLite (file path or :memory:)
+    type: sqlite
+    data_source: /data/formicary.db
+
+    # PostgreSQL / MySQL example:
+    # type: postgres
+    # data_source: "host=postgres port=5432 user=formicary password=secret dbname=formicary sslmode=disable"
+
+    # At-rest encryption key for sensitive columns (optional)
+    encryption_key: ""
+
+    # Connection pool tuning
+    max_idle_connections: 10
+    max_open_connections: 20
+    max_concurrency: 0              # 0 = unlimited
+    connection_max_idle_time: 0s
+    connection_max_life_time: 0s
+
+# -----------------------------------------------------------------------------
+# jobs — scheduler and resource-manager tuning
+# -----------------------------------------------------------------------------
+jobs:
+    # How often the leader-election ticker fires
+    job_scheduler_leader_interval: 15s
+
+    # How often to scan for PENDING jobs ready to launch
+    job_scheduler_check_pending_jobs_interval: 1s
+
+    # How long an ant reservation is held before being released
+    ant_reservation_timeout: 10s
+
+    # How long since an ant's last heartbeat before it is considered dead
+    ant_registration_alive_timeout: 60s
+
+    # How long before a running request is considered orphaned
+    orphan_requests_timeout: 1h
+    orphan_requests_update_interval: 5m
+
+    # How long to wait for missing cron jobs to appear before force-launching
+    missing_cron_jobs_interval: 1m
+
+    # Max time a job can stay in NOT_READY before being cancelled
+    not_ready_max_wait: 24h
+
+    # Max times the scheduler attempts to place a single job before giving up
+    max_schedule_attempts: 3
+
+    # Object cache TTL (set 0 to disable)
+    db_object_cache: 30s
+    db_object_cache_size: 10000
+
+    # Tasklet concurrency caps (0 = use default)
+    max_fork_tasklet_capacity: 100
+    max_fork_await_tasklet_capacity: 100
+    max_fan_out_tasklet_capacity: 100
+    max_messaging_tasklet_capacity: 100
+    expire_artifacts_tasklet_capacity: 10
+
+    # Disable the scheduler entirely (useful when running a read-only replica)
+    disable_job_scheduler: false
+
+    # Encryption key for messaging payloads (optional)
+    messaging_encryption_key: ""
+
+    # Artifact retention defaults (per-org overrides are also supported)
+    default_artifact_expiration: 720h   # 30 days
+    default_artifact_limit: 0           # 0 = unlimited bytes
+
+    # Trigger subsystem
+    disable_triggers: false
+    trigger_poll_default_interval: 30s
+    trigger_max_per_job_definition: 10
+    trigger_webhook_body_max_bytes: 1048576
+    trigger_s3_poll_max_objects: 1000
+
+    # HITL (human-in-the-loop) approval SLA check interval
+    approval_sla_check_interval: 1h
+
+    # Presigned URL expiration for artifact downloads
+    url_presigned_expiration_minutes: 60m
+
+    # Enable per-org subscription quota enforcement
+    subscription_quota_enabled: false
+
+# -----------------------------------------------------------------------------
+# smtp — outbound email for notifications and invitations
+# -----------------------------------------------------------------------------
+smtp:
+    # Email provider: "" (SMTP), "sendgrid", "ses"
+    provider: ""
+    from_email: noreply@example.com
+    from_name: Formicary
+
+    # SMTP credentials
+    host: smtp.example.com
+    port: 587
+    username: noreply@example.com
+    password: ""
+
+    # Provider API key (SendGrid / SES)
+    api_key: ""
+
+# -----------------------------------------------------------------------------
+# notify — template paths for email/Slack notifications
+# (defaults resolve relative to common.public_dir/views/notify/)
+# -----------------------------------------------------------------------------
+notify:
+    # Override only if you've placed custom templates outside public_dir
+    # email_jobs_template_file: /custom/path/email_notify_job.html
+    # slack_jobs_template_file: /custom/path/slack_notify_job.txt
+    # verify_email_template_file: /custom/path/verify_email.html
+    # user_invitation_template_file: /custom/path/user_invitation.html
+
+# -----------------------------------------------------------------------------
+# embedded_ant — runs an ant worker inside the queen process
+# Omit this section entirely when running external ants via WebSocket.
+# -----------------------------------------------------------------------------
+embedded_ant:
+    tags: ["docker", "kubernetes", "shell", "builder"]
+    methods:
+      - DOCKER
+      - KUBERNETES
+      - SHELL
+      - HTTP_GET
+      - HTTP_POST_FORM
+      - HTTP_POST_JSON
+      - HTTP_PUT_FORM
+      - HTTP_PUT_JSON
+      - HTTP_DELETE
+    max_capacity: 10
+    poll_interval: 3
+    output_limit: 67108864   # 64 MB max task output
+
+    docker:
+      host: "unix:///var/run/docker.sock"
+      # host: "tcp://remote-docker:2375"
+
+    kubernetes:
+      namespace: "default"
+      # kubeconfig: "/home/user/.kube/config"   # omit to use in-cluster config
+      allow_privilege_escalation: true
+      helper_image: ""   # override the helper sidecar image
+      registry:
+        registry: ""
+        username: ""
+        password: ""
+        pull_policy: ""   # Always | IfNotPresent | Never
+      pod_security_context:
+        run_as_user: 0
+      default_resources:
+        cpuRequest: "500m"
+        memoryRequest: "512Mi"
+        cpuLimit: "1"
+        memoryLimit: "1Gi"
+        ephemeralStorageRequest: "1Gi"
+        ephemeralStorageLimit: "2Gi"
