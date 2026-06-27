@@ -67,6 +67,12 @@
           <dd class="col-7">{{.CreatedAt}}</dd>
           <dt class="col-5 text-secondary">Updated</dt>
           <dd class="col-7">{{.UpdatedAt}}</dd>
+          <dt class="col-5 text-secondary">Retain Failed</dt>
+          <dd class="col-7">{{if .RetentionDaysForFailed}}{{.RetentionDaysForFailed}}d{{else}}30d (default){{end}}</dd>
+          <dt class="col-5 text-secondary">Retain Completed</dt>
+          <dd class="col-7">{{if .RetentionDaysForCompleted}}{{.RetentionDaysForCompleted}}d{{else}}7d (default){{end}}</dd>
+          <dt class="col-5 text-secondary">Retain Cancelled</dt>
+          <dd class="col-7">{{if .RetentionDaysForCancelled}}{{.RetentionDaysForCancelled}}d{{else}}30d (default){{end}}</dd>
         </dl>
       </div>
     </div>

@@ -152,6 +152,22 @@ required_params:
 retry: 10
 </code></pre>
 <p>In above example, if a job fails, it will be retried up-to 10 times.</p>
+<h4 id="retention_days_for_failed">retention_days_for_failed</h4>
+<p>The <code>retention_days_for_failed</code> defines how many days to keep FAILED job history for this job type. Older records are automatically purged by the daily retention sweep. Default is 30 days when not set or set to 0, e.g.</p>
+<pre><code class="lang-yaml">job_type: my-sensor-job
+retention_days_for_failed: 14
+</code></pre>
+<h4 id="retention_days_for_completed">retention_days_for_completed</h4>
+<p>The <code>retention_days_for_completed</code> defines how many days to keep COMPLETED job history for this job type. Default is 7 days. Useful for cron/sensor jobs that run very frequently, e.g.</p>
+<pre><code class="lang-yaml">job_type: my-sensor-job
+retention_days_for_completed: 3
+</code></pre>
+<h4 id="retention_days_for_cancelled">retention_days_for_cancelled</h4>
+<p>The <code>retention_days_for_cancelled</code> defines how many days to keep CANCELLED job history for this job type. Default is 30 days, e.g.</p>
+<pre><code class="lang-yaml">job_type: my-sensor-job
+retention_days_for_cancelled: 7
+</code></pre>
+<p>EXECUTING jobs are never purged by the retention system.</p>
 <h4 id="sem_version">sem_version</h4>
 <p>When using a <code>public_plugin</code> to annotate the job as a public plugin, you must specify a semantic version of the public using <code>sem_version</code> property such as:</p>
 <pre><code class="lang-yaml">job_type: my-plugin

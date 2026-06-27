@@ -130,6 +130,12 @@ type JobDefinition struct {
 	RetryBackoffPolicy *BackoffPolicy `yaml:"retry_backoff_policy,omitempty" json:"retry_backoff_policy" gorm:"-"`
 	// MaxConcurrency defines max number of jobs that can be run concurrently
 	MaxConcurrency int `yaml:"max_concurrency,omitempty" json:"max_concurrency"`
+	// RetentionDaysForFailed defines how many days FAILED job history is retained. 0 = use default (30 days).
+	RetentionDaysForFailed int `yaml:"retention_days_for_failed,omitempty" json:"retention_days_for_failed" gorm:"retention_days_for_failed"`
+	// RetentionDaysForCompleted defines how many days COMPLETED job history is retained. 0 = use default (7 days).
+	RetentionDaysForCompleted int `yaml:"retention_days_for_completed,omitempty" json:"retention_days_for_completed" gorm:"retention_days_for_completed"`
+	// RetentionDaysForCancelled defines how many days CANCELLED job history is retained. 0 = use default (30 days).
+	RetentionDaysForCancelled int `yaml:"retention_days_for_cancelled,omitempty" json:"retention_days_for_cancelled" gorm:"retention_days_for_cancelled"`
 	// disabled is used to stop further processing of job, and it can be used during maintenance, upgrade or debugging.
 	Disabled bool `yaml:"-" json:"disabled"`
 	// PublicPlugin means job is public plugin
@@ -1558,4 +1564,37 @@ func loadDynamicTasksFromYaml(yamlSource string) string {
 		yamlSource = loadedYaml
 	}
 	return yamlSource
+}
+
+// DefaultRetentionDaysForFailed is the fallback retention period when not configured per-job.
+const DefaultRetentionDaysForFailed = 30
+
+// DefaultRetentionDaysForCompleted is the fallback retention period when not configured per-job.
+const DefaultRetentionDaysForCompleted = 7
+
+// DefaultRetentionDaysForCancelled is the fallback retention period when not configured per-job.
+const DefaultRetentionDaysForCancelled = 30
+
+// GetRetentionDays returns the number of days to retain job history for the given terminal state.
+// Returns 0 for non-terminal states (never purge in-flight jobs).
+func (jd *JobDefinition) GetRetentionDays(state common.RequestState) int {
+	switch state {
+	case common.FAILED:
+		if jd.RetentionDaysForFailed > 0 {
+			return jd.RetentionDaysForFailed
+		}
+		return DefaultRetentionDaysForFailed
+	case common.COMPLETED:
+		if jd.RetentionDaysForCompleted > 0 {
+			return jd.RetentionDaysForCompleted
+		}
+		return DefaultRetentionDaysForCompleted
+	case common.CANCELLED:
+		if jd.RetentionDaysForCancelled > 0 {
+			return jd.RetentionDaysForCancelled
+		}
+		return DefaultRetentionDaysForCancelled
+	default:
+		return 0
+	}
 }

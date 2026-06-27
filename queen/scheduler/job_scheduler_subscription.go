@@ -123,6 +123,37 @@ func (js *JobScheduler) startTickerToCheckOrphanJobs(ctx context.Context) *time.
 	return ticker
 }
 
+// startTickerToRunRetention fires PurgeAll on the RetentionManager at the configured interval.
+func (js *JobScheduler) startTickerToRunRetention(ctx context.Context) *time.Ticker {
+	ticker := time.NewTicker(js.serverCfg.Jobs.RetentionCheckInterval)
+	go func() {
+		for !js.isStopped() {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-js.done:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				total, err := js.retentionManager.PurgeAll(ctx)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"Component": "JobScheduler",
+						"Error":     err,
+					}).Warn("retention purge failed")
+				} else {
+					logrus.WithFields(logrus.Fields{
+						"Component":   "JobScheduler",
+						"TotalPurged": total,
+					}).Info("retention purge complete")
+				}
+			}
+		}
+	}()
+	return ticker
+}
+
 // startTickerToCheckApprovalSLAs fires HandleSLABreach for each overdue approval deadline.
 func (js *JobScheduler) startTickerToCheckApprovalSLAs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.ApprovalSLACheckInterval)

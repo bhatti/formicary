@@ -300,6 +300,90 @@
         ]
       }
     },
+    "/api/v1/approvals/pending": {
+      "get": {
+        "summary": "List pending approvals",
+        "description": "Returns a paginated list of task executions awaiting the current user's vote.",
+        "operationId": "JobExecutionService_ListPendingApprovals",
+        "responses": {
+          "200": {
+            "description": "Pending approvals list.",
+            "schema": {
+              "$ref": "#/definitions/servicesListPendingApprovalsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
     "/api/v1/artifacts": {
       "get": {
         "summary": "List artifacts",
@@ -3242,79 +3326,6 @@
         ]
       }
     },
-    "/api/v1/jobs/requests/{id}/review": {
-      "post": {
-        "summary": "Review job (manual approval)",
-        "description": "Submits an APPROVED or REJECTED decision for a job that requires manual approval. The reviewer must have the required_manual_roles specified in the task definition.",
-        "operationId": "JobExecutionService_ReviewJob",
-        "responses": {
-          "200": {
-            "description": "Review submitted.",
-            "schema": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "400": {
-            "description": "Bad request — invalid parameters or request body",
-            "schema": {}
-          },
-          "401": {
-            "description": "Unauthorized — missing or invalid JWT token",
-            "schema": {}
-          },
-          "403": {
-            "description": "Forbidden — insufficient permissions",
-            "schema": {}
-          },
-          "404": {
-            "description": "Not found",
-            "schema": {}
-          },
-          "409": {
-            "description": "Conflict — duplicate resource",
-            "schema": {}
-          },
-          "412": {
-            "description": "Precondition failed — validation error",
-            "schema": {}
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded",
-            "schema": {}
-          },
-          "500": {
-            "description": "Internal server error",
-            "schema": {}
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "review",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/queenReviewTaskRequest"
-            }
-          }
-        ],
-        "tags": [
-          "job-executions"
-        ]
-      }
-    },
     "/api/v1/jobs/requests/{id}/trigger": {
       "post": {
         "summary": "Trigger job",
@@ -3438,6 +3449,158 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
+    "/api/v1/jobs/requests/{request_id}/tasks/{task_type}/approval": {
+      "get": {
+        "summary": "Get approval status",
+        "description": "Returns the current vote tally, deadline, and all votes for a task awaiting multi-party approval.",
+        "operationId": "JobExecutionService_GetApprovalStatus",
+        "responses": {
+          "200": {
+            "description": "Approval status with votes.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetApprovalStatusResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "request_id",
+            "description": "Job request ID.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "task_type",
+            "description": "Task type awaiting approval.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
+    "/api/v1/jobs/requests/{request_id}/tasks/{task_type}/vote": {
+      "post": {
+        "summary": "Vote on approval",
+        "description": "Casts an APPROVED or REJECTED vote for a task awaiting multi-party approval. The job proceeds when quorum is reached.",
+        "operationId": "JobExecutionService_VoteOnApproval",
+        "responses": {
+          "200": {
+            "description": "Vote recorded; returns updated approval status.",
+            "schema": {
+              "$ref": "#/definitions/servicesVoteOnApprovalResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "request_id",
+            "description": "Job request ID.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "task_type",
+            "description": "Task type awaiting approval.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "vote",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/queenApprovalVoteRequest"
+            }
           }
         ],
         "tags": [
@@ -5347,6 +5510,163 @@
       },
       "additionalProperties": {}
     },
+    "queenApprovalPolicy": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "task_definition_id": {
+          "type": "string"
+        },
+        "min_approvals": {
+          "type": "integer",
+          "format": "int32",
+          "description": "min_approvals is the quorum threshold (N of M)."
+        },
+        "allowed_roles": {
+          "type": "string",
+          "description": "allowed_roles: comma-separated roles that may vote."
+        },
+        "allowed_users": {
+          "type": "string",
+          "description": "allowed_users: comma-separated user IDs that may vote."
+        },
+        "require_unanimous": {
+          "type": "boolean",
+          "description": "require_unanimous: ALL allowed approvers must approve (overrides min_approvals)."
+        },
+        "sla_deadline_ns": {
+          "type": "string",
+          "format": "int64",
+          "description": "sla_deadline_ns: max wait time (nanoseconds) before timeout_action fires. 0 = no SLA."
+        },
+        "timeout_action": {
+          "type": "string",
+          "description": "timeout_action: AUTO_APPROVE, AUTO_REJECT, or ESCALATE."
+        },
+        "escalation_recipients": {
+          "type": "string",
+          "description": "escalation_recipients: comma-separated emails/Slack channels for SLA breach."
+        },
+        "escalation_message": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "ApprovalPolicy defines quorum rules for a task requiring multi-party approval."
+    },
+    "queenApprovalStatus": {
+      "type": "object",
+      "properties": {
+        "task_execution_id": {
+          "type": "string"
+        },
+        "job_request_id": {
+          "type": "string"
+        },
+        "approvals_received": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "rejections_received": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "min_approvals_required": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "quorum_reached": {
+          "type": "boolean"
+        },
+        "rejected": {
+          "type": "boolean"
+        },
+        "sla_breached": {
+          "type": "boolean"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "votes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenApprovalVote"
+          }
+        },
+        "policy": {
+          "$ref": "#/definitions/queenApprovalPolicy"
+        }
+      },
+      "description": "ApprovalStatus is the aggregate state for a task execution's approval."
+    },
+    "queenApprovalVote": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "task_execution_id": {
+          "type": "string"
+        },
+        "job_request_id": {
+          "type": "string"
+        },
+        "voter_id": {
+          "type": "string"
+        },
+        "voter_name": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string",
+          "title": "decision: \"APPROVED\" or \"REJECTED\""
+        },
+        "comments": {
+          "type": "string"
+        },
+        "voted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "ApprovalVote records a single approver's decision on a task execution."
+    },
+    "queenApprovalVoteRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string"
+        },
+        "task_type": {
+          "type": "string"
+        },
+        "voter_id": {
+          "type": "string"
+        },
+        "voter_name": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string",
+          "title": "decision: \"APPROVED\" or \"REJECTED\""
+        },
+        "comments": {
+          "type": "string"
+        }
+      },
+      "description": "ApprovalVoteRequest is the input for casting a vote."
+    },
     "queenAuditRecord": {
       "type": "object",
       "properties": {
@@ -5491,6 +5811,41 @@
         }
       },
       "description": "ErrorCode defines a pattern-matched error code that triggers a specific action on task failure.\nError codes can map regex patterns or exit codes to retry/suspend/fail behaviors."
+    },
+    "queenFanOutConfig": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "source is the job execution context variable name that holds a JSON array of items."
+        },
+        "item_var": {
+          "type": "string",
+          "description": "item_var is the variable name injected into each child task/job for its specific item value."
+        },
+        "max_parallel": {
+          "type": "integer",
+          "format": "int32",
+          "description": "max_parallel caps how many concurrent children run at a time (0 = unlimited)."
+        },
+        "fail_fast": {
+          "type": "boolean",
+          "description": "fail_fast cancels remaining in-flight children on the first failure."
+        },
+        "execution_method": {
+          "type": "string",
+          "description": "execution_method is the TaskMethod used to dispatch child tasks in task fan-out mode.\nSet automatically from the task definition's method when fan_out is configured."
+        },
+        "fork_job_type": {
+          "type": "string",
+          "description": "fork_job_type switches to job fan-out mode: spawns one child JobRequest per array item\nof this registered job type. Supports sub_workflow input/output mapping.\nMutually exclusive with execution_method (task fan-out mode)."
+        },
+        "fork_job_version": {
+          "type": "string",
+          "description": "fork_job_version is the optional semver of the fork_job_type to use."
+        }
+      },
+      "description": "FanOutConfig configures dynamic fan-out for a single task definition.\n\nTwo modes:\n  - Task fan-out (default): dispatches one TaskRequest per array item to ant workers\n    using the task's original execution method (SHELL, KUBERNETES, etc.).\n  - Job fan-out: when fork_job_type is set, spawns one child JobRequest per array item\n    using the FORK_JOB machinery, with full sub_workflow input/output mapping support.\n\nResults are aggregated back to the parent under keys prefixed `{item_var}_{index}_`."
     },
     "queenJobDefinition": {
       "type": "object",
@@ -5646,6 +6001,21 @@
             "$ref": "#/definitions/queenTriggerDefinition"
           },
           "description": "triggers defines event-driven trigger configurations (transient, parsed from raw_yaml)."
+        },
+        "retention_days_for_failed": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_failed sets how many days FAILED job history is retained. 0 = use default (30)."
+        },
+        "retention_days_for_completed": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_completed sets how many days COMPLETED job history is retained. 0 = use default (7)."
+        },
+        "retention_days_for_cancelled": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_cancelled sets how many days CANCELLED job history is retained. 0 = use default (30)."
         }
       },
       "description": "JobDefinition outlines a DAG of tasks executed by ant workers.\nA new JobExecution is created when a JobRequest is scheduled against this definition."
@@ -5939,6 +6309,10 @@
         "hard_restart": {
           "type": "boolean",
           "description": "hard_restart forces all tasks to re-run from scratch on next restart,\nignoring any previously completed task results. Cleared after the job starts executing."
+        },
+        "cascade_cancel": {
+          "type": "boolean",
+          "description": "cascade_cancel marks this child job for automatic cancellation when its parent job is cancelled.\nAlways set to true by the FORK_JOB tasklet — all forked children are cascade-cancelled."
         }
       },
       "description": "JobRequest represents a user's request to execute a job definition."
@@ -6135,6 +6509,31 @@
       },
       "description": "JobResourceUse records a single allocation of a job resource by a task execution."
     },
+    "queenPendingApproval": {
+      "type": "object",
+      "properties": {
+        "job_request_id": {
+          "type": "string"
+        },
+        "task_execution_id": {
+          "type": "string"
+        },
+        "job_type": {
+          "type": "string"
+        },
+        "task_type": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/queenApprovalStatus"
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "PendingApproval describes a task execution awaiting votes."
+    },
     "queenResourceCriteriaConfig": {
       "type": "object",
       "properties": {
@@ -6150,30 +6549,45 @@
       },
       "description": "ResourceCriteriaConfig defines properties to extract from a resource into job variables."
     },
-    "queenReviewTaskRequest": {
+    "queenSubWorkflowConfig": {
       "type": "object",
       "properties": {
-        "request_id": {
-          "type": "string"
+        "input_params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenSubWorkflowVariable"
+          },
+          "description": "input_params defines which params to pass to the child job request.\nEach entry: name = child param name, value = Go template expression resolved\nagainst the parent's non-secret execution context variables.\nWhen empty no parent variables are forwarded."
         },
-        "execution_id": {
-          "type": "string"
+        "output_variables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenSubWorkflowVariable"
+          },
+          "description": "output_variables defines which child execution-context variables to promote to the parent.\nEach entry: name = child context key, value = parent context key to publish under.\nWhen empty all child context variables are copied verbatim."
         },
-        "task_type": {
-          "type": "string"
-        },
-        "reviewed_by": {
-          "type": "string"
-        },
-        "comments": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string",
-          "description": "status is \"APPROVED\" or \"REJECTED\"."
+        "wait_for_completion": {
+          "type": "boolean",
+          "description": "wait_for_completion makes the FORK_JOB task block until the child completes,\ncombining fork + await in a single task step."
         }
       },
-      "description": "ReviewTaskRequest is used for manual approval of a task."
+      "description": "SubWorkflowConfig configures child workflow composition for FORK_JOB tasks.\nAll forked children are always cascade-cancelled when their parent is cancelled."
+    },
+    "queenSubWorkflowVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "name is the variable name.\nFor input_params: the child job param name.\nFor output_variables: the child execution-context variable name."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the variable value.\nFor input_params: a Go template expression resolved against the parent's non-secret vars.\nFor output_variables: the parent execution-context variable name to publish under."
+        }
+      },
+      "description": "SubWorkflowVariable is a name/value pair used in sub_workflow param and output mappings."
     },
     "queenSystemConfig": {
       "type": "object",
@@ -6275,8 +6689,9 @@
         "on_failed": {
           "type": "string"
         },
-        "required_manual_roles": {
-          "type": "string"
+        "approval_policy": {
+          "$ref": "#/definitions/queenApprovalPolicy",
+          "description": "approval_policy defines multi-party approval quorum rules for MANUAL tasks."
         },
         "variables": {
           "type": "array",
@@ -6348,6 +6763,14 @@
         "retry_backoff_policy": {
           "$ref": "#/definitions/queenBackoffPolicy",
           "description": "retry_backoff_policy defines exponential backoff for task retries."
+        },
+        "sub_workflow": {
+          "$ref": "#/definitions/queenSubWorkflowConfig",
+          "description": "sub_workflow configures child workflow composition for FORK_JOB tasks (transient, parsed from YAML)."
+        },
+        "fan_out": {
+          "$ref": "#/definitions/queenFanOutConfig",
+          "description": "fan_out configures dynamic fan-out for this task (transient, parsed from YAML).\nWhen set, the engine expands this task into N parallel child jobs at runtime."
         }
       },
       "description": "TaskDefinition specifies a unit of work within a job DAG."
@@ -6430,17 +6853,6 @@
         },
         "ant_host": {
           "type": "string"
-        },
-        "manual_reviewed_by": {
-          "type": "string"
-        },
-        "manual_reviewed_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "reviewed_status": {
-          "type": "string",
-          "description": "reviewed_status stores RequestState as string."
         },
         "retried": {
           "type": "integer",
@@ -7076,6 +7488,15 @@
       },
       "description": "GetAntRegistrationResponse wraps a single ant registration."
     },
+    "servicesGetApprovalStatusResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/queenApprovalStatus"
+        }
+      },
+      "description": "GetApprovalStatusResponse returns the current approval status."
+    },
     "servicesGetArtifactResponse": {
       "type": "object",
       "properties": {
@@ -7327,6 +7748,31 @@
         }
       },
       "description": "JobWaitTimeResponse returns estimated wait time information."
+    },
+    "servicesListPendingApprovalsResponse": {
+      "type": "object",
+      "properties": {
+        "approvals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/queenPendingApproval"
+          }
+        },
+        "total_records": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "page_size": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "ListPendingApprovalsResponse returns pending approvals the user can act on."
     },
     "servicesListTriggerStatesResponse": {
       "type": "object",
@@ -7888,6 +8334,15 @@
         }
       },
       "description": "UpdateUserResponse returns the updated user."
+    },
+    "servicesVoteOnApprovalResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/queenApprovalStatus"
+        }
+      },
+      "description": "VoteOnApprovalResponse returns the updated approval status after the vote."
     },
     "userOrganization": {
       "type": "object",

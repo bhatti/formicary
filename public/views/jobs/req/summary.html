@@ -56,6 +56,12 @@
           <dd class="col-7">{{.Platform}}</dd>
           <dt class="col-5 text-secondary">Group</dt>
           <dd class="col-7">{{.JobGroup}}</dd>
+          <dt class="col-5 text-secondary">Elapsed</dt>
+          <dd class="col-7">{{.ElapsedDuration}}</dd>
+          <dt class="col-5 text-secondary">Created</dt>
+          <dd class="col-7">{{.CreatedAt}}</dd>
+          <dt class="col-5 text-secondary">Updated</dt>
+          <dd class="col-7">{{.UpdatedAt}}</dd>
         </dl>
       </div>
       <div class="col-md-6">
@@ -80,16 +86,12 @@
           <dd class="col-7">{{.ScheduleAttempts}}</dd>
           <dt class="col-5 text-secondary">Failure Retries</dt>
           <dd class="col-7">{{.Retried}}</dd>
+          <dt class="col-5 text-secondary">Paused Count</dt>
+          <dd class="col-7">{{.PausedCount}}</dd>
           <dt class="col-5 text-secondary">Cron Triggered</dt>
           <dd class="col-7">{{.CronTriggered}}</dd>
           <dt class="col-5 text-secondary">User Key</dt>
           <dd class="col-7 text-secondary small">{{.UserKey}}</dd>
-          <dt class="col-5 text-secondary">Elapsed</dt>
-          <dd class="col-7">{{.ElapsedDuration}}</dd>
-          <dt class="col-5 text-secondary">Created</dt>
-          <dd class="col-7">{{.CreatedAt}}</dd>
-          <dt class="col-5 text-secondary">Updated</dt>
-          <dd class="col-7">{{.UpdatedAt}}</dd>
         </dl>
       </div>
     </div>

@@ -152,7 +152,7 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN updating state of non-existing request should fail
-	err = repo.UpdateJobState("7891", "PENDING", "READY", "", "", 0, 0)
+	err = repo.UpdateJobState("7891", "PENDING", "READY", "", "", 0, 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -166,27 +166,27 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// AND Updating state with non-matching old state should fail
-	err = repo.UpdateJobState(req.ID, "BLAH", common.READY, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, "BLAH", common.READY, "", "", 0, 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
 	// WHEN Updating state with valid old state but bad transition
-	err = repo.UpdateJobState(req.ID, common.PENDING, common.EXECUTING, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.PENDING, common.EXECUTING, "", "", 0, 0, 0)
 	// THEN it should fail
 	require.Error(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.PENDING, common.READY, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.PENDING, common.READY, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -201,27 +201,27 @@ func Test_ShouldUpdateStateOfJobRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.PAUSED, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.PAUSED, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.PAUSED, common.READY, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.PAUSED, common.READY, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.READY, common.STARTED, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.STARTED, common.EXECUTING, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
 	// WHEN Updating state with valid old state
-	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.COMPLETED, "", "", 0, 0)
+	err = repo.UpdateJobState(req.ID, common.EXECUTING, common.COMPLETED, "", "", 0, 0, 0)
 	// THEN it should not fail
 	require.NoError(t, err)
 
@@ -690,7 +690,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0)
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0, 0)
 		require.NoError(t, err)
 	}
 
@@ -701,7 +701,7 @@ func Test_ShouldNextSchedulableJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(infos))
 	for _, info := range infos {
-		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0)
+		err = jobRequestRepository.UpdateJobState(info.ID, info.JobState, common.READY, "", "", 0, 0, 0)
 		require.NoError(t, err)
 	}
 
@@ -1124,11 +1124,11 @@ func Test_ShouldCountByJobTypeAndState(t *testing.T) {
 	saved, err := repo.Save(qc, reqExec)
 	require.NoError(t, err)
 	// Transition through required states to reach EXECUTING
-	err = repo.UpdateJobState(saved.ID, common.PENDING, common.READY, "", "", 0, 0)
+	err = repo.UpdateJobState(saved.ID, common.PENDING, common.READY, "", "", 0, 0, 0)
 	require.NoError(t, err)
-	err = repo.UpdateJobState(saved.ID, common.READY, common.STARTED, "", "", 0, 0)
+	err = repo.UpdateJobState(saved.ID, common.READY, common.STARTED, "", "", 0, 0, 0)
 	require.NoError(t, err)
-	err = repo.UpdateJobState(saved.ID, common.STARTED, common.EXECUTING, "", "", 0, 0)
+	err = repo.UpdateJobState(saved.ID, common.STARTED, common.EXECUTING, "", "", 0, 0, 0)
 	require.NoError(t, err)
 
 	// AND one request for job-b in PENDING state (should not affect job-a counts)

@@ -56,7 +56,7 @@ tasks:
         printf 'If blocked: {"status":"BLOCKED","blocked_reason":"..."}\n'
       } > "$PROMPT_FILE"
 
-      claude --print --model "$MODEL" --max-turns 50 \
+      claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 50 \
         "$(cat "$PROMPT_FILE")" > feedback_result.json 2>feedback.log
       rm -f "$PROMPT_FILE"
 

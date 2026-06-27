@@ -180,6 +180,7 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 	cpuSecs int64,
 	scheduleDelay time.Duration,
 	retried int,
+	pausedCount int,
 ) error {
 	if !newState.CanFinalize() {
 		return common.NewValidationError(
@@ -193,6 +194,9 @@ func (jer *JobExecutionRepositoryImpl) FinalizeJobRequestAndExecutionState(
 			"error_code":    errorCode,
 			"retried":       retried,
 			"updated_at":    time.Now(),
+		}
+		if pausedCount > 0 {
+			updates["paused_count"] = pausedCount
 		}
 		if newState.IsTerminal() {
 			updates["user_key"] = ulid.Make().String()

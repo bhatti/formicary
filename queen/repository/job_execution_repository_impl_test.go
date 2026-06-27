@@ -79,7 +79,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 	// WHEN changing context again and setting status to finalized
 	_, _ = jobExec.AddContext("jk9", 99)
 	err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
-		savedJobExec.ID, common.EXECUTING, common.FAILED, "failed", "", 10, 100, 1)
+		savedJobExec.ID, common.EXECUTING, common.FAILED, "failed", "", 10, 100, 1, 0)
 	require.NoError(t, err)
 	err = jobExecutionRepository.UpdateJobContext(savedJobExec.ID, jobExec.Contexts)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func Test_ShouldUpdateStateOfJobExecution(t *testing.T) {
 
 	// Cannot change state from terminal
 	err = jobExecutionRepository.FinalizeJobRequestAndExecutionState(
-		savedJobExec.ID, common.FAILED, common.PENDING, "failed", "", 10, 0, 0)
+		savedJobExec.ID, common.FAILED, common.PENDING, "failed", "", 10, 0, 0, 0)
 	// should fail to change state from terminal
 	require.Error(t, err)
 
@@ -156,6 +156,7 @@ func Test_ShouldSaveValidJobExecutionWithoutContext(t *testing.T) {
 		"",
 		10,
 		100,
+		0,
 		0)
 	require.Error(t, err)
 }
@@ -482,6 +483,7 @@ func Test_ShouldJobExecutionAccountingByOrgUser(t *testing.T) {
 			"",
 			10,
 			100,
+			0,
 			0)
 		require.NoError(t, err)
 	}
@@ -532,6 +534,7 @@ func Test_ShouldJobExecutionAccounting(t *testing.T) {
 			"",
 			10,
 			100,
+			0,
 			0)
 		require.NoError(t, err)
 	}

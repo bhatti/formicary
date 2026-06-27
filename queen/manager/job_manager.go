@@ -1225,7 +1225,8 @@ func (jm *JobManager) UpdateJobRequestState(
 		errorMessage,
 		errorCode,
 		scheduleDelay,
-		retried)
+		retried,
+		req.GetPausedCount())
 	if newState == common.PENDING {
 		jm.jobStatsRegistry.Pending(req, reverted)
 	} else if newState.IsTerminal() && req.GetCronTriggered() {
@@ -1329,7 +1330,7 @@ func (jm *JobManager) SubmitJob(jobType string, description string, params map[s
 						"ExistingID": existing.ID,
 						"JobState":   existing.JobState,
 					}).Warnf("SubmitJob: rotating stale user_key on terminal job, retrying insert")
-					if rotateErr := jm.jobRequestRepository.UpdateJobState(existing.ID, "", existing.JobState, "", "", 0, 0); rotateErr != nil {
+					if rotateErr := jm.jobRequestRepository.UpdateJobState(existing.ID, "", existing.JobState, "", "", 0, 0, 0); rotateErr != nil {
 						return "", fmt.Errorf("SubmitJob: failed to rotate stale user_key for job %s: %w", existing.ID, rotateErr)
 					}
 					saved2, err2 := jm.SaveJobRequest(qc, request)
@@ -1696,7 +1697,8 @@ func (jm *JobManager) FinalizeJobRequestAndExecutionState(
 		jobExec.ErrorCode,
 		jobExec.ExecutionCostSecs(),
 		scheduleDelay,
-		retried)
+		retried,
+		req.GetPausedCount())
 	if req.GetJobState().Failed() {
 		jm.jobStatsRegistry.Failed(jobExec, jobExec.ElapsedMillis())
 	} else if req.GetJobState().Paused() {

@@ -29,7 +29,8 @@ type JobRequestRepository interface {
 		errorMessage string,
 		errorCode string,
 		scheduleDelay time.Duration,
-		retried int) error
+		retried int,
+		pausedCount int) error
 
 	// Save saves job-request
 	Save(
@@ -137,6 +138,16 @@ type JobRequestRepository interface {
 	DeletePendingCronByJobType(
 		qc *common.QueryContext,
 		jobType string) error
+	// PurgeOldRequests hard-deletes job requests and all cascade data (params, job/task executions,
+	// execution context rows) for the given job type and terminal state where updated_at < olderThan.
+	// Batch size is capped at limit to avoid long-lock transactions.
+	// EXECUTING and other non-terminal states must not be passed — returns error immediately.
+	// Returns the count of job_requests deleted.
+	PurgeOldRequests(
+		jobType string,
+		state common.RequestState,
+		olderThan time.Time,
+		limit int) (int64, error)
 	// RecentIDs returns job ids
 	RecentIDs(
 		limit int) (map[string]common.RequestState, error)

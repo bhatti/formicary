@@ -425,6 +425,36 @@ func (js *JobSupervisor) executeNextTask(
 			return taskStateMachine.TaskExecution.ErrorCode,
 				fmt.Errorf("%s", taskStateMachine.TaskExecution.ErrorMessage)
 		} else if len(taskStateMachine.TaskDefinition.OnExitCode) > 0 {
+			// Check if the status-based on_exit_code mapping resolves to a special action
+			// (RESTART_JOB, PAUSE_JOB, FATAL, etc.) rather than a task name. GetNextTask
+			// returns nil for these because they are not in the job DAG, but they must be
+			// handled here so the job supervisor can act on them.
+			// Note: exit-code-based special actions are handled earlier via
+			// OverrideStatusAndErrorCode in task_supervisor.go — this covers the status-based gap.
+			statusTarget := common.NewRequestState(
+				taskStateMachine.TaskDefinition.OnExitCode[taskStateMachine.TaskExecution.TaskState])
+			switch statusTarget {
+			case common.RESTART_JOB:
+				return common.ErrorRestartJob,
+					fmt.Errorf("restarting job after task %s status=%s exit=%s",
+						taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode)
+			case common.PAUSE_JOB, common.PAUSED:
+				return common.ErrorPauseJob,
+					fmt.Errorf("pausing job after task %s status=%s exit=%s",
+						taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode)
+			case common.FATAL:
+				return common.ErrorFatal,
+					fmt.Errorf("fatal error in task %s status=%s exit=%s",
+						taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode)
+			case common.WAIT_FOR_APPROVAL:
+				return common.ErrorManualApprovalRequired,
+					fmt.Errorf("approval required after task %s status=%s exit=%s",
+						taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode)
+			case common.RESTART_TASK:
+				return common.ErrorRestartTask,
+					fmt.Errorf("restarting task %s status=%s exit=%s",
+						taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode)
+			}
 			return common.ErrorInvalidNextTask,
 				fmt.Errorf("cannot find next task after %s, unexpected task status=%s, exit-code: %s, error-code: %s, multiple exits=%v",
 					taskType, taskStateMachine.TaskExecution.TaskState, taskStateMachine.TaskExecution.ExitCode,

@@ -5,13 +5,18 @@
 # Label convention: ai-ready → ai-in-progress → ai-pr-open → needs-human
 
 job_type: ai-jira-issue-picker
+sem_version: "1.0"
 description: "Polls Jira for ai-ready issues and submits ai-jira-implement jobs"
 cron_trigger: "0 * * * * * *"
 max_concurrency: 1
 timeout: 5m
 
+# Two-layer capacity gate: skip the entire picker if too many jobs are already running.
+# Counts both PENDING (queued) and EXECUTING (active) to avoid over-submitting.
 skip_if: >-
-  {{if ge (CountByJobTypeAndState "ai-jira-implement" "PENDING") 10}} true {{end}}
+  {{$p := CountByJobTypeAndState "ai-jira-implement" "PENDING"}}
+  {{$e := CountByJobTypeAndState "ai-jira-implement" "EXECUTING"}}
+  {{if ge (Add $p $e) 10}} true {{end}}
 
 tasks:
 - task_type: gather-issues

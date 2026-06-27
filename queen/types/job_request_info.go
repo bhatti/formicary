@@ -28,6 +28,8 @@ type JobRequestInfo struct {
 	ScheduleAttempts int `json:"schedule_attempts"`
 	// Retried job tries
 	Retried int `json:"tried"`
+	// PausedCount tracks how many times this job has been paused
+	PausedCount int `json:"paused_count"`
 	// OrganizationID defines org who submitted the job
 	OrganizationID string `json:"organization_id"`
 	// UserID defines user who submitted the job
@@ -161,6 +163,17 @@ func (jri *JobRequestInfo) GetRetried() int {
 func (jri *JobRequestInfo) IncrRetried() int {
 	jri.Retried++
 	return jri.Retried
+}
+
+// GetPausedCount - returns number of times job has been paused
+func (jri *JobRequestInfo) GetPausedCount() int {
+	return jri.PausedCount
+}
+
+// IncrPausedCount - increments paused count and returns new value
+func (jri *JobRequestInfo) IncrPausedCount() int {
+	jri.PausedCount++
+	return jri.PausedCount
 }
 
 // GetCronTriggered is true if request was triggered by cron

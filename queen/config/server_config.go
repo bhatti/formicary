@@ -94,6 +94,8 @@ type JobsConfig struct {
 	DisableTriggers                      bool          `yaml:"disable_triggers" mapstructure:"disable_triggers"`
 	// ApprovalSLACheckInterval is how often the scheduler checks for breached approval deadlines.
 	ApprovalSLACheckInterval             time.Duration `yaml:"approval_sla_check_interval" mapstructure:"approval_sla_check_interval"`
+	// RetentionCheckInterval is how often the scheduler runs the history retention purge. Default 24h.
+	RetentionCheckInterval               time.Duration `yaml:"retention_check_interval" mapstructure:"retention_check_interval"`
 }
 
 // NewServerConfig -- Initializes the default config
@@ -229,6 +231,9 @@ func (c *JobsConfig) Validate() error {
 	}
 	if c.MissingCronJobsInterval == 0 {
 		c.MissingCronJobsInterval = 60 * time.Second
+	}
+	if c.RetentionCheckInterval == 0 {
+		c.RetentionCheckInterval = 24 * time.Hour
 	}
 	if c.MaxForkTaskletCapacity == 0 {
 		c.MaxForkTaskletCapacity = 100

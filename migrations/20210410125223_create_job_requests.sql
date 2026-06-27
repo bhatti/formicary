@@ -20,6 +20,7 @@
       job_priority INTEGER NOT NULL DEFAULT 1,
       timeout BIGINT NOT NULL DEFAULT 0,
       retried INTEGER NOT NULL DEFAULT 0,
+      paused_count INTEGER NOT NULL DEFAULT 0,
       current_task VARCHAR(200),
       quick_search TEXT,
       error_code VARCHAR(100),

@@ -45,6 +45,7 @@ func newTestJobScheduler(t *testing.T, serverCfg *config.ServerConfig) *JobSched
 		healthMonitor,
 		metrics.New(),
 		nil, // approvalSvc - not needed for unit tests
+		nil, // retentionManager - not needed for unit tests
 	)
 	return scheduler
 }

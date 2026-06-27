@@ -35,6 +35,7 @@ type JobScheduler struct {
 	jobManager                       *manager.JobManager
 	artifactManager                  *manager.ArtifactManager
 	userManager                      *manager.UserManager
+	retentionManager                 *manager.RetentionManager
 	errorRepository                  repository.ErrorCodeRepository
 	resourceManager                  resource.Manager
 	approvalService                  *approval.Service
@@ -66,6 +67,7 @@ func New(
 	monitor *health.Monitor,
 	metricsRegistry *metrics.Registry,
 	approvalSvc *approval.Service,
+	retentionManager *manager.RetentionManager,
 ) *JobScheduler {
 	return &JobScheduler{
 		id:                            serverCfg.Common.ID + "-job-scheduler",
@@ -76,6 +78,7 @@ func New(
 		errorRepository:               errorRepository,
 		userManager:                   userManager,
 		resourceManager:               resourceManager,
+		retentionManager:              retentionManager,
 		approvalService:               approvalSvc,
 		monitor:                       monitor,
 		metricsRegistry:               metricsRegistry,
@@ -83,7 +86,7 @@ func New(
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
 		busy:                          false,
 		scheduleBackoff:               &backoff.Backoff{Min: 100 * time.Millisecond, Max: 30 * time.Second, Factor: 2, Jitter: true},
-		done:                          make(chan bool, 1),
+		done:                          make(chan bool, 8), // buffered to match max ticker count so Stop() never blocks
 		tickers:                       make([]*time.Ticker, 0),
 	}
 }
@@ -104,6 +107,9 @@ func (js *JobScheduler) Start(ctx context.Context) (err error) {
 	js.tickers = append(js.tickers, js.startTickerToCheckMissingCronJobs(ctx))
 	if js.approvalService != nil {
 		js.tickers = append(js.tickers, js.startTickerToCheckApprovalSLAs(ctx))
+	}
+	if js.retentionManager != nil {
+		js.tickers = append(js.tickers, js.startTickerToRunRetention(ctx))
 	}
 	logrus.WithFields(logrus.Fields{
 		"Component": "JobScheduler",

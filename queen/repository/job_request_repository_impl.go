@@ -103,7 +103,8 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 	errorMessage string,
 	errorCode string,
 	scheduleDelay time.Duration,
-	retried int) error {
+	retried int,
+	pausedCount int) error {
 	var job types.JobRequest
 	tx := jrr.db.Model(&job).Where("id = ?", id)
 	if oldState != "" {
@@ -133,6 +134,9 @@ func (jrr *JobRequestRepositoryImpl) UpdateJobState(
 		}
 		if retried > 0 {
 			updates["retried"] = retried
+		}
+		if pausedCount > 0 {
+			updates["paused_count"] = pausedCount
 		}
 	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
@@ -436,6 +440,116 @@ func (jrr *JobRequestRepositoryImpl) DeletePendingCronByJobType(
 		}
 		return nil
 	})
+}
+
+// PurgeOldRequests hard-deletes job requests and all cascade data for the given job type
+// and terminal state where updated_at < olderThan. Returns the count of requests deleted.
+// All ID collection and deletes happen inside a single transaction to avoid TOCTOU races
+// where a job transitions to EXECUTING after the initial SELECT.
+func (jrr *JobRequestRepositoryImpl) PurgeOldRequests(
+	jobType string,
+	state common.RequestState,
+	olderThan time.Time,
+	limit int) (int64, error) {
+	if !state.IsTerminal() {
+		return 0, fmt.Errorf("PurgeOldRequests: state %s is not terminal, refusing to purge", state)
+	}
+	if limit <= 0 {
+		limit = 500
+	}
+
+	type idRow struct{ ID string }
+	var deleted int64
+
+	err := jrr.db.Transaction(func(tx *gorm.DB) error {
+		// Collect request IDs inside the transaction so the state check and deletes are atomic.
+		var reqRows []idRow
+		if err := tx.Raw(
+			"SELECT id FROM formicary_job_requests WHERE job_type = ? AND job_state = ? AND updated_at < ? LIMIT ?",
+			jobType, state, olderThan, limit,
+		).Scan(&reqRows).Error; err != nil {
+			return err
+		}
+		if len(reqRows) == 0 {
+			return nil
+		}
+		reqIDs := make([]string, len(reqRows))
+		for i, r := range reqRows {
+			reqIDs[i] = r.ID
+		}
+
+		// Collect job execution IDs.
+		var execRows []idRow
+		if err := tx.Raw(
+			"SELECT id FROM formicary_job_executions WHERE job_request_id IN ?", reqIDs,
+		).Scan(&execRows).Error; err != nil {
+			return err
+		}
+		execIDs := make([]string, len(execRows))
+		for i, r := range execRows {
+			execIDs[i] = r.ID
+		}
+
+		// Collect task execution IDs.
+		taskIDs := make([]string, 0)
+		if len(execIDs) > 0 {
+			var taskRows []idRow
+			if err := tx.Raw(
+				"SELECT id FROM formicary_task_executions WHERE job_execution_id IN ?", execIDs,
+			).Scan(&taskRows).Error; err != nil {
+				return err
+			}
+			for _, r := range taskRows {
+				taskIDs = append(taskIDs, r.ID)
+			}
+		}
+
+		// Delete in FK dependency order (children before parents).
+		if len(taskIDs) > 0 {
+			// Approval votes/deadlines reference task_executions via FK; delete explicitly
+			// to be safe across all DB engines (SQLite requires PRAGMA foreign_keys=ON).
+			if err := tx.Exec("DELETE FROM formicary_approval_votes WHERE task_execution_id IN ?", taskIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_approval_deadlines WHERE task_execution_id IN ?", taskIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_job_resource_uses WHERE task_execution_id IN ?", taskIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_task_execution_context WHERE task_execution_id IN ?", taskIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_task_executions WHERE id IN ?", taskIDs).Error; err != nil {
+				return err
+			}
+		}
+		if len(execIDs) > 0 {
+			if err := tx.Exec("DELETE FROM formicary_log_events WHERE job_execution_id IN ?", execIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_job_execution_context WHERE job_execution_id IN ?", execIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM formicary_job_executions WHERE id IN ?", execIDs).Error; err != nil {
+				return err
+			}
+		}
+		// Artifacts reference job_request_id; delete before the request row itself.
+		if err := tx.Exec("DELETE FROM formicary_artifacts WHERE job_request_id IN ?", reqIDs).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM formicary_job_request_params WHERE job_request_id IN ?", reqIDs).Error; err != nil {
+			return err
+		}
+		res := tx.Exec("DELETE FROM formicary_job_requests WHERE id IN ?", reqIDs)
+		if res.Error != nil {
+			return res.Error
+		}
+		deleted = res.RowsAffected
+		return nil
+	})
+	return deleted, err
 }
 
 // Trigger triggers a scheduled job

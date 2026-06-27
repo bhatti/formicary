@@ -38,6 +38,7 @@ type JobExecutionRepository interface {
 		elapsed int64,
 		scheduleDelay time.Duration,
 		retried int,
+		pausedCount int,
 	) error
 	// UpdateJobRequestAndExecutionState updates intermediate state of job-execution and job-request
 	UpdateJobRequestAndExecutionState(

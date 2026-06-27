@@ -5,18 +5,30 @@
 #   _description  -> sets the job request description in the Formicary dashboard
 #   _user_key     -> dedup key; prevents re-submitting the same issue on repeat runs
 #
+# IssueBody is written to a per-issue file (not inlined) to avoid heredoc/template
+# injection when the body contains special characters or shell metacharacters.
+#
 # SubmitJobsFromJSON is a general-purpose Formicary template function: it submits
 # one child job per item in any JSON array. The GitHub-specific logic lives here
 # in the script, not in Formicary core.
+#
+# TODO: For parallel processing of many issues, SubmitJobsFromJSON already fans out
+#       one implement job per issue. If you need further parallelism within a single
+#       issue (e.g. sub-tasks), use SubmitJobsFromJSON with a child job definition.
 
 job_type: ai-gh-issue-picker
+sem_version: "1.0"
 description: "Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs"
 cron_trigger: "0 * * * * * *"
 max_concurrency: 1
 timeout: 5m
 
+# Two-layer capacity gate: skip the entire picker if too many jobs are already running.
+# Counts both PENDING (queued) and EXECUTING (active) to avoid over-submitting.
 skip_if: >-
-  {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING") 10}} true {{end}}
+  {{$p := CountByJobTypeAndState "ai-gh-implement" "PENDING"}}
+  {{$e := CountByJobTypeAndState "ai-gh-implement" "EXECUTING"}}
+  {{if ge (Add $p $e) 10}} true {{end}}
 
 tasks:
 - task_type: gather-issues
@@ -33,7 +45,7 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       python3 - <<'PYEOF'
-      import json, os, subprocess, sys
+      import json, os, subprocess, sys, re
 
       gh_org      = os.environ["GH_ORG"]
       gh_repo     = os.environ["GH_REPO"]
@@ -63,27 +75,36 @@ tasks:
       for issue in issues:
           num   = str(issue["number"])
           title = issue.get("title", "")
-          body  = issue.get("body", "")
+          body  = issue.get("body", "") or ""
           url   = issue.get("url", "")
           nonce = subprocess.check_output(
               ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
 
+          # Sanitize title: strip Go template markers and control chars so it is
+          # safe to embed directly in YAML templates without encoding.
+          safe_title = re.sub(r'[{}\x00-\x1f\x7f]', ' ', title).strip()
+
+          # Write body to a per-issue file so the implement job reads it safely.
+          # This avoids all heredoc/shell injection risks with arbitrary issue content.
+          body_file = "issue_body_{}.txt".format(num)
+          with open(body_file, "w") as f:
+              f.write(body)
+
           # Transition label before submitting so a concurrent picker run won't pick it up again
           gh("issue", "edit", num, "-R", repo,
              "--remove-label", pickup_lbl, "--add-label", inprog_lbl)
-          print("  Labelled #" + num + ": " + title)
+          print("  Labelled #" + num + ": " + safe_title)
 
           items.append({
-              # Generic fields — become job params directly
-              "IssueNumber": num,
-              "IssueTitle":  title,
-              "IssueBody":   body,
-              "IssueURL":    url,
-              "Nonce":       nonce,
-              "GitHubOrg":   gh_org,
-              "GitHubRepo":  gh_repo,
+              "IssueNumber":  num,
+              "IssueTitle":   safe_title,
+              "IssueBodyFile": body_file,   # implement reads body from this artifact
+              "IssueURL":     url,
+              "Nonce":        nonce,
+              "GitHubOrg":    gh_org,
+              "GitHubRepo":   gh_repo,
               # Reserved: sets job request description and dedup key
-              "_description": "#" + num + ": " + title,
+              "_description": "#" + num + ": " + safe_title,
               "_user_key":    "ai-gh-implement-" + gh_org + "-" + gh_repo + "-" + num,
           })
 
@@ -92,12 +113,12 @@ tasks:
           f.write(items_json + "\n")
 
       print("items.json written: " + str(len(items)) + " item(s)")
-      # Export to job context so downstream template can use {{.IssuesJSON}}
       print("::set-output name=IssuesJSON::" + items_json)
       PYEOF
   artifacts:
     paths:
       - items.json
+      - "issue_body_*.txt"
   on_completed: submit-jobs
 
 - task_type: submit-jobs

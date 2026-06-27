@@ -6001,6 +6001,21 @@
             "$ref": "#/definitions/queenTriggerDefinition"
           },
           "description": "triggers defines event-driven trigger configurations (transient, parsed from raw_yaml)."
+        },
+        "retention_days_for_failed": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_failed sets how many days FAILED job history is retained. 0 = use default (30)."
+        },
+        "retention_days_for_completed": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_completed sets how many days COMPLETED job history is retained. 0 = use default (7)."
+        },
+        "retention_days_for_cancelled": {
+          "type": "integer",
+          "format": "int32",
+          "description": "retention_days_for_cancelled sets how many days CANCELLED job history is retained. 0 = use default (30)."
         }
       },
       "description": "JobDefinition outlines a DAG of tasks executed by ant workers.\nA new JobExecution is created when a JobRequest is scheduled against this definition."

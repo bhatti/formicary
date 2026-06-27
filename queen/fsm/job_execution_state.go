@@ -371,6 +371,18 @@ func (jsm *JobExecutionStateMachine) SetJobStatusToExecuting(_ context.Context) 
 	jsm.Request.SetJobState(common.EXECUTING)
 	jsm.JobExecution.JobState = common.EXECUTING
 
+	// Record the workflow definition version in the execution context so operators
+	// can identify which definition version was active for this run.
+	// WorkflowVersion: user-facing semantic version (sem_version field, e.g. "1.2")
+	// WorkflowInternalVersion: auto-incremented internal version bumped on every upload
+	if _, ctxErr := jsm.JobExecution.AddContext("JobDefinitionID", jsm.JobDefinition.ID); ctxErr == nil {
+		if _, ctxErr = jsm.JobExecution.AddContext("WorkflowVersion", jsm.JobDefinition.SemVersion); ctxErr == nil {
+			if _, ctxErr = jsm.JobExecution.AddContext("WorkflowInternalVersion", jsm.JobDefinition.Version); ctxErr == nil {
+				_ = jsm.JobManager.UpdateJobExecutionContext(jsm.JobExecution.ID, jsm.JobExecution.Contexts)
+			}
+		}
+	}
+
 	// treating error sending lifecycle event as non-fatal error
 	// using fresh context in case deadline reached
 	if eventError := jsm.sendJobExecutionLifecycleEvent(context.Background()); eventError != nil {
@@ -575,7 +587,9 @@ func (jsm *JobExecutionStateMachine) PauseJob() (saveError error) {
 
 	fields := jsm.LogFields("JobExecutionStateMachine", nil)
 
-	// Mark job request and execution to PAUSED
+	// Track pause count and mark job request and execution to PAUSED
+	jsm.Request.IncrPausedCount()
+	jsm.Request.IncrRetried()
 	saveError = jsm.JobManager.FinalizeJobRequestAndExecutionState(
 		jsm.QueryContext(),
 		jsm.User,
@@ -584,7 +598,7 @@ func (jsm *JobExecutionStateMachine) PauseJob() (saveError error) {
 		jsm.JobExecution,
 		common.EXECUTING,
 		jsm.JobDefinition.GetPauseTime(),
-		jsm.Request.IncrRetried(),
+		jsm.Request.GetRetried(),
 	)
 
 	_, _ = jsm.JobManager.SaveAudit(types.NewAuditRecordFromJobRequest(
@@ -689,7 +703,9 @@ func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (s
 			"Org": jsm.Request.GetOrganizationID(),
 			"Job": jsm.Request.GetJobType()})
 
-	// setting job request back to PENDING|PAUSED
+	// Track restart/pause count and set job request back to PENDING|PAUSED
+	jsm.Request.IncrPausedCount()
+	jsm.Request.IncrRetried()
 	if saveRequestErr := jsm.JobManager.UpdateJobRequestState(
 		jsm.QueryContext(),
 		jsm.Request,
@@ -698,7 +714,7 @@ func (jsm *JobExecutionStateMachine) RestartJobBackToPendingPaused(err error) (s
 		err.Error(),
 		"",
 		jsm.JobDefinition.GetDelayBetweenRetries(retried),
-		jsm.Request.IncrRetried(),
+		jsm.Request.GetRetried(),
 		true); saveRequestErr != nil {
 		saveError = saveRequestErr
 		fields["saveRequestErr"] = saveRequestErr

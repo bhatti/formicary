@@ -225,4 +225,10 @@ message JobDefinition {
   BackoffPolicy retry_backoff_policy = 38 [(formicary.v1.tags) = "yaml:\"retry_backoff_policy,omitempty\" json:\"retry_backoff_policy\" gorm:\"-\""];
   // triggers defines event-driven trigger configurations (transient, parsed from raw_yaml).
   repeated TriggerDefinition triggers = 39 [(formicary.v1.tags) = "yaml:\"triggers,omitempty\" json:\"triggers\" gorm:\"-\""];
+  // retention_days_for_failed sets how many days FAILED job history is retained. 0 = use default (30).
+  int32 retention_days_for_failed = 40 [(formicary.v1.tags) = "yaml:\"retention_days_for_failed,omitempty\" json:\"retention_days_for_failed\" gorm:\"retention_days_for_failed\""];
+  // retention_days_for_completed sets how many days COMPLETED job history is retained. 0 = use default (7).
+  int32 retention_days_for_completed = 41 [(formicary.v1.tags) = "yaml:\"retention_days_for_completed,omitempty\" json:\"retention_days_for_completed\" gorm:\"retention_days_for_completed\""];
+  // retention_days_for_cancelled sets how many days CANCELLED job history is retained. 0 = use default (30).
+  int32 retention_days_for_cancelled = 42 [(formicary.v1.tags) = "yaml:\"retention_days_for_cancelled,omitempty\" json:\"retention_days_for_cancelled\" gorm:\"retention_days_for_cancelled\""];
 }

@@ -133,12 +133,21 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-gh-cleanup${SUFFIX}.yaml"
 )
 
-# ── Set org configs (--set-configs) ───────────────────────────────────────────
+# ── Set org configs (--set-configs or auto from environment) ──────────────────
+# When --set-configs is passed, explicit flags are required.
+# When only some vars are available via environment (GITHUB_TOKEN, ANTHROPIC_API_KEY),
+# those are set automatically without --set-configs.
 if [[ "$SET_CONFIGS" == true ]]; then
+  # Explicit mode: fall back to environment variables when flags not provided
+  GH_ORG="${GH_ORG:-}"
+  GH_REPO="${GH_REPO:-}"
+  GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  ANTHROPIC_KEY="${ANTHROPIC_KEY:-${ANTHROPIC_API_KEY:-}}"
+
   [[ -n "$GH_ORG" ]]       || fail "--set-configs requires --gh-org <org>"
   [[ -n "$GH_REPO" ]]      || fail "--set-configs requires --gh-repo <repo>"
-  [[ -n "$GH_TOKEN" ]]     || fail "--set-configs requires --gh-token <token>"
-  [[ -n "$ANTHROPIC_KEY" ]] || fail "--set-configs requires --anthropic-key <key>"
+  [[ -n "$GH_TOKEN" ]]     || fail "--set-configs requires --gh-token <token> or GITHUB_TOKEN env var"
+  [[ -n "$ANTHROPIC_KEY" ]] || fail "--set-configs requires --anthropic-key <key> or ANTHROPIC_API_KEY env var"
 
   log "Setting org configs on ${FORMICARY_URL}/api/orgs/default/configs ..."
   set_config "GitHubOrg"      "$GH_ORG"       "false"
@@ -148,6 +157,22 @@ if [[ "$SET_CONFIGS" == true ]]; then
   echo ""
   ok "Org configs set. No FormicaryToken or FormicaryURL needed."
   echo ""
+else
+  # Auto-set from environment: set any config where the env var is present
+  _AUTO_SET=false
+  if [[ -n "${GITHUB_TOKEN:-}" && -n "${GH_ORG:-}" && -n "${GH_REPO:-}" ]]; then
+    log "Auto-setting GitHub org configs from environment ..."
+    set_config "GitHubOrg"   "${GH_ORG}"      "false"
+    set_config "GitHubRepo"  "${GH_REPO}"      "false"
+    set_config "GithubToken" "${GITHUB_TOKEN}" "true"
+    _AUTO_SET=true
+  fi
+  if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+    [[ "$_AUTO_SET" == false ]] && log "Auto-setting Anthropic config from environment ..."
+    set_config "AnthropicApiKey" "${ANTHROPIC_API_KEY}" "true"
+    _AUTO_SET=true
+  fi
+  [[ "$_AUTO_SET" == true ]] && echo ""
 fi
 
 # ── Verify server is reachable ─────────────────────────────────────────────────
@@ -158,7 +183,11 @@ _http_status=$(curl "${_health_args[@]}" 2>/dev/null || echo "000")
 case "$_http_status" in
   2*) ok "Server reachable (HTTP ${_http_status})" ;;
   000) fail "Cannot connect to ${FORMICARY_URL} — is the server running?" ;;
-  401) fail "Server returned 401 — auth is enabled but FORMICARY_TOKEN is not set. Export your API token." ;;
+  401) if [[ -z "$TOKEN" ]]; then
+         fail "Server returned 401 — auth is enabled but FORMICARY_TOKEN is not set. Export your API token: export FORMICARY_TOKEN=<token>"
+       else
+         fail "Server returned 401 — token rejected. It may be expired or for a different server. Get a fresh token from ${FORMICARY_URL}/dashboard/users and re-export FORMICARY_TOKEN."
+       fi ;;
   403) fail "Server returned 403 — token is invalid or expired. Get a fresh token from the UI: ${FORMICARY_URL}/dashboard/users and update FORMICARY_TOKEN in ~/.zshrc." ;;
   *)   fail "Server returned HTTP ${_http_status} — unexpected response from ${FORMICARY_URL}" ;;
 esac
@@ -218,8 +247,11 @@ echo "────────────────────────�
 echo "Next steps:"
 echo ""
 echo "  1. Set org configs (GitHubOrg, GitHubRepo, GithubToken, AnthropicApiKey):"
-echo "     # No FormicaryToken or FormicaryURL needed — jobs submit via DB directly."
+echo "     # Easiest: export env vars then pass --set-configs:"
+echo "     #   export GITHUB_TOKEN=ghp_..."
+echo "     #   $0 --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO"
 echo ""
+echo "     # Or curl directly (GithubToken read from \$GITHUB_TOKEN):"
 echo "     curl -X POST ${FORMICARY_URL}/api/orgs/default/configs \\"
 echo "       -H 'Content-Type: application/json' \\"
 echo "       -d '{\"name\":\"GitHubOrg\",\"value\":\"YOUR_ORG\"}'"
@@ -230,7 +262,7 @@ echo "       -d '{\"name\":\"GitHubRepo\",\"value\":\"YOUR_REPO\"}'"
 echo ""
 echo "     curl -X POST ${FORMICARY_URL}/api/orgs/default/configs \\"
 echo "       -H 'Content-Type: application/json' \\"
-echo "       -d '{\"name\":\"GithubToken\",\"value\":\"ghp_...\",\"secret\":true}'"
+echo "       -d \"{\\\"name\\\":\\\"GithubToken\\\",\\\"value\\\":\\\"${GITHUB_TOKEN:-ghp_...}\\\",\\\"secret\\\":true}\""
 echo ""
 echo "     curl -X POST ${FORMICARY_URL}/api/orgs/default/configs \\"
 echo "       -H 'Content-Type: application/json' \\"

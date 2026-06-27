@@ -191,6 +191,15 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	if err != nil {
 		return err
 	}
+	retentionManager, err := manager.NewRetentionManager(
+		repoFactory.JobDefinitionRepository,
+		repoFactory.JobRequestRepository,
+		metricsRegistry,
+	)
+	if err != nil {
+		return err
+	}
+
 	// JobScheduler needs to run as a leader so that it can properly manage resources
 	// DisableJobScheduler can be used to disable job scheduler if multiple instances of
 	// queen servers are running that can execute jobs but only one of them can schedule jobs.
@@ -208,6 +217,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			healthMonitor,
 			metricsRegistry,
 			approvalSvc,
+			retentionManager,
 		)
 		if err = jobScheduler.Start(ctx); err != nil {
 			return err
@@ -367,6 +377,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		repoFactory,
 		userManager,
 		jobManager,
+		retentionManager,
 		dashboardStats,
 		resourceManager,
 		requestRegistry,

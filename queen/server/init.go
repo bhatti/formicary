@@ -64,6 +64,7 @@ func StartWebServer(
 	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
+	retentionManager *manager.RetentionManager,
 	dashboardStats *manager.DashboardManager,
 	resourceManager resource.Manager,
 	requestRegistry tasklet.RequestRegistry,
@@ -100,7 +101,7 @@ func StartWebServer(
 	startControllers(serverCfg, repoFactory, userManager, jobManager,
 		resourceManager, artifactManager, statsRegistry, healthMonitor, webServer)
 	startAdminControllers(serverCfg, repoFactory, userManager, jobManager,
-		dashboardStats, resourceManager, artifactManager, statsRegistry,
+		retentionManager, dashboardStats, resourceManager, artifactManager, statsRegistry,
 		healthMonitor, authProviders, webServer)
 
 	svcs := buildServices(serverCfg, repoFactory, userManager, jobManager,
@@ -571,6 +572,7 @@ func startAdminControllers(
 	repoFactory *repository.Locator,
 	userManager *manager.UserManager,
 	jobManager *manager.JobManager,
+	retentionManager *manager.RetentionManager,
 	dashboardStats *manager.DashboardManager,
 	resourceManager resource.Manager,
 	artifactManager *manager.ArtifactManager,
@@ -604,4 +606,5 @@ func startAdminControllers(
 	admin.NewExecutionContainerAdminController(resourceManager, webServer)
 	admin.NewHealthAdminController(healthMonitor, webServer)
 	admin.NewEmailVerificationAdminController(userManager, webServer)
+	admin.NewRetentionAdminController(retentionManager, webServer)
 }

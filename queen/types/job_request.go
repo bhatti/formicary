@@ -88,6 +88,10 @@ type IJobRequest interface {
 	GetRetried() int
 	// IncrRetried increment Retried
 	IncrRetried() int
+	// GetPausedCount returns number of times job has been paused
+	GetPausedCount() int
+	// IncrPausedCount increments paused count and returns new value
+	IncrPausedCount() int
 	// GetCronTriggered is true if request was triggered by cron
 	GetCronTriggered() bool
 	// GetHardRestart returns true if all tasks should re-run from scratch
@@ -147,6 +151,8 @@ type JobRequest struct {
 	ScheduleAttempts int `json:"schedule_attempts" gorm:"schedule_attempts"`
 	// Retried keeps track of retry attempts
 	Retried int `json:"retried"`
+	// PausedCount tracks how many times this job has been paused/resumed
+	PausedCount int `json:"paused_count" gorm:"paused_count"`
 	// CronTriggered is true if request was triggered by cron
 	CronTriggered bool `json:"cron_triggered"`
 	// QuickSearch provides quick search to search a request by params
@@ -434,6 +440,17 @@ func (jr *JobRequest) GetRetried() int {
 func (jr *JobRequest) IncrRetried() int {
 	jr.Retried++
 	return jr.Retried
+}
+
+// GetPausedCount - returns number of times job has been paused
+func (jr *JobRequest) GetPausedCount() int {
+	return jr.PausedCount
+}
+
+// IncrPausedCount - increments paused count and returns new value
+func (jr *JobRequest) IncrPausedCount() int {
+	jr.PausedCount++
+	return jr.PausedCount
 }
 
 // GetCronTriggered is true if request was triggered by cron

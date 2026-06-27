@@ -1,12 +1,34 @@
-# SHELL variant — runs on a bare ant worker with SSH keys and gh auth configured.
-# Prerequisites: claude CLI, gh CLI, git, python3, jq, SSH key for GitHub.
+# SHELL variant — runs on a bare ant worker with SSH keys and acli auth configured.
+# Prerequisites: claude CLI, acli (Atlassian CLI), git, python3, jq, SSH key for Bitbucket.
 #
-# Workspace: ~/claude_workspace/<IssueNumber>-<Nonce> (persisted for local inspection)
+# Workspace: ~/claude_workspace/<Repo>-issue<IssueNumber>-<Nonce> (persisted for inspection)
 # Output: tee'd to stdout for streaming logs + saved as artifacts.
 # report_stdout: true on all tasks so Formicary streams output in real-time.
+#
+# K8s deployment: mount SSH key secret as volume:
+#   container:
+#     volumes:
+#       host_path:
+#         - name: ssh-key
+#           mount_path: /run/secrets/ssh
+#           host_path: /var/secrets/agent-ssh   # backed by K8s secret ref
+#
+# For persistent workspaces across pod restarts, mount a PVC:
+#   container:
+#     volumes:
+#       host_path:
+#         - name: workspace
+#           mount_path: /home/ant/claude_workspace
+#           host_path: /mnt/agent-workspace      # backed by PVC in K8s
+# Without a PVC the workspace is lost when the container exits (fine for one-shot jobs).
+#
+# K8s hard timeout: Formicary enforces job timeout at the queen level (timeout: 90m below).
+# For a K8s-level backstop (pod kill), configure MaxTaskTimeout in the ant worker config.
+# See: internal/ant_config/ant_config.go MaxTaskTimeout field.
 
 job_type: ai-jira-implement
-description: "AI agent: plan -> implement -> validate -> self-verify -> create PR"
+sem_version: "1.0"
+description: "AI agent: plan -> implement -> validate -> self-verify -> create PR -> monitor PR"
 max_concurrency: 5
 timeout: 90m
 
@@ -23,7 +45,7 @@ tasks:
       #!/bin/bash
       set -euo pipefail
       TASK_DIR="$PWD"
-      # IssueTitle is plain sanitized text — no decoding needed.
+      # IssueTitle is plain sanitized text from the picker.
       ISSUE_TITLE="{{.IssueTitle}}"
       # IssueBody is in the artifact file written by gather-issues.
       ISSUE_BODY=$(cat "$TASK_DIR/{{.IssueBodyFile}}" 2>/dev/null || echo "")
@@ -35,6 +57,14 @@ tasks:
       echo "Repo: {{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       echo "---"
 
+      # SSH key injection for K8s (secret mounted at /run/secrets/ssh, no-op locally)
+      if [ -f "/run/secrets/ssh/id_rsa" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
+        mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+        cp /run/secrets/ssh/id_rsa "$HOME/.ssh/id_rsa" && chmod 600 "$HOME/.ssh/id_rsa"
+        ssh-keyscan bitbucket.org >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+        echo "SSH key injected from /run/secrets/ssh"
+      fi
+
       rm -rf "$WS"
       mkdir -p "$WS"
 
@@ -43,13 +73,22 @@ tasks:
       echo "Branch: $BRANCH"
 
       echo "Cloning git@bitbucket.org:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git ..."
-      git clone --depth=100 -b "{{.GitBranch}}" "git@bitbucket.org:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git" "$WS/repo"
+      git clone --depth=100 -b "{{.GitBranch}}" \
+        "git@bitbucket.org:{{.BitbucketWorkspace}}/{{.BitbucketRepo}}.git" "$WS/repo"
       cd "$WS/repo"
 
       git config user.name "{{.GitUserName}}"
       git config user.email "{{.GitUserEmail}}"
       git checkout -b "$BRANCH"
       echo "Branch created: $BRANCH"
+
+      # Per-repo initialization hook (follows .goatbot/init.sh convention)
+      if [ -f ".ai-agent/init.sh" ]; then
+        echo "=== Running per-repo .ai-agent/init.sh ==="
+        chmod +x ".ai-agent/init.sh"
+        bash ".ai-agent/init.sh" 2>&1 || true
+        echo "=== Per-repo init complete ==="
+      fi
 
       printf '# Issue #%s: %s\n\n%s\n' "{{.IssueNumber}}" "$ISSUE_TITLE" "$ISSUE_BODY" \
         > "$WS/repo/ISSUE_CONTEXT.md"
@@ -67,9 +106,27 @@ tasks:
       BRANCH_LINK="[${BRANCH}](https://bitbucket.org/{{.BitbucketWorkspace}}/{{.BitbucketRepo}}/branch/${BRANCH})"
       printf '%s\n' "$BRANCH_LINK" > "$TASK_DIR/branch.txt"
 
-      echo "::set-output name=WorkspaceDir::$WS/repo"
+      # Write shared run_agent helper — sources into every downstream task
+      cat > "$TASK_DIR/run_agent.sh" <<'AGENTEOF'
+      # run_agent <prompt_file> <max_turns> <out_file>
+      # Requires MODEL env var to be set by the calling task.
+      # Returns the last status JSON found in the output.
+      run_agent() {
+        local prompt_file="$1" max_turns="$2" out_file="$3"
+        set +e
+        stdbuf -oL claude --print --dangerously-skip-permissions \
+          --model "$MODEL" --max-turns "$max_turns" \
+          "$(cat "$prompt_file")" 2>&1 | tee "$out_file"
+        CLAUDE_EXIT=${PIPESTATUS[0]}
+        set -e
+        STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$out_file" | tail -1 || true)
+        [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
+        printf '%s\n' "$STATUS_JSON"
+      }
+      AGENTEOF
+      chmod +x "$TASK_DIR/run_agent.sh"
 
-      # Emit structured issue context as a job-level variable for debug/tracing
+      echo "::set-output name=WorkspaceDir::$WS/repo"
       python3 -c "import json; issue={'IssueNumber':'{{.IssueNumber}}','IssueURL':'{{.IssueURL}}','IssueTitle':'{{.IssueTitle}}','BitbucketWorkspace':'{{.BitbucketWorkspace}}','BitbucketRepo':'{{.BitbucketRepo}}','GitBranch':'{{.GitBranch}}'}; print('::set-output name=IssueJSON::'+json.dumps(issue,separators=(',',':')))" 2>/dev/null || true
 
       echo "=== SETUP COMPLETE ==="
@@ -80,6 +137,7 @@ tasks:
     paths:
       - meta.env
       - branch.txt
+      - run_agent.sh
     when: always
   on_completed: plan
 
@@ -97,6 +155,7 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
+      source "$TASK_DIR/run_agent.sh"
       ISSUE_TITLE="${ISSUE_TITLE:-}"
       ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== PLAN ==="
@@ -120,6 +179,7 @@ tasks:
 
       IMPORTANT: On the VERY LAST line of your response, output ONLY this JSON:
       {"status":"DONE","task_count":3,"total_complexity":"M","summary":"one line summary"}
+      Complexity values: S=trivial, M=moderate, H=hard, XL=very large
       If you cannot proceed: {"status":"BLOCKED","blocked_reason":"specific reason"}
       PROMPTEOF
 
@@ -127,30 +187,34 @@ tasks:
       cat /tmp/plan_prompt.txt
       echo "---"
       echo "Calling claude (model=$MODEL, max-turns=30)..."
-      echo ""
 
-      set +e
-      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
-        "$(cat /tmp/plan_prompt.txt)" 2>&1 | tee "$TASK_DIR/plan_conversation.txt"
-      CLAUDE_EXIT=${PIPESTATUS[0]}
-      set -e
+      STATUS_JSON=$(run_agent /tmp/plan_prompt.txt 30 "$TASK_DIR/plan_conversation.txt")
 
       echo ""
-      echo "=== claude exit=$CLAUDE_EXIT ==="
-
-      # Show what claude produced
+      echo "=== claude done ==="
       echo "--- git status after plan ---"
       git status
       echo "--- $PLAN_FILE ---"
       cat "$PLAN_FILE" 2>/dev/null || cat PLAN.md 2>/dev/null || echo "(plan file not created)"
 
-      # Extract status JSON
-      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/plan_conversation.txt" | tail -1 || true)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","task_count":0,"summary":"no status JSON"}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/plan_result.json"
       echo "Plan result: $STATUS_JSON"
 
-      cp "$PLAN_FILE" "$TASK_DIR/plan_summary.md" 2>/dev/null || cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null || echo "(no plan file)" > "$TASK_DIR/plan_summary.md"
+      cp "$PLAN_FILE" "$TASK_DIR/plan_summary.md" 2>/dev/null \
+        || cp PLAN.md "$TASK_DIR/plan_summary.md" 2>/dev/null \
+        || echo "(no plan file)" > "$TASK_DIR/plan_summary.md"
+
+      # Complexity-based model selection: S/L→haiku, M→default, H/XL→opus
+      COMPLEXITY=$(echo "$STATUS_JSON" | jq -r '.total_complexity // "M"')
+      case "$COMPLEXITY" in
+        S|L) CHOSEN_MODEL="claude-haiku-4-5-20251001" ;;
+        M)   CHOSEN_MODEL="{{.ImplementModel}}" ;;
+        H|XL) CHOSEN_MODEL="claude-opus-4-8" ;;
+        *)   CHOSEN_MODEL="{{.ImplementModel}}" ;;
+      esac
+      echo "Complexity=$COMPLEXITY → DerivedImplementModel=$CHOSEN_MODEL"
+      echo "::set-output name=DerivedImplementModel::$CHOSEN_MODEL"
+      echo "DerivedImplementModel=$CHOSEN_MODEL" >> "$TASK_DIR/meta.env"
 
       STATUS=$(echo "$STATUS_JSON" | jq -r '.status // "DONE"')
       [ "$STATUS" = "BLOCKED" ] && exit 2
@@ -160,11 +224,12 @@ tasks:
       - plan_result.json
       - plan_summary.md
       - plan_conversation.txt
+      - meta.env
     when: always
   on_exit_code:
     COMPLETED: implement
     "2": notify-blocked
-  on_failed: notify-blocked
+  on_failed: analyze-failure
 
 # --- IMPLEMENT ---------------------------------------------------------------
 - task_type: implement
@@ -174,15 +239,16 @@ tasks:
   dependencies:
     - setup
     - plan
-  environment:
-    MODEL: "{{.ImplementModel}}"
   script:
     - |
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
+      source "$TASK_DIR/run_agent.sh"
       ISSUE_TITLE="${ISSUE_TITLE:-}"
       ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
+      # Use complexity-derived model if available, else fall back to job variable
+      MODEL="${DerivedImplementModel:-{{.ImplementModel}}}"
       echo "=== IMPLEMENT ==="
       echo "WS=$WS MODEL=$MODEL"
       cd "$WS/repo"
@@ -191,7 +257,6 @@ tasks:
       ls -la
       SLUG=$(printf '%s' "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
       PLAN_FILE="PLANS/${SLUG}-{{.IssueNumber}}-plan.md"
-      # Fallback to PLAN.md if specific plan file doesn't exist
       [ ! -f "$PLAN_FILE" ] && PLAN_FILE="PLAN.md"
       echo "--- $PLAN_FILE ---"
       cat "$PLAN_FILE" 2>/dev/null || echo "(no plan file)"
@@ -221,16 +286,10 @@ tasks:
       PROMPTEOF
 
       echo "Calling claude (model=$MODEL, max-turns=100)..."
-      echo ""
-
-      set +e
-      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 100 \
-        "$(cat /tmp/impl_prompt.txt)" 2>&1 | tee "$TASK_DIR/impl_conversation.txt"
-      CLAUDE_EXIT=${PIPESTATUS[0]}
-      set -e
+      STATUS_JSON=$(run_agent /tmp/impl_prompt.txt 100 "$TASK_DIR/impl_conversation.txt")
 
       echo ""
-      echo "=== claude exit=$CLAUDE_EXIT ==="
+      echo "=== claude done ==="
 
       # If claude made changes but forgot to commit, commit them now
       if [ -n "$(git status --porcelain)" ]; then
@@ -242,17 +301,13 @@ tasks:
       echo "--- git log (commits on branch) ---"
       git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || git log --oneline -5
       echo "--- git diff --stat ---"
-      git diff --stat main 2>/dev/null || true
+      git diff --stat {{.GitBranch}} 2>/dev/null || true
       echo "--- git status ---"
       git status
 
-      # Save git state as artifacts
-      git diff main > "$TASK_DIR/impl_diff.patch" 2>/dev/null || true
+      git diff {{.GitBranch}} > "$TASK_DIR/impl_diff.patch" 2>/dev/null || true
       git log --oneline {{.GitBranch}}..HEAD > "$TASK_DIR/impl_commits.txt" 2>/dev/null || true
 
-      # Extract status JSON
-      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/impl_conversation.txt" | tail -1 || true)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE","files_changed":[],"commits":0}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/impl_result.json"
       echo "Impl result: $STATUS_JSON"
 
@@ -272,9 +327,9 @@ tasks:
     COMPLETED: unit-test
     "2": notify-blocked
     "3": fix-tests
-  on_failed: notify-blocked
+  on_failed: analyze-failure
 
-# --- UNIT-TEST (verify changes exist + run tests) ----------------------------
+# --- UNIT-TEST ---------------------------------------------------------------
 - task_type: unit-test
   method: SHELL
   timeout: 10m
@@ -288,8 +343,6 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=========================================="
       echo "=== UNIT-TEST: Verify changes + run tests ==="
       echo "=========================================="
@@ -311,13 +364,13 @@ tasks:
 
       echo ""
       echo "--- Files changed ---"
-      git diff --stat main 2>/dev/null || echo "(no diff)"
+      git diff --stat {{.GitBranch}} 2>/dev/null || echo "(no diff)"
 
       echo ""
       echo "--- Directory listing ---"
-      find . -not -path './.git/*' -not -path './target/*' -not -path './node_modules/*' -type f | sort | head -50
+      find . -not -path './.git/*' -not -path './target/*' -not -path './node_modules/*' \
+        -type f | sort | head -50
 
-      # Detect and run test suite
       echo ""
       echo "=== Running tests ==="
       TEST_EXIT=0
@@ -347,8 +400,7 @@ tasks:
       echo ""
       echo "Test exit code: $TEST_EXIT"
 
-      # Save artifacts
-      git diff main > "$TASK_DIR/verify_diff.patch" 2>/dev/null || true
+      git diff {{.GitBranch}} > "$TASK_DIR/verify_diff.patch" 2>/dev/null || true
       git log --format="%h %s" {{.GitBranch}}..HEAD > "$TASK_DIR/verify_commits.txt" 2>/dev/null || true
 
       echo ""
@@ -363,7 +415,9 @@ tasks:
       - verify_commits.txt
       - test_output.txt
     when: always
-  on_completed: self-verify
+  on_exit_code:
+    COMPLETED: self-verify
+    "3": fix-tests
   on_failed: self-verify
 
 # --- FIX-TESTS ---------------------------------------------------------------
@@ -376,6 +430,7 @@ tasks:
   dependencies:
     - setup
     - implement
+    - unit-test
   environment:
     MODEL: "{{.ImplementModel}}"
   script:
@@ -383,17 +438,22 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
+      source "$TASK_DIR/run_agent.sh"
       echo "=== FIX-TESTS ==="
       echo "WS=$WS"
       cd "$WS/repo"
 
-      FAILING=$(jq -r '.failing_tests[]? // empty' "$TASK_DIR/impl_result.json" 2>/dev/null || echo "unknown")
-      echo "Known failing: $FAILING"
+      # Read actual test output from unit-test artifact (not impl_result.json)
+      FAILING=$(grep -E "^FAIL|^--- FAIL|error\[|^Error:|FAILED" \
+        "$TASK_DIR/test_output.txt" 2>/dev/null | head -20 \
+        || tail -30 "$TASK_DIR/test_output.txt" 2>/dev/null \
+        || echo "see test_output.txt")
+      echo "Failing test output:"
+      echo "$FAILING"
 
       {
-        printf 'Tests are failing. Fix them.\n\nKnown failing tests: %s\n\n' "$FAILING"
+        printf 'Tests are failing. Fix them.\n\n'
+        printf 'Failing test output:\n%s\n\n' "$FAILING"
         printf 'Instructions:\n'
         printf '1. Run the test suite to see current output\n'
         printf '2. Read each error carefully - do not guess the cause\n'
@@ -405,26 +465,37 @@ tasks:
       } > /tmp/fix_prompt.txt
 
       echo "Calling claude (model=$MODEL, max-turns=50)..."
-      set +e
-      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 50 \
-        "$(cat /tmp/fix_prompt.txt)" 2>&1 | tee "$TASK_DIR/fix_conversation.txt"
-      CLAUDE_EXIT=${PIPESTATUS[0]}
-      set -e
-      echo ""
-      echo "=== claude exit=$CLAUDE_EXIT ==="
+      STATUS_JSON=$(run_agent /tmp/fix_prompt.txt 50 "$TASK_DIR/fix_conversation.txt")
 
-      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/fix_conversation.txt" | tail -1 || true)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"DONE"}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/fix_result.json"
-
       STATUS=$(echo "$STATUS_JSON" | jq -r '.status // "DONE"')
-      echo "Fix-tests status: $STATUS"
-      [ "$STATUS" = "STILL_FAILING" ] && exit 1
+      echo "Fix-tests agent status: $STATUS"
+
+      # Re-run tests inline to verify the fix actually worked
+      echo ""
+      echo "=== Re-running tests to verify fix ==="
+      TEST_EXIT=0
+      if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
+        make test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "Cargo.toml" ]; then
+        cargo test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "package.json" ]; then
+        npm test 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "go.mod" ]; then
+        go test ./... 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+        pytest 2>&1 | tee "$TASK_DIR/test_output.txt" || TEST_EXIT=$?
+      fi
+
+      echo "Test re-run exit: $TEST_EXIT"
+      # Exit 1 triggers formicary retry (up to retry: 2 = 3 total attempts)
+      [ $TEST_EXIT -ne 0 ] && exit 1
       exit 0
   artifacts:
     paths:
       - fix_result.json
       - fix_conversation.txt
+      - test_output.txt
     when: always
   on_completed: self-verify
   on_failed: notify-blocked
@@ -445,8 +516,7 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
+      source "$TASK_DIR/run_agent.sh"
       echo "=== SELF-VERIFY ==="
       echo "WS=$WS"
       cd "$WS/repo"
@@ -454,13 +524,14 @@ tasks:
       echo "--- commits to verify ---"
       git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || echo "(no commits)"
       echo "--- diff stat ---"
-      git diff --stat main 2>/dev/null || echo "(no diff)"
-      DIFF_SIZE=$(git diff main 2>/dev/null | wc -l || echo "0")
+      git diff --stat {{.GitBranch}} 2>/dev/null || echo "(no diff)"
+      DIFF_SIZE=$(git diff {{.GitBranch}} 2>/dev/null | wc -l || echo "0")
       echo "Diff lines: $DIFF_SIZE"
 
       if [ "$DIFF_SIZE" -lt 2 ]; then
         echo "No changes to verify - skipping"
-        printf '{"status":"SKIPPED","reason":"no changes","critical_findings":0,"fixes_applied":0}\n' > "$TASK_DIR/verify_result.json"
+        printf '{"status":"SKIPPED","reason":"no changes","critical_findings":0,"fixes_applied":0}\n' \
+          > "$TASK_DIR/verify_result.json"
         echo "No changes to verify" > "$TASK_DIR/verify_conversation.txt"
         exit 0
       fi
@@ -479,7 +550,7 @@ tasks:
       - Logic bugs: wrong conditions, off-by-one, nil/null dereference, wrong return values
       - Security: SQL injection, XSS, hardcoded secrets, path traversal
       - Missing error handling at I/O boundaries (network, file, DB)
-      - Incomplete implementation: does the code actually solve the issue described in ISSUE_CONTEXT.md?
+      - Incomplete implementation: does the code actually solve the issue in ISSUE_CONTEXT.md?
       - For each problem: explain it clearly, fix it, then: git add -A && git commit -m "verify: fix <problem>"
 
       Step 3 - Summary:
@@ -492,19 +563,9 @@ tasks:
       PROMPTEOF
 
       echo "Calling claude for self-verify (model=$MODEL, max-turns=30)..."
-      echo ""
-      set +e
-      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 30 \
-        "$(cat /tmp/verify_prompt.txt)" 2>&1 | tee "$TASK_DIR/verify_conversation.txt"
-      CLAUDE_EXIT=${PIPESTATUS[0]}
-      set -e
-      echo ""
-      echo "=== claude self-verify exit=$CLAUDE_EXIT ==="
+      STATUS_JSON=$(run_agent /tmp/verify_prompt.txt 30 "$TASK_DIR/verify_conversation.txt")
 
-      STATUS_JSON=$(grep -oE '\{[^{}]*"status"[^{}]*\}' "$TASK_DIR/verify_conversation.txt" | tail -1 || true)
-      [ -z "$STATUS_JSON" ] && STATUS_JSON='{"status":"PASS","critical_findings":0,"fixes_applied":0}'
       printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/verify_result.json"
-
       echo ""
       echo "--- Self-verify result ---"
       cat "$TASK_DIR/verify_result.json"
@@ -512,7 +573,7 @@ tasks:
       echo "--- final git log ---"
       git log --oneline {{.GitBranch}}..HEAD 2>/dev/null || echo "(no commits)"
       echo "--- final diff stat ---"
-      git diff --stat main 2>/dev/null || true
+      git diff --stat {{.GitBranch}} 2>/dev/null || true
   artifacts:
     paths:
       - verify_result.json
@@ -539,24 +600,16 @@ tasks:
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
       ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== CREATE-PR ==="
-      echo "TASK_DIR=$TASK_DIR"
-      ls -la "$TASK_DIR/" 2>/dev/null | head -10 || true
-      [ ! -f "$TASK_DIR/meta.env" ] && echo "ERROR: meta.env missing" && exit 1
       echo "BRANCH=$BRANCH"
       cd "$WS/repo"
 
-      # Check if there are actually commits to push
       COMMIT_COUNT=$(git rev-list --count "{{.GitBranch}}..HEAD" 2>/dev/null || echo "0")
       echo "Commits on branch: $COMMIT_COUNT"
 
       if [ "$COMMIT_COUNT" -eq 0 ]; then
         echo "ERROR: No commits on branch - nothing to push or PR"
-        echo "This means implement did not make any changes."
-        echo "--- git log ---"
         git log --oneline -5
-        echo "--- git status ---"
         git status
         exit 1
       fi
@@ -568,16 +621,15 @@ tasks:
       PLAN_SUMMARY=$(python3 -c "import json; d=json.load(open('$TASK_DIR/plan_result.json')); print(d.get('summary','See PLAN.md'))" 2>/dev/null || echo "See commits")
       REVIEW_STATUS=$(python3 -c "import json; d=json.load(open('$TASK_DIR/verify_result.json')); print(d.get('status','N/A'))" 2>/dev/null || echo "N/A")
       IMPL_COMMITS=$(python3 -c "import json; d=json.load(open('$TASK_DIR/impl_result.json')); print(d.get('commits',0))" 2>/dev/null || echo "0")
+      DERIVED_MODEL="${DerivedImplementModel:-{{.ImplementModel}}}"
 
-      printf 'Closes #{{.IssueNumber}}\n\n## Summary\n%s\n\n## Stats\n- Commits: %s\n- Self-verify: %s\n- Models: plan={{.PlanModel}} impl={{.ImplementModel}} verify={{.ReviewModel}}\n' \
-        "$PLAN_SUMMARY" "$IMPL_COMMITS" "$REVIEW_STATUS" > /tmp/pr_body.txt
-      PR_BODY=$(cat /tmp/pr_body.txt)
+      printf 'Closes #{{.IssueNumber}}\n\n## Summary\n%s\n\n## Stats\n- Commits: %s\n- Self-verify: %s\n- Models: plan={{.PlanModel}} impl=%s verify={{.ReviewModel}}\n' \
+        "$PLAN_SUMMARY" "$IMPL_COMMITS" "$REVIEW_STATUS" "$DERIVED_MODEL" > /tmp/pr_body.txt
 
       echo "Creating PR..."
-      # Capture stdout only so git-push remote hints don't corrupt the JSON.
       PR_JSON=$(acli -p bitbucket bitbucket pr create "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" \
         --title "AI: $ISSUE_TITLE" \
-        --description "$PR_BODY" \
+        --description "$(cat /tmp/pr_body.txt)" \
         --source "$BRANCH" --destination "{{.GitBranch}}" -o json 2>/tmp/pr_create_err.txt || true)
       cat /tmp/pr_create_err.txt >&2 || true
       echo "PR create response: $PR_JSON"
@@ -585,8 +637,9 @@ tasks:
       PR_URL=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('data',d).get('links',{}).get('html',{}).get('href',''))" 2>/dev/null || true)
 
       if [ -z "$PR_URL" ]; then
-        echo "PR create response was not parseable or returned no URL - searching existing PRs on branch $BRANCH..."
-        PR_URL=$(BRANCH="$BRANCH" acli -p bitbucket bitbucket pr list "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" -o json 2>/dev/null \
+        echo "PR create not parseable - searching existing PRs on branch $BRANCH..."
+        PR_URL=$(BRANCH="$BRANCH" acli -p bitbucket bitbucket pr list \
+          "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" -o json 2>/dev/null \
           | python3 -c "import sys,json,os; br=os.environ['BRANCH']; prs=json.load(sys.stdin); prs=prs if isinstance(prs,list) else prs.get('values',[]); print(next((p.get('links',{}).get('html',{}).get('href','') for p in prs if p.get('source',{}).get('branch',{}).get('name','')==br),''))" 2>/dev/null || true)
       fi
 
@@ -596,29 +649,139 @@ tasks:
       fi
 
       printf '%s\n' "$PR_URL" > "$TASK_DIR/pr_url.txt"
-      PR_NUM=$(echo "$PR_URL" | python3 -c "import sys,re; m=re.search(r'/(\d+)$',sys.stdin.read().strip()); print(m.group(1) if m else '')" 2>/dev/null || true)
+      PR_NUM=$(echo "$PR_URL" | python3 -c "import sys,re; m=re.search(r'/(\d+)\$',sys.stdin.read().strip()); print(m.group(1) if m else '')" 2>/dev/null || true)
       echo "::set-output name=PRNumber::${PR_NUM}"
       echo "::set-output name=PRUrl::${PR_URL}"
       echo "=== PR CREATED/FOUND: $PR_URL (PR #${PR_NUM}) ==="
 
-      # Non-critical: update Jira label — failure here must not fail the task
+      # Non-critical: update Jira label
       acli -p jira jira issue edit "{{.IssueNumber}}" --labels "ai-pr-open" 2>/dev/null || \
         echo "WARN: could not update Jira label to ai-pr-open (non-fatal)"
+
+      # Write processed-comments sentinel so check-pr-status starts clean
+      touch "$WS/.processed_comments"
   artifacts:
     paths:
       - pr_url.txt
     when: always
-  on_completed: monitor-pr
+  on_completed: check-pr-status
   on_failed: cleanup
 
-# --- MONITOR-PR (poll for comments, respond, wait for merge/close) -----------
-- task_type: monitor-pr
+# --- CHECK-PR-STATUS (sensor loop) -------------------------------------------
+# Native Formicary sensor pattern: exit code EXECUTING re-runs this task after
+# delay_between_retries (2 min). No external watcher or coordinator needed.
+# allow_start_if_completed: true ensures this task re-runs on RESTART_JOB.
+- task_type: check-pr-status
   method: SHELL
-  timeout: 24h
+  timeout: 3m
+  report_stdout: true
+  allow_start_if_completed: true
+  allow_failure: true
+  delay_between_retries: 120s
+  dependencies:
+    - setup
+    - create-pr
+  environment:
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      REPO="{{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
+      PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
+      PROCESSED_FILE="$WS/.processed_comments"
+      echo "=== CHECK-PR-STATUS ==="
+      echo "PR: #$PR_NUMBER in $REPO"
+
+      if [ -z "$PR_NUMBER" ]; then
+        echo "ERROR: No PR number found"
+        exit 1
+      fi
+
+      touch "$PROCESSED_FILE"
+      LAST_CHECKED_FILE="$WS/.last_checked_ts"
+      LAST_CHECKED=$(cat "$LAST_CHECKED_FILE" 2>/dev/null || echo "1970-01-01T00:00:00Z")
+      echo "Last checked: $LAST_CHECKED"
+
+      # Check PR state
+      PR_STATE=$(acli -p bitbucket bitbucket pr get "$REPO" "$PR_NUMBER" -o json 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state','UNKNOWN').upper())" \
+        2>/dev/null || echo "UNKNOWN")
+      echo "PR #$PR_NUMBER state: $PR_STATE"
+
+      if [ "$PR_STATE" = "MERGED" ]; then
+        echo "PR merged — routing to learn"
+        exit 3
+      fi
+
+      if [ "$PR_STATE" = "CLOSED" ] || [ "$PR_STATE" = "DECLINED" ]; then
+        echo "PR closed/declined — routing to learn"
+        exit 4
+      fi
+
+      # Fetch PR comments newer than last check, normalize to JSON array [{id,body,path,user}].
+      # Date filter is primary; processed-IDs are belt-and-suspenders on RESTART_JOB.
+      ALL_COMMENTS=$(acli -p bitbucket bitbucket pr comments \
+        "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null \
+        | LAST_CHECKED="$LAST_CHECKED" python3 -c "
+import sys,json,os
+raw=json.load(sys.stdin)
+items=raw if isinstance(raw,list) else raw.get('values',[])
+since=os.environ.get('LAST_CHECKED','1970-01-01T00:00:00Z')
+result=[]
+for c in items:
+    ts=c.get('createdOn',c.get('created_on',''))
+    if ts >= since:
+        result.append({'id':str(c.get('id','')),'body':c.get('content',{}).get('raw',c.get('body','')),'path':c.get('inline',{}).get('path',''),'user':c.get('author',{}).get('display_name',c.get('user',{}).get('login','?'))})
+print(json.dumps(result))
+" 2>/dev/null || echo "[]")
+
+      PROCESSED=$(cat "$PROCESSED_FILE" 2>/dev/null || echo "")
+      UNPROCESSED=$(echo "$ALL_COMMENTS" \
+        | PROCESSED="$PROCESSED" python3 -c "import sys,json,os; cs=json.load(sys.stdin); done=set(os.environ.get('PROCESSED','').split('\n')); print(json.dumps([c for c in cs if c['id'] not in done]))" \
+        2>/dev/null || echo "[]")
+
+      COMMENT_COUNT=$(echo "$UNPROCESSED" | python3 -c \
+        "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+      echo "Unprocessed comments since $LAST_CHECKED: $COMMENT_COUNT"
+
+      # Update last-checked timestamp BEFORE routing so the next poll window starts now.
+      date -u +%Y-%m-%dT%H:%M:%SZ > "$LAST_CHECKED_FILE"
+
+      # Always write pending_comments.json so the artifact upload never fails
+      printf '%s\n' "$UNPROCESSED" > "$TASK_DIR/pending_comments.json"
+
+      if [ "$COMMENT_COUNT" -gt 0 ]; then
+        echo "New review comments found — routing to address-feedback"
+        exit 2
+      fi
+
+      echo "No new activity — polling again in 2 minutes"
+      # EXECUTING exit code: Formicary re-runs this task after delay_between_retries
+      exit 10
+  artifacts:
+    paths:
+      - pending_comments.json
+    when: always
+  on_exit_code:
+    COMPLETED: learn
+    "2": address-feedback
+    "3": learn
+    "4": learn
+    "10": EXECUTING
+    FAILED: notify-blocked
+  on_failed: notify-blocked
+
+# --- ADDRESS-FEEDBACK --------------------------------------------------------
+- task_type: address-feedback
+  method: SHELL
+  timeout: 25m
   report_stdout: true
   dependencies:
     - setup
     - create-pr
+    - check-pr-status
   environment:
     MODEL: "{{.ImplementModel}}"
     GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
@@ -627,121 +790,94 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
-      ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
+      source "$TASK_DIR/run_agent.sh"
       REPO="{{.BitbucketWorkspace}}/{{.BitbucketRepo}}"
       PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
       PROCESSED_FILE="$WS/.processed_comments"
-      echo "=== MONITOR-PR ==="
-      echo "PR: #$PR_NUMBER in $REPO"
-      echo "WS: $WS"
-      echo "Polling every 2 minutes for reviewer comments..."
-
-      if [ -z "$PR_NUMBER" ]; then
-        echo "ERROR: No PR number found in pr_url.txt"
-        exit 1
-      fi
-
+      echo "=== ADDRESS-FEEDBACK ==="
+      echo "PR: #$PR_NUMBER"
       cd "$WS/repo"
-      touch "$PROCESSED_FILE"
 
-      while true; do
+      # Get our own Bitbucket username — never process our own reply comments.
+      BOT_USER=$(acli -p bitbucket bitbucket user get -o json 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('display_name',d.get('username','')))" \
+        2>/dev/null || echo "")
+      echo "Bot user: ${BOT_USER:-unknown}"
+
+      COMMENTS=$(cat "$TASK_DIR/pending_comments.json" 2>/dev/null || echo "[]")
+      COMMENT_COUNT=$(echo "$COMMENTS" | python3 -c \
+        "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+      echo "Processing $COMMENT_COUNT comment(s)"
+
+      # Process substitution avoids a pipe subshell so PROCESSED_FILE writes persist.
+      while IFS=$'\t' read -r COMMENT_ID COMMENT_USER COMMENT_PATH COMMENT_BODY; do
+
+        # Skip our own reply comments — structural guard against infinite feedback loops.
+        if [ -n "$BOT_USER" ] && [ "$COMMENT_USER" = "$BOT_USER" ]; then
+          echo "Skipping own reply comment #$COMMENT_ID from $BOT_USER"
+          echo "$COMMENT_ID" >> "$PROCESSED_FILE"
+          continue
+        fi
+
         echo ""
-        echo "[$(date +%H:%M:%S)] --- Poll cycle ---"
+        echo "--- Comment #$COMMENT_ID from $COMMENT_USER ---"
+        [ -n "$COMMENT_PATH" ] && echo "File: $COMMENT_PATH"
+        echo "Body: $COMMENT_BODY"
 
-        # Check PR state
-        PR_STATE=$(acli -p bitbucket bitbucket pr get "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state','UNKNOWN').upper())" 2>/dev/null || echo "UNKNOWN")
-        echo "PR #$PR_NUMBER state: $PR_STATE"
+        {
+          printf 'A reviewer left a comment on your PR. Address their feedback.\n\n'
+          printf 'Reviewer: %s\n' "$COMMENT_USER"
+          [ -n "$COMMENT_PATH" ] && printf 'File: %s\n' "$COMMENT_PATH"
+          printf 'Comment:\n%s\n\n' "$COMMENT_BODY"
+          printf 'Instructions:\n'
+          printf '- Make the requested change\n'
+          printf '- Run tests if available\n'
+          printf '- git add -A && git commit -m "feedback: address %s comment"\n' "$COMMENT_USER"
+          printf '- Do NOT make unrequested changes\n'
+          printf '\nOn the LAST line output ONLY: {"status":"DONE","commits":1}\n'
+        } > /tmp/respond_prompt.txt
 
-        if [ "$PR_STATE" = "MERGED" ] || [ "$PR_STATE" = "CLOSED" ]; then
-          echo "PR is $PR_STATE - exiting monitor"
-          printf '{"status":"%s","pr_number":"%s"}\n' "$PR_STATE" "$PR_NUMBER" > "$TASK_DIR/monitor_result.json"
-          break
-        fi
+        STATUS_JSON=$(run_agent /tmp/respond_prompt.txt 20 \
+          "$TASK_DIR/respond_${COMMENT_ID}.txt")
+        echo "Claude result for comment $COMMENT_ID: $STATUS_JSON"
 
-        # Fetch PR comments — normalize to JSON array [{id,body,path,user}]
-        ALL_COMMENTS=$(acli -p bitbucket bitbucket pr comments \
-          "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null \
-          | python3 -c "import sys,json; raw=json.load(sys.stdin); items=raw if isinstance(raw,list) else raw.get('values',[]); print(json.dumps([{'id':str(c.get('id','')),'body':c.get('content',{}).get('raw',c.get('body','')),'path':c.get('inline',{}).get('path',''),'user':c.get('author',{}).get('display_name',c.get('user',{}).get('login','?'))} for c in items]))" \
-          2>/dev/null || echo "[]")
+        git push origin HEAD 2>&1 && echo "Pushed" || echo "WARNING: push failed or nothing to push"
 
-        PROCESSED=$(cat "$PROCESSED_FILE" 2>/dev/null || echo "")
+        # Post reply and capture the new comment ID — belt-and-suspenders alongside BOT_USER filter.
+        REPLY_JSON=$(acli -p bitbucket bitbucket pr comment \
+          "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" \
+          --body "Addressed feedback from @$COMMENT_USER. See latest commit." \
+          -o json 2>&1 || echo "{}")
+        REPLY_ID=$(echo "$REPLY_JSON" | python3 -c \
+          "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || true)
 
-        # Filter out already-processed comment IDs
-        UNPROCESSED=$(echo "$ALL_COMMENTS" \
-          | python3 -c "import sys,json,os; cs=json.load(sys.stdin); done=set(os.environ.get('PROCESSED','').split('\n')); print(json.dumps([c for c in cs if c['id'] not in done]))" \
-          PROCESSED="$PROCESSED" 2>/dev/null || echo "[]")
+        echo "$COMMENT_ID" >> "$PROCESSED_FILE"
+        [ -n "$REPLY_ID" ] && echo "$REPLY_ID" >> "$PROCESSED_FILE"
+        echo "Done: comment #$COMMENT_ID (reply: ${REPLY_ID:-n/a})"
+      done < <(echo "$COMMENTS" | python3 -c "import sys,json; [print('{}\t{}\t{}\t{}'.format(c['id'],c['user'],c['path'],c['body'].replace('\n',' ')[:500])) for c in json.load(sys.stdin)]" 2>/dev/null)
 
-        TOTAL=$(echo "$ALL_COMMENTS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-        COMMENT_COUNT=$(echo "$UNPROCESSED" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-        echo "Comments: total=$TOTAL, unprocessed=$COMMENT_COUNT"
-
-        if [ "$COMMENT_COUNT" -gt 0 ]; then
-          echo ""
-          echo "=== Processing $COMMENT_COUNT new comment(s) ==="
-
-          # Emit tab-separated lines: id<TAB>user<TAB>path<TAB>body for iteration
-          echo "$UNPROCESSED" \
-            | python3 -c "import sys,json; [print('{}\t{}\t{}\t{}'.format(c['id'],c['user'],c['path'],c['body'].replace('\n',' ')[:500])) for c in json.load(sys.stdin)]" \
-            2>/dev/null | while IFS=$'\t' read -r COMMENT_ID COMMENT_USER COMMENT_PATH COMMENT_BODY; do
-
-            echo ""
-            echo "--- Comment #$COMMENT_ID from $COMMENT_USER ---"
-            echo "Body: $COMMENT_BODY"
-            [ -n "$COMMENT_PATH" ] && echo "File: $COMMENT_PATH"
-
-            {
-              printf 'A reviewer left a comment on your PR. Address their feedback.\n\n'
-              printf 'Reviewer: %s\n' "$COMMENT_USER"
-              [ -n "$COMMENT_PATH" ] && printf 'File: %s\n' "$COMMENT_PATH"
-              printf 'Comment:\n%s\n\n' "$COMMENT_BODY"
-              printf 'Instructions:\n'
-              printf '- Make the requested change\n'
-              printf '- Run tests if available\n'
-              printf '- git add -A && git commit -m "feedback: address %s comment"\n' "$COMMENT_USER"
-              printf '- Do NOT make unrequested changes\n'
-            } > /tmp/respond_prompt.txt
-
-            echo "Calling claude..."
-            set +e
-            stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 20 \
-              "$(cat /tmp/respond_prompt.txt)" 2>&1 | tee "$TASK_DIR/respond_${COMMENT_ID}.txt"
-            CLAUDE_EXIT=$?
-            set -e
-            echo "Claude exit: $CLAUDE_EXIT"
-
-            # Push changes
-            git push origin HEAD 2>/dev/null && echo "Pushed changes" || echo "Nothing to push"
-
-            # Reply on PR
-            acli -p bitbucket bitbucket pr comment "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" \
-              --body "Addressed feedback from @$COMMENT_USER. See latest commit." 2>/dev/null || true
-
-            # Mark processed
-            echo "$COMMENT_ID" >> "$PROCESSED_FILE"
-            echo "Done: comment #$COMMENT_ID processed"
-          done
-        fi
-
-        echo "[$(date +%H:%M:%S)] Sleeping 120s..."
-        sleep 120
-      done
-
-      echo "=== MONITOR-PR COMPLETE ==="
+      echo ""
+      echo "=== ADDRESS-FEEDBACK COMPLETE ==="
   artifacts:
     paths:
-      - monitor_result.json
+      - "respond_*.txt"
     when: always
-  on_completed: learn
+  on_exit_code:
+    # COMPLETED → RESTART_JOB: job restarts, skips already-completed tasks,
+    # re-runs check-pr-status (allow_start_if_completed: true) to poll again.
+    # Loop: address-feedback completes → RESTART_JOB → check-pr-status → repeat
+    # until PR is merged/closed.
+    COMPLETED: RESTART_JOB
   on_failed: learn
 
-# --- LEARN (capture learnings from the PR lifecycle) -------------------------
+# --- LEARN -------------------------------------------------------------------
 - task_type: learn
   method: SHELL
   timeout: 10m
   report_stdout: true
   dependencies:
     - setup
+    - create-pr
   environment:
     MODEL: "{{.ReviewModel}}"
   script:
@@ -749,51 +885,45 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       set +u; source "$TASK_DIR/meta.env"; set -u
+      source "$TASK_DIR/run_agent.sh"
       ISSUE_TITLE="${ISSUE_TITLE:-}"
-      ISSUE_BODY=$(cat "${ISSUE_BODY_FILE:-/dev/null}" 2>/dev/null || echo "")
       echo "=== LEARN ==="
       cd "$WS/repo"
       LEARN_DIR="$HOME/claude_workspace/learn_context"
       mkdir -p "$LEARN_DIR"
 
-      # Gather PR review comments and conversation
       PR_NUMBER=$(cat "$TASK_DIR/pr_url.txt" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
       echo "PR: #$PR_NUMBER"
 
-      PR_COMMENTS=""
+      PR_COMMENTS="[]"
       if [ -n "$PR_NUMBER" ]; then
-        PR_COMMENTS=$(acli -p bitbucket bitbucket pr comments "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null | python3 -c "import sys,json; cs=json.load(sys.stdin); print(json.dumps([{'user':c.get('user',{}).get('display_name',''), 'body':c.get('content',{}).get('raw','')} for c in (cs if isinstance(cs,list) else [])]))" 2>/dev/null || echo "[]")
-        ISSUE_COMMENTS="[]"
+        PR_COMMENTS=$(acli -p bitbucket bitbucket pr comments \
+          "{{.BitbucketWorkspace}}" "{{.BitbucketRepo}}" "$PR_NUMBER" -o json 2>/dev/null \
+          | python3 -c "import sys,json; cs=json.load(sys.stdin); print(json.dumps([{'user':c.get('author',{}).get('display_name',''),'body':c.get('content',{}).get('raw','')} for c in (cs if isinstance(cs,list) else [])]))" 2>/dev/null || echo "[]")
       fi
 
       {
         printf 'Review the PR lifecycle for issue #{{.IssueNumber}} and extract learnings.\n\n'
         printf 'PR review comments:\n%s\n\n' "$PR_COMMENTS"
-        printf 'Issue comments:\n%s\n\n' "$ISSUE_COMMENTS"
         printf 'Apply the /ygs-learn skill methodology if available. Otherwise:\n'
         printf '- What went well in this implementation?\n'
         printf '- What reviewer feedback indicated a gap in the AI approach?\n'
         printf '- What patterns should be repeated? What should be avoided?\n'
         printf '- Are there codebase conventions the AI missed?\n\n'
         printf 'Write a concise learning entry (max 20 lines) to:\n'
-        printf '  %s/{{.BitbucketWorkspace}}_{{.BitbucketRepo}}_issue{{.IssueNumber}}.md\n\n' "$LEARN_DIR"
-        printf 'Format:\n'
-        printf '# Issue #{{.IssueNumber}}: $ISSUE_TITLE\n'
-        printf '## What went well\n'
-        printf '## What to improve\n'
-        printf '## Patterns to remember\n\n'
+        printf '  %s/{{.BitbucketWorkspace}}_{{.BitbucketRepo}}_issue{{.IssueNumber}}.md\n\n' \
+          "$LEARN_DIR"
+        printf 'Format:\n# Issue #{{.IssueNumber}}: %s\n' "$ISSUE_TITLE"
+        printf '## What went well\n## What to improve\n## Patterns to remember\n\n'
         printf 'On the LAST line output: {"status":"DONE","learnings_file":"path"}\n'
       } > /tmp/learn_prompt.txt
 
       echo "Calling claude for learning capture..."
-      set +e
-      stdbuf -oL claude --print --dangerously-skip-permissions --model "$MODEL" --max-turns 10 \
-        "$(cat /tmp/learn_prompt.txt)" 2>&1 | tee "$TASK_DIR/learn_conversation.txt"
-      set -e
+      STATUS_JSON=$(run_agent /tmp/learn_prompt.txt 10 "$TASK_DIR/learn_conversation.txt")
+      echo "Learn result: $STATUS_JSON"
 
       echo ""
       echo "=== LEARN COMPLETE ==="
-      echo "Learn context dir:"
       ls -la "$LEARN_DIR/" 2>/dev/null || echo "(empty)"
   artifacts:
     paths:
@@ -801,6 +931,53 @@ tasks:
     when: always
   on_completed: cleanup
   on_failed: cleanup
+
+# --- ANALYZE-FAILURE (AI categorizes unexpected failures) --------------------
+# Runs when plan or implement fail unexpectedly (not a clean BLOCKED exit).
+# Enriches the blocked_reason before notify-blocked posts to the issue.
+- task_type: analyze-failure
+  method: SHELL
+  timeout: 5m
+  report_stdout: true
+  dependencies:
+    - setup
+  environment:
+    MODEL: "{{.PlanModel}}"
+  script:
+    - |
+      #!/bin/bash
+      TASK_DIR="$PWD"
+      set +u; source "$TASK_DIR/meta.env"; set -u
+      source "$TASK_DIR/run_agent.sh"
+      echo "=== ANALYZE-FAILURE ==="
+
+      LAST_OUTPUT=$(tail -100 "$TASK_DIR/impl_conversation.txt" 2>/dev/null \
+        || tail -100 "$TASK_DIR/plan_conversation.txt" 2>/dev/null \
+        || echo "no conversation output captured")
+
+      # Write prompt via printf — never use an unquoted heredoc with untrusted $LAST_OUTPUT
+      {
+        printf 'An AI agent task failed unexpectedly. Categorize the failure from the output below.\n\n'
+        printf 'Last output:\n'
+        printf '%s\n\n' "$LAST_OUTPUT"
+        printf 'Output ONLY this JSON (no other text):\n'
+        printf '{"category":"TRANSIENT","reason":"one line explanation","retry":true}\n\n'
+        printf 'category must be one of:\n'
+        printf '  TRANSIENT  - network/timeout/infra issue, safe to retry\n'
+        printf '  BLOCKED    - missing info or dependency, human must intervene\n'
+        printf '  CODE_ERROR - bug in the generated code or test setup\n'
+        printf '  TIMEOUT    - agent exceeded max turns or wall-clock limit\n'
+      } > /tmp/analyze_prompt.txt
+
+      STATUS_JSON=$(run_agent /tmp/analyze_prompt.txt 5 "$TASK_DIR/analyze_result.json")
+      echo "Analysis: $STATUS_JSON"
+      printf '%s\n' "$STATUS_JSON" > "$TASK_DIR/analyze_result.json"
+  artifacts:
+    paths:
+      - analyze_result.json
+    when: always
+  on_completed: notify-blocked
+  on_failed: notify-blocked
 
 # --- NOTIFY-BLOCKED ----------------------------------------------------------
 - task_type: notify-blocked
@@ -812,16 +989,23 @@ tasks:
       #!/bin/bash
       TASK_DIR="$PWD"
       echo "=== NOTIFY-BLOCKED ==="
-      REASON=$(jq -rs '[.[].blocked_reason?, .[].summary?] | map(select(. != null and . != "")) | first // "Unknown"' \
-        "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null || echo "Unknown")
+
+      REASON=$(jq -r '.reason // empty' "$TASK_DIR/analyze_result.json" 2>/dev/null || true)
+      if [ -z "$REASON" ]; then
+        REASON=$(jq -rs \
+          '[.[].blocked_reason?, .[].summary?] | map(select(. != null and . != "")) | first // "Unknown"' \
+          "$TASK_DIR/plan_result.json" "$TASK_DIR/impl_result.json" 2>/dev/null || echo "Unknown")
+      fi
       [ -z "$REASON" ] && REASON="Unknown - check Formicary job logs"
       echo "Blocked: $REASON"
-      BODY="**AI Agent Blocked**
 
-      Reason: ${REASON}
+      CATEGORY=$(jq -r '.category // "UNKNOWN"' "$TASK_DIR/analyze_result.json" 2>/dev/null \
+        || echo "UNKNOWN")
 
-      Please fix and re-label as ai-ready to retry."
-      acli -p jira jira issue comment add "{{.IssueNumber}}" --body "$BODY" 2>/dev/null || true
+      printf '**AI Agent Blocked**\n\nCategory: %s\nReason: %s\n\nPlease fix and re-label as `ai-ready` to retry.\n' \
+        "$CATEGORY" "$REASON" > /tmp/blocked_body.txt
+      acli -p jira jira issue comment add "{{.IssueNumber}}" \
+        --body "$(cat /tmp/blocked_body.txt)" 2>/dev/null || true
       acli -p jira jira issue edit "{{.IssueNumber}}" --labels "needs-human" 2>/dev/null || true
   on_completed: cleanup
   on_failed: cleanup
@@ -835,24 +1019,25 @@ tasks:
   script:
     - |
       #!/bin/bash
-      TASK_DIR="$PWD"
       WS="$HOME/claude_workspace/{{.BitbucketRepo}}-issue{{.IssueNumber}}-{{.Nonce}}"
       echo "=== CLEANUP ==="
       echo "WS=$WS"
+      # On K8s with PVC: workspace persists at mount path for manual inspection.
+      # On ephemeral SHELL ant: workspace lives at ~/claude_workspace until cleanup cron removes it.
       if [ -d "$WS" ]; then
         echo "Workspace preserved at: $WS"
-        echo "Contents:"
         find "$WS/repo" -maxdepth 2 -not -path '*/.git/*' | head -30
       else
-        echo "Workspace not found"
+        echo "Workspace not found (ephemeral container)"
       fi
 
 job_variables:
-  PlanModel: "sonnet"
-  ImplementModel: "sonnet"
-  ReviewModel: "sonnet"
+  PlanModel: "claude-sonnet-4-6"
+  ImplementModel: "claude-sonnet-4-6"
+  ReviewModel: "claude-sonnet-4-6"
   GitUserName: "Shahzad Bhatti"
   GitUserEmail: "bhatti@plexobject.com"
   BitbucketWorkspace: "bhatti"
   BitbucketRepo: "todo-sample"
   GitBranch: "main"
+  # IssueNumber, IssueTitle, IssueBodyFile, Nonce, IssueURL set by ai-jira-issue-picker-shell.yaml
