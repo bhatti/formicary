@@ -16,6 +16,7 @@ import (
 	"plexobject.com/formicary/internal/auth"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
+	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/security"
 )
@@ -28,6 +29,7 @@ type AuthController struct {
 	auditRecordRepository repository.AuditRecordRepository
 	userRepository        repository.UserRepository
 	orgRepository         repository.OrganizationRepository
+	userManager           *manager.UserManager
 	webserver             web.Server
 }
 
@@ -38,6 +40,7 @@ func NewAuthController(
 	auditRecordRepository repository.AuditRecordRepository,
 	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
+	userManager *manager.UserManager,
 	webServer web.Server) *AuthController {
 	ac := &AuthController{
 		commonCfg:             commonCfg,
@@ -45,6 +48,7 @@ func NewAuthController(
 		auditRecordRepository: auditRecordRepository,
 		userRepository:        userRepository,
 		orgRepository:         orgRepository,
+		userManager:           userManager,
 		webserver:             webServer,
 	}
 	webServer.GET("/", ac.root, nil).Name = "root"
@@ -223,13 +227,7 @@ func (ac *AuthController) logout(c web.APIContext) error {
 }
 
 func (ac *AuthController) postLogin(user *common.User) (cookie *http.Cookie, oldUser *common.User, err error) {
-	// not using query-context here because we just need to find user
-	oldUser, _ = ac.userRepository.GetByUsername(
-		common.NewQueryContext(nil, ""),
-		user.Username)
-	if oldUser != nil {
-		user.CopyRolesPermissions(oldUser)
-	}
+	oldUser = ac.userManager.PrepareLoginUser(user)
 	token, expiration, err := security.BuildToken(
 		user,
 		ac.commonCfg.Auth.JWTSecret,

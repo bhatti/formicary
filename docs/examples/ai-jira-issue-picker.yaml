@@ -1,134 +1,61 @@
-# Jira/Bitbucket variant — polls Jira for issues labeled for AI pickup.
-# Auth: acli configured at ~/.config/acli/config.json with jira + bitbucket profiles.
+# Polls Jira for issues labeled ai-ready and submits ai-jira-implement jobs.
 #
-# Uses acli CLI (Atlassian CLI) instead of gh CLI.
+# gather-issues: runs ai-dev-tools image, writes /workspace/{issue_id}/issue.json
+#   per issue, and emits ::set-output name=IssuesJSON:: with a JSON array.
+# submit-jobs: uses SubmitJobsFromJSON to fan out one ai-jira-implement job per issue.
+#
 # Label convention: ai-ready → ai-in-progress → ai-pr-open → needs-human
+#
+# Deploy:
+#   ./deploy-ai-jira-workflows.sh --set-configs \
+#     --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo \
+#     --anthropic-key $ANTHROPIC_API_KEY
 
 job_type: ai-jira-issue-picker
 description: "Polls Jira for ai-ready issues and submits ai-jira-implement jobs"
-cron_trigger: "0 * * * * * *"
-max_concurrency: 1
+cron_trigger: "*/5 * * * *"
 timeout: 5m
+max_concurrency: 1
+required_params:
+  - JiraApiToken
+  - JiraEmail
+  - JiraUrl
+  - JiraProject
 
 skip_if: >-
-  {{if ge (CountByJobTypeAndState "ai-jira-implement" "PENDING") 10}} true {{end}}
+  {{if ge (CountByJobTypeAndState "ai-jira-implement" "PENDING" "EXECUTING") 10}} true {{end}}
 
 tasks:
 - task_type: gather-issues
-  method: SHELL
+  method: KUBERNETES
   timeout: 3m
   report_stdout: true
+  host_network: true
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
   environment:
+    WORKSPACE_DIR: /workspace
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_EMAIL: "{{.JiraEmail}}"
+    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     JIRA_PROJECT: "{{.JiraProject}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     PICKUP_LABEL: "{{.PickupLabel}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
-    MAX_PENDING: "{{.MaxPendingJobs}}"
-    BB_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BB_REPO: "{{.BitbucketRepo}}"
+    MAX_ISSUES: "{{.MaxIssues}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
   script:
-    - |
-      #!/bin/bash
-      set -euo pipefail
-      python3 - <<'PYEOF'
-      import base64, json, os, subprocess, sys
-
-      project      = os.environ["JIRA_PROJECT"]
-      pickup_lbl   = os.environ["PICKUP_LABEL"]
-      inprog_lbl   = os.environ["INPROGRESS_LABEL"]
-      max_pending  = int(os.environ.get("MAX_PENDING", "10"))
-      bb_workspace = os.environ["BB_WORKSPACE"]
-      bb_repo      = os.environ["BB_REPO"]
-
-      def acli(*args):
-          profile = "bitbucket" if args and args[0] == "bitbucket" else "jira"
-          cmd = ["acli", "-p", profile] + list(args)
-          r = subprocess.run(cmd, capture_output=True, text=True)
-          if r.returncode != 0:
-              print(f"acli {' '.join(args[:4])} failed: {r.stderr.strip()}", file=sys.stderr)
-          return r
-
-      def adf_to_text(node):
-          """Recursively extract plain text from Atlassian Document Format."""
-          if not node or not isinstance(node, dict):
-              return ""
-          if node.get("type") == "text":
-              return node.get("text", "")
-          parts = [adf_to_text(c) for c in node.get("content", [])]
-          sep = "\n" if node.get("type") in ("paragraph", "heading", "listItem", "bulletList", "orderedList") else ""
-          return sep.join(p for p in parts if p)
-
-      # Search Jira for issues with pickup label
-      # Issues must have "ai-ready" label AND a "repo:<name>:<branch>" label
-      # e.g. labels: ai-ready, repo:my-service:develop
-      jql = f'project = {project} AND labels = "{pickup_lbl}" AND status != Done ORDER BY priority DESC'
-      r = acli("jira", "search", "--jql", jql, "--max-results", str(max_pending),
-               "--fields", "summary,description,labels", "-o", "json")
-      try:
-          data = json.loads(r.stdout) if r.returncode == 0 else {}
-          issues = data.get("issues", []) if isinstance(data, dict) else []
-      except json.JSONDecodeError:
-          issues = []
-
-      print(f"Fetched {len(issues)} issue(s) from {project} (label: {pickup_lbl})")
-
-      import re
-      repo_label_re = re.compile(r"^repo:([^:]+):(.+)$")
-
-      items = []
-      for issue in issues:
-          key = issue.get("key", "")
-          fields = issue.get("fields", {})
-          summary = fields.get("summary", "")
-          desc_raw = fields.get("description", "")
-          description = adf_to_text(desc_raw) if isinstance(desc_raw, dict) else (desc_raw or "")
-          url = issue.get("self", "")
-          labels = fields.get("labels", [])
-
-          # Extract repo and branch from "repo:<name>:<branch>" label
-          issue_repo = bb_repo        # default from job variables
-          issue_branch = "main"       # default branch
-          for lbl in labels:
-              lbl_str = lbl if isinstance(lbl, str) else lbl.get("name", "")
-              m = repo_label_re.match(lbl_str)
-              if m:
-                  issue_repo = m.group(1)
-                  issue_branch = m.group(2)
-                  break
-
-          nonce = subprocess.check_output(
-              ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
-
-          # Move label: replace full label list (acli edit --labels sets all labels)
-          new_labels = [l for l in labels if l != pickup_lbl] + [inprog_lbl]
-          acli("jira", "issue", "edit", key, "--labels", ",".join(new_labels))
-          print(f"  {key}: {summary} (repo={issue_repo}, branch={issue_branch})")
-
-          items.append({
-              "IssueNumber": key,
-              "IssueTitle": base64.b64encode(summary.encode()).decode(),
-              "IssueBody": base64.b64encode((description or "").encode()).decode(),
-              "IssueURL": url,
-              "Nonce": nonce,
-              "BitbucketWorkspace": bb_workspace,
-              "BitbucketRepo": issue_repo,
-              "GitBranch": issue_branch,
-              "JiraProject": project,
-              "_description": f"{key}: {summary} ({issue_repo}:{issue_branch})",
-              "_user_key": f"ai-jira-implement-{bb_workspace}-{issue_repo}-{key}",
-          })
-
-      items_json = json.dumps(items, separators=(",", ":"))
-      with open("issues.json", "w") as f:
-          f.write(items_json + "\n")
-
-      # Replace single quotes so IssuesJSON is safe to embed in YAML single-quoted env vars
-      items_json_safe = items_json.replace("\x27", "&#39;")
-      print("items.json written: {} item(s)".format(len(items)))
-      print("::set-output name=IssuesJSON::{}".format(items_json_safe))
-      PYEOF
-  artifacts:
-    paths:
-      - issues.json
+    - python -m scripts.jira.issue_picker
+  on_exit_code:
+    2: COMPLETED    # No issues found — not an error
   on_completed: submit-jobs
 
 - task_type: submit-jobs
@@ -140,26 +67,19 @@ tasks:
   environment:
     SUBMITTED_IDS: '{{if .IssuesJSON}}{{SubmitJobsFromJSON "ai-jira-implement" .IssuesJSON (printf "_parent_id=%s" .JobID)}}{{end}}'
     PENDING_COUNT: '{{CountByJobTypeAndState "ai-jira-implement" "PENDING"}}'
+    ISSUES_JSON: '{{.IssuesJSON}}'
   script:
-    - |
-      #!/bin/bash
-      set -euo pipefail
-      echo "=== Jira Issue Picker Submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-      [ -f issues.json ] && echo "Issues JSON:" && cat issues.json
-      if [ -n "${SUBMITTED_IDS:-}" ]; then
-        echo "Submitted job IDs:"
-        echo "$SUBMITTED_IDS" | while read -r id; do
-          [ -n "$id" ] && echo "  - $id"
-        done
-      else
-        echo "No jobs submitted"
-      fi
-      echo "Pending count: ${PENDING_COUNT}"
+    - echo "=== Jira Issue Picker Submit ==="
+    - echo "Issues found ${ISSUES_JSON:-none}, pending=${PENDING_COUNT}, submitted=${SUBMITTED_IDS:-none}"
 
 job_variables:
-  MaxPendingJobs: "10"
+  MaxIssues: "5"
   PickupLabel: "ai-ready"
   InProgressLabel: "ai-in-progress"
-  JiraProject: "PROJ"
-  BitbucketWorkspace: "myworkspace"
-  BitbucketRepo: "myrepo"
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
+  #   JiraUrl, JiraEmail, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
+  #   JiraApiToken                                                          (secret)
+  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key

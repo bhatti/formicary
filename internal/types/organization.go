@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"strings"
 	"time"
 )
@@ -30,9 +31,11 @@ type Organization struct {
 	// LicensePolicy defines license policy
 	LicensePolicy string `yaml:"external_id" json:"license_policy"`
 	// Configs defines config properties of org
-	Configs []*OrganizationConfig `yaml:"-" json:"-" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE"`
+	Configs []*Config `yaml:"-" json:"-" gorm:"polymorphic:Configurable;polymorphicValue:organizations"`
 	// Subscription defines quota policy and usage period
 	Subscription *Subscription `json:"subscription" gorm:"ForeignKey:OrganizationID" gorm:"auto_preload" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	// IsPersonal marks this as an auto-created personal org (one per user)
+	IsPersonal bool `yaml:"-" json:"is_personal" gorm:"column:is_personal;default:false"`
 	// Active is used to softly delete org
 	Active bool `yaml:"-" json:"-"`
 	// CreatedAt created time
@@ -53,10 +56,20 @@ func NewOrganization(
 		OrgUnit:        orgUnit,
 		MaxConcurrency: 1,
 		Active:         true,
-		Configs:        make([]*OrganizationConfig, 0),
+		Configs:        make([]*Config, 0),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
+}
+
+// NewPersonalOrg creates a personal org scoped to a single user.
+// OrgUnit is set to the username; BundleID gets a unique random value so it
+// never collides even when two users share a common username pattern.
+func NewPersonalOrg(ownerID string, username string) *Organization {
+	bundleID := ulid.Make().String() + ".formicary.io"
+	org := NewOrganization(ownerID, username, bundleID)
+	org.IsPersonal = true
+	return org
 }
 
 // TableName overrides default table name
@@ -73,8 +86,8 @@ func (o *Organization) String() string {
 func (o *Organization) AddConfig(
 	name string,
 	value interface{},
-	secret bool) (*OrganizationConfig, error) {
-	config, err := NewOrganizationConfig(o.ID, name, value, secret)
+	secret bool) (*Config, error) {
+	config, err := NewOrgConfig(o.ID, name, value, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +103,13 @@ func (o *Organization) AddConfig(
 		}
 	}
 	if !matched {
-		config.OrganizationID = o.ID
 		o.Configs = append(o.Configs, config)
 	}
 	return config, nil
 }
 
 // DeleteConfig removes resource config
-func (o *Organization) DeleteConfig(name string) *OrganizationConfig {
+func (o *Organization) DeleteConfig(name string) *Config {
 	for i, c := range o.Configs {
 		if c.Name == name {
 			o.Configs = append(o.Configs[:i], o.Configs[i+1:]...)
@@ -117,7 +129,7 @@ func (o *Organization) ConfigString() string {
 }
 
 // GetConfig gets config
-func (o *Organization) GetConfig(name string) *OrganizationConfig {
+func (o *Organization) GetConfig(name string) *Config {
 	for _, next := range o.Configs {
 		if next.Name == name {
 			return next
@@ -137,7 +149,7 @@ func (o *Organization) GetConfigString(name string) string {
 }
 
 // GetConfigByID gets config
-func (o *Organization) GetConfigByID(configID string) *OrganizationConfig {
+func (o *Organization) GetConfigByID(configID string) *Config {
 	for _, next := range o.Configs {
 		if next.ID == configID {
 			return next
@@ -168,10 +180,10 @@ func (o *Organization) Equals(other *Organization) error {
 	return nil
 }
 
-// AfterLoad initializes org
+// AfterLoad decrypts all config values after loading from the database.
 func (o *Organization) AfterLoad(key []byte) error {
 	for _, cfg := range o.Configs {
-		if err := cfg.Decrypt(key); err != nil {
+		if err := cfg.AfterLoad(key); err != nil {
 			return err
 		}
 	}
@@ -182,16 +194,24 @@ func (o *Organization) AfterLoad(key []byte) error {
 func (o *Organization) Validate() (err error) {
 	o.Errors = make(map[string]string)
 	if o.OrgUnit == "" {
-		err = errors.New("org-unit is not specified")
-		o.Errors["OrgUnit"] = err.Error()
+		if o.IsPersonal {
+			o.OrgUnit = ulid.Make().String()
+		} else {
+			err = errors.New("org-unit is not specified")
+			o.Errors["OrgUnit"] = err.Error()
+		}
 	}
 	if len(o.OrgUnit) > 100 {
 		err = errors.New("org-unit is too long")
 		o.Errors["OrgUnit"] = err.Error()
 	}
 	if o.BundleID == "" {
-		err = errors.New("bundle is not specified")
-		o.Errors["BundleID"] = err.Error()
+		if o.IsPersonal {
+			o.BundleID = ulid.Make().String() + ".formicary.io"
+		} else {
+			err = errors.New("bundle is not specified")
+			o.Errors["BundleID"] = err.Error()
+		}
 	}
 	if len(o.BundleID) > 100 {
 		err = errors.New("bundle is too long")
@@ -204,13 +224,13 @@ func (o *Organization) Validate() (err error) {
 	return
 }
 
-// ValidateBeforeSave validates job-resource
+// ValidateBeforeSave validates and encrypts config values before saving.
 func (o *Organization) ValidateBeforeSave(key []byte) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
 	for _, cfg := range o.Configs {
-		if err := cfg.Encrypt(key); err != nil {
+		if err := cfg.ValidateBeforeSave(key); err != nil {
 			return err
 		}
 	}

@@ -13,6 +13,7 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
+	qtypes "plexobject.com/formicary/queen/types"
 )
 
 // NewTestTaskStateMachine test fixture
@@ -34,7 +35,167 @@ func NewTestTaskStateMachine() (*TaskExecutionStateMachine, error) {
 	)
 }
 
+// NewTestJobStateMachineWithAntResponse creates a job state machine whose mock ant
+// returns a response built by the provided callback. Use this to test non-happy-path
+// flows (e.g. exit-code-3 → PAUSE_JOB) without altering the shared test fixture.
+func NewTestJobStateMachineWithAntResponse(
+	antResponse func(req *common.TaskRequest) *common.TaskResponse,
+) (*JobExecutionStateMachine, error) {
+	jsm, err := NewTestJobStateMachine()
+	if err != nil {
+		return nil, err
+	}
+	if channelClient, ok := jsm.QueueClient.(*queue.ClientChannel); ok {
+		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+			var req common.TaskRequest
+			if err := json.Unmarshal(inReq.Payload, &req); err != nil {
+				return nil, err
+			}
+			return json.Marshal(antResponse(&req))
+		})
+	}
+	return jsm, nil
+}
+
+// pauseJobYAML is a minimal two-task job. The first task maps exit code 3 to PAUSE_JOB
+// so that the supervisor pauses the job (not fails it) when the ant exits with code 3.
+// This is the canonical on_exit_code: PAUSE_JOB pattern used by poll-pr tasks.
+var pauseJobYAML = `
+job_type: io.formicary.test.pause-job
+tasks:
+- task_type: poll-task
+  method: KUBERNETES
+  script:
+    - echo poll
+  on_exit_code:
+    3: PAUSE_JOB
+  on_completed: done
+- task_type: done
+  method: KUBERNETES
+  script:
+    - echo done
+`
+
+// NewTestJobStateMachineForPause builds a job state machine from a YAML definition
+// that has on_exit_code: {3: PAUSE_JOB} on the first task, and installs a mock ant
+// that always returns exit code 3. This is the exact regression scenario for the
+// PAUSED→FAILED bug.
+func NewTestJobStateMachineForPause() (*JobExecutionStateMachine, error) {
+	cfg := config.TestServerConfig()
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &cfg.Common)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to pulsar: %w", err)
+	}
+	jobManager, err := manager.TestJobManager(cfg)
+	if err != nil {
+		return nil, err
+	}
+	artifactManager, err := manager.TestArtifactManager(cfg)
+	if err != nil {
+		return nil, err
+	}
+	userManager, err := manager.TestUserManager(cfg)
+	if err != nil {
+		return nil, err
+	}
+	resourceManager := resource.NewStub()
+	metricsRegistry := metrics.New()
+	errorCodeRepository, err := repository.NewTestErrorCodeRepository()
+	if err != nil {
+		return nil, err
+	}
+
+	// Mock ant: always return exit code 3 (triggers PAUSE_JOB for poll-task)
+	if channelClient, ok := queueClient.(*queue.ClientChannel); ok {
+		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+			var req common.TaskRequest
+			if unmarshalErr := json.Unmarshal(inReq.Payload, &req); unmarshalErr != nil {
+				return nil, unmarshalErr
+			}
+			res := common.NewTaskResponse(&req)
+			res.AntID = "test-ant"
+			res.Host = "test-host"
+			res.Status = common.FAILED
+			res.ExitCode = "3"
+			return json.Marshal(res)
+		})
+	}
+
+	resourceManager.Registry["ant-1"] = &common.AntRegistration{
+		AntID:       "ant-1",
+		AntTopic:    "ant-1-topic",
+		MaxCapacity: 100,
+		Tags:        make([]string, 0),
+		Methods:     []common.TaskMethod{common.Kubernetes},
+		Allocations: make(map[string]*common.AntAllocation),
+	}
+
+	// Create user and save job definition from YAML so on_exit_code is persisted
+	user := common.NewUser("", ulid.Make().String()+"@formicary.io", "name", "", acl.NewRoles(""))
+	user, err = userManager.CreateUser(common.NewQueryContextFromIDs("", ""), user)
+	if err != nil {
+		return nil, err
+	}
+	qc := common.NewQueryContext(user, "")
+
+	jobDef, err := qtypes.NewJobDefinitionFromYaml([]byte(pauseJobYAML))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse pause job YAML: %w", err)
+	}
+	jobDef.UserID = user.ID
+	jobDef.OrganizationID = user.OrganizationID
+	jobDef, err = jobManager.SaveJobDefinition(qc, jobDef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save pause job definition: %w", err)
+	}
+
+	req, err := qtypes.NewJobRequestFromDefinition(jobDef)
+	if err != nil {
+		return nil, err
+	}
+	req, err = jobManager.SaveJobRequest(qc, req)
+	if err != nil {
+		return nil, err
+	}
+
+	reservations := map[string]*common.AntReservation{
+		"poll-task": {AntID: "test-ant", AntTopic: "ant-1-topic"},
+		"done":      {AntID: "test-ant", AntTopic: "ant-1-topic"},
+	}
+
+	jsm := NewJobExecutionStateMachine(
+		cfg,
+		queueClient,
+		jobManager,
+		artifactManager,
+		userManager,
+		resourceManager,
+		errorCodeRepository,
+		metricsRegistry,
+		req,
+		reservations)
+	if dbErr, createErr := jsm.CreateJobExecution(context.Background()); dbErr != nil {
+		return nil, dbErr
+	} else if createErr != nil {
+		return nil, createErr
+	}
+	return jsm, nil
+}
+
 // NewTestJobStateMachine test fixture
+// NewTestJobStateMachineWithOrgID creates a test state machine where the job
+// request carries the given orgID, for testing org-scoped config loading.
+func NewTestJobStateMachineWithOrgID(orgID string) (*JobExecutionStateMachine, error) {
+	jsm, err := NewTestJobStateMachine()
+	if err != nil {
+		return nil, err
+	}
+	if req, ok := jsm.Request.(*qtypes.JobRequest); ok {
+		req.OrganizationID = orgID
+	}
+	return jsm, nil
+}
+
 func NewTestJobStateMachine() (*JobExecutionStateMachine, error) {
 	// Initializing dependent objects
 	cfg := config.TestServerConfig()

@@ -13,7 +13,7 @@
         ant_id VARCHAR(100),
         encoded_message TEXT,
 
-        created_at TIMESTAMP NOT NULL DEFAULT now()
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ;
 
     CREATE INDEX formicary_log_events_user_id_ndx ON formicary_log_events(user_id);

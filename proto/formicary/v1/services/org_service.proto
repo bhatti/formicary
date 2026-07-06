@@ -68,7 +68,7 @@ message DeleteOrgRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// QueryOrgConfigsRequest carries filter params for listing organization configs.
+// QueryOrgConfigsRequest carries filter params for listing org configs.
 message QueryOrgConfigsRequest {
   string organization_id = 1 [(buf.validate.field).string.min_len = 1];
   int32 page = 2 [(buf.validate.field).int32.gte = 0];
@@ -79,29 +79,106 @@ message QueryOrgConfigsRequest {
 }
 
 // QueryOrgConfigsResponse returns a paginated list of org configs.
+// Secret values are masked as "****" in this response.
 message QueryOrgConfigsResponse {
-  repeated formicary.v1.user.OrganizationConfig records = 1;
+  repeated formicary.v1.user.Config records = 1;
   int64 total_records = 2;
   int32 page = 3;
   int32 page_size = 4;
+}
+
+// GetOrgConfigRequest identifies a single org config by ID.
+message GetOrgConfigRequest {
+  string organization_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetOrgConfigResponse wraps a single org config. Secret value is masked as "****".
+message GetOrgConfigResponse {
+  formicary.v1.user.Config config = 1;
+}
+
+// RevealOrgConfigRequest identifies the secret config to reveal.
+message RevealOrgConfigRequest {
+  string organization_id = 1 [(buf.validate.field).string.min_len = 1];
+  string config_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// RevealOrgConfigResponse returns the plaintext secret value and creates an audit record.
+message RevealOrgConfigResponse {
+  formicary.v1.user.Config config = 1;
 }
 
 // SaveOrgConfigRequest creates or updates a named org config property.
 message SaveOrgConfigRequest {
   string organization_id = 1 [(buf.validate.field).string.min_len = 1];
   string config_id = 2;
-  formicary.v1.user.OrganizationConfig config = 3 [(buf.validate.field).required = true];
+  formicary.v1.user.Config config = 3 [(buf.validate.field).required = true];
 }
 
 // SaveOrgConfigResponse returns the saved org config.
 message SaveOrgConfigResponse {
-  formicary.v1.user.OrganizationConfig config = 1;
+  formicary.v1.user.Config config = 1;
 }
 
 // DeleteOrgConfigRequest identifies an org config to delete.
 message DeleteOrgConfigRequest {
   string organization_id = 1 [(buf.validate.field).string.min_len = 1];
   string config_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// QueryUserConfigsRequest lists configs for the authenticated user.
+message QueryUserConfigsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
+}
+
+// QueryUserConfigsResponse returns a paginated list of user configs.
+// Secret values are masked as "****".
+message QueryUserConfigsResponse {
+  repeated formicary.v1.user.Config records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// GetUserConfigRequest identifies a single user config by ID.
+message GetUserConfigRequest {
+  string config_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetUserConfigResponse wraps a single user config. Secret value is masked as "****".
+message GetUserConfigResponse {
+  formicary.v1.user.Config config = 1;
+}
+
+// RevealUserConfigRequest identifies the user secret config to reveal.
+message RevealUserConfigRequest {
+  string config_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// RevealUserConfigResponse returns the plaintext secret value.
+message RevealUserConfigResponse {
+  formicary.v1.user.Config config = 1;
+}
+
+// SaveUserConfigRequest creates or updates a named user config.
+message SaveUserConfigRequest {
+  string config_id = 1;
+  formicary.v1.user.Config config = 2 [(buf.validate.field).required = true];
+}
+
+// SaveUserConfigResponse returns the saved user config.
+message SaveUserConfigResponse {
+  formicary.v1.user.Config config = 1;
+}
+
+// DeleteUserConfigRequest identifies a user config to delete.
+message DeleteUserConfigRequest {
+  string config_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 // OrganizationService manages organizations and their configurations.
@@ -187,16 +264,44 @@ service OrganizationService {
     };
   }
 
-  // QueryOrgConfigs lists configuration properties for an organization.
+  // QueryOrgConfigs lists configuration properties for an organization. Secret values are masked.
   rpc QueryOrgConfigs(QueryOrgConfigsRequest) returns (QueryOrgConfigsResponse) {
     option (google.api.http) = {get: "/api/v1/orgs/{organization_id}/configs"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "List org configs"
-      description: "Returns paginated configuration properties for an organization."
+      description: "Returns paginated configuration properties for an organization. Secret values are masked as '****'."
       tags: ["organizations"]
       responses: {
         key: "200"
         value: {description: "Org config list."}
+      }
+    };
+  }
+
+  // GetOrgConfig returns a single configuration property. Secret value is masked.
+  rpc GetOrgConfig(GetOrgConfigRequest) returns (GetOrgConfigResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs/{organization_id}/configs/{config_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get org config"
+      description: "Returns a single org configuration property. Secret value is masked as '****'. Use RevealOrgConfig to get the plaintext value."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Org config."}
+      }
+    };
+  }
+
+  // RevealOrgConfig returns the plaintext value of a secret config. Requires OrgAdmin. Creates an audit record.
+  rpc RevealOrgConfig(RevealOrgConfigRequest) returns (RevealOrgConfigResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs/{organization_id}/configs/{config_id}/reveal"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Reveal secret org config"
+      description: "Returns the plaintext value of a secret configuration property. Requires OrgAdmin or Admin role. Creates an audit log entry."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Org config with plaintext value."}
       }
     };
   }
@@ -225,6 +330,79 @@ service OrganizationService {
       summary: "Delete org config"
       description: "Removes a named configuration property from an organization."
       tags: ["organizations"]
+      responses: {
+        key: "204"
+        value: {description: "Deleted successfully."}
+      }
+    };
+  }
+
+  // QueryUserConfigs lists configuration properties for the authenticated user. Secret values are masked.
+  rpc QueryUserConfigs(QueryUserConfigsRequest) returns (QueryUserConfigsResponse) {
+    option (google.api.http) = {get: "/api/v1/users/configs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List my configs"
+      description: "Returns paginated configuration properties for the authenticated user. Secret values are masked as '****'."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "User config list."}
+      }
+    };
+  }
+
+  // GetUserConfig returns a single user config. Secret value is masked.
+  rpc GetUserConfig(GetUserConfigRequest) returns (GetUserConfigResponse) {
+    option (google.api.http) = {get: "/api/v1/users/configs/{config_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get my config"
+      description: "Returns a single user configuration property. Secret value is masked. Use RevealUserConfig to see the plaintext value."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "User config."}
+      }
+    };
+  }
+
+  // RevealUserConfig returns the plaintext value of a secret user config. Creates an audit record.
+  rpc RevealUserConfig(RevealUserConfigRequest) returns (RevealUserConfigResponse) {
+    option (google.api.http) = {get: "/api/v1/users/configs/{config_id}/reveal"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Reveal my secret config"
+      description: "Returns the plaintext value of a secret user configuration property. Creates an audit log entry."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "User config with plaintext value."}
+      }
+    };
+  }
+
+  // SaveUserConfig creates or updates a named configuration property for the authenticated user.
+  rpc SaveUserConfig(SaveUserConfigRequest) returns (SaveUserConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users/configs"
+      body: "config"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save my config"
+      description: "Creates or updates a named configuration property for the authenticated user. Secret values are encrypted at rest."
+      tags: ["users"]
+      responses: {
+        key: "200"
+        value: {description: "Saved user config."}
+      }
+    };
+  }
+
+  // DeleteUserConfig removes a named configuration property from the authenticated user.
+  rpc DeleteUserConfig(DeleteUserConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/users/configs/{config_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Delete my config"
+      description: "Removes a named configuration property from the authenticated user."
+      tags: ["users"]
       responses: {
         key: "204"
         value: {description: "Deleted successfully."}

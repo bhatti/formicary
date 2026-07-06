@@ -364,8 +364,10 @@ func downloadDependentArtifacts(
 	} // downloaded all files
 
 	// Copy all dependent artifacts to current working folder, then verify files landed.
-	cmd := fmt.Sprintf("touch %s/ignore && cp -R %s/* . && find %s | head -10",
-		extractedDir, extractedDir, extractedDir)
+	// Use find -exec instead of glob (* fails on empty dir; touch ignore creates a sentinel
+	// that cp tries to write to the root dir, causing permission errors with working_dir:/).
+	cmd := fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec cp -R {} . \\; && find %s | head -10",
+		extractedDir, extractedDir)
 	stdout, stderr, _, _, copyErr := execute(ctx, cmd, false)
 	if copyErr != nil {
 		msg := fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s", copyErr, string(stderr))

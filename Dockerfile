@@ -24,8 +24,12 @@ RUN go mod download && \
     -ldflags "-X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%S) -X main.version=${APP_VERSION}" \
     -o out/bin/formicary . || (echo "Build failed"; exit 1)
 
-# Install Goose
-RUN GOARCH=$(go env GOARCH) GOOS=$(go env GOOS) go install github.com/pressly/goose/v3/cmd/goose@v3.17.0
+# Install Goose — download pre-built binary to avoid a separate go install network fetch
+ARG GOOSE_VERSION=3.17.0
+RUN ARCH=$(go env GOARCH) && \
+    curl -fsSL "https://github.com/pressly/goose/releases/download/v${GOOSE_VERSION}/goose_linux_${ARCH}" \
+         -o /usr/local/bin/goose && \
+    chmod +x /usr/local/bin/goose
 
 # Production stage
 FROM debian:bookworm-slim
@@ -40,7 +44,7 @@ RUN rm -rf /var/lib/apt/lists/* && \
 
 # Copy binaries from builder stage
 COPY --from=go-builder /src/out/bin/formicary /formicary
-COPY --from=go-builder /go/bin/goose /usr/local/bin/goose
+COPY --from=go-builder /usr/local/bin/goose /usr/local/bin/goose
 COPY --from=go-builder /usr/local/bin/weed /usr/local/bin/weed
 # Copy application files
 RUN mkdir -p /app/public
@@ -59,11 +63,13 @@ RUN chmod +x /usr/local/bin/migrate.sh /usr/local/bin/goose /formicary && \
     /usr/local/bin/goose --version
 
 # Create necessary directories
-RUN mkdir -p /data /app/data /tmp/formicary /var/log/formicary && \
-    chown -R formicary-user:formicary-user /data /app /tmp/formicary /var/log/formicary && \
-    chmod 755 /data /app/data /tmp/formicary /var/log/formicary
+RUN mkdir -p /data /app/data /tmp/formicary /var/log/formicary /home/formicary-user/.kube && \
+    chown -R formicary-user:formicary-user /data /app /tmp/formicary /var/log/formicary /home/formicary-user && \
+    chmod 755 /data /app/data /tmp/formicary /var/log/formicary && \
+    chmod 700 /home/formicary-user/.kube
 
-ENV DB_NAME="formicary_db" \
+ENV HOME="/home/formicary-user" \
+    DB_NAME="formicary_db" \
     DB_USER="formicary_user" \
     DB_HOST="localhost" \
     DB_PORT="5432" \

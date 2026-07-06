@@ -72,8 +72,8 @@ func Test_ShouldCreateAuditRecordFromOrganization(t *testing.T) {
 	require.NotNil(t, NewAuditRecordFromOrganization(&common.Organization{}, &common.QueryContext{}))
 }
 
-func Test_ShouldCreateAuditRecordFromOrganizationConfig(t *testing.T) {
-	require.NotNil(t, NewAuditRecordFromOrganizationConfig(&common.OrganizationConfig{}, &common.QueryContext{}))
+func Test_ShouldCreateAuditRecordFromConfig(t *testing.T) {
+	require.NotNil(t, NewAuditRecordFromConfig(&common.Config{}, &common.QueryContext{}))
 }
 
 func Test_ShouldCreateAuditRecordFromSubscription(t *testing.T) {

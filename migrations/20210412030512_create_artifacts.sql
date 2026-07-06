@@ -21,8 +21,8 @@
         tags_serialized TEXT,
         expires_at TIMESTAMP,
         active BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMP NOT NULL DEFAULT now(),
-        updated_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ;
 
     CREATE INDEX formicary_artifacts_user_id_ndx ON formicary_artifacts(user_id);

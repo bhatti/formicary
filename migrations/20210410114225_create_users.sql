@@ -4,6 +4,7 @@
       parent_id VARCHAR(36),
       owner_user_id VARCHAR(36),
       active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_personal BOOLEAN NOT NULL DEFAULT FALSE,
       org_unit VARCHAR(100) NOT NULL,
       bundle_id VARCHAR(100) NOT NULL,
       salt VARCHAR(64) NOT NULL DEFAULT '',
@@ -11,29 +12,27 @@
       license_policy VARCHAR(100),
       sticky_message VARCHAR(200),
       created_at TIMESTAMP,
-      updated_at TIMESTAMP,
+      updated_at TIMESTAMP
     );
 
     CREATE UNIQUE INDEX formicary_orgs_org_ndx ON formicary_orgs(org_unit);
     CREATE UNIQUE INDEX formicary_orgs_bundle_ndx ON formicary_orgs(bundle_id);
     CREATE INDEX formicary_orgs_active ON formicary_orgs(active);
-    INSERT INTO formicary_orgs (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000000', 'formicary', 'io.formicary');
-    INSERT INTO formicary_orgs (id, org_unit, bundle_id) VALUES ('00000000-0000-0000-0000-000000000001', 'plexobject', 'com.plexobject');
 
-    CREATE TABLE IF NOT EXISTS formicary_org_configs (
+    CREATE TABLE IF NOT EXISTS formicary_configs (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
-      organization_id VARCHAR(36) NOT NULL,
+      configurable_id VARCHAR(36) NOT NULL,
+      configurable_type VARCHAR(50) NOT NULL,
       name VARCHAR(100) NOT NULL,
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP,
-      updated_at TIMESTAMP,
-      CONSTRAINT formicary_org_configs_job_fk FOREIGN KEY (organization_id) REFERENCES formicary_orgs(id)
+      updated_at TIMESTAMP
     );
 
-    CREATE INDEX formicary_org_configs_job_ndx ON formicary_org_configs(organization_id);
-    CREATE UNIQUE INDEX formicary_org_configs_id_name_ndx ON formicary_org_configs(organization_id, name);
+    CREATE INDEX formicary_configs_owner_ndx ON formicary_configs(configurable_type, configurable_id);
+    CREATE UNIQUE INDEX formicary_configs_owner_name_ndx ON formicary_configs(configurable_type, configurable_id, name);
 
     CREATE TABLE IF NOT EXISTS formicary_users (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -56,7 +55,7 @@
       auth_provider VARCHAR(50),
       auth_id VARCHAR(50),
       created_at TIMESTAMP,
-      updated_at TIMESTAMP,
+      updated_at TIMESTAMP
     );
 
     CREATE UNIQUE INDEX formicary_users_username_ndx ON formicary_users(username);
@@ -113,5 +112,5 @@
     DROP TABLE IF EXISTS formicary_user_sessions;
     DROP TABLE IF EXISTS formicary_user_tokens;
     DROP TABLE IF EXISTS formicary_users;
-    DROP TABLE IF EXISTS formicary_org_configs;
+    DROP TABLE IF EXISTS formicary_configs;
     DROP TABLE IF EXISTS formicary_orgs;

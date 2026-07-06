@@ -2,7 +2,9 @@ package manager
 
 import (
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"github.com/sirupsen/logrus"
+	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/notify"
@@ -20,7 +22,7 @@ type UserManager struct {
 	auditRecordRepository       repository.AuditRecordRepository
 	userRepository              repository.UserRepository
 	orgRepository               repository.OrganizationRepository
-	orgConfigRepository         repository.OrganizationConfigRepository
+	configRepository            repository.ConfigRepository
 	invRepository               repository.InvitationRepository
 	emailVerificationRepository repository.EmailVerificationRepository
 	subscriptionRepository      repository.SubscriptionRepository
@@ -35,7 +37,7 @@ func NewUserManager(
 	auditRecordRepository repository.AuditRecordRepository,
 	userRepository repository.UserRepository,
 	orgRepository repository.OrganizationRepository,
-	orgConfigRepository repository.OrganizationConfigRepository,
+	configRepository repository.ConfigRepository,
 	invRepository repository.InvitationRepository,
 	emailVerificationRepository repository.EmailVerificationRepository,
 	subscriptionRepository repository.SubscriptionRepository,
@@ -60,8 +62,8 @@ func NewUserManager(
 	if orgRepository == nil {
 		return nil, fmt.Errorf("org-repository is not specified")
 	}
-	if orgConfigRepository == nil {
-		return nil, fmt.Errorf("org-config-repository is not specified")
+	if configRepository == nil {
+		return nil, fmt.Errorf("config-repository is not specified")
 	}
 	if invRepository == nil {
 		return nil, fmt.Errorf("invitation-repository is not specified")
@@ -81,7 +83,7 @@ func NewUserManager(
 		auditRecordRepository:       auditRecordRepository,
 		userRepository:              userRepository,
 		orgRepository:               orgRepository,
-		orgConfigRepository:         orgConfigRepository,
+		configRepository:            configRepository,
 		invRepository:               invRepository,
 		emailVerificationRepository: emailVerificationRepository,
 		subscriptionRepository:      subscriptionRepository,
@@ -238,10 +240,29 @@ func (m *UserManager) CreateUserToken(
 	return tok, nil
 }
 
+// PrepareLoginUser looks up an existing DB user by username, copies their roles/permissions onto
+// the OAuth-provided user, and backfills any missing default permissions. Returns the DB user if
+// found (nil for first-time logins).
+func (m *UserManager) PrepareLoginUser(user *common.User) (oldUser *common.User) {
+	oldUser, _ = m.userRepository.GetByUsername(common.NewQueryContext(nil, ""), user.Username)
+	if oldUser != nil {
+		user.CopyRolesPermissions(oldUser)
+	}
+	if user.SerializedPerms == "" {
+		user.SerializedPerms = acl.DefaultPermissionsString()
+	} else {
+		user.BackfillDefaultPermissions()
+	}
+	return oldUser
+}
+
 // CreateUser creates new user
 func (m *UserManager) CreateUser(
 	qc *common.QueryContext,
 	user *common.User) (*common.User, error) {
+	if user.SerializedPerms == "" {
+		user.SerializedPerms = acl.DefaultPermissionsString()
+	}
 	saved, err := m.userRepository.Create(user)
 	if err != nil {
 		return nil, err
@@ -257,9 +278,8 @@ func (m *UserManager) CreateUser(
 		}).Errorf("failed to send email verification")
 	}
 
-	if subscription, err := m.subscriptionRepository.Create(
-		qc,
-		common.NewFreemiumSubscription(saved)); err == nil {
+	subscription, subErr := m.subscriptionRepository.Create(qc, common.NewFreemiumSubscription(saved))
+	if subErr == nil {
 		logrus.WithFields(logrus.Fields{
 			"Component":    "UserManager",
 			"Subscription": subscription,
@@ -267,37 +287,66 @@ func (m *UserManager) CreateUser(
 		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"Component":    "UserManager",
-			"Subscription": subscription,
-			"Error":        err,
+			"Component": "UserManager",
+			"UserID":    saved.ID,
+			"Error":     subErr,
 		}).Errorf("failed to create Subscription")
+		return nil, subErr
 	}
 	return saved, nil
 }
 
-// PostSignup handles post signup
+// SignupUser is the single entry-point for new-user registration.
+// It validates the user, resolves/creates the org, saves the user, and runs
+// PostSignup. The caller must have already called initUserFromForm so that
+// OrganizationID, OrgUnit, BundleID, and InvitationCode reflect the submitted form.
+func (m *UserManager) SignupUser(qc *common.QueryContext, user *common.User, remoteAddr string) (*common.User, *common.Organization, error) {
+	org, err := m.BuildOrgWithInvitation(user)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	saved, err := m.CreateUser(qc, user)
+	if err != nil {
+		return user, nil, err
+	}
+
+	if org != nil && org.ID == "" {
+		org.OwnerUserID = saved.ID
+		savedOrg, orgErr := m.CreateOrg(qc, org)
+		if orgErr != nil {
+			_ = m.DeleteUser(common.NewQueryContext(nil, "").WithAdmin(), saved.ID)
+			return nil, nil, orgErr
+		}
+		org = savedOrg
+		saved.OrganizationID = org.ID
+		saved.BundleID = org.BundleID
+		if _, err = m.UpdateUser(common.NewQueryContext(nil, "").WithAdmin(), saved); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if saved.OrganizationID == "" {
+		personalOrg, orgErr := m.CreatePersonalOrgForUser(saved)
+		if orgErr != nil {
+			_ = m.DeleteUser(common.NewQueryContext(nil, "").WithAdmin(), saved.ID)
+			return nil, nil, orgErr
+		}
+		org = personalOrg
+	}
+
+	saved.Organization = org
+	signupQC := common.NewQueryContext(saved, remoteAddr)
+	_ = m.PostSignup(signupQC, saved)
+	return saved, org, nil
+}
+
+// PostSignup records the signup audit event. Subscription is created by CreateUser.
 func (m *UserManager) PostSignup(
 	qc *common.QueryContext,
-	user *common.User) (err error) {
+	user *common.User) error {
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserSignup, qc))
-
-	subscription := common.NewFreemiumSubscription(user)
-	if subscription, err = m.subscriptionRepository.Create(
-		qc,
-		subscription); err == nil {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "UserManager",
-			"Subscription": subscription,
-		}).Info("created Subscription")
-		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromSubscription(subscription, qc))
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"Component":    "UserManager",
-			"Subscription": subscription,
-			"Error":        err,
-		}).Errorf("failed to create Subscription")
-	}
-	return
+	return nil
 }
 
 // UpdateUser updates existing user
@@ -323,7 +372,7 @@ func (m *UserManager) GetSlackToken(
 	if org != nil {
 		return org.GetConfigString(types.SlackToken), nil
 	}
-	recs, _, err := m.orgConfigRepository.Query(
+	recs, _, err := m.configRepository.Query(
 		qc,
 		map[string]interface{}{"name": types.SlackToken},
 		0,
@@ -385,7 +434,7 @@ func (m *UserManager) UpdateUserNotification(
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromUser(user, types.UserUpdated, qc))
 
 	if slackToken != "" && qc.HasOrganization() {
-		cfg, err := common.NewOrganizationConfig(
+		cfg, err := common.NewOrgConfig(
 			qc.GetOrganizationID(),
 			types.SlackToken,
 			slackToken,
@@ -393,11 +442,11 @@ func (m *UserManager) UpdateUserNotification(
 		if err != nil {
 			return saved, err
 		}
-		cfg, err = m.orgConfigRepository.Save(qc, cfg)
+		cfg, err = m.configRepository.Save(qc, cfg)
 		if err != nil {
 			return saved, err
 		}
-		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(cfg, qc))
+		_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
 	}
 
 	return saved, nil
@@ -421,21 +470,42 @@ func (m *UserManager) DeleteOrganization(
 	return m.orgRepository.Delete(qc, id)
 }
 
-// GetOrgConfigs returns all org configs for the given org ID.
-// Used by the job FSM to populate template variables for cron jobs that run
-// without an authenticated user (auth disabled or system-triggered jobs).
-func (m *UserManager) GetOrgConfigs(orgID string) ([]*common.OrganizationConfig, error) {
+// GetOrgConfigs returns all org-scoped configs for the given org ID.
+// Used by the job FSM to populate template variables.
+// The org is loaded to derive the correct per-org encryption salt; if the org
+// cannot be found the query still runs with an empty salt (configs saved without
+// encryption will still be readable).
+func (m *UserManager) GetOrgConfigs(orgID string) ([]*common.Config, error) {
 	if orgID == "" {
 		return nil, nil
 	}
-	qc := common.NewQueryContextFromIDs("", orgID)
-	recs, _, err := m.orgConfigRepository.Query(qc, nil, 0, 200, nil)
+	// Load the org so we get its Salt for correct encryption key derivation.
+	adminQC := common.NewQueryContextFromIDs("", orgID).WithAdmin()
+	org, err := m.orgRepository.Get(adminQC, orgID)
+	var qc *common.QueryContext
+	if err != nil {
+		// Org not found (e.g. synthetic IDs in tests) — fall back to salt-less key.
+		qc = common.NewQueryContextFromIDs("", orgID).WithAdmin()
+	} else {
+		qc = common.NewQueryContextWithOrg(org)
+	}
+	recs, _, err := m.configRepository.QueryOrgConfigs(qc, orgID, 0, 200)
 	return recs, err
 }
 
-// SaveOrgConfig saves a single org config. Used in tests and the org config controller.
-func (m *UserManager) SaveOrgConfig(qc *common.QueryContext, cfg *common.OrganizationConfig) (*common.OrganizationConfig, error) {
-	return m.orgConfigRepository.Save(qc, cfg)
+// GetUserConfigs returns all user-scoped configs for the given user ID.
+func (m *UserManager) GetUserConfigs(userID string) ([]*common.Config, error) {
+	if userID == "" {
+		return nil, nil
+	}
+	qc := common.NewQueryContextFromIDs(userID, "")
+	recs, _, err := m.configRepository.QueryUserConfigs(qc, userID, 0, 200)
+	return recs, err
+}
+
+// SaveConfig saves a config (org or user). Used in tests and controllers.
+func (m *UserManager) SaveConfig(qc *common.QueryContext, cfg *common.Config) (*common.Config, error) {
+	return m.configRepository.Save(qc, cfg)
 }
 
 // QueryOrgs find orgs
@@ -459,6 +529,44 @@ func (m *UserManager) CreateOrg(
 	}
 	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromOrganization(saved, qc))
 	return saved, nil
+}
+
+// CreatePersonalOrgForUser creates a personal org for the user, assigns OrgAdmin role,
+// and persists the updated user. Returns the saved org.
+func (m *UserManager) CreatePersonalOrgForUser(user *common.User) (*common.Organization, error) {
+	adminQC := common.NewQueryContext(nil, "").WithAdmin()
+	personalOrg := common.NewPersonalOrg(user.ID, user.Username)
+	savedOrg, err := m.orgRepository.Create(adminQC, personalOrg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create personal org for user %s: %w", user.Username, err)
+	}
+	_, _ = m.auditRecordRepository.Save(types.NewAuditRecordFromOrganization(savedOrg, adminQC))
+
+	user.OrganizationID = savedOrg.ID
+	user.BundleID = savedOrg.BundleID
+	promoteToOrgAdmin(user)
+
+	if _, err = m.userRepository.Update(adminQC, user); err != nil {
+		// Roll back the orphaned org so the next signup attempt does not hit a uniqueness violation.
+		_ = m.orgRepository.Delete(adminQC, savedOrg.ID)
+		return nil, fmt.Errorf("failed to update user %s with personal org: %w", user.Username, err)
+	}
+	logrus.WithFields(logrus.Fields{
+		"Component": "UserManager",
+		"User":      user.Username,
+		"OrgID":     savedOrg.ID,
+	}).Infof("created personal org and promoted to OrgAdmin")
+	return savedOrg, nil
+}
+
+// promoteToOrgAdmin assigns the OrgAdmin role and OrgAdmin permissions to a user.
+// Caller must persist the user after calling this.
+func promoteToOrgAdmin(user *common.User) {
+	roles := user.GetRoles()
+	roles.AddRole(acl.OrgAdmin)
+	user.SerializedRoles = roles.MarshalRoles()
+	user.SerializedPerms = acl.OrgAdminPermissionsString()
+	user.ResetPermissionsCache()
 }
 
 // UpdateOrg updates existing org
@@ -532,6 +640,15 @@ func (m *UserManager) QueryInvitations(
 // BuildOrgWithInvitation checks existing when signing up
 func (m *UserManager) BuildOrgWithInvitation(
 	user *common.User) (org *common.Organization, err error) {
+	logrus.WithFields(logrus.Fields{
+		"Component":      "UserManager",
+		"Username":       user.Username,
+		"OrganizationID": user.OrganizationID,
+		"OrgUnit":        user.OrgUnit,
+		"BundleID":       user.BundleID,
+		"InvitationCode": user.InvitationCode,
+		"HasOrgOrInv":    user.HasOrganizationOrInvitationCode(),
+	}).Infof("BuildOrgWithInvitation called")
 	if !user.HasOrganizationOrInvitationCode() {
 		return
 	}
@@ -545,6 +662,7 @@ func (m *UserManager) BuildOrgWithInvitation(
 			user.OrganizationID = org.ID
 			user.BundleID = org.BundleID
 			user.OrgUnit = org.OrgUnit
+			promoteToOrgAdmin(user)
 			logrus.WithFields(logrus.Fields{
 				"Component":  "UserManager",
 				"Org":        org,
@@ -570,9 +688,7 @@ func (m *UserManager) BuildOrgWithInvitation(
 			return nil, err
 		}
 		if user.BundleID == "" {
-			err = fmt.Errorf("bundleID is not specified")
-			user.Errors["BundleID"] = err.Error()
-			return nil, err
+			user.BundleID = ulid.Make().String() + ".formicary.io"
 		}
 		org = common.NewOrganization(user.ID, user.OrgUnit, user.BundleID)
 	}

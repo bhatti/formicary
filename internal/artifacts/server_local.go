@@ -78,8 +78,8 @@ func startWeedProcess(conf *types.S3Config, weedBin string, port int) (*LocalSer
 		"-s3",
 		fmt.Sprintf("-s3.port=%d", port),
 		fmt.Sprintf("-dir=%s", conf.LocalDataDir),
-		"-ip=127.0.0.1",
-		"-ip.bind=127.0.0.1",
+		"-ip=0.0.0.0",
+		"-ip.bind=0.0.0.0",
 	)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile

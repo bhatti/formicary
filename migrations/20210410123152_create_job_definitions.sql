@@ -27,8 +27,8 @@
       raw_yaml TEXT, -- CHARACTER SET utf8 COLLATE utf8_unicode_ci,
       user_id VARCHAR(36),
       organization_id VARCHAR(36),
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE UNIQUE INDEX formicary_job_definitions_type_version_ndx ON formicary_job_definitions(user_id, job_type, version);
@@ -46,8 +46,8 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_job_definition_variables_job_fk FOREIGN KEY (job_definition_id) REFERENCES formicary_job_definitions(id)
     );
 
@@ -61,8 +61,8 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_job_definition_configs_job_fk FOREIGN KEY (job_definition_id) REFERENCES formicary_job_definitions(id)
     );
 

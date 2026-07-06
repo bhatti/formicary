@@ -292,14 +292,15 @@ func (u *User) UsesCommonEmail() bool {
 	return CommonEmailExtension(u.Email)
 }
 
-// HasOrganization - association to org
+// HasOrganization - true when the user is linked to a persisted, loaded organization.
 func (u *User) HasOrganization() bool {
-	return u.OrganizationID != "" || u.OrgUnit != ""
+	return u.OrganizationID != "" && u.Organization != nil
 }
 
-// HasOrganizationOrInvitationCode - returns true if invitation or organization is populated
+// HasOrganizationOrInvitationCode - true when the user is signing up into an org
+// (has OrgUnit, an existing OrganizationID, or an invitation code).
 func (u *User) HasOrganizationOrInvitationCode() bool {
-	return u.HasOrganization() || u.InvitationCode != ""
+	return u.OrganizationID != "" || u.OrgUnit != "" || u.InvitationCode != ""
 }
 
 // CommonEmailExtension checks for common email extensions
@@ -329,6 +330,27 @@ func (u *User) HasPermission(resource acl.Resource, action int) bool {
 	return u.IsAdmin() || u.GetPermissions().Has(resource, action)
 }
 
+// BackfillDefaultPermissions adds any default permissions that are missing from the user's
+// serialized permissions. This handles users created before a permission was added to DefaultPermissions.
+func (u *User) BackfillDefaultPermissions() {
+	existing := acl.UnmarshalPermissions(u.SerializedPerms)
+	existingMap := make(map[acl.Resource]*acl.Permission, len(existing))
+	for _, p := range existing {
+		existingMap[p.Resource] = p
+	}
+	changed := false
+	for _, def := range acl.DefaultPermissions() {
+		if _, ok := existingMap[def.Resource]; !ok {
+			existing = append(existing, def)
+			changed = true
+		}
+	}
+	if changed {
+		u.SerializedPerms = acl.MarshalPermissions(existing)
+		u.permissions = nil
+	}
+}
+
 // GetRoles getter
 func (u *User) GetRoles() *acl.Roles {
 	if u.roles == nil {
@@ -355,6 +377,12 @@ func (u *User) CopyRolesPermissions(other *User) {
 	u.permissions = nil
 }
 
+// ResetPermissionsCache clears the cached roles/permissions so they are re-parsed from the serialized fields.
+func (u *User) ResetPermissionsCache() {
+	u.roles = nil
+	u.permissions = nil
+}
+
 // IsAdmin getter
 func (u *User) IsAdmin() bool {
 	return u.GetRoles().IsAdmin()
@@ -363,6 +391,11 @@ func (u *User) IsAdmin() bool {
 // IsReadAdmin getter
 func (u *User) IsReadAdmin() bool {
 	return u.GetRoles().IsReadAdmin()
+}
+
+// IsOrgAdmin getter
+func (u *User) IsOrgAdmin() bool {
+	return u.GetRoles().IsOrgAdmin()
 }
 
 // HasInvitationCode getter

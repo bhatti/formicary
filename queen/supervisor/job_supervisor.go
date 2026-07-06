@@ -422,7 +422,7 @@ func (js *JobSupervisor) executeNextTask(
 			return taskStateMachine.TaskExecution.ErrorCode,
 				fmt.Errorf("%s", taskStateMachine.TaskExecution.ErrorMessage)
 		} else if taskStateMachine.TaskExecution.TaskState == common.PAUSED {
-			return taskStateMachine.TaskExecution.ErrorCode,
+			return common.ErrorPauseJob,
 				fmt.Errorf("%s", taskStateMachine.TaskExecution.ErrorMessage)
 		} else if len(taskStateMachine.TaskDefinition.OnExitCode) > 0 {
 			// Check if the status-based on_exit_code mapping resolves to a special action

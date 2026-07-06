@@ -102,7 +102,20 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	var names strings.Builder
 
 	for _, p := range paths {
-		cmd := fmt.Sprintf("mv %s %s", p, dir)
+		var cmd string
+		var zipName string
+		if strings.HasPrefix(p, "/") {
+			// Absolute path: preserve directory structure under dir so the zip
+			// entry is relative (e.g. "workspace/3/issue.json"), which extracts
+			// correctly when cp-R'd back to / on the receiving task.
+			// -r handles both files and directories; --parents preserves full path.
+			cmd = fmt.Sprintf("mkdir -p %s && cp -r --parents %s %s", dir, p, dir)
+			zipName = strings.TrimPrefix(p, "/")
+		} else {
+			// Relative path: move flat into dir (existing behaviour).
+			cmd = fmt.Sprintf("mv %s %s", p, dir)
+			zipName = p
+		}
 		if _, stderr, _, _, err := t.execute(
 			ctx,
 			cmd,
@@ -111,11 +124,10 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 				fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
 					p, err, string(stderr)))
 		} else {
-			names.WriteString(p + " ")
+			names.WriteString(zipName + " ")
 		}
 	}
 
-	// TODO verify download/upload
 	// zip all artifacts and copy them to S3
 	zipFile := filepath.Join(dir, name)
 	zipCmd := fmt.Sprintf("cd %s && ls -l && python3 -m zipfile -c %s %s && python3 -m zipfile -l %s",

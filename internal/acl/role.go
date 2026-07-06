@@ -13,6 +13,8 @@ const (
 	Admin RoleType = "Admin"
 	// ReadAdmin role
 	ReadAdmin RoleType = "ReadAdmin"
+	// OrgAdmin role — manages org-level configs; auto-assigned on personal org creation
+	OrgAdmin RoleType = "OrgAdmin"
 )
 
 // Role ACL
@@ -171,6 +173,11 @@ func (r *Roles) IsAdmin() bool {
 // IsReadAdmin checks read admin access
 func (r *Roles) IsReadAdmin() bool {
 	return r.HasRole(ReadAdmin) || r.HasRole(Admin)
+}
+
+// IsOrgAdmin checks org-admin access (includes full Admin)
+func (r *Roles) IsOrgAdmin() bool {
+	return r.HasRole(OrgAdmin) || r.HasRole(Admin)
 }
 
 // String to string

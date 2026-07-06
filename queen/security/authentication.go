@@ -23,14 +23,16 @@ func BuildToken(
 	}
 	expiration = time.Now().Add(age)
 	claims := &web.JwtClaims{
-		UserID:       user.ID,
-		UserName:     user.Username,
-		Name:         user.Name,
-		OrgID:        user.OrganizationID,
-		BundleID:     user.BundleID,
-		PictureURL:   user.PictureURL,
-		AuthProvider: user.AuthProvider,
-		Admin:        user.IsAdmin(),
+		UserID:          user.ID,
+		UserName:        user.Username,
+		Name:            user.Name,
+		OrgID:           user.OrganizationID,
+		BundleID:        user.BundleID,
+		PictureURL:      user.PictureURL,
+		AuthProvider:    user.AuthProvider,
+		Admin:           user.IsAdmin(),
+		SerializedRoles: user.SerializedRoles,
+		SerializedPerms: user.SerializedPerms,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiration),
 		},

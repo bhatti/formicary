@@ -22,14 +22,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	OrganizationService_QueryOrgs_FullMethodName       = "/formicary.v1.services.OrganizationService/QueryOrgs"
-	OrganizationService_GetOrg_FullMethodName          = "/formicary.v1.services.OrganizationService/GetOrg"
-	OrganizationService_CreateOrg_FullMethodName       = "/formicary.v1.services.OrganizationService/CreateOrg"
-	OrganizationService_UpdateOrg_FullMethodName       = "/formicary.v1.services.OrganizationService/UpdateOrg"
-	OrganizationService_DeleteOrg_FullMethodName       = "/formicary.v1.services.OrganizationService/DeleteOrg"
-	OrganizationService_QueryOrgConfigs_FullMethodName = "/formicary.v1.services.OrganizationService/QueryOrgConfigs"
-	OrganizationService_SaveOrgConfig_FullMethodName   = "/formicary.v1.services.OrganizationService/SaveOrgConfig"
-	OrganizationService_DeleteOrgConfig_FullMethodName = "/formicary.v1.services.OrganizationService/DeleteOrgConfig"
+	OrganizationService_QueryOrgs_FullMethodName        = "/formicary.v1.services.OrganizationService/QueryOrgs"
+	OrganizationService_GetOrg_FullMethodName           = "/formicary.v1.services.OrganizationService/GetOrg"
+	OrganizationService_CreateOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/CreateOrg"
+	OrganizationService_UpdateOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/UpdateOrg"
+	OrganizationService_DeleteOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/DeleteOrg"
+	OrganizationService_QueryOrgConfigs_FullMethodName  = "/formicary.v1.services.OrganizationService/QueryOrgConfigs"
+	OrganizationService_GetOrgConfig_FullMethodName     = "/formicary.v1.services.OrganizationService/GetOrgConfig"
+	OrganizationService_RevealOrgConfig_FullMethodName  = "/formicary.v1.services.OrganizationService/RevealOrgConfig"
+	OrganizationService_SaveOrgConfig_FullMethodName    = "/formicary.v1.services.OrganizationService/SaveOrgConfig"
+	OrganizationService_DeleteOrgConfig_FullMethodName  = "/formicary.v1.services.OrganizationService/DeleteOrgConfig"
+	OrganizationService_QueryUserConfigs_FullMethodName = "/formicary.v1.services.OrganizationService/QueryUserConfigs"
+	OrganizationService_GetUserConfig_FullMethodName    = "/formicary.v1.services.OrganizationService/GetUserConfig"
+	OrganizationService_RevealUserConfig_FullMethodName = "/formicary.v1.services.OrganizationService/RevealUserConfig"
+	OrganizationService_SaveUserConfig_FullMethodName   = "/formicary.v1.services.OrganizationService/SaveUserConfig"
+	OrganizationService_DeleteUserConfig_FullMethodName = "/formicary.v1.services.OrganizationService/DeleteUserConfig"
 )
 
 // OrganizationServiceClient is the client API for OrganizationService service.
@@ -48,12 +55,26 @@ type OrganizationServiceClient interface {
 	UpdateOrg(ctx context.Context, in *UpdateOrgRequest, opts ...grpc.CallOption) (*UpdateOrgResponse, error)
 	// DeleteOrg removes an organization.
 	DeleteOrg(ctx context.Context, in *DeleteOrgRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// QueryOrgConfigs lists configuration properties for an organization.
+	// QueryOrgConfigs lists configuration properties for an organization. Secret values are masked.
 	QueryOrgConfigs(ctx context.Context, in *QueryOrgConfigsRequest, opts ...grpc.CallOption) (*QueryOrgConfigsResponse, error)
+	// GetOrgConfig returns a single configuration property. Secret value is masked.
+	GetOrgConfig(ctx context.Context, in *GetOrgConfigRequest, opts ...grpc.CallOption) (*GetOrgConfigResponse, error)
+	// RevealOrgConfig returns the plaintext value of a secret config. Requires OrgAdmin. Creates an audit record.
+	RevealOrgConfig(ctx context.Context, in *RevealOrgConfigRequest, opts ...grpc.CallOption) (*RevealOrgConfigResponse, error)
 	// SaveOrgConfig creates or updates a named configuration property on an organization.
 	SaveOrgConfig(ctx context.Context, in *SaveOrgConfigRequest, opts ...grpc.CallOption) (*SaveOrgConfigResponse, error)
 	// DeleteOrgConfig removes a named configuration property from an organization.
 	DeleteOrgConfig(ctx context.Context, in *DeleteOrgConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// QueryUserConfigs lists configuration properties for the authenticated user. Secret values are masked.
+	QueryUserConfigs(ctx context.Context, in *QueryUserConfigsRequest, opts ...grpc.CallOption) (*QueryUserConfigsResponse, error)
+	// GetUserConfig returns a single user config. Secret value is masked.
+	GetUserConfig(ctx context.Context, in *GetUserConfigRequest, opts ...grpc.CallOption) (*GetUserConfigResponse, error)
+	// RevealUserConfig returns the plaintext value of a secret user config. Creates an audit record.
+	RevealUserConfig(ctx context.Context, in *RevealUserConfigRequest, opts ...grpc.CallOption) (*RevealUserConfigResponse, error)
+	// SaveUserConfig creates or updates a named configuration property for the authenticated user.
+	SaveUserConfig(ctx context.Context, in *SaveUserConfigRequest, opts ...grpc.CallOption) (*SaveUserConfigResponse, error)
+	// DeleteUserConfig removes a named configuration property from the authenticated user.
+	DeleteUserConfig(ctx context.Context, in *DeleteUserConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type organizationServiceClient struct {
@@ -124,6 +145,26 @@ func (c *organizationServiceClient) QueryOrgConfigs(ctx context.Context, in *Que
 	return out, nil
 }
 
+func (c *organizationServiceClient) GetOrgConfig(ctx context.Context, in *GetOrgConfigRequest, opts ...grpc.CallOption) (*GetOrgConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOrgConfigResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_GetOrgConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) RevealOrgConfig(ctx context.Context, in *RevealOrgConfigRequest, opts ...grpc.CallOption) (*RevealOrgConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevealOrgConfigResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_RevealOrgConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *organizationServiceClient) SaveOrgConfig(ctx context.Context, in *SaveOrgConfigRequest, opts ...grpc.CallOption) (*SaveOrgConfigResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SaveOrgConfigResponse)
@@ -138,6 +179,56 @@ func (c *organizationServiceClient) DeleteOrgConfig(ctx context.Context, in *Del
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, OrganizationService_DeleteOrgConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) QueryUserConfigs(ctx context.Context, in *QueryUserConfigsRequest, opts ...grpc.CallOption) (*QueryUserConfigsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryUserConfigsResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_QueryUserConfigs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) GetUserConfig(ctx context.Context, in *GetUserConfigRequest, opts ...grpc.CallOption) (*GetUserConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserConfigResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_GetUserConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) RevealUserConfig(ctx context.Context, in *RevealUserConfigRequest, opts ...grpc.CallOption) (*RevealUserConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevealUserConfigResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_RevealUserConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) SaveUserConfig(ctx context.Context, in *SaveUserConfigRequest, opts ...grpc.CallOption) (*SaveUserConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveUserConfigResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_SaveUserConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) DeleteUserConfig(ctx context.Context, in *DeleteUserConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, OrganizationService_DeleteUserConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -160,12 +251,26 @@ type OrganizationServiceServer interface {
 	UpdateOrg(context.Context, *UpdateOrgRequest) (*UpdateOrgResponse, error)
 	// DeleteOrg removes an organization.
 	DeleteOrg(context.Context, *DeleteOrgRequest) (*emptypb.Empty, error)
-	// QueryOrgConfigs lists configuration properties for an organization.
+	// QueryOrgConfigs lists configuration properties for an organization. Secret values are masked.
 	QueryOrgConfigs(context.Context, *QueryOrgConfigsRequest) (*QueryOrgConfigsResponse, error)
+	// GetOrgConfig returns a single configuration property. Secret value is masked.
+	GetOrgConfig(context.Context, *GetOrgConfigRequest) (*GetOrgConfigResponse, error)
+	// RevealOrgConfig returns the plaintext value of a secret config. Requires OrgAdmin. Creates an audit record.
+	RevealOrgConfig(context.Context, *RevealOrgConfigRequest) (*RevealOrgConfigResponse, error)
 	// SaveOrgConfig creates or updates a named configuration property on an organization.
 	SaveOrgConfig(context.Context, *SaveOrgConfigRequest) (*SaveOrgConfigResponse, error)
 	// DeleteOrgConfig removes a named configuration property from an organization.
 	DeleteOrgConfig(context.Context, *DeleteOrgConfigRequest) (*emptypb.Empty, error)
+	// QueryUserConfigs lists configuration properties for the authenticated user. Secret values are masked.
+	QueryUserConfigs(context.Context, *QueryUserConfigsRequest) (*QueryUserConfigsResponse, error)
+	// GetUserConfig returns a single user config. Secret value is masked.
+	GetUserConfig(context.Context, *GetUserConfigRequest) (*GetUserConfigResponse, error)
+	// RevealUserConfig returns the plaintext value of a secret user config. Creates an audit record.
+	RevealUserConfig(context.Context, *RevealUserConfigRequest) (*RevealUserConfigResponse, error)
+	// SaveUserConfig creates or updates a named configuration property for the authenticated user.
+	SaveUserConfig(context.Context, *SaveUserConfigRequest) (*SaveUserConfigResponse, error)
+	// DeleteUserConfig removes a named configuration property from the authenticated user.
+	DeleteUserConfig(context.Context, *DeleteUserConfigRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedOrganizationServiceServer should be embedded to have
@@ -193,11 +298,32 @@ func (UnimplementedOrganizationServiceServer) DeleteOrg(context.Context, *Delete
 func (UnimplementedOrganizationServiceServer) QueryOrgConfigs(context.Context, *QueryOrgConfigsRequest) (*QueryOrgConfigsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryOrgConfigs not implemented")
 }
+func (UnimplementedOrganizationServiceServer) GetOrgConfig(context.Context, *GetOrgConfigRequest) (*GetOrgConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrgConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) RevealOrgConfig(context.Context, *RevealOrgConfigRequest) (*RevealOrgConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevealOrgConfig not implemented")
+}
 func (UnimplementedOrganizationServiceServer) SaveOrgConfig(context.Context, *SaveOrgConfigRequest) (*SaveOrgConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaveOrgConfig not implemented")
 }
 func (UnimplementedOrganizationServiceServer) DeleteOrgConfig(context.Context, *DeleteOrgConfigRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteOrgConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) QueryUserConfigs(context.Context, *QueryUserConfigsRequest) (*QueryUserConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryUserConfigs not implemented")
+}
+func (UnimplementedOrganizationServiceServer) GetUserConfig(context.Context, *GetUserConfigRequest) (*GetUserConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) RevealUserConfig(context.Context, *RevealUserConfigRequest) (*RevealUserConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevealUserConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) SaveUserConfig(context.Context, *SaveUserConfigRequest) (*SaveUserConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveUserConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) DeleteUserConfig(context.Context, *DeleteUserConfigRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserConfig not implemented")
 }
 func (UnimplementedOrganizationServiceServer) testEmbeddedByValue() {}
 
@@ -327,6 +453,42 @@ func _OrganizationService_QueryOrgConfigs_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrganizationService_GetOrgConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOrgConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).GetOrgConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_GetOrgConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).GetOrgConfig(ctx, req.(*GetOrgConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_RevealOrgConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevealOrgConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).RevealOrgConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_RevealOrgConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).RevealOrgConfig(ctx, req.(*RevealOrgConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _OrganizationService_SaveOrgConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SaveOrgConfigRequest)
 	if err := dec(in); err != nil {
@@ -363,6 +525,96 @@ func _OrganizationService_DeleteOrgConfig_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrganizationService_QueryUserConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryUserConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).QueryUserConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_QueryUserConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).QueryUserConfigs(ctx, req.(*QueryUserConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_GetUserConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).GetUserConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_GetUserConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).GetUserConfig(ctx, req.(*GetUserConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_RevealUserConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevealUserConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).RevealUserConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_RevealUserConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).RevealUserConfig(ctx, req.(*RevealUserConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_SaveUserConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveUserConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).SaveUserConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_SaveUserConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).SaveUserConfig(ctx, req.(*SaveUserConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_DeleteUserConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).DeleteUserConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_DeleteUserConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).DeleteUserConfig(ctx, req.(*DeleteUserConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OrganizationService_ServiceDesc is the grpc.ServiceDesc for OrganizationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -395,12 +647,40 @@ var OrganizationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OrganizationService_QueryOrgConfigs_Handler,
 		},
 		{
+			MethodName: "GetOrgConfig",
+			Handler:    _OrganizationService_GetOrgConfig_Handler,
+		},
+		{
+			MethodName: "RevealOrgConfig",
+			Handler:    _OrganizationService_RevealOrgConfig_Handler,
+		},
+		{
 			MethodName: "SaveOrgConfig",
 			Handler:    _OrganizationService_SaveOrgConfig_Handler,
 		},
 		{
 			MethodName: "DeleteOrgConfig",
 			Handler:    _OrganizationService_DeleteOrgConfig_Handler,
+		},
+		{
+			MethodName: "QueryUserConfigs",
+			Handler:    _OrganizationService_QueryUserConfigs_Handler,
+		},
+		{
+			MethodName: "GetUserConfig",
+			Handler:    _OrganizationService_GetUserConfig_Handler,
+		},
+		{
+			MethodName: "RevealUserConfig",
+			Handler:    _OrganizationService_RevealUserConfig_Handler,
+		},
+		{
+			MethodName: "SaveUserConfig",
+			Handler:    _OrganizationService_SaveUserConfig_Handler,
+		},
+		{
+			MethodName: "DeleteUserConfig",
+			Handler:    _OrganizationService_DeleteUserConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

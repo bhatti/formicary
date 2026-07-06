@@ -194,7 +194,8 @@ func (orc *OrganizationRepositoryImpl) Create(
 		org.CreatedAt = time.Now()
 		org.UpdatedAt = time.Now()
 		for _, cfg := range org.Configs {
-			cfg.OrganizationID = org.ID
+			cfg.ConfigurableID = org.ID
+			cfg.ConfigurableType = common.ConfigurableTypeOrg
 		}
 		res = tx.Create(org)
 		if res.Error != nil {
@@ -211,14 +212,15 @@ func (orc *OrganizationRepositoryImpl) UpdateStickyMessage(
 	user *common.User,
 ) (err error) {
 	err = orc.db.Transaction(func(tx *gorm.DB) error {
-		if user != nil {
-			res := tx.Exec("update formicary_users set sticky_message = ? where id = ?", user.StickyMessage, user.ID)
-			if res.Error != nil {
-				return fmt.Errorf("fail to set sticky message '%s' for user '%s' due to '%s'",
-					user.StickyMessage, user.ID, res.Error)
-			}
-			orc.FireObjectUpdatedHandler(qc, user.ID, ObjectUpdated, user)
+		if user == nil {
+			return nil
 		}
+		res := tx.Exec("update formicary_users set sticky_message = ? where id = ?", user.StickyMessage, user.ID)
+		if res.Error != nil {
+			return fmt.Errorf("fail to set sticky message '%s' for user '%s' due to '%s'",
+				user.StickyMessage, user.ID, res.Error)
+		}
+		orc.FireObjectUpdatedHandler(qc, user.ID, ObjectUpdated, user)
 		if user.HasOrganization() {
 			res := tx.Exec("update formicary_orgs set sticky_message = ? where id = ?",
 				user.Organization.StickyMessage, user.OrganizationID)

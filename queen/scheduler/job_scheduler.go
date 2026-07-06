@@ -49,6 +49,7 @@ type JobScheduler struct {
 	backoffUntil                     time.Time
 	totalPendingJobs                 uint64
 	totalScheduledJobs               uint64
+	triggerCh                        chan struct{}
 	done                             chan bool
 	stopped                          bool
 	tickers                          []*time.Ticker
@@ -68,6 +69,7 @@ func New(
 	metricsRegistry *metrics.Registry,
 	approvalSvc *approval.Service,
 	retentionManager *manager.RetentionManager,
+	triggerCh chan struct{},
 ) *JobScheduler {
 	return &JobScheduler{
 		id:                            serverCfg.Common.ID + "-job-scheduler",
@@ -86,6 +88,7 @@ func New(
 		lastJobSchedulerLeaderEventAt: time.Unix(0, 0),
 		busy:                          false,
 		scheduleBackoff:               &backoff.Backoff{Min: 100 * time.Millisecond, Max: 30 * time.Second, Factor: 2, Jitter: true},
+		triggerCh:                     triggerCh,
 		done:                          make(chan bool, 8), // buffered to match max ticker count so Stop() never blocks
 		tickers:                       make([]*time.Ticker, 0),
 	}
@@ -389,11 +392,17 @@ func (js *JobScheduler) scheduleJob(
 }
 
 func (js *JobScheduler) unlockWithBusy() {
-	js.lock.Unlock()
 	js.busy = false
+	js.lock.Unlock()
 }
 
 func (js *JobScheduler) lockWithBusy() {
 	js.lock.Lock()
 	js.busy = true
+}
+
+func (js *JobScheduler) isBusy() bool {
+	js.lock.RLock()
+	defer js.lock.RUnlock()
+	return js.busy
 }

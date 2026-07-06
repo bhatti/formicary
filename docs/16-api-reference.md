@@ -263,6 +263,102 @@ Exposes system metrics in Prometheus format.
 
 ---
 
+## Runtime Configurations
+
+Formicary supports two types of runtime configuration properties that are stored in the database and injected as variables into every job execution:
+
+- **Org Configs** (`/api/orgs/{org}/configs`) — shared across all jobs run by members of the organization. Typically holds shared credentials, tool URLs, and other team-wide settings.
+- **User Configs** (`/api/users/configs`) — personal per-user properties. Useful for individual API tokens or credentials that should not be shared with the whole org.
+
+When a job runs, org configs are loaded first as the base set, then user configs are merged on top. **User configs always win on key collision.** Secret values are stored encrypted and are always masked as `****` in list and get responses. Use the `/reveal` endpoint to obtain the plaintext value (which creates an audit record).
+
+> **Note:** The `encryption_key` in `formicary-queen.yaml` must be backed up. Changing it after configs are saved will make existing encrypted values unreadable.
+
+### Org Config Endpoints
+
+Require `OrgConfig:Query` for reads and `OrgConfig:Update` for writes. Non-admins can only access configs for their own organization.
+
+#### `GET /api/orgs/{org}/configs`
+Lists all configuration properties for the given organization. Secret values are masked as `****`.
+
+-   **Path Parameters:** `org` — the organization ID.
+-   **Query Parameters:** `page`, `page_size` (int).
+-   **Success Response (200 OK):** Paginated list of `Config` objects.
+
+#### `POST /api/orgs/{org}/configs`
+Creates a new org configuration property.
+
+-   **Request Body:**
+    ```json
+    { "name": "GithubToken", "value": "ghp_...", "secret": true }
+    ```
+-   **Success Response (200 OK):** The saved `Config` object (secret value masked).
+
+#### `GET /api/orgs/{org}/configs/{id}`
+Retrieves a single org config by ID. Secret value is masked as `****`.
+
+-   **Success Response (200 OK):** A `Config` object.
+
+#### `PUT /api/orgs/{org}/configs/{id}`
+Updates an org configuration property. If the value is sent as `****` for a secret config, the existing encrypted value is preserved (the UI pattern for not changing a secret).
+
+-   **Request Body:** A `Config` object.
+-   **Success Response (200 OK):** The updated `Config` object.
+
+#### `DELETE /api/orgs/{org}/configs/{id}`
+Deletes an org configuration property.
+
+-   **Success Response (200 OK):** Empty body.
+
+#### `GET /api/orgs/{org}/configs/{id}/reveal`
+Returns the plaintext value of a secret org config and creates an audit record. Use sparingly.
+
+-   **Success Response (200 OK):** A `Config` object with the unmasked `value`.
+
+---
+
+### User Config Endpoints
+
+All authenticated users have full access to their own user configs. No special role required.
+
+#### `GET /api/users/configs`
+Lists all configuration properties for the authenticated user. Secret values are masked as `****`.
+
+-   **Query Parameters:** `page`, `page_size` (int).
+-   **Success Response (200 OK):** Paginated list of `Config` objects.
+
+#### `POST /api/users/configs`
+Creates a new user configuration property.
+
+-   **Request Body:**
+    ```json
+    { "name": "AnthropicApiKey", "value": "sk-ant-...", "secret": true }
+    ```
+-   **Success Response (200 OK):** The saved `Config` object (secret value masked).
+
+#### `GET /api/users/configs/{id}`
+Retrieves a single user config by ID. Secret value is masked as `****`.
+
+-   **Success Response (200 OK):** A `Config` object.
+
+#### `PUT /api/users/configs/{id}`
+Updates a user configuration property. Sending `****` as the value for a secret config preserves the existing encrypted value.
+
+-   **Request Body:** A `Config` object.
+-   **Success Response (200 OK):** The updated `Config` object.
+
+#### `DELETE /api/users/configs/{id}`
+Deletes a user configuration property.
+
+-   **Success Response (200 OK):** Empty body.
+
+#### `GET /api/users/configs/{id}/reveal`
+Returns the plaintext value of a secret user config and creates an audit record.
+
+-   **Success Response (200 OK):** A `Config` object with the unmasked `value`.
+
+---
+
 ## User & Organization Management
 
 Endpoints for managing users, organizations, and API access.

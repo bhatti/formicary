@@ -93,7 +93,7 @@
             <div class="mb-3">
               {{ with .Errors.AgreeTerms }}<div class="text-danger small mb-1">{{ . }}</div>{{end}}
               <label class="form-check">
-                <input class="form-check-input" type="checkbox" value="agree" id="agreeTerms" name="agreeTerms">
+                <input class="form-check-input" type="checkbox" value="agree" id="agreeTerms" name="agreeTerms" {{if .AgreeTerms}}checked{{end}} required>
                 <span class="form-check-label">
                   I agree to the <a href="/terms_service" target="_blank">Terms of Service</a> and <a href="/privacy_policies" target="_blank">Privacy Policy</a>.
                 </span>
@@ -124,7 +124,7 @@
       if (bundle) bundle.disabled = type.value === 'individual';
     }
     function initAccountType() {
-      {{if .User.HasOrganizationOrInvitationCode}}
+      {{if .IsOrgSignup}}
       handleAccountType({value: 'organization'});
       document.getElementById('organization').checked = true;
       {{else}}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Hand-written extension methods for proto-generated User, Organization,
-// Subscription, and OrganizationConfig types.
+// Subscription, and Config types.
 // This file is NEVER overwritten by buf generate.
 
 package user
@@ -63,7 +63,7 @@ func (u *User) ValidateBeforeSave() error {
 func (*Organization) TableName() string { return "formicary_orgs" }
 
 // AddConfig adds or updates a named configuration property on the organization.
-func (o *Organization) AddConfig(name string, value string, kind string, secret bool) *OrganizationConfig {
+func (o *Organization) AddConfig(name string, value string, kind string, secret bool) *Config {
 	for _, c := range o.Configs {
 		if c.Name == name {
 			c.Value = value
@@ -73,22 +73,23 @@ func (o *Organization) AddConfig(name string, value string, kind string, secret 
 			return c
 		}
 	}
-	cfg := &OrganizationConfig{
-		Id:             ulid(),
-		OrganizationId: o.Id,
-		Name:           name,
-		Value:          value,
-		Kind:           kind,
-		Secret:         secret,
-		CreatedAt:      nowTimestamp(),
-		UpdatedAt:      nowTimestamp(),
+	cfg := &Config{
+		Id:               ulid(),
+		ConfigurableId:   o.Id,
+		ConfigurableType: "organizations",
+		Name:             name,
+		Value:            value,
+		Kind:             kind,
+		Secret:           secret,
+		CreatedAt:        nowTimestamp(),
+		UpdatedAt:        nowTimestamp(),
 	}
 	o.Configs = append(o.Configs, cfg)
 	return cfg
 }
 
 // GetConfig returns a named configuration property, or nil if not found.
-func (o *Organization) GetConfig(name string) *OrganizationConfig {
+func (o *Organization) GetConfig(name string) *Config {
 	for _, c := range o.Configs {
 		if c.Name == name {
 			return c
@@ -129,23 +130,23 @@ func (o *Organization) ValidateBeforeSave() error {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// OrganizationConfig
+// Config
 // ──────────────────────────────────────────────────────────────────────────────
 
 // TableName implements the GORM Tabler interface.
-func (*OrganizationConfig) TableName() string { return "formicary_org_configs" }
+func (*Config) TableName() string { return "formicary_configs" }
 
-// Validate checks required fields on the org config.
-func (oc *OrganizationConfig) Validate() error {
-	oc.Errors = make(map[string]string)
+// Validate checks required fields on the config.
+func (c *Config) Validate() error {
+	c.Errors = make(map[string]string)
 	var err error
-	if oc.Name == "" {
+	if c.Name == "" {
 		err = fmt.Errorf("name is not specified")
-		oc.Errors["Name"] = err.Error()
+		c.Errors["Name"] = err.Error()
 	}
-	if oc.Value == "" {
+	if c.Value == "" {
 		err = fmt.Errorf("value is not specified")
-		oc.Errors["Value"] = err.Error()
+		c.Errors["Value"] = err.Error()
 	}
 	return err
 }

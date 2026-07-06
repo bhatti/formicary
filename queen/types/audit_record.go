@@ -243,13 +243,17 @@ func NewAuditRecordFromOrganization(org *common.Organization, qc *common.QueryCo
 	}
 }
 
-// NewAuditRecordFromOrganizationConfig creates new instance of audit-record
-func NewAuditRecordFromOrganizationConfig(cfg *common.OrganizationConfig, qc *common.QueryContext) *AuditRecord {
+// NewAuditRecordFromConfig creates an audit record for a config reveal or update.
+func NewAuditRecordFromConfig(cfg *common.Config, qc *common.QueryContext) *AuditRecord {
+	orgID := qc.GetOrganizationID()
+	if cfg.ConfigurableType == common.ConfigurableTypeOrg {
+		orgID = cfg.ConfigurableID
+	}
 	return &AuditRecord{
 		Kind:           OrgConfigUpdated,
-		Message:        fmt.Sprintf("organization config updated %s", cfg),
+		Message:        fmt.Sprintf("config updated %s", cfg),
 		UserID:         qc.GetUserID(),
-		OrganizationID: cfg.OrganizationID,
+		OrganizationID: orgID,
 		TargetID:       cfg.ID,
 		RemoteIP:       qc.IPAddress,
 		CreatedAt:      time.Now(),

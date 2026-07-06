@@ -6,8 +6,8 @@
       name VARCHAR(100) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE UNIQUE INDEX formicary_system_config_scope_kind_name_ndx ON formicary_system_config(scope, kind, name);

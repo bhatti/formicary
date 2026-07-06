@@ -1,14 +1,20 @@
 package manager
 
 import (
+	"context"
 	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 
 	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/metrics"
+	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/queen/config"
+	"plexobject.com/formicary/queen/notify"
 	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/resource"
+	"plexobject.com/formicary/queen/stats"
 	"plexobject.com/formicary/queen/types"
 )
 
@@ -368,4 +374,88 @@ func Test_ShouldCancelJobNoErrorWhenNoChildren(t *testing.T) {
 
 	// THEN: no error
 	require.NoError(t, err)
+}
+
+// Test_ShouldSignalSchedulerOnTrigger verifies that TriggerJobRequest sends exactly one
+// signal on the schedulerTriggerCh so the scheduler can wake up immediately.
+func Test_ShouldSignalSchedulerOnTrigger(t *testing.T) {
+	serverCfg := config.TestServerConfig()
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+
+	// Build all repos manually so we can share the same jobRequestRepository
+	auditRepo, err := repository.NewTestAuditRecordRepository()
+	require.NoError(t, err)
+	jobDefRepo, err := repository.NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	jobReqRepo, err := repository.NewTestJobRequestRepository()
+	require.NoError(t, err)
+	jobExecRepo, err := repository.NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	emailVerifRepo, err := repository.NewTestEmailVerificationRepository()
+	require.NoError(t, err)
+	logRepo, err := repository.NewTestLogEventRepository()
+	require.NoError(t, err)
+	artifactMgr, err := TestArtifactManager(serverCfg)
+	require.NoError(t, err)
+	notifier, err := notify.New(serverCfg, logRepo, emailVerifRepo)
+	require.NoError(t, err)
+	userMgr, err := TestUserManager(serverCfg)
+	require.NoError(t, err)
+	queueClient, err := queue.NewClientManager().GetClient(context.Background(), &serverCfg.Common)
+	require.NoError(t, err)
+
+	triggerCh := make(chan struct{}, 1)
+	jobManager, err := NewJobManager(
+		context.Background(),
+		serverCfg,
+		auditRepo,
+		jobDefRepo,
+		jobReqRepo,
+		jobExecRepo,
+		userMgr,
+		resource.New(serverCfg, queueClient),
+		artifactMgr,
+		stats.NewJobStatsRegistry(),
+		metrics.New(),
+		queueClient,
+		notifier,
+		nil,
+		triggerCh,
+	)
+	require.NoError(t, err)
+
+	// Create a cron-triggered PENDING job request that Trigger() can act on.
+	jobDef := repository.NewTestJobDefinition(qc.User, "trigger-signal-"+ulid.Make().String())
+	jobDef.CronTrigger = "0 0 * * * * *"
+	savedDef, err := jobManager.SaveJobDefinition(qc, jobDef)
+	require.NoError(t, err)
+
+	// SaveJobDefinition for a cron job creates a PENDING cron-triggered request.
+	reqs, _, err := jobReqRepo.Query(qc, map[string]interface{}{
+		"job_type":       savedDef.JobType,
+		"job_state":      string(common.PENDING),
+		"cron_triggered": true,
+	}, 0, 1, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, reqs, "expected a cron-triggered PENDING request to exist")
+	reqID := reqs[0].ID
+
+	// Drain the channel in case SaveJobDefinition already sent a signal.
+	select {
+	case <-triggerCh:
+	default:
+	}
+
+	// WHEN: TriggerJobRequest is called
+	err = jobManager.TriggerJobRequest(qc, reqID)
+	require.NoError(t, err)
+
+	// THEN: exactly one signal must be present on the channel (non-blocking check).
+	select {
+	case <-triggerCh:
+		// pass
+	default:
+		t.Fatal("expected schedulerTriggerCh to receive a signal after TriggerJobRequest")
+	}
 }

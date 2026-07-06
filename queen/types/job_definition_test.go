@@ -1067,11 +1067,11 @@ func newTestJobDefinition(name string) *JobDefinition {
 	return job
 }
 
-// Test_ShouldParsePickerShellYAML loads the actual ai-gh-issue-picker-shell.yaml file
+// Test_ShouldParsePickerYAML loads the actual ai-gh-issue-picker.yaml file
 // and calls GetDynamicTask for both tasks. This is the definitive regression test:
 // any template or YAML syntax error in the real file will surface here before deploy.
-func Test_ShouldParsePickerShellYAML(t *testing.T) {
-	b, err := ioutil.ReadFile("../../docs/examples/ai-gh-issue-picker-shell.yaml")
+func Test_ShouldParsePickerYAML(t *testing.T) {
+	b, err := ioutil.ReadFile("../../docs/examples/ai-gh-issue-picker.yaml")
 	require.NoError(t, err)
 
 	job, err := NewJobDefinitionFromYaml(b)

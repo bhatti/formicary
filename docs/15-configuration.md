@@ -270,6 +270,52 @@ docker run --env-file .env.local -p 7777:7777 plexobject/formicary
 | `data_source`|`DB_DATA_SOURCE`| string| | The connection string for the database. |
 | `encryption_key`|`DB_ENCRYPTION_KEY`| string| (auto-generated) | A key used to encrypt sensitive configuration values within the database. **It's crucial to back this up!** |
 
+---
+
+## Runtime Configurations (Org & User Configs)
+
+In addition to YAML/env-var configuration, Formicary supports **runtime configuration properties** stored in the database. These are injected as variables into every job execution, allowing credentials and settings to be changed without redeploying.
+
+### Two Scopes
+
+| Scope | API prefix | Who can write | Injected into jobs |
+|---|---|---|---|
+| **Org Config** | `/api/orgs/{org}/configs` | Org admins | Yes — as base layer |
+| **User Config** | `/api/users/configs` | Any authenticated user | Yes — overrides org on collision |
+
+When a job executes, org configs are loaded first. User configs are then merged on top; **user config always wins if the same key appears in both.** This allows individual users to override org defaults (e.g., use a personal API key instead of the shared one).
+
+### Secret Handling
+
+Values marked `secret: true` are encrypted at rest using a key derived from `encryption_key` + an entity salt. They are always returned as `****` from list/get endpoints. Use the `/reveal` endpoint to obtain the plaintext value — this creates an audit record.
+
+If a UI form sends `****` back in a PUT request (because the masked value was displayed), the server detects this and preserves the existing encrypted value rather than overwriting the secret with the literal string `****`.
+
+### Managing Configs via the Dashboard
+
+-   **Org configs:** Dashboard → `Configurations` (visible to org admins).
+-   **User configs:** Dashboard → `My Credentials` (visible to all users for their own configs).
+
+### Managing Configs via the CLI / Scripts
+
+Use the deploy helper scripts or call the REST API directly:
+
+```bash
+# Store a shared org secret (requires org admin token)
+curl -sf -X POST "https://formicary.example.com/api/orgs/${ORG_ID}/configs" \
+  -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"GithubToken","value":"ghp_...","secret":true}'
+
+# Store a personal user secret
+curl -sf -X POST "https://formicary.example.com/api/users/configs" \
+  -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"AnthropicApiKey","value":"sk-ant-...","secret":true}'
+```
+
+See [API Reference — Runtime Configurations](./16-api-reference.md#runtime-configurations) for the full endpoint list.
+
 ### `jobs` Block
 
 | Key | Type | Default | Description |

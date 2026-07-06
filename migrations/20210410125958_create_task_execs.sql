@@ -38,7 +38,7 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_task_execution_context_task_fk FOREIGN KEY (task_execution_id) REFERENCES formicary_task_executions(id)
     );
 

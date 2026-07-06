@@ -10,26 +10,31 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"plexobject.com/formicary/internal/grpc/interceptors"
+	commonTypes "plexobject.com/formicary/internal/types"
 	svcpb "plexobject.com/formicary/gen/go/formicary/v1/services"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
+	"plexobject.com/formicary/queen/types"
 )
 
 // OrgService implements svcpb.OrganizationServiceServer.
 type OrgService struct {
 	svcpb.UnimplementedOrganizationServiceServer
-	userManager         *manager.UserManager
-	orgConfigRepository repository.OrganizationConfigRepository
+	userManager           *manager.UserManager
+	configRepository      repository.ConfigRepository
+	auditRecordRepository repository.AuditRecordRepository
 }
 
 // NewOrgService creates an OrgService.
 func NewOrgService(
 	userManager *manager.UserManager,
-	orgConfigRepository repository.OrganizationConfigRepository,
+	configRepository repository.ConfigRepository,
+	auditRecordRepository repository.AuditRecordRepository,
 ) *OrgService {
 	return &OrgService{
-		userManager:         userManager,
-		orgConfigRepository: orgConfigRepository,
+		userManager:           userManager,
+		configRepository:      configRepository,
+		auditRecordRepository: auditRecordRepository,
 	}
 }
 
@@ -108,25 +113,54 @@ func (s *OrgService) DeleteOrg(ctx context.Context, req *svcpb.DeleteOrgRequest)
 	return &emptypb.Empty{}, nil
 }
 
+// ---- Org config RPCs -------------------------------------------------------
+
 func (s *OrgService) QueryOrgConfigs(ctx context.Context, req *svcpb.QueryOrgConfigsRequest) (*svcpb.QueryOrgConfigsResponse, error) {
 	qc := interceptors.QueryContextFromContext(ctx)
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	params := map[string]interface{}{}
-	if req.OrganizationId != "" {
-		params["organization_id"] = req.OrganizationId
+	// Non-admins may only query their own org's configs.
+	orgID := req.OrganizationId
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
 	}
-	recs, total, err := s.orgConfigRepository.Query(qc, params, int(req.Page), pageSize(req.PageSize), nil)
+	recs, total, err := s.configRepository.QueryOrgConfigs(qc, orgID, int(req.Page), pageSize(req.PageSize))
 	if err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &svcpb.QueryOrgConfigsResponse{
-		Records:      toProtoOrgConfigs(recs),
+		Records:      toProtoConfigsMasked(recs),
 		TotalRecords: total,
 		Page:         req.Page,
 		PageSize:     effectivePageSize(req.PageSize),
 	}, nil
+}
+
+func (s *OrgService) GetOrgConfig(ctx context.Context, req *svcpb.GetOrgConfigRequest) (*svcpb.GetOrgConfigResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	// scopedOrgDB/strictScopedDB inside Get enforces tenant isolation.
+	cfg, err := s.configRepository.Get(qc, req.ConfigId)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.GetOrgConfigResponse{Config: toProtoConfigMasked(cfg)}, nil
+}
+
+func (s *OrgService) RevealOrgConfig(ctx context.Context, req *svcpb.RevealOrgConfigRequest) (*svcpb.RevealOrgConfigResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	cfg, err := s.configRepository.Get(qc, req.ConfigId)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	_, _ = s.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
+	return &svcpb.RevealOrgConfigResponse{Config: toProtoConfig(cfg)}, nil
 }
 
 func (s *OrgService) SaveOrgConfig(ctx context.Context, req *svcpb.SaveOrgConfigRequest) (*svcpb.SaveOrgConfigResponse, error) {
@@ -134,19 +168,32 @@ func (s *OrgService) SaveOrgConfig(ctx context.Context, req *svcpb.SaveOrgConfig
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	cfg := fromProtoOrgConfig(req.Config)
+	cfg := fromProtoConfig(req.Config)
 	if cfg == nil {
 		return nil, status.Error(codes.InvalidArgument, "config is required")
 	}
-	cfg.OrganizationID = req.OrganizationId
+	// Non-admins may only write to their own org — ignore req.OrganizationId.
+	orgID := req.OrganizationId
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	cfg.ConfigurableID = orgID
+	cfg.ConfigurableType = commonTypes.ConfigurableTypeOrg
 	if req.ConfigId != "" {
 		cfg.ID = req.ConfigId
 	}
-	saved, err := s.orgConfigRepository.Save(qc, cfg)
+	if cfg.Secret && cfg.Value == "****" && cfg.ID != "" {
+		existing, getErr := s.configRepository.Get(qc, cfg.ID)
+		if getErr != nil {
+			return nil, interceptors.MapDomainError(getErr)
+		}
+		cfg.Value = existing.Value
+	}
+	saved, err := s.configRepository.Save(qc, cfg)
 	if err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
-	return &svcpb.SaveOrgConfigResponse{Config: toProtoOrgConfig(saved)}, nil
+	return &svcpb.SaveOrgConfigResponse{Config: toProtoConfigMasked(saved)}, nil
 }
 
 func (s *OrgService) DeleteOrgConfig(ctx context.Context, req *svcpb.DeleteOrgConfigRequest) (*emptypb.Empty, error) {
@@ -154,7 +201,90 @@ func (s *OrgService) DeleteOrgConfig(ctx context.Context, req *svcpb.DeleteOrgCo
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	if err := s.orgConfigRepository.Delete(qc, req.ConfigId); err != nil {
+	if err := s.configRepository.Delete(qc, req.ConfigId); err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// ---- User config RPCs -------------------------------------------------------
+
+func (s *OrgService) QueryUserConfigs(ctx context.Context, req *svcpb.QueryUserConfigsRequest) (*svcpb.QueryUserConfigsResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	recs, total, err := s.configRepository.QueryUserConfigs(qc, qc.GetUserID(), int(req.Page), pageSize(req.PageSize))
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.QueryUserConfigsResponse{
+		Records:      toProtoConfigsMasked(recs),
+		TotalRecords: total,
+		Page:         req.Page,
+		PageSize:     effectivePageSize(req.PageSize),
+	}, nil
+}
+
+func (s *OrgService) GetUserConfig(ctx context.Context, req *svcpb.GetUserConfigRequest) (*svcpb.GetUserConfigResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	cfg, err := s.configRepository.Get(qc, req.ConfigId)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.GetUserConfigResponse{Config: toProtoConfigMasked(cfg)}, nil
+}
+
+func (s *OrgService) RevealUserConfig(ctx context.Context, req *svcpb.RevealUserConfigRequest) (*svcpb.RevealUserConfigResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	cfg, err := s.configRepository.Get(qc, req.ConfigId)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	_, _ = s.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
+	return &svcpb.RevealUserConfigResponse{Config: toProtoConfig(cfg)}, nil
+}
+
+func (s *OrgService) SaveUserConfig(ctx context.Context, req *svcpb.SaveUserConfigRequest) (*svcpb.SaveUserConfigResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	cfg := fromProtoConfig(req.Config)
+	if cfg == nil {
+		return nil, status.Error(codes.InvalidArgument, "config is required")
+	}
+	cfg.ConfigurableID = qc.GetUserID()
+	cfg.ConfigurableType = commonTypes.ConfigurableTypeUser
+	if req.ConfigId != "" {
+		cfg.ID = req.ConfigId
+	}
+	if cfg.Secret && cfg.Value == "****" && cfg.ID != "" {
+		existing, getErr := s.configRepository.Get(qc, cfg.ID)
+		if getErr != nil {
+			return nil, interceptors.MapDomainError(getErr)
+		}
+		cfg.Value = existing.Value
+	}
+	saved, err := s.configRepository.Save(qc, cfg)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.SaveUserConfigResponse{Config: toProtoConfigMasked(saved)}, nil
+}
+
+func (s *OrgService) DeleteUserConfig(ctx context.Context, req *svcpb.DeleteUserConfigRequest) (*emptypb.Empty, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	if err := s.configRepository.Delete(qc, req.ConfigId); err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &emptypb.Empty{}, nil

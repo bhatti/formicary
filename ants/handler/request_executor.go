@@ -425,7 +425,7 @@ func (re *RequestExecutorImpl) preProcess(
 	}
 	// Add helper container if artifacts needed
 
-	taskReq.ExecutorOpts.PodLabels[types.AntID] = re.antCfg.Common.ID
+	taskReq.ExecutorOpts.PodLabels[types.AntID] = cutils.MakeDNS1123Compatible(re.antCfg.Common.ID)
 
 	// Add variables as environment variables
 	for k, v := range taskReq.Variables {

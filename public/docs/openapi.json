@@ -4204,7 +4204,7 @@
     "/api/v1/orgs/{organization_id}/configs": {
       "get": {
         "summary": "List org configs",
-        "description": "Returns paginated configuration properties for an organization.",
+        "description": "Returns paginated configuration properties for an organization. Secret values are masked as '****'.",
         "operationId": "OrganizationService_QueryOrgConfigs",
         "responses": {
           "200": {
@@ -4340,7 +4340,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/userOrganizationConfig"
+              "$ref": "#/definitions/userConfig"
             }
           },
           {
@@ -4356,6 +4356,74 @@
       }
     },
     "/api/v1/orgs/{organization_id}/configs/{config_id}": {
+      "get": {
+        "summary": "Get org config",
+        "description": "Returns a single org configuration property. Secret value is masked as '****'. Use RevealOrgConfig to get the plaintext value.",
+        "operationId": "OrganizationService_GetOrgConfig",
+        "responses": {
+          "200": {
+            "description": "Org config.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetOrgConfigResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "organizations"
+        ]
+      },
       "delete": {
         "summary": "Delete org config",
         "description": "Removes a named configuration property from an organization.",
@@ -4371,6 +4439,76 @@
           "204": {
             "description": "Deleted successfully.",
             "schema": {}
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/api/v1/orgs/{organization_id}/configs/{config_id}/reveal": {
+      "get": {
+        "summary": "Reveal secret org config",
+        "description": "Returns the plaintext value of a secret configuration property. Requires OrgAdmin or Admin role. Creates an audit log entry.",
+        "operationId": "OrganizationService_RevealOrgConfig",
+        "responses": {
+          "200": {
+            "description": "Org config with plaintext value.",
+            "schema": {
+              "$ref": "#/definitions/servicesRevealOrgConfigResponse"
+            }
           },
           "400": {
             "description": "Bad request — invalid parameters or request body",
@@ -5191,6 +5329,343 @@
             "schema": {
               "$ref": "#/definitions/servicesCreateUserRequest"
             }
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/configs": {
+      "get": {
+        "summary": "List my configs",
+        "description": "Returns paginated configuration properties for the authenticated user. Secret values are masked as '****'.",
+        "operationId": "OrganizationService_QueryUserConfigs",
+        "responses": {
+          "200": {
+            "description": "User config list.",
+            "schema": {
+              "$ref": "#/definitions/servicesQueryUserConfigsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "summary": "Save my config",
+        "description": "Creates or updates a named configuration property for the authenticated user. Secret values are encrypted at rest.",
+        "operationId": "OrganizationService_SaveUserConfig",
+        "responses": {
+          "200": {
+            "description": "Saved user config.",
+            "schema": {
+              "$ref": "#/definitions/servicesSaveUserConfigResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/userConfig"
+            }
+          },
+          {
+            "name": "config_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/configs/{config_id}": {
+      "get": {
+        "summary": "Get my config",
+        "description": "Returns a single user configuration property. Secret value is masked. Use RevealUserConfig to see the plaintext value.",
+        "operationId": "OrganizationService_GetUserConfig",
+        "responses": {
+          "200": {
+            "description": "User config.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetUserConfigResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "summary": "Delete my config",
+        "description": "Removes a named configuration property from the authenticated user.",
+        "operationId": "OrganizationService_DeleteUserConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "204": {
+            "description": "Deleted successfully.",
+            "schema": {}
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/configs/{config_id}/reveal": {
+      "get": {
+        "summary": "Reveal my secret config",
+        "description": "Returns the plaintext value of a secret user configuration property. Creates an audit log entry.",
+        "operationId": "OrganizationService_RevealUserConfig",
+        "responses": {
+          "200": {
+            "description": "User config with plaintext value.",
+            "schema": {
+              "$ref": "#/definitions/servicesRevealUserConfigResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
           }
         ],
         "tags": [
@@ -7576,6 +8051,15 @@
       },
       "description": "GetJobResourceResponse wraps a single job resource."
     },
+    "servicesGetOrgConfigResponse": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/userConfig"
+        }
+      },
+      "description": "GetOrgConfigResponse wraps a single org config. Secret value is masked as \"****\"."
+    },
     "servicesGetOrgResponse": {
       "type": "object",
       "properties": {
@@ -7602,6 +8086,15 @@
         }
       },
       "description": "GetSystemConfigResponse wraps a single system config."
+    },
+    "servicesGetUserConfigResponse": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/userConfig"
+        }
+      },
+      "description": "GetUserConfigResponse wraps a single user config. Secret value is masked as \"****\"."
     },
     "servicesGetUserResponse": {
       "type": "object",
@@ -8048,7 +8541,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/userOrganizationConfig"
+            "$ref": "#/definitions/userConfig"
           }
         },
         "total_records": {
@@ -8064,7 +8557,7 @@
           "format": "int32"
         }
       },
-      "description": "QueryOrgConfigsResponse returns a paginated list of org configs."
+      "description": "QueryOrgConfigsResponse returns a paginated list of org configs.\nSecret values are masked as \"****\" in this response."
     },
     "servicesQueryOrgsResponse": {
       "type": "object",
@@ -8153,6 +8646,31 @@
       },
       "description": "QuerySystemConfigsResponse returns a paginated list of system configs."
     },
+    "servicesQueryUserConfigsResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/userConfig"
+          }
+        },
+        "total_records": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "page_size": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "QueryUserConfigsResponse returns a paginated list of user configs.\nSecret values are masked as \"****\"."
+    },
     "servicesQueryUsersResponse": {
       "type": "object",
       "properties": {
@@ -8204,6 +8722,24 @@
       },
       "description": "ResourceUsage holds CPU and disk usage metrics."
     },
+    "servicesRevealOrgConfigResponse": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/userConfig"
+        }
+      },
+      "description": "RevealOrgConfigResponse returns the plaintext secret value and creates an audit record."
+    },
+    "servicesRevealUserConfigResponse": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/userConfig"
+        }
+      },
+      "description": "RevealUserConfigResponse returns the plaintext secret value."
+    },
     "servicesSaveErrorCodeResponse": {
       "type": "object",
       "properties": {
@@ -8235,7 +8771,7 @@
       "type": "object",
       "properties": {
         "config": {
-          "$ref": "#/definitions/userOrganizationConfig"
+          "$ref": "#/definitions/userConfig"
         }
       },
       "description": "SaveOrgConfigResponse returns the saved org config."
@@ -8257,6 +8793,15 @@
         }
       },
       "description": "SaveSystemConfigResponse returns the saved system config."
+    },
+    "servicesSaveUserConfigResponse": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/userConfig"
+        }
+      },
+      "description": "SaveUserConfigResponse returns the saved user config."
     },
     "servicesSubmitJobRequest": {
       "type": "object",
@@ -8344,6 +8889,47 @@
       },
       "description": "VoteOnApprovalResponse returns the updated approval status after the vote."
     },
+    "userConfig": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "configurable_id": {
+          "type": "string"
+        },
+        "configurable_type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "errors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Config holds a named configuration property owned by either an organization or a user.\nconfigurable_type discriminates the owner: \"organizations\" or \"users\"."
+    },
     "userOrganization": {
       "type": "object",
       "properties": {
@@ -8379,9 +8965,9 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/userOrganizationConfig"
+            "$ref": "#/definitions/userConfig"
           },
-          "description": "configs has ForeignKey relationship."
+          "description": "configs are polymorphic — owned by this org in formicary_configs."
         },
         "subscription": {
           "$ref": "#/definitions/userSubscription"
@@ -8402,47 +8988,13 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "is_personal": {
+          "type": "boolean",
+          "description": "is_personal marks orgs auto-created for individual users at signup."
         }
       },
       "description": "Organization represents a multi-tenant organization grouping one or more users."
-    },
-    "userOrganizationConfig": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "organization_id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "kind": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "secret": {
-          "type": "boolean"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updated_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "errors": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      },
-      "description": "OrganizationConfig holds an org-level named configuration property."
     },
     "userSubscription": {
       "type": "object",

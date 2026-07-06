@@ -7,7 +7,7 @@
       email_code VARCHAR(50) NOT NULL,
       verified_at TIMESTAMP NULL DEFAULT NULL,
       expires_at TIMESTAMP NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_email_verifications_fk FOREIGN KEY (user_id) REFERENCES formicary_users(id)
     );
 

@@ -12,7 +12,7 @@
         <h3 class="card-title">Configuration Details</h3>
     </div>
     <div class="card-body">
-        <form action="/dashboard/orgs/{{.Config.OrganizationID}}/configs/{{ .Config.ID }}" method="POST">
+        <form action="/dashboard/orgs/{{.DBUser.OrganizationID}}/configs/{{ .Config.ID }}" method="POST">
             {{ template "orgs/configs/form" .Config }}
             <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Update Org Config</button>

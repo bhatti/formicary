@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/utils"
+	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -543,28 +544,46 @@ func (kc *KubernetesConfig) GetKubeConfigForCluster() (*rest.Config, error) {
 		return nil, fmt.Errorf("cluster %s not found in kubeconfig", clusterName)
 	}
 
-	// Create a REST config specifically for the named cluster
-	configOverrides := &clientcmd.ConfigOverrides{
-		ClusterInfo: capi.Cluster{
-			Server: config.Clusters[clusterName].Server,
-		},
-		CurrentContext: "", // Don't use the current context
+	// Find the context that references this cluster to get the associated user.
+	contextName := ""
+	userName := ""
+	for ctxName, ctx := range config.Contexts {
+		if ctx.Cluster == clusterName {
+			contextName = ctxName
+			userName = ctx.AuthInfo
+			break
+		}
+	}
+	// Prefer the current context if it also targets this cluster.
+	if config.CurrentContext != "" {
+		if ctx, ok := config.Contexts[config.CurrentContext]; ok && ctx.Cluster == clusterName {
+			contextName = config.CurrentContext
+			userName = ctx.AuthInfo
+		}
 	}
 
-	// Use the specified cluster
-	configOverrides.Context.Cluster = clusterName
-
-	// Create a ClientConfig with the specified overrides
+	// Build REST config using the resolved context so auth credentials are included.
+	overrides := &clientcmd.ConfigOverrides{}
+	if contextName != "" {
+		overrides.CurrentContext = contextName
+	}
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-		configOverrides,
+		overrides,
 	)
-
-	// Create the REST config
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("error creating REST config for cluster %s: %w", clusterName, err)
+		return nil, fmt.Errorf("error creating REST config for cluster %s user %s: %w", clusterName, userName, err)
 	}
+
+	log.WithFields(log.Fields{
+		"cluster":  clusterName,
+		"context":  contextName,
+		"user":     userName,
+		"server":   restConfig.Host,
+		"insecure": restConfig.TLSClientConfig.Insecure,
+		"hasCert":  len(restConfig.TLSClientConfig.CertData) > 0 || restConfig.TLSClientConfig.CertFile != "",
+	}).Infof("kubernetes client configured")
 
 	return restConfig, nil
 }

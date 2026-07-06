@@ -120,7 +120,7 @@ func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *co
 		claims.UserName,
 		"",
 		"",
-		acl.NewRoles(""),
+		acl.NewRoles(claims.SerializedRoles),
 	)
 
 	user.ID = claims.UserID
@@ -128,6 +128,8 @@ func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *co
 	user.BundleID = claims.BundleID
 	user.PictureURL = claims.PictureURL
 	user.AuthProvider = claims.AuthProvider
+	user.SerializedRoles = claims.SerializedRoles
+	user.SerializedPerms = claims.SerializedPerms
 	return user, nil
 }
 
@@ -171,6 +173,7 @@ func RenderDBUserFromSession(c APIContext, res map[string]interface{}) {
 		res[DBUserOrg] = user.OrganizationID
 		res["Admin"] = user.IsAdmin()
 		res["ReadAdmin"] = user.IsReadAdmin()
+		res["OrgAdmin"] = user.IsOrgAdmin()
 	} else if c.Get(AuthDisabled) != nil {
 		res[DBUserOrg] = ""
 		res["Admin"] = true

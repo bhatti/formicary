@@ -50,8 +50,38 @@ func (jer *JobExecutionRepositoryImpl) Get(
 	if err := job.AfterLoad(); err != nil {
 		return nil, common.NewValidationError(err)
 	}
-	// sort tasks by update time
+	// sort tasks by task order
 	sort.Slice(job.Tasks, func(i, j int) bool { return job.Tasks[i].TaskOrder < job.Tasks[j].TaskOrder })
+	// Self-heal: if multiple active rows exist for the same task_type (a dedup gap from a
+	// prior bug or concurrent writes), keep the most-recently-updated one and deactivate the rest.
+	latest := make(map[string]*types.TaskExecution)
+	for _, t := range job.Tasks {
+		prev, exists := latest[t.TaskType]
+		if !exists || t.UpdatedAt.After(prev.UpdatedAt) {
+			latest[t.TaskType] = t
+		}
+	}
+	if len(latest) < len(job.Tasks) {
+		kept := make([]*types.TaskExecution, 0, len(latest))
+		for _, t := range job.Tasks {
+			if latest[t.TaskType].ID == t.ID {
+				kept = append(kept, t)
+			} else {
+				healRes := jer.db.Model(&types.TaskExecution{}).
+					Where("id = ?", t.ID).
+					Updates(map[string]interface{}{"active": false, "updated_at": time.Now()})
+				log.WithFields(log.Fields{
+					"Component":      "JobExecutionRepositoryImpl",
+					"JobExecutionID": id,
+					"TaskType":       t.TaskType,
+					"StaleID":        t.ID,
+					"KeptID":         latest[t.TaskType].ID,
+					"Error":          healRes.Error,
+				}).Warn("deactivated stale duplicate active task execution")
+			}
+		}
+		job.Tasks = kept
+	}
 	sort.Slice(job.Contexts, func(i, j int) bool { return job.Contexts[i].Name < job.Contexts[j].Name })
 	for _, t := range job.Tasks {
 		sort.Slice(t.Contexts, func(i, j int) bool { return t.Contexts[i].Name < t.Contexts[j].Name })
@@ -404,8 +434,25 @@ func (jer *JobExecutionRepositoryImpl) SaveTask(
 			}
 		}
 		if newTask {
+			// Deactivate any prior active tasks for the same job+type before inserting
+			// the new one.  This closes the gap left by concurrent scheduler runs that
+			// each create their own active record for the same task_type.
+			if deactivateRes := tx.Model(&types.TaskExecution{}).
+				Where("job_execution_id = ? AND task_type = ? AND active = ?",
+					task.JobExecutionID, task.TaskType, true).
+				Updates(map[string]interface{}{"active": false, "updated_at": time.Now()}); deactivateRes.Error != nil {
+				return common.NewNotFoundError(deactivateRes.Error)
+			}
 			res = tx.Omit("Contexts").Create(task)
 		} else {
+			// Deactivate any OTHER active rows for the same (job+type) that are not this task.
+			// This self-heals stale duplicates that survived from a prior bug or concurrent write.
+			if deactivateRes := tx.Model(&types.TaskExecution{}).
+				Where("job_execution_id = ? AND task_type = ? AND active = ? AND id != ?",
+					task.JobExecutionID, task.TaskType, true, task.ID).
+				Updates(map[string]interface{}{"active": false, "updated_at": time.Now()}); deactivateRes.Error != nil {
+				return common.NewNotFoundError(deactivateRes.Error)
+			}
 			// Cannot change terminal state
 			// check in-clause and omit
 			tx.Where("task_execution_id = ? AND id NOT IN ?", task.ID, contextIDS).

@@ -28,26 +28,81 @@ It is designed for use cases that require complex dependency management, paralle
 
 ## Getting Started
 
-The easiest way to get started with Formicary is using `docker-compose`.
+The quickest way to run Formicary is with a single Docker command — no clone required.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/bhatti/formicary.git
-    cd formicary
-    ```
+Auth is **enabled by default**. Supply your JWT secret and OAuth credentials, or pass `COMMON_AUTH_ENABLED=false` to disable auth for local testing.
 
-2.  **Prepare configuration:**
-    Define configuration file similar to `config/.formicary.yaml`
-    
-3.  **Run Formicary:**
-    This command starts the Queen server, a local Ant worker, Redis, and MinIO.
-    ```bash
-    docker-compose up
-    ```
+**Option A — Google OAuth (default, auth enabled):**
+```bash
+mkdir -p ~/formicary-data
+# Patch kubeconfig: replace 127.0.0.1 with host.docker.internal and skip TLS verify
+# (Docker Desktop's k8s cert is valid for localhost, not host.docker.internal)
+python3 -c "
+import sys, yaml
+with open(sys.argv[1]) as f: kc = yaml.safe_load(f)
+for c in kc.get('clusters', []):
+    cl = c.get('cluster', {})
+    cl['server'] = cl.get('server','').replace('https://127.0.0.1','https://host.docker.internal')
+    cl.pop('certificate-authority-data', None)
+    cl['insecure-skip-tls-verify'] = True
+with open(sys.argv[2], 'w') as f: yaml.dump(kc, f)
+" ~/.kube/config ~/formicary-data/kubeconfig
+docker run --rm -p 7777:7777 -p 19000:19000 \
+  -e COMMON_AUTH_JWT_SECRET=<your-jwt-secret> \
+  -e COMMON_AUTH_GOOGLE_CLIENT_ID=<your-google-client-id> \
+  -e COMMON_AUTH_GOOGLE_CLIENT_SECRET=<your-google-client-secret> \
+  -e COMMON_AUTH_GOOGLE_CALLBACK_HOST=localhost \
+  -v ~/formicary-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v ~/formicary-data/kubeconfig:/home/formicary-user/.kube/config:ro \
+  plexobject/formicary:latest
+```
 
-4.  **Explore!**
-    -   Open the Formicary Dashboard at [http://localhost:7777](http://localhost:7777).
-    -   Follow the [Quick Start Guide](./docs/03-quick-start.md) to run your first job.
+**Option B — No auth (local testing only):**
+```bash
+mkdir -p ~/formicary-data
+python3 -c "
+import sys, yaml
+with open(sys.argv[1]) as f: kc = yaml.safe_load(f)
+for c in kc.get('clusters', []):
+    cl = c.get('cluster', {})
+    cl['server'] = cl.get('server','').replace('https://127.0.0.1','https://host.docker.internal')
+    cl.pop('certificate-authority-data', None)
+    cl['insecure-skip-tls-verify'] = True
+with open(sys.argv[2], 'w') as f: yaml.dump(kc, f)
+" ~/.kube/config ~/formicary-data/kubeconfig
+docker run --rm -p 7777:7777 -p 19000:19000 \
+  -e COMMON_AUTH_ENABLED=false \
+  -e COMMON_AUTH_JWT_SECRET=<your-jwt-secret> \
+  -v ~/formicary-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v ~/formicary-data/kubeconfig:/home/formicary-user/.kube/config:ro \
+  plexobject/formicary:latest
+```
+
+Data (SQLite DB + artifacts) is stored in `~/formicary-data/` — inspect with `ls ~/formicary-data/` after first run.
+
+The kubeconfig patch replaces `127.0.0.1` with `host.docker.internal` — Docker Desktop's special hostname that lets containers reach the host's Kubernetes API. `make docker-run` does this automatically.
+
+Both options start the Queen server, an embedded Ant worker, embedded SeaweedFS (artifact storage), and SQLite — no Redis, MinIO, or separate services needed.
+
+To use a locally-built image instead of the published one:
+```bash
+DOCKER_IMAGE=formicary:latest make docker-run
+```
+
+**Or use docker-compose** (persistent data, restart policy):
+```bash
+curl -fsSL https://raw.githubusercontent.com/bhatti/formicary/main/docker-compose.yaml -o docker-compose.yaml
+COMMON_AUTH_JWT_SECRET=<your-jwt-secret> \
+COMMON_AUTH_GOOGLE_CLIENT_ID=<your-google-client-id> \
+COMMON_AUTH_GOOGLE_CLIENT_SECRET=<your-google-client-secret> \
+docker compose up
+```
+
+**Explore!**
+-   Open the Formicary Dashboard at [http://localhost:7777](http://localhost:7777).
+-   Follow the [Quick Start Guide](./docs/03-quick-start.md) to run your first job.
 
 ## Documentation
 

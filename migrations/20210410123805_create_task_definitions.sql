@@ -18,8 +18,8 @@
       on_completed VARCHAR(100),
       on_failed VARCHAR(100),
       task_order INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_task_definitions_job_fk FOREIGN KEY (job_definition_id) REFERENCES formicary_job_definitions(id)
     );
 
@@ -33,8 +33,8 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_task_definition_variables_task_fk FOREIGN KEY (task_definition_id) REFERENCES formicary_task_definitions(id)
     );
 

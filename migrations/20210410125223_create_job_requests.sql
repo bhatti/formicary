@@ -26,8 +26,9 @@
       error_code VARCHAR(100),
       error_message TEXT,
       cascade_cancel BOOLEAN NOT NULL DEFAULT FALSE,
-      scheduled_at TIMESTAMP DEFAULT NOW(),
-      created_at TIMESTAMP DEFAULT NOW(),
+      hard_restart BOOLEAN NOT NULL DEFAULT FALSE,
+      scheduled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL,
       CONSTRAINT formicary_job_requests_job_def_fk FOREIGN KEY (job_definition_id) REFERENCES formicary_job_definitions(id)
     );
@@ -63,8 +64,8 @@
       kind VARCHAR(50) NOT NULL,
       value TEXT NOT NULL,
       secret BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_job_request_params_job_fk FOREIGN KEY (job_request_id) REFERENCES formicary_job_requests(id)
     );
 

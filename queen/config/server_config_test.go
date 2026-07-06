@@ -12,6 +12,7 @@ func Test_ShouldLoadConfig(t *testing.T) {
 	viper.AddConfigPath("../..")
 	viper.SetConfigName(".formicary-queen")
 	viper.SetConfigType("yaml")
+	require.NoError(t, os.Setenv("COMMON_AUTH_JWT_SECRET", "test-jwt-secret-for-tests"))
 	require.NoError(t, os.Setenv("COMMON_AUTH_GOOGLE_CLIENT_ID", "my-client"))
 	require.NoError(t, os.Setenv("COMMON_AUTH_GOOGLE_CLIENT_SECRET", "my-secret"))
 	require.NoError(t, os.Setenv("COMMON_S3_ACCESS_KEY_ID", "admin"))
@@ -28,6 +29,9 @@ func Test_ShouldLoadConfig(t *testing.T) {
 }
 
 func Test_ShouldValidateTopics(t *testing.T) {
+	os.Setenv("COMMON_AUTH_JWT_SECRET", "test-jwt-secret-for-tests")
+	os.Setenv("COMMON_AUTH_GOOGLE_CLIENT_ID", "my-client")
+	os.Setenv("COMMON_AUTH_GOOGLE_CLIENT_SECRET", "my-secret")
 	os.Setenv("COMMON_QUEUE_PROVIDER", string(types.RedisMessagingProvider))
 	os.Setenv("COMMON_DEBUG", "true")
 	viper.AddConfigPath("../..")

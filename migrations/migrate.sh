@@ -40,7 +40,6 @@ case "$DB_TYPE" in
             exit 1
         fi
         echo "/data directory is writable ✓"
-        exit 0
         ;;
     *)
         echo "Unsupported database type: $DB_TYPE"

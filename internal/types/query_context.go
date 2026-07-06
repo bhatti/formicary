@@ -35,6 +35,15 @@ func NewQueryContextFromIDs(userID string, orgID string) *QueryContext {
 	return NewQueryContext(user, "")
 }
 
+// NewQueryContextWithOrg builds a QueryContext that carries the org's salt,
+// so that encryptionKey derivation in config repositories uses the correct value.
+func NewQueryContextWithOrg(org *Organization) *QueryContext {
+	user := NewUser(org.ID, "", "", "", acl.NewRoles(""))
+	user.Organization = org
+	user.OrganizationID = org.ID
+	return NewQueryContext(user, "")
+}
+
 // WithUserIDColumn setter
 func (qc *QueryContext) WithUserIDColumn(userIDColumn string) *QueryContext {
 	return &QueryContext{
@@ -83,7 +92,7 @@ func (qc *QueryContext) WithoutAdmin() *QueryContext {
 
 // IsNull checks if user-id and org are not specified
 func (qc *QueryContext) IsNull() bool {
-	return qc.User == nil && qc.User.OrganizationID == ""
+	return qc.User == nil || qc.User.OrganizationID == ""
 }
 
 // Matches - association to org
@@ -91,7 +100,7 @@ func (qc *QueryContext) Matches(userID string, orgID string, readonly bool) bool
 	if qc.IsAdmin() || qc.User == nil || (qc.IsReadAdmin() && readonly) {
 		return true
 	}
-	if qc.User.HasOrganization() || orgID != "" {
+	if qc.User.OrganizationID != "" {
 		return qc.User.OrganizationID == orgID
 	}
 	return qc.User.ID == userID
@@ -139,14 +148,13 @@ func (qc *QueryContext) GetBundle() string {
 	return ""
 }
 
-// AddOrgElseUserWhere - adds user scope
+// AddOrgElseUserWhere - adds org scope; falls back to user scope only when user has no org
 func (qc *QueryContext) AddOrgElseUserWhere(db *gorm.DB, readonly bool) *gorm.DB {
 	if qc.IsAdmin() || (readonly && qc.IsReadAdmin()) {
 		return db
 	}
-	if qc.HasOrganization() && qc.OrganizationIDColumn != "" {
-		return db.Where(qc.OrganizationIDColumn+" = ?",
-			qc.User.OrganizationID)
+	if qc.User != nil && qc.User.OrganizationID != "" && qc.OrganizationIDColumn != "" {
+		return db.Where(qc.OrganizationIDColumn+" = ?", qc.User.OrganizationID)
 	}
 	return qc.AddUserWhere(db, readonly)
 }

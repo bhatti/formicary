@@ -163,13 +163,13 @@ func NewTestEmailVerificationRepository() (EmailVerificationRepository, error) {
 	return f.EmailVerificationRepository, nil
 }
 
-// NewTestOrgConfigRepository Creating a test repository for system config
-func NewTestOrgConfigRepository() (*OrganizationConfigRepositoryImpl, error) {
+// NewTestConfigRepository creates a test repository for configs.
+func NewTestConfigRepository() (*ConfigRepositoryImpl, error) {
 	f, err := NewTestLocator()
 	if err != nil {
 		return nil, err
 	}
-	return f.OrgConfigRepository, nil
+	return f.ConfigRepository, nil
 }
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
@@ -191,7 +191,7 @@ func clearDB(db *gorm.DB) {
 	db.Where("id != ''").Delete(types.JobResourceUse{})
 	db.Where("id != ''").Delete(types.JobResourceConfig{})
 	db.Where("id != ''").Delete(types.JobResource{})
-	db.Where("id != ''").Delete(common.OrganizationConfig{})
+	db.Where("id != ''").Delete(common.Config{})
 	db.Where("id != ''").Delete(types.SystemConfig{})
 	db.Where("id != ''").Delete(types.JobDefinition{})
 	db.Where("id != ''").Delete(common.User{})

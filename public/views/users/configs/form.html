@@ -1,0 +1,30 @@
+<div class="mb-3">
+    {{ with .Errors.Error }}
+    <div class="alert alert-danger">{{ . }}</div>
+    {{ end }}
+</div>
+<div class="mb-3">
+    {{ with .Errors.Name }}
+    <div class="alert alert-danger">{{ . }}</div>
+    {{ end }}
+    <label for="name" class="form-label">Name</label>
+    <input type="text" class="form-control" name="name" id="name" value="{{ .Name }}"
+           placeholder="e.g. JIRA_TOKEN, GITHUB_TOKEN">
+</div>
+<div class="mb-3">
+    {{ with .Errors.Value }}
+    <div class="alert alert-danger">{{ . }}</div>
+    {{ end }}
+    <label for="value" class="form-label">Value</label>
+    <textarea class="form-control" name="value" id="value" rows="3" placeholder="credential value">{{.Value}}</textarea>
+</div>
+<div class="mb-3">
+    <div class="form-check form-switch">
+        {{if .Secret}}
+        <input class="form-check-input" type="checkbox" name="secret" id="secret" checked>
+        {{else}}
+        <input class="form-check-input" type="checkbox" name="secret" id="secret">
+        {{end}}
+        <label class="form-check-label" for="secret">Secret (encrypted at rest)</label>
+    </div>
+</div>

@@ -8,17 +8,19 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/user;user";
 
-// OrganizationConfig holds an org-level named configuration property.
-message OrganizationConfig {
+// Config holds a named configuration property owned by either an organization or a user.
+// configurable_type discriminates the owner: "organizations" or "users".
+message Config {
   string id = 1 [(formicary.v1.tags) = "yaml:\"-\" json:\"id\" gorm:\"primary_key\""];
-  string organization_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"organization_id\""];
-  string name = 3 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
-  string kind = 4 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
-  string value = 5 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
-  bool secret = 6 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
-  google.protobuf.Timestamp created_at = 7 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
-  google.protobuf.Timestamp updated_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
-  map<string, string> errors = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  string configurable_id = 2 [(formicary.v1.tags) = "yaml:\"-\" json:\"configurable_id\""];
+  string configurable_type = 3 [(formicary.v1.tags) = "yaml:\"-\" json:\"configurable_type\""];
+  string name = 4 [(formicary.v1.tags) = "yaml:\"name\" json:\"name\""];
+  string kind = 5 [(formicary.v1.tags) = "yaml:\"kind\" json:\"kind\""];
+  string value = 6 [(formicary.v1.tags) = "yaml:\"value\" json:\"value\""];
+  bool secret = 7 [(formicary.v1.tags) = "yaml:\"secret\" json:\"secret\""];
+  google.protobuf.Timestamp created_at = 8 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
+  google.protobuf.Timestamp updated_at = 9 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
+  map<string, string> errors = 10 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
 }
 
 // Subscription defines quota policy and usage period for a user or org.
@@ -58,13 +60,15 @@ message Organization {
   int32 max_concurrency = 7 [(formicary.v1.tags) = "yaml:\"max_concurrency,omitempty\" json:\"max_concurrency\""];
   string sticky_message = 8 [(formicary.v1.tags) = "json:\"sticky_message\" gorm:\"sticky_message\""];
   string license_policy = 9 [(formicary.v1.tags) = "yaml:\"external_id\" json:\"license_policy\""];
-  // configs has ForeignKey relationship.
-  repeated OrganizationConfig configs = 10 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"ForeignKey:OrganizationID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE\""];
+  // configs are polymorphic — owned by this org in formicary_configs.
+  repeated Config configs = 10 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"polymorphic:Configurable;polymorphicValue:organizations\""];
   Subscription subscription = 11 [(formicary.v1.tags) = "json:\"subscription\" gorm:\"ForeignKey:OrganizationID\" gorm:\"auto_preload\" gorm:\"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;\""];
   bool active = 12 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\""];
   google.protobuf.Timestamp created_at = 13 [(formicary.v1.tags) = "yaml:\"-\" json:\"created_at\""];
   google.protobuf.Timestamp updated_at = 14 [(formicary.v1.tags) = "yaml:\"-\" json:\"updated_at\""];
   map<string, string> errors = 15 [(formicary.v1.tags) = "yaml:\"-\" json:\"-\" gorm:\"-\""];
+  // is_personal marks orgs auto-created for individual users at signup.
+  bool is_personal = 16 [(formicary.v1.tags) = "yaml:\"-\" json:\"is_personal\" gorm:\"column:is_personal;default:false\""];
 }
 
 // User represents a platform user.

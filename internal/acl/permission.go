@@ -58,6 +58,8 @@ const (
 	Logs Resource = "Logs"
 	// ProfileStats resource
 	ProfileStats Resource = "ProfileStats"
+	// UserConfig resource — per-user credential/config storage
+	UserConfig Resource = "UserConfig"
 )
 
 const (
@@ -329,6 +331,26 @@ func DefaultPermissionsString() string {
 	return MarshalPermissions(DefaultPermissions())
 }
 
+// OrgAdminPermissionsString returns serialized OrgAdmin permissions
+func OrgAdminPermissionsString() string {
+	return MarshalPermissions(OrgAdminPermissions())
+}
+
+// OrgAdminPermissions returns permissions for the OrgAdmin role.
+// OrgAdmin can write org configs and view reports; users retain full UserConfig access.
+func OrgAdminPermissions() []*Permission {
+	perms := DefaultPermissions()
+	for _, p := range perms {
+		if p.Resource == OrgConfig {
+			p.Actions = All
+		}
+		if p.Resource == Report {
+			p.Actions = View | Read | Query
+		}
+	}
+	return perms
+}
+
 // DefaultPermissions default permissions
 func DefaultPermissions() []*Permission {
 	return []*Permission{
@@ -340,7 +362,8 @@ func DefaultPermissions() []*Permission {
 		NewPermission(JobResource, Create|Read|Update|Delete|Query|Disable|Enable),
 		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		NewPermission(Organization, Read|Update|Delete|Invite),
-		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
+		NewPermission(OrgConfig, Read|Query),
+		NewPermission(UserConfig, All),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
 		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
 		NewPermission(SystemConfig, None),
@@ -373,6 +396,7 @@ func AdminPermissions() []*Permission {
 		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		NewPermission(Organization, Read|Update|Delete|Invite),
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
+		NewPermission(UserConfig, Create|Read|Update|Delete|Query),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
 		NewPermission(Subscription, Create|Read|Update|Delete|Query|Register),
 		NewPermission(TermsService, View|Read),

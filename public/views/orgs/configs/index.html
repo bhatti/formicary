@@ -6,7 +6,7 @@
             <div class="text-secondary mt-1">Common properties that job definitions can use.</div>
         </div>
         <div class="col-auto d-flex gap-2 flex-wrap">
-            <form action="/dashboard/orgs/{{.DBUser.ID}}/configs/new" method="GET">
+            <form action="/dashboard/orgs/{{.DBUser.OrganizationID}}/configs/new" method="GET">
                 <input type="submit" class="btn btn-primary btn-sm" value="New Config">
             </form>
         </div>
@@ -27,18 +27,18 @@
             <tbody>
             {{range .Configs}}
             <tr>
-                <td><a href="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}">{{.ID}}</a></td>
+                <td><a href="/dashboard/orgs/{{$.DBUser.OrganizationID}}/configs/{{.ID}}">{{.ID}}</a></td>
                 <td>{{.Name}}</td>
-                <td>{{.Secret}}</td>
+                <td>{{if .Secret}}****{{else}}{{.Value}}{{end}}</td>
                 <td>
                     <div class="d-flex gap-1 flex-wrap">
-                        <form action="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}" method="GET">
+                        <form action="/dashboard/orgs/{{$.DBUser.OrganizationID}}/configs/{{.ID}}" method="GET">
                             <input type="submit" class="btn btn-primary btn-sm" value="View">
                         </form>
-                        <form action="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}/edit" method="GET">
+                        <form action="/dashboard/orgs/{{$.DBUser.OrganizationID}}/configs/{{.ID}}/edit" method="GET">
                             <input type="submit" class="btn btn-secondary btn-sm" value="Edit">
                         </form>
-                        <form action="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
+                        <form action="/dashboard/orgs/{{$.DBUser.OrganizationID}}/configs/{{.ID}}/delete" method="POST" enctype="multipart/form-data"
                               onsubmit="return confirm('Please confirm deleting this config (' + this['id'].value + ')?');">
                             <input type="submit" class="btn btn-danger btn-sm" value="Delete">
                             <input type="hidden" name="id" value="{{.Name}}">

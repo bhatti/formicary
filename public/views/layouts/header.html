@@ -90,14 +90,21 @@
             </a>
           </li>
 
-          {{ with .DBUser }}{{ if .HasOrganization }}
           <li class="nav-item">
-            <a class="nav-link" href="/dashboard/orgs/{{.OrganizationID}}/configs">
-              <span class="nav-link-icon"><i class="ti ti-settings"></i></span>
-              <span class="nav-link-title">Configurations</span>
+            <a class="nav-link" href="/dashboard/users/configs">
+              <span class="nav-link-icon"><i class="ti ti-key"></i></span>
+              <span class="nav-link-title">My Credentials</span>
             </a>
           </li>
-          {{ end }}{{ end }}
+
+          {{ if $.OrgAdmin }}
+          <li class="nav-item">
+            <a class="nav-link" href="/dashboard/orgs/{{.DBUser.OrganizationID}}/configs">
+              <span class="nav-link-icon"><i class="ti ti-settings"></i></span>
+              <span class="nav-link-title">Org Configs</span>
+            </a>
+          </li>
+          {{ end }}
 
           {{ if $.ReadAdmin }}
           <li class="nav-item">

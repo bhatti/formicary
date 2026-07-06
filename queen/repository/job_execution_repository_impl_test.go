@@ -727,3 +727,163 @@ func Test_ShouldDeleteValidJobExecution(t *testing.T) {
 	_, err = repo.Get(saved.ID)
 	require.Error(t, err)
 }
+
+// SaveTask must deactivate any prior active task of the same type in the same job
+// execution before inserting a new one.  This is the fix for the concurrent-scheduler
+// race that left multiple active PAUSED records for the same task_type.
+func Test_ShouldDeduplicateActiveTasksOnSave(t *testing.T) {
+	repo, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	_, jobExec, err := NewTestJobExecution(qc, "dedup-active-tasks")
+	require.NoError(t, err)
+	saved, err := repo.Save(jobExec)
+	require.NoError(t, err)
+
+	// Pick the first task and its type as our target
+	firstTask := saved.Tasks[0]
+	taskType := firstTask.TaskType
+
+	// Mark first task as PAUSED (active=true, which SaveTask sets automatically)
+	firstTask.TaskState = common.PAUSED
+	_, err = repo.SaveTask(firstTask)
+	require.NoError(t, err)
+
+	// Simulate a concurrent scheduler: create a second new task (ID="") with the
+	// same task_type and job_execution_id.  SaveTask must deactivate the first one.
+	secondTask := &types.TaskExecution{
+		JobExecutionID: saved.ID,
+		TaskType:       taskType,
+		Method:         firstTask.Method,
+		TaskState:      common.PAUSED,
+	}
+	_, err = repo.SaveTask(secondTask)
+	require.NoError(t, err)
+
+	// After inserting the second record, only one active task for this type may exist.
+	loaded, err := repo.Get(saved.ID)
+	require.NoError(t, err)
+
+	activeCount := 0
+	for _, task := range loaded.Tasks {
+		if task.TaskType == taskType {
+			activeCount++
+		}
+	}
+	require.Equal(t, 1, activeCount,
+		"expected exactly 1 active task for type %s after SaveTask dedup, got %d", taskType, activeCount)
+}
+
+// Test_ShouldDeduplicateActiveTasksOnUpdate verifies that updating an existing task (UPDATE path)
+// also deactivates any stale duplicate active rows for the same (job_execution_id, task_type).
+// This is the scenario that caused visible duplicate tasks in the dashboard after a job timeout.
+func Test_ShouldDeduplicateActiveTasksOnUpdate(t *testing.T) {
+	repo, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	_, jobExec, err := NewTestJobExecution(qc, "dedup-update-path")
+	require.NoError(t, err)
+	saved, err := repo.Save(jobExec)
+	require.NoError(t, err)
+
+	firstTask := saved.Tasks[0]
+	taskType := firstTask.TaskType
+
+	// Simulate the stale-duplicate scenario: directly insert a second active row for
+	// the same (job_execution_id, task_type) bypassing SaveTask dedup (raw DB insert).
+	staleTask := &types.TaskExecution{
+		ID:             "stale-" + firstTask.ID,
+		JobExecutionID: saved.ID,
+		TaskType:       taskType,
+		Method:         firstTask.Method,
+		TaskState:      common.EXECUTING,
+		Active:         true,
+		StartedAt:      time.Now().Add(-1 * time.Minute),
+		UpdatedAt:      time.Now().Add(-1 * time.Minute),
+		TaskOrder:      firstTask.TaskOrder,
+	}
+	require.NoError(t, repo.db.Create(staleTask).Error)
+
+	// WHEN updating the current (legitimate) task via SaveTask
+	firstTask.TaskState = common.FAILED
+	firstTask.ErrorMessage = "pod timeout"
+	_, err = repo.SaveTask(firstTask)
+	require.NoError(t, err)
+
+	// THEN Get must return exactly one active task for this type
+	loaded, err := repo.Get(saved.ID)
+	require.NoError(t, err)
+
+	activeCount := 0
+	for _, task := range loaded.Tasks {
+		if task.TaskType == taskType {
+			activeCount++
+		}
+	}
+	require.Equal(t, 1, activeCount,
+		"expected exactly 1 active task for type %s after UPDATE dedup, got %d", taskType, activeCount)
+	// And it must be the legitimate one, not the stale one
+	_, liveTask := loaded.GetTask("", taskType)
+	require.NotNil(t, liveTask)
+	require.Equal(t, firstTask.ID, liveTask.ID, "Get must return the legitimate task, not the stale one")
+}
+
+// Test_ShouldSelfHealDuplicateActiveTasksOnGet verifies that Get self-heals stale duplicate
+// active rows that exist in the DB (e.g. from a prior bug run) by deactivating the older one.
+func Test_ShouldSelfHealDuplicateActiveTasksOnGet(t *testing.T) {
+	repo, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	repo.clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	_, jobExec, err := NewTestJobExecution(qc, "self-heal-get")
+	require.NoError(t, err)
+	saved, err := repo.Save(jobExec)
+	require.NoError(t, err)
+
+	firstTask := saved.Tasks[0]
+	taskType := firstTask.TaskType
+
+	// Bypass dedup: insert a stale active row with an older UpdatedAt
+	staleTask := &types.TaskExecution{
+		ID:             "stale2-" + firstTask.ID,
+		JobExecutionID: saved.ID,
+		TaskType:       taskType,
+		Method:         firstTask.Method,
+		TaskState:      common.EXECUTING,
+		Active:         true,
+		StartedAt:      firstTask.StartedAt.Add(-2 * time.Minute),
+		UpdatedAt:      firstTask.UpdatedAt.Add(-2 * time.Minute),
+		TaskOrder:      firstTask.TaskOrder,
+	}
+	require.NoError(t, repo.db.Create(staleTask).Error)
+
+	// WHEN Get is called with two active rows for the same task_type
+	loaded, err := repo.Get(saved.ID)
+	require.NoError(t, err)
+
+	// THEN only the newer (legitimate) task is returned
+	activeCount := 0
+	for _, task := range loaded.Tasks {
+		if task.TaskType == taskType {
+			activeCount++
+		}
+	}
+	require.Equal(t, 1, activeCount,
+		"Get self-heal: expected 1 active task for type %s, got %d", taskType, activeCount)
+	_, liveTask := loaded.GetTask("", taskType)
+	require.NotNil(t, liveTask)
+	require.Equal(t, firstTask.ID, liveTask.ID, "Get must keep the newer task after self-heal")
+
+	// AND the stale row must have been deactivated in the DB
+	var staleCheck types.TaskExecution
+	require.NoError(t, repo.db.First(&staleCheck, "id = ?", staleTask.ID).Error)
+	require.False(t, staleCheck.Active, "stale task must be deactivated in DB after Get self-heal")
+}

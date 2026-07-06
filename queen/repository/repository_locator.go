@@ -19,6 +19,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"plexobject.com/formicary/queen/config"
 )
 
@@ -33,7 +34,7 @@ type Locator struct {
 	JobExecutionRepository      *JobExecutionRepositoryImpl
 	JobResourceRepository       *JobResourceRepositoryImpl
 	SystemConfigRepository      *SystemConfigRepositoryImpl
-	OrgConfigRepository         *OrganizationConfigRepositoryImpl
+	ConfigRepository            *ConfigRepositoryImpl
 	UserRepository              UserRepository
 	OrgRepository               OrganizationRepository
 	InvitationRepository        InvitationRepository
@@ -56,6 +57,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	var db *gorm.DB
 	opts := &gorm.Config{
 		PrepareStmt: true,
+		Logger:      logger.Default.LogMode(logger.Silent),
 		//NamingStrategy: schema.NamingStrategy{
 		//	TablePrefix: "formicary_",
 		//},
@@ -165,7 +167,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 	if err != nil {
 		return nil, err
 	}
-	orgConfigRepository, err := NewOrganizationConfigRepositoryImpl(&serverCfg.DB, db,
+	orgConfigRepository, err := NewConfigRepositoryImpl(&serverCfg.DB, db,
 		func(
 			qc *common.QueryContext,
 			id string,
@@ -218,11 +220,15 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		return nil, err
 	}
 
-	// tests use sqlite
-	if serverCfg.DB.Type == "sqlite" {
+	// Only run GORM AutoMigrate for test databases (fresh SQLite in /tmp).
+	// Production SQLite is managed exclusively by goose migrations (migrate.sh).
+	isTestDB := serverCfg.DB.Type == "sqlite" && strings.Contains(serverCfg.DB.DataSource, "/tmp/")
+	if isTestDB {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}
+	}
+	if serverCfg.DB.Type == "sqlite" {
 		qc := common.NewQueryContext(nil, "")
 		if org, err := cachedOrgRepository.Create(
 			qc,
@@ -288,7 +294,7 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		JobExecutionRepository:      jobExecutionRepository,
 		JobResourceRepository:       jobResourceRepository,
 		SystemConfigRepository:      systemConfigRepository,
-		OrgConfigRepository:         orgConfigRepository,
+		ConfigRepository:            orgConfigRepository,
 		UserRepository:              cachedUserRepository,
 		OrgRepository:               cachedOrgRepository,
 		InvitationRepository:        invRepository,
@@ -371,7 +377,7 @@ func migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&common.Organization{}); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(&common.OrganizationConfig{}); err != nil {
+	if err := db.AutoMigrate(&common.Config{}); err != nil {
 		return err
 	}
 	if err := db.AutoMigrate(&events.LogEvent{}); err != nil {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package controller
 
 import (
@@ -32,13 +34,9 @@ func Test_ShouldQueryOrgConfigs(t *testing.T) {
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
 
-	configRepository, err := repository.NewTestOrgConfigRepository()
+	configRepository, err := repository.NewTestConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig(
-		qc.GetOrganizationID(),
-		"name",
-		10,
-		true)
+	orgCfg, err := common.NewOrgConfig(qc.GetOrganizationID(), "name", 10, true)
 	require.NoError(t, err)
 	_, err = configRepository.Save(qc, orgCfg)
 	require.NoError(t, err)
@@ -49,12 +47,13 @@ func Test_ShouldQueryOrgConfigs(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 
 	err = ctrl.queryOrganizationConfigs(ctx)
 	require.NoError(t, err)
 
 	// THEN it should match expected number of records
-	all := ctx.Result.(*PaginatedResult).Records.([]*common.OrganizationConfig)
+	all := ctx.Result.(*PaginatedResult).Records.([]*common.Config)
 	require.NotEqual(t, 0, len(all))
 }
 
@@ -64,10 +63,9 @@ func Test_ShouldGetOrgConfig(t *testing.T) {
 	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	configRepository, err := repository.NewTestOrgConfigRepository()
+	configRepository, err := repository.NewTestConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
-		true)
+	orgCfg, err := common.NewOrgConfig(qc.GetOrganizationID(), "name", 10, true)
 	require.NoError(t, err)
 	_, err = configRepository.Save(qc, orgCfg)
 	require.NoError(t, err)
@@ -78,25 +76,26 @@ func Test_ShouldGetOrgConfig(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader(""))
 	req := &http.Request{Body: reader, URL: &url.URL{}}
 	ctx := web.NewStubContext(req)
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = orgCfg.ID
 	err = ctrl.getOrganizationConfig(ctx)
 	require.NoError(t, err)
 
-	// THEN it should return valid config
-	saved := ctx.Result.(*common.OrganizationConfig)
+	// THEN it should return valid config with secret masked
+	saved := ctx.Result.(*common.Config)
 	require.NotNil(t, saved)
+	require.Equal(t, "****", saved.Value)
 }
 
 func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	// GIVEN organization config controller
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	configRepository, err := repository.NewTestOrgConfigRepository()
+	configRepository, err := repository.NewTestConfigRepository()
 	require.NoError(t, err)
 	qc, err := repository.NewTestQC()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
-		true)
+	orgCfg, err := common.NewOrgConfig(qc.GetOrganizationID(), "name", 10, true)
 	require.NoError(t, err)
 	b, err := json.Marshal(orgCfg)
 	require.NoError(t, err)
@@ -111,7 +110,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 
 	// THEN it should return saved config
 	require.NoError(t, err)
-	saved := ctx.Result.(*common.OrganizationConfig)
+	saved := ctx.Result.(*common.Config)
 	require.NotNil(t, saved)
 
 	// WHEN updating organization config
@@ -122,7 +121,7 @@ func Test_ShouldUpdateOrgConfig(t *testing.T) {
 	err = ctrl.putOrganizationConfig(ctx)
 	// THEN it should return updated config
 	require.NoError(t, err)
-	saved = ctx.Result.(*common.OrganizationConfig)
+	saved = ctx.Result.(*common.Config)
 	require.NotNil(t, saved)
 }
 
@@ -132,10 +131,9 @@ func Test_ShouldDeleteOrgConfig(t *testing.T) {
 	require.NoError(t, err)
 	auditRecordRepository, err := repository.NewTestAuditRecordRepository()
 	require.NoError(t, err)
-	configRepository, err := repository.NewTestOrgConfigRepository()
+	configRepository, err := repository.NewTestConfigRepository()
 	require.NoError(t, err)
-	orgCfg, err := common.NewOrganizationConfig(qc.GetOrganizationID(), "name", 10,
-		true)
+	orgCfg, err := common.NewOrgConfig(qc.GetOrganizationID(), "name", 10, true)
 	require.NoError(t, err)
 	saved, err := configRepository.Save(qc, orgCfg)
 	require.NoError(t, err)
@@ -145,6 +143,7 @@ func Test_ShouldDeleteOrgConfig(t *testing.T) {
 	// WHEN deleting organization config
 	reader := io.NopCloser(strings.NewReader(""))
 	ctx := web.NewStubContext(&http.Request{Body: reader, Header: map[string][]string{"content-type": {"application/json"}}})
+	ctx.Set(web.DBUser, qc.User)
 	ctx.Params["id"] = saved.ID
 	err = ctrl.deleteOrganizationConfig(ctx)
 

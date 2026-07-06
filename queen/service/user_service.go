@@ -182,12 +182,13 @@ func toProtoOrg(o *commonTypes.Organization) *protoUser.Organization {
 		MaxConcurrency: int32(o.MaxConcurrency),
 		StickyMessage:  o.StickyMessage,
 		LicensePolicy:  o.LicensePolicy,
+		IsPersonal:     o.IsPersonal,
 		Active:         o.Active,
 		CreatedAt:      timestamppb.New(o.CreatedAt),
 		UpdatedAt:      timestamppb.New(o.UpdatedAt),
 	}
 	for _, c := range o.Configs {
-		p.Configs = append(p.Configs, toProtoOrgConfig(c))
+		p.Configs = append(p.Configs, toProtoConfigMasked(c))
 	}
 	return p
 }
@@ -214,45 +215,57 @@ func fromProtoOrg(p *protoUser.Organization) *commonTypes.Organization {
 		MaxConcurrency: int(p.MaxConcurrency),
 		StickyMessage:  p.StickyMessage,
 		LicensePolicy:  p.LicensePolicy,
+		IsPersonal:     p.IsPersonal,
 		Active:         p.Active,
 	}
 	for _, c := range p.Configs {
-		o.Configs = append(o.Configs, fromProtoOrgConfig(c))
+		o.Configs = append(o.Configs, fromProtoConfig(c))
 	}
 	return o
 }
 
-func toProtoOrgConfig(c *commonTypes.OrganizationConfig) *protoUser.OrganizationConfig {
+func toProtoConfig(c *commonTypes.Config) *protoUser.Config {
 	if c == nil {
 		return nil
 	}
-	return &protoUser.OrganizationConfig{
-		Id:             c.ID,
-		OrganizationId: c.OrganizationID,
-		Name:           c.Name,
-		Kind:           c.Kind,
-		Value:          c.Value,
-		Secret:         c.Secret,
-		CreatedAt:      timestamppb.New(c.CreatedAt),
-		UpdatedAt:      timestamppb.New(c.UpdatedAt),
+	return &protoUser.Config{
+		Id:               c.ID,
+		ConfigurableId:   c.ConfigurableID,
+		ConfigurableType: string(c.ConfigurableType),
+		Name:             c.Name,
+		Kind:             c.Kind,
+		Value:            c.Value,
+		Secret:           c.Secret,
+		CreatedAt:        timestamppb.New(c.CreatedAt),
+		UpdatedAt:        timestamppb.New(c.UpdatedAt),
 	}
 }
 
-func toProtoOrgConfigs(cfgs []*commonTypes.OrganizationConfig) []*protoUser.OrganizationConfig {
-	out := make([]*protoUser.OrganizationConfig, 0, len(cfgs))
+// toProtoConfigMasked returns the proto with the value redacted for secret configs.
+func toProtoConfigMasked(c *commonTypes.Config) *protoUser.Config {
+	p := toProtoConfig(c)
+	if p != nil && p.Secret {
+		p.Value = "****"
+	}
+	return p
+}
+
+func toProtoConfigsMasked(cfgs []*commonTypes.Config) []*protoUser.Config {
+	out := make([]*protoUser.Config, 0, len(cfgs))
 	for _, c := range cfgs {
-		out = append(out, toProtoOrgConfig(c))
+		out = append(out, toProtoConfigMasked(c))
 	}
 	return out
 }
 
-func fromProtoOrgConfig(p *protoUser.OrganizationConfig) *commonTypes.OrganizationConfig {
+func fromProtoConfig(p *protoUser.Config) *commonTypes.Config {
 	if p == nil {
 		return nil
 	}
-	return &commonTypes.OrganizationConfig{
-		ID:             p.Id,
-		OrganizationID: p.OrganizationId,
+	return &commonTypes.Config{
+		ID:               p.Id,
+		ConfigurableID:   p.ConfigurableId,
+		ConfigurableType: commonTypes.ConfigurableType(p.ConfigurableType),
 		NameTypeValue: commonTypes.NameTypeValue{
 			Name:   p.Name,
 			Kind:   p.Kind,

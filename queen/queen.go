@@ -132,7 +132,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		repoFactory.AuditRecordRepository,
 		repoFactory.UserRepository,
 		repoFactory.OrgRepository,
-		repoFactory.OrgConfigRepository,
+		repoFactory.ConfigRepository,
 		repoFactory.InvitationRepository,
 		repoFactory.EmailVerificationRepository,
 		repoFactory.SubscriptionRepository,
@@ -172,6 +172,11 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	}
 	approvalSvc := approval.NewService(repoFactory.DB, approvalRepo)
 
+	// schedulerTriggerCh is shared between JobManager and JobScheduler so that
+	// TriggerJobRequest can wake the scheduler immediately without polling delay.
+	// Buffered 1: a pending wake signal is coalesced rather than blocking the caller.
+	schedulerTriggerCh := make(chan struct{}, 1)
+
 	jobManager, err := manager.NewJobManager(
 		ctx,
 		serverCfg,
@@ -187,6 +192,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		queueClient,
 		notifier,
 		approvalSvc,
+		schedulerTriggerCh,
 	)
 	if err != nil {
 		return err
@@ -218,6 +224,7 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 			metricsRegistry,
 			approvalSvc,
 			retentionManager,
+			schedulerTriggerCh,
 		)
 		if err = jobScheduler.Start(ctx); err != nil {
 			return err

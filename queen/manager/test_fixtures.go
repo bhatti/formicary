@@ -39,7 +39,7 @@ func TestUserManager(serverCfg *config.ServerConfig) (userManager *UserManager, 
 	if err != nil {
 		return nil, err
 	}
-	orgConfigRepository, err := repository.NewTestOrgConfigRepository()
+	orgConfigRepository, err := repository.NewTestConfigRepository()
 	if err != nil {
 		return nil, err
 	}
@@ -220,6 +220,7 @@ func TestJobManager(serverCfg *config.ServerConfig) (manager *JobManager, err er
 		queueClient,
 		notifier,
 		nil, // approvalSvc - not needed for unit tests
+		nil, // no scheduler trigger in unit tests
 	)
 }
 
@@ -295,5 +296,6 @@ func NewTestJobManagerWithApproval(approvalSvc *approval.Service, templateRoot .
 		queueClient,
 		notifier,
 		approvalSvc,
+		nil, // no scheduler trigger in unit tests
 	)
 }

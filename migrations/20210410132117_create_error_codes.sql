@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS formicary_error_codes
     organization_id VARCHAR(36) DEFAULT '',
     hard_failure    BOOLEAN      NOT NULL DEFAULT FALSE,
     retry           INT                   DEFAULT 0,
-    created_at      TIMESTAMP    NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP    NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX formicary_error_codes_regex_exit_ndx ON formicary_error_codes (job_type, regex, exit_code);

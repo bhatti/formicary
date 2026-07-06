@@ -46,6 +46,20 @@ func (js *JobScheduler) startTickerToSendJobSchedulerLeaderEvents(ctx context.Co
 
 func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *time.Ticker {
 	ticker := time.NewTicker(js.serverCfg.Jobs.JobSchedulerCheckPendingJobsInterval)
+	runSchedule := func() {
+		if js.isBusy() {
+			return
+		}
+		if err := js.schedulePendingJobs(ctx); err != nil {
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithFields(logrus.Fields{
+					"Component": "JobScheduler",
+					"ID":        js.serverCfg.Common.ID,
+					"Error":     err,
+				}).Debug("failed to schedule pending jobs")
+			}
+		}
+	}
 	go func() {
 		for !js.isStopped() {
 			select {
@@ -55,18 +69,10 @@ func (js *JobScheduler) startTickerToSchedulePendingJobs(ctx context.Context) *t
 			case <-js.done:
 				ticker.Stop()
 				return
+			case <-js.triggerCh:
+				runSchedule()
 			case <-ticker.C:
-				if js.busy {
-					continue
-				} else if err := js.schedulePendingJobs(ctx); err != nil {
-					if logrus.IsLevelEnabled(logrus.DebugLevel) {
-						logrus.WithFields(logrus.Fields{
-							"Component": "JobScheduler",
-							"ID":        js.serverCfg.Common.ID,
-							"Error":     err,
-						}).Debug("failed to schedule pending jobs")
-					}
-				}
+				runSchedule()
 			}
 		}
 	}()

@@ -7,7 +7,7 @@
         </div>
         {{ with .Config }}
         <div class="col-auto">
-            <a href="/dashboard/orgs/{{$.DBUser.ID}}/configs/{{.ID}}/edit" class="btn btn-secondary btn-sm">
+            <a href="/dashboard/orgs/{{$.DBUser.OrganizationID}}/configs/{{.ID}}/edit" class="btn btn-secondary btn-sm">
                 <i class="ti ti-pencil"></i> Edit
             </a>
         </div>
@@ -26,10 +26,38 @@
             <dt class="col-5 text-secondary">Secret</dt>
             <dd class="col-7">{{ .Secret }}</dd>
             <dt class="col-5 text-secondary">Value</dt>
-            <dd class="col-7"><textarea class="form-control font-monospace" rows="3" readonly>{{ .Value }}</textarea></dd>
+            <dd class="col-7">
+                {{if .Secret}}
+                <div class="d-flex align-items-center gap-2">
+                    <span class="font-monospace text-muted" id="secret-value">****</span>
+                    {{ if $.OrgAdmin }}
+                    <button class="btn btn-sm btn-outline-secondary" id="reveal-btn"
+                            onclick="revealSecret('{{$.DBUser.OrganizationID}}', '{{.ID}}')">
+                        <i class="ti ti-eye"></i> Reveal
+                    </button>
+                    {{ end }}
+                </div>
+                {{else}}
+                <textarea class="form-control font-monospace" rows="3" readonly>{{ .Value }}</textarea>
+                {{end}}
+            </dd>
         </dl>
         {{ end }}
     </div>
 </div>
+
+<script>
+function revealSecret(orgId, configId) {
+    fetch('/api/orgs/' + orgId + '/configs/' + configId + '/reveal', {
+        credentials: 'same-origin'
+    })
+    .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function(cfg) {
+        document.getElementById('secret-value').textContent = cfg.value || '';
+        document.getElementById('reveal-btn').style.display = 'none';
+    })
+    .catch(function(e) { alert('Failed to reveal secret: ' + e); });
+}
+</script>
 
 {{ template "layouts/footer" }}

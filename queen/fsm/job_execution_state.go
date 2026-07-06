@@ -191,6 +191,28 @@ func (jsm *JobExecutionStateMachine) Validate() (err error) {
 		}).Debugf("validated request")
 	}
 
+	// Validate required_params here at execution time so all config sources
+	// (org configs, job variables, request params) are fully resolved.
+	if len(jsm.JobDefinition.RequiredParams) > 0 {
+		allConfig := jsm.buildDynamicConfigs()
+		reqParams := make(map[string]bool)
+		for _, p := range jsm.Request.GetParams() {
+			reqParams[p.Name] = true
+		}
+		var missing []string
+		for _, name := range jsm.JobDefinition.RequiredParams {
+			if _, ok := allConfig[name]; !ok {
+				if !reqParams[name] {
+					missing = append(missing, name)
+				}
+			}
+		}
+		if len(missing) > 0 {
+			return fmt.Errorf("required parameter(s) not configured: %s — set them via org configs or job parameters",
+				strings.Join(missing, ", "))
+		}
+	}
+
 	return
 }
 
@@ -538,7 +560,7 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 				executingUser)
 		}
 		if jsm.User != nil &&
-			jsm.User.HasOrganization() &&
+			jsm.User.Organization != nil &&
 			executingOrg >= jsm.User.Organization.MaxConcurrency {
 			return fmt.Errorf("cannot submit more than jobs because org already running %d jobs",
 				executingOrg)
@@ -918,7 +940,7 @@ func (jsm *JobExecutionStateMachine) failed(
 // buildSecretConfigs builds secret configs
 func (jsm *JobExecutionStateMachine) buildSecretConfigs() []string {
 	res := make([]string, 0)
-	if jsm.User != nil && jsm.User.HasOrganization() {
+	if jsm.User != nil && jsm.User.Organization != nil {
 		for _, v := range jsm.User.Organization.Configs {
 			if v.Secret {
 				res = append(res, v.Value)
@@ -935,32 +957,53 @@ func (jsm *JobExecutionStateMachine) buildSecretConfigs() []string {
 	return res
 }
 
-// buildDynamicParams builds config params
+// buildDynamicConfigs merges org-level configs (lower priority) with user-level configs
+// (higher priority) into job template variables. User configs win on collision.
 func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.VariableValue {
 	res := make(map[string]common.VariableValue)
-	if jsm.User != nil && jsm.User.HasOrganization() {
-		for _, v := range jsm.User.Organization.Configs {
-			if vv, err := v.GetVariableValue(); err == nil {
-				res[v.Name] = vv
-			}
-		}
-	} else if jsm.User == nil {
-		// Auth disabled or system-triggered cron job: no User is loaded, so org
-		// configs are not in memory. Load them directly from the DB using the
-		// request's org ID, falling back to "default" (the implicit org when auth
-		// is disabled and configs are stored via /api/orgs/default/configs).
-		orgID := jsm.Request.GetOrganizationID()
-		if orgID == "" {
-			orgID = "default"
-		}
+
+	// --- org configs (base layer) ---
+	// Always fetch from the repository to ensure secrets are decrypted.
+	// jsm.User.Organization.Configs is not decrypted (User.AfterLoad does not call org.AfterLoad).
+	orgID := jsm.Request.GetOrganizationID()
+	if orgID == "" && jsm.User != nil && jsm.User.OrganizationID != "" {
+		orgID = jsm.User.OrganizationID
+	}
+	if orgID != "" {
 		if orgConfigs, err := jsm.userManager.GetOrgConfigs(orgID); err == nil {
 			for _, v := range orgConfigs {
 				if vv, err := v.GetVariableValue(); err == nil {
 					res[v.Name] = vv
 				}
 			}
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobExecutionStateMachine",
+				"OrgID":     orgID,
+				"JobID":     jsm.Request.GetID(),
+				"Error":     err,
+			}).Warnf("failed to load org configs for job")
 		}
 	}
+
+	// --- user configs (override layer) ---
+	if jsm.User != nil && jsm.User.ID != "" {
+		if userConfigs, err := jsm.userManager.GetUserConfigs(jsm.User.ID); err == nil {
+			for _, v := range userConfigs {
+				if vv, err := v.GetVariableValue(); err == nil {
+					res[v.Name] = vv
+				}
+			}
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component": "JobExecutionStateMachine",
+				"UserID":    jsm.User.ID,
+				"JobID":     jsm.Request.GetID(),
+				"Error":     err,
+			}).Warnf("failed to load user configs for job")
+		}
+	}
+
 	if jsm.JobDefinition != nil {
 		cfg := jsm.JobDefinition.GetDynamicConfigAndVariables(nil)
 		for k, v := range cfg {

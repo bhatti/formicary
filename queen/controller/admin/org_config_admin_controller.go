@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package admin
 
 import (
@@ -13,43 +15,43 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
-// OrganizationConfigAdminController structure
+// OrganizationConfigAdminController renders org config dashboard pages.
 type OrganizationConfigAdminController struct {
 	auditRecordRepository repository.AuditRecordRepository
-	orgConfigRepository   repository.OrganizationConfigRepository
+	configRepository      repository.ConfigRepository
 	webserver             web.Server
 }
 
-// NewOrganizationConfigAdminController admin dashboard for managing org-configs
+// NewOrganizationConfigAdminController registers dashboard routes for org configs.
 func NewOrganizationConfigAdminController(
 	auditRecordRepository repository.AuditRecordRepository,
-	orgConfigRepository repository.OrganizationConfigRepository,
+	configRepository repository.ConfigRepository,
 	webserver web.Server) *OrganizationConfigAdminController {
-	jraCtr := &OrganizationConfigAdminController{
+	c := &OrganizationConfigAdminController{
 		auditRecordRepository: auditRecordRepository,
-		orgConfigRepository:   orgConfigRepository,
+		configRepository:      configRepository,
 		webserver:             webserver,
 	}
-	webserver.GET("/dashboard/orgs/:org/configs", jraCtr.queryOrganizationConfigs, acl.NewPermission(acl.Organization, acl.View)).Name = "query_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/new", jraCtr.newOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "new_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs", jraCtr.createOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "create_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs/:id", jraCtr.updateOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "update_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/:id", jraCtr.getOrganizationConfig, acl.NewPermission(acl.Organization, acl.View)).Name = "get_admin_org_configs"
-	webserver.GET("/dashboard/orgs/:org/configs/:id/edit", jraCtr.editOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "edit_admin_org_configs"
-	webserver.POST("/dashboard/orgs/:org/configs/:id/delete", jraCtr.deleteOrganizationConfig, acl.NewPermission(acl.Organization, acl.Update)).Name = "delete_admin_org_configs"
-	return jraCtr
+	webserver.GET("/dashboard/orgs/:org/configs", c.queryOrganizationConfigs, acl.NewPermission(acl.OrgConfig, acl.View)).Name = "query_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/new", c.newOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Update)).Name = "new_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs", c.createOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Create)).Name = "create_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs/:id", c.updateOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Update)).Name = "update_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/:id", c.getOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.View)).Name = "get_admin_org_configs"
+	webserver.GET("/dashboard/orgs/:org/configs/:id/edit", c.editOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Update)).Name = "edit_admin_org_configs"
+	webserver.POST("/dashboard/orgs/:org/configs/:id/delete", c.deleteOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Delete)).Name = "delete_admin_org_configs"
+	return c
 }
 
-// ********************************* HTTP Handlers ***********************************
-// queryOrganizationConfigs - queries org-config
-func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.APIContext) error {
-	params, order, page, pageSize, q, qs := controller.ParseParams(c)
-	qc := web.BuildQueryContext(c)
-	configs, total, err := jraCtr.orgConfigRepository.Query(qc, params, page, pageSize, order)
+func (c *OrganizationConfigAdminController) queryOrganizationConfigs(ctx web.APIContext) error {
+	_, _, page, pageSize, q, qs := controller.ParseParams(ctx)
+	qc := web.BuildQueryContext(ctx)
+	orgID := qc.GetOrganizationID()
+	configs, total, err := c.configRepository.QueryOrgConfigs(
+		common.NewQueryContextFromIDs("", orgID), orgID, page, pageSize)
 	if err != nil {
 		return err
 	}
-	baseURL := fmt.Sprintf("/orgs/%s/configs?%s", qc.GetOrganizationID(), q)
+	baseURL := fmt.Sprintf("/orgs/%s/configs?%s", orgID, q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
 	res := map[string]interface{}{
 		"Configs":    configs,
@@ -57,121 +59,107 @@ func (jraCtr *OrganizationConfigAdminController) queryOrganizationConfigs(c web.
 		"BaseURL":    baseURL,
 		"Q":          qs,
 	}
-	web.RenderDBUserFromSession(c, res)
-	return c.Render(http.StatusOK, "orgs/configs/index", res)
+	web.RenderDBUserFromSession(ctx, res)
+	return ctx.Render(http.StatusOK, "orgs/configs/index", res)
 }
 
-// createOrganizationConfig - saves a new org-config
-func (jraCtr *OrganizationConfigAdminController) createOrganizationConfig(c web.APIContext) (err error) {
-	qc := web.BuildQueryContext(c)
-	//orgID := c.Param("org")
-	config, err := common.NewOrganizationConfig(
+func (c *OrganizationConfigAdminController) createOrganizationConfig(ctx web.APIContext) (err error) {
+	qc := web.BuildQueryContext(ctx)
+	cfg, err := common.NewOrgConfig(
 		qc.GetOrganizationID(),
-		c.FormValue("name"),
-		c.FormValue("value"),
-		c.FormValue("secret") == "on")
+		ctx.FormValue("name"),
+		ctx.FormValue("value"),
+		ctx.FormValue("secret") == "on")
 	if err == nil {
-		err = config.Validate()
+		err = cfg.Validate()
 		if err == nil {
-			config, err = jraCtr.orgConfigRepository.Save(qc, config)
+			cfg, err = c.configRepository.Save(qc, cfg)
 		}
 	}
 	if err != nil {
-		res := map[string]interface{}{
-			"Config": config,
-		}
-		web.RenderDBUserFromSession(c, res)
-		return c.Render(http.StatusOK, "orgs/configs/new", res)
+		res := map[string]interface{}{"Config": cfg}
+		web.RenderDBUserFromSession(ctx, res)
+		return ctx.Render(http.StatusOK, "orgs/configs/new", res)
 	}
-	_, _ = jraCtr.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(config, qc))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), config.ID))
+	_, _ = c.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), cfg.ID))
 }
 
-// updateOrganizationConfig - updates org-config
-func (jraCtr *OrganizationConfigAdminController) updateOrganizationConfig(c web.APIContext) error {
-	qc := web.BuildQueryContext(c)
-	//orgID := c.Param("org")
-	config, err := common.NewOrganizationConfig(
-		qc.GetOrganizationID(),
-		c.FormValue("name"),
-		c.FormValue("value"),
-		c.FormValue("secret") == "on")
+func (c *OrganizationConfigAdminController) updateOrganizationConfig(ctx web.APIContext) error {
+	qc := web.BuildQueryContext(ctx)
+	secret := ctx.FormValue("secret") == "on"
+	value := ctx.FormValue("value")
+	cfg, err := common.NewOrgConfig(qc.GetOrganizationID(), ctx.FormValue("name"), value, secret)
 	if err == nil {
-		err = config.Validate()
+		cfg.ID = ctx.Param("id")
+		// Preserve the stored encrypted value when the form shows the masked placeholder.
+		if secret && value == "****" {
+			var existing *common.Config
+			existing, err = c.configRepository.Get(qc, cfg.ID)
+			if err == nil {
+				cfg.Value = existing.Value
+			}
+		}
 		if err == nil {
-			config.ID = c.Param("id")
-			config, err = jraCtr.orgConfigRepository.Save(qc, config)
+			err = cfg.Validate()
+		}
+		if err == nil {
+			cfg, err = c.configRepository.Save(qc, cfg)
 		}
 	}
-
 	if err != nil {
-		res := map[string]interface{}{
-			"Config": config,
-		}
-		web.RenderDBUserFromSession(c, res)
-		return c.Render(http.StatusOK, "orgs/configs/edit", res)
+		res := map[string]interface{}{"Config": cfg}
+		web.RenderDBUserFromSession(ctx, res)
+		return ctx.Render(http.StatusOK, "orgs/configs/edit", res)
 	}
-	_, _ = jraCtr.auditRecordRepository.Save(types.NewAuditRecordFromOrganizationConfig(config, qc))
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), config.ID))
+	_, _ = c.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), cfg.ID))
 }
 
-// newOrganizationConfig - creates a new org config
-func (jraCtr *OrganizationConfigAdminController) newOrganizationConfig(c web.APIContext) error {
-	config, err := common.NewOrganizationConfig("", "", "", false)
+func (c *OrganizationConfigAdminController) newOrganizationConfig(ctx web.APIContext) error {
+	cfg, err := common.NewOrgConfig("", "", "", false)
 	if err != nil {
 		return err
 	}
-	res := map[string]interface{}{
-		"Config": config,
-	}
-	web.RenderDBUserFromSession(c, res)
-	return c.Render(http.StatusOK, "orgs/configs/new", res)
+	res := map[string]interface{}{"Config": cfg}
+	web.RenderDBUserFromSession(ctx, res)
+	return ctx.Render(http.StatusOK, "orgs/configs/new", res)
 }
 
-// getOrganizationConfig - finds org-config by id
-func (jraCtr *OrganizationConfigAdminController) getOrganizationConfig(c web.APIContext) error {
-	id := c.Param("id")
-	qc := web.BuildQueryContext(c)
-	config, err := jraCtr.orgConfigRepository.Get(qc, id)
+func (c *OrganizationConfigAdminController) getOrganizationConfig(ctx web.APIContext) error {
+	qc := web.BuildQueryContext(ctx)
+	cfg, err := c.configRepository.Get(qc, ctx.Param("id"))
 	if err != nil {
 		return err
 	}
-	res := map[string]interface{}{
-		"Config": config,
-	}
-	web.RenderDBUserFromSession(c, res)
-	return c.Render(http.StatusOK, "orgs/configs/view", res)
+	res := map[string]interface{}{"Config": cfg}
+	web.RenderDBUserFromSession(ctx, res)
+	return ctx.Render(http.StatusOK, "orgs/configs/view", res)
 }
 
-// editOrganizationConfig - shows org-config for edit
-func (jraCtr *OrganizationConfigAdminController) editOrganizationConfig(c web.APIContext) error {
-	id := c.Param("id")
-	qc := web.BuildQueryContext(c)
-	config, err := jraCtr.orgConfigRepository.Get(qc, id)
+func (c *OrganizationConfigAdminController) editOrganizationConfig(ctx web.APIContext) error {
+	qc := web.BuildQueryContext(ctx)
+	cfg, err := c.configRepository.Get(qc, ctx.Param("id"))
 	if err != nil {
-		config = &common.OrganizationConfig{}
-		config.Errors = map[string]string{"Error": err.Error()}
+		cfg = &common.Config{}
+		cfg.Errors = map[string]string{"Error": err.Error()}
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{
 				"Component": "OrganizationConfigAdminController",
 				"Error":     err,
-				"ID":        id,
+				"ID":        ctx.Param("id"),
 			}).Debug("failed to find config")
 		}
 	}
-	res := map[string]interface{}{
-		"Config": config,
-	}
-	web.RenderDBUserFromSession(c, res)
-	return c.Render(http.StatusOK, "orgs/configs/edit", res)
+	res := map[string]interface{}{"Config": cfg}
+	web.RenderDBUserFromSession(ctx, res)
+	return ctx.Render(http.StatusOK, "orgs/configs/edit", res)
 }
 
-// deleteOrganizationConfig - deletes org-config by id
-func (jraCtr *OrganizationConfigAdminController) deleteOrganizationConfig(c web.APIContext) error {
-	qc := web.BuildQueryContext(c)
-	err := jraCtr.orgConfigRepository.Delete(qc, c.Param("id"))
-	if err != nil {
+func (c *OrganizationConfigAdminController) deleteOrganizationConfig(ctx web.APIContext) error {
+	qc := web.BuildQueryContext(ctx)
+	if err := c.configRepository.Delete(qc, ctx.Param("id")); err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", qc.GetOrganizationID()))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", qc.GetOrganizationID()))
 }

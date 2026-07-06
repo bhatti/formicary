@@ -11,7 +11,7 @@
         error TEXT,
         message TEXT,
 
-        created_at TIMESTAMP NOT NULL DEFAULT now()
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ;
 
     CREATE INDEX formicary_audit_records_user_id_ndx ON formicary_audit_records(user_id);

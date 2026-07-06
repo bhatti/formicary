@@ -282,10 +282,10 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	// Setup container name
 	tsm.BuildExecutorOptsName()
 
-	taskReq.ExecutorOpts.PodLabels[common.RequestID] = tsm.Request.GetID()
-	taskReq.ExecutorOpts.PodLabels[common.UserID] = tsm.Request.GetUserID()
-	taskReq.ExecutorOpts.PodLabels[common.OrgID] = tsm.Request.GetOrganizationID()
-	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = tsm.serverCfg.Common.ID
+	taskReq.ExecutorOpts.PodLabels[common.RequestID] = utils.MakeDNS1123Compatible(tsm.Request.GetID())
+	taskReq.ExecutorOpts.PodLabels[common.UserID] = utils.MakeDNS1123Compatible(tsm.Request.GetUserID())
+	taskReq.ExecutorOpts.PodLabels[common.OrgID] = utils.MakeDNS1123Compatible(tsm.Request.GetOrganizationID())
+	taskReq.ExecutorOpts.PodLabels["FormicaryServer"] = utils.MakeDNS1123Compatible(tsm.serverCfg.Common.ID)
 
 	if tsm.serverCfg.Common.Debug || taskReq.Variables["debug"].Value == "true" || taskReq.Variables["debug"].Value == true {
 		taskReq.ExecutorOpts.Debug = true
@@ -414,7 +414,11 @@ func (tsm *TaskExecutionStateMachine) UpdateTaskFromResponse(
 				"Retries":              tsm.Request.GetRetried(),
 			}).Debugf("[tsm] overriding error code")
 		}
-		if taskResp.Status != common.MANUAL_APPROVAL_REQUIRED && taskResp.Status != common.PAUSED {
+		// For PAUSED and MANUAL_APPROVAL_REQUIRED, the error-code is intentionally not
+	// propagated onto TaskExecution.ErrorCode here. Callers in executeNextTask that
+	// detect TaskState==PAUSED must return common.ErrorPauseJob directly rather than
+	// reading TaskExecution.ErrorCode (which remains empty on this path).
+	if taskResp.Status != common.MANUAL_APPROVAL_REQUIRED && taskResp.Status != common.PAUSED {
 			if tsm.errorCode, err = tsm.ErrorCodeRepository.Match(
 				tsm.QueryContext(),
 				taskResp.ErrorMessage,

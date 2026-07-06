@@ -46,6 +46,7 @@ type JobManager struct {
 	queueClient             queue.Client
 	jobsNotifier            notify.Notifier
 	approvalService         *approval.Service
+	schedulerTriggerCh      chan struct{}
 	jobIdsTicker            *time.Ticker
 }
 
@@ -64,7 +65,8 @@ func NewJobManager(
 	metricsRegistry *metrics.Registry,
 	queueClient queue.Client,
 	jobsNotifier notify.Notifier,
-	approvalSvc *approval.Service) (*JobManager, error) {
+	approvalSvc *approval.Service,
+	schedulerTriggerCh chan struct{}) (*JobManager, error) {
 	if serverCfg == nil {
 		return nil, fmt.Errorf("server-config is not specified")
 	}
@@ -115,6 +117,7 @@ func NewJobManager(
 		queueClient:             queueClient,
 		jobsNotifier:            jobsNotifier,
 		approvalService:         approvalSvc,
+		schedulerTriggerCh:      schedulerTriggerCh,
 	}
 
 	if err := jm.startRecentlyCompletedJobIdsTicker(ctx); err != nil {
@@ -631,15 +634,6 @@ func (jm *JobManager) SaveJobRequest(
 	if forkedCount > maxForkJobs {
 		return nil, common.NewValidationError(
 			fmt.Errorf("cannot fork job more than %d jobs", maxForkJobs))
-	}
-
-	if len(jobDefinition.RequiredParams) > 0 {
-		for _, name := range jobDefinition.RequiredParams {
-			if request.GetParam(name) == nil && jobDefinition.GetVariable(name) == nil {
-				return nil, common.NewValidationError(
-					fmt.Errorf("failed to find required parameter for %s", name))
-			}
-		}
 	}
 
 	saved, err = jm.jobRequestRepository.Save(qc, request)
@@ -1392,6 +1386,12 @@ func (jm *JobManager) TriggerJobRequest(
 			jm.metricsRegistry.Incr("job_trigger_total", map[string]string{"JobType": req.JobType})
 			_ = jm.fireJobRequestChange(req)
 			_, _ = jm.auditRecordRepository.Save(types.NewAuditRecordFromJobRequest(req, types.JobRequestTriggered, qc))
+		}
+		if jm.schedulerTriggerCh != nil {
+			select {
+			case jm.schedulerTriggerCh <- struct{}{}:
+			default:
+			}
 		}
 	}
 	return

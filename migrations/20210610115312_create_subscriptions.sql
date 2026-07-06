@@ -13,7 +13,7 @@
       ended_at TIMESTAMP,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       updated_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE INDEX formicary_subscriptions_user_ndx ON formicary_subscriptions(id, user_id);
@@ -37,7 +37,7 @@
       ended_at TIMESTAMP,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       updated_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE INDEX formicary_subscription_payments_user_ndx ON formicary_subscription_payments(id, user_id);

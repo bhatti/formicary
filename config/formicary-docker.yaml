@@ -44,8 +44,15 @@ embedded_ant:
     docker:
       host: "unix:///var/run/docker.sock"
     kubernetes:
+      kubeconfig: "/home/formicary-user/.kube/config"
       namespace: "default"
       allow_privilege_escalation: true
+      registry:
+        pull_policy: always
+      host_aliases:
+        - ip: "100.107.120.55"
+          hostnames:
+            - "ai"
       default_resources:
         cpuRequest: "500m"
         memoryRequest: "512Mi"

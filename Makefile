@@ -92,9 +92,13 @@ docker-release:
 	docker push $(DOCKER_REGISTRY)$(BINARY_NAME):latest
 	docker push $(DOCKER_REGISTRY)$(BINARY_NAME):$(VERSION)
 
-DOCKER_IMAGE ?= formicary:latest
+DOCKER_IMAGE ?= plexobject/formicary:latest
 COMMON_AUTH_GOOGLE_CALLBACK_HOST ?= localhost
-# Set COMMON_AUTH_ENABLED=false to disable auth for local testing (no OAuth creds needed)
+COMMON_AUTH_GITHUB_CALLBACK_HOST ?= localhost
+# Set COMMON_AUTH_ENABLED=false to disable auth for local testing (no OAuth creds needed).
+# For Google OAuth: export COMMON_AUTH_GOOGLE_CLIENT_ID and COMMON_AUTH_GOOGLE_CLIENT_SECRET.
+# For GitHub OAuth: export COMMON_AUTH_GITHUB_CLIENT_ID and COMMON_AUTH_GITHUB_CLIENT_SECRET.
+# Always set COMMON_AUTH_JWT_SECRET to a stable secret (sessions break if it changes).
 COMMON_AUTH_ENABLED ?= true
 
 DATA_DIR ?= $(HOME)/formicary-data
@@ -103,8 +107,19 @@ CONFIG_FILE ?= $(PWD)/config/formicary-docker.yaml
 
 # docker-run: queen + embedded ant + embedded SeaweedFS + SQLite in one container.
 # No Redis, MinIO, or separate ant container needed.
-# Override DOCKER_IMAGE=formicary:latest to use a locally-built image.
-docker-run:
+# Override with a locally-built image: DOCKER_IMAGE=formicary:latest make docker-run
+KUBECONFIG_PATCHED ?= $(DATA_DIR)/kubeconfig
+
+# Patch kubeconfig for use inside Docker:
+#   - Replace 127.0.0.1 with host.docker.internal (host reachable from container)
+#   - Set insecure-skip-tls-verify: true (cert is valid for localhost, not host.docker.internal)
+#   - Remove certificate-authority-data (superseded by insecure-skip-tls-verify)
+$(KUBECONFIG_PATCHED): $(HOME)/.kube/config
+	mkdir -p $(DATA_DIR)
+	python3 /Users/sbhatti/workplace/formicary/scripts/patch-kubeconfig.py $< $@
+	chmod 600 $@
+
+docker-run: $(KUBECONFIG_PATCHED)
 	mkdir -p $(DATA_DIR)
 	docker run --rm -p 7777:7777 -p 19000:19000 \
 		-e COMMON_AUTH_ENABLED="$(COMMON_AUTH_ENABLED)" \
@@ -114,8 +129,11 @@ docker-run:
 		-e COMMON_AUTH_GOOGLE_CALLBACK_HOST="$(COMMON_AUTH_GOOGLE_CALLBACK_HOST)" \
 		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
 		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
 		-v $(DATA_DIR):/data \
 		-v $(CONFIG_FILE):/config/formicary-queen.yaml:ro \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(KUBECONFIG_PATCHED):/home/formicary-user/.kube/config:ro \
 		$(DOCKER_IMAGE)
 
 lint: 

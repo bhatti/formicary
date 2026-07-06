@@ -742,5 +742,6 @@ func newJobManagerWithApproval(serverCfg *config.ServerConfig, approvalSvc *appr
 		queueClient,
 		notifier,
 		approvalSvc,
+		nil, // no scheduler in tests
 	)
 }

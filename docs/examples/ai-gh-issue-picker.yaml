@@ -1,108 +1,64 @@
 # Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs.
 #
-# The gather-issues task outputs items.json — a generic JSON array where each
-# object's fields become job params. Two reserved fields:
+# gather-issues: runs ai-dev-tools image, writes /workspace/{issue_id}/issue.json
+#   per issue, and emits ::set-output name=IssuesJSON:: with a JSON array.
+# submit-jobs: uses SubmitJobsFromJSON to fan out one ai-gh-implement job per issue.
+#
+# Reserved fields in each IssuesJSON entry:
 #   _description  -> sets the job request description in the Formicary dashboard
 #   _user_key     -> dedup key; prevents re-submitting the same issue on repeat runs
 #
-# SubmitJobsFromJSON is a general-purpose Formicary template function: it submits
-# one child job per item in any JSON array. The GitHub-specific logic lives here
-# in the script, not in Formicary core.
+# Deploy:
+#   ./deploy-ai-workflows.sh --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO \
+#     --gh-token $GITHUB_TOKEN --anthropic-key $ANTHROPIC_API_KEY
 
 job_type: ai-gh-issue-picker
 description: "Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs"
-cron_trigger: "0 * * * * * *"
-max_concurrency: 1
+cron_trigger: "*/5 * * * *"
 timeout: 5m
+max_concurrency: 1
+required_params:
+  - GithubToken
+  - GitHubOrg
+  - GitHubRepo
 
 skip_if: >-
-  {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING") 10}} true {{end}}
+  {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING" "EXECUTING") 10}} true {{end}}
 
 tasks:
 - task_type: gather-issues
-  method: SHELL
+  method: KUBERNETES
   timeout: 3m
+  report_stdout: true
+  host_network: true
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
   environment:
-    MAX_PENDING: "{{.MaxPendingJobs}}"
+    WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
+    GH_TOKEN: "{{.GithubToken}}"
     PICKUP_LABEL: "{{.PickupLabel}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
+    MAX_ISSUES: "{{.MaxIssues}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
   script:
-    - |
-      #!/bin/bash
-      set -euo pipefail
-      python3 - <<'PYEOF'
-      import json, os, subprocess, sys
-
-      gh_org      = os.environ["GH_ORG"]
-      gh_repo     = os.environ["GH_REPO"]
-      pickup_lbl  = os.environ["PICKUP_LABEL"]
-      inprog_lbl  = os.environ["INPROGRESS_LABEL"]
-      max_pending = int(os.environ.get("MAX_PENDING", "10"))
-      repo        = gh_org + "/" + gh_repo
-
-      def gh(*args):
-          r = subprocess.run(["gh"] + list(args), capture_output=True, text=True)
-          if r.returncode != 0:
-              print("gh " + " ".join(args) + " failed: " + r.stderr.strip(), file=sys.stderr)
-          return r
-
-      r = gh("issue", "list", "-R", repo,
-             "--label", pickup_lbl, "--state", "open",
-             "--limit", str(max_pending),
-             "--json", "number,title,body,url")
-      try:
-          issues = json.loads(r.stdout) if r.returncode == 0 else []
-      except json.JSONDecodeError:
-          issues = []
-
-      print("Fetched " + str(len(issues)) + " issue(s) from " + repo)
-
-      items = []
-      for issue in issues:
-          num   = str(issue["number"])
-          title = issue.get("title", "")
-          body  = issue.get("body", "")
-          url   = issue.get("url", "")
-          nonce = subprocess.check_output(
-              ["bash", "-c", "head -c 4 /dev/urandom | xxd -p"], text=True).strip()
-
-          # Transition label before submitting so a concurrent picker run won't pick it up again
-          gh("issue", "edit", num, "-R", repo,
-             "--remove-label", pickup_lbl, "--add-label", inprog_lbl)
-          print("  Labelled #" + num + ": " + title)
-
-          items.append({
-              # Generic fields — become job params directly
-              "IssueNumber": num,
-              "IssueTitle":  title,
-              "IssueBody":   body,
-              "IssueURL":    url,
-              "Nonce":       nonce,
-              "GitHubOrg":   gh_org,
-              "GitHubRepo":  gh_repo,
-              # Reserved: sets job request description and dedup key
-              "_description": "#" + num + ": " + title,
-              "_user_key":    "ai-gh-implement-" + gh_org + "-" + gh_repo + "-" + num,
-          })
-
-      items_json = json.dumps(items, separators=(",", ":"))
-      with open("items.json", "w") as f:
-          f.write(items_json + "\n")
-
-      print("items.json written: " + str(len(items)) + " item(s)")
-      # Export to job context so downstream template can use {{.IssuesJSON}}
-      print("::set-output name=IssuesJSON::" + items_json)
-      PYEOF
-  artifacts:
-    paths:
-      - items.json
+    - python -m scripts.gh.issue_picker
+  on_exit_code:
+    2: COMPLETED    # No issues found — not an error
   on_completed: submit-jobs
 
 - task_type: submit-jobs
   method: SHELL
   timeout: 1m
+  report_stdout: true
   dependencies:
     - gather-issues
   environment:
@@ -110,26 +66,17 @@ tasks:
     PENDING_COUNT: '{{CountByJobTypeAndState "ai-gh-implement" "PENDING"}}'
     ISSUES_JSON: '{{.IssuesJSON}}'
   script:
-    - |
-      #!/bin/bash
-      set -euo pipefail
-      echo "=== Issue Picker Submit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-      echo "Parent Job ID: {{.JobID}}"
-      echo "Issues found: ${ISSUES_JSON:-none}"
-      echo "---"
-      if [ -n "${SUBMITTED_IDS:-}" ]; then
-        echo "Submitted job IDs:"
-        echo "$SUBMITTED_IDS" | while read -r id; do
-          [ -n "$id" ] && echo "  - $id"
-        done
-      else
-        echo "No jobs submitted"
-      fi
-      echo "Current PENDING count: ${PENDING_COUNT}"
+    - echo "=== Issue Picker Submit ==="
+    - echo "Issues found ${ISSUES_JSON:-none}, pending=${PENDING_COUNT}, submitted=${SUBMITTED_IDS:-none}"
 
 job_variables:
-  MaxPendingJobs: "10"
+  MaxIssues: "5"
   PickupLabel: "ai-ready"
   InProgressLabel: "ai-in-progress"
-  GitHubOrg: "bhatti"
-  GitHubRepo: "todo-sample"
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
+  #   GitHubOrg, GitHubRepo  (plain)
+  #   GithubToken            (secret)
+  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key

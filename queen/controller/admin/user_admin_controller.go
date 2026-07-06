@@ -3,7 +3,6 @@ package admin
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -86,17 +85,25 @@ func (uc *UserAdminController) newUser(c web.APIContext) error {
 	if user == nil {
 		return fmt.Errorf("failed to find user in session to create user")
 	}
+	// Clear any org fields inherited from a personal org so the form
+	// always starts as "individual" unless an invitation is present.
+	user.OrgUnit = ""
+	user.BundleID = ""
+	user.InvitationCode = ""
+	isOrgSignup := false
 	invID := c.QueryParam("inv_id")
 	if invID != "" {
 		if inv, err := uc.userManager.GetInvitation(invID); err == nil {
 			user.OrganizationID = inv.OrganizationID
 			user.InvitationCode = inv.InvitationCode
 			user.OrgUnit = inv.OrgUnit
+			isOrgSignup = true
 		}
 	}
 	res := map[string]interface{}{
 		"User":         user,
 		"InvitationID": invID,
+		"IsOrgSignup":  isOrgSignup,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/new", res)
@@ -108,7 +115,13 @@ func (uc *UserAdminController) createUser(c web.APIContext) (err error) {
 	user, err := uc.createUserFromForm(c)
 	if err != nil {
 		if user == nil {
-			user = common.NewUser("", "", "", "", acl.NewRoles(""))
+			// Reconstruct a display user from the session so the username stays visible.
+			sessionUser := web.GetDBLoggedUserFromSession(c)
+			if sessionUser != nil {
+				user = sessionUser
+			} else {
+				user = common.NewUser("", "", "", "", acl.NewRoles(""))
+			}
 			user.Errors = map[string]string{"Error": err.Error()}
 			initUserFromForm(c, user)
 		}
@@ -125,9 +138,11 @@ func (uc *UserAdminController) createUser(c web.APIContext) (err error) {
 			"Invitation": user.InvitationCode,
 			"Error":      err,
 		}).Errorf("failed to save user")
+		isOrgSignup := c.FormValue("accountType") == "organization"
 		res := map[string]interface{}{
 			"User":         user,
 			"InvitationID": invID,
+			"IsOrgSignup":  isOrgSignup,
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "users/new", res)
@@ -370,127 +385,56 @@ func (uc *UserAdminController) createUserToken(c web.APIContext) (err error) {
 	return c.Render(http.StatusOK, "users/view_token", res)
 }
 
-func (uc *UserAdminController) createUserFromForm(c web.APIContext) (saved *common.User, err error) {
-	dbUser := web.GetDBUserFromSession(c)
-	if dbUser != nil {
-		return nil, fmt.Errorf("already exists user with username %s", dbUser.Username)
+func (uc *UserAdminController) createUserFromForm(c web.APIContext) (*common.User, error) {
+	// If the user is already in the DB, signup completed — just return them so
+	// the caller can issue a fresh JWT and redirect to the dashboard.
+	if dbUser := web.GetDBUserFromSession(c); dbUser != nil {
+		return dbUser, nil
 	}
-
 	user := web.GetDBLoggedUserFromSession(c)
 	if user == nil {
 		return nil, fmt.Errorf("failed to find user in session and form")
 	}
-
 	initUserFromForm(c, user)
-
-	if err = user.Validate(); err != nil {
+	if err := user.Validate(); err != nil {
 		return user, err
 	}
 	if !user.AgreeTerms {
 		user.Errors = map[string]string{"AgreeTerms": "you must agree to the terms of service."}
 		return user, fmt.Errorf("you must agree to the terms of service")
 	}
-
-	var org *common.Organization
-	org, err = uc.userManager.BuildOrgWithInvitation(user)
-	if err != nil {
-		return nil, err
-	}
-	saved, err = uc.saveNewUser(user)
-	if err != nil {
-		return user, err
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"Component":    "UserAdminController",
-		"Organization": org,
-		"User":         saved,
-	}).Infof("created user")
-
-	if org != nil {
-		// new org
-		var savedOrg *common.Organization
-		if org.ID == "" {
-			org.OwnerUserID = saved.ID
-			savedOrg, err = uc.saveNewOrg(c, org)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "UserAdminController",
-					"Org":       org,
-					"Error":     err,
-				}).Errorf("failed to save organization")
-				// delete user as well
-				adminQC := common.NewQueryContext(nil, "").WithAdmin()
-				_ = uc.userManager.DeleteUser(adminQC, saved.ID)
-				return nil, err
-			}
-
-			logrus.WithFields(logrus.Fields{
-				"Component": "UserAdminController",
-				"Org":       savedOrg,
-				"OrgID":     savedOrg.ID,
-			}).Infof("created organization")
-		} else if saved.OrganizationID != org.ID {
-			savedOrg = org
-		}
-
-		// update user with org
-		if savedOrg != nil {
-			org = savedOrg
-			saved.OrganizationID = savedOrg.ID
-			saved.BundleID = savedOrg.BundleID
-			// disabling query context here
-			adminQC := common.NewQueryContext(nil, "").WithAdmin()
-			_, err = uc.userManager.UpdateUser(adminQC, saved)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"Component": "UserAdminController",
-					"User":      saved,
-					"Org":       savedOrg,
-					"Error":     err,
-				}).Errorf("failed to update organization in user")
-			} else {
-				logrus.WithFields(logrus.Fields{
-					"Component": "UserAdminController",
-					"User":      saved,
-					"UserID":    saved.ID,
-					"Org":       savedOrg,
-					"OrgID":     savedOrg.ID,
-				}).Infof("updated organization-id for user")
-			}
-		}
-	}
-	saved.Organization = org
-	qc := common.NewQueryContext(saved, c.Request().RemoteAddr)
-	_ = uc.userManager.PostSignup(qc, saved)
-	return saved, nil
+	qc := common.NewQueryContext(nil, "").WithAdmin()
+	saved, _, err := uc.userManager.SignupUser(qc, user, c.Request().RemoteAddr)
+	return saved, err
 }
 
 func initUserFromForm(c web.APIContext, user *common.User) {
 	user.Name = c.FormValue("name")
 	user.Email = c.FormValue("email")
-	user.BundleID = c.FormValue("bundle")
-	user.OrgUnit = c.FormValue("orgUnit")
-	user.InvitationCode = c.FormValue("invitationCode")
 	user.AgreeTerms = c.FormValue("agreeTerms") == "agree"
+	// Only populate org fields when the user explicitly chose an organization account.
+	// This ensures individual-account submissions never accidentally trigger org creation.
+	accountType := c.FormValue("accountType")
+	logrus.WithFields(logrus.Fields{
+		"Component":   "UserAdminController",
+		"Username":    user.Username,
+		"AccountType": accountType,
+		"OrgUnit_raw": c.FormValue("orgUnit"),
+		"Bundle_raw":  c.FormValue("bundle"),
+		"InvCode_raw": c.FormValue("invitationCode"),
+	}).Infof("initUserFromForm")
+	// OrganizationID must always be cleared for a new signup — the session user may
+	// carry a stale OrganizationID from a personal org created in a prior attempt,
+	// which would cause BuildOrgWithInvitation to take the org-creation path.
+	user.OrganizationID = ""
+	if accountType == "organization" {
+		user.BundleID = c.FormValue("bundle")
+		user.OrgUnit = c.FormValue("orgUnit")
+		user.InvitationCode = c.FormValue("invitationCode")
+	} else {
+		user.BundleID = ""
+		user.OrgUnit = ""
+		user.InvitationCode = ""
+	}
 }
 
-func (uc *UserAdminController) saveNewUser(user *common.User) (saved *common.User, err error) {
-	qc := common.NewQueryContext(nil, "").WithAdmin()
-	saved, err = uc.userManager.CreateUser(qc, user)
-	if err != nil && strings.Contains(err.Error(), "already exists") {
-		saved, err = uc.userManager.UpdateUser(qc, user)
-	}
-	return
-}
-
-func (uc *UserAdminController) saveNewOrg(
-	_ web.APIContext,
-	org *common.Organization) (saved *common.Organization, err error) {
-	qc := common.NewQueryContext(nil, "").WithAdmin()
-	saved, err = uc.userManager.CreateOrg(qc, org)
-	if err != nil && strings.Contains(err.Error(), "already exists") {
-		saved, err = uc.userManager.UpdateOrg(qc, org)
-	}
-	return
-}

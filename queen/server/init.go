@@ -185,7 +185,7 @@ func buildServices(
 		jobDef:    queenService.NewJobDefinitionService(jobManager),
 		jobExec:   queenService.NewJobExecutionService(jobManager),
 		user:      queenService.NewUserService(userManager, repoFactory.UserRepository, serverCfg),
-		org:       queenService.NewOrgService(userManager, repoFactory.OrgConfigRepository),
+		org:       queenService.NewOrgService(userManager, repoFactory.ConfigRepository, repoFactory.AuditRecordRepository),
 		artifact:  queenService.NewArtifactService(artifactManager),
 		config:    queenService.NewConfigService(repoFactory.SystemConfigRepository, repoFactory.JobDefinitionRepository, jobManager),
 		resource:  queenService.NewResourceService(dashboardStats, repoFactory.SubscriptionRepository),
@@ -367,27 +367,34 @@ func buildMethodPermissions() map[string]*acl.Permission {
 	p[svcpb.UserService_UpdateUser_FullMethodName] = acl.NewPermission(acl.User, acl.Write)
 	p[svcpb.UserService_DeleteUser_FullMethodName] = acl.NewPermission(acl.User, acl.Delete)
 
-	// Organizations
+	// Organizations (org CRUD — admin only)
 	for _, m := range []string{
 		svcpb.OrganizationService_QueryOrgs_FullMethodName,
 		svcpb.OrganizationService_GetOrg_FullMethodName,
-		svcpb.OrganizationService_QueryOrgConfigs_FullMethodName,
 	} {
 		p[m] = acl.NewPermission(acl.Organization, acl.View)
 	}
 	for _, m := range []string{
 		svcpb.OrganizationService_CreateOrg_FullMethodName,
 		svcpb.OrganizationService_UpdateOrg_FullMethodName,
-		svcpb.OrganizationService_SaveOrgConfig_FullMethodName,
 	} {
 		p[m] = acl.NewPermission(acl.Organization, acl.Write)
 	}
-	for _, m := range []string{
-		svcpb.OrganizationService_DeleteOrg_FullMethodName,
-		svcpb.OrganizationService_DeleteOrgConfig_FullMethodName,
-	} {
-		p[m] = acl.NewPermission(acl.Organization, acl.Delete)
-	}
+	p[svcpb.OrganizationService_DeleteOrg_FullMethodName] = acl.NewPermission(acl.Organization, acl.Delete)
+
+	// Org configs — gated on OrgConfig resource (OrgAdmin or Admin)
+	p[svcpb.OrganizationService_QueryOrgConfigs_FullMethodName] = acl.NewPermission(acl.OrgConfig, acl.View)
+	p[svcpb.OrganizationService_GetOrgConfig_FullMethodName] = acl.NewPermission(acl.OrgConfig, acl.View)
+	p[svcpb.OrganizationService_RevealOrgConfig_FullMethodName] = acl.NewPermission(acl.OrgConfig, acl.Update)
+	p[svcpb.OrganizationService_SaveOrgConfig_FullMethodName] = acl.NewPermission(acl.OrgConfig, acl.Write)
+	p[svcpb.OrganizationService_DeleteOrgConfig_FullMethodName] = acl.NewPermission(acl.OrgConfig, acl.Delete)
+
+	// User configs — any authenticated user owns their own configs
+	p[svcpb.OrganizationService_QueryUserConfigs_FullMethodName] = acl.NewPermission(acl.UserConfig, acl.Query)
+	p[svcpb.OrganizationService_GetUserConfig_FullMethodName] = acl.NewPermission(acl.UserConfig, acl.View)
+	p[svcpb.OrganizationService_RevealUserConfig_FullMethodName] = acl.NewPermission(acl.UserConfig, acl.Update)
+	p[svcpb.OrganizationService_SaveUserConfig_FullMethodName] = acl.NewPermission(acl.UserConfig, acl.Write)
+	p[svcpb.OrganizationService_DeleteUserConfig_FullMethodName] = acl.NewPermission(acl.UserConfig, acl.Delete)
 
 	// System / job configs
 	for _, m := range []string{
@@ -547,7 +554,8 @@ func startControllers(
 	controller.NewAuditController(repoFactory.AuditRecordRepository, webServer)
 	controller.NewUserController(userManager, webServer)
 	controller.NewOrganizationController(userManager, webServer)
-	controller.NewOrganizationConfigController(repoFactory.AuditRecordRepository, repoFactory.OrgConfigRepository, webServer)
+	controller.NewOrganizationConfigController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
+	controller.NewUserConfigController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
 	controller.NewJobDefinitionController(jobManager, statsRegistry, webServer)
 	controller.NewJobConfigController(repoFactory.AuditRecordRepository, repoFactory.JobDefinitionRepository, webServer)
 	controller.NewJobResourceController(repoFactory.AuditRecordRepository, repoFactory.JobResourceRepository, webServer)
@@ -587,11 +595,13 @@ func startAdminControllers(
 		repoFactory.AuditRecordRepository,
 		repoFactory.UserRepository,
 		repoFactory.OrgRepository,
+		userManager,
 		webServer)
 	admin.NewUserAdminController(
 		&serverCfg.Common, userManager,
 		repoFactory.JobExecutionRepository, repoFactory.ArtifactRepository, webServer)
-	admin.NewOrganizationConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.OrgConfigRepository, webServer)
+	admin.NewOrganizationConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
+	admin.NewUserConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
 	admin.NewOrganizationAdminController(userManager, webServer)
 	admin.NewInvitationAdminController(userManager, webServer)
 	admin.NewJobDefinitionAdminController(jobManager, resourceManager, statsRegistry, repoFactory.TriggerStateRepository, webServer)

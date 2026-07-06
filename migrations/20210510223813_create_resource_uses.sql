@@ -9,8 +9,8 @@
       task_execution_id VARCHAR(36) NOT NULL,
       user_id VARCHAR(36) NOT NULL,
       expires_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT formicary_job_resource_uses_resource_fk FOREIGN KEY (job_resource_id) REFERENCES formicary_job_resources(id)
     );
 
