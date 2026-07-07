@@ -231,7 +231,8 @@ func (ac *AuthController) postLogin(user *common.User) (cookie *http.Cookie, old
 	token, expiration, err := security.BuildToken(
 		user,
 		ac.commonCfg.Auth.JWTSecret,
-		ac.commonCfg.Auth.MaxAge)
+		ac.commonCfg.Auth.MaxAge,
+		web.TokenTypeSession)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "Authentication",

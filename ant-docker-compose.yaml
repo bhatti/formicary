@@ -8,15 +8,17 @@ services:
 #      dockerfile: Dockerfile
     environment:
       COMMON_DEBUG: '${DEBUG:-false}'
-      COMMON_REDIS_HOST: '${QUEEN_SERVER:-192.168.1.102}'
-      COMMON_REDIS_PORT: '${COMMON_REDIS_PORT:-6379}'
-      COMMON_S3_ENDPOINT: '${QUEEN_SERVER:-192.168.1.102}:9000'
-      COMMON_S3_ACCESS_KEY_ID: 'admin'
-      COMMON_S3_SECRET_ACCESS_KEY: 'password'
+      # COMMON_QUEUE_TOKEN: API JWT for authenticating to the queen WebSocket endpoint.
+      # Generate via Dashboard → API Tokens and set here. Required when auth is enabled on the queen.
+      COMMON_QUEUE_TOKEN: '${COMMON_QUEUE_TOKEN:-}'
+      COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT: 'ws://${QUEEN_SERVER:-192.168.1.102}:7777/ws/queue'
+      COMMON_S3_ENDPOINT: '${QUEEN_SERVER:-192.168.1.102}:19000'
+      COMMON_S3_ACCESS_KEY_ID: '${COMMON_S3_ACCESS_KEY_ID:-localkey}'
+      COMMON_S3_SECRET_ACCESS_KEY: '${COMMON_S3_SECRET_ACCESS_KEY:-localsecret}'
       COMMON_S3_REGION: '${AWS_DEFAULT_REGION:-us-west-2}'
       COMMON_S3_BUCKET: '${BUCKET:-formicary-artifacts}'
       COMMON_S3_PREFIX: '${PREFIX:-formicary}'
-      COMMON_HTTP_PORT: ${HTTP_PORT:-5555}
+      COMMON_HTTP_PORT: ${HTTP_PORT:-0}
       CONFIG_FILE: ${CONFIG_FILE:-/config/formicary-ant.yaml}
     volumes:
       - ./config:/config

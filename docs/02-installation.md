@@ -155,25 +155,65 @@ For local development or edge deployments where you don't want to install Redis,
 
 **Prerequisites:**
 
-1. Install the `weed` binary from [SeaweedFS releases](https://github.com/seaweedfs/seaweedfs/releases) and ensure it is on your `$PATH`.
+Download the `weed` binary (SeaweedFS) — `make run` and `make run-queen` handle this automatically via `make download-weed`.
 
-**Start the queen:**
-
-```bash
-./formicary-queen --config docs/examples/websocket-queen.yaml
-```
-
-The queen prints the SeaweedFS S3 endpoint at startup (default port 8333). The WebSocket queue endpoint is always at `ws://localhost:7777/ws/queue`.
-
-**Start an ant** (in a separate terminal):
+### Queen + embedded ant (all-in-one, simplest)
 
 ```bash
-./formicary-ant --config docs/examples/websocket-ant.yaml
+make run
 ```
 
-The ant connects to the queen via WebSocket and uses the embedded SeaweedFS for artifacts. If the ant is restarted while the queen is unreachable, undelivered messages are buffered in a local SQLite file (`/tmp/formicary-ant-buffer.db`) and drained automatically after reconnection.
+Uses `config/formicary-queen-embedded.yaml`. Starts the queen, an embedded ant worker, and embedded SeaweedFS in one process. Open [http://localhost:7777](http://localhost:7777).
 
-See `docs/examples/websocket-queen.yaml` and `docs/examples/websocket-ant.yaml` for annotated configuration files, and [Configuration — queue.websocket](./15-configuration.md#commonqueuewebsocket-block) for the full field reference.
+### Queen-only (ants connect separately)
+
+```bash
+make run-queen
+```
+
+Uses `config/formicary-queen.yaml`. The WebSocket queue endpoint is at `ws://localhost:7777/ws/queue`.
+
+Start one or more ants in separate terminals:
+
+```bash
+make ant
+```
+
+Uses `config/formicary-ant.yaml`, which points at `ws://localhost:7777/ws/queue` by default.
+
+### Connecting an ant to a remote queen
+
+The queen URL is controlled by the env var `COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT` (maps to `common.queue.websocket.server_endpoint` in YAML, with `.` replaced by `_`):
+
+```bash
+COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT="ws://queen.example.com:7777/ws/queue" \
+COMMON_S3_ENDPOINT="queen.example.com:19000" \
+COMMON_S3_ACCESS_KEY_ID="localkey" \
+COMMON_S3_SECRET_ACCESS_KEY="localsecret" \
+  ./out/bin/formicary ant \
+    --config config/formicary-ant.yaml \
+    --id formicary-ant-1 \
+    --tags "docker shell"
+```
+
+Or via Docker:
+
+```bash
+docker run --rm \
+  --network host \
+  -e COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT="ws://queen.example.com:7777/ws/queue" \
+  -e COMMON_S3_ENDPOINT="queen.example.com:19000" \
+  -e COMMON_S3_ACCESS_KEY_ID="localkey" \
+  -e COMMON_S3_SECRET_ACCESS_KEY="localsecret" \
+  -v "$(pwd)/config/formicary-ant.yaml:/config/formicary-ant.yaml:ro" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  plexobject/formicary:latest \
+  ant --config /config/formicary-ant.yaml --id formicary-ant-1 --tags "docker shell"
+```
+
+If the ant is restarted while the queen is unreachable, undelivered messages are buffered in a local SQLite file (default `/tmp/formicary-ant-buffer.db`) and drained automatically after reconnection.
+
+See [Running Formicary](./running.md) for the full env-variable reference and more deployment patterns.
 
 ---
 
@@ -181,23 +221,33 @@ See `docs/examples/websocket-queen.yaml` and `docs/examples/websocket-ant.yaml` 
 
 If you plan to contribute to Formicary, you'll want to run it directly from source.
 
-1.  **Start Dependencies:**
-    You still need the database, message queue, and object store. You can start just these services from the `docker-compose.yaml` file:
-    ```bash
-    docker-compose up -d redis minio mysql
-    ```
-    Or use the zero-dependency WebSocket + embedded SeaweedFS mode described above — no Docker needed.
+1.  **Queen + embedded ant (simplest)**
 
-2.  **Configure Queen Server:**
-    Ensure your configuration file points to the correct addresses for your chosen queue provider, object store, and database.
-
-3.  **Run the Queen Server:**
     ```bash
-    go run ./main.go --config ./.formicary-queen.yaml --id=queen-server-1
+    make run
     ```
 
-4.  **Run an Ant Worker:**
-    In a separate terminal, run the Ant worker:
+    No external services needed — everything is embedded.
+
+2.  **Queen-only + separate ant**
+
     ```bash
-    go run ./main.go ant --config=./.formicary-ant.yaml --id=local-ant-1 --tags="shell,docker"
+    # Terminal 1: queen
+    make run-queen
+
+    # Terminal 2: ant worker
+    make ant
+    ```
+
+3.  **Manual CLI (after `make build`)**
+
+    ```bash
+    # Queen only (no embedded ant)
+    ./out/bin/formicary --config config/formicary-queen.yaml --id=queen-server-1
+
+    # Ant worker (connects to queen via WebSocket)
+    ./out/bin/formicary ant \
+      --config config/formicary-ant.yaml \
+      --id=local-ant-1 \
+      --tags="shell,docker"
     ```

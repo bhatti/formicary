@@ -141,6 +141,7 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	viper.SetDefault("common.s3.prefix", "")
 	viper.SetDefault("common.s3.bucket", "")
 	viper.SetDefault("common.queue.provider", "")
+	viper.SetDefault("common.queue.token", "")
 	viper.SetDefault("common.redis.host", "")
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")

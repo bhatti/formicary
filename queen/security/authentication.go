@@ -12,13 +12,20 @@ import (
 	"plexobject.com/formicary/internal/web"
 )
 
-// BuildToken builds JWT token
+// BuildToken builds a signed JWT. tokenType must be web.TokenTypeSession or web.TokenTypeAPI.
+// Session tokens are issued at OAuth login; API tokens are issued via the API-token management UI.
+// The WebSocket ant endpoint rejects session tokens — ants must use API tokens.
 func BuildToken(
 	user *common.User,
 	secret string,
-	age time.Duration) (strToken string, expiration time.Time, err error) {
+	age time.Duration,
+	tokenType string) (strToken string, expiration time.Time, err error) {
 	if user == nil {
 		err = common.NewPermissionError("user is not specified for building token")
+		return
+	}
+	if tokenType != web.TokenTypeSession && tokenType != web.TokenTypeAPI {
+		err = common.NewValidationError("token_type must be 'session' or 'api'")
 		return
 	}
 	expiration = time.Now().Add(age)
@@ -33,6 +40,7 @@ func BuildToken(
 		Admin:           user.IsAdmin(),
 		SerializedRoles: user.SerializedRoles,
 		SerializedPerms: user.SerializedPerms,
+		TokenType:       tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiration),
 		},

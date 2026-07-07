@@ -99,7 +99,11 @@ COMMON_AUTH_GITHUB_CALLBACK_HOST ?= localhost
 # For Google OAuth: export COMMON_AUTH_GOOGLE_CLIENT_ID and COMMON_AUTH_GOOGLE_CLIENT_SECRET.
 # For GitHub OAuth: export COMMON_AUTH_GITHUB_CLIENT_ID and COMMON_AUTH_GITHUB_CLIENT_SECRET.
 # Always set COMMON_AUTH_JWT_SECRET to a stable secret (sessions break if it changes).
+# COMMON_QUEUE_TOKEN: ant's API JWT token for authenticating to the queen WebSocket endpoint.
+# Generate via the formicary UI (Dashboard → API Tokens) and set on the ant only.
+# The queen validates it using COMMON_AUTH_JWT_SECRET — no shared secret needed on the queen.
 COMMON_AUTH_ENABLED ?= true
+COMMON_QUEUE_TOKEN ?=
 
 DATA_DIR ?= $(HOME)/formicary-data
 # Config is mounted from the repo — embedded ant + embedded SeaweedFS + SQLite, no external services needed.
@@ -118,6 +122,28 @@ $(KUBECONFIG_PATCHED): $(HOME)/.kube/config
 	mkdir -p $(DATA_DIR)
 	python3 /Users/sbhatti/workplace/formicary/scripts/patch-kubeconfig.py $< $@
 	chmod 600 $@
+
+# docker-run-queen: queen-only (no embedded ant). Ants connect via WebSocket.
+# Override config: CONFIG_FILE=$(PWD)/config/formicary-queen.yaml make docker-run-queen
+QUEEN_CONFIG_FILE ?= $(PWD)/config/formicary-queen.yaml
+
+docker-run-queen: $(KUBECONFIG_PATCHED)
+	mkdir -p $(DATA_DIR)
+	docker run --rm -p 7777:7777 -p 19000:19000 \
+		-e COMMON_AUTH_ENABLED="$(COMMON_AUTH_ENABLED)" \
+		-e COMMON_AUTH_JWT_SECRET="$(COMMON_AUTH_JWT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_ID="$(COMMON_AUTH_GOOGLE_CLIENT_ID)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_SECRET="$(COMMON_AUTH_GOOGLE_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CALLBACK_HOST="$(COMMON_AUTH_GOOGLE_CALLBACK_HOST)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
+		-v $(DATA_DIR):/data \
+		-v $(QUEEN_CONFIG_FILE):/config/formicary-queen.yaml:ro \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(KUBECONFIG_PATCHED):/home/formicary-user/.kube/config:ro \
+		$(DOCKER_IMAGE) \
+		--config /config/formicary-queen.yaml
 
 docker-run: $(KUBECONFIG_PATCHED)
 	mkdir -p $(DATA_DIR)
@@ -166,11 +192,64 @@ download-weed: bin/weed
 run: build bin/weed
 	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen-embedded.yaml
 
+# Queen-only mode — no embedded ant. Ants connect separately via WebSocket.
 run-queen: build bin/weed
 	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen.yaml
 
+# Queen + embedded ant + embedded SeaweedFS in Docker (uses formicary-docker.yaml baked into image).
+docker-run-embedded: $(KUBECONFIG_PATCHED)
+	mkdir -p $(DATA_DIR)
+	docker run --rm -p 7777:7777 -p 19000:19000 \
+		-e COMMON_AUTH_ENABLED="$(COMMON_AUTH_ENABLED)" \
+		-e COMMON_AUTH_JWT_SECRET="$(COMMON_AUTH_JWT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_ID="$(COMMON_AUTH_GOOGLE_CLIENT_ID)" \
+		-e COMMON_AUTH_GOOGLE_CLIENT_SECRET="$(COMMON_AUTH_GOOGLE_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GOOGLE_CALLBACK_HOST="$(COMMON_AUTH_GOOGLE_CALLBACK_HOST)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
+		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
+		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
+		-v $(DATA_DIR):/data \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(KUBECONFIG_PATCHED):/home/formicary-user/.kube/config:ro \
+		$(DOCKER_IMAGE)
+
+# Local ant — connects to queen at localhost:7777 (uses config/formicary-ant.yaml).
 ant: build
+	COMMON_QUEUE_TOKEN="$(COMMON_QUEUE_TOKEN)" \
 	./"out/bin/${BINARY_NAME}" ant --config config/formicary-ant.yaml --id=formicary-ant-id1 --port 7771 --tags "builder pulsar redis kotlin aws-lambda"
+
+# Remote ant — connects to queen via QUEEN_URL env var (default: localhost).
+# Override: make ant-remote QUEEN_URL=ws://queen.example.com:7777/ws/queue
+QUEEN_URL ?= ws://localhost:7777/ws/queue
+QUEEN_S3_ENDPOINT ?= localhost:19000
+ANT_ID ?= formicary-ant-remote-1
+ANT_TAGS ?= docker shell builder
+
+ant-remote: build
+	COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT="$(QUEEN_URL)" \
+	COMMON_QUEUE_TOKEN="$(COMMON_QUEUE_TOKEN)" \
+	COMMON_S3_ENDPOINT="$(QUEEN_S3_ENDPOINT)" \
+	COMMON_S3_ACCESS_KEY_ID="localkey" \
+	COMMON_S3_SECRET_ACCESS_KEY="localsecret" \
+	./"out/bin/${BINARY_NAME}" ant \
+		--config config/formicary-ant.yaml \
+		--id=$(ANT_ID) \
+		--tags "$(ANT_TAGS)"
+
+# Ant in Docker — connects to queen via QUEEN_URL env var.
+# Override: make ant-docker QUEEN_URL=ws://queen.example.com:7777/ws/queue
+ant-docker:
+	docker run --rm \
+		--network host \
+		-e COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT="$(QUEEN_URL)" \
+		-e COMMON_QUEUE_TOKEN="$(COMMON_QUEUE_TOKEN)" \
+		-e COMMON_S3_ENDPOINT="$(QUEEN_S3_ENDPOINT)" \
+		-e COMMON_S3_ACCESS_KEY_ID="localkey" \
+		-e COMMON_S3_SECRET_ACCESS_KEY="localsecret" \
+		-v $(PWD)/config/formicary-ant.yaml:/config/formicary-ant.yaml:ro \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		$(DOCKER_IMAGE) \
+		ant --config /config/formicary-ant.yaml --id=$(ANT_ID) --tags "$(ANT_TAGS)"
 
 
 test:
@@ -216,5 +295,7 @@ bump-major:
 	echo "Bumped VERSION_MAJOR to $$NEW_MAJOR, reset VERSION_MINOR to 0 in Makefile"
 	@$(MAKE) tag-release
 
-.PHONY: vendor build test tag-release bump-patch bump-minor bump-major docker-run
+.PHONY: vendor build test tag-release bump-patch bump-minor bump-major \
+        docker-run docker-run-embedded docker-run-queen \
+        ant ant-remote ant-docker
 

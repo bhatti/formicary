@@ -71,7 +71,8 @@ type QueueConfig struct {
 	WebSocket         *WebSocketConfig   `json:"websocket,omitempty" yaml:"websocket" mapstructure:"websocket"`
 	Username          string             `json:"username,omitempty"`                                       // Username for authentication
 	Password          string             `json:"password,omitempty"`                                       // Password for authentication
-	Token             string             `protobuf:"bytes,7,opt,name=token,proto3" json:"token,omitempty"` // Authentication token
+	Token             string             `protobuf:"bytes,7,opt,name=token,proto3" json:"token,omitempty" yaml:"token" mapstructure:"token"` // Authentication token (ant API JWT)
+	JWTSecret         string             `json:"-" yaml:"-" mapstructure:"-"`                                                                  // Runtime-only: propagated from Auth.JWTSecret by CommonConfig.Validate(); never serialized
 	Tls               *TLSConfig         `json:"tls,omitempty"`                                            // TLS configuration
 	DefaultOptions    *ProcessingOptions `json:"default_options,omitempty"`                                // Default processing options
 	MaxConnections    int32              `json:"max_connections,omitempty"`                                // Maximum number of connections
@@ -437,6 +438,11 @@ func (c *CommonConfig) Validate() error {
 	}
 	if c.Auth == nil {
 		c.Auth = &AuthConfig{}
+	}
+	// Propagate JWT secret into QueueConfig so the WebSocket server can validate ant tokens
+	// using the same auth infrastructure as the rest of the queen — no separate shared secret needed.
+	if c.Auth.Enabled && c.Auth.JWTSecret != "" {
+		c.Queue.JWTSecret = c.Auth.JWTSecret
 	}
 	if c.HTTPPort == 0 {
 		c.HTTPPort = 7777

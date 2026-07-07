@@ -2,8 +2,10 @@ package queue
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/web"
 )
 
 var _ Client = &ClientWebSocketServer{}
@@ -156,15 +159,64 @@ func (s *ClientWebSocketServer) WebSocketPath() string {
 	return s.wsCfg.Path
 }
 
+// ConnectedAntCount returns the number of currently connected ant workers.
+// Intended for tests and health checks.
+func (s *ClientWebSocketServer) ConnectedAntCount() int {
+	s.connsMu.RLock()
+	defer s.connsMu.RUnlock()
+	return len(s.conns)
+}
+
+// authenticate validates the ant's Bearer token from the Authorization header.
+//
+// When JWTSecret is set (auth.enabled=true on the queen), the token must be a valid JWT signed
+// with that secret AND must carry token_type="api". Session tokens (browser logins) are rejected,
+// so a leaked session cookie cannot be replayed to register a rogue ant.
+//
+// When only Token is set (auth.enabled=false with an explicit static token), it falls back to a
+// constant-time equality check to avoid timing side-channels.
+//
+// No auth when neither is configured.
+func (s *ClientWebSocketServer) authenticate(r *http.Request) error {
+	jwtSecret := s.config.JWTSecret
+	staticToken := s.config.Token
+	if jwtSecret == "" && staticToken == "" {
+		return nil
+	}
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return fmt.Errorf("missing or malformed Authorization header: Bearer token required")
+	}
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenStr == "" {
+		return fmt.Errorf("empty Bearer token")
+	}
+	if jwtSecret != "" {
+		claims, err := web.ParseToken(tokenStr, jwtSecret)
+		if err != nil {
+			return fmt.Errorf("invalid JWT: %w", err)
+		}
+		if claims.TokenType != web.TokenTypeAPI {
+			return fmt.Errorf("token_type %q not permitted for ant connections; use an API token", claims.TokenType)
+		}
+		return nil
+	}
+	// Fallback: constant-time comparison to prevent timing side-channels.
+	if subtle.ConstantTimeCompare([]byte(tokenStr), []byte(staticToken)) != 1 {
+		return fmt.Errorf("invalid token")
+	}
+	return nil
+}
+
 // HTTPHandler returns an http.HandlerFunc that upgrades connections and registers ant workers.
 // Mount this on the queen's web server at the configured path (default: /ws/queue).
+// When auth is enabled the ant must present a valid API JWT in the Authorization: Bearer header.
 func (s *ClientWebSocketServer) HTTPHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.config.Token != "" {
-			if r.Header.Get("Authorization") != "Bearer "+s.config.Token {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+		if err := s.authenticate(r); err != nil {
+			logrus.WithError(err).Warn("WebSocketServer: ant authentication failed")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
 		}
 
 		conn, err := s.upgrader.Upgrade(w, r, nil)

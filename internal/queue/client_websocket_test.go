@@ -2,15 +2,18 @@ package queue
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/web"
 )
 
 // buildTestQueueConfig returns a QueueConfig wired for WebSocket with defaults
@@ -55,8 +58,10 @@ func startTestServer(t *testing.T) (*ClientWebSocketServer, func() *ClientWebSoc
 		require.NoError(t, err)
 		t.Cleanup(ant.Close)
 
-		// Give time for handshake
-		time.Sleep(50 * time.Millisecond)
+		// Wait until the ant is registered on the server side (no arbitrary sleep).
+		require.Eventually(t, func() bool {
+			return serverClient.ConnectedAntCount() > 0
+		}, 2*time.Second, 5*time.Millisecond, "ant did not connect within timeout")
 		return ant
 	}
 
@@ -475,4 +480,156 @@ func TestWebSocket_FactoryCreation(t *testing.T) {
 	require.NotNil(t, client)
 	assert.IsType(t, &ClientWebSocketServer{}, client)
 	client.Close()
+}
+
+// buildSignedJWT creates a test JWT signed with the given secret and token_type claim.
+func buildSignedJWT(t *testing.T, secret, tokenType string) string {
+	t.Helper()
+	claims := &web.JwtClaims{
+		UserID:    "test-user",
+		TokenType: tokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(secret))
+	require.NoError(t, err)
+	return signed
+}
+
+// serverWithJWTSecret builds a ClientWebSocketServer with a JWT secret configured.
+func serverWithJWTSecret(t *testing.T, secret string) *ClientWebSocketServer {
+	t.Helper()
+	cfg := buildTestQueueConfig()
+	cfg.JWTSecret = secret
+	srv, err := newWebSocketServerClient(context.Background(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// serverWithStaticToken builds a ClientWebSocketServer with a static token configured.
+func serverWithStaticToken(t *testing.T, token string) *ClientWebSocketServer {
+	t.Helper()
+	cfg := buildTestQueueConfig()
+	cfg.Token = token
+	srv, err := newWebSocketServerClient(context.Background(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func makeAuthRequest(t *testing.T, bearer string) *http.Request {
+	t.Helper()
+	r, err := http.NewRequest(http.MethodGet, "/ws/queue", nil)
+	require.NoError(t, err)
+	if bearer != "" {
+		r.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	return r
+}
+
+// TestAuthenticate_NoAuth: when neither JWTSecret nor Token is set, all connections are accepted.
+func TestAuthenticate_NoAuth(t *testing.T) {
+	cfg := buildTestQueueConfig()
+	srv, err := newWebSocketServerClient(context.Background(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(srv.Close)
+
+	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "")))
+	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "anything")))
+}
+
+// TestAuthenticate_JWTSecret_ValidAPIToken: valid JWT with token_type=api is accepted.
+func TestAuthenticate_JWTSecret_ValidAPIToken(t *testing.T) {
+	const secret = "test-secret-32-bytes-long-enough!"
+	srv := serverWithJWTSecret(t, secret)
+
+	token := buildSignedJWT(t, secret, web.TokenTypeAPI)
+	assert.NoError(t, srv.authenticate(makeAuthRequest(t, token)))
+}
+
+// TestAuthenticate_JWTSecret_SessionTokenRejected: session tokens must NOT connect as ants.
+func TestAuthenticate_JWTSecret_SessionTokenRejected(t *testing.T) {
+	const secret = "test-secret-32-bytes-long-enough!"
+	srv := serverWithJWTSecret(t, secret)
+
+	token := buildSignedJWT(t, secret, web.TokenTypeSession)
+	err := srv.authenticate(makeAuthRequest(t, token))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "token_type")
+}
+
+// TestAuthenticate_JWTSecret_WrongSecret: token signed with a different secret is rejected.
+func TestAuthenticate_JWTSecret_WrongSecret(t *testing.T) {
+	const secret = "test-secret-32-bytes-long-enough!"
+	srv := serverWithJWTSecret(t, secret)
+
+	token := buildSignedJWT(t, "completely-different-secret-xyz!!", web.TokenTypeAPI)
+	err := srv.authenticate(makeAuthRequest(t, token))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid JWT")
+}
+
+// TestAuthenticate_JWTSecret_MissingHeader: no Authorization header is rejected.
+func TestAuthenticate_JWTSecret_MissingHeader(t *testing.T) {
+	srv := serverWithJWTSecret(t, "test-secret-32-bytes-long-enough!")
+	err := srv.authenticate(makeAuthRequest(t, ""))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Bearer")
+}
+
+// TestAuthenticate_JWTSecret_ExpiredToken: expired JWT is rejected.
+func TestAuthenticate_JWTSecret_ExpiredToken(t *testing.T) {
+	const secret = "test-secret-32-bytes-long-enough!"
+	srv := serverWithJWTSecret(t, secret)
+
+	claims := &web.JwtClaims{
+		TokenType: web.TokenTypeAPI,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Hour)),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(secret))
+	require.NoError(t, err)
+
+	authErr := srv.authenticate(makeAuthRequest(t, signed))
+	require.Error(t, authErr)
+	assert.Contains(t, authErr.Error(), "invalid JWT")
+}
+
+// TestAuthenticate_StaticToken_Valid: correct static token is accepted.
+func TestAuthenticate_StaticToken_Valid(t *testing.T) {
+	srv := serverWithStaticToken(t, "my-static-secret")
+	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "my-static-secret")))
+}
+
+// TestAuthenticate_StaticToken_Wrong: wrong static token is rejected.
+func TestAuthenticate_StaticToken_Wrong(t *testing.T) {
+	srv := serverWithStaticToken(t, "my-static-secret")
+	err := srv.authenticate(makeAuthRequest(t, "wrong-token"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid token")
+}
+
+// TestAuthenticate_StaticToken_MissingHeader: no Authorization header is rejected.
+func TestAuthenticate_StaticToken_MissingHeader(t *testing.T) {
+	srv := serverWithStaticToken(t, "my-static-secret")
+	err := srv.authenticate(makeAuthRequest(t, ""))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Bearer")
+}
+
+// TestAuthenticate_HTTPHandler_RejectsUnauth: HTTPHandler returns 401 for unauthenticated requests.
+func TestAuthenticate_HTTPHandler_RejectsUnauth(t *testing.T) {
+	srv := serverWithJWTSecret(t, "test-secret-32-bytes-long-enough!")
+	ts := httptest.NewServer(srv.HTTPHandler())
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/ws/queue")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

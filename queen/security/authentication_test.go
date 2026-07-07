@@ -22,7 +22,7 @@ func newTestUser() *common.User {
 // TestBuildAndVerifyToken verifies the full sign→parse round-trip with a valid secret.
 func TestBuildAndVerifyToken(t *testing.T) {
 	user := newTestUser()
-	tok, expiration, err := BuildToken(user, testSecret, time.Hour)
+	tok, expiration, err := BuildToken(user, testSecret, time.Hour, web.TokenTypeSession)
 	require.NoError(t, err)
 	require.NotEmpty(t, tok)
 	require.True(t, expiration.After(time.Now()))
@@ -44,7 +44,7 @@ func TestBuildAndVerifyToken(t *testing.T) {
 // TestBuildToken_WrongSecretFails verifies that verification fails when a different secret is used.
 func TestBuildToken_WrongSecretFails(t *testing.T) {
 	user := newTestUser()
-	tok, _, err := BuildToken(user, testSecret, time.Hour)
+	tok, _, err := BuildToken(user, testSecret, time.Hour, web.TokenTypeSession)
 	require.NoError(t, err)
 
 	_, err = web.ParseToken(tok, "wrong-secret")
@@ -54,7 +54,7 @@ func TestBuildToken_WrongSecretFails(t *testing.T) {
 // TestBuildToken_ExpiredFails verifies that an expired token is rejected.
 func TestBuildToken_ExpiredFails(t *testing.T) {
 	user := newTestUser()
-	tok, _, err := BuildToken(user, testSecret, -time.Second) // already expired
+	tok, _, err := BuildToken(user, testSecret, -time.Second, web.TokenTypeSession) // already expired
 	require.NoError(t, err)
 
 	_, err = web.ParseToken(tok, testSecret)
@@ -63,7 +63,7 @@ func TestBuildToken_ExpiredFails(t *testing.T) {
 
 // TestBuildToken_NilUserFails verifies that passing a nil user returns an error.
 func TestBuildToken_NilUserFails(t *testing.T) {
-	_, _, err := BuildToken(nil, testSecret, time.Hour)
+	_, _, err := BuildToken(nil, testSecret, time.Hour, web.TokenTypeSession)
 	require.Error(t, err)
 }
 
@@ -71,7 +71,7 @@ func TestBuildToken_NilUserFails(t *testing.T) {
 // can be verified with the same empty secret, but not with a different secret.
 func TestBuildToken_EmptySecretRoundTrip(t *testing.T) {
 	user := newTestUser()
-	tok, _, err := BuildToken(user, "", time.Hour)
+	tok, _, err := BuildToken(user, "", time.Hour, web.TokenTypeSession)
 	require.NoError(t, err)
 
 	// Empty→empty round-trip works
@@ -93,7 +93,7 @@ func TestParseToken_MalformedFails(t *testing.T) {
 // echojwt's TokenLookup must strip the prefix before calling the JWT parser.
 func TestParseToken_BearerPrefixFails(t *testing.T) {
 	user := newTestUser()
-	tok, _, err := BuildToken(user, testSecret, time.Hour)
+	tok, _, err := BuildToken(user, testSecret, time.Hour, web.TokenTypeSession)
 	require.NoError(t, err)
 
 	_, err = web.ParseToken("Bearer "+tok, testSecret)
@@ -108,7 +108,7 @@ func TestTokenClaimsRoundTrip(t *testing.T) {
 	u.PictureURL = "https://example.com/pic.jpg"
 	u.AuthProvider = "google"
 
-	tok, _, err := BuildToken(u, testSecret, 24*time.Hour)
+	tok, _, err := BuildToken(u, testSecret, 24*time.Hour, web.TokenTypeSession)
 	require.NoError(t, err)
 
 	claims, err := web.ParseToken(tok, testSecret)
@@ -120,4 +120,21 @@ func TestTokenClaimsRoundTrip(t *testing.T) {
 	require.Equal(t, u.BundleID, claims.BundleID)
 	require.Equal(t, u.PictureURL, claims.PictureURL)
 	require.Equal(t, u.AuthProvider, claims.AuthProvider)
+	require.Equal(t, web.TokenTypeSession, claims.TokenType)
+}
+
+// TestBuildToken_InvalidTokenType verifies that an unknown token type is rejected.
+func TestBuildToken_InvalidTokenType(t *testing.T) {
+	_, _, err := BuildToken(newTestUser(), testSecret, time.Hour, "unknown")
+	require.Error(t, err)
+}
+
+// TestBuildToken_APITokenType verifies that TokenTypeAPI is accepted and claim survives round-trip.
+func TestBuildToken_APITokenType(t *testing.T) {
+	tok, _, err := BuildToken(newTestUser(), testSecret, time.Hour, web.TokenTypeAPI)
+	require.NoError(t, err)
+
+	claims, err := web.ParseToken(tok, testSecret)
+	require.NoError(t, err)
+	require.Equal(t, web.TokenTypeAPI, claims.TokenType)
 }

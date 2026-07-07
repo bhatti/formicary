@@ -148,7 +148,7 @@ message QueueConfig {
   string topic_namespace = 4 [(formicary.v1.tags) = "yaml:\"topic_namespace\" mapstructure:\"topic_namespace\""];
   string username = 5 [(formicary.v1.tags) = "json:\"username,omitempty\""];
   string password = 6 [(formicary.v1.tags) = "json:\"password,omitempty\""];
-  string token = 7 [(formicary.v1.tags) = "json:\"token,omitempty\""];
+  string token = 7 [(formicary.v1.tags) = "json:\"token,omitempty\" yaml:\"token\" mapstructure:\"token\""];
   TLSConfig tls = 8 [(formicary.v1.tags) = "json:\"tls,omitempty\""];
   ProcessingOptions default_options = 9 [(formicary.v1.tags) = "json:\"default_options,omitempty\""];
   int32 max_connections = 10 [(formicary.v1.tags) = "json:\"max_connections,omitempty\""];

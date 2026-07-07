@@ -17,6 +17,7 @@ import (
 	protoUser "plexobject.com/formicary/gen/go/formicary/v1/user"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/security"
 )
@@ -66,7 +67,7 @@ func (s *UserService) Login(ctx context.Context, _ *svcpb.LoginRequest) (*svcpb.
 	if tokenAge <= 0 {
 		tokenAge = 30 * 24 * time.Hour
 	}
-	token, _, err := security.BuildToken(dbUser, s.cfg.Common.Auth.JWTSecret, tokenAge)
+	token, _, err := security.BuildToken(dbUser, s.cfg.Common.Auth.JWTSecret, tokenAge, web.TokenTypeSession)
 	if err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}

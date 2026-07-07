@@ -151,7 +151,8 @@ func (uc *UserAdminController) createUser(c web.APIContext) (err error) {
 	token, expiration, tokenErr := security.BuildToken(
 		user,
 		uc.commonCfg.Auth.JWTSecret,
-		uc.commonCfg.Auth.MaxAge)
+		uc.commonCfg.Auth.MaxAge,
+		web.TokenTypeSession)
 	if tokenErr == nil {
 		c.SetCookie(uc.commonCfg.Auth.SessionCookie(token, expiration))
 	}

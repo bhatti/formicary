@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/notify"
 	"plexobject.com/formicary/queen/repository"
@@ -226,7 +227,8 @@ func (m *UserManager) CreateUserToken(
 	strTok, expiration, err := security.BuildToken(
 		qc.User,
 		m.serverCfg.Common.Auth.JWTSecret,
-		m.serverCfg.Common.Auth.TokenMaxAge)
+		m.serverCfg.Common.Auth.TokenMaxAge,
+		web.TokenTypeAPI)
 	if err != nil {
 		return nil, err
 	}

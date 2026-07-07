@@ -102,6 +102,7 @@ common:
 |---|---|---|---|---|
 | `provider`|`COMMON_QUEUE_PROVIDER`| string | `REDIS_MESSAGING` | The message queue provider. Options: `REDIS_MESSAGING`, `PULSAR_MESSAGING`, `KAFKA_MESSAGING`, `CHANNEL_MESSAGING` (in-memory), `WEBSOCKET_MESSAGING` (edge/embedded). |
 | `endpoints`|`COMMON_QUEUE_ENDPOINTS`| list | `[]` | A list of broker endpoints for Kafka or Pulsar. |
+| `token`|`COMMON_QUEUE_TOKEN`| string | `""` | **Ant only.** API JWT used to authenticate the ant to the queen's WebSocket endpoint. Generate via Dashboard → API Tokens. The queen validates this token using its `COMMON_AUTH_JWT_SECRET` — no separate secret needed on the queen. The token must have `token_type=api`; browser session tokens are rejected. |
 | `topic_tenant`| | string | `public` | Pulsar topic tenant. |
 | `topic_namespace`| | string | `default` | Pulsar topic namespace. |
 | `pulsar` | Object | | Pulsar-specific settings. |
