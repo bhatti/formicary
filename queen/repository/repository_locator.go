@@ -220,10 +220,9 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		return nil, err
 	}
 
-	// Only run GORM AutoMigrate for test databases (fresh SQLite in /tmp).
-	// Production SQLite is managed exclusively by goose migrations (migrate.sh).
-	isTestDB := serverCfg.DB.Type == "sqlite" && strings.Contains(serverCfg.DB.DataSource, "/tmp/")
-	if isTestDB {
+	// Run GORM AutoMigrate for all SQLite databases (both local dev and tests).
+	// Non-SQLite production databases are managed by goose migrations (migrate.sh).
+	if serverCfg.DB.Type == "sqlite" {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}

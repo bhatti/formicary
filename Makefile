@@ -120,7 +120,7 @@ KUBECONFIG_PATCHED ?= $(DATA_DIR)/kubeconfig
 #   - Remove certificate-authority-data (superseded by insecure-skip-tls-verify)
 $(KUBECONFIG_PATCHED): $(HOME)/.kube/config
 	mkdir -p $(DATA_DIR)
-	python3 /Users/sbhatti/workplace/formicary/scripts/patch-kubeconfig.py $< $@
+	python3 $(PWD)/scripts/patch-kubeconfig.py $< $@
 	chmod 600 $@
 
 # docker-run-queen: queen-only (no embedded ant). Ants connect via WebSocket.
