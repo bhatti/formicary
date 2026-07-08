@@ -163,7 +163,7 @@ Download the `weed` binary (SeaweedFS) — `make run` and `make run-queen` handl
 make run
 ```
 
-Uses `config/formicary-queen-embedded.yaml`. Starts the queen, an embedded ant worker, and embedded SeaweedFS in one process. Open [http://localhost:7777](http://localhost:7777).
+Uses `config/formicary-queen-embedded.yaml`. Starts the queen, an embedded ant worker, and embedded SeaweedFS in one process. Data is stored locally in `./formicary_db.sqlite` and `./data/seaweedfs/`. Open [http://localhost:7777](http://localhost:7777).
 
 ### Queen-only (ants connect separately)
 
@@ -171,7 +171,7 @@ Uses `config/formicary-queen-embedded.yaml`. Starts the queen, an embedded ant w
 make run-queen
 ```
 
-Uses `config/formicary-queen.yaml`. The WebSocket queue endpoint is at `ws://localhost:7777/ws/queue`.
+Uses `config/formicary-queen.yaml`. The WebSocket queue endpoint is at `ws://localhost:7777/ws/queue`. Data is stored locally in `./formicary_db.sqlite` and `./data/seaweedfs/`.
 
 Start one or more ants in separate terminals:
 

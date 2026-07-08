@@ -1,27 +1,29 @@
 # Local dev — self-contained, no external services needed.
 #
-# Runs everything in a single process:
-#   - Queen server         (web UI, API, scheduler)
-#   - Embedded Ant worker  (SHELL, DOCKER, KUBERNETES, HTTP executors)
-#   - Embedded SeaweedFS   (artifact storage — no MinIO/S3 required)
-#   - SQLite               (database — no Postgres/MySQL required)
+# Paths default to /data (Docker volume mount: -v ~/formicary-data:/data).
+# For local development, make run overrides these via env vars:
+#   DB_DATA_SOURCE=./formicary_db.sqlite
+#   COMMON_S3_LOCAL_DATA_DIR=./data/seaweedfs
+#   COMMON_S3_LOCAL_WEED_BIN=./bin/weed
 #
-# Run: make run
+# Run (Docker):  make docker-run-embedded
+# Run (local):   make run
 common:
-    public_dir: ./public/
+    public_dir: /app/public/
     http_port: 7777
     rate_limit_sec: 100
     s3:
         local_mode: true
-        local_data_dir: ./data/seaweedfs
-        local_weed_bin: ./bin/weed
+        local_data_dir: /data/seaweedfs
+        local_weed_bin: /usr/local/bin/weed
         local_s3_port: 19000
         bucket: formicary-artifacts
+        public_endpoint: localhost:19000
     auth:
         enabled: true
         # COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, COMMON_AUTH_GOOGLE_CLIENT_SECRET
 db:
-    data_source: formicary_db.sqlite
+    data_source: /data/formicary.db
     type: sqlite
 embedded_ant:
     tags: ["docker", "kubernetes", "shell", "builder"]

@@ -171,11 +171,12 @@ Formicary uses the AWS SDK v2 S3 client for artifact storage. It works with AWS 
 | `useSSL` | `COMMON_S3_USE_SSL`| boolean | `false` (local mode), `true` otherwise | Whether to use HTTPS. Set to `false` for local MinIO or embedded SeaweedFS. |
 | `prefix` | `COMMON_S3_PREFIX`| string|`formicary/`| A prefix to prepend to all object keys in the bucket. |
 | `local_mode` | | boolean | `false` | Start an embedded SeaweedFS subprocess as the artifact store. No external S3 service needed. |
-| `local_data_dir` | | string | `./data/seaweedfs` | Directory where SeaweedFS stores its data. Created automatically. |
-| `local_weed_bin` | | string | `weed` | Path to the `weed` binary. Must be on `$PATH` or specified as an absolute path. |
+| `local_data_dir` | `COMMON_S3_LOCAL_DATA_DIR` | string | `/data/seaweedfs` | Directory where SeaweedFS stores its data. Created automatically. In Docker, `/data` is the mounted volume (`~/formicary-data`). For local source builds, `make run*` overrides this to `./data/seaweedfs`. |
+| `local_weed_bin` | `COMMON_S3_LOCAL_WEED_BIN` | string | `/usr/local/bin/weed` | Path to the `weed` binary. In Docker, the binary is baked in at `/usr/local/bin/weed`. For local source builds, `make run*` overrides this to `./bin/weed`. |
 | `local_container_host` | | string | `host.docker.internal` | Host used by Docker/Kubernetes helper containers to reach the embedded store. Use `host-gateway` for Linux. |
+| `public_endpoint` | | string | (same as internal endpoint) | Host:port used in presigned artifact download URLs returned to the browser. Set when the S3 port is only reachable inside the container (e.g. `localhost:19000` when published via `-p 19000:19000`). |
 
-**Zero-dependency local setup** (queen config):
+**Zero-dependency local setup** (queen config — paths default to `/data` for Docker, overridden by `make run*` for local builds):
 
 ```yaml
 common:
@@ -185,10 +186,10 @@ common:
       path: /ws/queue
   s3:
     local_mode: true                # start embedded SeaweedFS
-    local_data_dir: ./data/seaweedfs
+    local_data_dir: /data/seaweedfs # override via COMMON_S3_LOCAL_DATA_DIR
+    local_weed_bin: /usr/local/bin/weed  # override via COMMON_S3_LOCAL_WEED_BIN
     bucket: formicary-artifacts
-    prefix: formicary/
-    region: us-east-1
+    public_endpoint: localhost:19000
 ```
 
 **Ant config** for local mode (points at the queen's embedded store):
@@ -268,7 +269,7 @@ docker run --env-file .env.local -p 7777:7777 plexobject/formicary
 | Key | Env Variable | Type | Default | Description |
 |---|---|---|---|---|
 | `type`|`DB_TYPE`| string | `sqlite` | The database driver. Options: `sqlite`, `mysql`, `postgres`, `sqlserver`. |
-| `data_source`|`DB_DATA_SOURCE`| string| | The connection string for the database. |
+| `data_source`|`DB_DATA_SOURCE`| string| `/data/formicary.db` | SQLite file path or DB connection string. In Docker, `/data` is the mounted volume (`~/formicary-data`). For local source builds, `make run*` overrides this to `./formicary_db.sqlite`. |
 | `encryption_key`|`DB_ENCRYPTION_KEY`| string| (auto-generated) | A key used to encrypt sensitive configuration values within the database. **It's crucial to back this up!** |
 
 ---

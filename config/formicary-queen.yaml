@@ -1,7 +1,15 @@
 # Queen-only mode — ants connect via WebSocket, embedded SeaweedFS for artifacts.
-# Run: make run-queen   (start ants separately with formicary-ant.yaml)
+#
+# Paths default to /data (Docker volume mount: -v ~/formicary-data:/data).
+# For local development, make run-queen overrides these via env vars:
+#   DB_DATA_SOURCE=./formicary_db.sqlite
+#   COMMON_S3_LOCAL_DATA_DIR=./data/seaweedfs
+#   COMMON_S3_LOCAL_WEED_BIN=./bin/weed
+#
+# Run (Docker):   make docker-run-queen
+# Run (local):    make run-queen
 common:
-    public_dir: ./public/
+    public_dir: /app/public/
     http_port: 7777
     queue:
         provider: "WEBSOCKET_MESSAGING"
@@ -9,13 +17,14 @@ common:
             path: "/ws/queue"
     s3:
         local_mode: true
-        local_data_dir: ./data/seaweedfs
-        local_weed_bin: ./bin/weed
+        local_data_dir: /data/seaweedfs
+        local_weed_bin: /usr/local/bin/weed
         local_s3_port: 19000
         bucket: formicary-artifacts
+        public_endpoint: localhost:19000
     auth:
         enabled: true
         # COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, COMMON_AUTH_GOOGLE_CLIENT_SECRET
 db:
-    data_source: formicary_db.sqlite
+    data_source: /data/formicary.db
     type: sqlite

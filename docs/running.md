@@ -1,17 +1,17 @@
 ## Running Formicary
 
-Formicary can run in two modes:
+Formicary can run in several modes. The configs (`formicary-queen.yaml`, `formicary-queen-embedded.yaml`) default to `/data` paths — correct for Docker where `~/formicary-data` is mounted at `/data`. Local `make run*` targets override these to local relative paths automatically.
 
-| Mode | Make target | Config |
-|------|-------------|--------|
-| **Queen + embedded ant** (local dev, from source) | `make run` | `config/formicary-queen-embedded.yaml` |
-| **Queen + embedded ant** (Docker, default) | `make docker-run` | baked into image (`formicary-docker.yaml`) |
-| **Queen + embedded ant** (Docker, explicit) | `make docker-run-embedded` | baked into image |
-| **Queen only** (from source) | `make run-queen` | `config/formicary-queen.yaml` |
-| **Queen only** (Docker) | `make docker-run-queen` | `config/formicary-queen.yaml` |
-| **Ant** (local queen, from source) | `make ant` | `config/formicary-ant.yaml` |
-| **Ant** (remote queen, from source) | `make ant-remote QUEEN_URL=ws://...` | `config/formicary-ant.yaml` |
-| **Ant** (remote queen, Docker) | `make ant-docker QUEEN_URL=ws://...` | `config/formicary-ant.yaml` |
+| Mode | Command | Data location |
+|------|---------|---------------|
+| **Queen + embedded ant** (local, from source) | `make run` | `./formicary_db.sqlite`, `./data/seaweedfs` |
+| **Queen + embedded ant** (Docker, default) | `make docker-run` | `~/formicary-data/` |
+| **Queen + embedded ant** (Docker, explicit) | `make docker-run-embedded` | `~/formicary-data/` |
+| **Queen only** (local, from source) | `make run-queen` | `./formicary_db.sqlite`, `./data/seaweedfs` |
+| **Queen only** (Docker) | `make docker-run-queen` | `~/formicary-data/` |
+| **Ant** (local queen) | `make ant` | — |
+| **Ant** (remote queen) | `make ant-remote QUEEN_URL=ws://...` | — |
+| **Ant** (remote queen, Docker) | `make ant-docker QUEEN_URL=ws://...` | — |
 
 ---
 
@@ -19,17 +19,21 @@ Formicary can run in two modes:
 
 Run the queen server without a built-in ant. Ants connect via WebSocket from separate processes or machines.
 
-#### Via Make
+#### Via Make (local)
 
 ```bash
 make run-queen          # queen only, no embedded ant
 ```
 
-This uses `config/formicary-queen.yaml`. The WebSocket endpoint is at `ws://localhost:7777/ws/queue`.
+Uses `config/formicary-queen.yaml`. Paths are overridden to local relative paths automatically. The WebSocket endpoint is at `ws://localhost:7777/ws/queue`.
 
 #### Via CLI (after `make build`)
 
 ```bash
+DB_DATA_SOURCE="./formicary_db.sqlite" \
+COMMON_S3_LOCAL_DATA_DIR="./data/seaweedfs" \
+COMMON_S3_LOCAL_WEED_BIN="./bin/weed" \
+COMMON_PUBLIC_DIR="./public/" \
 ./out/bin/formicary --config config/formicary-queen.yaml
 ```
 
@@ -39,6 +43,8 @@ This uses `config/formicary-queen.yaml`. The WebSocket endpoint is at `ws://loca
 make docker-run-queen COMMON_AUTH_ENABLED=false
 ```
 
+Data persists to `~/formicary-data/` (mounted as `/data` inside the container). No extra env vars needed — the config already uses `/data` paths.
+
 Or with plain `docker run`:
 
 ```bash
@@ -47,8 +53,8 @@ docker run --rm \
   -p 19000:19000 \
   -e COMMON_AUTH_ENABLED=false \
   -e COMMON_AUTH_JWT_SECRET="$(openssl rand -base64 32)" \
-  -v "$(pwd)/config/formicary-queen.yaml:/config/formicary-queen.yaml:ro" \
   -v ~/formicary-data:/data \
+  -v "$(pwd)/config/formicary-queen.yaml:/config/formicary-queen.yaml:ro" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   plexobject/formicary:latest \
   --config /config/formicary-queen.yaml
@@ -176,6 +182,18 @@ See `config/formicary-queen.yaml` for queen-only settings and `config/formicary-
 
 ---
 
+### Data storage
+
+| Run mode | SQLite DB | SeaweedFS blobs |
+|----------|-----------|-----------------|
+| `make run` / `make run-queen` | `./formicary_db.sqlite` (project dir) | `./data/seaweedfs/` (project dir) |
+| `make docker-run*` / `make docker-run-queen` | `~/formicary-data/formicary.db` | `~/formicary-data/seaweedfs/` |
+| `docker compose up` | Docker volume `formicary-data` | same volume |
+
+The configs default to `/data` paths (correct for Docker). The `make run*` targets pass `DB_DATA_SOURCE` and `COMMON_S3_LOCAL_DATA_DIR` env vars to redirect to local relative paths — no manual config editing needed.
+
+---
+
 ### Environment variable reference
 
 All config keys map to environment variables by replacing `.` with `_` (no prefix).
@@ -184,9 +202,12 @@ All config keys map to environment variables by replacing `.` with `_` (no prefi
 |---------------------|-----------|-------------|
 | `COMMON_QUEUE_WEBSOCKET_SERVER_ENDPOINT` | `common.queue.websocket.server_endpoint` | Queen WebSocket URL for ants to connect to |
 | `COMMON_HTTP_PORT` | `common.http_port` | HTTP port (default `7777` for queen, `0` for ant) |
+| `COMMON_PUBLIC_DIR` | `common.public_dir` | Path to static UI assets |
 | `COMMON_S3_ENDPOINT` | `common.s3.endpoint` | Artifact storage S3 endpoint |
 | `COMMON_S3_ACCESS_KEY_ID` | `common.s3.access_key_id` | S3 access key |
 | `COMMON_S3_SECRET_ACCESS_KEY` | `common.s3.secret_access_key` | S3 secret key |
+| `COMMON_S3_LOCAL_DATA_DIR` | `common.s3.local_data_dir` | SeaweedFS data directory (default `/data/seaweedfs`) |
+| `COMMON_S3_LOCAL_WEED_BIN` | `common.s3.local_weed_bin` | Path to `weed` binary (default `/usr/local/bin/weed`) |
 | `COMMON_QUEUE_TOKEN` | `common.queue.token` | Ant's API JWT (`token_type=api`) for WebSocket auth — generate via Dashboard → API Tokens; set on ant only |
 | `COMMON_AUTH_ENABLED` | `common.auth.enabled` | Enable/disable OAuth auth |
 | `COMMON_AUTH_JWT_SECRET` | `common.auth.jwt_secret` | JWT signing secret |
@@ -194,6 +215,7 @@ All config keys map to environment variables by replacing `.` with `_` (no prefi
 | `COMMON_AUTH_GOOGLE_CLIENT_SECRET` | `common.auth.google_client_secret` | Google OAuth client secret |
 | `COMMON_AUTH_GITHUB_CLIENT_ID` | `common.auth.github_client_id` | GitHub OAuth client ID |
 | `COMMON_AUTH_GITHUB_CLIENT_SECRET` | `common.auth.github_client_secret` | GitHub OAuth client secret |
+| `DB_DATA_SOURCE` | `db.data_source` | SQLite file path or DB connection string (default `/data/formicary.db`) |
 
 ---
 

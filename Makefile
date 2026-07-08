@@ -190,10 +190,18 @@ bin/weed:
 download-weed: bin/weed
 
 run: build bin/weed
+	DB_DATA_SOURCE="./formicary_db.sqlite" \
+	COMMON_S3_LOCAL_DATA_DIR="./data/seaweedfs" \
+	COMMON_S3_LOCAL_WEED_BIN="./bin/weed" \
+	COMMON_PUBLIC_DIR="./public/" \
 	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen-embedded.yaml
 
 # Queen-only mode — no embedded ant. Ants connect separately via WebSocket.
 run-queen: build bin/weed
+	DB_DATA_SOURCE="./formicary_db.sqlite" \
+	COMMON_S3_LOCAL_DATA_DIR="./data/seaweedfs" \
+	COMMON_S3_LOCAL_WEED_BIN="./bin/weed" \
+	COMMON_PUBLIC_DIR="./public/" \
 	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen.yaml
 
 # Queen + embedded ant + embedded SeaweedFS in Docker (uses formicary-docker.yaml baked into image).
