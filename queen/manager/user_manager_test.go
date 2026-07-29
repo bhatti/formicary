@@ -35,12 +35,10 @@ func Test_ShouldAssignDefaultPermissionsOnCreateUser(t *testing.T) {
 		Name:     "OAuth User",
 		Active:   true,
 	}
-	require.Empty(t, user.SerializedPerms, "pre-condition: no perms before create")
-
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 	saved, err := userMgr.CreateUser(qc, user)
 	require.NoError(t, err)
-	require.NotEmpty(t, saved.SerializedPerms, "saved user must have serialized permissions")
+	// Permissions come from the User role, not stored perms.
 	require.True(t, saved.HasPermission(acl.Dashboard, acl.View), "must have Dashboard: View")
 	require.True(t, saved.HasPermission(acl.JobRequest, acl.Submit), "must have JobRequest: Submit")
 	require.True(t, saved.HasPermission(acl.Websocket, acl.Subscribe), "must have Websocket: Subscribe")
@@ -52,16 +50,11 @@ func Test_ShouldPrepareLoginUserForExistingUser(t *testing.T) {
 	require.NoError(t, err)
 	qc := common.NewQueryContext(nil, "").WithAdmin()
 
-	// Persist a user with stale permissions (missing Dashboard).
-	permsWithoutDashboard := acl.MarshalPermissions([]*acl.Permission{
-		acl.NewPermission(acl.JobRequest, acl.View|acl.Submit),
-	})
 	dbUser := &common.User{
-		Username:        "stale@example.com",
-		Email:           "stale@example.com",
-		Name:            "Stale User",
-		Active:          true,
-		SerializedPerms: permsWithoutDashboard,
+		Username: "stale@example.com",
+		Email:    "stale@example.com",
+		Name:     "Stale User",
+		Active:   true,
 	}
 	_, err = userMgr.CreateUser(qc, dbUser)
 	require.NoError(t, err)
@@ -71,10 +64,11 @@ func Test_ShouldPrepareLoginUserForExistingUser(t *testing.T) {
 	oldUser := userMgr.PrepareLoginUser(oauthUser)
 
 	require.NotNil(t, oldUser, "should find the existing DB user")
+	// Permissions come from role — Dashboard always present.
 	require.True(t, oauthUser.HasPermission(acl.Dashboard, acl.View),
-		"Dashboard: View must be backfilled for stale user")
+		"Dashboard: View must be present via role")
 	require.True(t, oauthUser.HasPermission(acl.JobRequest, acl.Submit),
-		"pre-existing JobRequest perm must be preserved")
+		"JobRequest: Submit must be present via role")
 }
 
 // PrepareLoginUser sets full default permissions for a brand-new user (no DB record).
@@ -86,7 +80,6 @@ func Test_ShouldPrepareLoginUserForNewUser(t *testing.T) {
 	oldUser := userMgr.PrepareLoginUser(oauthUser)
 
 	require.Nil(t, oldUser, "no DB user should be found for a new signup")
-	require.NotEmpty(t, oauthUser.SerializedPerms)
 	require.True(t, oauthUser.HasPermission(acl.Dashboard, acl.View),
 		"new user JWT must include Dashboard: View")
 }

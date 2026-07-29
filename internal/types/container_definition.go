@@ -10,9 +10,13 @@ import (
 	"strings"
 )
 
-// EnvFromSource is a type alias for the proto-generated type.
-// Loads all keys from a Kubernetes Secret or ConfigMap as environment variables.
-type EnvFromSource = domain.EnvFromSource
+// EnvFromSource loads all keys from a Kubernetes Secret or ConfigMap as environment variables.
+// Equivalent to K8s envFrom: [{secretRef: {name: ...}}] or [{configMapRef: {name: ...}}].
+type EnvFromSource struct {
+	SecretRef    string `json:"secret_ref,omitempty" yaml:"secret_ref,omitempty"`
+	ConfigMapRef string `json:"config_map_ref,omitempty" yaml:"config_map_ref,omitempty"`
+	Prefix       string `json:"prefix,omitempty" yaml:"prefix,omitempty"`
+}
 
 // EnvVarSource is a type alias for the proto-generated type.
 // References a single key from a Secret or ConfigMap as a named env var.

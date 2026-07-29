@@ -272,7 +272,7 @@ func (s *Service) CreateDeadlineIfNeeded(
 	deadline := &types.ApprovalDeadline{
 		TaskExecutionID:      taskExecutionID,
 		JobRequestID:         jobRequestID,
-		Deadline:             time.Now().Add(policy.SLADeadline),
+		Deadline:             time.Now().Add(time.Duration(policy.SLADeadline)),
 		TimeoutAction:        policy.EffectiveTimeoutAction(),
 		EscalationRecipients: policy.EscalationRecipients,
 	}

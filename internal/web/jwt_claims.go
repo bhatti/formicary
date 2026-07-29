@@ -20,6 +20,8 @@ type JwtClaims struct {
 	AuthProvider    string `json:"auth_provider"`
 	Admin           bool   `json:"admin"`
 	SerializedRoles string `json:"serialized_roles"`
+	// SerializedPerms carries the effective permissions at token-issue time (role + additive).
+	// Used by middleware to rebuild the user's permission set without a DB lookup.
 	SerializedPerms string `json:"serialized_perms"`
 	// TokenType distinguishes "session" (browser) from "api" (ant/script) tokens.
 	// The WebSocket ant endpoint rejects session tokens.

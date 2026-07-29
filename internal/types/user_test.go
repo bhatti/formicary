@@ -93,29 +93,29 @@ func Test_ShouldHaveDefaultPermissionsOnNewUser(t *testing.T) {
 	require.True(t, u.HasPermission(acl.Websocket, acl.Subscribe))
 }
 
-// BackfillDefaultPermissions adds missing entries without touching existing ones.
-func Test_ShouldBackfillDefaultPermissions(t *testing.T) {
-	// Simulate a user created before Dashboard was added — they have some perms but not Dashboard.
-	permsWithoutDashboard := acl.MarshalPermissions([]*acl.Permission{
-		acl.NewPermission(acl.JobRequest, acl.View|acl.Submit),
-		acl.NewPermission(acl.JobDefinition, acl.Create|acl.Read),
-	})
-	u := &User{SerializedPerms: permsWithoutDashboard}
-
-	require.False(t, u.HasPermission(acl.Dashboard, acl.View), "should be missing before backfill")
-
-	u.BackfillDefaultPermissions()
-
-	require.True(t, u.HasPermission(acl.Dashboard, acl.View), "should have Dashboard after backfill")
-	// Existing entries must be preserved unchanged.
-	require.True(t, u.HasPermission(acl.JobRequest, acl.Submit), "existing perm must survive backfill")
-	require.True(t, u.HasPermission(acl.JobDefinition, acl.Create), "existing perm must survive backfill")
+// Permissions are derived from the User role — Dashboard is always present without any additive perms.
+func Test_ShouldHaveDefaultPermissionsFromRole(t *testing.T) {
+	u := NewUser("", "user@example.com", "Test User", "user@example.com", acl.NewRoles(""))
+	require.True(t, u.HasPermission(acl.Dashboard, acl.View), "User role must include Dashboard: View")
+	require.True(t, u.HasPermission(acl.JobRequest, acl.Submit), "User role must include JobRequest: Submit")
+	require.True(t, u.HasPermission(acl.JobDefinition, acl.Create), "User role must include JobDefinition: Create")
 }
 
-// BackfillDefaultPermissions is idempotent when all defaults already present.
-func Test_ShouldNotChangePersWhenBackfillNotNeeded(t *testing.T) {
+// AdditivePerms grants extra actions on top of the role baseline.
+func Test_ShouldMergeAdditivePermsWithRoleBaseline(t *testing.T) {
+	extra := acl.MarshalPermissions([]*acl.Permission{
+		acl.NewPermission(acl.Report, acl.View|acl.Read),
+	})
+	u := &User{AdditivePerms: extra}
+	// Role baseline (no role = User) gives Dashboard etc.; additive grants Report.
+	require.True(t, u.HasPermission(acl.Dashboard, acl.View), "role baseline must apply")
+	require.True(t, u.HasPermission(acl.Report, acl.View), "additive perm must be merged")
+}
+
+// ResetPermissionsCache clears cached perms — effective set must remain unchanged.
+func Test_ShouldNotChangePersWhenCacheReset(t *testing.T) {
 	u := NewUser("", "user@example.com", "Test User", "user@example.com", acl.NewRoles(""))
-	original := u.SerializedPerms
-	u.BackfillDefaultPermissions()
-	require.Equal(t, original, u.SerializedPerms, "backfill must be idempotent when all defaults present")
+	before := u.EffectivePermsString()
+	u.ResetPermissionsCache()
+	require.Equal(t, before, u.EffectivePermsString(), "cache reset must be idempotent")
 }

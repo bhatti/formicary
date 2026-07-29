@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -61,8 +62,9 @@ type User struct {
 	StickyMessage string `json:"sticky_message" gorm:"sticky_message"`
 	// BundleID defines package or bundle
 	BundleID string `json:"bundle_id"`
-	// SerializedPerms defines permissions
-	SerializedPerms string `json:"-" gorm:"serialized_perms"`
+	// AdditivePerms stores extra permissions granted beyond the user's role baseline.
+	// Effective permissions = PermissionsForRole(role) merged with AdditivePerms.
+	AdditivePerms string `json:"-" gorm:"column:additive_perms"`
 	// SerializedRoles defines roles
 	SerializedRoles string `json:"-" gorm:"serialized_roles"`
 	// Salt for password
@@ -110,7 +112,6 @@ func NewUser(
 		Email:           strings.ToLower(email),
 		Name:            name,
 		Active:          true,
-		SerializedPerms: acl.DefaultPermissionsString(),
 		SerializedRoles: roles.String(),
 		Notify:          make(map[NotifyChannel]JobNotifyConfig),
 		CreatedAt:       time.Now(),
@@ -312,17 +313,58 @@ func CommonEmailExtension(email string) bool {
 	return match
 }
 
-// GetPermissions getter
+// GetPermissions returns the user's effective permissions: role baseline merged
+// with any additive per-user grants stored in AdditivePerms.
 func (u *User) GetPermissions() *acl.Permissions {
 	if u.permissions == nil {
-		u.permissions = acl.NewPermissions(u.SerializedPerms)
+		u.permissions = acl.NewPermissions(u.EffectivePermsString())
 	}
 	return u.permissions
 }
 
-// PermissionList getter
+// EffectivePermsString merges the role-based permissions with AdditivePerms.
+func (u *User) EffectivePermsString() string {
+	rolePerms := u.roleBasePermissions()
+	if u.AdditivePerms == "" {
+		return acl.MarshalPermissions(rolePerms)
+	}
+	// Merge: additive perms OR the role perms (union of actions per resource).
+	merged := make(map[acl.Resource]*acl.Permission, len(rolePerms))
+	for _, p := range rolePerms {
+		merged[p.Resource] = acl.NewPermission(p.Resource, p.Actions)
+	}
+	for _, p := range acl.UnmarshalPermissions(u.AdditivePerms) {
+		if existing, ok := merged[p.Resource]; ok {
+			existing.Actions |= p.Actions
+		} else {
+			merged[p.Resource] = acl.NewPermission(p.Resource, p.Actions)
+		}
+	}
+	result := make([]*acl.Permission, 0, len(merged))
+	for _, p := range merged {
+		result = append(result, p)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return string(result[i].Resource) < string(result[j].Resource)
+	})
+	return acl.MarshalPermissions(result)
+}
+
+// roleBasePermissions returns permissions for the user's highest role.
+func (u *User) roleBasePermissions() []*acl.Permission {
+	roles := u.GetRoles()
+	if roles.IsAdmin() {
+		return acl.PermissionsForRole(acl.Admin)
+	}
+	if roles.IsOrgAdmin() {
+		return acl.PermissionsForRole(acl.OrgAdmin)
+	}
+	return acl.PermissionsForRole(acl.UserRole)
+}
+
+// PermissionList returns the effective permission list.
 func (u *User) PermissionList() []*acl.Permission {
-	return acl.UnmarshalPermissions(u.SerializedPerms)
+	return acl.UnmarshalPermissions(u.EffectivePermsString())
 }
 
 // HasPermission getter
@@ -330,26 +372,6 @@ func (u *User) HasPermission(resource acl.Resource, action int) bool {
 	return u.IsAdmin() || u.GetPermissions().Has(resource, action)
 }
 
-// BackfillDefaultPermissions adds any default permissions that are missing from the user's
-// serialized permissions. This handles users created before a permission was added to DefaultPermissions.
-func (u *User) BackfillDefaultPermissions() {
-	existing := acl.UnmarshalPermissions(u.SerializedPerms)
-	existingMap := make(map[acl.Resource]*acl.Permission, len(existing))
-	for _, p := range existing {
-		existingMap[p.Resource] = p
-	}
-	changed := false
-	for _, def := range acl.DefaultPermissions() {
-		if _, ok := existingMap[def.Resource]; !ok {
-			existing = append(existing, def)
-			changed = true
-		}
-	}
-	if changed {
-		u.SerializedPerms = acl.MarshalPermissions(existing)
-		u.permissions = nil
-	}
-}
 
 // GetRoles getter
 func (u *User) GetRoles() *acl.Roles {
@@ -369,9 +391,9 @@ func (u *User) HasRole(roleType acl.RoleType, scope ...string) bool {
 	return u.GetRoles().HasRole(roleType, scope...)
 }
 
-// CopyRolesPermissions copies roles/permissions
+// CopyRolesPermissions copies roles and additive permissions from another user.
 func (u *User) CopyRolesPermissions(other *User) {
-	u.SerializedPerms = other.SerializedPerms
+	u.AdditivePerms = other.AdditivePerms
 	u.SerializedRoles = other.SerializedRoles
 	u.roles = nil
 	u.permissions = nil

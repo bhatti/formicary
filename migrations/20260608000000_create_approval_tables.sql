@@ -6,7 +6,7 @@
       allowed_roles         TEXT NOT NULL DEFAULT '',
       allowed_users         TEXT NOT NULL DEFAULT '',
       require_unanimous     BOOLEAN NOT NULL DEFAULT FALSE,
-      sla_deadline_ns       BIGINT NOT NULL DEFAULT 0,
+      sla_deadline          BIGINT NOT NULL DEFAULT 0,
       timeout_action        VARCHAR(32) NOT NULL DEFAULT 'ESCALATE',
       escalation_recipients TEXT NOT NULL DEFAULT '',
       escalation_message    TEXT NOT NULL DEFAULT '',

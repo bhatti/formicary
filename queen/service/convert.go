@@ -408,7 +408,7 @@ func toProtoUser(u *commonTypes.User) *protoUser.User {
 		NotifySerialized: u.NotifySerialized,
 		StickyMessage:    u.StickyMessage,
 		BundleId:         u.BundleID,
-		SerializedPerms:  u.SerializedPerms,
+		SerializedPerms:  u.AdditivePerms,
 		SerializedRoles:  u.SerializedRoles,
 		Salt:             u.Salt,
 		EmailVerified:    u.EmailVerified,
@@ -445,7 +445,7 @@ func fromProtoUser(p *protoUser.User) *commonTypes.User {
 	u.EmailVerified = p.EmailVerified
 	u.Locked = p.Locked
 	u.Active = p.Active
-	u.SerializedPerms = p.SerializedPerms
+	u.AdditivePerms = p.SerializedPerms
 	u.SerializedRoles = p.SerializedRoles
 	return u
 }

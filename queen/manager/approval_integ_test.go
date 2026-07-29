@@ -391,7 +391,7 @@ func Test_ShouldApprovalInteg_SLADeadlineCreatedAndFound(t *testing.T) {
 
 	policy := &types.ApprovalPolicy{
 		MinApprovals:  1,
-		SLADeadline:   2 * time.Hour,
+		SLADeadline:   int64(2 * time.Hour),
 		TimeoutAction: types.TimeoutActionEscalate,
 	}
 	jobDef := buildApprovalJobDef(t, qc, jm, fmt.Sprintf("sla-deadline-%d", time.Now().UnixNano()), policy)

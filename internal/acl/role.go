@@ -15,6 +15,8 @@ const (
 	ReadAdmin RoleType = "ReadAdmin"
 	// OrgAdmin role — manages org-level configs; auto-assigned on personal org creation
 	OrgAdmin RoleType = "OrgAdmin"
+	// UserRole — the default role for all authenticated users
+	UserRole RoleType = "User"
 )
 
 // Role ACL

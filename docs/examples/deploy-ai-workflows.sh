@@ -2,21 +2,23 @@
 # deploy-ai-workflows.sh
 #
 # Uploads the GitHub AI agent workflow YAMLs to a running Formicary queen
-# and stores all required org configs (tokens, keys, settings).
+# and stores all required org configs (non-secret settings only).
 #
 # Usage:
-#   ./deploy-ai-workflows.sh
-#   ./deploy-ai-workflows.sh --set-configs --gh-org MY_ORG --gh-repo MY_REPO
+#   ./deploy-ai-workflows.sh --create-k8s-secret
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#       --gh-org MY_ORG --gh-repo MY_REPO
 #   ./deploy-ai-workflows.sh --set-configs --gh-org MY_ORG --gh-repo MY_REPO \
 #       --bedrock --bedrock-url http://ai/bedrock \
 #       --git-user "AI Agent" --git-email "ai@example.com"
 #   ./deploy-ai-workflows.sh --server http://host:7777
 #
+# Credentials are stored in the 'ai-dev-credentials' Kubernetes secret.
+# Use --create-k8s-secret to create/update the secret from env vars (one-time setup).
+#
 # Secrets MUST be supplied via environment variables — never as CLI flags:
 #   FORMICARY_TOKEN   Formicary API token
 #   GITHUB_TOKEN      GitHub personal access token (also GH_TOKEN)
-#   GH_ORG            GitHub organisation (also GITHUB_ORG)
-#   GH_REPO           GitHub repository   (also GITHUB_REPO)
 #   SSH_PRIVATE_KEY   PEM-encoded SSH private key for git operations
 #   ANTHROPIC_API_KEY Optional — for direct Anthropic API (not needed with Bedrock)
 #   ANTHROPIC_BEDROCK_BASE_URL  Bedrock proxy URL (also BEDROCK_URL)
@@ -33,6 +35,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SET_CONFIGS=false
 SETUP_LABELS=false
+CREATE_K8S_SECRET=true
 # Accept both GH_* and GITHUB_* prefixes; explicit flags override both
 GH_ORG="${GH_ORG:-${GITHUB_ORG:-}}"
 GH_REPO="${GH_REPO:-${GITHUB_REPO:-}}"
@@ -48,9 +51,10 @@ GIT_USER_EMAIL=""
 # ── Argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --server)        FORMICARY_URL="$2";    shift 2 ;;
-    --set-configs)   SET_CONFIGS=true;      shift ;;
-    --setup-labels)  SETUP_LABELS=true;     shift ;;
+    --server)             FORMICARY_URL="$2";    shift 2 ;;
+    --set-configs)        SET_CONFIGS=true;      shift ;;
+    --setup-labels)       SETUP_LABELS=true;     shift ;;
+    --create-k8s-secret)  CREATE_K8S_SECRET=true; shift ;;
     --gh-org)        GH_ORG="$2";           shift 2 ;;
     --gh-repo)       GH_REPO="$2";          shift 2 ;;
     --bedrock)       USE_BEDROCK="1";       shift ;;
@@ -59,7 +63,7 @@ while [[ $# -gt 0 ]]; do
     --git-user)      GIT_USER_NAME="$2";    shift 2 ;;
     --git-email)     GIT_USER_EMAIL="$2";   shift 2 ;;
     --help|-h)
-      sed -n '/^# Usage/,/^[^#]/p' "$0" | head -20
+      sed -n '/^# Usage/,/^[^#]/p' "$0" | head -22
       exit 0 ;;
     # Reject secret flags to prevent credentials leaking via ps/shell history.
     --token|--gh-token|--anthropic-key|--ssh-key|--ssh-key-file|--jira-token|--bb-token)
@@ -71,7 +75,30 @@ done
 # ── Helpers ────────────────────────────────────────────────────────────────────
 log()  { echo "▶ $*"; }
 ok()   { echo "  ✓ $*"; }
-fail() { echo "  ✗ $*" >&2; exit 1; }
+fail() { echo "  ✗ ERROR: $*" >&2; echo "  ✗ ERROR: $*"; exit 1; }
+
+# ── Create K8s secret ─────────────────────────────────────────────────────────
+create_k8s_secret() {
+  log "Creating/updating 'ai-dev-credentials' Kubernetes secret ..."
+  [[ -n "$GH_TOKEN" ]] || fail "GITHUB_TOKEN / GH_TOKEN is required for --create-k8s-secret"
+
+  kubectl create secret generic ai-dev-credentials \
+    --from-literal=JIRA_BASE_URL="${JIRA_BASE_URL:-}" \
+    --from-literal=JIRA_EMAIL="${JIRA_EMAIL:-}" \
+    --from-literal=JIRA_API_TOKEN="${JIRA_API_TOKEN:-}" \
+    --from-literal=JIRA_HOST="${JIRA_HOST:-}" \
+    --from-literal=BITBUCKET_WORKSPACE="${BITBUCKET_WORKSPACE:-}" \
+    --from-literal=BITBUCKET_USERNAME="${BITBUCKET_USERNAME:-}" \
+    --from-literal=BITBUCKET_TOKEN="${BITBUCKET_TOKEN:-}" \
+    --from-literal=GH_TOKEN="${GH_TOKEN}" \
+    --from-literal=GH_ORG="${GH_ORG:-}" \
+    --from-literal=GH_REPO="${GH_REPO:-}" \
+    --from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}" \
+    --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
+    --from-literal=SSH_PRIVATE_KEY="${SSH_KEY:-}" \
+    --save-config --dry-run=client -o yaml | kubectl apply -f -
+  ok "Secret 'ai-dev-credentials' created/updated."
+}
 
 resolve_org_id() {
   [[ -z "$TOKEN" ]] && fail "FORMICARY_TOKEN is required to resolve org ID"
@@ -169,14 +196,22 @@ if [[ -z "$SSH_KEY" && -n "$SSH_KEY_FILE" ]]; then
   SSH_KEY=$(cat "$SSH_KEY_FILE") || fail "Cannot read SSH key file: $SSH_KEY_FILE"
 fi
 
+# ── Validate token early ──────────────────────────────────────────────────────
+[[ -n "$TOKEN" ]] || fail "FORMICARY_TOKEN is not set — export it before running this script"
+
+# ── Create K8s secret (if requested) ──────────────────────────────────────────
+if [[ "$CREATE_K8S_SECRET" == true ]]; then
+  create_k8s_secret
+  echo ""
+fi
+
 # ── Resolve user's org ID (required for config storage) ───────────────────────
 ORG_ID=$(resolve_org_id)
 
 # ── Set org configs ────────────────────────────────────────────────────────────
 if [[ "$SET_CONFIGS" == true ]]; then
-  [[ -n "$GH_ORG" ]]   || fail "--set-configs requires --gh-org <org> (or GH_ORG env var)"
-  [[ -n "$GH_REPO" ]]  || fail "--set-configs requires --gh-repo <repo> (or GH_REPO env var)"
-  [[ -n "$GH_TOKEN" ]] || fail "--set-configs requires --gh-token <token> (or GITHUB_TOKEN env var)"
+  [[ -n "$GH_ORG" ]]  || fail "--set-configs requires --gh-org <org> (or GH_ORG env var)"
+  [[ -n "$GH_REPO" ]] || fail "--set-configs requires --gh-repo <repo> (or GH_REPO env var)"
 
   log "Setting org configs (shared team settings) ..."
   set_org_config "GitHubOrg"  "$GH_ORG"
@@ -186,36 +221,19 @@ if [[ "$SET_CONFIGS" == true ]]; then
     set_org_config "ClaudeSkipBedrockAuth"   "1"
     set_org_config "AnthropicBedrockBaseUrl" "$BEDROCK_URL"
   fi
-
-  log "Setting user configs (personal secrets and identity) ..."
-  set_user_config "GithubToken" "$GH_TOKEN"
-  [[ -n "$ANTHROPIC_KEY" ]] && set_user_config "AnthropicApiKey" "$ANTHROPIC_KEY"
-  [[ -n "$SSH_KEY" ]]        && set_user_config "SshPrivateKey"   "$SSH_KEY"
-  [[ -n "$GIT_USER_NAME" ]]  && set_user_config "GitUserName"     "$GIT_USER_NAME"
-  [[ -n "$GIT_USER_EMAIL" ]] && set_user_config "GitUserEmail"    "$GIT_USER_EMAIL"
+  [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"  "$GIT_USER_NAME"
+  [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail" "$GIT_USER_EMAIL"
 
   echo ""
-  ok "Configs set."
+  ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
   echo ""
 else
-  # Auto-set from environment variables when --set-configs not passed.
+  # Auto-set org configs from environment variables when --set-configs not passed.
   _AUTO=false
-  if [[ -n "$GH_TOKEN" ]]; then
-    [[ -n "$GH_ORG" ]]  || fail "GH_TOKEN is set but GH_ORG (or GITHUB_ORG) is missing"
-    [[ -n "$GH_REPO" ]] || fail "GH_TOKEN is set but GH_REPO (or GITHUB_REPO) is missing"
-    [[ "$_AUTO" == false ]] && log "Auto-setting configs from environment ..."
-    set_org_config  "GitHubOrg"   "$GH_ORG"
-    set_org_config  "GitHubRepo"  "$GH_REPO"
-    set_user_config "GithubToken" "$GH_TOKEN"
-    _AUTO=true
-  fi
-  if [[ -n "$ANTHROPIC_KEY" ]]; then
-    [[ "$_AUTO" == false ]] && log "Auto-setting configs from environment ..."
-    set_user_config "AnthropicApiKey" "$ANTHROPIC_KEY"
-    _AUTO=true
-  fi
-  if [[ -n "$SSH_KEY" ]]; then
-    set_user_config "SshPrivateKey" "$SSH_KEY"
+  if [[ -n "$GH_ORG" && -n "$GH_REPO" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "GitHubOrg"  "$GH_ORG"
+    set_org_config "GitHubRepo" "$GH_REPO"
     _AUTO=true
   fi
   [[ "$_AUTO" == true ]] && echo ""
@@ -225,10 +243,10 @@ fi
 log "Checking Formicary at ${FORMICARY_URL} ..."
 _args=(-s -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && _args+=(-H "Authorization: Bearer ${TOKEN}")
-_status=$(curl "${_args[@]}" 2>/dev/null || echo "000")
+_status=$(curl "${_args[@]}" 2>&1) || _status="000"
 case "$_status" in
   2*) ok "Server reachable (HTTP ${_status})" ;;
-  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running?" ;;
+  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running? (run: kubectl port-forward svc/formicary 7777:7777 19000:19000)" ;;
   401) fail "Server returned 401 — set FORMICARY_TOKEN or pass --token" ;;
   403) fail "Server returned 403 — token invalid or expired" ;;
   *) fail "Server returned HTTP ${_status}" ;;
@@ -296,12 +314,12 @@ echo "  1. Ensure workspace directory exists on every ant worker host:"
 echo "     sudo mkdir -p /var/formicary/ai-workspace"
 echo "     sudo chmod 777 /var/formicary/ai-workspace"
 echo ""
-echo "  2. Set org configs (if not done above):"
+echo "  2. Create K8s secret (one-time setup) and set org configs:"
 echo "     export FORMICARY_TOKEN=<token>"
 echo "     export GITHUB_TOKEN=<token>"
 echo "     export SSH_PRIVATE_KEY=\$(cat ~/.ssh/id_rsa)"
 echo "     export BEDROCK_URL=http://ai/bedrock   # or set ANTHROPIC_API_KEY for direct API"
-echo "     $0 --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO --bedrock"
+echo "     $0 --create-k8s-secret --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO --bedrock"
 echo ""
 echo "  3. Create GitHub labels (if not done):"
 echo "     $0 --setup-labels --gh-org YOUR_ORG --gh-repo YOUR_REPO"

@@ -39,7 +39,9 @@ func BuildToken(
 		AuthProvider:    user.AuthProvider,
 		Admin:           user.IsAdmin(),
 		SerializedRoles: user.SerializedRoles,
-		SerializedPerms: user.SerializedPerms,
+		// Bake effective permissions (role baseline + additive) into the token so
+		// middleware can check permissions without a DB round-trip.
+		SerializedPerms: user.EffectivePermsString(),
 		TokenType:       tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiration),

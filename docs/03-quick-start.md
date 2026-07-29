@@ -1,21 +1,27 @@
 # Quick Start: Running Your First Job
 
-This guide will walk you through defining, uploading, and running a simple "Hello World" job in Formicary. By the end, you'll understand the basic workflow of the system.
+This guide walks you through defining, uploading, and running a simple "Hello World" job in Formicary.
 
-This guide assumes you have Formicary running via the Docker Compose method described in the [Installation](./02-installation.md) guide.
+This guide assumes Formicary is running via Kubernetes as described in the [Installation](./02-installation.md) guide. If it isn't running yet:
+
+```bash
+kubectl create secret generic formicary-auth \
+  --from-literal=jwt-secret="$(openssl rand -base64 32)"
+kubectl apply -f k8s.yaml
+kubectl port-forward svc/formicary 7777:7777 19000:19000
+```
 
 ## Step 1: The Job Definition
 
-A Formicary **Job Definition** is a YAML file that describes the workflow. Let's create a simple one with two tasks: one creates a `hello.txt` file, and the second creates a `world.txt` file.
+A Formicary **Job Definition** is a YAML file that describes the workflow. Create a file named `hello-world.yaml`:
 
-Create a file named `hello-world.yaml` with the following content:
-
-```yaml:hello-world.yaml
+```yaml
 job_type: hello-world
 description: A simple getting started example
 max_concurrency: 1
 tasks:
 - task_type: hello
+  method: KUBERNETES
   container:
     image: alpine:latest
   script:
@@ -25,6 +31,7 @@ tasks:
       - hello.txt
   on_completed: world
 - task_type: world
+  method: KUBERNETES
   container:
     image: alpine:latest
   dependencies:
@@ -37,61 +44,62 @@ tasks:
       - output.txt
 ```
 
-Let's break this down:
--   `job_type`: A unique name for this workflow.
--   `tasks`: A list of the steps in our job.
--   `task_type`: The name of a specific step.
--   `container`: Specifies the Docker image to run the task in. We're using the lightweight `alpine` image.
--   `script`: The shell commands to execute inside the container.
--   `artifacts`: Declares which files should be saved as output from the task.
--   `on_completed`: This is the key to our workflow. It tells Formicary to run the `world` task after the `hello` task completes successfully.
--   `dependencies`: This tells the `world` task that it needs the artifacts from the `hello` task. Formicary will automatically download `hello.txt` into the `world` task's working directory.
+Key fields:
+- `job_type` — unique name for this workflow
+- `method: KUBERNETES` — run each task in a fresh Kubernetes pod
+- `container.image` — Docker image for the pod
+- `script` — shell commands to run inside the container
+- `artifacts` — files to save and pass to downstream tasks
+- `on_completed` — next task to run after this one succeeds
+- `dependencies` — tasks whose artifacts this task needs
 
-## Step 2: Upload the Job Definition
+## Step 2: Get an API Token
 
-With the Formicary services running, use `curl` to upload your new job definition to the Queen server.
+Log in at [http://localhost:7777](http://localhost:7777), go to **Profile → API Token**, and copy the JWT:
+
+```bash
+export FORMICARY_TOKEN="<token-from-ui>"
+```
+
+## Step 3: Upload the Job Definition
 
 ```bash
 curl -X POST http://localhost:7777/api/jobs/definitions \
-     -H "Content-Type: application/yaml" \
-     --data-binary @hello-world.yaml
+  -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+  -H "Content-Type: application/yaml" \
+  --data-binary @hello-world.yaml
 ```
 
-You should receive a JSON response confirming that the job definition was created. You can also verify this by navigating to the **Job Definitions** page in the dashboard at [http://localhost:7777/dashboard/jobs/definitions](http://localhost:7777/dashboard/jobs/definitions).
+You can also verify it in the dashboard under **Job Definitions**.
 
-## Step 3: Run the Job
-
-Now that Formicary knows *what* to do, let's tell it to *do it*. We submit a **Job Request**.
+## Step 4: Run the Job
 
 ```bash
 curl -X POST http://localhost:7777/api/jobs/requests \
-     -H "Content-Type: application/json" \
-     -d '{"job_type": "hello-world"}'
+  -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"job_type": "hello-world"}'
 ```
 
-This command submits a request to run the `hello-world` job.
+## Step 5: Observe the Results
 
-## Step 4: Observe the Results
-
-1.  **Go to the Dashboard:** Open [http://localhost:7777](http://localhost:7777) in your browser. You should see your new job request appear on the main page, transition from `PENDING` to `EXECUTING`, and finally to `COMPLETED`.
-
-2.  **View Job Details:** Click on the Job ID to see the details. You will see the two tasks, `hello` and `world`, and their status.
-
-3.  **Check the Logs:** Click on a task to view its execution logs. You'll see the output of the `echo` commands.
-
-4.  **Download the Artifact:** In the job details page, find the "Artifacts" section. You will see the `output.txt` file produced by the `world` task. You can download it to verify its content is "Hello World".
+1. Open [http://localhost:7777](http://localhost:7777) — the job appears on the dashboard, transitions `PENDING → EXECUTING → COMPLETED`.
+2. Click the Job ID to see both tasks and their status.
+3. Click a task to view its execution logs.
+4. Find the `output.txt` artifact in the job details page and download it — it should contain "Hello World".
 
 ## Congratulations!
 
-You have successfully run your first job in Formicary. You've learned the fundamental workflow:
-1.  **Define** a job in YAML.
-2.  **Upload** the definition to the Queen.
-3.  **Request** an execution of the job.
-4.  **Monitor** the results.
+You have successfully run your first job in Formicary. The fundamental workflow:
+
+1. **Define** a job in YAML
+2. **Upload** the definition to the Queen
+3. **Request** an execution
+4. **Monitor** the results
 
 ### Next Steps
 
--   Explore more [Examples & Tutorials](./11-ci-cd-pipelines.md) to see more complex workflows.
--   Dive into the [Core Concepts](./05-concepts.md) to understand the system better.
--   Read about all the available options in the [Job Definitions](./06-job-definitions.md) guide.
-
+- See [AI Agents](./ai-agents.md) to set up autonomous GitHub/Jira workflows
+- Read [Core Concepts](./05-concepts.md) to understand the system in depth
+- Browse [Job Definitions](./06-job-definitions.md) for the full YAML reference
+- See [Executors](./07-executors.md) for Kubernetes, Docker, Shell, and HTTP executor options

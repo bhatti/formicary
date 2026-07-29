@@ -43,7 +43,7 @@ func Test_ShouldMarshalPermissionsPermissions(t *testing.T) {
 
 // Verify permissions
 func Test_ShouldPermissions(t *testing.T) {
-	ser := DefaultPermissionsString()
+	ser := MarshalPermissions(UserPermissions())
 	perms := NewPermissions(ser)
 	require.True(t, perms.Has(JobRequest, Submit))
 	require.True(t, perms.Has(JobRequest, Execute))

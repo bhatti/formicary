@@ -71,57 +71,32 @@ Every 4 hours:
 
 ## Prerequisites
 
-### 1. Ant Worker Setup
+### 1. Formicary Running in Kubernetes
 
-#### Option A: SHELL Execution (Local / Development)
-
-The ant worker needs these tools installed on the host:
+Deploy Formicary to Kubernetes using `k8s.yaml` — this gives the server in-cluster credentials automatically. All AI workflow tasks run as Kubernetes pods spawned by the embedded ant worker; no separate ant worker setup is needed.
 
 ```bash
-# Claude Code CLI
+kubectl create secret generic formicary-auth \
+  --from-literal=jwt-secret="$(openssl rand -base64 32)" \
+  --from-literal=google-client-id="<id>.apps.googleusercontent.com" \
+  --from-literal=google-client-secret="<secret>"
+
+kubectl apply -f k8s.yaml
+kubectl port-forward svc/formicary 7777:7777 19000:19000
+```
+
+All AI workflow YAMLs use `method: KUBERNETES` and `image: plexobject/ai-dev-tools:latest`. No host directories or ant worker binaries are needed — each task runs in a fresh pod that is deleted on completion.
+
+#### Alternative: SHELL Execution (Local Development Only)
+
+For local development without Kubernetes, change every task's `method: KUBERNETES` to `method: SHELL` and remove the `container:` blocks. The scripts are identical. You need these tools on the host:
+
+```bash
 npm install -g @anthropic-ai/claude-code
-
-# Authenticate — choose one:
-#   Option 1: Direct API key
-claude auth login                    # interactive, or set ANTHROPIC_API_KEY
-
-#   Option 2: AWS Bedrock via Tailscale (no API key needed)
-#   ~/.claude/settings.json is read automatically by the claude CLI.
-#   The ant worker process inherits it with no extra configuration.
-#   Example settings.json for Tailscale/Bedrock:
-#   {
-#     "env": {
-#       "ANTHROPIC_BEDROCK_BASE_URL": "http://<tailscale-ip>/bedrock",
-#       "CLAUDE_CODE_USE_BEDROCK": "1",
-#       "CLAUDE_CODE_SKIP_BEDROCK_AUTH": "1",
-#       "ANTHROPIC_DEFAULT_OPUS_MODEL": "us.anthropic.claude-opus-4-6-v1",
-#       "ANTHROPIC_DEFAULT_SONNET_MODEL": "us.anthropic.claude-sonnet-4-6",
-#       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-#     }
-#   }
-
-# GitHub CLI
-gh auth login        # sets GITHUB_TOKEN in the process environment
-
-# Optional: you-got-skills (skill methodology)
-git clone https://github.com/bhatti/you-got-skills.git
-cd you-got-skills && ./setup
+gh auth login
 ```
 
-Start the ant worker with SHELL method enabled:
-
-```bash
-formicary-ant \
-  --server-url http://localhost:7777 \
-  --tags "ai-worker" \
-  --methods "SHELL"
-```
-
-To run with SHELL, change every task's `method: KUBERNETES` to `method: SHELL` and remove the `container:` blocks. Scripts are identical — only the execution environment changes.
-
-#### Option B: KUBERNETES Execution (Production)
-
-See [KUBERNETES Deployment](#kubernetes-deployment) below. No script changes required — just change the method and provide the container image.
+SHELL mode is not recommended for production — tasks share the host filesystem and do not have isolated environments.
 
 ### 2. Create GitHub Labels
 
@@ -318,13 +293,11 @@ Claude Code tasks embed skill instructions directly in the prompt. If `you-got-s
 
 ## KUBERNETES Deployment
 
-### Switching from SHELL to KUBERNETES
+All job definitions use `method: KUBERNETES` and run as fresh pods on the same cluster that hosts Formicary. The embedded ant worker (included in `k8s.yaml`) spawns and manages the pods — no separate ant worker process is needed.
 
-All four job definitions default to `method: KUBERNETES`. To run on a bare ant worker (SHELL), change every task's `method:` to `SHELL` and remove the `container:` blocks. The scripts are identical.
-
-> **Important:** In KUBERNETES mode, each task runs in a **fresh pod** with an empty filesystem. The `setup` task clones the repository into `/tmp/formicary-ai/<workspace>`, but that directory only exists inside the `setup` pod — subsequent tasks (`plan`, `implement`, etc.) cannot access it without a shared volume.
+> **Workspace isolation:** Each task pod starts with an empty filesystem. The current AI workflow YAMLs use `empty_dir` volumes at `/workspace` — each task starts fresh and consumes artifacts from upstream tasks via Formicary's artifact store. This works well for stateless tasks (issue-picker, standup gather/synthesize/post).
 >
-> **Production requirement:** Mount a `ReadWriteMany` PersistentVolumeClaim (NFS, EFS, or similar) on every task so pods in the same job share the workspace. SHELL mode uses the host filesystem naturally.
+> For multi-task workflows that need a shared git checkout across tasks (plan → implement → create-pr), mount a `ReadWriteMany` PVC so all pods in a job share the same directory:
 
 To use a shared PVC across all tasks in a job, add a `volumes` block to each task's `container`:
 
@@ -482,17 +455,18 @@ docker build -t ghcr.io/formicary-ai/agent-worker:latest .
 docker push ghcr.io/formicary-ai/agent-worker:latest
 ```
 
-### Why KUBERNETES for Production?
+### KUBERNETES vs SHELL
 
-| Concern | SHELL | KUBERNETES |
-|---------|-------|-----------|
-| Isolation | Shared ant worker filesystem | Fresh pod per task |
-| Cleanup | Manual (`rm -rf`) | Pod deleted on completion |
-| Scaling | One task at a time per worker | Pod-per-task, any node |
-| Tool versions | Depends on host | Pinned in image |
-| Secrets | Env vars on host | K8s secrets or Formicary configs |
+| Concern | KUBERNETES (default) | SHELL (dev only) |
+|---------|----------------------|------------------|
+| Isolation | Fresh pod per task | Shared host filesystem |
+| Cleanup | Pod deleted on completion | Manual (`rm -rf`) |
+| Scaling | Pod-per-task, any node | One task at a time per worker |
+| Tool versions | Pinned in image | Depends on host |
+| Secrets | K8s secrets or Formicary configs | Env vars on host |
+| Setup | `kubectl apply -f k8s.yaml` | Tools installed on host |
 
-The scripts work identically in both modes. SHELL is recommended for local development; KUBERNETES is recommended for production.
+KUBERNETES is the default and recommended mode. SHELL is useful for local development without a cluster.
 
 ---
 

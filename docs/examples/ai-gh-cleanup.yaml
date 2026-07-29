@@ -1,13 +1,14 @@
-# Periodic maintenance: cleans stale workspaces and removes merged/closed AI branches.
-# Runs every 4 hours via cron.
+# Periodic maintenance: removes merged/closed AI branches from GitHub.
+# Runs every 4 hours via cron as a Kubernetes pod.
 #
 # cleanup task runs inside the ai-dev-tools image:
-#   - Removes workspace subdirectories older than 4 hours
 #   - Deletes remote ai/* branches whose PRs are merged or closed
 #
-# Deploy:
-#   ./deploy-ai-workflows.sh --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO \
-#     --gh-token $GITHUB_TOKEN --anthropic-key $ANTHROPIC_API_KEY
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+#
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#     --gh-org YOUR_ORG --gh-repo YOUR_REPO
 
 job_type: ai-gh-cleanup
 description: "Periodic maintenance: clean stale workspaces and merged AI branches"
@@ -24,24 +25,23 @@ tasks:
   container:
     image: plexobject/ai-dev-tools:latest
     volumes:
-      host_path:
+      empty_dir:
         - name: workspace
           mount_path: /workspace
-          host_path: /var/formicary/ai-workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
   script:
     - python -m scripts.gh.cleanup
   artifacts:
     paths:
-      - /workspace/cleanup_report.txt
+      - ./cleanup_report.txt
     when: always
 
 job_variables:
@@ -49,5 +49,6 @@ job_variables:
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
   # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
-  #   GitHubOrg, GitHubRepo         (plain)
-  #   GithubToken, AnthropicApiKey  (secret)
+  #   GitHubOrg, GitHubRepo  (plain)
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   GH_TOKEN, ANTHROPIC_API_KEY (optional)

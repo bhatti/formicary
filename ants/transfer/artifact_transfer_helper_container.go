@@ -112,9 +112,11 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			cmd = fmt.Sprintf("mkdir -p %s && cp -r --parents %s %s", dir, p, dir)
 			zipName = strings.TrimPrefix(p, "/")
 		} else {
-			// Relative path: move flat into dir (existing behaviour).
-			cmd = fmt.Sprintf("mv %s %s", p, dir)
-			zipName = p
+			// Relative path: copy flat into dir. Runs in the main container
+			// (helper=false) which has the task's working directory in its CWD
+			// and shares the artifacts emptyDir with the helper container.
+			cmd = fmt.Sprintf("cp -r %s %s", p, dir)
+			zipName = filepath.Base(p)
 		}
 		if _, stderr, _, _, err := t.execute(
 			ctx,
@@ -189,13 +191,11 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		uploadCmd += fmt.Sprintf(" --expires %s", expiration.Format(time.RFC3339))
 	}
 
-	// upload artifact
-	if _, _, _, _, err = t.execute(
-		ctx,
-		uploadCmd,
-		true); err != nil {
-		return nil, fmt.Errorf("failed to upload %s due to %w, stderr=%s",
-			id, err, string(stderr))
+	// upload artifact — capture stdout+stderr separately so the error message is actionable.
+	var uploadStdout, uploadStderr []byte
+	if uploadStdout, uploadStderr, _, _, err = t.execute(ctx, uploadCmd, true); err != nil {
+		return nil, fmt.Errorf("failed to upload %s due to %w, stdout=%s stderr=%s",
+			id, err, string(uploadStdout), string(uploadStderr))
 	}
 
 	// Add artifacts to response

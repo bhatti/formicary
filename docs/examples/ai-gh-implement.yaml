@@ -1,25 +1,21 @@
 # AI-driven GitHub SDLC pipeline: plan → implement → create-pr → poll-pr
 #
-# All tasks run inside the ai-dev-tools Docker image — no embedded scripts.
-# Artifacts are shared via a mounted workspace volume at /workspace.
+# All tasks run as Kubernetes pods using the ai-dev-tools image.
+# Each task gets a fresh emptyDir at /workspace; artifacts pass data between tasks.
 # host_network: true enables Tailscale VPN access to the Bedrock proxy.
 #
-# Prerequisites on the ant worker host:
-#   mkdir -p /var/formicary/ai-workspace
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret
+# (created once by deploy-ai-workflows.sh --create-k8s-secret).
+# Non-secret config is set via org configs (deploy-ai-workflows.sh --set-configs).
 #
-# Deploy:
-#   ./deploy-ai-workflows.sh --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO \
-#     --gh-token $GITHUB_TOKEN --anthropic-key $ANTHROPIC_API_KEY \
-#     --ssh-key "$(cat ~/.ssh/id_rsa)"
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#     --gh-org YOUR_ORG --gh-repo YOUR_REPO
 
 job_type: ai-gh-implement
 description: "AI agent: plan → implement → create-pr → poll-pr for a GitHub issue"
 max_concurrency: 5
 timeout: 86400s
-required_params:
-  - GithubToken
-  - GitHubOrg
-  - GitHubRepo
 
 variables:
   IssueNumber:
@@ -40,20 +36,19 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     MAX_TURNS_PLAN: "{{.MaxTurnsPlan}}"
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     BASE_BRANCH: "{{.GitBranch}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -85,22 +80,21 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - plan
   environment:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     MAX_TURNS_IMPLEMENT: "{{.MaxTurnsImplement}}"
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     BASE_BRANCH: "{{.GitBranch}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -127,6 +121,8 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - plan
     - implement
@@ -134,14 +130,11 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     PR_OPEN_LABEL: "{{.PrOpenLabel}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -169,6 +162,8 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - create-pr
     - poll-pr
@@ -176,14 +171,11 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -227,5 +219,5 @@ job_variables:
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
   #   GitHubOrg, GitHubRepo    (plain)
-  #   GithubToken, SshPrivateKey (secret)
-  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   GH_TOKEN, SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)

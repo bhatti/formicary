@@ -1,28 +1,21 @@
 # AI-driven Jira/Bitbucket SDLC pipeline: plan → implement → create-pr → poll-pr
 #
-# All tasks run inside the ai-dev-tools Docker image — no embedded scripts.
-# Artifacts are shared via a mounted workspace volume at /workspace.
+# All tasks run as Kubernetes pods using the ai-dev-tools image.
+# Each task gets a fresh emptyDir at /workspace; artifacts pass data between tasks.
 # host_network: true enables Tailscale VPN access to the Bedrock proxy.
 #
-# Prerequisites on the ant worker host:
-#   mkdir -p /var/formicary/ai-workspace
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret
+# (created once by deploy-ai-jira-workflows.sh --create-k8s-secret).
+# Non-secret config is set via org configs (deploy-ai-jira-workflows.sh --set-configs).
 #
-# Deploy:
-#   ./deploy-ai-jira-workflows.sh --set-configs \
-#     --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo \
-#     --anthropic-key $ANTHROPIC_API_KEY --ssh-key "$(cat ~/.ssh/id_rsa)"
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs \
+#     --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo
 
 job_type: ai-jira-implement
 description: "AI agent: plan → implement → create-pr → poll-pr for a Jira issue"
 max_concurrency: 5
 timeout: 86400s
-required_params:
-  - JiraApiToken
-  - JiraEmail
-  - JiraUrl
-  - JiraProject
-  - BitbucketUsername
-  - BitbucketToken
 
 variables:
   IssueNumber:
@@ -43,11 +36,11 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
-    JIRA_EMAIL: "{{.JiraEmail}}"
-    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
@@ -55,11 +48,9 @@ tasks:
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     BASE_BRANCH: "{{.GitBranch}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -91,27 +82,23 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - plan
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
-    JIRA_EMAIL: "{{.JiraEmail}}"
-    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
-    BITBUCKET_USERNAME: "{{.BitbucketUsername}}"
-    BITBUCKET_TOKEN: "{{.BitbucketToken}}"
     MAX_TURNS_IMPLEMENT: "{{.MaxTurnsImplement}}"
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     BASE_BRANCH: "{{.GitBranch}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -138,26 +125,22 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - plan
     - implement
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
-    JIRA_EMAIL: "{{.JiraEmail}}"
-    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
-    BITBUCKET_USERNAME: "{{.BitbucketUsername}}"
-    BITBUCKET_TOKEN: "{{.BitbucketToken}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     PR_OPEN_LABEL: "{{.PrOpenLabel}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -185,25 +168,21 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   dependencies:
     - create-pr
     - poll-pr
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
-    JIRA_EMAIL: "{{.JiraEmail}}"
-    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
-    BITBUCKET_USERNAME: "{{.BitbucketUsername}}"
-    BITBUCKET_TOKEN: "{{.BitbucketToken}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
-    SSH_PRIVATE_KEY: "{{.SshPrivateKey}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
@@ -245,9 +224,9 @@ job_variables:
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
-  #   JiraUrl, JiraEmail, JiraProject                    (plain)
-  #   BitbucketWorkspace, BitbucketRepo                  (plain)
-  #   BitbucketUsername: must be account EMAIL, not nickname (Bitbucket REST API v2
-  #                      requires email for Basic Auth with app passwords)
-  #   JiraApiToken, BitbucketToken, SshPrivateKey        (secret)
-  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key
+  #   JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   JIRA_EMAIL, JIRA_API_TOKEN, BITBUCKET_USERNAME, BITBUCKET_TOKEN
+  #   SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)
+  # NOTE: BITBUCKET_USERNAME must be the account email (e.g. user@example.com), NOT the
+  #       nickname — Bitbucket REST API v2 requires email for Basic Auth with app passwords.

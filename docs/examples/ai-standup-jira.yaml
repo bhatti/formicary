@@ -1,0 +1,161 @@
+# AI standup brief — Jira + Bitbucket + Slack
+#
+# Three tasks:
+#   gather   — pulls Jira sprint issues (with comments), Bitbucket open PRs, Slack messages
+#   synthesize — Claude + /ygs-standup + /ygs-risk-scan → standup_brief.md + risk_report.md
+#   post     — posts brief to Slack, writes standup_report.md artifact
+#
+# Default cron: 8:00 AM weekdays.  Override StandupCron in org configs to change schedule.
+#
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret
+# (created once by deploy-ai-standup-jira.sh --create-k8s-secret).
+# Non-secret config is set via org configs (deploy-ai-standup-jira.sh --set-configs).
+#
+# Required org configs:
+#   JiraUrl, JiraProject, SlackStandupChannel
+# Optional org configs:
+#   BitbucketWorkspace, BitbucketRepo, StandupTeamMembers, StandupLookbackHours
+#
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-standup-jira.sh --create-k8s-secret --set-configs \
+#     --jira-project MYPROJ --slack-channel standup
+#
+job_type: ai-standup-jira
+description: "Daily standup brief from Jira sprint + Bitbucket PRs + Slack signals"
+cron_trigger: "0 0 8 * * 1-5 *"
+max_concurrency: 1
+timeout: 900s
+
+job_variables:
+  StandupLookbackHours: "26"
+  StandupStaleDays: "2"
+  MaxTurnsStandup: "30"
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Injected via org/user configs (set by deploy script):
+  #   JiraUrl, JiraProject, JiraEmail*          (plain)
+  #   SlackStandupChannel, StandupTeamMembers    (plain, optional)
+  #   BitbucketWorkspace, BitbucketRepo          (plain, optional)
+  #   JiraApiToken*, SlackBotToken*              (secret)
+  #   BitbucketUsername*, BitbucketToken*        (secret, optional)
+  # * = user config
+
+notify:
+  slack:
+    recipients:
+      - "{{.SlackStandupChannel}}"
+    when: onFailure
+
+tasks:
+
+# --- GATHER ------------------------------------------------------------------
+- task_type: gather
+  method: KUBERNETES
+  timeout: 3m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+    STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
+    STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
+    STANDUP_STALE_DAYS: "{{.StandupStaleDays}}"
+  script:
+    - python -m scripts.standup.gather_jira
+  artifacts:
+    paths:
+      - ./signals.json
+      - ./gather_result.json
+    expire_after: 24h
+  on_completed: synthesize
+
+# --- SYNTHESIZE --------------------------------------------------------------
+- task_type: synthesize
+  method: KUBERNETES
+  timeout: 10m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - gather
+  environment:
+    WORKSPACE_DIR: /workspace
+    MAX_TURNS_STANDUP: "{{.MaxTurnsStandup}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+  script:
+    - python -m scripts.standup.synthesize
+  artifacts:
+    paths:
+      - ./standup_brief.md
+      - ./risk_report.md
+      - ./synthesize_result.json
+      - ./logs
+    expire_after: 72h
+  on_completed: post
+
+# --- POST --------------------------------------------------------------------
+- task_type: post
+  method: KUBERNETES
+  timeout: 2m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - synthesize
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+  script:
+    - python -m scripts.standup.post
+  artifacts:
+    paths:
+      - ./standup_report.md
+      - ./post_result.json
+    when: always
+    expire_after: 168h    # 7 days
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  script:
+    - echo "Standup brief complete"

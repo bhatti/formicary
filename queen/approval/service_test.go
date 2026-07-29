@@ -412,7 +412,7 @@ func Test_ShouldCreateDeadlineWhenSLAIsConfigured(t *testing.T) {
 	f := newSvcFixture(t, nil)
 	policy := &types.ApprovalPolicy{
 		MinApprovals:  1,
-		SLADeadline:   2 * time.Hour,
+		SLADeadline:   int64(2 * time.Hour),
 		TimeoutAction: types.TimeoutActionEscalate,
 	}
 

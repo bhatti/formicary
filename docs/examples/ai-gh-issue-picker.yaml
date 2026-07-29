@@ -1,4 +1,5 @@
 # Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs.
+# Runs as a Kubernetes pod every 5 minutes via cron.
 #
 # gather-issues: runs ai-dev-tools image, writes /workspace/{issue_id}/issue.json
 #   per issue, and emits ::set-output name=IssuesJSON:: with a JSON array.
@@ -8,19 +9,17 @@
 #   _description  -> sets the job request description in the Formicary dashboard
 #   _user_key     -> dedup key; prevents re-submitting the same issue on repeat runs
 #
-# Deploy:
-#   ./deploy-ai-workflows.sh --set-configs --gh-org YOUR_ORG --gh-repo YOUR_REPO \
-#     --gh-token $GITHUB_TOKEN --anthropic-key $ANTHROPIC_API_KEY
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+#
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#     --gh-org YOUR_ORG --gh-repo YOUR_REPO
 
 job_type: ai-gh-issue-picker
 description: "Polls GitHub for issues labeled ai-ready and submits ai-gh-implement jobs"
 cron_trigger: "*/5 * * * *"
 timeout: 5m
 max_concurrency: 1
-required_params:
-  - GithubToken
-  - GitHubOrg
-  - GitHubRepo
 
 skip_if: >-
   {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING" "EXECUTING") 10}} true {{end}}
@@ -37,18 +36,18 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    GH_TOKEN: "{{.GithubToken}}"
     PICKUP_LABEL: "{{.PickupLabel}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     MAX_ISSUES: "{{.MaxIssues}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
   script:
     - python -m scripts.gh.issue_picker
   on_exit_code:
@@ -78,5 +77,5 @@ job_variables:
   ClaudeSkipBedrockAuth: "1"
   # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
   #   GitHubOrg, GitHubRepo  (plain)
-  #   GithubToken            (secret)
-  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   GH_TOKEN, ANTHROPIC_API_KEY (optional)

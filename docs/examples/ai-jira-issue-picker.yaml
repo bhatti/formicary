@@ -1,4 +1,5 @@
 # Polls Jira for issues labeled ai-ready and submits ai-jira-implement jobs.
+# Runs as a Kubernetes pod every 5 minutes via cron.
 #
 # gather-issues: runs ai-dev-tools image, writes /workspace/{issue_id}/issue.json
 #   per issue, and emits ::set-output name=IssuesJSON:: with a JSON array.
@@ -6,21 +7,17 @@
 #
 # Label convention: ai-ready → ai-in-progress → ai-pr-open → needs-human
 #
-# Deploy:
-#   ./deploy-ai-jira-workflows.sh --set-configs \
-#     --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo \
-#     --anthropic-key $ANTHROPIC_API_KEY
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+#
+# Deploy (with Formicary running in Kubernetes via k8s.yaml):
+#   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs \
+#     --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo
 
 job_type: ai-jira-issue-picker
 description: "Polls Jira for ai-ready issues and submits ai-jira-implement jobs"
 cron_trigger: "*/5 * * * *"
 timeout: 5m
 max_concurrency: 1
-required_params:
-  - JiraApiToken
-  - JiraEmail
-  - JiraUrl
-  - JiraProject
 
 skip_if: >-
   {{if ge (CountByJobTypeAndState "ai-jira-implement" "PENDING" "EXECUTING") 10}} true {{end}}
@@ -37,11 +34,11 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
-    JIRA_EMAIL: "{{.JiraEmail}}"
-    JIRA_API_TOKEN: "{{.JiraApiToken}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
@@ -51,7 +48,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_API_KEY: "{{.AnthropicApiKey}}"
   script:
     - python -m scripts.jira.issue_picker
   on_exit_code:
@@ -80,6 +76,6 @@ job_variables:
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
   # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
-  #   JiraUrl, JiraEmail, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
-  #   JiraApiToken                                                          (secret)
-  # AnthropicApiKey is optional — Bedrock access via Tailscale needs no API key
+  #   JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   JIRA_EMAIL, JIRA_API_TOKEN, ANTHROPIC_API_KEY (optional)

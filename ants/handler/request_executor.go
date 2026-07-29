@@ -461,6 +461,13 @@ func (re *RequestExecutorImpl) preProcess(
 			"cache", taskReq.ExecutorOpts.CacheDirectory)
 		taskReq.ExecutorOpts.HelperContainer.AddEmptyKubernetesVolume(
 			"cache", taskReq.ExecutorOpts.CacheDirectory)
+		// Mirror all emptyDir volumes declared in the task YAML (e.g. the workspace
+		// volume at /workspace) to the helper container so that artifact upload commands
+		// like "mv ./signals.json <artifactsDir>" can access files written by the main
+		// container's task script.
+		for _, vol := range taskReq.ExecutorOpts.MainContainer.GetKubernetesVolumes().EmptyDirs {
+			taskReq.ExecutorOpts.HelperContainer.AddEmptyKubernetesVolume(vol.Name, vol.MountPath)
+		}
 		for _, s := range taskReq.ExecutorOpts.Services {
 			s.AddEmptyKubernetesVolume(
 				"artifacts", taskReq.ExecutorOpts.ArtifactsDirectory)

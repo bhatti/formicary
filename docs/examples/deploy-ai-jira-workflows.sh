@@ -2,13 +2,13 @@
 # deploy-ai-jira-workflows.sh
 #
 # Uploads the Jira/Bitbucket AI agent workflow YAMLs to a running Formicary queen
-# and stores all required org configs (tokens, keys, settings).
+# and stores all required org configs (non-secret settings only).
 #
 # Reads Jira and Bitbucket credentials from ~/.config/acli/config.json by default.
 #
 # Usage:
-#   ./deploy-ai-jira-workflows.sh
-#   ./deploy-ai-jira-workflows.sh --set-configs \
+#   ./deploy-ai-jira-workflows.sh --create-k8s-secret
+#   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs \
 #       --jira-project MYPROJ \
 #       --bb-workspace myworkspace --bb-repo myrepo
 #   ./deploy-ai-jira-workflows.sh --set-configs \
@@ -17,6 +17,9 @@
 #       --bedrock --bedrock-url http://ai/bedrock \
 #       --git-user "AI Agent" --git-email "ai@example.com"
 #   ./deploy-ai-jira-workflows.sh --server http://host:7777
+#
+# Credentials are stored in the 'ai-dev-credentials' Kubernetes secret.
+# Use --create-k8s-secret to create/update the secret from env vars (one-time setup).
 #
 # Secrets MUST be supplied via environment variables — never as CLI flags:
 #   FORMICARY_TOKEN        Formicary API token
@@ -41,6 +44,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACLI_CONFIG="${HOME}/.config/acli/config.json"
 
 SET_CONFIGS=false
+CREATE_K8S_SECRET=true
 # Accept explicit flags, fall back to env vars matching the scripts' expected names
 JIRA_URL="${JIRA_BASE_URL:-${JIRA_URL:-}}"
 JIRA_EMAIL_ARG="${JIRA_EMAIL:-}"
@@ -61,9 +65,10 @@ GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
 # ── Argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --server)        FORMICARY_URL="$2";    shift 2 ;;
-    --set-configs)   SET_CONFIGS=true;      shift ;;
-    --jira-url)      JIRA_URL="$2";         shift 2 ;;
+    --server)             FORMICARY_URL="$2";    shift 2 ;;
+    --set-configs)        SET_CONFIGS=true;      shift ;;
+    --create-k8s-secret)  CREATE_K8S_SECRET=true; shift ;;
+    --jira-url)           JIRA_URL="$2";         shift 2 ;;
     --jira-email)    JIRA_EMAIL_ARG="$2";   shift 2 ;;
     --jira-project)  JIRA_PROJECT="$2";     shift 2 ;;
     --bb-workspace)  BB_WORKSPACE="$2";     shift 2 ;;
@@ -75,7 +80,7 @@ while [[ $# -gt 0 ]]; do
     --git-user)      GIT_USER_NAME="$2";    shift 2 ;;
     --git-email)     GIT_USER_EMAIL="$2";   shift 2 ;;
     --help|-h)
-      sed -n '/^# Usage/,/^[^#]/p' "$0" | head -24
+      sed -n '/^# Usage/,/^[^#]/p' "$0" | head -26
       exit 0 ;;
     # Reject secret flags to prevent credentials leaking via ps/shell history.
     --token|--jira-token|--bb-token|--anthropic-key|--ssh-key|--ssh-key-file|--gh-token)
@@ -87,7 +92,32 @@ done
 # ── Helpers ────────────────────────────────────────────────────────────────────
 log()  { echo "▶ $*"; }
 ok()   { echo "  ✓ $*"; }
-fail() { echo "  ✗ $*" >&2; exit 1; }
+fail() { echo "  ✗ ERROR: $*" >&2; echo "  ✗ ERROR: $*"; exit 1; }
+
+# ── Create K8s secret ─────────────────────────────────────────────────────────
+create_k8s_secret() {
+  log "Creating/updating 'ai-dev-credentials' Kubernetes secret ..."
+  [[ -n "$JIRA_URL" ]]       || fail "JIRA_BASE_URL is required for --create-k8s-secret"
+  [[ -n "$JIRA_EMAIL" ]]     || fail "JIRA_EMAIL is required for --create-k8s-secret"
+  [[ -n "$JIRA_API_TOKEN" ]] || fail "JIRA_API_TOKEN is required for --create-k8s-secret"
+
+  kubectl create secret generic ai-dev-credentials \
+    --from-literal=JIRA_BASE_URL="${JIRA_URL}" \
+    --from-literal=JIRA_EMAIL="${JIRA_EMAIL}" \
+    --from-literal=JIRA_API_TOKEN="${JIRA_API_TOKEN}" \
+    --from-literal=JIRA_HOST="${JIRA_HOST:-}" \
+    --from-literal=BITBUCKET_WORKSPACE="${BB_WORKSPACE:-}" \
+    --from-literal=BITBUCKET_USERNAME="${BB_USERNAME:-}" \
+    --from-literal=BITBUCKET_TOKEN="${BB_TOKEN:-}" \
+    --from-literal=GH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}" \
+    --from-literal=GH_ORG="${GH_ORG:-}" \
+    --from-literal=GH_REPO="${GH_REPO:-}" \
+    --from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}" \
+    --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
+    --from-literal=SSH_PRIVATE_KEY="${SSH_KEY:-}" \
+    --save-config --dry-run=client -o yaml | kubectl apply -f -
+  ok "Secret 'ai-dev-credentials' created/updated."
+}
 
 resolve_org_id() {
   [[ -z "$TOKEN" ]] && fail "FORMICARY_TOKEN is required to resolve org ID"
@@ -229,75 +259,57 @@ BB_USERNAME="${BB_USERNAME_ARG:-${BB_USERNAME_CFG}}"
 BB_TOKEN="${BITBUCKET_TOKEN:-${BB_API_TOKEN_CFG}}"
 BB_WORKSPACE="${BB_WORKSPACE:-${BB_WORKSPACE_CFG}}"
 
+# ── Validate token early ──────────────────────────────────────────────────────
+[[ -n "$TOKEN" ]] || fail "FORMICARY_TOKEN is not set — export it before running this script"
+
+# ── Create K8s secret (if requested) ──────────────────────────────────────────
+if [[ "$CREATE_K8S_SECRET" == true ]]; then
+  create_k8s_secret
+  echo ""
+fi
+
 # ── Resolve user's org ID (required for config storage) ───────────────────────
 ORG_ID=$(resolve_org_id)
 
 # ── Set org configs ────────────────────────────────────────────────────────────
 if [[ "$SET_CONFIGS" == true ]]; then
   # Required: Jira
-  [[ -n "$JIRA_URL" ]]       || fail "JiraUrl is required — set via --jira-url, JIRA_BASE_URL env, or ~/.config/acli/config.json"
-  [[ -n "$JIRA_EMAIL" ]]     || fail "JiraEmail is required — set via --jira-email, JIRA_EMAIL env, or ~/.config/acli/config.json"
-  [[ -n "$JIRA_API_TOKEN" ]] || fail "JiraApiToken is required — set via --jira-token, JIRA_API_TOKEN env, or ~/.config/acli/config.json"
-  [[ -n "$JIRA_PROJECT" ]]   || fail "JiraProject is required — set via --jira-project, JIRA_PROJECT env, or ~/.config/acli/config.json"
+  [[ -n "$JIRA_URL" ]]     || fail "JiraUrl is required — set via --jira-url, JIRA_BASE_URL env, or ~/.config/acli/config.json"
 
   # Required: Bitbucket
-  [[ -n "$BB_WORKSPACE" ]]   || fail "BitbucketWorkspace is required — set via --bb-workspace, BITBUCKET_WORKSPACE env, or ~/.config/acli/config.json"
-  [[ -n "$BB_REPO" ]]        || fail "BitbucketRepo is required — set via --bb-repo or BITBUCKET_REPO env"
-  # NOTE: BitbucketUsername must be the account email (e.g. user@example.com), NOT the
-  # nickname — Bitbucket REST API v2 requires email for Basic Auth with app passwords.
-  [[ -n "$BB_USERNAME" ]]    || fail "BitbucketUsername is required — set via --bb-username, BITBUCKET_USERNAME env (use email, not nickname), or ~/.config/acli/config.json"
-  [[ -n "$BB_TOKEN" ]]       || fail "BitbucketToken is required — set via --bb-token, BITBUCKET_TOKEN env, or ~/.config/acli/config.json"
+  [[ -n "$BB_WORKSPACE" ]] || fail "BitbucketWorkspace is required — set via --bb-workspace, BITBUCKET_WORKSPACE env, or ~/.config/acli/config.json"
+  [[ -n "$BB_REPO" ]]      || fail "BitbucketRepo is required — set via --bb-repo or BITBUCKET_REPO env"
 
   log "Setting org configs (shared team settings) ..."
-  set_org_config "JiraUrl"             "$JIRA_URL"
-  set_org_config "JiraProject"         "$JIRA_PROJECT"
-  set_org_config "BitbucketWorkspace"  "$BB_WORKSPACE"
-  set_org_config "BitbucketRepo"       "$BB_REPO"
+  set_org_config "JiraUrl"            "$JIRA_URL"
+  # JiraProject is optional — Python gather script auto-discovers it via the Jira API.
+  [[ -n "$JIRA_PROJECT" ]] && set_org_config "JiraProject" "$JIRA_PROJECT"
+  set_org_config "BitbucketWorkspace" "$BB_WORKSPACE"
+  set_org_config "BitbucketRepo"      "$BB_REPO"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK"
     set_org_config "ClaudeSkipBedrockAuth"   "1"
     set_org_config "AnthropicBedrockBaseUrl" "$BEDROCK_URL"
   fi
-
-  log "Setting user configs (personal secrets and identity) ..."
-  set_user_config "JiraEmail"       "$JIRA_EMAIL"
-  set_user_config "JiraApiToken"    "$JIRA_API_TOKEN"
-  set_user_config "BitbucketUsername" "$BB_USERNAME"
-  set_user_config "BitbucketToken"  "$BB_TOKEN"
-  [[ -n "$ANTHROPIC_KEY" ]] && set_user_config "AnthropicApiKey" "$ANTHROPIC_KEY"
-  [[ -n "$SSH_KEY" ]]        && set_user_config "SshPrivateKey"   "$SSH_KEY"
-  [[ -n "$GIT_USER_NAME" ]]  && set_user_config "GitUserName"     "$GIT_USER_NAME"
-  [[ -n "$GIT_USER_EMAIL" ]] && set_user_config "GitUserEmail"    "$GIT_USER_EMAIL"
+  [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"  "$GIT_USER_NAME"
+  [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail" "$GIT_USER_EMAIL"
 
   echo ""
-  ok "Configs set."
+  ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
   echo ""
 else
-  # Auto-set from environment variables when --set-configs not passed.
+  # Auto-set org configs from environment variables when --set-configs not passed.
   _AUTO=false
-  if [[ -n "$JIRA_API_TOKEN" && -n "$JIRA_URL" && -n "$JIRA_EMAIL" ]]; then
-    [[ "$_AUTO" == false ]] && log "Auto-setting configs from environment ..."
-    set_org_config  "JiraUrl"      "$JIRA_URL"
-    set_user_config "JiraEmail"    "$JIRA_EMAIL"
-    set_user_config "JiraApiToken" "$JIRA_API_TOKEN"
+  if [[ -n "$JIRA_URL" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "JiraUrl" "$JIRA_URL"
     [[ -n "$JIRA_PROJECT" ]] && set_org_config "JiraProject" "$JIRA_PROJECT"
     _AUTO=true
   fi
-  if [[ -n "$BB_TOKEN" && -n "$BB_WORKSPACE" && -n "$BB_USERNAME" ]]; then
-    [[ "$_AUTO" == false ]] && log "Auto-setting configs from environment ..."
-    set_org_config  "BitbucketWorkspace" "$BB_WORKSPACE"
-    set_user_config "BitbucketUsername"  "$BB_USERNAME"
-    set_user_config "BitbucketToken"     "$BB_TOKEN"
+  if [[ -n "$BB_WORKSPACE" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "BitbucketWorkspace" "$BB_WORKSPACE"
     [[ -n "$BB_REPO" ]] && set_org_config "BitbucketRepo" "$BB_REPO"
-    _AUTO=true
-  fi
-  if [[ -n "$ANTHROPIC_KEY" ]]; then
-    [[ "$_AUTO" == false ]] && log "Auto-setting configs from environment ..."
-    set_user_config "AnthropicApiKey" "$ANTHROPIC_KEY"
-    _AUTO=true
-  fi
-  if [[ -n "$SSH_KEY" ]]; then
-    set_user_config "SshPrivateKey" "$SSH_KEY"
     _AUTO=true
   fi
   [[ "$_AUTO" == true ]] && echo ""
@@ -307,10 +319,10 @@ fi
 log "Checking Formicary at ${FORMICARY_URL} ..."
 _args=(-s -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && _args+=(-H "Authorization: Bearer ${TOKEN}")
-_status=$(curl "${_args[@]}" 2>/dev/null || echo "000")
+_status=$(curl "${_args[@]}" 2>&1) || _status="000"
 case "$_status" in
   2*) ok "Server reachable (HTTP ${_status})" ;;
-  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running?" ;;
+  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running? (run: kubectl port-forward svc/formicary 7777:7777 19000:19000)" ;;
   401) fail "Server returned 401 — set FORMICARY_TOKEN or pass --token" ;;
   403) fail "Server returned 403 — token invalid or expired" ;;
   *) fail "Server returned HTTP ${_status}" ;;
@@ -357,13 +369,13 @@ echo "  1. Ensure workspace directory exists on every ant worker host:"
 echo "     sudo mkdir -p /var/formicary/ai-workspace"
 echo "     sudo chmod 777 /var/formicary/ai-workspace"
 echo ""
-echo "  2. Set org configs (if not done above):"
+echo "  2. Create K8s secret (one-time setup) and set org configs:"
 echo "     export FORMICARY_TOKEN=<token>"
 echo "     export JIRA_API_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export BITBUCKET_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export SSH_PRIVATE_KEY=\$(cat ~/.ssh/id_rsa)"
 echo "     export BEDROCK_URL=http://ai/bedrock   # or ANTHROPIC_API_KEY for direct API"
-echo "     $0 --set-configs --jira-project MYPROJ --bb-workspace myworkspace --bb-repo myrepo --bedrock"
+echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock"
 echo ""
 echo "  3. Add the pickup label to a Jira issue:"
 echo "     acli jira issue label add <ISSUE-KEY> ai-ready"

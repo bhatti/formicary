@@ -326,33 +326,47 @@ func (p *Permissions) String() string {
 	return p.Marshal()
 }
 
-// DefaultPermissionsString string permissions
-func DefaultPermissionsString() string {
-	return MarshalPermissions(DefaultPermissions())
-}
-
-// OrgAdminPermissionsString returns serialized OrgAdmin permissions
-func OrgAdminPermissionsString() string {
-	return MarshalPermissions(OrgAdminPermissions())
+// PermissionsForRole returns the base permission set for a given role.
+// Admin gets full system access; OrgAdmin gets org-config write + reports;
+// everyone else (User/default) gets standard user permissions.
+func PermissionsForRole(role RoleType) []*Permission {
+	switch role {
+	case Admin:
+		return AdminPermissions()
+	case OrgAdmin:
+		return OrgAdminPermissions()
+	case UserRole, ReadAdmin, "":
+		return UserPermissions()
+	default:
+		// Unknown/unrecognized roles get no permissions — fail-closed.
+		return []*Permission{}
+	}
 }
 
 // OrgAdminPermissions returns permissions for the OrgAdmin role.
-// OrgAdmin can write org configs and view reports; users retain full UserConfig access.
+// OrgAdmin extends User with: Report visibility, Audit read, Subscription read,
+// and the ability to create/delete users within their org.
 func OrgAdminPermissions() []*Permission {
-	perms := DefaultPermissions()
+	perms := UserPermissions()
 	for _, p := range perms {
-		if p.Resource == OrgConfig {
-			p.Actions = All
-		}
-		if p.Resource == Report {
+		switch p.Resource {
+		case Report:
 			p.Actions = View | Read | Query
+		case Audit:
+			p.Actions = Query | View | Read
+		case Subscription:
+			p.Actions = Read | Query
+		case User:
+			p.Actions = Create | Read | Update | Delete | Login | Logout | Query | Signup
 		}
 	}
 	return perms
 }
 
-// DefaultPermissions default permissions
-func DefaultPermissions() []*Permission {
+// UserPermissions returns the standard permissions for the User role.
+// All regular org members get these — including full OrgConfig access so
+// they can deploy workflows without needing admin.
+func UserPermissions() []*Permission {
 	return []*Permission{
 		NewPermission(Audit, None),
 		NewPermission(Websocket, Subscribe|Register),
@@ -362,10 +376,10 @@ func DefaultPermissions() []*Permission {
 		NewPermission(JobResource, Create|Read|Update|Delete|Query|Disable|Enable),
 		NewPermission(User, Read|Update|Delete|Login|Logout|Query|Signup),
 		NewPermission(Organization, Read|Update|Delete|Invite),
-		NewPermission(OrgConfig, Read|Query),
+		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
 		NewPermission(UserConfig, All),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
-		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
+		NewPermission(ErrorCode, Query|View|Read),
 		NewPermission(SystemConfig, None),
 		NewPermission(AntExecutor, None),
 		NewPermission(Container, None),
@@ -381,13 +395,10 @@ func DefaultPermissions() []*Permission {
 	}
 }
 
-// AdminPermissions admin permissions
+// AdminPermissions returns full system permissions for the Admin role.
 func AdminPermissions() []*Permission {
 	return []*Permission{
 		NewPermission(Audit, Query|View|Read),
-		NewPermission(AntExecutor, Query|View|Read),
-		NewPermission(Container, Query|View|Read|Delete),
-		NewPermission(ErrorCode, Query|View|Read|Create|Update|Delete),
 		NewPermission(Websocket, Subscribe|Register),
 		NewPermission(Dashboard, View),
 		NewPermission(JobRequest, View|Execute|Submit|Cancel|Restart|Metrics),
@@ -398,15 +409,15 @@ func AdminPermissions() []*Permission {
 		NewPermission(OrgConfig, Create|Read|Update|Delete|Query),
 		NewPermission(UserConfig, Create|Read|Update|Delete|Query),
 		NewPermission(Artifact, Upload|Read|Query|Delete),
-		NewPermission(Subscription, Create|Read|Update|Delete|Query|Register),
-		NewPermission(TermsService, View|Read),
-		NewPermission(PrivacyPolicies, View|Read),
 		NewPermission(ErrorCode, Create|Read|Update|Delete|Query),
 		NewPermission(SystemConfig, Create|Read|Update|Delete|Query),
 		NewPermission(AntExecutor, Create|Read|Update|Delete|Query),
 		NewPermission(Container, Create|Read|Update|Delete|Query),
 		NewPermission(Health, Create|Read|Update|Delete|Query),
 		NewPermission(Profile, Create|Read|Update|Delete|Query),
+		NewPermission(Subscription, Create|Read|Update|Delete|Query|Register),
+		NewPermission(TermsService, View|Read),
+		NewPermission(PrivacyPolicies, View|Read),
 		NewPermission(EmailVerification, Create|Read|Update|Delete|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
 		NewPermission(Report, View|Read|Query),

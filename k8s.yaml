@@ -1,0 +1,194 @@
+# Formicary — single-pod Kubernetes deployment
+#
+# Deploy:
+#   kubectl apply -f k8s.yaml
+#
+# Access:
+#   kubectl port-forward svc/formicary 7777:7777 19000:19000
+#   open http://localhost:7777
+#
+# Auth secrets (required):
+#   kubectl create secret generic formicary-auth \
+#     --from-literal=jwt-secret="$(openssl rand -base64 32)" \
+#     --from-literal=google-client-id="<id>.apps.googleusercontent.com" \
+#     --from-literal=google-client-secret="<secret>"
+#
+# Delete:
+#   kubectl delete -f k8s.yaml
+
+---
+# ServiceAccount — the pod uses this for in-cluster Kubernetes API access.
+# No kubeconfig needed.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: formicary
+  namespace: default
+
+---
+# ClusterRole — permissions needed to launch and manage job pods.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: formicary
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "configmaps", "secrets", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: formicary
+subjects:
+  - kind: ServiceAccount
+    name: formicary
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: formicary
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# PersistentVolumeClaim — SQLite DB + SeaweedFS artifacts
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: formicary-data
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# ConfigMap — bakes in the k8s config file
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: formicary-config
+  namespace: default
+data:
+  formicary-queen.yaml: |
+    common:
+        public_dir: /app/public/
+        http_port: 7777
+        rate_limit_sec: 100
+        s3:
+            local_mode: true
+            local_data_dir: /data/seaweedfs
+            local_weed_bin: /usr/local/bin/weed
+            local_s3_port: 19000
+            bucket: formicary-artifacts
+            local_container_host: formicary
+            public_endpoint: localhost:19000
+        auth:
+            enabled: true
+    db:
+        data_source: /data/formicary.db
+        type: sqlite
+    embedded_ant:
+        tags: ["docker", "kubernetes", "shell", "builder"]
+        methods:
+          - KUBERNETES
+          - SHELL
+          - HTTP_GET
+          - HTTP_POST_FORM
+          - HTTP_POST_JSON
+          - HTTP_PUT_FORM
+          - HTTP_PUT_JSON
+          - HTTP_DELETE
+        max_capacity: 10
+        kubernetes:
+            namespace: "default"
+            allow_privilege_escalation: true
+            dns_policy: cluster-first-with-host-net
+            host_aliases:
+              - ip: "100.107.120.55"
+                hostnames: ["ai"]
+            registry:
+                pull_policy: always
+            default_resources:
+                cpuRequest: "500m"
+                memoryRequest: "512Mi"
+                cpuLimit: "1"
+                memoryLimit: "1Gi"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: formicary
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: formicary
+  template:
+    metadata:
+      labels:
+        app: formicary
+    spec:
+      serviceAccountName: formicary
+      containers:
+        - name: formicary
+          image: plexobject/formicary:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 7777
+            - containerPort: 19000
+          env:
+            - name: CONFIG_FILE
+              value: /config/formicary-queen.yaml
+            - name: COMMON_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: jwt-secret
+            - name: COMMON_AUTH_GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-client-id
+                  optional: true
+            - name: COMMON_AUTH_GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-client-secret
+                  optional: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: formicary-data
+        - name: config
+          configMap:
+            name: formicary-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: formicary
+  namespace: default
+spec:
+  selector:
+    app: formicary
+  ports:
+    - name: http
+      port: 7777
+      targetPort: 7777
+    - name: artifacts
+      port: 19000
+      targetPort: 19000

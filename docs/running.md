@@ -165,6 +165,97 @@ docker compose down
 
 ---
 
+### Kubernetes (docker-desktop, namespace: default)
+
+The `k8s.yaml` deploys everything to the `default` namespace on docker-desktop.
+
+#### First-time deploy
+
+```bash
+kubectl apply -f k8s.yaml
+kubectl rollout status deployment/formicary -n default
+```
+
+#### Rebuild and redeploy after code changes
+
+```bash
+# 1. Build and push the image
+make docker-build          # builds plexobject/formicary:latest locally
+make docker-release        # tags + pushes to Docker Hub
+
+# 2. Force k8s to re-pull and restart (imagePullPolicy: Always)
+kubectl rollout restart deployment/formicary -n default
+kubectl rollout status deployment/formicary -n default
+
+# 3. Confirm the new pod is running
+kubectl get pods -n default -l app=formicary
+```
+
+#### Access the dashboard
+
+```bash
+kubectl port-forward svc/formicary 7777:7777 -n default
+open http://localhost:7777
+```
+
+#### Get a fresh API token (required after every image rebuild)
+
+The JWT signing key changes on each server start — old tokens are immediately invalid.
+
+1. Open http://localhost:7777/login and sign in with Google/GitHub
+2. Go to **Dashboard → API Tokens → New Token**
+3. Copy the token and export it:
+
+```bash
+export FORMICARY_TOKEN=<paste-token-here>
+# Add to ~/.zshrc to persist:
+echo 'export FORMICARY_TOKEN=<paste-token-here>' >> ~/.zshrc
+source ~/.zshrc
+```
+
+#### Verify the token works
+
+```bash
+curl -sf -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  http://localhost:7777/api/orgs/default/configs | python3 -m json.tool | head -20
+```
+
+#### Check pod logs
+
+```bash
+kubectl logs -n default -l app=formicary --tail=50 -f
+```
+
+#### Redeploy workflow YAMLs and org configs
+
+After a fresh token is set:
+
+```bash
+cd docs/examples
+
+# Jira + Bitbucket AI workflows (JIRA_PROJECT auto-discovered from API)
+./deploy-ai-jira-workflows.sh --set-configs \
+  --bb-workspace myworkspace \
+  --bb-repo myrepo
+
+# GitHub AI workflows
+./deploy-ai-workflows.sh --set-configs \
+  --slack-channel my-channel
+```
+
+Credentials (`JIRA_API_TOKEN`, `BITBUCKET_TOKEN`, `SSH_PRIVATE_KEY`, etc.) must be set
+as environment variables or live in `~/.config/acli/config.json` — never passed as CLI flags.
+
+#### Wipe and start fresh (nuclear option)
+
+```bash
+kubectl delete -f k8s.yaml
+kubectl apply -f k8s.yaml
+kubectl rollout status deployment/formicary -n default
+```
+
+---
+
 ### Running manually from source
 
 ```bash

@@ -250,11 +250,7 @@ func (m *UserManager) PrepareLoginUser(user *common.User) (oldUser *common.User)
 	if oldUser != nil {
 		user.CopyRolesPermissions(oldUser)
 	}
-	if user.SerializedPerms == "" {
-		user.SerializedPerms = acl.DefaultPermissionsString()
-	} else {
-		user.BackfillDefaultPermissions()
-	}
+	// Permissions are derived from roles at runtime — no stored snapshot needed.
 	return oldUser
 }
 
@@ -262,9 +258,6 @@ func (m *UserManager) PrepareLoginUser(user *common.User) (oldUser *common.User)
 func (m *UserManager) CreateUser(
 	qc *common.QueryContext,
 	user *common.User) (*common.User, error) {
-	if user.SerializedPerms == "" {
-		user.SerializedPerms = acl.DefaultPermissionsString()
-	}
 	saved, err := m.userRepository.Create(user)
 	if err != nil {
 		return nil, err
@@ -324,6 +317,8 @@ func (m *UserManager) SignupUser(qc *common.QueryContext, user *common.User, rem
 		saved.OrganizationID = org.ID
 		saved.BundleID = org.BundleID
 		if _, err = m.UpdateUser(common.NewQueryContext(nil, "").WithAdmin(), saved); err != nil {
+			_ = m.orgRepository.Delete(common.NewQueryContext(nil, "").WithAdmin(), org.ID)
+			_ = m.DeleteUser(common.NewQueryContext(nil, "").WithAdmin(), saved.ID)
 			return nil, nil, err
 		}
 	}
@@ -561,13 +556,12 @@ func (m *UserManager) CreatePersonalOrgForUser(user *common.User) (*common.Organ
 	return savedOrg, nil
 }
 
-// promoteToOrgAdmin assigns the OrgAdmin role and OrgAdmin permissions to a user.
-// Caller must persist the user after calling this.
+// promoteToOrgAdmin assigns the OrgAdmin role to a user.
+// Permissions are derived from the role at runtime — no snapshot needed.
 func promoteToOrgAdmin(user *common.User) {
 	roles := user.GetRoles()
 	roles.AddRole(acl.OrgAdmin)
 	user.SerializedRoles = roles.MarshalRoles()
-	user.SerializedPerms = acl.OrgAdminPermissionsString()
 	user.ResetPermissionsCache()
 }
 
@@ -664,7 +658,7 @@ func (m *UserManager) BuildOrgWithInvitation(
 			user.OrganizationID = org.ID
 			user.BundleID = org.BundleID
 			user.OrgUnit = org.OrgUnit
-			promoteToOrgAdmin(user)
+			// Invitation accepts use the User role — only personal-org founders become OrgAdmin.
 			logrus.WithFields(logrus.Fields{
 				"Component":  "UserManager",
 				"Org":        org,

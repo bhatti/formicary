@@ -166,7 +166,7 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 			logrus.WithFields(logrus.Fields{
 				"Component": "DefaultWebServer",
 				"User":      user,
-				"UserPerms": user.SerializedPerms,
+				"UserPerms": user.EffectivePermsString(),
 				"Perm":      perm.LongString(),
 				"Method":    c.Request().Method,
 				"Path":      c.Path(),
@@ -181,7 +181,7 @@ func (w *DefaultWebServer) checkPermission(c echo.Context, perm *acl.Permission)
 			logrus.WithFields(logrus.Fields{
 				"Component": "DefaultWebServer",
 				"User":      user,
-				"UserPerms": user.SerializedPerms,
+				"UserPerms": user.EffectivePermsString(),
 				"Perm":      perm.LongString(),
 				"Method":    c.Request().Method,
 				"Path":      c.Path(),

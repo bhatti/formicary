@@ -1,13 +1,15 @@
-# Docker deployment config — self-contained, no external services needed.
+# Kubernetes deployment config — self-contained, no external services needed.
 #
-# Runs everything in a single container:
+# Runs everything in a single pod:
 #   - Queen server         (web UI, API, scheduler)
 #   - Embedded Ant worker  (SHELL, DOCKER, KUBERNETES, HTTP executors)
-#   - Embedded SeaweedFS   (artifact storage — no MinIO/S3 required)
-#   - SQLite               (database — no Postgres/MySQL required)
+#   - Embedded SeaweedFS   (artifact storage)
+#   - SQLite               (database)
 #
-# Auth secrets are injected via environment variables at runtime.
-# See: COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, etc.
+# The pod uses its ServiceAccount token for in-cluster Kubernetes access —
+# no kubeconfig mount needed.
+#
+# Auth secrets are injected via Kubernetes Secret (see k8s.yaml).
 common:
     public_dir: /app/public/
     http_port: 7777
@@ -18,20 +20,15 @@ common:
         local_weed_bin: /usr/local/bin/weed
         local_s3_port: 19000
         bucket: formicary-artifacts
-        # Presigned artifact URLs must use the externally-reachable address.
-        # 127.0.0.1:19000 is only reachable inside the container; the browser needs localhost:19000.
         public_endpoint: localhost:19000
     auth:
         enabled: true
-        # Secrets injected at runtime — never bake into image
-        # COMMON_AUTH_JWT_SECRET, COMMON_AUTH_GOOGLE_CLIENT_ID, COMMON_AUTH_GOOGLE_CLIENT_SECRET
 db:
     data_source: /data/formicary.db
     type: sqlite
 embedded_ant:
     tags: ["docker", "kubernetes", "shell", "builder"]
     methods:
-      - DOCKER
       - KUBERNETES
       - SHELL
       - HTTP_GET
@@ -41,10 +38,7 @@ embedded_ant:
       - HTTP_PUT_JSON
       - HTTP_DELETE
     max_capacity: 10
-    docker:
-      host: "unix:///var/run/docker.sock"
     kubernetes:
-      kubeconfig: ""
       namespace: "default"
       allow_privilege_escalation: true
       registry:

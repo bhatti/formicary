@@ -129,7 +129,10 @@ func AuthenticatedUser(c APIContext, cookieName string, secret string) (user *co
 	user.PictureURL = claims.PictureURL
 	user.AuthProvider = claims.AuthProvider
 	user.SerializedRoles = claims.SerializedRoles
-	user.SerializedPerms = claims.SerializedPerms
+	// AdditivePerms is empty here — effective perms come from the role at runtime.
+	// SerializedPerms in the JWT is the pre-computed effective set; we don't store
+	// it back as AdditivePerms since it would double-apply role permissions.
+	_ = claims.SerializedPerms
 	return user, nil
 }
 

@@ -3,8 +3,11 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // TimeoutAction defines what happens when an approval SLA deadline is breached.
@@ -33,8 +36,8 @@ type ApprovalPolicy struct {
 	AllowedUsers string `yaml:"allowed_users,omitempty" json:"allowed_users"`
 	// RequireUnanimous when true, any single rejection immediately fails the task.
 	RequireUnanimous bool `yaml:"require_unanimous,omitempty" json:"require_unanimous"`
-	// SLADeadline max wait time before timeout_action fires (e.g. "4h", "30m"). 0 = no SLA.
-	SLADeadline time.Duration `yaml:"sla_deadline,omitempty" json:"sla_deadline"`
+	// SLADeadline max wait time before timeout_action fires, stored as nanoseconds. 0 = no SLA.
+	SLADeadline int64 `yaml:"sla_deadline,omitempty" json:"sla_deadline"`
 	// TimeoutAction: AUTO_APPROVE, AUTO_REJECT, or ESCALATE (default).
 	TimeoutAction TimeoutAction `yaml:"timeout_action,omitempty" json:"timeout_action"`
 	// EscalationRecipients comma-separated emails/Slack channels for SLA breach notifications.
@@ -90,6 +93,32 @@ func (p *ApprovalPolicy) EffectiveTimeoutAction() TimeoutAction {
 		return TimeoutActionEscalate
 	}
 	return p.TimeoutAction
+}
+
+// UnmarshalYAML accepts both integer nanoseconds and Go duration strings (e.g. "4h", "30m").
+// We pre-process the sla_deadline node: if it is a string, convert it to an integer (nanoseconds)
+// before handing off to the default decoder, which expects int64.
+func (p *ApprovalPolicy) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			if value.Content[i].Value == "sla_deadline" {
+				v := value.Content[i+1]
+				if v.Tag == "!!str" {
+					d, err := time.ParseDuration(v.Value)
+					if err != nil {
+						return fmt.Errorf("sla_deadline: cannot parse %q as duration: %w", v.Value, err)
+					}
+					// Replace the string node with an integer node so the default decoder works.
+					v.Tag = "!!int"
+					v.Value = fmt.Sprintf("%d", int64(d))
+				}
+				break
+			}
+		}
+	}
+	// Use an alias to avoid infinite recursion while still getting default field decoding.
+	type plain ApprovalPolicy
+	return value.Decode((*plain)(p))
 }
 
 func splitTrimmed(s string) []string {

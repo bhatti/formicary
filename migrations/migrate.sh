@@ -76,6 +76,3 @@ if [ -d "/migrations" ]; then
 else
     echo "WARNING: No migrations directory found at /migrations"
 fi
-#echo "Starting Formicary server..."
-# Execute the main application with all passed arguments
-#exec /formicary "$@"

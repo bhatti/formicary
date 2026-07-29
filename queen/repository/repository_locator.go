@@ -220,13 +220,17 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		return nil, err
 	}
 
-	// Run GORM AutoMigrate for all SQLite databases (both local dev and tests).
-	// Non-SQLite production databases are managed by goose migrations (migrate.sh).
-	if serverCfg.DB.Type == "sqlite" {
+	// Run GORM AutoMigrate when goose has NOT already set up the schema.
+	// In Docker/production the entrypoint runs goose first (migrate.sh), so AutoMigrate is skipped.
+	// In unit/integration tests (SQLite) and non-goose Postgres environments this creates/updates
+	// the schema. AutoMigrate is idempotent and works across all supported DB types.
+	if !gooseMigrated(db) {
 		if err = migrate(db); err != nil {
 			return nil, err
 		}
 	}
+
+	// Seed fixture data for local dev and tests — SQLite only.
 	if serverCfg.DB.Type == "sqlite" {
 		qc := common.NewQueryContext(nil, "")
 		if org, err := cachedOrgRepository.Create(
@@ -305,106 +309,60 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 }
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+
+// gooseMigrated returns true when the goose version table is present in the DB,
+// indicating that the schema was already set up by goose (i.e. running in Docker/production).
+// Uses GORM's db-agnostic HasTable so it works on SQLite, Postgres, and MySQL.
+func gooseMigrated(db *gorm.DB) bool {
+	return db.Migrator().HasTable("goose_db_version")
+}
+
 func migrate(db *gorm.DB) error {
 	db.DisableForeignKeyConstraintWhenMigrating = true
-	if err := db.AutoMigrate(&types.JobDefinition{}); err != nil {
-		return err
+	// Rename serialized_perms → additive_perms if the old column still exists.
+	if db.Migrator().HasColumn(&common.User{}, "serialized_perms") &&
+		!db.Migrator().HasColumn(&common.User{}, "additive_perms") {
+		if err := db.Migrator().RenameColumn(&common.User{}, "serialized_perms", "additive_perms"); err != nil {
+			return fmt.Errorf("failed to rename serialized_perms to additive_perms: %w", err)
+		}
 	}
-	if err := db.AutoMigrate(&types.JobDefinitionVariable{}); err != nil {
-		return err
+	if err := db.AutoMigrate(
+		&types.JobDefinition{},
+		&types.JobDefinitionVariable{},
+		&types.JobDefinitionConfig{},
+		&types.TaskDefinition{},
+		&types.TaskDefinitionVariable{},
+		&types.JobRequest{},
+		&types.JobRequestParam{},
+		&types.JobExecution{},
+		&types.JobExecutionContext{},
+		&types.TaskExecution{},
+		&types.TaskExecutionContext{},
+		&types.JobResource{},
+		&types.JobResourceUse{},
+		&types.JobResourceConfig{},
+		&types.SystemConfig{},
+		&common.Artifact{},
+		&types.AuditRecord{},
+		&common.ErrorCode{},
+		&common.User{},
+		&types.UserToken{},
+		&types.UserSession{},
+		&types.UserInvitation{},
+		&common.Organization{},
+		&common.Config{},
+		&events.LogEvent{},
+		&common.Subscription{},
+		&common.Payment{},
+		&types.EmailVerification{},
+		&types.TriggerState{},
+		&types.ApprovalPolicy{},
+		&types.ApprovalVote{},
+		&types.ApprovalDeadline{},
+	); err != nil {
+		return fmt.Errorf("AutoMigrate failed: %w", err)
 	}
-	if err := db.AutoMigrate(&types.JobDefinitionConfig{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(types.TaskDefinition{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.TaskDefinitionVariable{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobRequest{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobRequestParam{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobExecution{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobExecutionContext{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.TaskExecution{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.TaskExecutionContext{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobResource{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobResourceUse{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.JobResourceConfig{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.SystemConfig{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.Artifact{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.AuditRecord{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.ErrorCode{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.User{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.UserToken{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.UserSession{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.UserInvitation{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.Organization{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.Config{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&events.LogEvent{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.Subscription{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&common.Payment{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.EmailVerification{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.TriggerState{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.ApprovalPolicy{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.ApprovalVote{}); err != nil {
-		return err
-	}
-	if err := db.AutoMigrate(&types.ApprovalDeadline{}); err != nil {
-		return err
-	}
-
-	log.Infof("Migrated test database...")
+	log.Infof("AutoMigrate completed")
 	return nil
 }
 

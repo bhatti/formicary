@@ -101,7 +101,7 @@ func NewSubscription(kind Kind, period Period) *Subscription {
 // NewFreemiumSubscription creates new instance
 func NewFreemiumSubscription(user *User) *Subscription {
 	kind := IndividualSubscription
-	if user.HasOrganization() {
+	if user.OrganizationID != "" {
 		kind = OrganizationSubscription
 	}
 	return &Subscription{
