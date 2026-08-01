@@ -61,6 +61,7 @@ USE_BEDROCK="${CLAUDE_CODE_USE_BEDROCK:-}"
 BEDROCK_URL="${ANTHROPIC_BEDROCK_BASE_URL:-http://ai/bedrock}"
 GIT_USER_NAME="${GIT_USER_NAME:-}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
+SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -79,6 +80,7 @@ while [[ $# -gt 0 ]]; do
     --bedrock-url)   BEDROCK_URL="$2";      shift 2 ;;
     --git-user)      GIT_USER_NAME="$2";    shift 2 ;;
     --git-email)     GIT_USER_EMAIL="$2";   shift 2 ;;
+    --slack-channel) SLACK_CHANNEL="$2";    shift 2 ;;
     --help|-h)
       sed -n '/^# Usage/,/^[^#]/p' "$0" | head -26
       exit 0 ;;
@@ -293,6 +295,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   fi
   [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"  "$GIT_USER_NAME"
   [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail" "$GIT_USER_EMAIL"
+  [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
 
   echo ""
   ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
@@ -310,6 +313,11 @@ else
     [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
     set_org_config "BitbucketWorkspace" "$BB_WORKSPACE"
     [[ -n "$BB_REPO" ]] && set_org_config "BitbucketRepo" "$BB_REPO"
+    _AUTO=true
+  fi
+  if [[ -n "$SLACK_CHANNEL" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
     _AUTO=true
   fi
   [[ "$_AUTO" == true ]] && echo ""
@@ -330,6 +338,7 @@ esac
 
 # ── Upload workflows ───────────────────────────────────────────────────────────
 YAMLS=(
+  "${SCRIPT_DIR}/ai-connectivity-check.yaml"
   "${SCRIPT_DIR}/ai-jira-issue-picker.yaml"
   "${SCRIPT_DIR}/ai-jira-implement.yaml"
 )
@@ -375,7 +384,8 @@ echo "     export JIRA_API_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export BITBUCKET_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export SSH_PRIVATE_KEY=\$(cat ~/.ssh/id_rsa)"
 echo "     export BEDROCK_URL=http://ai/bedrock   # or ANTHROPIC_API_KEY for direct API"
-echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock"
+echo "     export SLACK_BOT_TOKEN=xoxb-...       # optional: Slack notifications"
+echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock --slack-channel my-channel"
 echo ""
 echo "  3. Add the pickup label to a Jira issue:"
 echo "     acli jira issue label add <ISSUE-KEY> ai-ready"

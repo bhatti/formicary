@@ -8,7 +8,7 @@
 # Non-secret config is set via org configs (deploy-ai-standup-gh.sh --set-configs).
 #
 # Required org configs (set via deploy-ai-standup-gh.sh --set-configs):
-#   GHOrg, GHRepo, SlackStandupChannel
+#   GHOrg, GHRepo, SlackChannel
 # Optional org configs:
 #   StandupTeamMembers (comma-separated GitHub logins), StandupLookbackHours
 #
@@ -32,11 +32,14 @@ job_variables:
   AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Optional: set FormicaryPublicURL to your Formicary UI base URL (e.g. https://formicary.example.com)
+  # so the Slack message includes a direct link to the job's artifacts (HTML report).
+  FormicaryPublicURL: ""
 
 notify:
   slack:
     recipients:
-      - "{{.SlackStandupChannel}}"
+      - "{{.SlackChannel}}"
     when: onFailure
 
 tasks:
@@ -60,7 +63,7 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GHOrg}}"
     GH_REPO: "{{.GHRepo}}"
-    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
     STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
     STANDUP_STALE_DAYS: "{{.StandupStaleDays}}"
@@ -130,12 +133,17 @@ tasks:
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
-    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_TYPE: "ai-standup-gh"
+    JOB_ID: "{{.JobID}}"
   script:
+    - python -m scripts.standup.render_html
     - python -m scripts.standup.post
   artifacts:
     paths:
       - ./standup_report.md
+      - ./standup_report.html
       - ./post_result.json
     when: always
     expire_after: 168h

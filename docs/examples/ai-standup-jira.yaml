@@ -12,7 +12,7 @@
 # Non-secret config is set via org configs (deploy-ai-standup-jira.sh --set-configs).
 #
 # Required org configs:
-#   JiraUrl, JiraProject, SlackStandupChannel
+#   JiraUrl, JiraProject, SlackChannel
 # Optional org configs:
 #   BitbucketWorkspace, BitbucketRepo, StandupTeamMembers, StandupLookbackHours
 #
@@ -36,9 +36,12 @@ job_variables:
   AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Optional: set FormicaryPublicURL to your Formicary UI base URL (e.g. https://formicary.example.com)
+  # so the Slack message includes a direct link to the job's artifacts (HTML report).
+  FormicaryPublicURL: ""
   # Injected via org/user configs (set by deploy script):
   #   JiraUrl, JiraProject, JiraEmail*          (plain)
-  #   SlackStandupChannel, StandupTeamMembers    (plain, optional)
+  #   SlackChannel, StandupTeamMembers    (plain, optional)
   #   BitbucketWorkspace, BitbucketRepo          (plain, optional)
   #   JiraApiToken*, SlackBotToken*              (secret)
   #   BitbucketUsername*, BitbucketToken*        (secret, optional)
@@ -47,7 +50,7 @@ job_variables:
 notify:
   slack:
     recipients:
-      - "{{.SlackStandupChannel}}"
+      - "{{.SlackChannel}}"
     when: onFailure
 
 tasks:
@@ -73,7 +76,7 @@ tasks:
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
-    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
     STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
     STANDUP_STALE_DAYS: "{{.StandupStaleDays}}"
@@ -143,12 +146,17 @@ tasks:
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
-    SLACK_STANDUP_CHANNEL: "{{.SlackStandupChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_TYPE: "ai-standup-jira"
+    JOB_ID: "{{.JobID}}"
   script:
+    - python -m scripts.standup.render_html
     - python -m scripts.standup.post
   artifacts:
     paths:
       - ./standup_report.md
+      - ./standup_report.html
       - ./post_result.json
     when: always
     expire_after: 168h    # 7 days

@@ -223,6 +223,22 @@
   </div>
 </div>
 
+{{$hasMd := false}}{{range .Tasks}}{{range .Artifacts}}{{if hasSuffix .Name ".md"}}{{$hasMd = true}}{{end}}{{end}}{{end}}
+{{if $hasMd}}
+<div class="card mb-3 border-primary">
+  <div class="card-header bg-primary-subtle"><h3 class="card-title">Reports</h3></div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2">
+    {{range .Tasks}}{{range .Artifacts}}{{if hasSuffix .Name ".md"}}
+      <a href="{{.DashboardURL}}" class="btn btn-outline-primary btn-sm">
+        <i class="ti ti-file-text me-1"></i>{{.Name}}
+      </a>
+    {{end}}{{end}}{{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
 {{range .Tasks}}
 {{if .Artifacts}}
 <div class="card mb-3">

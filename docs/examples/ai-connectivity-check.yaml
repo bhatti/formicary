@@ -1,0 +1,95 @@
+# AI workflow connectivity check
+#
+# Verifies access to all integrations used by AI workflows:
+#   GitHub, Jira, Bitbucket, Slack, Claude (Bedrock proxy or direct API)
+#
+# Every check is optional and non-fatal — the job always completes successfully.
+# Results are in the connectivity_result.json artifact.
+#
+# Run manually whenever you suspect a config or credentials issue:
+#   curl -X POST http://localhost:7777/api/jobs/requests \
+#     -H "Authorization: Bearer $FORMICARY_TOKEN" \
+#     -H "Content-Type: application/json" \
+#     -d '{"job_type":"ai-connectivity-check"}'
+#
+# Or trigger from the Formicary dashboard: Jobs → Definitions → ai-connectivity-check → Run Now
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh        (GitHub workflows)
+#   ./deploy-ai-jira-workflows.sh   (Jira/Bitbucket workflows)
+#   Either script uploads this file automatically.
+#
+# Credentials are read from the 'ai-dev-credentials' Kubernetes secret.
+# Org configs (non-secrets) are read from Formicary org/user config store.
+
+job_type: ai-connectivity-check
+description: "Verify access to GitHub, Jira, Bitbucket, Slack, and Claude"
+max_concurrency: 1
+timeout: 120s
+
+tasks:
+- task_type: check
+  method: KUBERNETES
+  timeout: 90s
+  report_stdout: true
+  host_network: true
+  allow_failure: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    # GitHub
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    # Jira
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    # Bitbucket
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    # Slack
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    # Claude
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+  script:
+    - python -m scripts.check_connectivity
+  artifacts:
+    paths:
+      - ./connectivity_result.json
+    when: always
+    expire_after: 24h
+  on_completed: done
+
+- task_type: done
+  method: SHELL
+  script:
+    - echo "Connectivity check complete"
+
+job_variables:
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  # Injected via org configs:
+  #   GitHubOrg, GitHubRepo              (plain, optional)
+  #   JiraUrl, JiraProject               (plain, optional)
+  #   BitbucketWorkspace, BitbucketRepo  (plain, optional)
+  #   SlackChannel, SlackChannel  (plain, optional)
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   GH_TOKEN                           (GitHub)
+  #   JIRA_EMAIL, JIRA_API_TOKEN         (Jira)
+  #   BITBUCKET_USERNAME, BITBUCKET_TOKEN (Bitbucket)
+  #   SLACK_BOT_TOKEN                    (Slack)
+  #   ANTHROPIC_API_KEY                  (Claude direct API, optional)

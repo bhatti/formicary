@@ -138,6 +138,8 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     PR_OPEN_LABEL: "{{.PrOpenLabel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -180,6 +182,7 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -217,6 +220,7 @@ job_variables:
   InProgressLabel: "ai-in-progress"
   PrOpenLabel: "ai-pr-open"
   NeedsHumanLabel: "needs-human"
+  SlackChannel: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
@@ -225,8 +229,11 @@ job_variables:
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
   #   JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
+  #   SlackChannel             (plain, optional — Slack notifications)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   JIRA_EMAIL, JIRA_API_TOKEN, BITBUCKET_USERNAME, BITBUCKET_TOKEN
   #   SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)
-  # NOTE: BITBUCKET_USERNAME must be the account email (e.g. user@example.com), NOT the
-  #       nickname — Bitbucket REST API v2 requires email for Basic Auth with app passwords.
+  #   SLACK_BOT_TOKEN          (optional — enables Slack notifications)
+  # NOTE: Two separate username vars are required:
+  #   BITBUCKET_USERNAME     — account email (e.g. user@example.com) for REST API Basic Auth
+  #   BITBUCKET_GIT_USERNAME — account nickname for git HTTPS clone/push

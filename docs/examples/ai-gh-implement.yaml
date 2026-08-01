@@ -132,6 +132,7 @@ tasks:
     GH_REPO: "{{.GitHubRepo}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     PR_OPEN_LABEL: "{{.PrOpenLabel}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -173,6 +174,7 @@ tasks:
     GH_REPO: "{{.GitHubRepo}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -211,6 +213,7 @@ job_variables:
   InProgressLabel: "ai-in-progress"
   PrOpenLabel: "ai-pr-open"
   NeedsHumanLabel: "needs-human"
+  SlackChannel: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
@@ -219,5 +222,7 @@ job_variables:
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
   #   GitHubOrg, GitHubRepo    (plain)
+  #   SlackChannel             (plain, optional — Slack notifications)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   GH_TOKEN, SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)
+  #   SLACK_BOT_TOKEN          (optional — enables Slack notifications)
