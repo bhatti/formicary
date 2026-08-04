@@ -182,7 +182,7 @@ func (jraCtr *JobRequestAdminController) voteOnApproval(c web.APIContext) error 
 func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	err := jraCtr.jobManager.TriggerJobRequest(qc, id)
+	err := jraCtr.jobManager.TriggerJobRequest(qc, id, nil)
 	if err != nil {
 		return err
 	}

@@ -448,7 +448,7 @@ func Test_ShouldSignalSchedulerOnTrigger(t *testing.T) {
 	}
 
 	// WHEN: TriggerJobRequest is called
-	err = jobManager.TriggerJobRequest(qc, reqID)
+	err = jobManager.TriggerJobRequest(qc, reqID, nil)
 	require.NoError(t, err)
 
 	// THEN: exactly one signal must be present on the channel (non-blocking check).

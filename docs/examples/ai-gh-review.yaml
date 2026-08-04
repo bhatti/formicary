@@ -1,0 +1,117 @@
+# AI-driven GitHub PR review: review → post findings to Slack → done
+#
+# All tasks run as Kubernetes pods using the ai-dev-tools image.
+# host_network: true enables Tailscale VPN access to the Bedrock proxy.
+#
+# The review task runs Claude via the ygs-review-pr skill.
+# The post task posts the findings summary as plain text to the Slack thread.
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#     --gh-org YOUR_ORG --gh-repo YOUR_REPO
+
+job_type: ai-gh-review
+description: "AI GitHub PR review: analyze PR and post findings to Slack"
+max_concurrency: 10
+timeout: 3600s
+
+variables:
+  PRUrl:
+    type: STRING
+    required: true
+
+tasks:
+# --- REVIEW ------------------------------------------------------------------
+- task_type: review
+  method: KUBERNETES
+  timeout: 20m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    MAX_TURNS_REVIEW: "{{.MaxTurnsReview}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+  script:
+    - python -m scripts.review.run --pr-url "{{.PRUrl}}" --skill "{{.Skill}}"
+  artifacts:
+    paths:
+      - ./findings.json
+      - ./review_result.json
+      - ./logs
+    expire_after: 48h
+  on_completed: post
+
+# --- POST --------------------------------------------------------------------
+# Post findings summary as plain text to the originating Slack thread.
+- task_type: post
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - review
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+  script:
+    - python -m scripts.review.post_findings --findings /workspace/findings.json
+  artifacts:
+    paths:
+      - ./post_result.json
+    expire_after: 168h
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Review pipeline complete"
+
+job_variables:
+  MaxTurnsReview: "100"
+  Skill: "ygs-review-pr"
+  SlackChannel: ""
+  SlackThreadTs: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Injected via org configs (set via deploy-ai-workflows.sh --set-configs):
+  #   GitHubOrg, GitHubRepo    (plain)
+  #   SlackChannel             (plain, optional)
+  # Injected from the 'ai-dev-credentials' K8s secret:
+  #   GH_TOKEN, SSH_PRIVATE_KEY
+  #   SLACK_BOT_TOKEN          (required for Slack posting)
+  #   ANTHROPIC_API_KEY        (optional — Bedrock used by default)
+  # Set by the Slack router on submit:
+  #   SlackThreadTs

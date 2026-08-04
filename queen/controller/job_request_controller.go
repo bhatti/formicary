@@ -10,6 +10,7 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/stats"
 	"strconv"
+	"strings"
 	"time"
 
 	"plexobject.com/formicary/internal/web"
@@ -114,6 +115,12 @@ func (jobReqCtrl *JobRequestController) submitJobRequest(c web.APIContext) error
 
 	saved, err := jobReqCtrl.jobManager.SaveJobRequest(qc, request)
 	if err != nil {
+		// Unique constraint on user_key — return the existing active job as 409 Conflict
+		if request.UserKey != "" && strings.Contains(err.Error(), "UNIQUE") {
+			if existing, lookupErr := jobReqCtrl.jobManager.GetJobRequestByUserKey(qc, request.UserKey); lookupErr == nil {
+				return c.JSON(http.StatusConflict, existing)
+			}
+		}
 		return err
 	}
 	_, _ = jobReqCtrl.jobManager.SaveAudit(types.NewAuditRecordFromJobRequest(saved, types.JobRequestCreated, qc))
@@ -219,13 +226,24 @@ func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error 
 }
 
 // Triggers a scheduled job.
+// Triggers a pending cron job request to run immediately.
+// Accepts an optional JSON body {"params": {"key": "value", ...}} whose entries
+// are merged into the job's existing params before execution.
 // responses:
 //
 //	200: emptyResponse
 func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id)
+	// Decode optional params from the request body.
+	var body struct {
+		Params map[string]interface{} `json:"params"`
+	}
+	if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil {
+		// Empty or non-JSON body is fine — proceed without params.
+		body.Params = nil
+	}
+	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id, body.Params)
 	if err != nil {
 		return err
 	}

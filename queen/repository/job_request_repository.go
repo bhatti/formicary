@@ -110,10 +110,13 @@ type JobRequestRepository interface {
 	// FindActiveChildRequests returns non-terminal child job requests that are
 	// marked for cascade cancellation (cascade_cancel = true) for the given parent ID.
 	FindActiveChildRequests(parentID string) ([]*types.JobRequest, error)
-	// Trigger triggers a scheduled job
+	// Trigger triggers a scheduled job. When params is non-empty its entries are
+	// merged into the job's existing params (update existing keys, insert new ones)
+	// before the job is moved to the ready queue. Pass nil to preserve existing params.
 	Trigger(
 		qc *common.QueryContext,
-		id string) error
+		id string,
+		params map[string]interface{}) error
 	// Restart restarts a job; hard=true sets hard_restart so all tasks re-run from scratch.
 	// newJobDefinitionID, when non-empty and different from the current pinned version, re-pins the request.
 	Restart(

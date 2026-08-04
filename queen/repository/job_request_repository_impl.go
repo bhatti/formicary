@@ -555,10 +555,13 @@ func (jrr *JobRequestRepositoryImpl) PurgeOldRequests(
 // Trigger triggers a scheduled job
 func (jrr *JobRequestRepositoryImpl) Trigger(
 	qc *common.QueryContext,
-	id string) error {
-	// TODO check for cron schedule
-	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ? WHERE id = ? AND cron_triggered = ? AND job_state = ?"
-	args := []interface{}{time.Now(), time.Now(), ulid.Make().String(), id, true, common.PENDING}
+	id string,
+	params map[string]interface{}) error {
+	// Reset scheduled_at to now and rotate user_key so the unique index slot is freed.
+	// Allow triggering from PENDING or CANCELLED — a CANCELLED cron slot can be re-activated
+	// via trigger so operators don't need direct DB access to recover a broken cron schedule.
+	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ?, job_state = ? WHERE id = ? AND cron_triggered = ? AND job_state IN ?"
+	args := []interface{}{time.Now(), time.Now(), ulid.Make().String(), common.PENDING, id, true, []string{string(common.PENDING), string(common.CANCELLED)}}
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
@@ -571,6 +574,37 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 	res := jrr.db.Exec(sql, args...)
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
+	}
+	if res.RowsAffected == 0 {
+		// No row was updated: job doesn't exist, is not cron-triggered, is not owned by this
+		// caller, or is already in a running/terminal state that cannot be re-triggered.
+		return common.NewNotFoundError(fmt.Errorf("job request %s not found or not in a triggerable state", id))
+	}
+	// Merge caller-supplied params into the job's existing param rows in a single transaction.
+	if len(params) > 0 {
+		return jrr.db.Transaction(func(tx *gorm.DB) error {
+			for name, value := range params {
+				strVal := fmt.Sprintf("%v", value)
+				now := time.Now()
+				upd := tx.Exec(
+					"UPDATE formicary_job_request_params SET value = ?, updated_at = ? WHERE job_request_id = ? AND name = ?",
+					strVal, now, id, name,
+				)
+				if upd.Error != nil {
+					return upd.Error
+				}
+				if upd.RowsAffected == 0 {
+					ins := tx.Exec(
+						"INSERT INTO formicary_job_request_params (id, job_request_id, name, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+						ulid.Make().String(), id, name, strVal, now, now,
+					)
+					if ins.Error != nil {
+						return ins.Error
+					}
+				}
+			}
+			return nil
+		})
 	}
 	return nil
 }

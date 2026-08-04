@@ -259,7 +259,7 @@ func (u *User) Validate() (err error) {
 		u.Errors["OrgUnit"] = err.Error()
 	}
 	if u.MaxConcurrency == 0 {
-		u.MaxConcurrency = 1
+		u.MaxConcurrency = 5
 	}
 	for source, notify := range u.Notify {
 		if source == EmailChannel {

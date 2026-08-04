@@ -3384,6 +3384,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/JobExecutionServiceTriggerJobBody"
+            }
           }
         ],
         "tags": [
@@ -5956,6 +5964,18 @@
         }
       },
       "description": "RestartJobRequest restarts a failed or cancelled job request."
+    },
+    "JobExecutionServiceTriggerJobBody": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "TriggerJobRequest manually triggers a waiting/paused job request.\nOptional params are merged into the job's existing params before triggering."
     },
     "TriggerServiceFireWebhookTriggerBody": {
       "type": "object",

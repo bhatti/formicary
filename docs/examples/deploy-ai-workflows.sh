@@ -216,8 +216,9 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "$GH_REPO" ]] || fail "--set-configs requires --gh-repo <repo> (or GH_REPO env var)"
 
   log "Setting org configs (shared team settings) ..."
-  set_org_config "GitHubOrg"  "$GH_ORG"
-  set_org_config "GitHubRepo" "$GH_REPO"
+  set_org_config "GitHubOrg"       "$GH_ORG"
+  set_org_config "GitHubRepo"      "$GH_REPO"
+  set_org_config "DefaultTracker"  "github"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK"
     set_org_config "ClaudeSkipBedrockAuth"   "1"
@@ -266,6 +267,8 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-gh-issue-picker.yaml"
   "${SCRIPT_DIR}/ai-gh-implement.yaml"
   "${SCRIPT_DIR}/ai-gh-cleanup.yaml"
+  "${SCRIPT_DIR}/ai-gh-review.yaml"
+  "${SCRIPT_DIR}/ai-adhoc.yaml"
 )
 
 echo ""

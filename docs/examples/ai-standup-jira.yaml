@@ -27,6 +27,8 @@ max_concurrency: 1
 timeout: 900s
 
 job_variables:
+  SlackThreadTs: ""
+  SlackChannel: ""
   StandupLookbackHours: "26"
   StandupStaleDays: "2"
   MaxTurnsStandup: "30"
@@ -120,6 +122,7 @@ tasks:
     - python -m scripts.standup.synthesize
   artifacts:
     paths:
+      - ./signals.json
       - ./standup_brief.md
       - ./risk_report.md
       - ./synthesize_result.json
@@ -143,10 +146,12 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
+    - gather
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
     SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-standup-jira"
     JOB_ID: "{{.JobID}}"
@@ -161,9 +166,30 @@ tasks:
     when: always
     expire_after: 168h    # 7 days
   on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 1m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    MESSAGE: ":x: Standup job failed. Check Formicary logs for details."
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
 
 # --- DONE --------------------------------------------------------------------
 - task_type: done
   method: SHELL
+  report_stdout: true
   script:
     - echo "Standup brief complete"

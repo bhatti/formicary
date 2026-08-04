@@ -40,7 +40,7 @@
       <tbody>
       {{range .Records}}
       <tr>
-        <td class="fw-semibold"><a href="/dashboard/jobs/definitions/{{.ID}}">{{.ShortJobType}}</a></td>
+        <td class="fw-semibold"><a href="/dashboard/jobs/definitions/{{.ID}}" title="{{.JobType}}">{{.ShortJobType}}</a></td>
         <td><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
         <td><span class="text-secondary small">{{.Methods}}</span></td>
         <td><span class="text-secondary small">{{.Tags}}</span></td>

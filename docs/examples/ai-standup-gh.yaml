@@ -107,6 +107,7 @@ tasks:
     - python -m scripts.standup.synthesize
   artifacts:
     paths:
+      - ./signals.json
       - ./standup_brief.md
       - ./risk_report.md
       - ./synthesize_result.json
@@ -130,6 +131,7 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
+    - gather
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
@@ -152,5 +154,6 @@ tasks:
 # --- DONE --------------------------------------------------------------------
 - task_type: done
   method: SHELL
+  report_stdout: true
   script:
     - echo "Standup brief complete"

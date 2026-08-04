@@ -64,6 +64,57 @@ tasks:
       - echo "Running hourly cleanup..."
 ```
 
+### Cron Slot Lifecycle and `user_key` Idempotency
+
+> **Important design invariant — read before operating on cron jobs.**
+
+Formicary's scheduler creates one `PENDING` job request per scheduled cron fire time. Each request is stamped with a **`user_key`** derived from `{org_id}-{job_type}-{scheduled_at_utc}`. The `user_key` is enforced as a **unique index** in the database — this is an intentional idempotency key, not deduplication-by-accident.
+
+**What this means in practice:**
+
+| Scenario | Result |
+|---|---|
+| Scheduler fires → no existing record → creates `PENDING` slot | ✅ Normal |
+| Scheduler fires → `PENDING` slot already exists (same key) | Silently skips — only one slot exists |
+| `PENDING` slot is triggered → job runs → `COMPLETED` → scheduler creates next slot (new key) | ✅ Normal cron lifecycle |
+| `PENDING` slot is **manually cancelled** → `CANCELLED` record holds the old key → scheduler fires → key collision | ❌ **Slot is broken** — scheduler silently skips, no new `PENDING` created |
+
+**The cardinal rule: never cancel a `PENDING` cron request.**
+
+Formicary's trigger path (`POST /api/jobs/requests/{id}/trigger`) is the correct way to fire a cron slot early — it advances the job into the run queue and rotates the `user_key` so the next cron cycle can schedule normally. Cancelling a `PENDING` cron request orphans the slot.
+
+**Recovery when a cron slot is broken (CANCELLED blocking next slot):**
+
+The `user_key` of a CANCELLED record continues to block scheduling until the scheduled time passes (the next cron fire generates a new key for the next time slot). Options:
+
+1. **Wait** — once the blocked scheduled time passes, the scheduler creates a PENDING record for the _next_ fire time with a new key.
+2. **Delete the CANCELLED record** via direct DB access — frees the key immediately so the scheduler can re-queue. (No API endpoint; admin DB access only.)
+3. **Disable then re-enable the job definition** — purges all non-active cron requests and creates a fresh PENDING slot. Use the definition's `POST /api/jobs/definitions/{id}/disable` then `/enable` endpoints.
+
+**Triggering a cron job on-demand (correct approach):**
+
+```python
+# Python — via Slack router or API client
+client.trigger_pending_or_submit("ai-standup-jira", {
+    "SlackChannel": "my-channel",
+    "SlackThreadTs": "...",
+})
+# Finds the PENDING slot, injects params atomically, moves to READY queue.
+# If no PENDING slot exists → returns {"_no_cron_slot": True} (never falls back to submit).
+```
+
+```bash
+# curl — trigger the existing PENDING slot directly
+curl -X POST http://localhost:7777/api/jobs/requests/{PENDING_JOB_ID}/trigger \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"SlackChannel": "my-channel"}}'
+```
+
+**Why `submit()` is wrong for cron jobs:**
+
+`submit()` creates a new job request. Formicary auto-assigns a `user_key` of `{org}-{job_type}-{next_scheduled_time}`. If a CANCELLED (or PENDING) record already holds that key, the insert hits the UNIQUE constraint and the server returns HTTP 500 (or 409 on patched servers). The job is not created. The Python client returns `{}`, which the router previously surfaced as "check Formicary connectivity" — a misleading error.
+
 ## 3. Event-Driven Triggers
 
 Formicary supports three types of event-driven triggers that **create JobRequests** when external events occur. Triggers are declared in the `triggers:` section of a job definition YAML.

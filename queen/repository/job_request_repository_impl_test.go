@@ -583,8 +583,11 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				// Updating state and priority because by default state is PENDING
 				_, err = repo.Save(qc, req)
 				require.NoError(t, err)
-				err = repo.Trigger(qc, req.ID)
-				require.NoError(t, err)
+				// Only PENDING cron records can be triggered — other states are skipped.
+				if jobState == common.PENDING {
+					err = repo.Trigger(qc, req.ID, nil)
+					require.NoError(t, err)
+				}
 			}
 		}
 	}
@@ -1300,4 +1303,117 @@ func Test_ShouldErrorOnEmptyParentID(t *testing.T) {
 
 	_, err = repo.FindActiveChildRequests("")
 	require.Error(t, err)
+}
+
+// Test_ShouldTriggerWithParamsMerge verifies that Trigger updates existing params
+// and inserts new params on the job request.
+func Test_ShouldTriggerWithParamsMerge(t *testing.T) {
+	// GIVEN a cron-triggered job in PENDING state with existing params (jk1, jk3 are in the job definition)
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := SaveTestJobDefinition(qc, "trigger-param-merge", "0 0 * * * * *")
+	require.NoError(t, err)
+
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	_, _ = req.AddParam("jk1", "old-value")
+	_, _ = req.AddParam("jk3", "old-jk3")
+	saved, err := repo.Save(qc, req)
+	require.NoError(t, err)
+	require.NotEmpty(t, saved.ID)
+
+	// WHEN triggering with params that update existing keys
+	mergeParams := map[string]interface{}{
+		"jk1": "new-value",
+		"jk3": "updated-jk3",
+	}
+	err = repo.Trigger(qc, saved.ID, mergeParams)
+	require.NoError(t, err)
+
+	// THEN the reloaded job should carry the merged params
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, "new-value", fmt.Sprintf("%v", loaded.NameValueParams["jk1"]))
+	require.Equal(t, "updated-jk3", fmt.Sprintf("%v", loaded.NameValueParams["jk3"]))
+}
+
+// Test_ShouldTriggerWithNilParamsPreservesExisting verifies that Trigger(nil) leaves params unchanged.
+func Test_ShouldTriggerWithNilParamsPreservesExisting(t *testing.T) {
+	// GIVEN a cron-triggered job in PENDING state with an existing param
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := SaveTestJobDefinition(qc, "trigger-nil-params", "0 0 * * * * *")
+	require.NoError(t, err)
+
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	_, _ = req.AddParam("SlackChannel", "keep-me")
+	saved, err := repo.Save(qc, req)
+	require.NoError(t, err)
+
+	// WHEN triggering with nil params
+	err = repo.Trigger(qc, saved.ID, nil)
+	require.NoError(t, err)
+
+	// THEN the existing param is unchanged
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, "keep-me", fmt.Sprintf("%v", loaded.NameValueParams["SlackChannel"]))
+}
+
+// Test_ShouldTriggerCancelledCronSlot verifies that Trigger() re-activates a CANCELLED cron
+// request — the slot transitions from CANCELLED back to PENDING with a new user_key.
+// This is the recovery path when an operator accidentally cancelled a scheduled cron request
+// and wants to fire it without direct DB access.
+func Test_ShouldTriggerCancelledCronSlot(t *testing.T) {
+	// GIVEN a cron-triggered job that has been cancelled
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	job, err := SaveTestJobDefinition(qc, "trigger-cancelled-slot", "0 0 8 * * 1-5 *")
+	require.NoError(t, err)
+
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	_, _ = req.AddParam("SlackChannel", "test-channel")
+	saved, err := repo.Save(qc, req)
+	require.NoError(t, err)
+	originalUserKey := saved.UserKey
+
+	// Cancel the PENDING slot (simulates operator mistake or old code path)
+	err = repo.Cancel(qc, saved.ID)
+	require.NoError(t, err)
+	cancelled, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, common.CANCELLED, cancelled.JobState)
+
+	// WHEN the operator triggers the CANCELLED slot
+	err = repo.Trigger(qc, saved.ID, map[string]interface{}{
+		"SlackChannel": "recovery-channel",
+	})
+	require.NoError(t, err)
+
+	// THEN the slot is back to PENDING with a new user_key (old key freed for next scheduler cycle)
+	reactivated, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, common.PENDING, reactivated.JobState, "CANCELLED cron slot must transition to PENDING on trigger")
+	require.NotEqual(t, originalUserKey, reactivated.UserKey, "user_key must be rotated so original slot is freed")
+	require.Equal(t, "recovery-channel", fmt.Sprintf("%v", reactivated.NameValueParams["SlackChannel"]))
 }

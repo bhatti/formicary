@@ -1,0 +1,120 @@
+# AI ad-hoc skill execution: run a named you-got-skills skill with a free-form prompt.
+#
+# Launched by the Slack router for one-shot requests (standup, risk-scan, etc.)
+# that don't require git checkout or a human-in-the-loop pause.
+# The script posts its result back to the originating Slack thread.
+#
+# Deploy:
+#   python -m scripts.slack.deploy_workflows --file ai-adhoc.yaml
+
+job_type: ai-adhoc
+description: "AI ad-hoc: invoke a you-got-skills skill with a free-form prompt"
+max_concurrency: 20
+timeout: 1800s
+
+variables:
+  Skill:
+    type: STRING
+    required: true
+  Prompt:
+    type: STRING
+    required: true
+
+tasks:
+# --- RUN ---------------------------------------------------------------------
+- task_type: run
+  method: KUBERNETES
+  timeout: 25m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
+    STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    SKILL_NAME: "{{.Skill}}"
+    SKILL_PROMPT: "{{.Prompt}}"
+  script:
+    - git clone --depth 1 https://github.com/bhatti/you-got-skills.git /workspace/you-got-skills 2>/dev/null || true
+    - |
+      if [ "$SKILL_NAME" = "ygs-pr-queue" ]; then
+        # Gather sprint issues + open PRs into signals.json, then build pr_queue.json
+        if [ -n "$JIRA_BASE_URL" ] && [ -n "$JIRA_PROJECT" ]; then
+          python -m scripts.standup.gather_jira || true
+        fi
+        python -m scripts.standup.gather_pr_queue
+      fi
+    - python -m scripts.adhoc.run_skill --skill "$SKILL_NAME" --prompt "$SKILL_PROMPT"
+  artifacts:
+    paths:
+      - ./adhoc_result.json
+      - ./logs
+    expire_after: 24h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 1m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    SKILL_NAME: "{{.Skill}}"
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Ad-hoc skill complete"
+
+job_variables:
+  Skill: "ygs-standup"
+  Prompt: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  StandupTeamMembers: ""
+  StandupLookbackHours: "26"
+  DefaultTracker: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

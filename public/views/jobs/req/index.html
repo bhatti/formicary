@@ -35,8 +35,8 @@
       <tbody>
       {{range .Records}}
       <tr id="jobs_row_{{.ID}}">
-        <td><a href="/dashboard/jobs/requests/{{.ID}}">{{.ShortID}}</a></td>
-        <td><a href="/dashboard/jobs/definitions/{{.JobType}}">{{.ShortJobType}}</a></td>
+        <td><a href="/dashboard/jobs/requests/{{.ID}}" title="{{.ID}}">{{.ShortID}}</a></td>
+        <td><a href="/dashboard/jobs/definitions/{{.JobType}}" title="{{.JobType}}">{{.ShortJobType}}</a></td>
         <td>{{MarkdownLink .DescriptionShort}}</td>
         <td><a href="/dashboard/users/{{.UserID}}">{{.ShortUserID}}</a></td>
         {{if .Completed}}
@@ -134,8 +134,8 @@
       const tbody = document.getElementById('jobs_table').getElementsByTagName('tbody')[0];
       const newRow = tbody.insertRow();
       newRow.id = `jobs_row_${event.job_request_id}`;
-      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}">${event.job_request_id.substring(0, 6)}</a>`;
-      newRow.insertCell().innerHTML = event.job_type;
+      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}" title="${event.job_request_id}">${event.job_request_id.substring(0, 6)}</a>`;
+      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/definitions/${event.job_type}" title="${event.job_type}">${event.job_type.length > 12 ? event.job_type.substring(0, 12) + '...' : event.job_type}</a>`;
       newRow.insertCell().innerHTML = '';
       newRow.insertCell().innerHTML = event.user_id;
       const statusCell = newRow.insertCell();

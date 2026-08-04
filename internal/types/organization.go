@@ -218,7 +218,7 @@ func (o *Organization) Validate() (err error) {
 		o.Errors["BundleID"] = err.Error()
 	}
 	if o.MaxConcurrency == 0 {
-		o.MaxConcurrency = 3
+		o.MaxConcurrency = 10
 	}
 
 	return

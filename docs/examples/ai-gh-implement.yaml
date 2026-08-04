@@ -32,6 +32,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "2"
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
     volumes:
       empty_dir:
         - name: workspace
@@ -76,6 +80,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "2"
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 2G
     volumes:
       empty_dir:
         - name: workspace
@@ -117,6 +125,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "1"
+    cpu_request: "200m"
+    memory_limit: 2Gi
+    memory_request: 512Mi
     volumes:
       empty_dir:
         - name: workspace
@@ -199,12 +211,13 @@ tasks:
 # Terminal leaf task — poll-pr routes here on success (exit 0).
 - task_type: done
   method: SHELL
+  report_stdout: true
   script:
     - echo "Pipeline complete"
 
 job_variables:
   MaxTurnsPlan: "50"
-  MaxTurnsImplement: "200"
+  MaxTurnsImplement: "100"
   MaxTurnsFeedback: "20"
   PollInterval: "120"
   GitUserName: "AI Agent"

@@ -117,8 +117,10 @@ message RestartJobRequest {
 }
 
 // TriggerJobRequest manually triggers a waiting/paused job request.
+// Optional params are merged into the job's existing params before triggering.
 message TriggerJobRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  map<string, string> params = 2;
 }
 
 // VoteOnApprovalRequest casts a vote on a task awaiting multi-party approval.
@@ -334,7 +336,7 @@ service JobExecutionService {
   rpc TriggerJob(TriggerJobRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/api/v1/jobs/requests/{id}/trigger"
-      body: ""
+      body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Trigger job"

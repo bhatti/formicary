@@ -151,7 +151,14 @@ func (s *JobExecutionService) TriggerJob(ctx context.Context, req *svcpb.Trigger
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	if err := s.jobManager.TriggerJobRequest(qc, req.Id); err != nil {
+	var params map[string]interface{}
+	if len(req.Params) > 0 {
+		params = make(map[string]interface{}, len(req.Params))
+		for k, v := range req.Params {
+			params[k] = v
+		}
+	}
+	if err := s.jobManager.TriggerJobRequest(qc, req.Id, params); err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &emptypb.Empty{}, nil

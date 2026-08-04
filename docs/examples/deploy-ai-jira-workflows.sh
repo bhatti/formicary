@@ -288,6 +288,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "$JIRA_PROJECT" ]] && set_org_config "JiraProject" "$JIRA_PROJECT"
   set_org_config "BitbucketWorkspace" "$BB_WORKSPACE"
   set_org_config "BitbucketRepo"      "$BB_REPO"
+  set_org_config "DefaultTracker"     "jira"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK"
     set_org_config "ClaudeSkipBedrockAuth"   "1"
@@ -341,6 +342,8 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-connectivity-check.yaml"
   "${SCRIPT_DIR}/ai-jira-issue-picker.yaml"
   "${SCRIPT_DIR}/ai-jira-implement.yaml"
+  "${SCRIPT_DIR}/ai-jira-review.yaml"
+  "${SCRIPT_DIR}/ai-adhoc.yaml"
 )
 
 echo ""

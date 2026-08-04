@@ -714,6 +714,13 @@ func (jm *JobManager) GetJobRequest(
 	return request, nil
 }
 
+// GetJobRequestByUserKey finds a job-request by its user-defined key.
+func (jm *JobManager) GetJobRequestByUserKey(
+	qc *common.QueryContext,
+	userKey string) (*types.JobRequest, error) {
+	return jm.jobRequestRepository.GetByUserKey(qc.WithAdmin(), userKey)
+}
+
 // PauseJobRequest - pauses job-request
 func (jm *JobManager) PauseJobRequest(
 	qc *common.QueryContext,
@@ -1369,11 +1376,15 @@ func (jm *JobManager) SetJobRequestReadyToExecute(
 	return jm.jobRequestRepository.SetReadyToExecute(id, jobExecutionID, lastJobExecutionID)
 }
 
-// TriggerJobRequest - triggers job
+// TriggerJobRequest triggers a scheduled (cron) job request.
+// When params is non-empty each entry is merged into the job's params
+// (existing keys updated, new keys inserted) before the job is queued.
+// Pass nil to leave the job's params unchanged.
 func (jm *JobManager) TriggerJobRequest(
 	qc *common.QueryContext,
-	id string) (err error) {
-	if err = jm.jobRequestRepository.Trigger(qc, id); err == nil {
+	id string,
+	params map[string]interface{}) (err error) {
+	if err = jm.jobRequestRepository.Trigger(qc, id, params); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			logrus.WithFields(logrus.Fields{
 				"Component":    "JobManager",

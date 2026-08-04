@@ -122,9 +122,13 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			ctx,
 			cmd,
 			false); err != nil {
-			_ = t.jobWriter.WriteTrace(ctx,
-				fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
-					p, err, string(stderr)))
+			// Only surface the error when the task succeeded — if the task failed,
+			// missing artifact files are expected and the noise is unhelpful.
+			if t.taskResp.Status.Completed() {
+				_ = t.jobWriter.WriteTrace(ctx,
+					fmt.Sprintf("⛔ failed to copy artifact %s due to %v, stderr=%s",
+						p, err, string(stderr)))
+			}
 		} else {
 			names.WriteString(zipName + " ")
 		}

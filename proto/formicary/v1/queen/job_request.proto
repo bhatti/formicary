@@ -68,6 +68,15 @@ message JobRequest {
   bool cascade_cancel = 34 [(formicary.v1.tags) = "json:\"cascade_cancel\" gorm:\"cascade_cancel\""];
 }
 
+// TriggerJobRequestBody is the optional JSON body accepted by
+// POST /api/v1/jobs/requests/:id/trigger.
+// All fields are optional. When params is provided its entries are merged
+// into the job request's existing params before the job is triggered;
+// existing keys are updated and new keys are inserted.
+message TriggerJobRequestBody {
+  map<string, string> params = 1 [(formicary.v1.tags) = "json:\"params,omitempty\""];
+}
+
 // PendingApproval describes a task execution awaiting votes.
 message PendingApproval {
   string job_request_id = 1 [(formicary.v1.tags) = "json:\"job_request_id\""];

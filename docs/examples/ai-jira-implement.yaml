@@ -32,6 +32,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "2"
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
     volumes:
       empty_dir:
         - name: workspace
@@ -78,6 +82,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "2"
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 2G
     volumes:
       empty_dir:
         - name: workspace
@@ -121,6 +129,10 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    cpu_limit: "1"
+    cpu_request: "200m"
+    memory_limit: 2Gi
+    memory_request: 512Mi
     volumes:
       empty_dir:
         - name: workspace
@@ -138,7 +150,6 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
     PR_OPEN_LABEL: "{{.PrOpenLabel}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -206,12 +217,13 @@ tasks:
 # --- DONE --------------------------------------------------------------------
 - task_type: done
   method: SHELL
+  report_stdout: true
   script:
     - echo "Pipeline complete"
 
 job_variables:
   MaxTurnsPlan: "50"
-  MaxTurnsImplement: "200"
+  MaxTurnsImplement: "100"
   MaxTurnsFeedback: "20"
   PollInterval: "120"
   GitUserName: "AI Agent"

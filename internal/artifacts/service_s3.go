@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -318,9 +319,21 @@ func (a *Adapter) checkBucket(ctx context.Context) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if a.verifiedBucket {
-		return nil
+		// In local mode verify the endpoint is still reachable; if not, weed may have
+		// been restarted (watchdog) so reset verifiedBucket and let the check re-run.
+		if a.localServer != nil {
+			conn, err := net.DialTimeout("tcp", a.localServer.Endpoint, 500*time.Millisecond)
+			if err != nil {
+				a.verifiedBucket = false
+			} else {
+				_ = conn.Close()
+				return nil
+			}
+		} else {
+			return nil
+		}
 	}
-	// In local mode, block until the SeaweedFS subprocess is ready to accept S3 connections.
+	// In local mode, wait until the SeaweedFS subprocess is ready (or has restarted).
 	if a.localServer != nil {
 		if err := a.localServer.WaitReady(ctx); err != nil {
 			return fmt.Errorf("seaweedfs: not ready: %w", err)
