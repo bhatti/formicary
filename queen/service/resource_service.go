@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/grpc/interceptors"
 	commonTypes "plexobject.com/formicary/internal/types"
 	svcpb "plexobject.com/formicary/gen/go/formicary/v1/services"
@@ -42,7 +43,12 @@ func (s *ResourceService) QueryAntRegistrations(ctx context.Context, req *svcpb.
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	all := s.dashboardManager.AntRegistrations()
+	// Apply org-scoped filtering first: non-admin users only see their org's ants.
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	all := s.dashboardManager.AntRegistrationsByOrg(orgID)
 
 	// Filter by method and tags in-memory (no DB query for registrations).
 	var filtered []*commonTypes.AntRegistration
@@ -89,7 +95,11 @@ func (s *ResourceService) GetAntRegistration(ctx context.Context, req *svcpb.Get
 	if qc == nil {
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
-	for _, r := range s.dashboardManager.AntRegistrations() {
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	for _, r := range s.dashboardManager.AntRegistrationsByOrg(orgID) {
 		if r.AntID == req.AntId {
 			return &svcpb.GetAntRegistrationResponse{AntRegistration: toProtoAntRegistration(r)}, nil
 		}
@@ -160,6 +170,27 @@ func (s *ResourceService) SaveSubscription(ctx context.Context, req *svcpb.SaveS
 	return &svcpb.SaveSubscriptionResponse{Subscription: toProtoSubscription(saved)}, nil
 }
 
+func (s *ResourceService) QueryContainerEvents(ctx context.Context, req *svcpb.QueryContainerEventsRequest) (*svcpb.QueryContainerEventsResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	ps := pageSize(req.PageSize)
+	p := int(req.Page)
+	recs, total := s.dashboardManager.GetContainerEventsByOrg(orgID, p*ps, ps, req.SortBy)
+	return &svcpb.QueryContainerEventsResponse{
+		Records:      toProtoContainerEvents(recs),
+		TotalRecords: int64(total),
+		Page:         req.Page,
+		PageSize:     effectivePageSize(req.PageSize),
+		TotalPages:   totalPages(int64(total), effectivePageSize(req.PageSize)),
+	}, nil
+}
+
 // ---- Ant registration conversion helpers -----------------------------------
 
 func toProtoAntRegistration(r *commonTypes.AntRegistration) *protoResource.AntRegistration {
@@ -169,6 +200,23 @@ func toProtoAntRegistration(r *commonTypes.AntRegistration) *protoResource.AntRe
 	methods := make([]string, 0, len(r.Methods))
 	for _, m := range r.Methods {
 		methods = append(methods, string(m))
+	}
+	// Convert per-method health entries to proto MethodHealth messages.
+	var methodHealth map[string]*protoResource.MethodHealth
+	if len(r.MethodHealth) > 0 {
+		methodHealth = make(map[string]*protoResource.MethodHealth, len(r.MethodHealth))
+		for method, entry := range r.MethodHealth {
+			ph := &protoResource.MethodHealth{
+				LastCheckedAt: timestamppb.New(entry.LastCheckedAt),
+				Error:         entry.Error,
+			}
+			if entry.Healthy {
+				ph.Status = protoResource.MethodHealthStatus_METHOD_HEALTH_STATUS_HEALTHY
+			} else {
+				ph.Status = protoResource.MethodHealthStatus_METHOD_HEALTH_STATUS_UNHEALTHY
+			}
+			methodHealth[method] = ph
+		}
 	}
 	return &protoResource.AntRegistration{
 		AntId:         r.AntID,
@@ -180,8 +228,10 @@ func toProtoAntRegistration(r *commonTypes.AntRegistration) *protoResource.AntRe
 		CurrentLoad:   int32(r.CurrentLoad),
 		TotalExecuted: int32(r.TotalExecuted),
 		AutoRefresh:   r.AutoRefresh,
+		OrgId:         r.OrgID,
 		CreatedAt:     timestamppb.New(r.CreatedAt),
 		AntStartedAt:  timestamppb.New(r.AntStartedAt),
+		MethodHealth:  methodHealth,
 	}
 }
 
@@ -244,4 +294,30 @@ func fromProtoSubscription(p *protoUser.Subscription) *commonTypes.Subscription 
 		sub.EndedAt = p.EndedAt.AsTime()
 	}
 	return sub
+}
+
+// ---- ContainerEvent conversion helpers -------------------------------------
+
+func toProtoContainerEvent(e *events.ContainerLifecycleEvent) *svcpb.ContainerEvent {
+	if e == nil {
+		return nil
+	}
+	return &svcpb.ContainerEvent{
+		ContainerName:  e.ContainerName,
+		AntId:          e.AntID,
+		ContainerState: string(e.ContainerState),
+		Method:         string(e.Method),
+		CreatedAt:      timestamppb.New(e.CreatedAt),
+		ElapsedSecs:    e.Elapsed(),
+	}
+}
+
+func toProtoContainerEvents(evts []*events.ContainerLifecycleEvent) []*svcpb.ContainerEvent {
+	out := make([]*svcpb.ContainerEvent, 0, len(evts))
+	for _, e := range evts {
+		if p := toProtoContainerEvent(e); p != nil {
+			out = append(out, p)
+		}
+	}
+	return out
 }

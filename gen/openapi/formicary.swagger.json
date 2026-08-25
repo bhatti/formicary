@@ -58,6 +58,10 @@
       "description": "Manage ant worker registrations and user quota subscriptions."
     },
     {
+      "name": "slack",
+      "description": "Manage Slack command routes that map trigger words to Formicary job types."
+    },
+    {
       "name": "triggers",
       "description": "Inspect and manage event-driven trigger state for job definitions."
     },
@@ -1413,6 +1417,84 @@
         ],
         "tags": [
           "error-codes"
+        ]
+      }
+    },
+    "/api/v1/executors": {
+      "get": {
+        "summary": "List container events",
+        "description": "Returns a paginated list of container lifecycle events. All authenticated users may call this; admins see all events, org users see only events from their org's ants.",
+        "operationId": "ResourceService_QueryContainerEvents",
+        "responses": {
+          "200": {
+            "description": "Paginated container event list.",
+            "schema": {
+              "$ref": "#/definitions/servicesQueryContainerEventsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "resources"
         ]
       }
     },
@@ -3616,6 +3698,108 @@
         ]
       }
     },
+    "/api/v1/jobs/submissions": {
+      "get": {
+        "summary": "List job submission summaries",
+        "description": "Returns job submission counts grouped by user, org, and job type. All authenticated users may call this; admins see all orgs, org users see only their org.",
+        "operationId": "JobExecutionService_QueryJobSubmissions",
+        "responses": {
+          "200": {
+            "description": "Paginated job submission summary list.",
+            "schema": {
+              "$ref": "#/definitions/servicesQueryJobSubmissionsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "from_date",
+            "description": "from_date is an optional RFC3339 start of the time window.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "to_date",
+            "description": "to_date is an optional RFC3339 end of the time window.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
     "/api/v1/jobs/{job_id}/configs": {
       "get": {
         "summary": "List job configs",
@@ -4001,6 +4185,78 @@
             "schema": {
               "$ref": "#/definitions/servicesCreateOrgRequest"
             }
+          }
+        ],
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/api/v1/orgs/usage": {
+      "get": {
+        "summary": "Get resource usage report",
+        "description": "Returns aggregated CPU and disk resource usage grouped by user and organization. All authenticated users may call this; admins see all orgs, org users see only their org.",
+        "operationId": "OrganizationService_GetResourceUsageReport",
+        "responses": {
+          "200": {
+            "description": "Resource usage report.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetResourceUsageReportResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from_date",
+            "description": "from_date is an optional RFC3339 start of the reporting window.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "to_date",
+            "description": "to_date is an optional RFC3339 end of the reporting window.",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -4938,6 +5194,127 @@
         ],
         "tags": [
           "job-resources"
+        ]
+      }
+    },
+    "/api/v1/slack/routes": {
+      "get": {
+        "summary": "Get Slack routes",
+        "description": "Returns the current Slack command routing table. Available to all authenticated users.",
+        "operationId": "SlackService_GetSlackRoutes",
+        "responses": {
+          "200": {
+            "description": "Slack routes configuration.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetSlackRoutesResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "slack"
+        ]
+      },
+      "post": {
+        "summary": "Save Slack routes",
+        "description": "Replaces the full Slack command routing table. Requires admin role. At least one route must be provided.",
+        "operationId": "SlackService_SaveSlackRoutes",
+        "responses": {
+          "200": {
+            "description": "Saved Slack routes configuration.",
+            "schema": {
+              "$ref": "#/definitions/servicesSaveSlackRoutesResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "SaveSlackRoutesRequest replaces the full set of Slack command routes.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/servicesSaveSlackRoutesRequest"
+            }
+          }
+        ],
+        "tags": [
+          "slack"
         ]
       }
     },
@@ -5995,6 +6372,38 @@
       },
       "description": "Programmatically fire a webhook trigger. Caller is authenticated via JWT; HTTP auth on the trigger is bypassed.",
       "title": "FireWebhookTriggerRequest"
+    },
+    "domainSlackRoute": {
+      "type": "object",
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "triggers is the list of case-insensitive command words (e.g. [\"standup\", \"status\"])."
+        },
+        "job_type": {
+          "type": "string",
+          "description": "job_type is the Formicary job type to submit (e.g. \"ai-standup-jira\")."
+        },
+        "description": {
+          "type": "string",
+          "description": "description is shown in @bot help output."
+        },
+        "id_var": {
+          "type": "string",
+          "description": "id_var is the job param name that receives the trailing text after the command verb.\nFor example, id_var=\"PRUrl\" means trailing text is submitted as params[\"PRUrl\"]."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "params are fixed key-value pairs merged into every job submission for this route.\nThe job container interprets them — Formicary treats them as opaque."
+        }
+      },
+      "description": "SlackRoute maps one or more trigger words to a Formicary job type.\nFormicary acts as a thin passthrough: it matches the verb, extracts trailing\ntext as the Prompt param, and queues the job. All AI logic lives in the job container."
     },
     "protobufAny": {
       "type": "object",
@@ -7662,6 +8071,17 @@
             "type": "string"
           },
           "description": "config_info holds arbitrary ant configuration metadata."
+        },
+        "org_id": {
+          "type": "string",
+          "description": "org_id is set server-side from the ant's JWT claims when auth is enabled.\nIt is empty when auth is disabled (no-op path)."
+        },
+        "method_health": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/resourceMethodHealth"
+          },
+          "description": "method_health maps each supported method name (e.g. \"KUBERNETES\", \"DOCKER\") to its\nmost-recent health probe result. Populated by the ant's background health checker and\nincluded in every heartbeat. The queen skips this ant for a method when its status is\nUNHEALTHY. Absent entries mean the method has not been probed yet (treated as healthy)."
         }
       },
       "description": "AntRegistration registers a remote ant worker with the resource manager.\nAnts broadcast this on the registration topic; the queen updates its capacity map."
@@ -7771,6 +8191,35 @@
       },
       "description": "Artifact defines metadata for an artifact uploaded during job execution (logs, results, cache, etc.)."
     },
+    "resourceMethodHealth": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/resourceMethodHealthStatus",
+          "description": "status is the binary healthy/unhealthy verdict."
+        },
+        "error": {
+          "type": "string",
+          "description": "error is empty when healthy; contains a human-readable reason when unhealthy."
+        },
+        "last_checked_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "last_checked_at is the wall-clock time of the most-recent probe."
+        }
+      },
+      "description": "MethodHealth carries the most-recent health probe result for one execution method."
+    },
+    "resourceMethodHealthStatus": {
+      "type": "string",
+      "enum": [
+        "METHOD_HEALTH_STATUS_UNSPECIFIED",
+        "METHOD_HEALTH_STATUS_HEALTHY",
+        "METHOD_HEALTH_STATUS_UNHEALTHY"
+      ],
+      "default": "METHOD_HEALTH_STATUS_UNSPECIFIED",
+      "description": "MethodHealthStatus reports the liveness of a method's backend (k8s cluster, Docker daemon, etc.)."
+    },
     "rpcStatus": {
       "type": "object",
       "properties": {
@@ -7809,6 +8258,32 @@
         }
       },
       "description": "ComponentHealth holds health status for a single system component."
+    },
+    "servicesContainerEvent": {
+      "type": "object",
+      "properties": {
+        "container_name": {
+          "type": "string"
+        },
+        "ant_id": {
+          "type": "string"
+        },
+        "container_state": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "elapsed_secs": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "description": "ContainerEvent records a single container lifecycle transition on an ant worker."
     },
     "servicesContainerEventCount": {
       "type": "object",
@@ -8089,6 +8564,42 @@
       },
       "description": "GetOrgResponse wraps a single organization."
     },
+    "servicesGetResourceUsageReportResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/servicesResourceUsageSummary"
+          }
+        },
+        "from_date": {
+          "type": "string"
+        },
+        "to_date": {
+          "type": "string"
+        }
+      },
+      "description": "GetResourceUsageReportResponse returns aggregated resource usage records."
+    },
+    "servicesGetSlackRoutesResponse": {
+      "type": "object",
+      "properties": {
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/domainSlackRoute"
+          }
+        },
+        "config_id": {
+          "type": "string",
+          "description": "config_id is the ULID of the persisted SlackConfig record (empty when using defaults)."
+        }
+      },
+      "description": "GetSlackRoutesResponse returns all configured Slack command routes and the config record ID."
+    },
     "servicesGetSubscriptionResponse": {
       "type": "object",
       "properties": {
@@ -8245,6 +8756,29 @@
         }
       },
       "description": "JobRequestStatsResponse returns execution statistics aggregated by job type."
+    },
+    "servicesJobSubmissionSummary": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "organization_id": {
+          "type": "string"
+        },
+        "job_type": {
+          "type": "string"
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
+        },
+        "last_submitted": {
+          "type": "string",
+          "description": "last_submitted is an RFC3339 timestamp of the most-recent submission in this group."
+        }
+      },
+      "description": "JobSubmissionSummary aggregates job submission counts for a user/org/job-type combination."
     },
     "servicesJobWaitTimeResponse": {
       "type": "object",
@@ -8412,6 +8946,35 @@
       },
       "description": "QueryAuditRecordsResponse returns a paginated list of audit records."
     },
+    "servicesQueryContainerEventsResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/servicesContainerEvent"
+          }
+        },
+        "total_records": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "page_size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total_pages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "QueryContainerEventsResponse returns a paginated list of container events."
+    },
     "servicesQueryErrorCodesResponse": {
       "type": "object",
       "properties": {
@@ -8553,6 +9116,35 @@
         }
       },
       "description": "QueryJobResourcesResponse returns a paginated list of job resources."
+    },
+    "servicesQueryJobSubmissionsResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/servicesJobSubmissionSummary"
+          }
+        },
+        "total_records": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "page_size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total_pages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "QueryJobSubmissionsResponse returns a paginated list of job submission summaries."
     },
     "servicesQueryOrgConfigsResponse": {
       "type": "object",
@@ -8742,6 +9334,26 @@
       },
       "description": "ResourceUsage holds CPU and disk usage metrics."
     },
+    "servicesResourceUsageSummary": {
+      "type": "object",
+      "properties": {
+        "organization_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "cpu_secs": {
+          "type": "number",
+          "format": "double"
+        },
+        "disk_mb": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "description": "ResourceUsageSummary aggregates CPU and disk consumption for a user/org combination."
+    },
     "servicesRevealOrgConfigResponse": {
       "type": "object",
       "properties": {
@@ -8795,6 +9407,36 @@
         }
       },
       "description": "SaveOrgConfigResponse returns the saved org config."
+    },
+    "servicesSaveSlackRoutesRequest": {
+      "type": "object",
+      "properties": {
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/domainSlackRoute"
+          }
+        }
+      },
+      "description": "SaveSlackRoutesRequest replaces the full set of Slack command routes."
+    },
+    "servicesSaveSlackRoutesResponse": {
+      "type": "object",
+      "properties": {
+        "config_id": {
+          "type": "string",
+          "description": "config_id is the ULID of the persisted SlackConfig record."
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/domainSlackRoute"
+          }
+        }
+      },
+      "description": "SaveSlackRoutesResponse returns the saved routes and the config record ID."
     },
     "servicesSaveSubscriptionResponse": {
       "type": "object",

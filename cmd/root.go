@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io/fs"
 	"os"
 	"strings"
 
@@ -24,6 +25,10 @@ var Commit string
 // Date of the build
 var Date string
 
+// PublicFS holds the embedded public/ filesystem passed in from main.
+// It is set once at startup before any command runs.
+var PublicFS fs.FS
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "formicary",
@@ -36,10 +41,11 @@ var rootCmd = &cobra.Command{
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute(version string, commit string, date string) {
+func Execute(version string, commit string, date string, publicFS fs.FS) {
 	Version = version
 	Commit = commit
 	Date = date
+	PublicFS = publicFS
 	if err := rootCmd.Execute(); err != nil {
 		log.WithFields(log.Fields{"Error": err}).
 			Errorf("failed to execute command...")

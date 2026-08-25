@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver (no CGO)
+	_ "github.com/mattn/go-sqlite3" // CGO SQLite driver; registered as "sqlite3"
 )
 
 const (
@@ -49,13 +49,28 @@ type wsOfflineBuffer struct {
 
 // newWSOfflineBuffer opens (or creates) the SQLite buffer database at the given path.
 func newWSOfflineBuffer(dbPath string, maxSize int64, ttl time.Duration) (*wsOfflineBuffer, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite buffer %s: %w", dbPath, err)
 	}
 
-	// Single-writer mode to avoid SQLITE_BUSY contention
+	// Single-writer: MaxOpenConns(1) prevents concurrent writers which would
+	// cause SQLITE_BUSY without WAL mode.  WAL + busy_timeout together handle
+	// the rare case where a read and write overlap during reconnect.
 	db.SetMaxOpenConns(1)
+
+	// WAL mode: readers don't block writer; busy_timeout gives transient
+	// lock contention time to resolve instead of returning SQLITE_BUSY immediately.
+	for _, pragma := range []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=3000",
+		"PRAGMA synchronous=NORMAL",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("set pragma %q on buffer db: %w", pragma, err)
+		}
+	}
 
 	if _, err := db.Exec(sqliteCreateTable); err != nil {
 		_ = db.Close()

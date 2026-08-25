@@ -143,6 +143,9 @@ func getUserInfoFromGithub(
 	if state != expectedState {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
+	// Inject system HTTP client so token exchange uses the OS CA pool, not any
+	// server-side TLS config (which carries our self-signed cert for inbound TLS).
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, systemHTTPClient)
 	token, err := githubOauthConfig.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed due to %w", err)
@@ -168,8 +171,12 @@ func getUserInfoFromGithub(
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal %s due to %w", string(contents), err)
 	}
+	login, ok := mUser["login"].(string)
+	if !ok || login == "" {
+		return nil, fmt.Errorf("failed to find login in github response: %s", string(contents))
+	}
 	user := &common.User{
-		Username:  mUser["login"].(string),
+		Username:  login,
 		Active:    true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),

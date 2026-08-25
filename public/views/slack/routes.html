@@ -1,0 +1,140 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Slack Routes</h2>
+            <div class="text-secondary mt-1">
+                Command routing table for the Slack bot.
+                Commands are matched case-insensitively — the first matching trigger wins.
+            </div>
+        </div>
+        {{ if $.Admin }}
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            {{ if .ConfigID }}
+            <a href="/dashboard/configs/{{ .ConfigID }}/edit" class="btn btn-primary btn-sm">Edit Routes</a>
+            {{ else }}
+            <a href="/dashboard/configs/new" class="btn btn-primary btn-sm">Configure Routes</a>
+            {{ end }}
+        </div>
+        {{ end }}
+    </div>
+</div>
+
+{{ if $.Admin }}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">System Slack Settings</h3>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-4">
+                <div class="d-flex align-items-center gap-2">
+                    {{ if .AppTokenStatus.Configured }}
+                    <span class="badge bg-success">●</span>
+                    <span>App Token <span class="text-secondary small">({{ .AppTokenStatus.Source }})</span></span>
+                    {{ else }}
+                    <span class="badge bg-danger">○</span>
+                    <span class="text-danger">App Token not set</span>
+                    <a href="/dashboard/configs/new?kind=SLACK" class="btn btn-sm btn-outline-secondary ms-2">Configure</a>
+                    {{ end }}
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="d-flex align-items-center gap-2">
+                    {{ if .BotTokenStatus.Configured }}
+                    <span class="badge bg-success">●</span>
+                    <span>Bot Token <span class="text-secondary small">({{ .BotTokenStatus.Source }})</span></span>
+                    {{ else }}
+                    <span class="badge bg-danger">○</span>
+                    <span class="text-danger">Bot Token not set</span>
+                    <a href="/dashboard/configs/new?kind=SLACK" class="btn btn-sm btn-outline-secondary ms-2">Configure</a>
+                    {{ end }}
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="d-flex align-items-center gap-2">
+                    {{ if .Channel }}
+                    <span class="badge bg-success">●</span>
+                    <span>Default Channel: <code>{{ .Channel }}</code></span>
+                    {{ else }}
+                    <span class="badge bg-secondary">—</span>
+                    <span class="text-secondary">No default channel (per-user only)</span>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+        <div class="mt-2 text-secondary small">
+            Set via env vars <code>SLACK_APP_TOKEN</code>, <code>SLACK_BOT_TOKEN</code>, <code>SLACK_CHANNEL</code>
+            or <a href="/dashboard/configs/new?kind=SLACK">Admin &gt; System Config</a> (kind=<code>SLACK</code>).
+            Per-org bot token: org Notification tab. Per-user channel: user Notification tab.
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ if not .Routes }}
+<div class="alert alert-info">
+    No Slack routes are configured yet.
+    {{ if $.Admin }}
+    Use <a href="/dashboard/configs/new">New Config</a> to add a <code>SlackRoutes</code> system config
+    (kind: <code>JSON</code>, scope: <code>default</code>), or run
+    <code>./docs/examples/deploy-ai-workflows.sh --set-slack-routes</code>.
+    {{ else }}
+    Ask your admin to configure Slack routes.
+    {{ end }}
+</div>
+{{ else }}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>Triggers</th>
+                <th>Job Type</th>
+                <th>ID Variable</th>
+                <th>Fixed Params</th>
+                <th>Description</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .Routes }}
+            <tr>
+                <td>
+                    {{ range .Triggers }}
+                    <span class="badge bg-blue-lt me-1">{{ . }}</span>
+                    {{ end }}
+                </td>
+                <td><code>{{ .JobType }}</code></td>
+                <td>
+                    {{ if .IdVar }}<code>{{ .IdVar }}</code>{{ else }}<span class="text-secondary">—</span>{{ end }}
+                </td>
+                <td>
+                    {{ if .Params }}
+                    {{ range $k, $v := .Params }}
+                    <span class="badge bg-azure-lt me-1">{{ $k }}={{ $v }}</span>
+                    {{ end }}
+                    {{ else }}
+                    <span class="text-secondary">—</span>
+                    {{ end }}
+                </td>
+                <td class="text-secondary">{{ .Description }}</td>
+            </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3 text-secondary small">
+    <strong>How routing works:</strong>
+    When a user types <code>@bot &lt;command&gt; [text]</code>, the first matching trigger selects the route.
+    Trailing text is bound to the <em>ID Variable</em> param (e.g. a PR URL or issue number).
+    Fixed params are merged into every job submission — their meaning is up to the job container.
+    {{ if $.Admin }}
+    <a href="/dashboard/configs/{{ .ConfigID }}/edit">Edit</a> the <code>SlackRoutes</code> system config to add or change routes
+    (restart the queen to reload).
+    {{ end }}
+</div>
+{{ end }}
+
+{{ template "layouts/footer" . }}

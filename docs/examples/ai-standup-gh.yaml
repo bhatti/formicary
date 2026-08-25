@@ -23,6 +23,9 @@ max_concurrency: 1
 timeout: 900s
 
 job_variables:
+  SlackThreadTs: ""
+  SlackChannel: ""
+  StandupTeamMembers: ""
   StandupLookbackHours: "26"
   StandupStaleDays: "2"
   MaxTurnsStandup: "30"
@@ -48,11 +51,25 @@ tasks:
 - task_type: gather
   method: KUBERNETES
   timeout: 3m
+  task_variables:
+    GH_ORG: "{{.GHOrg}}"
+    GH_REPO: "{{.GHRepo}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SELECTED_TRACKER
+      value: github
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: GH_ORG
+      value: "{{.GHOrg}}"
+    - name: STANDUP_TEAM
+      value: "{{.StandupTeamMembers}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -79,12 +96,23 @@ tasks:
 # --- SYNTHESIZE --------------------------------------------------------------
 - task_type: synthesize
   method: KUBERNETES
-  timeout: 10m
+  timeout: 15m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    MAX_TURNS: "{{.MaxTurnsStandup}}"
+  context_variables:
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: MAX_TURNS
+      value: "{{.MaxTurnsStandup}}"
+    - name: SELECTED_TRACKER
+      value: github
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -109,21 +137,32 @@ tasks:
     paths:
       - ./signals.json
       - ./standup_brief.md
-      - ./risk_report.md
       - ./synthesize_result.json
+      - ./reports
       - ./logs
     expire_after: 72h
   on_completed: post
+  on_failed: notify-error
 
 # --- POST --------------------------------------------------------------------
 - task_type: post
   method: KUBERNETES
-  timeout: 2m
+  timeout: 10m
+  task_variables:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: github
+    - name: JOB_ID
+      value: "{{.JobID}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -136,6 +175,7 @@ tasks:
   environment:
     WORKSPACE_DIR: /workspace
     SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-standup-gh"
     JOB_ID: "{{.JobID}}"
@@ -149,6 +189,32 @@ tasks:
       - ./post_result.json
     when: always
     expire_after: 168h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 3m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: github
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    MESSAGE: ":x: Standup job failed. Check Formicary logs for details."
+  script:
+    - python -m scripts.standup.slack_client
   on_completed: done
 
 # --- DONE --------------------------------------------------------------------

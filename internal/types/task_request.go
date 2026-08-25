@@ -56,6 +56,10 @@ type TaskRequest struct {
 	Script          []string                 `json:"script" yaml:"script"`
 	Timeout         time.Duration            `json:"timeout" yaml:"timeout"`
 	Variables       map[string]VariableValue `json:"variables" yaml:"variables"`
+	// ContextVariables are key/value pairs from the task's context_variables YAML field,
+	// rendered with job params by the queen. The ant echoes them into TaskResponse.TaskContext
+	// so they appear in the dashboard's task execution context view.
+	ContextVariables map[string]string        `json:"context_variables,omitempty" yaml:"context_variables,omitempty"`
 	ExecutorOpts    *ExecutorOptions         `json:"executor_opts" yaml:"executor_opts"`
 	AdminUser       bool                     `json:"admin_user" yaml:"admin_user"`
 

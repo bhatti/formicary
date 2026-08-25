@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -305,6 +306,9 @@ func (uc *UserAdminController) updateUser(c web.APIContext) (err error) {
 		c.FormValue("email"),
 		acl.NewRoles(""))
 	user.ID = c.Param("id")
+	if mc, convErr := strconv.Atoi(c.FormValue("max_concurrency")); convErr == nil && mc > 0 {
+		user.MaxConcurrency = mc
+	}
 	err = user.Validate()
 
 	if err == nil {

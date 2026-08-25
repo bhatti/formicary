@@ -19,6 +19,23 @@ message AntAllocation {
   google.protobuf.Timestamp updated_at = 6 [(formicary.v1.tags) = "json:\"updated_at\" mapstructure:\"updated_at\""];
 }
 
+// MethodHealthStatus reports the liveness of a method's backend (k8s cluster, Docker daemon, etc.).
+enum MethodHealthStatus {
+  METHOD_HEALTH_STATUS_UNSPECIFIED = 0;
+  METHOD_HEALTH_STATUS_HEALTHY     = 1;
+  METHOD_HEALTH_STATUS_UNHEALTHY   = 2;
+}
+
+// MethodHealth carries the most-recent health probe result for one execution method.
+message MethodHealth {
+  // status is the binary healthy/unhealthy verdict.
+  MethodHealthStatus status = 1;
+  // error is empty when healthy; contains a human-readable reason when unhealthy.
+  string error = 2;
+  // last_checked_at is the wall-clock time of the most-recent probe.
+  google.protobuf.Timestamp last_checked_at = 3;
+}
+
 // AntRegistration registers a remote ant worker with the resource manager.
 // Ants broadcast this on the registration topic; the queen updates its capacity map.
 message AntRegistration {
@@ -38,6 +55,14 @@ message AntRegistration {
   bool auto_refresh = 12 [(formicary.v1.tags) = "json:\"auto_refresh\" mapstructure:\"auto_refresh\""];
   // config_info holds arbitrary ant configuration metadata.
   map<string, string> config_info = 13 [(formicary.v1.tags) = "json:\"config_info\" mapstructure:\"config_info\""];
+  // org_id is set server-side from the ant's JWT claims when auth is enabled.
+  // It is empty when auth is disabled (no-op path).
+  string org_id = 14 [(formicary.v1.tags) = "json:\"org_id,omitempty\" mapstructure:\"org_id\""];
+  // method_health maps each supported method name (e.g. "KUBERNETES", "DOCKER") to its
+  // most-recent health probe result. Populated by the ant's background health checker and
+  // included in every heartbeat. The queen skips this ant for a method when its status is
+  // UNHEALTHY. Absent entries mean the method has not been probed yet (treated as healthy).
+  map<string, MethodHealth> method_health = 15 [(formicary.v1.tags) = "json:\"method_health,omitempty\" mapstructure:\"method_health\""];
 }
 
 // AntReservation records a resource reservation made for a specific job/task.

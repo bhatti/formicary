@@ -1,24 +1,26 @@
-# Formicary — single-pod Kubernetes deployment
+# Formicary — all-in-one deployment (leader + embedded ant worker).
+#
+# Use for local/single-node setups where everything runs in one pod.
+# For team deployments on EC2: use formicary-leader.yaml + formicary-ant.yaml per user.
 #
 # Deploy:
-#   kubectl apply -f k8s.yaml
+#   kubectl apply -f k8s/formicary-all-in-one.yaml
+#   kubectl rollout status deployment/formicary --timeout=120s
 #
 # Access:
 #   kubectl port-forward svc/formicary 7777:7777 19000:19000
 #   open http://localhost:7777
 #
-# Auth secrets (required):
+# Required secrets:
 #   kubectl create secret generic formicary-auth \
 #     --from-literal=jwt-secret="$(openssl rand -base64 32)" \
 #     --from-literal=google-client-id="<id>.apps.googleusercontent.com" \
 #     --from-literal=google-client-secret="<secret>"
 #
 # Delete:
-#   kubectl delete -f k8s.yaml
+#   kubectl delete -f k8s/formicary-all-in-one.yaml
 
 ---
-# ServiceAccount — the pod uses this for in-cluster Kubernetes API access.
-# No kubeconfig needed.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -26,7 +28,6 @@ metadata:
   namespace: default
 
 ---
-# ClusterRole — permissions needed to launch and manage job pods.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -54,7 +55,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
-# PersistentVolumeClaim — SQLite DB + SeaweedFS artifacts
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -67,7 +67,6 @@ spec:
       storage: 10Gi
 
 ---
-# ConfigMap — bakes in the k8s config file
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -81,7 +80,7 @@ data:
         rate_limit_sec: 100
         s3:
             local_mode: true
-            local_data_dir: /data/seaweedfs
+            local_data_dir: /data/seaweed
             local_weed_bin: /usr/local/bin/weed
             local_s3_port: 19000
             bucket: formicary-artifacts
@@ -90,8 +89,12 @@ data:
         auth:
             enabled: true
     db:
-        data_source: /data/formicary.db
+        data_source: /data/db/formicary.db
         type: sqlite
+        sqlite_wal_mode: true
+        sqlite_busy_timeout_ms: 5000
+        sqlite_synchronous: NORMAL
+        sqlite_cache_size_kb: 65536
     embedded_ant:
         tags: ["docker", "kubernetes", "shell", "builder"]
         methods:
@@ -103,14 +106,11 @@ data:
           - HTTP_PUT_FORM
           - HTTP_PUT_JSON
           - HTTP_DELETE
-        max_capacity: 10
+        max_capacity: 5
         kubernetes:
             namespace: "default"
             allow_privilege_escalation: true
             dns_policy: cluster-first-with-host-net
-            host_aliases:
-              - ip: "100.107.120.55"
-                hostnames: ["ai"]
             registry:
                 pull_policy: always
             default_resources:
@@ -130,22 +130,52 @@ spec:
   selector:
     matchLabels:
       app: formicary
+  strategy:
+    type: Recreate   # SQLite can only have one writer
   template:
     metadata:
       labels:
         app: formicary
     spec:
       serviceAccountName: formicary
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: fix-data-perms
+          image: busybox:1.36
+          command: ["sh", "-c", "mkdir -p /data/db /data/seaweed && chown -R 1000:1000 /data/db /data/seaweed && chmod 750 /data/db /data/seaweed"]
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: formicary
           image: plexobject/formicary:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 7777
-            - containerPort: 19000
+            - name: http
+              containerPort: 7777
+              protocol: TCP
+            - name: artifacts
+              containerPort: 19000
+              protocol: TCP
           env:
             - name: CONFIG_FILE
               value: /config/formicary-queen.yaml
+            - name: DB_DATA_SOURCE
+              value: /data/db/formicary.db
+            - name: DB_TYPE
+              value: sqlite
             - name: COMMON_AUTH_JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -163,11 +193,56 @@ spec:
                   name: formicary-auth
                   key: google-client-secret
                   optional: true
+            # Slack Socket Mode credentials (optional — Slack disabled when unset)
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: bot-token
+                  optional: true
+            - name: SLACK_APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: app-token
+                  optional: true
+            - name: SLACK_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: signing-secret
+                  optional: true
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: data
               mountPath: /data
             - name: config
               mountPath: /config
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:

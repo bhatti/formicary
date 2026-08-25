@@ -1,0 +1,289 @@
+# Formicary — leader-only deployment for EC2 / shared infrastructure.
+#
+# Ant workers connect externally over WebSocket from each team member's laptop.
+# Data is stored in a PVC backed by k3s local-path provisioner (no SELinux hassle).
+# To find the data on the host: ls /var/lib/rancher/k3s/storage/
+#
+# Required secrets:
+#   kubectl create secret generic formicary-auth \
+#     --from-literal=jwt-secret="$(openssl rand -base64 32)" \
+#     --from-literal=google-client-id="<id>.apps.googleusercontent.com" \
+#     --from-literal=google-client-secret="<secret>"
+#
+# TLS:
+#   make gen-tls-certs
+#   kubectl create secret tls formicary-tls \
+#     --cert=$HOME/certs/tls.crt --key=$HOME/certs/tls.key
+#
+# Deploy:
+#   kubectl apply -f k8s/formicary-leader.yaml
+#   kubectl rollout status deployment/formicary --timeout=120s
+#
+# Delete:
+#   kubectl delete -f k8s/formicary-leader.yaml
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: formicary
+  namespace: default
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: formicary
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "configmaps", "secrets", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: formicary
+subjects:
+  - kind: ServiceAccount
+    name: formicary
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: formicary
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: formicary-db
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: formicary-seaweed
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: formicary-config
+  namespace: default
+data:
+  formicary-queen.yaml: |
+    common:
+        public_dir: /app/public/
+        http_port: 7777
+        rate_limit_sec: 100
+        external_base_url: https://10.8.97.24.nip.io
+        tls:
+            enabled: true
+            cert_file: /certs/tls.crt
+            key_file:  /certs/tls.key
+        s3:
+            local_mode: true
+            local_data_dir: /data/seaweed
+            local_weed_bin: /usr/local/bin/weed
+            local_s3_port: 19000
+            bucket: formicary-artifacts
+            local_container_host: formicary
+            public_endpoint: localhost:19000
+        auth:
+            enabled: true
+        queue:
+            provider: "WEBSOCKET_MESSAGING"
+    db:
+        data_source: /data/db/formicary.db
+        type: sqlite
+        sqlite_wal_mode: true
+        sqlite_busy_timeout_ms: 5000
+        sqlite_synchronous: NORMAL
+        sqlite_cache_size_kb: 65536
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: formicary
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: formicary
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: formicary
+    spec:
+      serviceAccountName: formicary
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: formicary
+          image: plexobject/formicary:FORMICARY_VERSION
+          imagePullPolicy: Always
+          ports:
+            - name: https
+              containerPort: 7777
+              hostPort: 443
+              protocol: TCP
+            - name: artifacts
+              containerPort: 19000
+              hostPort: 4443
+              protocol: TCP
+          env:
+            - name: CONFIG_FILE
+              value: /config/formicary-queen.yaml
+            - name: DB_DATA_SOURCE
+              value: /data/db/formicary.db
+            - name: DB_TYPE
+              value: sqlite
+            - name: COMMON_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: jwt-secret
+            - name: COMMON_AUTH_GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-client-id
+                  optional: true
+            - name: COMMON_AUTH_GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-client-secret
+                  optional: true
+            - name: COMMON_AUTH_GOOGLE_CALLBACK_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-callback-host
+                  optional: true
+            - name: COMMON_AUTH_GITHUB_CALLBACK_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: google-callback-host
+                  optional: true
+            - name: COMMON_AUTH_SECURE
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-auth
+                  key: auth-secure
+                  optional: true
+            # Slack Socket Mode credentials (optional — Slack disabled when unset)
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: bot-token
+                  optional: true
+            - name: SLACK_APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: app-token
+                  optional: true
+            - name: SLACK_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: signing-secret
+                  optional: true
+            - name: SLACK_CHANNEL
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-slack
+                  key: slack-channel
+                  optional: true
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            tcpSocket:
+              port: 7777
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 7777
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: db
+              mountPath: /data/db
+            - name: seaweed
+              mountPath: /data/seaweed
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: formicary-db
+        - name: seaweed
+          persistentVolumeClaim:
+            claimName: formicary-seaweed
+        - name: config
+          configMap:
+            name: formicary-config
+        - name: tls-certs
+          secret:
+            secretName: formicary-tls
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: formicary
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: formicary
+  ports:
+    - name: https
+      port: 7777
+      targetPort: 7777
+      nodePort: 30777
+    - name: artifacts
+      port: 19000
+      targetPort: 19000
+      nodePort: 30900

@@ -81,6 +81,10 @@ func NewAntConfig(id string) (*AntConfig, error) {
 	viper.SetDefault("common.s3.bucket", "")
 	viper.SetDefault("common.queue.provider", "")
 	viper.SetDefault("common.queue.token", "")
+	viper.SetDefault("common.queue.websocket.server_endpoint", "")
+	// WebSocket offline buffer: :memory: for ephemeral pods; override with a file path
+	// (e.g. COMMON_QUEUE_WEBSOCKET_BUFFER_DB_PATH=/data/buf.db) for durable deployments.
+	viper.SetDefault("common.queue.websocket.buffer_db_path", ":memory:")
 	viper.SetDefault("common.redis.host", "")
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")
@@ -154,7 +158,7 @@ func (c *AntConfig) Validate() error {
 		return err
 	}
 	if c.MaxCapacity <= 0 {
-		c.MaxCapacity = 10
+		c.MaxCapacity = 5
 	}
 	if c.PollIntervalBeforeShutdown == 0 {
 		c.PollIntervalBeforeShutdown = 5 * time.Second

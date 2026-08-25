@@ -2,6 +2,13 @@ package web
 
 import (
 	"fmt"
+	"io/fs"
+	"math"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/didip/tollbooth/v7"
 	"github.com/didip/tollbooth/v7/limiter"
 	"github.com/golang-jwt/jwt/v5"
@@ -9,14 +16,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
-	"math"
-	"net"
-	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/types"
-	"strings"
-	"time"
 )
 
 // HandlerFunc defines a function to serve HTTP requests.
@@ -65,12 +67,31 @@ func (w *DefaultWebServer) SetLoginRedirectURL(url string) {
 }
 
 
-// NewDefaultWebServer creates new instance of web server
-func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
+// NewDefaultWebServer creates a web server. publicFS is the embedded public/ filesystem;
+// when non-nil it is used for static assets and templates instead of the filesystem path.
+// Pass nil (or omit) to fall back to PublicDir on disk (development mode).
+func NewDefaultWebServer(commonCfg *types.CommonConfig, publicFS fs.FS) (Server, error) {
 	ws := &DefaultWebServer{commonCfg: commonCfg, e: echo.New(), authEnabled: commonCfg.Auth.Enabled, loginRedirectURL: "/login"}
-	ws.e.Static("/", commonCfg.PublicDir+"assets")
-	ws.e.Static("/docs", commonCfg.PublicDir+"docs")
-	ws.e.File("/favicon.ico", commonCfg.PublicDir+"assets/images/favicon.ico") // https://favicon.io/emoji-favicons/sparkle
+
+	if publicFS != nil {
+		// Serve static assets from the embedded FS. Echo's StaticFS expects a sub-FS
+		// rooted at the directory being served, so we strip the "public/" prefix once.
+		assetsFS, err := fs.Sub(publicFS, "public/assets")
+		if err != nil {
+			return nil, fmt.Errorf("embedded assets sub-FS: %w", err)
+		}
+		docsFS, err := fs.Sub(publicFS, "public/docs")
+		if err != nil {
+			return nil, fmt.Errorf("embedded docs sub-FS: %w", err)
+		}
+		ws.e.StaticFS("/", assetsFS)
+		ws.e.StaticFS("/docs", docsFS)
+		ws.e.FileFS("/favicon.ico", "images/favicon.ico", assetsFS)
+	} else {
+		ws.e.Static("/", commonCfg.PublicDir+"assets")
+		ws.e.Static("/docs", commonCfg.PublicDir+"docs")
+		ws.e.File("/favicon.ico", commonCfg.PublicDir+"assets/images/favicon.ico")
+	}
 	defaultLoggerConfig := middleware.LoggerConfig{
 		Skipper: middleware.DefaultSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","id":"${id}","remote_ip":"${remote_ip}",` +
@@ -128,7 +149,11 @@ func NewDefaultWebServer(commonCfg *types.CommonConfig) (Server, error) {
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
 	var err error
-	ws.e.Renderer, err = NewTemplateRenderer(commonCfg.PublicDir+"views", ".html", commonCfg.Development)
+	if publicFS != nil {
+		ws.e.Renderer, err = NewTemplateRendererFromFS(publicFS, "public/views", ".html")
+	} else {
+		ws.e.Renderer, err = NewTemplateRenderer(commonCfg.PublicDir+"views", ".html", commonCfg.Development)
+	}
 	if err != nil {
 		return nil, err
 	}

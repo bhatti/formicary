@@ -381,8 +381,8 @@ func UserPermissions() []*Permission {
 		NewPermission(Artifact, Upload|Read|Query|Delete),
 		NewPermission(ErrorCode, Query|View|Read),
 		NewPermission(SystemConfig, None),
-		NewPermission(AntExecutor, None),
-		NewPermission(Container, None),
+		NewPermission(AntExecutor, Query|View|Read),
+		NewPermission(Container, Query|View|Read),
 		NewPermission(Health, None),
 		NewPermission(Profile, None),
 		NewPermission(Subscription, None),
@@ -390,7 +390,7 @@ func UserPermissions() []*Permission {
 		NewPermission(PrivacyPolicies, View|Read),
 		NewPermission(EmailVerification, Create|View|Read|Verify|Query),
 		NewPermission(UserInvitation, Create|View|Update|Read|Query|Invite),
-		NewPermission(Report, None),
+		NewPermission(Report, View|Read|Query),
 		NewPermission(Logs, Create|View|Update|Read),
 	}
 }

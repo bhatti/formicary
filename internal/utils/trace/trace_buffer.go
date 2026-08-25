@@ -248,5 +248,16 @@ func (b *Buffer) process(pipe *io.PipeReader) {
 	}
 
 	b.advanceAll()
+
+	// Flush any remaining partial line (no trailing \r\n) so callers receive
+	// every byte of output even when the process exits without a final newline.
+	b.bufferLock.Lock()
+	if b.lineBuffer.Len() > 0 {
+		tags := b.getTags()
+		b.lineFeeder(b.lineBuffer.Bytes(), tags)
+		b.lineBuffer.Reset()
+	}
+	b.bufferLock.Unlock()
+
 	close(b.finish)
 }

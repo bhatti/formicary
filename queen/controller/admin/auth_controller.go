@@ -273,10 +273,14 @@ func (ac *AuthController) addSessionMiddleware(webServer web.Server) {
 			if dbUser == nil {
 				if web.IsWhiteListURL(c.Path(), c.Request().Method) ||
 					web.IsWhiteListURL(c.Request().RequestURI, c.Request().Method) {
-					// ok
+					// ok — public path
 				} else if strings.HasPrefix(c.Path(), "/dashboard") {
 					http.Redirect(c.Response(), c.Request(), "/dashboard/users/new", http.StatusFound)
 					return nil
+				} else if user != nil {
+					// Valid JWT but no DB user (e.g. ant worker tokens): let the handler
+					// do its own deeper auth. The session middleware only enforces that a
+					// valid token exists; it does not require a DB record for non-dashboard paths.
 				} else {
 					return &echo.HTTPError{
 						Code: http.StatusUnauthorized,
@@ -346,7 +350,6 @@ func (ac *AuthController) addSessionUser(c web.APIContext) (
 		return nil, nil, nil, err
 	}
 
-	// not using query-context here because we just need to find user
 	dbUser, err = ac.userRepository.GetByUsername(common.NewQueryContext(nil, ""), user.Username)
 	if err != nil {
 		// User not found in DB yet — may be a new OAuth user in the middle of signup.

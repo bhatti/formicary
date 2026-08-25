@@ -3,6 +3,7 @@ package ants
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"plexobject.com/formicary/ants/executor/utils"
 	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/metrics"
@@ -23,8 +24,8 @@ import (
 )
 
 // Start starts ant
-func Start(ctx context.Context, antCfg *ant_config.AntConfig) (err error) {
-	webServer, err := web.NewDefaultWebServer(&antCfg.Common)
+func Start(ctx context.Context, antCfg *ant_config.AntConfig, publicFS fs.FS) (err error) {
+	webServer, err := web.NewDefaultWebServer(&antCfg.Common, publicFS)
 	if err != nil {
 		return fmt.Errorf("failed to create web server due to %w", err)
 	}

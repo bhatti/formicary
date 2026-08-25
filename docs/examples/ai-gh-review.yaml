@@ -25,11 +25,28 @@ tasks:
 - task_type: review
   method: KUBERNETES
   timeout: 20m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SKILL_NAME: "{{.Skill}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    PR_URL: "{{.PRUrl}}"
+  context_variables:
+    - name: PR_URL
+      value: "{{.PRUrl}}"
+    - name: SELECTED_TRACKER
+      value: github
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: REVIEW_DEPTH
+      value: "{{.ReviewDepth}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -41,6 +58,8 @@ tasks:
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     MAX_TURNS_REVIEW: "{{.MaxTurnsReview}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -48,15 +67,22 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
   script:
-    - python -m scripts.review.run --pr-url "{{.PRUrl}}" --skill "{{.Skill}}"
+    - |
+      SKILL="{{.Skill}}"
+      if [ "{{.ReviewDepth}}" = "deep" ]; then SKILL="ygs-review-deep"; fi
+      python -m scripts.review.run --pr-url "{{.PRUrl}}" --skill "$SKILL"
   artifacts:
     paths:
       - ./findings.json
       - ./review_result.json
+      - ./review_report.md
+      - ./review_report.html
       - ./logs
     expire_after: 48h
   on_completed: post
+  on_failed: notify-error
 
 # --- POST --------------------------------------------------------------------
 # Post findings summary as plain text to the originating Slack thread.
@@ -68,6 +94,7 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -85,7 +112,36 @@ tasks:
   artifacts:
     paths:
       - ./post_result.json
+      - ./review_report.md
+      - ./review_report.html
     expire_after: 168h
+  on_completed: done
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 3m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: PR_URL
+      value: "{{.PRUrl}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: github
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    SKILL_NAME: "review"
+  script:
+    - python -m scripts.standup.slack_client
   on_completed: done
 
 # --- DONE --------------------------------------------------------------------
@@ -97,7 +153,10 @@ tasks:
 
 job_variables:
   MaxTurnsReview: "100"
+  MaxClaudeProcessTimeout: ""
+  ExtraSkillsRepos: ""
   Skill: "ygs-review-pr"
+  ReviewDepth: "standard"   # set to "deep" for 7-domain review (perf + testing + arch)
   SlackChannel: ""
   SlackThreadTs: ""
   ClaudeUseBedrock: "1"
@@ -113,5 +172,5 @@ job_variables:
   #   GH_TOKEN, SSH_PRIVATE_KEY
   #   SLACK_BOT_TOKEN          (required for Slack posting)
   #   ANTHROPIC_API_KEY        (optional — Bedrock used by default)
-  # Set by the Slack router on submit:
+  # Set by the Formicary queen's Slack integration on submit:
   #   SlackThreadTs

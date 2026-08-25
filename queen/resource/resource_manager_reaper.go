@@ -20,6 +20,7 @@ func (rm *ManagerImpl) startReaperTicker(ctx context.Context) {
 			case <-rm.ticker.C:
 				rm.reapStaleAnts(ctx)
 				rm.reapStaleAllocations(ctx)
+				rm.reapStaleContainers()
 			}
 		}
 	}()
@@ -55,7 +56,14 @@ func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 		}
 	}
 
+	// Capture orgIDs before removal so we can update "no-ant" banners after.
+	orgIDsAffected := make(map[string]struct{})
 	for _, antID := range removeAntIDs {
+		if rm.bannerBridge != nil {
+			if reg := rm.state.getRegistrationByAnt(antID); reg != nil && reg.OrgID != "" {
+				orgIDsAffected[reg.OrgID] = struct{}{}
+			}
+		}
 		removedTags, removedMethods, unregistered := rm.state.removeRegistration(antID)
 		logrus.WithFields(logrus.Fields{
 			"Component":      "ResourceManager",
@@ -66,7 +74,38 @@ func (rm *ManagerImpl) reapStaleAnts(ctx context.Context) int {
 		}).Warnf("removing stale registration of ant %s", antID)
 	}
 
+	// Update "no ant registered" banners for each affected org.
+	if rm.bannerBridge != nil {
+		for orgID := range orgIDsAffected {
+			remaining := rm.RegistrationsByOrg(orgID)
+			hasExternal := false
+			for _, r := range remaining {
+				if r.HasExternalMethods() {
+					hasExternal = true
+					break
+				}
+			}
+			rm.bannerBridge.SyncNoAntForOrg(orgID, hasExternal)
+		}
+	}
+
 	return len(removeAntIDs)
+}
+
+// reapStaleContainers evicts container records that have been running longer than
+// the configured reservation timeout. This prevents stale container events (e.g. from
+// replayed queue messages or unreported OOMKills) from accumulating on the executors page.
+func (rm *ManagerImpl) reapStaleContainers() int {
+	maxAge := rm.serverCfg.Jobs.AntReservationTimeout
+	evicted := rm.state.evictStaleContainers(maxAge)
+	if evicted > 0 {
+		logrus.WithFields(logrus.Fields{
+			"Component": "ResourceManager",
+			"Evicted":   evicted,
+			"MaxAge":    maxAge,
+		}).Warn("evicted stale container records")
+	}
+	return evicted
 }
 
 // The tasks can only borrow ant resources for a limited amount of time otherwise these resources are

@@ -16,17 +16,19 @@ import (
 	protoQueen "plexobject.com/formicary/gen/go/formicary/v1/queen"
 	queenTypes "plexobject.com/formicary/queen/types"
 	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/repository"
 )
 
 // JobExecutionService implements svcpb.JobExecutionServiceServer.
 type JobExecutionService struct {
 	svcpb.UnimplementedJobExecutionServiceServer
-	jobManager *manager.JobManager
+	jobManager           *manager.JobManager
+	jobRequestRepository repository.JobRequestRepository
 }
 
 // NewJobExecutionService creates a JobExecutionService backed by jobManager.
-func NewJobExecutionService(jobManager *manager.JobManager) *JobExecutionService {
-	return &JobExecutionService{jobManager: jobManager}
+func NewJobExecutionService(jobManager *manager.JobManager, jobRequestRepository repository.JobRequestRepository) *JobExecutionService {
+	return &JobExecutionService{jobManager: jobManager, jobRequestRepository: jobRequestRepository}
 }
 
 func (s *JobExecutionService) SubmitJob(ctx context.Context, req *svcpb.SubmitJobRequest) (*svcpb.SubmitJobResponse, error) {
@@ -158,7 +160,7 @@ func (s *JobExecutionService) TriggerJob(ctx context.Context, req *svcpb.Trigger
 			params[k] = v
 		}
 	}
-	if err := s.jobManager.TriggerJobRequest(qc, req.Id, params); err != nil {
+	if err := s.jobManager.TriggerJobRequest(qc, req.Id, params, ""); err != nil {
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -273,6 +275,58 @@ func (s *JobExecutionService) GetJobStats(ctx context.Context, req *svcpb.QueryJ
 			{JobType: req.JobType, Total: total},
 		},
 	}, nil
+}
+
+func (s *JobExecutionService) QueryJobSubmissions(ctx context.Context, req *svcpb.QueryJobSubmissionsRequest) (*svcpb.QueryJobSubmissionsResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	params := map[string]interface{}{}
+	if !qc.IsAdmin() {
+		orgID := qc.GetOrganizationID()
+		if orgID == "" {
+			// Non-admin user not attached to any org — scope to their user ID only.
+			if uid := qc.GetUserID(); uid != "" {
+				params["user_id"] = uid
+			}
+		} else {
+			params["organization_id"] = orgID
+		}
+	} else if req.OrganizationId != "" {
+		params["organization_id"] = req.OrganizationId
+	}
+	if req.FromDate != "" {
+		params["from"] = req.FromDate
+	}
+	if req.ToDate != "" {
+		params["to"] = req.ToDate
+	}
+	ps := pageSize(req.PageSize)
+	recs, total, err := s.jobRequestRepository.QueryJobSubmissions(params, int(req.Page), ps, req.Order)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.QueryJobSubmissionsResponse{
+		Records:      toProtoJobSubmissions(recs),
+		TotalRecords: total,
+		Page:         req.Page,
+		PageSize:     effectivePageSize(req.PageSize),
+		TotalPages:   totalPages(total, effectivePageSize(req.PageSize)),
+	}, nil
+}
+
+func toProtoJobSubmissions(recs []*repository.JobSubmissionSummary) []*svcpb.JobSubmissionSummary {
+	out := make([]*svcpb.JobSubmissionSummary, 0, len(recs))
+	for _, r := range recs {
+		out = append(out, &svcpb.JobSubmissionSummary{
+			UserId:         r.UserID,
+			OrganizationId: r.OrganizationID,
+			JobType:        r.JobType,
+			Count:          r.SubmittedCount,
+		})
+	}
+	return out
 }
 
 func toProtoApprovalStatus(s *queenTypes.ApprovalStatus) *protoQueen.ApprovalStatus {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"plexobject.com/formicary/internal/ant_config"
 
 	"github.com/sirupsen/logrus"
@@ -25,6 +27,7 @@ type RequestHandler struct {
 	containerRegistry *registry.AntContainersRegistry
 	metricsRegistry   *metrics.Registry
 	executor          RequestExecutor
+	healthChecker     *MethodHealthChecker
 }
 
 // NewRequestHandler constructor
@@ -46,17 +49,33 @@ func NewRequestHandler(
 		executor:          executor,
 	}
 
+	// Filter incoming task messages to this ant only.
+	// The queen sets MessageTarget to the ant's AntID when dispatching; an empty
+	// target means broadcast (e.g. cancel/terminate commands).  This prevents
+	// ants from processing messages intended for a different ant on shared topics.
+	// When an ant connects with an org-scoped JWT the queen appends "@<orgID>"
+	// to the ant ID before storing the registration, so MessageTarget arrives as
+	// "desktop-control-plane@<orgID>".  Accept both the bare ID and any
+	// "<antID>@<suffix>" form so the filter works regardless of auth mode.
+	antID := antCfg.Common.ID
+	msgFilter := func(ctx context.Context, event *queue.MessageEvent) bool {
+		target := event.Properties[queue.MessageTarget]
+		return target == "" || target == antID || strings.HasPrefix(target, antID+"@")
+	}
+
+	registration := antCfg.NewAntRegistration()
 	t.BaseTasklet = tasklet.NewBaseTasklet(
 		antCfg.Common.ID+"-request-handler",
 		&antCfg.Common,
 		queueClient,
-		nil,
+		msgFilter,
 		requestRegistry,
 		requestTopic,
 		antCfg.Common.GetRegistrationTopic(),
-		antCfg.NewAntRegistration(),
+		registration,
 		t,
 	)
+	t.healthChecker = NewMethodHealthChecker(antCfg, registration)
 	return t
 }
 
@@ -84,6 +103,21 @@ func (rh *RequestHandler) PreExecute(
 		_ = utils.StopContainer(ctx, rh.antCfg, rh.webClient, req.ExecutorOpts, req.ExecutorOpts.Name)
 	}
 	return true
+}
+
+// Start overrides BaseTasklet.Start to also launch the per-method health checker.
+func (rh *RequestHandler) Start(ctx context.Context) error {
+	if err := rh.BaseTasklet.Start(ctx); err != nil {
+		return err
+	}
+	rh.healthChecker.Start(ctx)
+	return nil
+}
+
+// Stop overrides BaseTasklet.Stop to also stop the health checker and release its clients.
+func (rh *RequestHandler) Stop(ctx context.Context) error {
+	rh.healthChecker.Stop()
+	return rh.BaseTasklet.Stop(ctx)
 }
 
 // Execute request

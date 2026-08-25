@@ -7,6 +7,7 @@ import "buf/validate/validate.proto";
 import "formicary/v1/resource/ant.proto";
 import "formicary/v1/user/user.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
@@ -86,6 +87,35 @@ message SaveSubscriptionResponse {
   formicary.v1.user.Subscription subscription = 1;
 }
 
+// QueryContainerEventsRequest carries filter params for listing container lifecycle events.
+message QueryContainerEventsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
+  string sort_by = 3;
+}
+
+// ContainerEvent records a single container lifecycle transition on an ant worker.
+message ContainerEvent {
+  string container_name = 1;
+  string ant_id = 2;
+  string container_state = 3;
+  string method = 4;
+  google.protobuf.Timestamp created_at = 5;
+  int64 elapsed_secs = 6;
+}
+
+// QueryContainerEventsResponse returns a paginated list of container events.
+message QueryContainerEventsResponse {
+  repeated ContainerEvent records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
 // ResourceService manages ant worker registrations and user subscriptions.
 service ResourceService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
@@ -162,6 +192,20 @@ service ResourceService {
       responses: {
         key: "200"
         value: {description: "Saved subscription."}
+      }
+    };
+  }
+
+  // QueryContainerEvents returns a paginated list of container lifecycle events.
+  rpc QueryContainerEvents(QueryContainerEventsRequest) returns (QueryContainerEventsResponse) {
+    option (google.api.http) = {get: "/api/v1/executors"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List container events"
+      description: "Returns a paginated list of container lifecycle events. All authenticated users may call this; admins see all events, org users see only events from their org's ants."
+      tags: ["resources"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated container event list."}
       }
     };
   }

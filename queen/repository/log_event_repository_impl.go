@@ -147,8 +147,38 @@ func (l *LogEventRepositoryImpl) addQuery(params map[string]interface{}, tx *gor
 	q := params["q"]
 	if q != nil {
 		qs := fmt.Sprintf("%%%s%%", q)
-		tx = tx.Where("user_id LIKE ? OR encoded_message LIKE ? OR job_request_id = ?",
-			qs, qs, q)
+		tx = tx.Where("job_request_id = ? OR job_type LIKE ? OR ant_id LIKE ?", q, qs, qs)
 	}
-	return addQueryParamsWhere(filterParams(params, "q"), tx)
+	// handle level filter — translate to an IN clause for the level and all higher levels
+	if level, ok := params["level"]; ok && level != "" {
+		levels := logLevelsAtAndAbove(level.(string))
+		if len(levels) > 0 {
+			tx = tx.Where("level IN ?", levels)
+		}
+	}
+	// handle since filter — minimum created_at timestamp
+	if since, ok := params["since"]; ok && since != "" {
+		if t, err := time.Parse(time.RFC3339, since.(string)); err == nil {
+			tx = tx.Where("created_at >= ?", t)
+		}
+	}
+	// handle ant_id and source as exact-match filters (ant_id can contain @ and special chars)
+	if antID, ok := params["ant_id"]; ok && antID != "" {
+		tx = tx.Where("ant_id = ?", antID)
+	}
+	if source, ok := params["source"]; ok && source != "" {
+		tx = tx.Where("source = ?", source)
+	}
+	return addQueryParamsWhere(filterParams(params, "q", "level", "since", "ant_id", "source"), tx)
+}
+
+// logLevelsAtAndAbove returns the given level and all levels above it in severity order.
+func logLevelsAtAndAbove(level string) []string {
+	order := []string{"info", "warn", "error"}
+	for i, l := range order {
+		if l == level {
+			return order[i:]
+		}
+	}
+	return nil
 }

@@ -1,0 +1,75 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{{.Title}}</h2>
+            <div class="text-secondary mt-1">Ant worker logs. Admin only.</div>
+        </div>
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            <form action="/dashboard/ants/{{.AntID}}/logs" method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+                <label class="form-label mb-0">Level:</label>
+                <select class="form-select form-select-sm" name="level" style="width:auto;">
+                    <option value="error" {{if eq .Level "error"}}selected{{end}}>Error</option>
+                    <option value="warn" {{if or (eq .Level "warn") (eq .Level "")}}selected{{end}}>Warn+</option>
+                    <option value="info" {{if eq .Level "info"}}selected{{end}}>Info+</option>
+                </select>
+                <label class="form-label mb-0">Since:</label>
+                <input type="datetime-local" class="form-control form-control-sm" name="since" value="{{.Since}}" style="width:auto;">
+                <label class="form-label mb-0">Limit:</label>
+                <input type="number" class="form-control form-control-sm" name="limit" value="{{.PageSize}}" min="1" max="1000" style="width:80px;">
+                <input type="text" class="form-control form-control-sm" name="q" value="{{.Q}}" placeholder="Search job type">
+                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/dashboard/ants">Ant Workers</a></li>
+        <li class="breadcrumb-item active">{{.AntID}} Logs</li>
+    </ol>
+</nav>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="text-secondary">{{.TotalRecords}} records</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Level</th>
+                <th>Job Type</th>
+                <th>Task Type</th>
+                <th>Job Request ID</th>
+                <th>Message</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Records}}
+            <tr>
+                <td class="text-nowrap"><small>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</small></td>
+                <td>
+                    {{if eq .Level "error"}}
+                    <span class="badge bg-danger">error</span>
+                    {{else if eq .Level "warn"}}
+                    <span class="badge bg-warning text-dark">warn</span>
+                    {{else}}
+                    <span class="badge bg-secondary">info</span>
+                    {{end}}
+                </td>
+                <td><small>{{.JobType}}</small></td>
+                <td><small>{{.TaskType}}</small></td>
+                <td><small>{{if .JobRequestID}}<a href="/dashboard/jobs/requests/{{.JobRequestID}}">{{.JobRequestID}}</a>{{end}}</small></td>
+                <td style="max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{.Message}}"><small>{{.Message}}</small></td>
+            </tr>
+            {{else}}
+            <tr><td colspan="6" class="text-center text-secondary py-4">No log entries found for the selected filters.</td></tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ template "layouts/footer" }}

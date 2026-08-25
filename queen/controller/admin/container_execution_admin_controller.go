@@ -27,20 +27,25 @@ func NewExecutionContainerAdminController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/dashboard/executors", eca.queryExecutionContainers, acl.NewPermission(acl.Container, acl.Query)).Name = "query_admin_executors"
-	webserver.POST("/dashboard/executors/:id/delete", eca.deleteExecutionContainer, acl.NewPermission(acl.Container, acl.Delete)).Name = "delete_admin_executor"
+	webserver.GET("/dashboard/executors", eca.queryExecutionContainers, acl.NewPermission(acl.Container, acl.Query)).Name = "query_executors"
+	webserver.POST("/dashboard/executors/:id/delete", eca.deleteExecutionContainer, acl.NewPermission(acl.Container, acl.Delete)).Name = "delete_executor"
 	return eca
 }
 
 // ********************************* HTTP Handlers ***********************************
-// queryExecutionContainers - queries error-code
+// queryExecutionContainers - queries execution containers, org-filtered for non-admin users
 func (eca *ExecutionContainerAdminController) queryExecutionContainers(c web.APIContext) error {
 	_, order, page, pageSize, q, qs := controller.ParseParams(c)
 	sortField := ""
 	if len(order) > 0 {
 		sortField = order[0]
 	}
-	recs, total := eca.resourceManager.GetContainerEvents(page*pageSize, pageSize, sortField)
+	qc := web.BuildQueryContext(c)
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	recs, total := eca.resourceManager.GetContainerEventsByOrg(orgID, page*pageSize, pageSize, sortField)
 	baseURL := fmt.Sprintf("/dashboard/executors?%s", q)
 	pagination := controller.Pagination(page, pageSize, int64(total), baseURL)
 	res := map[string]interface{}{"Executors": recs,

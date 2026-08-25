@@ -587,8 +587,8 @@ func (jd *JobDefinition) ShortUserID() string {
 
 // ShortJobType short job type
 func (jd *JobDefinition) ShortJobType() string {
-	if len(jd.JobType) > 12 {
-		return jd.JobType[0:12] + "..."
+	if len(jd.JobType) > 20 {
+		return jd.JobType[0:20] + "..."
 	}
 	return jd.JobType
 }

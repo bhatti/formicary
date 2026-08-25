@@ -23,23 +23,19 @@ case "$DB_TYPE" in
         echo "Connection: $DB_HOST:$DB_PORT/$DB_NAME"
         ;;
     "sqlite")
-        # Use the /data directory that was created in Dockerfile with proper permissions
-        DB_SQLITE_PATH="/data/formicary.db"
+        # DB_DATA_SOURCE may be set via env (from ConfigMap/k8s); default to /data/db/formicary.db
+        DB_SQLITE_PATH="${DB_DATA_SOURCE:-/data/db/formicary.db}"
         CONNECTION_STRING="$DB_SQLITE_PATH"
         DB_DATA_SOURCE="$DB_SQLITE_PATH"
         echo "SQLite database: $DB_SQLITE_PATH"
-        # Check if /data directory exists and is writable
-        if [ ! -d "/data" ]; then
-            echo "ERROR: /data directory does not exist. Check Dockerfile."
+        DB_SQLITE_DIR=$(dirname "$DB_SQLITE_PATH")
+        mkdir -p "$DB_SQLITE_DIR"
+        if [ ! -w "$DB_SQLITE_DIR" ]; then
+            echo "ERROR: $DB_SQLITE_DIR is not writable"
+            ls -la "$DB_SQLITE_DIR" 2>/dev/null
             exit 1
         fi
-        if [ ! -w "/data" ]; then
-            echo "ERROR: /data directory is not writable. Check Dockerfile permissions."
-            echo "Directory permissions:"
-            ls -la /data 2>/dev/null || ls -la / | grep data
-            exit 1
-        fi
-        echo "/data directory is writable ✓"
+        echo "$DB_SQLITE_DIR is writable ✓"
         ;;
     *)
         echo "Unsupported database type: $DB_TYPE"

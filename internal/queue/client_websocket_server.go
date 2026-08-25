@@ -18,6 +18,11 @@ import (
 
 var _ Client = &ClientWebSocketServer{}
 
+// wsOrgIDKey is the context key used to carry the ant's org_id from authentication
+// through to the registration handler, where it is stamped onto AntRegistration.
+// Using a private struct type prevents collisions with other context keys.
+type wsOrgIDKey struct{}
+
 // wsServerConn represents a single WebSocket connection from an ant worker
 type wsServerConn struct {
 	id      string
@@ -172,48 +177,53 @@ func (s *ClientWebSocketServer) ConnectedAntCount() int {
 // When JWTSecret is set (auth.enabled=true on the queen), the token must be a valid JWT signed
 // with that secret AND must carry token_type="api". Session tokens (browser logins) are rejected,
 // so a leaked session cookie cannot be replayed to register a rogue ant.
+// Returns the org_id from the JWT claims so the resource manager can scope ant routing to the
+// correct tenant. The org_id is empty when auth is disabled (no-op routing).
 //
 // When only Token is set (auth.enabled=false with an explicit static token), it falls back to a
-// constant-time equality check to avoid timing side-channels.
+// constant-time equality check to avoid timing side-channels. OrgID is "" in this path.
 //
-// No auth when neither is configured.
-func (s *ClientWebSocketServer) authenticate(r *http.Request) error {
+// No auth when neither is configured; OrgID is "".
+func (s *ClientWebSocketServer) authenticate(r *http.Request) (orgID string, err error) {
 	jwtSecret := s.config.JWTSecret
 	staticToken := s.config.Token
 	if jwtSecret == "" && staticToken == "" {
-		return nil
+		return "", nil
 	}
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return fmt.Errorf("missing or malformed Authorization header: Bearer token required")
+		return "", fmt.Errorf("missing or malformed Authorization header: Bearer token required")
 	}
 	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 	if tokenStr == "" {
-		return fmt.Errorf("empty Bearer token")
+		return "", fmt.Errorf("empty Bearer token")
 	}
 	if jwtSecret != "" {
-		claims, err := web.ParseToken(tokenStr, jwtSecret)
-		if err != nil {
-			return fmt.Errorf("invalid JWT: %w", err)
+		claims, parseErr := web.ParseToken(tokenStr, jwtSecret)
+		if parseErr != nil {
+			return "", fmt.Errorf("invalid JWT: %w", parseErr)
 		}
 		if claims.TokenType != web.TokenTypeAPI {
-			return fmt.Errorf("token_type %q not permitted for ant connections; use an API token", claims.TokenType)
+			return "", fmt.Errorf("token_type %q not permitted for ant connections; use an API token", claims.TokenType)
 		}
-		return nil
+		return claims.OrgID, nil
 	}
 	// Fallback: constant-time comparison to prevent timing side-channels.
 	if subtle.ConstantTimeCompare([]byte(tokenStr), []byte(staticToken)) != 1 {
-		return fmt.Errorf("invalid token")
+		return "", fmt.Errorf("invalid token")
 	}
-	return nil
+	return "", nil
 }
 
 // HTTPHandler returns an http.HandlerFunc that upgrades connections and registers ant workers.
 // Mount this on the queen's web server at the configured path (default: /ws/queue).
 // When auth is enabled the ant must present a valid API JWT in the Authorization: Bearer header.
+// The org_id from the JWT is stored on the connection context so the registration handler can
+// attach it to AntRegistration for tenant-scoped routing.
 func (s *ClientWebSocketServer) HTTPHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := s.authenticate(r); err != nil {
+		orgID, err := s.authenticate(r)
+		if err != nil {
 			logrus.WithError(err).Warn("WebSocketServer: ant authentication failed")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -231,10 +241,19 @@ func (s *ClientWebSocketServer) HTTPHandler() http.HandlerFunc {
 		s.conns[id] = sc
 		s.connsMu.Unlock()
 
-		logrus.WithField("ConnID", id).Info("WebSocketServer: ant connected")
+		logrus.WithFields(logrus.Fields{
+			"ConnID": id,
+			"OrgID":  orgID,
+		}).Info("WebSocketServer: ant connected")
 
+		// Attach orgID to context so the readPump / registration handler can stamp it
+		// onto the AntRegistration without the ant self-reporting its org.
+		ctx := r.Context()
+		if orgID != "" {
+			ctx = context.WithValue(ctx, wsOrgIDKey{}, orgID)
+		}
 		go s.writePump(sc)
-		go s.readPump(r.Context(), sc)
+		go s.readPump(ctx, sc)
 	}
 }
 
@@ -621,11 +640,25 @@ func (s *ClientWebSocketServer) handlePublishFromAnt(ctx context.Context, sc *ws
 	ack := func() {}
 	nack := func() {}
 
+	// Copy properties so we can add server-side headers without mutating the frame.
+	props := make(MessageHeaders, len(frame.Properties))
+	for k, v := range frame.Properties {
+		props[k] = v
+	}
+
+	// Stamp the org_id extracted from the ant's JWT (at connect time) as a server-side
+	// message property.  The ant never sets this — it flows from the queen's JWT validation
+	// only.  The registration subscriber reads this header and stores it on AntRegistration.
+	// Auth-disabled path: orgID is "" so no header is added (no-op).
+	if orgID, ok := ctx.Value(wsOrgIDKey{}).(string); ok && orgID != "" {
+		props[AntOrgIDHeader] = orgID
+	}
+
 	event := &MessageEvent{
 		ID:          []byte(frame.ID),
 		Topic:       frame.Topic,
 		Payload:     frame.Payload,
-		Properties:  frame.Properties,
+		Properties:  props,
 		PublishTime: frame.Timestamp,
 	}
 

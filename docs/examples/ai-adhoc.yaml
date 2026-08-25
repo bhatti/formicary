@@ -1,11 +1,12 @@
 # AI ad-hoc skill execution: run a named you-got-skills skill with a free-form prompt.
 #
-# Launched by the Slack router for one-shot requests (standup, risk-scan, etc.)
-# that don't require git checkout or a human-in-the-loop pause.
+# Launched by the Formicary queen's built-in Slack integration for one-shot requests
+# (standup, risk-scan, prs, etc.) that don't require git checkout or a human-in-the-loop pause.
 # The script posts its result back to the originating Slack thread.
 #
 # Deploy:
-#   python -m scripts.slack.deploy_workflows --file ai-adhoc.yaml
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+#   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs
 
 job_type: ai-adhoc
 description: "AI ad-hoc: invoke a you-got-skills skill with a free-form prompt"
@@ -25,12 +26,34 @@ tasks:
 - task_type: run
   method: KUBERNETES
   timeout: 25m
+  task_variables:
+    SKILL_NAME: "{{.Skill}}"
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SELECTED_TRACKER: "{{.DefaultTracker}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    PROMPT: "{{.Prompt}}"
+  context_variables:
+    - name: SKILL
+      value: "{{.Skill}}"
+    - name: PROMPT
+      value: "{{.Prompt}}"
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: AI_MODEL_OVERRIDE
+      value: "{{.AiModel}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 3G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -59,36 +82,98 @@ tasks:
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     SKILL_NAME: "{{.Skill}}"
     SKILL_PROMPT: "{{.Prompt}}"
+    CODEBASE_DIR: "{{.CodebaseDir}}"
+    MAX_TURNS_ADHOC: "{{.MaxTurnsAdhoc}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    CODEBASE_REPO_URL: "{{.CodebaseRepoUrl}}"
+    GIT_BRANCH: "{{.GitBranch}}"
+    AI_MODEL_OVERRIDE: "{{.AiModel}}"
   script:
-    - git clone --depth 1 https://github.com/bhatti/you-got-skills.git /workspace/you-got-skills 2>/dev/null || true
+    - |
+      # Clone optional codebase repo — enables code-aware skills
+      if [ -n "$CODEBASE_REPO_URL" ] && [ "$CODEBASE_REPO_URL" != "<no value>" ]; then
+        git clone --depth 1 --branch "${GIT_BRANCH:-main}" "$CODEBASE_REPO_URL" /workspace/repo
+        export CODEBASE_DIR=/workspace/repo
+        echo "Cloned $CODEBASE_REPO_URL (branch: ${GIT_BRANCH:-main}) -> /workspace/repo"
+      fi
     - |
       if [ "$SKILL_NAME" = "ygs-pr-queue" ]; then
         # Gather sprint issues + open PRs into signals.json, then build pr_queue.json
         if [ -n "$JIRA_BASE_URL" ] && [ -n "$JIRA_PROJECT" ]; then
           python -m scripts.standup.gather_jira || true
         fi
-        python -m scripts.standup.gather_pr_queue
+        python -m scripts.standup.gather_pr_queue || true
       fi
     - python -m scripts.adhoc.run_skill --skill "$SKILL_NAME" --prompt "$SKILL_PROMPT"
   artifacts:
     paths:
       - ./adhoc_result.json
+      - ./reports
       - ./logs
     expire_after: 24h
-  on_completed: done
+  on_completed: post
   on_failed: notify-error
+
+# --- POST --------------------------------------------------------------------
+- task_type: post
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - run
+  context_variables:
+    - name: SKILL
+      value: "{{.Skill}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    SKILL_NAME: "{{.Skill}}"
+    MESSAGE: ":white_check_mark: Skill *{{.Skill}}* completed."
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_TYPE: "ai-adhoc"
+    JOB_ID: "{{.JobID}}"
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
+  on_failed: done
 
 # --- NOTIFY-ERROR ------------------------------------------------------------
 - task_type: notify-error
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 1m
+  host_network: true
+  timeout: 3m
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     env_from:
       - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SKILL
+      value: "{{.Skill}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
   environment:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
@@ -112,6 +197,16 @@ job_variables:
   StandupTeamMembers: ""
   StandupLookbackHours: "26"
   DefaultTracker: ""
+  # Set CodebaseDir to the path where the user's repo is cloned inside the container.
+  # run_skill.py will look for .claude/skills/<name>/SKILL.md there first.
+  CodebaseDir: ""
+  MaxTurnsAdhoc: "50"
+  MaxClaudeProcessTimeout: ""
+  ExtraSkillsRepos: ""
+  CodebaseRepoUrl: ""
+  GitBranch: "main"
+  AiModel: ""
+  FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"

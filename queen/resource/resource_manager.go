@@ -6,6 +6,7 @@ import (
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"plexobject.com/formicary/internal/queue"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
+	queenhealth "plexobject.com/formicary/queen/health"
 )
 
 // Manager interface defines methods for checking capacity and allocation of ants
@@ -29,24 +31,34 @@ type Manager interface {
 		ctx context.Context,
 		id string) (bool, error)
 	Registrations() []*common.AntRegistration
+	// RegistrationsByOrg returns only ants belonging to the given org.
+	// When orgID is empty (admin or auth-disabled), all registrations are returned.
+	RegistrationsByOrg(orgID string) []*common.AntRegistration
 	Registration(id string) *common.AntRegistration
 	HasAntsForJobTags(
 		methods []common.TaskMethod,
-		tags []string) error
+		tags []string,
+		orgID string) error
 	Reserve(
 		requestID string,
 		taskType string,
 		method common.TaskMethod,
-		tags []string) (*common.AntReservation, error)
+		tags []string,
+		orgID string) (*common.AntReservation, error)
 	ReserveJobResources(
 		requestID string,
+		orgID string,
 		def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error)
 	Release(reservation *common.AntReservation) (err error)
 	ReleaseJobResources(requestID string) (err error)
 	CheckJobResources(job *types.JobDefinition) ([]*common.AntReservation, error)
 	GetContainerEvents(offset int, limit int, sortBy string) (all []*events.ContainerLifecycleEvent, total int)
+	// GetContainerEventsByOrg returns only container events whose AntID suffix matches orgID.
+	// When orgID is empty, all events are returned (same as GetContainerEvents).
+	GetContainerEventsByOrg(orgID string, offset int, limit int, sortBy string) (all []*events.ContainerLifecycleEvent, total int)
 	TerminateContainer(ctx context.Context, id string, antID string, method common.TaskMethod) (err error)
 	CountContainerEvents() map[common.TaskMethod]int
+	SetBannerBridge(b *queenhealth.BannerHealthBridge)
 }
 
 // ManagerImpl for resources
@@ -58,12 +70,20 @@ type ManagerImpl struct {
 	state             *State
 	ticker            *time.Ticker
 	stopped           bool
+	bannerBridge      *queenhealth.BannerHealthBridge
 	lock              sync.RWMutex
 
 	registrationSubscriptionID           string
 	jobExecutionLifecycleSubscriptionID  string
 	taskExecutionLifecycleSubscriptionID string
 	containerLifecycleSubscriptionID     string
+}
+
+// SetBannerBridge configures the bridge that writes org-scoped banners on ant registration changes.
+func (rm *ManagerImpl) SetBannerBridge(b *queenhealth.BannerHealthBridge) {
+	rm.lock.Lock()
+	defer rm.lock.Unlock()
+	rm.bannerBridge = b
 }
 
 // New - creates new ManagerImpl for resources
@@ -135,6 +155,21 @@ func (rm *ManagerImpl) Registrations() (regs []*common.AntRegistration) {
 	return rm.state.getRegistrations()
 }
 
+// RegistrationsByOrg returns ants belonging to the given org (or all when orgID is empty).
+func (rm *ManagerImpl) RegistrationsByOrg(orgID string) []*common.AntRegistration {
+	if orgID == "" {
+		return rm.state.getRegistrations()
+	}
+	all := rm.state.getRegistrations()
+	filtered := make([]*common.AntRegistration, 0, len(all))
+	for _, r := range all {
+		if r.OrgID == orgID || r.OrgID == "" {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
 // Registration for ants
 func (rm *ManagerImpl) Registration(id string) *common.AntRegistration {
 	return rm.state.getRegistration(id)
@@ -142,17 +177,20 @@ func (rm *ManagerImpl) Registration(id string) *common.AntRegistration {
 
 // HasAntsForJobTags - checks if live antRegistrations are available for methods and tags.
 // Note: A job collects all tags used by tasks, but we won't actually use them at the same time.
+// orgID is used to pre-filter to org-scoped ants when auth is enabled; "" means no filter.
 func (rm *ManagerImpl) HasAntsForJobTags(
 	methods []common.TaskMethod,
-	tags []string) error {
+	tags []string,
+	orgID string) error {
 	if methods == nil || len(methods) == 0 {
 		return fmt.Errorf("methods not specified for ant-registration")
 	}
 	aliveTimeout := rm.serverCfg.Jobs.AntRegistrationAliveTimeout
 
-	// Matching methods — only consider ants that are alive and support the method
+	// Matching methods — only consider ants that are alive and support the method.
+	// When orgID is set, restrict to org-scoped candidates (with unscoped fallback).
 	for _, method := range methods {
-		antIDs := rm.state.getAntIDsByMethod(method)
+		antIDs := rm.state.getAntIDsByMethodAndOrg(method, orgID)
 		liveCount := 0
 		for _, antID := range antIDs {
 			reg := rm.state.getRegistrationByAnt(antID)
@@ -164,26 +202,36 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 			logrus.WithFields(logrus.Fields{
 				"Methods": methods,
 				"Tags":    tags,
+				"OrgID":   orgID,
 				"Dump":    rm.state.dump(false),
 			}).Warnf("no live ant for method: %s", method)
 			return fmt.Errorf("no live ant for method='%s'", method)
 		}
 	}
 
-	// Matching tags — only consider ants that are alive and have capacity
+	// Matching tags — only consider live ants that pass the same org filter used in reserve().
+	// getAntIDsByMethodAndOrg applies the scoped→unscoped fallback; we replicate that here
+	// per-tag so HasAntsForJobTags and reserve() are consistent: if HasAntsForJobTags says
+	// "OK" for a (tag, orgID) pair then reserve() will also be able to find a matching ant.
 	for _, tag := range tags {
 		antIDs, totalAntsByTags := rm.state.getAntsByTag(tag)
 		if len(antIDs) == 0 {
 			logrus.WithFields(logrus.Fields{
 				"Methods": methods,
 				"Tags":    tags,
+				"OrgID":   orgID,
 				"Dump":    rm.state.dump(false),
 			}).Warnf("failed to find ant by tags: %s", tag)
 			return fmt.Errorf("no ant for tag='%s' ants-by-tags=%d", tag, totalAntsByTags)
 		}
+
+		// Build the org-filtered candidate set for this tag using the same scoped→unscoped
+		// fallback logic as reserve(), so both functions agree on what constitutes a match.
+		orgMatchedIDs := rm.state.filterAntIDsByOrg(antIDs, orgID)
+
 		matched := false
 		errors := make([]string, 0)
-		for _, antID := range antIDs {
+		for _, antID := range orgMatchedIDs {
 			registration := rm.state.getRegistrationByAnt(antID)
 			allocations := rm.state.getAllocationsByAnt(antID)
 			if registration == nil || allocations == nil {
@@ -203,8 +251,10 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 			}
 		}
 		if !matched {
-			return fmt.Errorf("no matching live ant for tag='%s' ants-by-tags=%d errors=%v",
-				tag, totalAntsByTags, errors)
+			orgCandidateCount := len(orgMatchedIDs)
+			return fmt.Errorf("no matching live ant for tag='%s' org='%s' "+
+				"org-candidate-ants=%d global-ants-with-tag=%d errors=%v",
+				tag, orgID, orgCandidateCount, totalAntsByTags, errors)
 		}
 	}
 	return nil
@@ -215,7 +265,7 @@ func (rm *ManagerImpl) CheckJobResources(
 	job *types.JobDefinition) (reservations []*common.AntReservation, err error) {
 	reservations = make([]*common.AntReservation, 0)
 	var reservationsByTask map[string]*common.AntReservation
-	if reservationsByTask, err = rm.doReserveJobResources("", job, true); err != nil {
+	if reservationsByTask, err = rm.doReserveJobResources("", "", job, true); err != nil {
 		return nil, err
 	}
 	for _, reservation := range reservationsByTask {
@@ -228,8 +278,9 @@ func (rm *ManagerImpl) CheckJobResources(
 // ReserveJobResources reserves resources for all tasks within the job
 func (rm *ManagerImpl) ReserveJobResources(
 	requestID string,
+	orgID string,
 	def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error) {
-	return rm.doReserveJobResources(requestID, def, false)
+	return rm.doReserveJobResources(requestID, orgID, def, false)
 }
 
 // ReleaseJobResources release resources for all tasks within the job
@@ -244,12 +295,14 @@ func (rm *ManagerImpl) Reserve(
 	requestID string,
 	taskType string,
 	method common.TaskMethod,
-	tags []string) (*common.AntReservation, error) {
+	tags []string,
+	orgID string) (*common.AntReservation, error) {
 	return rm.doReserve(
 		requestID,
 		taskType,
 		method,
 		tags,
+		orgID,
 		false)
 }
 
@@ -299,7 +352,24 @@ func (rm *ManagerImpl) CountContainerEvents() map[common.TaskMethod]int {
 
 // GetContainerEvents returns all events
 func (rm *ManagerImpl) GetContainerEvents(offset int, limit int, sortBy string) (res []*events.ContainerLifecycleEvent, total int) {
+	return rm.GetContainerEventsByOrg("", offset, limit, sortBy)
+}
+
+// GetContainerEventsByOrg returns container events filtered by org.
+// When orgID is empty, all events are returned.
+// Events are matched by the ant that ran them: AntID has suffix "@<orgID>" when org-scoped.
+func (rm *ManagerImpl) GetContainerEventsByOrg(orgID string, offset int, limit int, sortBy string) (res []*events.ContainerLifecycleEvent, total int) {
 	all := rm.state.getContainerEvents(sortBy)
+	if orgID != "" {
+		filtered := make([]*events.ContainerLifecycleEvent, 0, len(all))
+		suffix := "@" + orgID
+		for _, e := range all {
+			if strings.HasSuffix(e.AntID, suffix) || !strings.Contains(e.AntID, "@") {
+				filtered = append(filtered, e)
+			}
+		}
+		all = filtered
+	}
 	total = len(all)
 	res = make([]*events.ContainerLifecycleEvent, math.Min(limit, len(all)))
 	i := 0
@@ -334,6 +404,11 @@ func (rm *ManagerImpl) Register(
 	// update mapping of ant-id => registration
 	rm.state.addRegistration(ctx, registration)
 
+	if rm.bannerBridge != nil && registration.OrgID != "" {
+		rm.bannerBridge.SyncAntHealth(registration)
+		rm.bannerBridge.SyncNoAntForOrg(registration.OrgID, true)
+	}
+
 	return nil
 }
 
@@ -347,7 +422,27 @@ func (rm *ManagerImpl) Unregister(
 			"AntID":     id,
 		}).Debug("unregister ant worker")
 	}
+	// capture orgID before removal so we can update the banner state
+	var orgID string
+	if rm.bannerBridge != nil {
+		if reg := rm.state.getRegistrationByAnt(id); reg != nil {
+			orgID = reg.OrgID
+		}
+	}
+
 	_, _, count := rm.state.removeRegistration(id)
+
+	if rm.bannerBridge != nil && orgID != "" {
+		remaining := rm.RegistrationsByOrg(orgID)
+		hasExternal := false
+		for _, r := range remaining {
+			if r.HasExternalMethods() {
+				hasExternal = true
+				break
+			}
+		}
+		rm.bannerBridge.SyncNoAntForOrg(orgID, hasExternal)
+	}
 
 	return count > 0, nil
 }
@@ -364,16 +459,18 @@ func (rm *ManagerImpl) doReserve(
 	taskType string,
 	method common.TaskMethod,
 	tags []string,
+	orgID string,
 	dryRun bool) (*common.AntReservation, error) {
 	if method == "" {
 		return nil, fmt.Errorf("method not specified")
 	}
-	return rm.state.reserve(requestID, taskType, method, tags, dryRun)
+	return rm.state.reserve(requestID, taskType, method, tags, orgID, dryRun)
 }
 
 // Reserve resources for the job
 func (rm *ManagerImpl) doReserveJobResources(
 	requestID string,
+	orgID string,
 	def *types.JobDefinition,
 	dryRun bool) (reservations map[string]*common.AntReservation, err error) {
 	reservations = make(map[string]*common.AntReservation)
@@ -385,6 +482,7 @@ func (rm *ManagerImpl) doReserveJobResources(
 			task.TaskType,
 			task.Method,
 			task.Tags,
+			orgID,
 			dryRun)
 		if err == nil {
 			reservations[task.TaskType] = alloc

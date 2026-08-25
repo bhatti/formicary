@@ -309,21 +309,15 @@ func (re *RequestExecutorImpl) execute(
 			taskResp.Stdout = append(taskResp.Stdout, string(stdout))
 		}
 
-		// Parse ::set-output name=key::value lines from stdout into job context.
-		// Scripts can export variables for downstream tasks using:
-		//   echo "::set-output name=IssueNumber::42"
-		for _, line := range strings.Split(string(stdout), "\n") {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "::set-output name=") && strings.Contains(line, "::") {
-				rest := strings.TrimPrefix(line, "::set-output name=")
-				idx := strings.Index(rest, "::")
-				if idx > 0 {
-					key := rest[:idx]
-					value := rest[idx+2:]
-					taskResp.AddJobContext(key, value)
-				}
-			}
-		}
+		// Parse stdout context-marker lines emitted by scripts:
+		//
+		//   ::add-job-context KEY::VALUE   — write to JobContext (shared across tasks)
+		//   ::add-task-context KEY::VALUE  — write to TaskContext (this task only)
+		//
+		// Example usage in a script:
+		//   echo "::add-job-context IssueNumber::42"
+		//   echo "::add-task-context SELECTED_MODEL::claude-3-5-sonnet"
+		parseAndApplyStdoutMarkers(string(stdout), taskResp)
 
 		// Note: this only works for SHELL/HTTP but containers will need to use it explicitly
 		if taskReq.ExecutorOpts.Method.SupportsCaptureStdout() {
@@ -729,6 +723,12 @@ func (re *RequestExecutorImpl) updateResponseContext(
 		taskResp.AddContext("DockerServer", re.antCfg.Docker.Server)
 	}
 
+	// Echo context_variables from the task definition (rendered by the queen) into the
+	// response context so they appear in the dashboard's task execution view.
+	for k, v := range taskReq.ContextVariables {
+		taskResp.AddContext(k, v)
+	}
+
 	taskResp.AddJobContext(fmt.Sprintf("%s-status", taskReq.TaskType), taskResp.Status)
 	taskResp.AddContext("ContainerID", container.GetID())
 	taskResp.AddContext("ContainerName", container.GetName())
@@ -807,6 +807,53 @@ func sendContainerEvent(
 		}
 	}
 	return
+}
+
+// parseStdoutMarker parses a "KEY::VALUE" stdout context marker suffix.
+// Returns key, value, ok=true on success. ok=false when:
+//   - there is no "::" separator
+//   - key is empty after trimming whitespace
+//
+// The value may be an empty string; that is valid.
+//
+// Usage in scripts:
+//
+//	echo "::add-job-context IssueNumber::42"
+//	echo "::add-task-context SELECTED_MODEL::claude-3-5-sonnet"
+func parseStdoutMarker(suffix string) (key, value string, ok bool) {
+	idx := strings.Index(suffix, "::")
+	if idx <= 0 {
+		return "", "", false
+	}
+	key = strings.TrimSpace(suffix[:idx])
+	if key == "" {
+		return "", "", false
+	}
+	return key, suffix[idx+2:], true
+}
+
+// parseAndApplyStdoutMarkers scans stdout line-by-line for context-marker directives
+// and applies them to the task response:
+//
+//	::add-job-context KEY::VALUE  → resp.JobContext  (shared across downstream tasks)
+//	::add-task-context KEY::VALUE → resp.TaskContext (this task's execution context only)
+func parseAndApplyStdoutMarkers(stdout string, resp *types.TaskResponse) {
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "::") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "::add-job-context "):
+			if k, v, ok := parseStdoutMarker(strings.TrimPrefix(line, "::add-job-context ")); ok {
+				resp.AddJobContext(k, v)
+			}
+		case strings.HasPrefix(line, "::add-task-context "):
+			if k, v, ok := parseStdoutMarker(strings.TrimPrefix(line, "::add-task-context ")); ok {
+				resp.AddContext(k, v)
+			}
+		}
+	}
 }
 
 func checkCommandCanExecuteWithoutShell(cmd string) bool {

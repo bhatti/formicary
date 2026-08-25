@@ -205,7 +205,7 @@ func (gw *Gateway) subscribeToLogEvent(ctx context.Context,
 	}
 	return gw.queueClient.Subscribe(ctx, queue.SubscribeOptions{
 		Topic:    subscriptionTopic,
-		Shared:   false,
+		Shared:   true, // shared so only one queen archives each log event in multi-queen setups
 		Callback: callback,
 		Props:    make(map[string]string),
 	})

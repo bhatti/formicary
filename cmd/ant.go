@@ -45,7 +45,7 @@ var antCmd = &cobra.Command{
 				Errorf("Failed to validate config...")
 			os.Exit(88)
 		}
-		err = ants.Start(context.Background(), antCfg)
+		err = ants.Start(context.Background(), antCfg, PublicFS)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Error": err}).

@@ -127,12 +127,23 @@ func (u *Utils) List(
 		opts := domain.NewExecutorOptions("", "")
 		opts.PodLabels = pod.Labels
 		opts.PodAnnotations = pod.Annotations
+		podState := executor.State(strings.ToUpper(string(pod.Status.Phase)))
+		// Detect pods with failed containers even when pod phase is still Running
+		// (e.g. kubectl shows "1/2 Error" — one container exited non-zero).
+		if podState != executor.Failed && podState != executor.Succeeded {
+			for _, cs := range pod.Status.ContainerStatuses {
+				if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+					podState = executor.ContainerFailed
+					break
+				}
+			}
+		}
 		exec := executor.BaseExecutor{
 			ExecutorOptions: opts,
 			ID:              string(pod.UID),
 			Name:            pod.Name,
 			StartedAt:       pod.CreationTimestamp.Time,
-			State:           executor.State(strings.ToUpper(string(pod.Status.Phase))),
+			State:           podState,
 			Labels:          pod.ObjectMeta.Labels,
 			Annotations:     pod.ObjectMeta.Annotations,
 		}
@@ -1207,9 +1218,7 @@ func (u *Utils) hasStructuredMainContainerResources(_ *domain.ExecutorOptions) b
 
 // hasStructuredHelperResources checks if helper container has structured resources
 func (u *Utils) hasStructuredHelperResources(_ *domain.ExecutorOptions) bool {
-	//return u.config.Kubernetes.DefaultResources.CPURequest != "" ||
-	//	u.config.Kubernetes.DefaultResources.MemoryRequest != ""
-	return false
+	return true
 }
 
 // createStructuredHelperResources creates helper container resources

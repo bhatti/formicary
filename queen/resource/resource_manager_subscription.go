@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/events"
@@ -25,6 +26,18 @@ func (rm *ManagerImpl) subscribeToRegistration(
 				"Target":            rm.id,
 				"Error":             err}).Error("failed to unmarshal registration by resource manager")
 			return err
+		}
+		// OrgID is set server-side from the ant's JWT by the WebSocket layer (never by the ant).
+		// For non-WebSocket transports (Redis, Pulsar, Kafka) OrgID stays "" when auth is
+		// disabled — consistent with the no-op guarantee.
+		if orgID := event.Properties[queue.AntOrgIDHeader]; orgID != "" {
+			registration.OrgID = orgID
+			// Append org-id to AntID so multi-user deployments never collide even when
+			// two users run an ant with the same hostname/pod name.
+			// Format: "<ant-id>@<org-id>" — readable in the dashboard, stable across restarts.
+			if !containsOrgSuffix(registration.AntID, orgID) {
+				registration.AntID = registration.AntID + "@" + orgID
+			}
 		}
 		if err := rm.Register(ctx, registration); err != nil {
 			logrus.WithFields(logrus.Fields{
@@ -141,6 +154,12 @@ func (rm *ManagerImpl) subscribeToTaskLifecycleEvent(ctx context.Context,
 		Callback: callback,
 		Props:    make(map[string]string),
 	})
+}
+
+// containsOrgSuffix returns true if antID already ends with "@<orgID>",
+// preventing double-suffix on re-registration heartbeats.
+func containsOrgSuffix(antID, orgID string) bool {
+	return strings.HasSuffix(antID, "@"+orgID)
 }
 
 func (rm *ManagerImpl) subscribeToContainersLifecycleEvents(

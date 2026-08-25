@@ -12,5 +12,5 @@ var (
 )
 
 func main() {
-	cmd.Execute(version, commit, date)
+	cmd.Execute(version, commit, date, PublicFS)
 }

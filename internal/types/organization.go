@@ -54,7 +54,7 @@ func NewOrganization(
 		OwnerUserID:    ownerID,
 		BundleID:       bundle,
 		OrgUnit:        orgUnit,
-		MaxConcurrency: 1,
+		MaxConcurrency: 10,
 		Active:         true,
 		Configs:        make([]*Config, 0),
 		CreatedAt:      time.Now(),

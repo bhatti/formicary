@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+syntax = "proto3";
+
+package formicary.v1.services;
+
+import "buf/validate/validate.proto";
+import "formicary/v1/domain/common.proto";
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "plexobject.com/formicary/gen/go/formicary/v1/services;services";
+
+// GetSlackRoutesRequest is empty; routes are instance-wide (no filter needed).
+message GetSlackRoutesRequest {}
+
+// GetSlackRoutesResponse returns all configured Slack command routes and the config record ID.
+message GetSlackRoutesResponse {
+  repeated formicary.v1.domain.SlackRoute routes = 1;
+  // config_id is the ULID of the persisted SlackConfig record (empty when using defaults).
+  string config_id = 2;
+}
+
+// SaveSlackRoutesRequest replaces the full set of Slack command routes.
+message SaveSlackRoutesRequest {
+  repeated formicary.v1.domain.SlackRoute routes = 1 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// SaveSlackRoutesResponse returns the saved routes and the config record ID.
+message SaveSlackRoutesResponse {
+  // config_id is the ULID of the persisted SlackConfig record.
+  string config_id = 1;
+  repeated formicary.v1.domain.SlackRoute routes = 2;
+}
+
+// SlackService manages the Slack command routing configuration.
+service SlackService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Manage Slack command routes that map trigger words to Formicary job types."
+    name: "slack"
+  };
+
+  // GetSlackRoutes returns the current Slack command routing table.
+  rpc GetSlackRoutes(GetSlackRoutesRequest) returns (GetSlackRoutesResponse) {
+    option (google.api.http) = {get: "/api/v1/slack/routes"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get Slack routes"
+      description: "Returns the current Slack command routing table. Available to all authenticated users."
+      tags: ["slack"]
+      responses: {
+        key: "200"
+        value: {description: "Slack routes configuration."}
+      }
+    };
+  }
+
+  // SaveSlackRoutes replaces the full Slack command routing table. Requires admin role.
+  rpc SaveSlackRoutes(SaveSlackRoutesRequest) returns (SaveSlackRoutesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/slack/routes"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Save Slack routes"
+      description: "Replaces the full Slack command routing table. Requires admin role. At least one route must be provided."
+      tags: ["slack"]
+      responses: {
+        key: "200"
+        value: {description: "Saved Slack routes configuration."}
+      }
+    };
+  }
+}

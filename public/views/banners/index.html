@@ -1,0 +1,74 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Dashboard Banners</h2>
+      <div class="text-muted small">System and admin-created dashboard notifications</div>
+    </div>
+    <div class="col-auto">
+      <a href="/dashboard/banners/new" class="btn btn-primary btn-sm">
+        <i class="ti ti-plus me-1"></i>New Banner
+      </a>
+    </div>
+  </div>
+</div>
+
+{{ with .Error }}
+<div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+  {{.}}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{{ end }}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter table-hover table-sm card-table">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Scope</th>
+          <th>Org</th>
+          <th>Source</th>
+          <th>Message</th>
+          <th>Active</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {{range .Banners}}
+      <tr>
+        <td>
+          {{ if eq .Level "danger" }}<span class="badge bg-danger-lt">danger</span>
+          {{ else if eq .Level "info" }}<span class="badge bg-info-lt">info</span>
+          {{ else }}<span class="badge bg-warning-lt">warning</span>{{ end }}
+        </td>
+        <td><span class="badge bg-secondary-lt">{{.Scope}}</span></td>
+        <td class="text-muted small">{{.OrgID}}</td>
+        <td><span class="badge bg-secondary-lt">{{.Source}}</span></td>
+        <td class="small" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{.Message}}</td>
+        <td>
+          {{ if .Active }}<span class="badge bg-success-lt">yes</span>
+          {{ else }}<span class="badge bg-secondary-lt">no</span>{{ end }}
+        </td>
+        <td class="text-muted small text-nowrap">{{.UpdatedAt.Format "01-02 15:04"}}</td>
+        <td class="text-end">
+          {{ if eq .Source "admin" }}
+          <a href="/dashboard/banners/{{.ID}}/edit" class="btn btn-sm btn-link py-0">Edit</a>
+          <form action="/dashboard/banners/{{.ID}}/delete" method="POST" class="d-inline"
+                onsubmit="return confirm('Delete this banner?')">
+            <button type="submit" class="btn btn-sm btn-link text-danger py-0">Delete</button>
+          </form>
+          {{ else }}
+          <span class="text-muted small">system</span>
+          {{ end }}
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="8" class="text-center text-muted py-4">No banners found</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ template "layouts/pagination" .Pagination }}
+{{ template "layouts/footer" }}

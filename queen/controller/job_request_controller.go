@@ -235,15 +235,16 @@ func (jobReqCtrl *JobRequestController) pauseJobRequest(c web.APIContext) error 
 func (jobReqCtrl *JobRequestController) triggerJobRequest(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	// Decode optional params from the request body.
+	// Decode optional params and description from the request body.
 	var body struct {
-		Params map[string]interface{} `json:"params"`
+		Params      map[string]interface{} `json:"params"`
+		Description string                 `json:"description"`
 	}
 	if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil {
 		// Empty or non-JSON body is fine — proceed without params.
 		body.Params = nil
 	}
-	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id, body.Params)
+	err := jobReqCtrl.jobManager.TriggerJobRequest(qc, id, body.Params, body.Description)
 	if err != nil {
 		return err
 	}

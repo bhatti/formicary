@@ -37,10 +37,17 @@ func (c *TLSConfig) CreateTLSConfig() (tlsConfig *tls.Config, err error) {
 	tlsConfig = &tls.Config{}
 
 	if c.CertFile != "" && c.KeyFile != "" {
-		tlsConfig.Certificates = make([]tls.Certificate, 1)
-		tlsConfig.Certificates[0], err = tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+		cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
 		if err != nil {
 			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		// Return the certificate for any ServerName (including IP-only connections
+		// and clients that send no SNI). Without this, Go's TLS stack rejects
+		// connections whose SNI doesn't match the cert's CN/SAN with
+		// "unrecognized name".
+		tlsConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &cert, nil
 		}
 	}
 

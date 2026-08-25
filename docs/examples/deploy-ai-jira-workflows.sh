@@ -43,6 +43,16 @@ TOKEN="${FORMICARY_TOKEN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACLI_CONFIG="${HOME}/.config/acli/config.json"
 
+# Model ID defaults — override via env or by editing models.env.
+ANTHROPIC_SONNET_MODEL="${ANTHROPIC_SONNET_MODEL:-us.anthropic.claude-sonnet-4-6}"
+ANTHROPIC_OPUS_MODEL="${ANTHROPIC_OPUS_MODEL:-us.anthropic.claude-opus-4-6-v1}"
+ANTHROPIC_HAIKU_MODEL="${ANTHROPIC_HAIKU_MODEL:-us.anthropic.claude-haiku-4-5-20251001-v1:0}"
+# Complexity-tier defaults — can be overridden by models.env or env vars.
+ANTHROPIC_COMPLEXITY_LOW_MODEL="${ANTHROPIC_COMPLEXITY_LOW_MODEL:-${ANTHROPIC_HAIKU_MODEL}}"
+ANTHROPIC_COMPLEXITY_HIGH_MODEL="${ANTHROPIC_COMPLEXITY_HIGH_MODEL:-${ANTHROPIC_OPUS_MODEL}}"
+# models.env can override the above defaults (sourced after so it wins).
+[[ -f "$SCRIPT_DIR/models.env" ]] && source "$SCRIPT_DIR/models.env"
+
 SET_CONFIGS=false
 CREATE_K8S_SECRET=true
 # Accept explicit flags, fall back to env vars matching the scripts' expected names
@@ -53,7 +63,6 @@ JIRA_PROJECT="${JIRA_PROJECT:-}"
 BB_WORKSPACE="${BITBUCKET_WORKSPACE:-}"
 BB_REPO="${BITBUCKET_REPO:-}"
 BB_USERNAME_ARG="${BITBUCKET_USERNAME:-}"
-BB_TOKEN_ARG="${BITBUCKET_TOKEN:-}"
 ANTHROPIC_KEY="${ANTHROPIC_KEY:-${ANTHROPIC_API_KEY:-}}"
 SSH_KEY="${SSH_KEY:-${SSH_PRIVATE_KEY:-}}"
 SSH_KEY_FILE=""
@@ -62,6 +71,8 @@ BEDROCK_URL="${ANTHROPIC_BEDROCK_BASE_URL:-http://ai/bedrock}"
 GIT_USER_NAME="${GIT_USER_NAME:-}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
+STANDUP_TEAM="${STANDUP_TEAM_MEMBERS:-}"
+JIRA_BOARDS_ARG="${JIRA_BOARDS:-}"
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -74,13 +85,15 @@ while [[ $# -gt 0 ]]; do
     --jira-project)  JIRA_PROJECT="$2";     shift 2 ;;
     --bb-workspace)  BB_WORKSPACE="$2";     shift 2 ;;
     --bb-repo)       BB_REPO="$2";          shift 2 ;;
-    --bb-username)   BB_USERNAME_ARG="$2";  shift 2 ;;
-    --bedrock)       USE_BEDROCK="1";       shift ;;
+    --bb-username)     BB_USERNAME_ARG="$2";     shift 2 ;;
+    --bedrock)         USE_BEDROCK="1";          shift ;;
     --no-bedrock)    USE_BEDROCK="0";       shift ;;
     --bedrock-url)   BEDROCK_URL="$2";      shift 2 ;;
     --git-user)      GIT_USER_NAME="$2";    shift 2 ;;
     --git-email)     GIT_USER_EMAIL="$2";   shift 2 ;;
-    --slack-channel) SLACK_CHANNEL="$2";    shift 2 ;;
+    --slack-channel)   SLACK_CHANNEL="$2";   shift 2 ;;
+    --standup-team)    STANDUP_TEAM="$2";       shift 2 ;;
+    --jira-boards)     JIRA_BOARDS_ARG="$2";    shift 2 ;;
     --help|-h)
       sed -n '/^# Usage/,/^[^#]/p' "$0" | head -26
       exit 0 ;;
@@ -90,6 +103,10 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
+
+# Pass -k when connecting to an HTTPS server with a self-signed cert (nip.io / EC2 deployments).
+CURL_OPTS=()
+[[ "$FORMICARY_URL" == https://* ]] && CURL_OPTS+=(-k)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 log()  { echo "▶ $*"; }
@@ -152,21 +169,63 @@ else:
     secret = secret_arg == 'true'
 print(json.dumps({'name': name, 'value': value, 'secret': secret}))
 " "$name" "$value" "$secret_arg") || fail "Failed to build JSON payload for $name"
-  local args=(-sf -X POST "$url" -H "Content-Type: application/json" -d "$payload")
+  local args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /tmp/formicary-config-resp.json -w "%{http_code}"
+              -X POST "$url" -H "Content-Type: application/json" -d "$payload")
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
-  local resp
-  resp=$(curl "${args[@]}" 2>&1) || fail "Failed to set config $name: $resp"
-  if echo "$resp" | grep -q '"name"'; then
-    ok "Config set: $name"
-  else
-    echo "  Response: $resp" >&2
-    fail "Failed to set config $name"
-  fi
+  local http_code resp
+  http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  rm -f /tmp/formicary-config-resp.json
+  case "$http_code" in
+    2*)
+      if echo "$resp" | grep -q '"name"'; then
+        ok "Config set: $name"
+      else
+        echo "  Response: $resp" >&2
+        fail "Failed to set config $name (HTTP $http_code)"
+      fi ;;
+    000) fail "Cannot connect to ${FORMICARY_URL} — is the server running? Check FORMICARY_URL." ;;
+    401) fail "Config $name: 401 Unauthorized — check FORMICARY_TOKEN" ;;
+    403) fail "Config $name: 403 Forbidden — token lacks permission" ;;
+    *)   echo "  Response: $resp" >&2; fail "Failed to set config $name (HTTP $http_code)" ;;
+  esac
 }
 
 # set_org_config stores a shared team setting under the organisation.
 set_org_config() {
   _post_config "${FORMICARY_URL}/api/orgs/${ORG_ID}/configs" "$1" "$2" "${3:-auto}"
+}
+
+# set_admin_slack_routes pushes the Slack route table as an admin SystemConfig.
+# Routes are instance-wide (not per-org) — requires an admin token.
+# The queen reloads them on next startup (or restart).
+# Value must be a JSON array of SlackRouteConfig objects:
+#   [{"triggers":["standup"],"job_type":"ai-standup-jira","description":"..."},...]
+set_admin_slack_routes() {
+  local routes_json="$1"
+  local url="${FORMICARY_URL}/api/v1/configs"
+  local payload
+  payload=$(python3 -c "
+import json, sys
+v = sys.argv[1]
+# Validate it parses as JSON
+json.loads(v)
+print(json.dumps({'scope':'default','kind':'JSON','name':'SlackRoutes','value':v,'secret':False}))
+" "$routes_json") || fail "SlackRoutes: invalid JSON array"
+  local args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /tmp/formicary-config-resp.json -w "%{http_code}"
+              -X POST "$url" -H "Content-Type: application/json" -d "$payload")
+  [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
+  local http_code resp
+  http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  rm -f /tmp/formicary-config-resp.json
+  case "$http_code" in
+    2*) ok "SlackRoutes admin config saved (restart queen to reload)" ;;
+    000) fail "Cannot connect to ${FORMICARY_URL}" ;;
+    401) fail "SlackRoutes: 401 Unauthorized — use an admin token" ;;
+    403) fail "SlackRoutes: 403 Forbidden — admin role required" ;;
+    *)   echo "  Response: $resp" >&2; fail "SlackRoutes: HTTP $http_code" ;;
+  esac
 }
 
 # set_user_config stores a personal secret/identity under the calling user's account.
@@ -180,7 +239,7 @@ upload() {
   name=$(basename "$file")
   log "Uploading $name ..."
 
-  local curl_args=(-s -o /tmp/formicary-upload-resp.json -w "%{http_code}"
+  local curl_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /tmp/formicary-upload-resp.json -w "%{http_code}"
                    -X POST "${FORMICARY_URL}/api/jobs/definitions"
                    -H "Content-Type: application/yaml"
                    --data-binary "@${file}")
@@ -264,6 +323,20 @@ BB_WORKSPACE="${BB_WORKSPACE:-${BB_WORKSPACE_CFG}}"
 # ── Validate token early ──────────────────────────────────────────────────────
 [[ -n "$TOKEN" ]] || fail "FORMICARY_TOKEN is not set — export it before running this script"
 
+# ── Verify server is reachable (fail fast before any API calls) ───────────────
+log "Checking Formicary at ${FORMICARY_URL} ..."
+_check_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
+[[ -n "$TOKEN" ]] && _check_args+=(-H "Authorization: Bearer ${TOKEN}")
+_check_status=$(curl "${_check_args[@]}" 2>/dev/null) || _check_status="000"
+case "$_check_status" in
+  2*) ok "Server reachable (HTTP ${_check_status})" ;;
+  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running and reachable?" ;;
+  401) fail "Server returned 401 — check FORMICARY_TOKEN" ;;
+  403) fail "Server returned 403 — token invalid or expired" ;;
+  *)   fail "Server returned HTTP ${_check_status}" ;;
+esac
+echo ""
+
 # ── Create K8s secret (if requested) ──────────────────────────────────────────
 if [[ "$CREATE_K8S_SECRET" == true ]]; then
   create_k8s_secret
@@ -294,13 +367,28 @@ if [[ "$SET_CONFIGS" == true ]]; then
     set_org_config "ClaudeSkipBedrockAuth"   "1"
     set_org_config "AnthropicBedrockBaseUrl" "$BEDROCK_URL"
   fi
-  [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"  "$GIT_USER_NAME"
-  [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail" "$GIT_USER_EMAIL"
-  [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
+  # Push model IDs from models.env (single source of truth — overrides YAML job_variables).
+  set_org_config "AnthropicSonnetModel" "${ANTHROPIC_SONNET_MODEL}" "false"
+  set_org_config "AnthropicOpusModel"   "${ANTHROPIC_OPUS_MODEL}"   "false"
+  set_org_config "AnthropicHaikuModel"  "${ANTHROPIC_HAIKU_MODEL}"  "false"
+  # Complexity-tiered model selection (used by implement task based on plan_complexity.txt).
+  set_org_config "AnthropicComplexityLowModel"  "${ANTHROPIC_COMPLEXITY_LOW_MODEL}"  "false"
+  set_org_config "AnthropicComplexityHighModel" "${ANTHROPIC_COMPLEXITY_HIGH_MODEL}" "false"
+  [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"        "$GIT_USER_NAME"
+  [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail"       "$GIT_USER_EMAIL"
+  [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel"       "$SLACK_CHANNEL"     "false"
+  [[ -n "$STANDUP_TEAM" ]]      && set_org_config "StandupTeamMembers" "$STANDUP_TEAM"      "false"
+  [[ -n "$JIRA_BOARDS_ARG" ]]      && set_org_config "JiraBoards"             "$JIRA_BOARDS_ARG"           "false"
+  [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]   && set_org_config "ExtraSkillsRepos"       "${EXTRA_SKILLS_REPOS}"        "false"
+  [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]] && set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
 
   echo ""
   ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
   echo ""
+
+  # NOTE: Slack bot/app tokens and route table are admin-level (shared across orgs).
+  # Use setup-slack-admin.sh for those — this script only handles org-level configs.
+  # See: ./docs/examples/setup-slack-admin.sh
 else
   # Auto-set org configs from environment variables when --set-configs not passed.
   _AUTO=false
@@ -321,28 +409,37 @@ else
     set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
     _AUTO=true
   fi
+  if [[ -n "$STANDUP_TEAM" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "StandupTeamMembers" "$STANDUP_TEAM" "false"
+    _AUTO=true
+  fi
+  if [[ -n "$JIRA_BOARDS_ARG" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "JiraBoards" "$JIRA_BOARDS_ARG" "false"
+    _AUTO=true
+  fi
+  if [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "ExtraSkillsRepos" "${EXTRA_SKILLS_REPOS}" "false"
+    _AUTO=true
+  fi
+  if [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
+    _AUTO=true
+  fi
   [[ "$_AUTO" == true ]] && echo ""
 fi
-
-# ── Verify server is reachable ─────────────────────────────────────────────────
-log "Checking Formicary at ${FORMICARY_URL} ..."
-_args=(-s -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
-[[ -n "$TOKEN" ]] && _args+=(-H "Authorization: Bearer ${TOKEN}")
-_status=$(curl "${_args[@]}" 2>&1) || _status="000"
-case "$_status" in
-  2*) ok "Server reachable (HTTP ${_status})" ;;
-  000) fail "Cannot connect to ${FORMICARY_URL} — is the server running? (run: kubectl port-forward svc/formicary 7777:7777 19000:19000)" ;;
-  401) fail "Server returned 401 — set FORMICARY_TOKEN or pass --token" ;;
-  403) fail "Server returned 403 — token invalid or expired" ;;
-  *) fail "Server returned HTTP ${_status}" ;;
-esac
 
 # ── Upload workflows ───────────────────────────────────────────────────────────
 YAMLS=(
   "${SCRIPT_DIR}/ai-connectivity-check.yaml"
+  "${SCRIPT_DIR}/ai-standup-jira.yaml"
   "${SCRIPT_DIR}/ai-jira-issue-picker.yaml"
   "${SCRIPT_DIR}/ai-jira-implement.yaml"
   "${SCRIPT_DIR}/ai-jira-review.yaml"
+  "${SCRIPT_DIR}/ai-jira-query.yaml"
   "${SCRIPT_DIR}/ai-adhoc.yaml"
 )
 
@@ -359,7 +456,7 @@ ok "All Jira workflows registered."
 # ── List registered AI workflows ───────────────────────────────────────────────
 echo ""
 log "Currently registered AI job types:"
-_list_args=(-s "${FORMICARY_URL}/api/jobs/definitions")
+_list_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && _list_args+=(-H "Authorization: Bearer ${TOKEN}")
 curl "${_list_args[@]}" 2>/dev/null | python3 -c "
 import sys, json
@@ -388,7 +485,8 @@ echo "     export BITBUCKET_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export SSH_PRIVATE_KEY=\$(cat ~/.ssh/id_rsa)"
 echo "     export BEDROCK_URL=http://ai/bedrock   # or ANTHROPIC_API_KEY for direct API"
 echo "     export SLACK_BOT_TOKEN=xoxb-...       # optional: Slack notifications"
-echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock --slack-channel my-channel"
+echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock --slack-channel my-channel
+#    (Org-based routing is automatic when auth is enabled — no --ant-user-tag needed)"
 echo ""
 echo "  3. Add the pickup label to a Jira issue:"
 echo "     acli jira issue label add <ISSUE-KEY> ai-ready"

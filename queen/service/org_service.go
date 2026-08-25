@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -288,4 +289,47 @@ func (s *OrgService) DeleteUserConfig(ctx context.Context, req *svcpb.DeleteUser
 		return nil, interceptors.MapDomainError(err)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// GetResourceUsageReport returns aggregated CPU/disk usage, org-scoped for non-admin callers.
+func (s *OrgService) GetResourceUsageReport(ctx context.Context, req *svcpb.GetResourceUsageReportRequest) (*svcpb.GetResourceUsageReportResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	from := time.Unix(0, 0)
+	to := time.Now()
+	if req.FromDate != "" {
+		if t, err := time.Parse(time.RFC3339, req.FromDate); err == nil {
+			from = t
+		}
+	}
+	if req.ToDate != "" {
+		if t, err := time.Parse(time.RFC3339, req.ToDate); err == nil {
+			to = t
+		}
+	}
+	allUsage := s.userManager.CombinedResourcesByOrgUser(from, to, 10000)
+
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	out := make([]*svcpb.ResourceUsageSummary, 0, len(allUsage))
+	for _, u := range allUsage {
+		if orgID != "" && u.OrganizationID != orgID {
+			continue
+		}
+		out = append(out, &svcpb.ResourceUsageSummary{
+			OrganizationId: u.OrganizationID,
+			UserId:         u.UserID,
+			CpuSecs:        float64(u.CPUResource.Value),
+			DiskMb:         float64(u.DiskResource.MValue()),
+		})
+	}
+	return &svcpb.GetResourceUsageReportResponse{
+		Records:  out,
+		FromDate: from.Format(time.RFC3339),
+		ToDate:   to.Format(time.RFC3339),
+	}, nil
 }

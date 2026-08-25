@@ -485,6 +485,7 @@ func (t *FanOutTasklet) dispatchSingleTask(
 		parentReq.TaskType,
 		method,
 		parentReq.Tags,
+		parentReq.OrganizationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("fan_out[%d]: failed to reserve ant for method %s: %w", idx, method, err)

@@ -39,15 +39,15 @@ const (
 var listeningForStackTraceDumps = false
 
 type TLSConfig struct {
-	CertFile           string `json:"cert_file,omitempty"`
-	KeyFile            string `json:"key_file,omitempty"`
-	CaFile             string `json:"ca_file,omitempty"`
-	ServerAddress      string `json:"server_address,omitempty"`
-	Server             bool   `json:"server,omitempty"`
-	InsecureSkipVerify bool   `json:"insecure_skip_verify,omitempty"` // Whether to skip certificate verification
-	Enabled            bool   `json:"enabled,omitempty"`              // Enabled
-	VerifySsl          bool   `json:"verify_ssl,omitempty"`
-	UseSasl            bool   `json:"use_sasl,omitempty"`
+	CertFile           string `yaml:"cert_file" mapstructure:"cert_file" json:"cert_file,omitempty"`
+	KeyFile            string `yaml:"key_file" mapstructure:"key_file" json:"key_file,omitempty"`
+	CaFile             string `yaml:"ca_file" mapstructure:"ca_file" json:"ca_file,omitempty"`
+	ServerAddress      string `yaml:"server_address" mapstructure:"server_address" json:"server_address,omitempty"`
+	Server             bool   `yaml:"server" mapstructure:"server" json:"server,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify" mapstructure:"insecure_skip_verify" json:"insecure_skip_verify,omitempty"`
+	Enabled            bool   `yaml:"enabled" mapstructure:"enabled" json:"enabled,omitempty"`
+	VerifySsl          bool   `yaml:"verify_ssl" mapstructure:"verify_ssl" json:"verify_ssl,omitempty"`
+	UseSasl            bool   `yaml:"use_sasl" mapstructure:"use_sasl" json:"use_sasl,omitempty"`
 }
 
 type ProcessingOptions struct {
@@ -62,8 +62,8 @@ type ProcessingOptions struct {
 }
 
 type QueueConfig struct {
-	Provider          MessagingProvider  `json:"provider,omitempty" env:"PROVIDER"` // Queue provider type
-	Endpoints         []string           `json:"endpoints,omitempty"`               // Provider endpoints
+	Provider          MessagingProvider  `json:"provider,omitempty" yaml:"provider" mapstructure:"provider" env:"PROVIDER"` // Queue provider type
+	Endpoints         []string           `json:"endpoints,omitempty" yaml:"endpoints" mapstructure:"endpoints"`             // Provider endpoints
 	TopicTenant       string             `yaml:"topic_tenant" mapstructure:"topic_tenant"`
 	TopicNamespace    string             `yaml:"topic_namespace" mapstructure:"topic_namespace"`
 	Pulsar            *PulsarConfig      `json:"pulsar,omitempty"`
@@ -101,7 +101,11 @@ type CommonConfig struct {
 	BlockUserAgents            []string           `yaml:"block_user_agents" mapstructure:"block_user_agents"`
 	PublicDir                  string             `yaml:"public_dir" mapstructure:"public_dir" env:"PUBLIC_DIR"`
 	HTTPPort                   int                `yaml:"http_port" mapstructure:"http_port" env:"HTTP_PORT"`
-	Queue                      *QueueConfig       `protobuf:"bytes,9,opt,name=queue,proto3" json:"queue,omitempty"`
+	// TLS enables native HTTPS on the HTTP/gRPC port.
+	// Set tls.enabled=true with tls.cert_file and tls.key_file in the server config YAML.
+	// The TLSConfig type is defined in proto/formicary/v1/domain/common.proto.
+	TLS                        *TLSConfig         `yaml:"tls" mapstructure:"tls" json:"tls,omitempty"`
+	Queue                      *QueueConfig       `protobuf:"bytes,9,opt,name=queue,proto3" json:"queue,omitempty" yaml:"queue" mapstructure:"queue"`
 	S3                         *S3Config          `yaml:"s3" mapstructure:"s3" env:"S3"`
 	Redis                      *RedisConfig       `yaml:"redis" mapstructure:"redis" env:"REDIS"`
 	Auth                       *AuthConfig        `yaml:"auth" mapstructure:"auth" env:"AUTH"`

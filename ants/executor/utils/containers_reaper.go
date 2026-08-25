@@ -88,16 +88,27 @@ func (r *ContainersReaper) Stop(ctx context.Context) (err error) {
 }
 
 func (r *ContainersReaper) canReap(container executor.Info) bool {
-	if strings.Contains(container.GetName(), "frm-") {
-		if container.ElapsedSecs() > r.antCfg.Common.MaxJobTimeout {
-			return true
-		}
-		parts := strings.Split(container.GetName(), "-")
-		if len(parts) > 3 {
-			exists, ok := r.recentlyCompletedJobIDs.Get(parts[1])
-			if ok {
-				return exists == true
-			}
+	// Only reap Formicary-managed containers — names start with "frm-".
+	// Docker returns names with a leading "/" (e.g. "/frm-01m..."), so strip it first.
+	name := strings.TrimPrefix(container.GetName(), "/")
+	if !strings.HasPrefix(name, "frm-") {
+		return false
+	}
+	// Immediately reap pods in terminal states — these are orphaned and waste resources.
+	state := container.GetState()
+	if state == executor.Failed || state == executor.Succeeded || state == executor.ContainerFailed {
+		return true
+	}
+	// Reap running pods that exceeded the configured job timeout.
+	if container.ElapsedSecs() > r.antCfg.Common.MaxJobTimeout {
+		return true
+	}
+	// Reap running pods whose job was recently completed by the queen.
+	parts := strings.Split(name, "-")
+	if len(parts) > 3 {
+		exists, ok := r.recentlyCompletedJobIDs.Get(parts[1])
+		if ok {
+			return exists == true
 		}
 	}
 	return false
@@ -126,6 +137,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 						log.Fields{
 							"Component":   "ContainersReaper",
 							"Container":   container.GetName(),
+							"State":       container.GetState(),
 							"Started":     container.GetStartedAt(),
 							"ElapsedSecs": container.ElapsedSecs(),
 							"Error":       err,
@@ -143,6 +155,7 @@ func (r *ContainersReaper) reap(ctx context.Context) {
 						log.Fields{
 							"Component":   "ContainersReaper",
 							"Container":   container.GetName(),
+							"State":       container.GetState(),
 							"Started":     container.GetStartedAt(),
 							"ElapsedSecs": container.ElapsedSecs(),
 							"Memory":      cutils.MemUsageMiBString(),

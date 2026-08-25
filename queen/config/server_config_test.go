@@ -57,3 +57,47 @@ func Test_ShouldValidateTopics(t *testing.T) {
 	require.Equal(t, "formicary-queue-task-ant-registration", c.GetResponseTopicAntRegistration())
 	require.Equal(t, "formicary-queue-task-reply", c.GetResponseTopicTaskReply())
 }
+
+func Test_Should_Validate_Partial_Slack_Config(t *testing.T) {
+	// GIVEN a SlackConfig with AppToken but no BotToken
+	cfg := SlackConfig{
+		AppToken: "xapp-valid-app-token",
+		BotToken: "",
+	}
+
+	// WHEN validating
+	err := cfg.Validate()
+
+	// THEN an error is returned
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "bot_token")
+}
+
+func Test_Should_Accept_Empty_Slack_Config(t *testing.T) {
+	// GIVEN a SlackConfig with both tokens empty (Slack disabled)
+	cfg := SlackConfig{}
+
+	// WHEN validating
+	err := cfg.Validate()
+
+	// THEN no error — Slack disabled is valid
+	require.NoError(t, err)
+}
+
+func Test_Should_Accept_Full_Slack_Config(t *testing.T) {
+	// GIVEN a complete SlackConfig
+	cfg := SlackConfig{
+		AppToken:      "xapp-1-valid-app-token",
+		BotToken:      "xoxb-valid-bot-token",
+		SigningSecret: "signing-secret",
+		Routes: []SlackRouteConfig{
+			{Triggers: []string{"standup"}, JobType: "ai-standup-jira"},
+		},
+	}
+
+	// WHEN validating
+	err := cfg.Validate()
+
+	// THEN no error
+	require.NoError(t, err)
+}

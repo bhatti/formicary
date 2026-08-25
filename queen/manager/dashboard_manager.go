@@ -3,6 +3,7 @@ package manager
 import (
 	"fmt"
 	"github.com/karlseguin/ccache/v3"
+	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/internal/health"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/config"
@@ -138,6 +139,18 @@ func (s *DashboardManager) CountContainerEvents() map[common.TaskMethod]int {
 // AntRegistrations returns ant registrations
 func (s *DashboardManager) AntRegistrations() []*common.AntRegistration {
 	return s.resourceManager.Registrations()
+}
+
+// AntRegistrationsByOrg returns ant registrations filtered by org.
+// When orgID is empty all registrations are returned (admin / auth-disabled path).
+func (s *DashboardManager) AntRegistrationsByOrg(orgID string) []*common.AntRegistration {
+	return s.resourceManager.RegistrationsByOrg(orgID)
+}
+
+// GetContainerEventsByOrg returns container events filtered by org.
+// When orgID is empty all events are returned.
+func (s *DashboardManager) GetContainerEventsByOrg(orgID string, offset, limit int, sortBy string) ([]*events.ContainerLifecycleEvent, int) {
+	return s.resourceManager.GetContainerEventsByOrg(orgID, offset, limit, sortBy)
 }
 
 // GetJobStats returns job stats

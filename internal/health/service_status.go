@@ -9,6 +9,7 @@ import (
 // ServiceStatus structure for health metrics.
 type ServiceStatus struct {
 	Monitored           Monitorable
+	Critical            bool // if false, failures are logged but don't affect overall health
 	ConsecutiveFailures uint64
 	ConsecutiveSuccess  uint64
 	TotalFailures       uint64
@@ -17,10 +18,19 @@ type ServiceStatus struct {
 	LastCheck           time.Time
 }
 
-// NewServiceStatus constructor
+// NewServiceStatus constructor — critical by default.
 func NewServiceStatus(monitored Monitorable) *ServiceStatus {
 	return &ServiceStatus{
 		Monitored: monitored,
+		Critical:  true,
+	}
+}
+
+// NewNonCriticalServiceStatus constructor for optional services (e.g. Slack).
+func NewNonCriticalServiceStatus(monitored Monitorable) *ServiceStatus {
+	return &ServiceStatus{
+		Monitored: monitored,
+		Critical:  false,
 	}
 }
 

@@ -17,10 +17,11 @@
                 <th>Methods</th>
                 <th>Topic</th>
                 <th>Tags</th>
-                <th>Capacity</th>
-                <th>Load</th>
+                <th>Health</th>
+                <th>Load / Capacity</th>
                 <th>Total Executed</th>
                 <th>Updated</th>
+                {{ if $.ReadAdmin }}<th></th>{{ end }}
             </tr>
             </thead>
             <tbody>
@@ -30,10 +31,27 @@
                 <td>{{.Methods}}</td>
                 <td>{{.AntTopic}}</td>
                 <td>{{.Tags}}</td>
-                <td>{{.MaxCapacity}}</td>
-                <td>{{.CurrentLoad}}</td>
+                <td>
+                    {{if .MethodHealth}}
+                    {{range $m, $e := .MethodHealth}}
+                    {{if $e.Healthy}}
+                    <span class="badge bg-success me-1" title="OK — last checked {{$e.LastCheckedAt.Format "15:04:05"}}">{{$m}}</span>
+                    {{else}}
+                    <span class="badge bg-danger me-1" title="{{$e.Error}}">{{$m}} &#x26A0;</span>
+                    {{end}}
+                    {{end}}
+                    {{else}}&mdash;{{end}}
+                </td>
+                <td>
+                    <small>{{.CurrentLoad}}/{{.MaxCapacity}}</small>
+                    <div class="progress progress-sm mt-1" style="min-width:60px" title="{{.CurrentLoad}} active / {{.MaxCapacity}} max ({{.AvailableCapacity}} free)">
+                        <div class="progress-bar {{if ge .LoadPercent 100}}bg-danger{{else if ge .LoadPercent 80}}bg-warning{{else}}bg-primary{{end}}"
+                             style="width:{{.LoadPercent}}%"></div>
+                    </div>
+                </td>
                 <td>{{.TotalExecuted}}</td>
                 <td>{{.UpdatedAtString}}</td>
+                {{ if $.ReadAdmin }}<td>{{ if .HasExternalMethods }}<a href="/dashboard/ants/{{.AntID}}/logs" class="btn btn-sm btn-outline-secondary">Logs</a>{{ end }}</td>{{ end }}
             </tr>
             {{end}}
             </tbody>

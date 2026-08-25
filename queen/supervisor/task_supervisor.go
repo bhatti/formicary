@@ -82,10 +82,10 @@ func (ts *TaskSupervisor) execute(
 			if err == nil {
 				if ctx.Err() != nil {
 					err = fmt.Errorf("%v (timeout=%s/%s)",
-						ctx.Err(), timeout, time.Now().Sub(started).String())
+						ctx.Err(), timeout, time.Since(started).Round(100*time.Millisecond))
 				} else {
 					err = fmt.Errorf("unknown error executing task (timeout=%s/%s)",
-						timeout, time.Now().Sub(started).String())
+						timeout, time.Since(started).Round(100*time.Millisecond))
 				}
 			}
 			ts.taskStateMachine.SetFailed(err)

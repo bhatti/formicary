@@ -82,8 +82,105 @@ clean-proto:
 	find $(GEN_DIR)/go -name "*.pb.go" -o -name "*_grpc.pb.go" -o -name "*.pb.gw.go" | xargs rm -f
 	rm -f $(GEN_DIR)/openapi/formicary.swagger.json $(GEN_DIR)/openapi/openapi.json public/docs/openapi.json
 
-docker-build:
-	docker build --rm --build-arg APP_VERSION=$(VERSION) --tag $(BINARY_NAME):$(VERSION) --tag $(BINARY_NAME):latest .
+# docker-build: build + push multi-arch image to Docker Hub.
+#
+# Design:
+#   - Each arch is built and pushed independently to a platform-specific tag.
+#     This isolates failures: a push timeout on amd64 does not require re-building arm64.
+#   - Each arch step retries up to 3 times. The session-timeout error ("no active session")
+#     is a transient Docker Hub / buildkitd gRPC issue; retrying always succeeds.
+#   - The builder is created once and reused across runs (never torn down here).
+#     Use `make docker-builder-reset` only when the builder is broken.
+#   - The manifest step (`docker-manifest`) is a separate target so it can be re-run
+#     independently if only the manifest failed while both arch images are already pushed.
+#
+# Typical usage:
+#   make docker-build              # full build + push + manifest
+#   make docker-manifest           # re-run manifest only (both arch tags already on Hub)
+#   make docker-build-amd64        # rebuild + push amd64 only
+#   make docker-builder-reset      # nuke + recreate the buildx builder
+
+PUSH_RETRIES ?= 3
+DOCKER_REGISTRY_PREFIX ?= plexobject
+
+# Retry wrapper: retries a docker buildx build command up to PUSH_RETRIES times.
+# Usage: $(call docker_push_with_retry, <buildx args>)
+define docker_push_with_retry
+	@attempt=1; \
+	while [ $$attempt -le $(PUSH_RETRIES) ]; do \
+	  echo "  Attempt $$attempt/$(PUSH_RETRIES): docker buildx build $(1)"; \
+	  if docker buildx build $(1); then \
+	    echo "  Push succeeded on attempt $$attempt."; \
+	    break; \
+	  fi; \
+	  attempt=$$((attempt + 1)); \
+	  if [ $$attempt -le $(PUSH_RETRIES) ]; then \
+	    echo "  Push failed — retrying in 5s..."; \
+	    sleep 5; \
+	  else \
+	    echo "  Push failed after $(PUSH_RETRIES) attempts." >&2; \
+	    exit 1; \
+	  fi; \
+	done
+endef
+
+# Ensure the persistent multiarch builder exists (no-op if already present).
+docker-builder:
+	@if ! docker buildx inspect multiarch > /dev/null 2>&1; then \
+	  echo "Creating buildx builder 'multiarch'..."; \
+	  docker buildx create --name multiarch --driver docker-container \
+	    --driver-opt network=host --use --bootstrap; \
+	else \
+	  docker buildx use multiarch; \
+	fi
+
+# Remove and recreate the builder. Use only when the builder is broken.
+docker-builder-reset:
+	docker buildx rm multiarch 2>/dev/null || true
+	docker buildx create --name multiarch --driver docker-container \
+	  --driver-opt network=host --use --bootstrap
+	@echo "Builder 'multiarch' recreated."
+
+# Build + push linux/arm64 only.
+docker-build-arm64: docker-builder
+	@echo "=== Building linux/arm64 ==="
+	$(call docker_push_with_retry, \
+	  --platform linux/arm64 \
+	  --build-arg APP_VERSION=$(VERSION) \
+	  --build-arg CACHEBUST=$(shell date +%s) \
+	  --tag $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-arm64 \
+	  --provenance=false --push .)
+	@echo "=== linux/arm64 pushed: $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-arm64 ==="
+
+# Build + push linux/amd64 only.
+docker-build-amd64: docker-builder
+	@echo "=== Building linux/amd64 ==="
+	$(call docker_push_with_retry, \
+	  --platform linux/amd64 \
+	  --build-arg APP_VERSION=$(VERSION) \
+	  --build-arg CACHEBUST=$(shell date +%s) \
+	  --tag $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-amd64 \
+	  --provenance=false --push .)
+	@echo "=== linux/amd64 pushed: $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-amd64 ==="
+
+# Create (or update) the multi-arch manifest from already-pushed arch tags.
+# Safe to re-run if docker-build succeeded for both arches but manifest creation timed out.
+docker-manifest:
+	@echo "=== Creating multi-arch manifest ==="
+	docker buildx imagetools create \
+	  -t $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION) \
+	  -t $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):latest \
+	  $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-arm64 \
+	  $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-amd64
+	@echo "=== Multi-arch manifest published: $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION) / latest ==="
+
+# Full build: vendor → build arm64 → build amd64 → manifest.
+docker-build: vendor docker-build-arm64 docker-build-amd64 docker-manifest
+
+# docker-push: re-push already-built versioned + latest tags (no rebuild).
+docker-push:
+	docker push $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)
+	docker push $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):latest
 
 docker-release:
 	docker tag $(BINARY_NAME) $(DOCKER_REGISTRY)$(BINARY_NAME):latest
@@ -267,6 +364,45 @@ ifeq ($(EXPORT_RESULT), true)
 endif
 	$(GOTEST) -v $(TEST_RACE_PROCESS) ./... $(OUTPUT_OPTIONS)
 
+# deploy-ant: deploy the ant worker to the local k8s cluster pointing at a remote queen.
+# Requires: FORMICARY_URL and FORMICARY_TOKEN env vars (same as deploy-ai-workflows.sh).
+# Optional overrides: QUEEN_PORT (default: derived from URL), QUEEN_S3_PORT (default: 19000),
+#                     BUFFER_DB_PATH (default: :memory:), ANT_IMAGE (default: plexobject/formicary:latest)
+# Example:
+#   export FORMICARY_URL=https://10.8.97.24.nip.io
+#   export FORMICARY_TOKEN=<jwt>
+#   make deploy-ant
+deploy-ant:
+	@if [ -z "$(FORMICARY_URL)" ]; then \
+	  echo "Error: FORMICARY_URL is required. Example: export FORMICARY_URL=https://10.8.97.24.nip.io" >&2; \
+	  exit 1; \
+	fi
+	@if [ -z "$(FORMICARY_TOKEN)" ]; then \
+	  echo "Error: FORMICARY_TOKEN is required." >&2; \
+	  exit 1; \
+	fi
+	FORMICARY_URL="$(FORMICARY_URL)" \
+	FORMICARY_TOKEN="$(FORMICARY_TOKEN)" \
+	QUEEN_PORT="$(QUEEN_PORT)" \
+	QUEEN_S3_PORT="$(QUEEN_S3_PORT)" \
+	BUFFER_DB_PATH="$(BUFFER_DB_PATH)" \
+	ANT_IMAGE="$(ANT_IMAGE)" \
+	./scripts/setup-ant-worker.sh
+
+# deploy-queen: deploy or restart the Formicary queen on EC2.
+# Requires: EC2_IP env var (or --ec2-ip flag).
+# Use --restart to pull the latest image and restart without full redeploy.
+# Example:
+#   export EC2_IP=10.8.97.24
+#   make deploy-queen            # full deploy
+#   make deploy-queen ARGS=--restart  # pull latest image + restart
+deploy-queen:
+	@if [ -z "$(EC2_IP)" ]; then \
+	  echo "Error: EC2_IP is required. Example: export EC2_IP=10.8.97.24" >&2; \
+	  exit 1; \
+	fi
+	EC2_IP="$(EC2_IP)" ./scripts/deploy-formicary.sh $(ARGS)
+
 vendor:
 	$(GOCMD) mod vendor
 
@@ -303,7 +439,34 @@ bump-major:
 	echo "Bumped VERSION_MAJOR to $$NEW_MAJOR, reset VERSION_MINOR to 0 in Makefile"
 	@$(MAKE) tag-release
 
+## gen-tls-certs: Generate self-signed TLS cert+key.
+## Includes IP SAN for EC2_IP and nip.io DNS SAN (required for Google OAuth).
+## Google OAuth blocks IP redirect URIs — use <ip>.nip.io as the OAuth callback domain.
+## Usage:
+##   make gen-tls-certs EC2_IP=10.8.97.24
+EC2_IP ?= 127.0.0.1
+gen-tls-certs:
+	mkdir -p certs
+	openssl req -x509 -newkey rsa:4096 \
+	    -keyout certs/tls.key \
+	    -out    certs/tls.crt \
+	    -days   365 -nodes \
+	    -subj   "/CN=$(EC2_IP).nip.io/O=Formicary/C=US" \
+	    -addext "subjectAltName=IP:$(EC2_IP),IP:127.0.0.1,DNS:$(EC2_IP).nip.io,DNS:formicary.local,DNS:localhost"
+	@echo ""
+	@echo "Certificate: certs/tls.crt"
+	@echo "  SANs: IP:$(EC2_IP), IP:127.0.0.1, DNS:$(EC2_IP).nip.io, DNS:localhost"
+	@echo ""
+	@echo "Google OAuth redirect URI: https://$(EC2_IP).nip.io/auth/google/callback"
+	@echo ""
+	@echo "Create K8s secret:"
+	@echo "  kubectl create secret tls formicary-tls \\"
+	@echo "    --cert=certs/tls.crt --key=certs/tls.key"
+
 .PHONY: vendor build test tag-release bump-patch bump-minor bump-major \
         docker-run docker-run-embedded docker-run-queen \
-        ant ant-remote ant-docker
+        ant ant-remote ant-docker gen-tls-certs \
+        docker-builder docker-builder-reset \
+        docker-build docker-build-arm64 docker-build-amd64 docker-manifest docker-push \
+        deploy-ant deploy-queen
 

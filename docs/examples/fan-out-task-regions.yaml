@@ -9,7 +9,7 @@
 #
 # The source array must live in the job execution context. Two ways to provide it:
 #   1. job_variables (static list, available to all tasks from the start)
-#   2. ::set-output name=key::value from a setup script (dynamic list)
+#   2. ::add-job-context key::value from a setup script (dynamic list)
 # Task-level variables: only apply within that task and do NOT propagate.
 #
 # Usage:

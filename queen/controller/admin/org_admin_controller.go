@@ -210,12 +210,29 @@ func (oc *OrganizationAdminController) deleteOrganization(c web.APIContext) erro
 	return c.Redirect(http.StatusFound, "/dashboard/orgs")
 }
 
-// usageReport -
+// usageReport - shows resource usage; admin sees all orgs, regular users see only their org
 func (oc *OrganizationAdminController) usageReport(c web.APIContext) error {
 	from := utils.ParseStartDateTime(c.QueryParam("from"))
 	to := utils.ParseEndDateTime(c.QueryParam("to"))
 
-	combinedUsage := oc.userManager.CombinedResourcesByOrgUser(from, to, 10000)
+	qc := web.BuildQueryContext(c)
+	allUsage := oc.userManager.CombinedResourcesByOrgUser(from, to, 10000)
+
+	// Filter at result level for non-admin users — the underlying query aggregates by org/user,
+	// so we filter the already-aggregated slice rather than modifying the raw query.
+	var combinedUsage []types.CombinedResourceUsage
+	combinedUsage = allUsage
+	if !qc.IsAdmin() {
+		orgID := qc.GetOrganizationID()
+		filtered := make([]types.CombinedResourceUsage, 0, len(allUsage))
+		for _, u := range allUsage {
+			if u.OrganizationID == orgID {
+				filtered = append(filtered, u)
+			}
+		}
+		combinedUsage = filtered
+	}
+
 	res := map[string]interface{}{
 		"Records":  combinedUsage,
 		"FromDate": from.Format("2006-01-02"),

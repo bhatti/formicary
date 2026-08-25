@@ -14,15 +14,17 @@ import (
 type LogEvent struct {
 	BaseEvent
 	UserID          string `json:"user_id"`
-	JobRequestID    string `json:"job_request_id"`           // JobRequestID defines key for job request
-	JobType         string `json:"job_type"`                 // JobType defines type of job
-	TaskType        string `json:"task_type"`                // TaskType defines type of job
-	JobExecutionID  string `json:"job_execution_id"`         // JobExecutionID defines foreign key for JobExecution
-	TaskExecutionID string `json:"task_execution_id"`        // TaskExecutionID defines foreign key for TaskExecution
-	AntID           string `json:"ant_id"`                   // AntID
-	Tags            string `json:"tags"`                     // Tags
-	Message         string `json:"message" gorm:"-"`         // Message
-	EncodedMessage  string `json:"-" gorm:"encoded_message"` // EncodedMessage
+	JobRequestID    string `json:"job_request_id"`                  // JobRequestID defines key for job request
+	JobType         string `json:"job_type"`                        // JobType defines type of job
+	TaskType        string `json:"task_type"`                       // TaskType defines type of job
+	JobExecutionID  string `json:"job_execution_id"`                // JobExecutionID defines foreign key for JobExecution
+	TaskExecutionID string `json:"task_execution_id"`               // TaskExecutionID defines foreign key for TaskExecution
+	AntID           string `json:"ant_id"`                          // AntID
+	Tags            string `json:"tags"`                            // Tags
+	Level           string `json:"level"  gorm:"column:level"`      // info | warn | error
+	Source          string `json:"source" gorm:"column:source"`     // task | system | ant-id
+	Message         string `json:"message" gorm:"-"`                // Message
+	EncodedMessage  string `json:"-" gorm:"column:encoded_message"` // EncodedMessage
 }
 
 // NewLogEvent constructor
@@ -50,9 +52,26 @@ func NewLogEvent(
 		TaskType:        taskType,
 		JobExecutionID:  jobExecutionID,
 		TaskExecutionID: taskExecutionID,
+		Level:           "info",
+		Source:          "task",
 		Message:         msg,
 		Tags:            tags,
 		AntID:           antID,
+	}
+}
+
+// NewSystemLogEvent creates a system-level log event (not tied to any job).
+func NewSystemLogEvent(component, msg, level string) *LogEvent {
+	return &LogEvent{
+		BaseEvent: BaseEvent{
+			ID:        ulid.Make().String(),
+			Source:    component,
+			EventType: "LogEvent",
+			CreatedAt: time.Now(),
+		},
+		Level:   level,
+		Source:  "system",
+		Message: msg,
 	}
 }
 
@@ -69,17 +88,27 @@ func (l *LogEvent) String() string {
 
 // Validate validates event for message event
 func (l *LogEvent) Validate() error {
-	if l.JobRequestID == "" {
-		return fmt.Errorf("requestID is not specified")
+	// Set defaults for level and source
+	if l.Level == "" {
+		l.Level = "info"
 	}
-	if l.TaskType == "" {
-		return fmt.Errorf("taskType is not specified")
+	if l.Source == "" {
+		l.Source = "task"
 	}
-	if l.JobExecutionID == "" {
-		return fmt.Errorf("jobExecutionID is not specified")
-	}
-	if l.TaskExecutionID == "" {
-		return fmt.Errorf("taskExecutionID is not specified")
+	// System-level events are not tied to a job — skip job field validation.
+	if l.Source != "system" {
+		if l.JobRequestID == "" {
+			return fmt.Errorf("requestID is not specified")
+		}
+		if l.TaskType == "" {
+			return fmt.Errorf("taskType is not specified")
+		}
+		if l.JobExecutionID == "" {
+			return fmt.Errorf("jobExecutionID is not specified")
+		}
+		if l.TaskExecutionID == "" {
+			return fmt.Errorf("taskExecutionID is not specified")
+		}
 	}
 	if l.Message == "" {
 		return fmt.Errorf("message is not specified")

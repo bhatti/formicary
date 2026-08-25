@@ -26,7 +26,8 @@ type WebSocketConfig struct {
 	ReconnectMaxDelay time.Duration `json:"reconnect_max_delay,omitempty" yaml:"reconnect_max_delay" mapstructure:"reconnect_max_delay"`
 
 	// BufferDBPath is the path for the ant's SQLite offline buffer database.
-	// Default: "./formicary-buffer.db"
+	// Default: ":memory:" (ephemeral; safe for k8s pods). Override with a file path
+	// (e.g. /data/buf.db or via COMMON_QUEUE_WEBSOCKET_BUFFER_DB_PATH) for durable deployments.
 	BufferDBPath string `json:"buffer_db_path,omitempty" yaml:"buffer_db_path" mapstructure:"buffer_db_path"`
 
 	// WriteTimeout is the timeout for writing a message to the WebSocket connection.
@@ -52,6 +53,10 @@ type WebSocketConfig struct {
 	// BufferTTL is how long buffered (offline) messages are retained.
 	// Default: 24h
 	BufferTTL time.Duration `json:"buffer_ttl,omitempty" yaml:"buffer_ttl" mapstructure:"buffer_ttl"`
+
+	// TLSSkipVerify disables TLS certificate verification for the WebSocket connection.
+	// Use for self-signed certificates (e.g. nip.io deployments). Never use in production.
+	TLSSkipVerify bool `json:"tls_skip_verify,omitempty" yaml:"tls_skip_verify" mapstructure:"tls_skip_verify"`
 }
 
 // Validate sets defaults on WebSocketConfig
@@ -69,7 +74,7 @@ func (c *WebSocketConfig) Validate() {
 		c.ReconnectMaxDelay = 30 * time.Second
 	}
 	if c.BufferDBPath == "" {
-		c.BufferDBPath = "./formicary-buffer.db"
+		c.BufferDBPath = ":memory:"
 	}
 	if c.WriteTimeout == 0 {
 		c.WriteTimeout = 10 * time.Second

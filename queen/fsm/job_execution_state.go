@@ -573,7 +573,7 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 		m = strings.TrimSpace(m)
 		methods = append(methods, common.TaskMethod(m))
 	}
-	return jsm.ResourceManager.HasAntsForJobTags(methods, tags)
+	return jsm.ResourceManager.HasAntsForJobTags(methods, tags, jsm.Request.GetOrganizationID())
 }
 
 // CheckSubscriptionQuota checks quota
@@ -589,7 +589,8 @@ func (jsm *JobExecutionStateMachine) CheckSubscriptionQuota() (err error) {
 // ants beyond their capacity.
 func (jsm *JobExecutionStateMachine) ReserveJobResources() (err error) {
 	// Reserve resources for tasks
-	jsm.Reservations, err = jsm.ResourceManager.ReserveJobResources(jsm.Request.GetID(), jsm.JobDefinition)
+	jsm.Reservations, err = jsm.ResourceManager.ReserveJobResources(
+		jsm.Request.GetID(), jsm.Request.GetOrganizationID(), jsm.JobDefinition)
 	return
 }
 

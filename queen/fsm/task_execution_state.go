@@ -302,6 +302,10 @@ func (tsm *TaskExecutionStateMachine) BuildTaskRequest() (*common.TaskRequest, e
 	}
 	// Note: we will download cache on ant-worker side because it may require accessing key-files
 
+	// Populate context_variables so the ant can echo them into TaskResponse.TaskContext.
+	// Template expressions are already rendered by GetDynamicTaskWithQuerier.
+	taskReq.ContextVariables = tsm.TaskDefinition.GetContextVariableMap()
+
 	return taskReq, taskReq.Validate()
 }
 
@@ -470,7 +474,8 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 			tsm.Request.GetID(),
 			tsm.TaskExecution.TaskType,
 			taskDefinition.Method,
-			taskDefinition.Tags)
+			taskDefinition.Tags,
+			tsm.Request.GetOrganizationID())
 	}
 	if !ant.Supports(taskDefinition.Method, taskDefinition.Tags, tsm.serverCfg.Jobs.AntRegistrationAliveTimeout) {
 		_ = tsm.ResourceManager.Release(allocation)
@@ -478,7 +483,8 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 			tsm.Request.GetID(),
 			tsm.TaskExecution.TaskType,
 			taskDefinition.Method,
-			taskDefinition.Tags)
+			taskDefinition.Tags,
+			tsm.Request.GetOrganizationID())
 	}
 	return allocation, nil
 }

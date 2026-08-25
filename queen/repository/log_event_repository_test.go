@@ -106,3 +106,59 @@ func Test_ShouldSaveAndQueryLogEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 }
+
+func Test_ShouldFilterByLevel(t *testing.T) {
+	repo, err := NewTestLogEventRepository()
+	require.NoError(t, err)
+	repo.clear()
+
+	save := func(level string) {
+		e := events.NewLogEvent("c", "u", ulid.Make().String(), "jt", "tt",
+			ulid.Make().String(), ulid.Make().String(), "msg-"+level, "", "ant")
+		e.Level = level
+		_, _ = repo.Save(e)
+	}
+	save("info")
+	save("warn")
+	save("error")
+
+	_, total, err := repo.Query(map[string]interface{}{"level": "warn"}, 0, 100, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), total, "warn filter should return warn + error")
+
+	_, total, err = repo.Query(map[string]interface{}{"level": "error"}, 0, 100, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total, "error filter should return only error")
+
+	_, total, err = repo.Query(map[string]interface{}{"level": "info"}, 0, 100, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), total, "info filter should return all")
+}
+
+func Test_ShouldFilterBySource(t *testing.T) {
+	repo, err := NewTestLogEventRepository()
+	require.NoError(t, err)
+	repo.clear()
+
+	taskEvent := events.NewLogEvent("c", "u", ulid.Make().String(), "jt", "tt",
+		ulid.Make().String(), ulid.Make().String(), "task-msg", "", "ant")
+	_, _ = repo.Save(taskEvent)
+
+	sysEvent := events.NewSystemLogEvent("HealthMonitor", "db lost", "error")
+	_, _ = repo.Save(sysEvent)
+
+	_, total, err := repo.Query(map[string]interface{}{"source": "task"}, 0, 100, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+
+	_, total, err = repo.Query(map[string]interface{}{"source": "system"}, 0, 100, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+}
+
+func Test_ShouldReturnLevelsAtAndAbove(t *testing.T) {
+	require.Equal(t, []string{"info", "warn", "error"}, logLevelsAtAndAbove("info"))
+	require.Equal(t, []string{"warn", "error"}, logLevelsAtAndAbove("warn"))
+	require.Equal(t, []string{"error"}, logLevelsAtAndAbove("error"))
+	require.Nil(t, logLevelsAtAndAbove("debug"))
+}

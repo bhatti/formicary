@@ -24,13 +24,36 @@
             <dt class="col-5 text-secondary">Tags</dt>
             <dd class="col-7">{{ .Tags }}</dd>
             <dt class="col-5 text-secondary">Capacity</dt>
-            <dd class="col-7">{{ .MaxCapacity }}</dd>
+            <dd class="col-7">{{ .MaxCapacity }} slots</dd>
             <dt class="col-5 text-secondary">Load</dt>
-            <dd class="col-7">{{ .CurrentLoad }}</dd>
+            <dd class="col-7">
+                {{ .CurrentLoad }} / {{ .MaxCapacity }} ({{ .AvailableCapacity }} free)
+                <div class="progress progress-sm mt-1">
+                    <div class="progress-bar {{if ge .LoadPercent 100}}bg-danger{{else if ge .LoadPercent 80}}bg-warning{{else}}bg-primary{{end}}"
+                         style="width:{{.LoadPercent}}%"
+                         title="{{.CurrentLoad}} active / {{.MaxCapacity}} max"></div>
+                </div>
+            </dd>
             <dt class="col-5 text-secondary">Total Executed</dt>
             <dd class="col-7">{{ .TotalExecuted }}</dd>
             <dt class="col-5 text-secondary">Updated At</dt>
             <dd class="col-7">{{ .UpdatedAtString }}</dd>
+            {{if .MethodHealth}}
+            <dt class="col-5 text-secondary">Method Health</dt>
+            <dd class="col-7">
+                {{range $method, $entry := .MethodHealth}}
+                {{if $entry.Healthy}}
+                <span class="badge bg-success me-1" title="Last checked: {{$entry.LastCheckedAt.Format "Jan 2 15:04:05"}}">
+                    {{$method}}: OK
+                </span>
+                {{else}}
+                <span class="badge bg-danger me-1" title="{{$entry.Error}}&#xA;Last checked: {{$entry.LastCheckedAt.Format "Jan 2 15:04:05"}}">
+                    {{$method}}: &#x26A0; {{$entry.Error}}
+                </span>
+                {{end}}
+                {{end}}
+            </dd>
+            {{end}}
         </dl>
     </div>
 </div>

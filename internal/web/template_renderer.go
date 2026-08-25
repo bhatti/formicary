@@ -2,53 +2,56 @@ package web
 
 import (
 	"errors"
-	"github.com/labstack/echo/v4"
 	"html/template"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"plexobject.com/formicary/queen/utils"
 	"strings"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
+	"plexobject.com/formicary/queen/utils"
 )
 
 // A TemplateRenderer implements keeper, loader and reloader for HTML templates
 type TemplateRenderer struct {
 	*template.Template                  // root template
-	dir                string           // root directory
-	ext                string           // extension
-	devel              bool             // reload every time
-	funcs              template.FuncMap // functions
-	loadedAt           time.Time        // loaded at (last loading time)
+	fsys               fs.FS           // embedded or os FS (nil = use dir on disk)
+	dir                string          // root directory (used when fsys is nil)
+	ext                string          // extension
+	devel              bool            // reload every time
+	funcs              template.FuncMap
+	loadedAt           time.Time
 }
 
-// NewTemplateRenderer creates new TemplateRenderer and loads templates. The dir argument is
-// directory to load templates from. The ext argument is extension of
-// templates. The devel (if true) turns the TemplateRenderer to reload templates
-// every Render if there is a change in the dir.
-func NewTemplateRenderer(
-	dir string,
-	ext string,
-	devel bool) (tmpl *TemplateRenderer, err error) {
-	// get absolute path
+// NewTemplateRenderer creates a TemplateRenderer that walks the OS filesystem under dir.
+// Used in development mode when PublicDir is set explicitly.
+func NewTemplateRenderer(dir string, ext string, devel bool) (tmpl *TemplateRenderer, err error) {
 	if dir, err = filepath.Abs(dir); err != nil {
 		return
 	}
-
-	tmpl = new(TemplateRenderer)
-	tmpl.dir = dir
-	tmpl.ext = ext
-	tmpl.devel = devel
-
+	tmpl = &TemplateRenderer{dir: dir, ext: ext, devel: devel}
 	tmpl.funcs = utils.TemplateFuncs()
-
 	if err = tmpl.Load(); err != nil {
-		tmpl = nil // drop for GC
+		return nil, err
 	}
+	return
+}
 
+// NewTemplateRendererFromFS creates a TemplateRenderer that walks an embedded fs.FS.
+// The viewsSubDir is the sub-path inside the FS that contains the view files (e.g. "public/views").
+func NewTemplateRendererFromFS(fsys fs.FS, viewsSubDir string, ext string) (tmpl *TemplateRenderer, err error) {
+	sub, err := fs.Sub(fsys, viewsSubDir)
+	if err != nil {
+		return nil, err
+	}
+	tmpl = &TemplateRenderer{fsys: sub, ext: ext, devel: false}
+	tmpl.funcs = utils.TemplateFuncs()
+	if err = tmpl.Load(); err != nil {
+		return nil, err
+	}
 	return
 }
 
@@ -60,139 +63,119 @@ func (t *TemplateRenderer) Funcs(funcMap template.FuncMap) {
 
 // Load or reload templates
 func (t *TemplateRenderer) Load() (err error) {
-
-	// time point
 	t.loadedAt = time.Now()
-
-	// unnamed root template
 	var root = template.New("")
-
 	if t.funcs != nil {
 		root = root.Funcs(t.funcs)
 	}
 
-	var walkFunc = func(
-		path string,
-		info os.FileInfo,
-		err error) (_ error) {
-		if err != nil {
-			return err
-		}
-
-		// skip all except regular files
-		// TODO (kostyarin): follow symlinks
-		if !info.Mode().IsRegular() {
-			return
-		}
-
-		// filter by extension
-		if filepath.Ext(path) != t.ext {
-			return
-		}
-
-		// get relative path
-		var rel string
-		if rel, err = filepath.Rel(t.dir, path); err != nil {
-			return err
-		}
-
-		// name of a template is its relative path without extension
-		rel = strings.TrimSuffix(rel, t.ext)
-
-		// load or reload
-		var (
-			nt = root.New(rel)
-			b  []byte
-		)
-
-		if b, err = ioutil.ReadFile(path); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "TemplateRenderer",
-				"Path":      path,
-				"Error":     err,
-			}).Info("Reading failed")
-			return err
-		}
-
-		if logrus.IsLevelEnabled(logrus.DebugLevel) {
-			logrus.WithFields(logrus.Fields{
-				"Component": "TemplateRenderer",
-				"Path":      path,
-			}).Debugf("loading template")
-		}
-		_, err = nt.Parse(string(b))
-		return err
+	if t.fsys != nil {
+		err = t.loadFromFS(root)
+	} else {
+		err = t.loadFromDir(root)
 	}
-
-	if err = filepath.Walk(t.dir, walkFunc); err != nil {
+	if err != nil {
 		return
 	}
-
-	t.Template = root // set or replace
+	t.Template = root
 	return
 }
 
-// IsModified lookups directory for changes to
-// reload (or not to reload) templates if development
-// pin is true.
-func (t *TemplateRenderer) IsModified() (yep bool, err error) {
-
-	var errStop = errors.New("stop")
-
-	var walkFunc = func(path string, info os.FileInfo, err error) (_ error) {
-
-		// handle walking error if any
+func (t *TemplateRenderer) loadFromFS(root *template.Template) error {
+	return fs.WalkDir(t.fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+		if d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) != t.ext {
+			return nil
+		}
+		name := strings.TrimSuffix(path, t.ext)
+		b, err := fs.ReadFile(t.fsys, path)
+		if err != nil {
+			return err
+		}
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithField("Path", path).Debug("loading embedded template")
+		}
+		_, err = root.New(name).Parse(string(b))
+		return err
+	})
+}
 
-		// skip all except regular files
-		// TODO (kostyarin): follow symlinks
+func (t *TemplateRenderer) loadFromDir(root *template.Template) error {
+	return filepath.Walk(t.dir, func(path string, info os.FileInfo, err error) (_ error) {
+		if err != nil {
+			return err
+		}
 		if !info.Mode().IsRegular() {
 			return
 		}
-
-		// filter by extension
 		if filepath.Ext(path) != t.ext {
 			return
 		}
+		rel, err := filepath.Rel(t.dir, path)
+		if err != nil {
+			return err
+		}
+		name := strings.TrimSuffix(rel, t.ext)
+		b, err := os.ReadFile(path)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{"Path": path, "Error": err}).Info("reading template failed")
+			return err
+		}
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithField("Path", path).Debug("loading template")
+		}
+		_, err = root.New(name).Parse(string(b))
+		return err
+	})
+}
 
-		if yep = info.ModTime().After(t.loadedAt); yep == true {
+// IsModified checks the OS directory for changes (only used in devel/filesystem mode).
+func (t *TemplateRenderer) IsModified() (yep bool, err error) {
+	if t.fsys != nil {
+		return false, nil
+	}
+	var errStop = errors.New("stop")
+	walkFunc := func(path string, info os.FileInfo, err error) (_ error) {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return
+		}
+		if filepath.Ext(path) != t.ext {
+			return
+		}
+		if yep = info.ModTime().After(t.loadedAt); yep {
 			return errStop
 		}
-
 		return
 	}
-
-	// clear the errStop
 	if err = filepath.Walk(t.dir, walkFunc); err == errStop {
 		err = nil
 	}
-
 	return
 }
 
 // Render renders template
-func (t *TemplateRenderer) Render(
-	w io.Writer,
-	name string,
-	data interface{}, c echo.Context) (err error) {
-	// Add global methods if data is a map
+func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) (err error) {
 	if viewContext, isMap := data.(map[string]interface{}); isMap {
 		viewContext["reverse"] = c.Echo().Reverse
 	}
-	if t.devel == true {
-		var modified bool
-		if modified, err = t.IsModified(); err != nil {
-			return
+	if t.devel {
+		modified, modErr := t.IsModified()
+		if modErr != nil {
+			return modErr
 		}
-		if modified == true {
+		if modified {
 			if err = t.Load(); err != nil {
 				return
 			}
 		}
 	}
-
-	err = t.ExecuteTemplate(w, name, data)
-	return
+	return t.ExecuteTemplate(w, name, data)
 }

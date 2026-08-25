@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
 	"plexobject.com/formicary/queen/security"
+	queenhealth "plexobject.com/formicary/queen/health"
 	queenService "plexobject.com/formicary/queen/service"
 	"plexobject.com/formicary/queen/stats"
 	"plexobject.com/formicary/queen/tasklet/wstask"
@@ -54,6 +56,7 @@ type services struct {
 	health    *queenService.HealthService
 	admin     *queenService.AdminService
 	triggers  *queenService.TriggerService
+	slack     *queenService.SlackService
 }
 
 // StartWebServer starts controllers that register REST APIs and admin dashboard,
@@ -145,6 +148,7 @@ func StartWebServer(
 		func() error { return svcpb.RegisterHealthServiceHandlerServer(ctx, gwMux, svcs.health) },
 		func() error { return svcpb.RegisterAdminServiceHandlerServer(ctx, gwMux, svcs.admin) },
 		func() error { return svcpb.RegisterTriggerServiceHandlerServer(ctx, gwMux, svcs.triggers) },
+		func() error { return svcpb.RegisterSlackServiceHandlerServer(ctx, gwMux, svcs.slack) },
 	} {
 		if err := reg(); err != nil {
 			return fmt.Errorf("grpc-gateway registration failed: %w", err)
@@ -183,7 +187,7 @@ func buildServices(
 	triggerSubmitter := trigger.NewSubmitter(jobManager, repoFactory.TriggerStateRepository)
 	return &services{
 		jobDef:    queenService.NewJobDefinitionService(jobManager),
-		jobExec:   queenService.NewJobExecutionService(jobManager),
+		jobExec:   queenService.NewJobExecutionService(jobManager, repoFactory.JobRequestRepository),
 		user:      queenService.NewUserService(userManager, repoFactory.UserRepository, serverCfg),
 		org:       queenService.NewOrgService(userManager, repoFactory.ConfigRepository, repoFactory.AuditRecordRepository),
 		artifact:  queenService.NewArtifactService(artifactManager),
@@ -195,6 +199,7 @@ func buildServices(
 		health:    queenService.NewHealthService(dashboardStats),
 		admin:     queenService.NewAdminService(dashboardStats, userManager),
 		triggers:  queenService.NewTriggerService(jobManager, repoFactory.TriggerStateRepository, triggerEvaluator, triggerSubmitter),
+		slack:     queenService.NewSlackService(repoFactory.SystemConfigRepository),
 	}
 }
 
@@ -239,6 +244,7 @@ func buildGRPCServer(
 	svcpb.RegisterHealthServiceServer(grpcSrv, svcs.health)
 	svcpb.RegisterAdminServiceServer(grpcSrv, svcs.admin)
 	svcpb.RegisterTriggerServiceServer(grpcSrv, svcs.triggers)
+	svcpb.RegisterSlackServiceServer(grpcSrv, svcs.slack)
 	if serverCfg.Common.Debug {
 		reflection.Register(grpcSrv)
 	}
@@ -256,6 +262,18 @@ func startCmux(
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
+	// Wrap listener with TLS when cert+key are configured via common.tls.
+	// TLSConfig is already defined in proto/formicary/v1/domain/common.proto and
+	// implemented in internal/types.TLSConfig — no new types needed.
+	if serverCfg.Common.TLS != nil && serverCfg.Common.TLS.Enabled {
+		tlsCfg, err := serverCfg.Common.TLS.CreateTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load TLS config: %w", err)
+		}
+		lis = tls.NewListener(lis, tlsCfg)
+		logrus.WithField("addr", addr).Info("TLS enabled on server listener")
 	}
 
 	mux := cmux.New(lis)
@@ -446,6 +464,18 @@ func buildMethodPermissions() map[string]*acl.Permission {
 		p[m] = acl.NewPermission(acl.AntExecutor, acl.View)
 	}
 	p[svcpb.ResourceService_SaveSubscription_FullMethodName] = acl.NewPermission(acl.AntExecutor, acl.Write)
+	// Container events — all authenticated users; org-scoped in implementation
+	p[svcpb.ResourceService_QueryContainerEvents_FullMethodName] = acl.NewPermission(acl.Container, acl.Query)
+
+	// Job submission summaries — all authenticated users; org-scoped in implementation
+	p[svcpb.JobExecutionService_QueryJobSubmissions_FullMethodName] = acl.NewPermission(acl.JobRequest, acl.View)
+
+	// Resource usage report — all authenticated users; org-scoped in implementation
+	p[svcpb.OrganizationService_GetResourceUsageReport_FullMethodName] = acl.NewPermission(acl.Report, acl.View)
+
+	// Slack routes — all authenticated users may read; only admin may write
+	p[svcpb.SlackService_GetSlackRoutes_FullMethodName] = acl.NewPermission(acl.SystemConfig, acl.Read)
+	p[svcpb.SlackService_SaveSlackRoutes_FullMethodName] = acl.NewPermission(acl.SystemConfig, acl.Write)
 
 	// Audit
 	p[svcpb.AuditService_QueryAuditRecords_FullMethodName] = acl.NewPermission(acl.Audit, acl.View)
@@ -588,6 +618,11 @@ func startAdminControllers(
 	healthMonitor *health.Monitor,
 	authProviders []auth.Provider,
 	webServer web.Server) {
+	// Wire banner health bridge: translates health monitor callbacks into DB banner upserts/clears.
+	bannerBridge := queenhealth.NewBannerHealthBridge(repoFactory.BannerRepository)
+	healthMonitor.OnHealthCheck(bannerBridge.SyncMonitorStatuses)
+	resourceManager.SetBannerBridge(bannerBridge)
+
 	admin.NewAuditAdminController(repoFactory.AuditRecordRepository, repoFactory.JobRequestRepository, webServer)
 	admin.NewAuthController(
 		&serverCfg.Common,
@@ -608,13 +643,17 @@ func startAdminControllers(
 	admin.NewJobConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.JobDefinitionRepository, webServer)
 	admin.NewJobResourceAdminController(repoFactory.AuditRecordRepository, repoFactory.JobResourceRepository, webServer)
 	admin.NewSystemConfigAdminController(repoFactory.SystemConfigRepository, webServer)
+	admin.NewSlackRoutesAdminControllerWithCfg(serverCfg, repoFactory.SystemConfigRepository, webServer)
+	admin.NewSlackSetupController(repoFactory.SlackRegCodeRepository, webServer)
 	admin.NewErrorCodeAdminController(repoFactory.ErrorCodeRepository, webServer)
 	admin.NewJobRequestAdminController(jobManager, webServer)
 	admin.NewAntAdminController(resourceManager, webServer)
 	admin.NewArtifactAdminController(artifactManager, webServer)
-	admin.NewDashboardAdminController(dashboardStats, webServer)
+	admin.NewDashboardAdminController(dashboardStats, repoFactory.BannerRepository, webServer)
+	admin.NewBannerAdminController(repoFactory.BannerRepository, webServer)
 	admin.NewExecutionContainerAdminController(resourceManager, webServer)
 	admin.NewHealthAdminController(healthMonitor, webServer)
 	admin.NewEmailVerificationAdminController(userManager, webServer)
 	admin.NewRetentionAdminController(retentionManager, webServer)
+	admin.NewLogAdminController(repoFactory.LogEventRepository, webServer)
 }

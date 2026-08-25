@@ -116,7 +116,8 @@ type JobRequestRepository interface {
 	Trigger(
 		qc *common.QueryContext,
 		id string,
-		params map[string]interface{}) error
+		params map[string]interface{},
+		description string) error
 	// Restart restarts a job; hard=true sets hard_restart so all tasks re-run from scratch.
 	// newJobDefinitionID, when non-empty and different from the current pinned version, re-pins the request.
 	Restart(

@@ -12,6 +12,7 @@
         task_execution_id VARCHAR(36),
         ant_id VARCHAR(100),
         encoded_message TEXT,
+        level VARCHAR(10) NOT NULL DEFAULT 'info',
 
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ;
@@ -21,6 +22,10 @@
     CREATE INDEX formicary_log_events_job_execution_id_ndx ON formicary_log_events(job_execution_id);
     CREATE INDEX formicary_log_events_task_execution_id_ndx ON formicary_log_events(task_execution_id);
     CREATE INDEX formicary_log_events_created_ndx ON formicary_log_events(created_at);
+    CREATE INDEX formicary_log_events_level_ndx ON formicary_log_events(level);
+    -- EC2 manual ALTER (existing DB):
+    -- ALTER TABLE formicary_log_events ADD COLUMN level VARCHAR(10) NOT NULL DEFAULT 'info';
+    -- CREATE INDEX formicary_log_events_level_ndx ON formicary_log_events(level);
 
 -- +goose Down
     DROP TABLE IF EXISTS formicary_log_events;

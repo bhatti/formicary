@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 
 	"plexobject.com/formicary/internal/events"
 	"plexobject.com/formicary/queen/types"
 
 	common "plexobject.com/formicary/internal/types"
+	queenhealth "plexobject.com/formicary/queen/health"
 )
 
 // ManagerStub for resources
 type ManagerStub struct {
+	mu       sync.Mutex
 	Registry map[string]*common.AntRegistration
 	Events   []*events.ContainerLifecycleEvent
 }
@@ -68,7 +71,8 @@ func (rm *ManagerStub) Registration(id string) *common.AntRegistration {
 // HasAntsForJobTags - checks if antRegistrations are available for tags
 func (rm *ManagerStub) HasAntsForJobTags(
 	methods []common.TaskMethod,
-	tags []string) error {
+	tags []string,
+	_ string) error {
 	reg, err := rm.getMatchingReservation(
 		methods,
 		tags)
@@ -99,6 +103,7 @@ func (rm *ManagerStub) CheckJobResources(
 // ReserveJobResources reserves resources for all tasks within the job
 func (rm *ManagerStub) ReserveJobResources(
 	requestID string,
+	_ string,
 	def *types.JobDefinition) (reservations map[string]*common.AntReservation, err error) {
 	return rm.doReserveJobResources(requestID, def, false)
 }
@@ -118,7 +123,8 @@ func (rm *ManagerStub) Reserve(
 	requestID string,
 	taskType string,
 	method common.TaskMethod,
-	tags []string) (*common.AntReservation, error) {
+	tags []string,
+	_ string) (*common.AntReservation, error) {
 	return rm.doReserve(
 		requestID,
 		taskType,
@@ -163,6 +169,19 @@ func (rm *ManagerStub) GetContainerEvents(
 	return rm.Events, len(rm.Events)
 }
 
+// RegistrationsByOrg stub — returns all regs (stub ignores org filter)
+func (rm *ManagerStub) RegistrationsByOrg(_ string) []*common.AntRegistration {
+	return rm.Registrations()
+}
+
+// GetContainerEventsByOrg stub — returns all events (stub ignores org filter)
+func (rm *ManagerStub) GetContainerEventsByOrg(_ string, offset int, limit int, sortBy string) ([]*events.ContainerLifecycleEvent, int) {
+	return rm.GetContainerEvents(offset, limit, sortBy)
+}
+
+// SetBannerBridge is a no-op stub; health bridge is not used in tests.
+func (rm *ManagerStub) SetBannerBridge(_ *queenhealth.BannerHealthBridge) {}
+
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 func (rm *ManagerStub) doReserve(
 	requestID string,
@@ -170,6 +189,8 @@ func (rm *ManagerStub) doReserve(
 	method common.TaskMethod,
 	tags []string,
 	dryRun bool) (*common.AntReservation, error) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 	reg, err := rm.getMatchingReservation([]common.TaskMethod{method}, tags)
 	if err != nil {
 		return nil, err

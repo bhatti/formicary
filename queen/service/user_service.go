@@ -148,6 +148,9 @@ func (s *UserService) UpdateUser(ctx context.Context, req *svcpb.UpdateUserReque
 		return nil, status.Error(codes.Unauthenticated, "no query context")
 	}
 	u := fromProtoUser(req.User)
+	if u == nil {
+		return nil, status.Error(codes.InvalidArgument, "user body is required")
+	}
 	u.ID = req.Id
 	saved, err := s.userManager.UpdateUser(qc, u)
 	if err != nil {

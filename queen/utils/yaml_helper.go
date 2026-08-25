@@ -75,9 +75,14 @@ func ParseNameValueConfigs(input interface{}) (nameValueConfigs map[string]inter
 	case []interface{}:
 		arr := input.([]interface{})
 		for _, next := range arr {
-			m := next.(map[interface{}]interface{})
-			k := m["name"].(string)
-			nameValueConfigs[k] = m["value"]
+			switch nm := next.(type) {
+			case map[interface{}]interface{}:
+				k := nm["name"].(string)
+				nameValueConfigs[k] = nm["value"]
+			case map[string]interface{}:
+				k := nm["name"].(string)
+				nameValueConfigs[k] = nm["value"]
+			}
 		}
 	case map[interface{}]interface{}:
 		m := input.(map[interface{}]interface{})

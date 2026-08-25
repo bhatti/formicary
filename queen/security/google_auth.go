@@ -16,6 +16,11 @@ import (
 	"plexobject.com/formicary/internal/web"
 )
 
+// systemHTTPClient uses http.DefaultTransport (system CA pool) for outbound calls.
+// This ensures token-exchange requests to oauth2.googleapis.com use the OS trust store,
+// not any server-side TLS config that may carry a self-signed cert.
+var systemHTTPClient = &http.Client{Transport: http.DefaultTransport}
+
 // GoogleAuth for oauth support using Google login
 type GoogleAuth struct {
 	commonConfig *common.CommonConfig
@@ -95,11 +100,14 @@ func getUserInfoFromGoogle(
 	if state != expectedState {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
+	// Inject system HTTP client so token exchange uses the OS CA pool, not any
+	// server-side TLS config (which carries our self-signed cert for inbound TLS).
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, systemHTTPClient)
 	token, err := googleOauthConfig.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed due to %w", err)
 	}
-	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	response, err := systemHTTPClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info due to %w", err)
 	}

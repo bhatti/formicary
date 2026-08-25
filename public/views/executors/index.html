@@ -20,6 +20,7 @@
                 <th>User</th>
                 <th>State</th>
                 <th>Started</th>
+                <th>Duration</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -33,6 +34,7 @@
                 <td>{{.UserID}}</td>
                 <td>{{.ContainerState}}</td>
                 <td>{{.StartedAtString}}</td>
+                <td>{{.ElapsedDuration}}</td>
                 <td>
                     <form action="/dashboard/executors/{{.ContainerName}}/delete" method="POST"
                           enctype="multipart/form-data"

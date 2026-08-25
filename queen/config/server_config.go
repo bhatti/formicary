@@ -14,6 +14,35 @@ import (
 	"plexobject.com/formicary/internal/types"
 )
 
+// SlackRouteConfig maps trigger words to a Formicary job type.
+// Formicary is a generic passthrough: it maps verb→job_type, binds trailing
+// text to the named IdVar param, and merges any Params verbatim into the job.
+// What those params mean is entirely up to the job container — no AI-specific
+// semantics here.
+type SlackRouteConfig struct {
+	Triggers    []string          `yaml:"triggers"     mapstructure:"triggers"    json:"triggers"`
+	JobType     string            `yaml:"job_type"     mapstructure:"job_type"    json:"job_type"`
+	Description string            `yaml:"description"  mapstructure:"description" json:"description"`
+	// IdVar is the job param name that receives the entity extracted from trailing
+	// message text (e.g. "PRUrl", "IssueNumber", "Prompt"). When empty, trailing
+	// text is discarded (use Params to pass a fixed value instead).
+	IdVar       string            `yaml:"id_var"       mapstructure:"id_var"      json:"id_var,omitempty"`
+	// Params are merged verbatim into every job submitted by this route.
+	// Use this for any fixed values the job needs: Skill, Mode, Prompt templates,
+	// or anything else — Formicary passes them through without interpretation.
+	Params      map[string]string `yaml:"params"       mapstructure:"params"      json:"params,omitempty"`
+}
+
+// SlackConfig holds Socket Mode credentials and the command routing table.
+// Slack is disabled when AppToken is empty.
+type SlackConfig struct {
+	BotToken      string             `yaml:"bot_token"      mapstructure:"bot_token"`
+	AppToken      string             `yaml:"app_token"      mapstructure:"app_token"`
+	SigningSecret string             `yaml:"signing_secret" mapstructure:"signing_secret"`
+	Channel       string             `yaml:"channel"        mapstructure:"channel"`
+	Routes        []SlackRouteConfig `yaml:"routes"         mapstructure:"routes"`
+}
+
 // ServerConfig -- Defines the Server Config
 type ServerConfig struct {
 	Common                        types.CommonConfig    `yaml:"common" mapstructure:"common"`
@@ -21,6 +50,7 @@ type ServerConfig struct {
 	Jobs                          JobsConfig            `yaml:"jobs" mapstructure:"jobs"`
 	SMTP                          SMTPConfig            `yaml:"smtp" mapstructure:"smtp" env:"SMTP"`
 	Notify                        NotifyConfig          `yaml:"notify" mapstructure:"notify"`
+	Slack                         SlackConfig           `yaml:"slack" mapstructure:"slack"`
 	EmbeddedAnt                   *ant_config.AntConfig `yaml:"embedded_ant" mapstructure:"embedded_ant"`
 	GatewaySubscriptions          map[string]bool       `yaml:"gateway_subscriptions" mapstructure:"gateway_subscriptions"`
 	URLPresignedExpirationMinutes time.Duration         `yaml:"url_presigned_expiration_minutes" mapstructure:"url_presigned_expiration_minutes"`
@@ -59,6 +89,11 @@ type DBConfig struct {
 	MaxConcurrency  int           `yaml:"max_concurrency" mapstructure:"max_concurrency"`
 	ConnMaxIdleTime time.Duration `yaml:"connection_max_idle_time" mapstructure:"connection_max_idle_time"`
 	ConnMaxLifeTime time.Duration `yaml:"connection_max_life_time" mapstructure:"connection_max_life_time"`
+	// SQLite-only performance tuning (ignored for MySQL/Postgres/SQLServer)
+	SQLiteWALMode      bool   `yaml:"sqlite_wal_mode" mapstructure:"sqlite_wal_mode"`
+	SQLiteBusyTimeout  int    `yaml:"sqlite_busy_timeout_ms" mapstructure:"sqlite_busy_timeout_ms"`
+	SQLiteSynchronous  string `yaml:"sqlite_synchronous" mapstructure:"sqlite_synchronous"`
+	SQLiteCacheSize    int    `yaml:"sqlite_cache_size_kb" mapstructure:"sqlite_cache_size_kb"`
 }
 
 // JobsConfig -- Defines job scheduler/tasks related config
@@ -146,6 +181,11 @@ func NewServerConfig(id string) (*ServerConfig, error) {
 	viper.SetDefault("common.redis.port", "")
 	viper.SetDefault("common.redis.password", "")
 	viper.SetDefault("common.pulsar.url", "")
+
+	viper.SetDefault("slack.bot_token", "")
+	viper.SetDefault("slack.app_token", "")
+	viper.SetDefault("slack.signing_secret", "")
+	viper.SetDefault("slack.channel", "")
 
 	viper.SetEnvPrefix("")
 	viper.AutomaticEnv()
@@ -280,14 +320,26 @@ func (c *DBConfig) Validate() error {
 	if c.MaxOpenConns == 0 {
 		c.MaxOpenConns = 20
 	}
-	if c.MaxOpenConns == 0 {
-		c.MaxOpenConns = 20
-	}
 	if c.ConnMaxIdleTime == 0 {
 		c.ConnMaxIdleTime = 1 * time.Hour
 	}
 	if c.ConnMaxLifeTime == 0 {
 		c.ConnMaxLifeTime = 4 * time.Hour
+	}
+	// SQLite performance defaults
+	if c.Type == "sqlite" {
+		if !c.SQLiteWALMode {
+			c.SQLiteWALMode = true
+		}
+		if c.SQLiteBusyTimeout == 0 {
+			c.SQLiteBusyTimeout = 5000
+		}
+		if c.SQLiteSynchronous == "" {
+			c.SQLiteSynchronous = "NORMAL"
+		}
+		if c.SQLiteCacheSize == 0 {
+			c.SQLiteCacheSize = 64000 // 64 MB
+		}
 	}
 	return nil
 }
@@ -307,6 +359,9 @@ func (c *ServerConfig) Validate() error {
 		return err
 	}
 	if err := c.Common.Auth.Validate(); err != nil {
+		return err
+	}
+	if err := c.Slack.Validate(); err != nil {
 		return err
 	}
 	if c.URLPresignedExpirationMinutes == 0 {
@@ -369,6 +424,15 @@ func (c *ServerConfig) GetJobExecutionLaunchTopic() string {
 		c.Common.Queue.TopicTenant,
 		c.Common.Queue.TopicNamespace,
 		"job-execution-launch"+c.Jobs.LaunchTopicSuffix)
+}
+
+// Validate validates slack config — Slack is optional; only validates that
+// if AppToken is set then BotToken is also set.
+func (s *SlackConfig) Validate() error {
+	if s.AppToken != "" && s.BotToken == "" {
+		return fmt.Errorf("slack.bot_token is required when slack.app_token is set")
+	}
+	return nil
 }
 
 // Validate validates smtp config

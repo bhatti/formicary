@@ -86,6 +86,10 @@ type TaskDefinition struct {
 	ReportStdout bool `yaml:"report_stdout,omitempty" json:"report_stdout"`
 	// Transient properties -- these are populated when AfterLoad or Validate is called
 	NameValueVariables interface{} `yaml:"variables,omitempty" json:"variables" gorm:"-"`
+	// ContextVariables defines key/value pairs that are injected into the task execution
+	// context so they appear in the dashboard. Values may use template expressions
+	// (e.g. {{.AnthropicSonnetModel}}) which are rendered before the task runs.
+	ContextVariables interface{} `yaml:"context_variables,omitempty" json:"context_variables" gorm:"-"`
 	// Header defines HTTP headers
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers" gorm:"-"`
 	// BeforeScript defines list of commands that are executed before main script
@@ -512,6 +516,24 @@ func (td *TaskDefinition) GetNameValueVariables() (res map[string]common.Variabl
 		}
 	}
 	return
+}
+
+// GetContextVariableMap returns the context_variables parsed as a flat string map.
+// Template expressions in values are already rendered by GetDynamicTaskWithQuerier
+// before this is called, so the values here are ready to store as task contexts.
+func (td *TaskDefinition) GetContextVariableMap() map[string]string {
+	if td.ContextVariables == nil {
+		return nil
+	}
+	parsed, err := utils.ParseNameValueConfigs(td.ContextVariables)
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]string, len(parsed))
+	for k, v := range parsed {
+		out[k] = fmt.Sprintf("%v", v)
+	}
+	return out
 }
 
 // AddExitCode adds exit code

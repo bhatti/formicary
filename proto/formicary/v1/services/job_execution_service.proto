@@ -215,6 +215,40 @@ message GetJobExecutionResponse {
   string mermaid = 2;
 }
 
+// JobSubmissionSummary aggregates job submission counts for a user/org/job-type combination.
+message JobSubmissionSummary {
+  string user_id = 1;
+  string organization_id = 2;
+  string job_type = 3;
+  int64 count = 4;
+  // last_submitted is an RFC3339 timestamp of the most-recent submission in this group.
+  string last_submitted = 5;
+}
+
+// QueryJobSubmissionsRequest carries filter and pagination params for listing job submission summaries.
+message QueryJobSubmissionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 0];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 500
+  }];
+  repeated string order = 3;
+  string organization_id = 4;
+  // from_date is an optional RFC3339 start of the time window.
+  string from_date = 5;
+  // to_date is an optional RFC3339 end of the time window.
+  string to_date = 6;
+}
+
+// QueryJobSubmissionsResponse returns a paginated list of job submission summaries.
+message QueryJobSubmissionsResponse {
+  repeated JobSubmissionSummary records = 1;
+  int64 total_records = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
 // JobExecutionService manages the submission and lifecycle of job executions.
 service JobExecutionService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
@@ -432,6 +466,20 @@ service JobExecutionService {
       responses: {
         key: "200"
         value: {description: "Statistics list."}
+      }
+    };
+  }
+
+  // QueryJobSubmissions returns job submission summaries grouped by user/org/job-type.
+  rpc QueryJobSubmissions(QueryJobSubmissionsRequest) returns (QueryJobSubmissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/submissions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List job submission summaries"
+      description: "Returns job submission counts grouped by user, org, and job type. All authenticated users may call this; admins see all orgs, org users see only their org."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated job submission summary list."}
       }
     };
   }

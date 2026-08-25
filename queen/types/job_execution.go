@@ -99,12 +99,12 @@ func (je *JobExecution) JobTypeAndVersion() string {
 // ElapsedDuration time duration of job execution
 func (je *JobExecution) ElapsedDuration() string {
 	if je.EndedAt == nil || je.JobState == types.EXECUTING {
-		return time.Now().Sub(je.StartedAt).String()
+		return formatDuration(time.Since(je.StartedAt))
 	}
 	if je.EndedAt.Sub(je.StartedAt).Milliseconds() < 0 {
 		return ""
 	}
-	return je.EndedAt.Sub(je.StartedAt).String()
+	return formatDuration(je.EndedAt.Sub(je.StartedAt))
 }
 
 // ElapsedMillis unix time elapsed of job execution

@@ -22,21 +22,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	OrganizationService_QueryOrgs_FullMethodName        = "/formicary.v1.services.OrganizationService/QueryOrgs"
-	OrganizationService_GetOrg_FullMethodName           = "/formicary.v1.services.OrganizationService/GetOrg"
-	OrganizationService_CreateOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/CreateOrg"
-	OrganizationService_UpdateOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/UpdateOrg"
-	OrganizationService_DeleteOrg_FullMethodName        = "/formicary.v1.services.OrganizationService/DeleteOrg"
-	OrganizationService_QueryOrgConfigs_FullMethodName  = "/formicary.v1.services.OrganizationService/QueryOrgConfigs"
-	OrganizationService_GetOrgConfig_FullMethodName     = "/formicary.v1.services.OrganizationService/GetOrgConfig"
-	OrganizationService_RevealOrgConfig_FullMethodName  = "/formicary.v1.services.OrganizationService/RevealOrgConfig"
-	OrganizationService_SaveOrgConfig_FullMethodName    = "/formicary.v1.services.OrganizationService/SaveOrgConfig"
-	OrganizationService_DeleteOrgConfig_FullMethodName  = "/formicary.v1.services.OrganizationService/DeleteOrgConfig"
-	OrganizationService_QueryUserConfigs_FullMethodName = "/formicary.v1.services.OrganizationService/QueryUserConfigs"
-	OrganizationService_GetUserConfig_FullMethodName    = "/formicary.v1.services.OrganizationService/GetUserConfig"
-	OrganizationService_RevealUserConfig_FullMethodName = "/formicary.v1.services.OrganizationService/RevealUserConfig"
-	OrganizationService_SaveUserConfig_FullMethodName   = "/formicary.v1.services.OrganizationService/SaveUserConfig"
-	OrganizationService_DeleteUserConfig_FullMethodName = "/formicary.v1.services.OrganizationService/DeleteUserConfig"
+	OrganizationService_QueryOrgs_FullMethodName              = "/formicary.v1.services.OrganizationService/QueryOrgs"
+	OrganizationService_GetOrg_FullMethodName                 = "/formicary.v1.services.OrganizationService/GetOrg"
+	OrganizationService_CreateOrg_FullMethodName              = "/formicary.v1.services.OrganizationService/CreateOrg"
+	OrganizationService_UpdateOrg_FullMethodName              = "/formicary.v1.services.OrganizationService/UpdateOrg"
+	OrganizationService_DeleteOrg_FullMethodName              = "/formicary.v1.services.OrganizationService/DeleteOrg"
+	OrganizationService_QueryOrgConfigs_FullMethodName        = "/formicary.v1.services.OrganizationService/QueryOrgConfigs"
+	OrganizationService_GetOrgConfig_FullMethodName           = "/formicary.v1.services.OrganizationService/GetOrgConfig"
+	OrganizationService_RevealOrgConfig_FullMethodName        = "/formicary.v1.services.OrganizationService/RevealOrgConfig"
+	OrganizationService_SaveOrgConfig_FullMethodName          = "/formicary.v1.services.OrganizationService/SaveOrgConfig"
+	OrganizationService_DeleteOrgConfig_FullMethodName        = "/formicary.v1.services.OrganizationService/DeleteOrgConfig"
+	OrganizationService_QueryUserConfigs_FullMethodName       = "/formicary.v1.services.OrganizationService/QueryUserConfigs"
+	OrganizationService_GetUserConfig_FullMethodName          = "/formicary.v1.services.OrganizationService/GetUserConfig"
+	OrganizationService_RevealUserConfig_FullMethodName       = "/formicary.v1.services.OrganizationService/RevealUserConfig"
+	OrganizationService_SaveUserConfig_FullMethodName         = "/formicary.v1.services.OrganizationService/SaveUserConfig"
+	OrganizationService_DeleteUserConfig_FullMethodName       = "/formicary.v1.services.OrganizationService/DeleteUserConfig"
+	OrganizationService_GetResourceUsageReport_FullMethodName = "/formicary.v1.services.OrganizationService/GetResourceUsageReport"
 )
 
 // OrganizationServiceClient is the client API for OrganizationService service.
@@ -75,6 +76,8 @@ type OrganizationServiceClient interface {
 	SaveUserConfig(ctx context.Context, in *SaveUserConfigRequest, opts ...grpc.CallOption) (*SaveUserConfigResponse, error)
 	// DeleteUserConfig removes a named configuration property from the authenticated user.
 	DeleteUserConfig(ctx context.Context, in *DeleteUserConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GetResourceUsageReport returns aggregated CPU and disk usage grouped by user and org.
+	GetResourceUsageReport(ctx context.Context, in *GetResourceUsageReportRequest, opts ...grpc.CallOption) (*GetResourceUsageReportResponse, error)
 }
 
 type organizationServiceClient struct {
@@ -235,6 +238,16 @@ func (c *organizationServiceClient) DeleteUserConfig(ctx context.Context, in *De
 	return out, nil
 }
 
+func (c *organizationServiceClient) GetResourceUsageReport(ctx context.Context, in *GetResourceUsageReportRequest, opts ...grpc.CallOption) (*GetResourceUsageReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResourceUsageReportResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_GetResourceUsageReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrganizationServiceServer is the server API for OrganizationService service.
 // All implementations should embed UnimplementedOrganizationServiceServer
 // for forward compatibility.
@@ -271,6 +284,8 @@ type OrganizationServiceServer interface {
 	SaveUserConfig(context.Context, *SaveUserConfigRequest) (*SaveUserConfigResponse, error)
 	// DeleteUserConfig removes a named configuration property from the authenticated user.
 	DeleteUserConfig(context.Context, *DeleteUserConfigRequest) (*emptypb.Empty, error)
+	// GetResourceUsageReport returns aggregated CPU and disk usage grouped by user and org.
+	GetResourceUsageReport(context.Context, *GetResourceUsageReportRequest) (*GetResourceUsageReportResponse, error)
 }
 
 // UnimplementedOrganizationServiceServer should be embedded to have
@@ -324,6 +339,9 @@ func (UnimplementedOrganizationServiceServer) SaveUserConfig(context.Context, *S
 }
 func (UnimplementedOrganizationServiceServer) DeleteUserConfig(context.Context, *DeleteUserConfigRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserConfig not implemented")
+}
+func (UnimplementedOrganizationServiceServer) GetResourceUsageReport(context.Context, *GetResourceUsageReportRequest) (*GetResourceUsageReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetResourceUsageReport not implemented")
 }
 func (UnimplementedOrganizationServiceServer) testEmbeddedByValue() {}
 
@@ -615,6 +633,24 @@ func _OrganizationService_DeleteUserConfig_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrganizationService_GetResourceUsageReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetResourceUsageReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).GetResourceUsageReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_GetResourceUsageReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).GetResourceUsageReport(ctx, req.(*GetResourceUsageReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OrganizationService_ServiceDesc is the grpc.ServiceDesc for OrganizationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -681,6 +717,10 @@ var OrganizationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteUserConfig",
 			Handler:    _OrganizationService_DeleteUserConfig_Handler,
+		},
+		{
+			MethodName: "GetResourceUsageReport",
+			Handler:    _OrganizationService_GetResourceUsageReport_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

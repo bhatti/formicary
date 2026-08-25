@@ -268,7 +268,7 @@ docker run --env-file .env.local -p 7777:7777 plexobject/formicary
 
 | Key | Env Variable | Type | Default | Description |
 |---|---|---|---|---|
-| `type`|`DB_TYPE`| string | `sqlite` | The database driver. Options: `sqlite`, `mysql`, `postgres`, `sqlserver`. |
+| `type`|`DB_TYPE`| string | `sqlite` | The database driver. Options: `sqlite`, `mysql`, `postgres`. |
 | `data_source`|`DB_DATA_SOURCE`| string| `/data/formicary.db` | SQLite file path or DB connection string. In Docker, `/data` is the mounted volume (`~/formicary-data`). For local source builds, `make run*` overrides this to `./formicary_db.sqlite`. |
 | `encryption_key`|`DB_ENCRYPTION_KEY`| string| (auto-generated) | A key used to encrypt sensitive configuration values within the database. **It's crucial to back this up!** |
 
@@ -364,3 +364,151 @@ A standalone Ant worker is typically configured via a file named `formicary-ant.
 | `allow_privilege_escalation` | | boolean | `true` | Whether to allow pods to gain more privileges than their parent process. |
 | `image_pull_secrets`| | list | `[]` | A list of secret names to use for pulling private container images. |
 | `volumes`, `pod_security_context`, etc. | | Object | | Advanced Kubernetes settings that map directly to the PodSpec. See the [Advanced Kubernetes Guide](./12-advanced-workflows.md). |
+
+---
+
+## Task Context — Capturing Debug Info
+
+### `context_variables` (YAML task field)
+
+Declare static or template-rendered key/value pairs in a task definition. They are resolved server-side before the task runs and appear in the Formicary dashboard under the task's **Execution Context**.
+
+```yaml
+tasks:
+  - task_type: synthesize
+    context_variables:
+      - name: SELECTED_MODEL
+        value: "{{.AnthropicSonnetModel}}"
+      - name: SELECTED_TRACKER
+        value: jira
+```
+
+Values support Go template expressions (e.g. `{{.JobParam}}`). Use this for job params, model labels, and other values known at queue time.
+
+### Stdout markers (runtime, from scripts)
+
+Scripts can write to the task or job execution context by printing to stdout:
+
+```bash
+# Task context — visible per-task in the dashboard
+echo "::add-task-context KEY::VALUE"
+echo "::add-task-context SELECTED_MODEL::claude-3-5-sonnet"
+echo "::add-task-context ISSUE_COUNT::42"
+
+# Job context — shared across all tasks in the job
+echo "::add-job-context KEY::VALUE"
+echo "::add-job-context PR_URL::https://github.com/org/repo/pull/1"
+```
+
+**Format:** `::add-task-context KEY::VALUE` where `KEY` must be non-empty. The value may be empty or contain `::`. Both markers are parsed from the full stdout after each task completes.
+
+Use stdout markers for runtime values (counts, verdicts, model actually used) that aren't known at queue time.
+
+---
+
+## Slack Configuration
+
+Formicary's Slack integration has two parts:
+- **Inbound (Socket Mode)**: listens for `@bot` mentions via WebSocket — requires `AppToken` (xapp-).
+- **Outbound (notifications)**: posts job status to users/channels — requires `BotToken` (xoxb-).
+
+### Token resolution — 2 levels max per scope
+
+| What | Level 1 (highest priority) | Level 2 (fallback) | Where to set |
+|------|----------------------------|--------------------|-------------|
+| AppToken (xapp-) | `SLACK_APP_TOKEN` env var | Admin > System Config `kind=SLACK name=AppToken` | k8s secret or SystemConfig |
+| BotToken (xoxb-) system | `SLACK_BOT_TOKEN` env var | Admin > System Config `kind=SLACK name=BotToken` | k8s secret or SystemConfig |
+| BotToken (xoxb-) per-org | OrgConfig `name=SlackToken` (encrypted) | System BotToken above | Org Notification tab |
+| Channel | `user.Notify[slackChannel]` | `SLACK_CHANNEL` env var | User Notification tab or env |
+
+**Rule**: env vars always beat DB (12-factor). If AppToken is unavailable at startup, the bot is disabled with a `WARN` log entry.
+
+### Setting tokens via environment / k8s secret
+
+```bash
+# .env or export
+export SLACK_APP_TOKEN=xapp-1-...
+export SLACK_BOT_TOKEN=xoxb-...
+export SLACK_SIGNING_SECRET=...
+export SLACK_CHANNEL=sb-bot-notify
+
+# k8s secret (created by deploy-formicary.sh when SLACK_APP_TOKEN is set)
+kubectl create secret generic formicary-slack \
+  --from-literal=app-token="${SLACK_APP_TOKEN}" \
+  --from-literal=bot-token="${SLACK_BOT_TOKEN}" \
+  --from-literal=signing-secret="${SLACK_SIGNING_SECRET}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### Setting tokens via Admin UI (no redeploy needed)
+
+Go to **Admin > System Config > New**:
+- `kind=SLACK`, `name=AppToken`, `value=xapp-1-...`
+- `kind=SLACK`, `name=BotToken`, `value=xoxb-...`
+
+These are loaded at startup as fallback when env vars are absent. Stored encrypted.
+
+### Per-org bot token
+
+Each org can use a different Slack bot. Set via the org's **Notification** tab
+(`/dashboard/orgs/:id/configs`) — stored as `OrgConfig name=SlackToken` encrypted.
+Outbound notifications for that org's jobs will use this token; others fall back to the system token.
+
+### Per-user channel
+
+Users can set their own Slack channel in their **Notification** tab
+(`/dashboard/users/:id`) — stored as `user.Notify["slackChannel"]`.
+Job completion notifications go to that channel; users without one use `SLACK_CHANNEL`.
+
+### Viewing Slack settings in the dashboard
+
+Admin > **Slack Routes** (`/dashboard/slack/routes`) shows:
+- AppToken: configured/not-set + source (env or db)
+- BotToken: configured/not-set + source (env or db)
+- Default channel
+- All active command routes
+
+### Slack health monitor
+
+Formicary monitors Slack connectivity as part of the system health check. The rule:
+
+| State | Dashboard banner? | `/dashboard/health` |
+|-------|-------------------|---------------------|
+| No AppToken configured (Slack disabled) | No banner | Component absent |
+| AppToken set, BotToken missing | Amber warning | `slack: DEGRADED` |
+| AppToken set, Socket Mode not connected | Amber warning | `slack: DEGRADED` |
+| AppToken set, connected | No banner | `slack: HEALTHY` |
+
+Banners appear on the admin dashboard only when an admin is logged in. They include the specific error message to help diagnose the misconfiguration.
+
+---
+
+## System Log Viewer (Admin Only)
+
+The system log viewer surfaces warn/error events from the queen and all ant workers.
+
+### Access
+
+- **System Logs** (all sources): Admin nav → Reports → System Logs, URL: `/dashboard/reports/logs`
+- **Per-ant Logs**: Admin nav → Ants → _[ant row]_ → Logs, URL: `/dashboard/ants/:id/logs`
+
+### Filters
+
+| Filter | Default | Description |
+|--------|---------|-------------|
+| Level | `warn` | Minimum severity: `error`, `warn+`, or `info+` |
+| Source | All | `system` (queen/health events) or `task` (job container output) |
+| Since | 24h ago | Earliest timestamp |
+| Limit | 500 | Max records returned (max 1000) |
+| Search | | Text search on `job_type` and `ant_id` |
+
+### Log levels
+
+Task log events (from job containers) default to `level=info`, `source=task`.
+System events (health failures, Slack disconnects) use `level=error`/`warn`, `source=system`.
+
+### EC2 schema migration
+
+If running an existing EC2 database, see [EC2 Database Migration](ant-worker-setup.md#ec2-database-migration-existing-installs).
+
+---

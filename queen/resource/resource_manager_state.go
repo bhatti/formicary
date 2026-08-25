@@ -28,6 +28,7 @@ type State struct {
 	antRegistrations               map[string]*common.AntRegistration          // ant-id => registration
 	antByTag                       map[string]map[string]bool                  // tag => [ant-id: true]
 	antByMethod                    map[common.TaskMethod]map[string]bool       // method=> [ant-id: true]
+	antsByOrg                      map[string]map[string]bool                  // org-id => [ant-id: true]
 	antsByRequest                  map[string]map[string]bool                  // request-id => [ant-id: true]
 	allocationsByAnt               map[string]map[string]*common.AntAllocation // ant-id => [request-id: allocation]
 	containersEvents               map[string]*events.ContainerLifecycleEvent  // method+container-name: container event
@@ -45,6 +46,7 @@ func NewState(
 		antRegistrations:               make(map[string]*common.AntRegistration),          // ant-id => registration
 		antByTag:                       make(map[string]map[string]bool),                  // tag => [ant-id: true]
 		antByMethod:                    make(map[common.TaskMethod]map[string]bool),       // method=> [ant-id: true]
+		antsByOrg:                      make(map[string]map[string]bool),                  // org-id => [ant-id: true]
 		antsByRequest:                  make(map[string]map[string]bool),                  // request-id => [ant-id: true]
 		allocationsByAnt:               make(map[string]map[string]*common.AntAllocation), // ant-id => [request-id: allocation]
 		containersEvents:               make(map[string]*events.ContainerLifecycleEvent),  // method + container-name: container event
@@ -63,13 +65,56 @@ func (s *State) reserve(
 	taskType string,
 	method common.TaskMethod,
 	tags []string,
+	orgID string,
 	dryRun bool) (*common.AntReservation, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	methodAnts := s.antByMethod[method] // method=> [ant-id:true]
+	// Step 1 — Org filter (primary, evaluated before method/tags).
+	// When orgID == "" (auth disabled or system job) every ant is a candidate.
+	// When orgID is set, prefer live org-scoped ants first; fall back to live unscoped
+	// (OrgID=="") ants only when no live org-scoped ant exists for the requested org.
+	// Note: antsByOrg is not pruned by the liveness reaper (only by removeRegistration),
+	// so we must re-check liveness here to avoid blocking the fallback path when all
+	// org-scoped ants have gone stale but are still in the index.
+	aliveTimeout := s.serverCfg.Jobs.AntRegistrationAliveTimeout
+	orgCandidates := s.antRegistrations // default: all ants (auth-disabled no-op)
+	if orgID != "" {
+		scoped := s.antsByOrg[orgID]
+		orgCandidates = make(map[string]*common.AntRegistration, len(scoped))
+		for antID := range scoped {
+			if reg, ok := s.antRegistrations[antID]; ok && reg.IsAlive(aliveTimeout) {
+				orgCandidates[antID] = reg
+			}
+		}
+		// Fallback: when no live org-scoped ant exists, use live unscoped ants (OrgID=="").
+		if len(orgCandidates) == 0 {
+			unscoped := s.antsByOrg[""]
+			orgCandidates = make(map[string]*common.AntRegistration, len(unscoped))
+			for antID := range unscoped {
+				if reg, ok := s.antRegistrations[antID]; ok && reg.IsAlive(aliveTimeout) {
+					orgCandidates[antID] = reg
+				}
+			}
+		}
+		if len(orgCandidates) == 0 {
+			return nil, fmt.Errorf("no live ants available for org '%s', "+
+				"total-registered-ants=%d", orgID, len(s.antRegistrations))
+		}
+	}
 
-	if methodAnts == nil || len(methodAnts) == 0 {
+	// Build the method index scoped to org candidates.
+	methodAnts := make(map[string]bool)
+	for antID, reg := range orgCandidates {
+		for _, m := range reg.Methods {
+			if m == method {
+				methodAnts[antID] = true
+				break
+			}
+		}
+	}
+
+	if len(methodAnts) == 0 {
 		return nil, fmt.Errorf("no ants available for method '%s', "+
 			"ants-by-methods=%d, total-registered-ants=%d",
 			method, len(s.antByMethod), len(s.antRegistrations))
@@ -89,8 +134,18 @@ func (s *State) reserve(
 				outerTag, tags, len(s.antByTag), len(s.antRegistrations))
 		}
 
+		// Count only ants that are org candidates; report org-scoped count in errors.
+		orgScopedTagCount := 0
 		for antID := range antIDs {
-			tagAnts[antID] = 1
+			if _, inCandidates := orgCandidates[antID]; inCandidates {
+				tagAnts[antID] = 1
+				orgScopedTagCount++
+			}
+		}
+		if orgScopedTagCount == 0 && orgID != "" {
+			return nil, fmt.Errorf("no ants for tag '%s' in org '%s', "+
+				"global-ants-with-tag=%d, total-registered-ants=%d",
+				outerTag, orgID, len(antIDs), len(s.antRegistrations))
 		}
 	}
 
@@ -327,6 +382,77 @@ func (s *State) getAntIDsByMethod(method common.TaskMethod) []string {
 	return ids
 }
 
+// filterAntIDsByOrg returns the subset of the given antIDs that pass the same org filter
+// used in reserve(): prefer live org-scoped ants; fall back to live unscoped ants when
+// none exist for the requested org. Returns all IDs unchanged when orgID is "".
+func (s *State) filterAntIDsByOrg(antIDs []string, orgID string) []string {
+	if orgID == "" {
+		return antIDs
+	}
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	aliveTimeout := s.serverCfg.Jobs.AntRegistrationAliveTimeout
+
+	// Collect live org-scoped candidates first.
+	scoped := make([]string, 0)
+	unscoped := make([]string, 0)
+	for _, antID := range antIDs {
+		reg, ok := s.antRegistrations[antID]
+		if !ok || !reg.IsAlive(aliveTimeout) {
+			continue
+		}
+		if reg.OrgID == orgID {
+			scoped = append(scoped, antID)
+		} else if reg.OrgID == "" {
+			unscoped = append(unscoped, antID)
+		}
+	}
+	if len(scoped) > 0 {
+		return scoped
+	}
+	return unscoped
+}
+
+// getAntIDsByMethodAndOrg returns ant IDs that support a method and match the org filter.
+// When orgID=="" every ant for the method is returned (auth-disabled no-op).
+// When orgID is set, org-scoped ants are preferred; unscoped (OrgID=="") ants are returned
+// as fallback only when no org-scoped ant supports the method.
+func (s *State) getAntIDsByMethodAndOrg(method common.TaskMethod, orgID string) []string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	methodAnts := s.antByMethod[method]
+	if len(methodAnts) == 0 {
+		return nil
+	}
+	if orgID == "" {
+		ids := make([]string, 0, len(methodAnts))
+		for id := range methodAnts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	// Collect org-scoped candidates first.
+	orgAnts := s.antsByOrg[orgID]
+	scoped := make([]string, 0)
+	for id := range methodAnts {
+		if orgAnts[id] {
+			scoped = append(scoped, id)
+		}
+	}
+	if len(scoped) > 0 {
+		return scoped
+	}
+	// Fallback to unscoped ants.
+	unscopedAnts := s.antsByOrg[""]
+	fallback := make([]string, 0)
+	for id := range methodAnts {
+		if unscopedAnts[id] {
+			fallback = append(fallback, id)
+		}
+	}
+	return fallback
+}
+
 func (s *State) getAntsByTag(
 	tag string) (antIDs []string, total int) {
 	s.lock.RLock()
@@ -405,6 +531,21 @@ func (s *State) getContainerEvents(
 	return
 }
 
+// evictStaleContainers removes container events whose elapsed time exceeds maxAge.
+// Returns the number of evicted entries.
+func (s *State) evictStaleContainers(maxAge time.Duration) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	evicted := 0
+	for k, e := range s.containersEvents {
+		if e.ElapsedSecs() > maxAge {
+			delete(s.containersEvents, k)
+			evicted++
+		}
+	}
+	return evicted
+}
+
 // updateContainer
 func (s *State) updateContainer(
 	cnt *events.ContainerLifecycleEvent) {
@@ -418,8 +559,13 @@ func (s *State) updateContainer(
 		delete(s.containersEvents, cnt.Key())
 		delete(keys, cnt.Key())
 	} else {
-		s.containersEvents[cnt.Key()] = cnt
-		keys[cnt.Key()] = true
+		// Reject stale STARTED events replayed from the queue buffer — a container
+		// that has been "running" longer than AntReservationTimeout is certainly dead.
+		maxAge := s.serverCfg.Jobs.AntReservationTimeout
+		if cnt.ElapsedSecs() <= maxAge {
+			s.containersEvents[cnt.Key()] = cnt
+			keys[cnt.Key()] = true
+		}
 	}
 	s.containersEventKeysByRequestID[cnt.RequestID()] = keys
 }
@@ -602,11 +748,15 @@ func (s *State) addRegistration(
 	s.updateAntsByMethods(registration)
 
 	s.updateAntsByTags(registration)
+
+	s.updateAntsByOrg(registration)
+
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":            "ResourceManager",
 			"Topic":                registration.AntTopic,
 			"AntID":                registration.AntID,
+			"OrgID":                registration.OrgID,
 			"Tags":                 registration.Tags,
 			"Methods":              registration.Methods,
 			"TotalRegistrations":   len(s.antRegistrations),
@@ -647,6 +797,12 @@ func (s *State) removeRegistration(antID string) (removedTags []string, removedM
 			s.antsByRequest[requestID] = ants
 		}
 	}
+	for orgKey, ants := range s.antsByOrg { // org-id => [ant-id:true]
+		if ants[antID] {
+			delete(ants, antID)
+			s.antsByOrg[orgKey] = ants
+		}
+	}
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		logrus.WithFields(logrus.Fields{
 			"Component":      "ResourceManager",
@@ -656,6 +812,7 @@ func (s *State) removeRegistration(antID string) (removedTags []string, removedM
 			"AntsByTag":      s.antByTag,
 			"AntsByMethods":  s.antByMethod,
 			"AntsByRequests": s.antsByRequest,
+			"AntsByOrg":      s.antsByOrg,
 		}).Debugf("removed ant registration and execution container")
 	}
 	return
@@ -683,6 +840,18 @@ func (s *State) updateAntsByTags(registration *common.AntRegistration) {
 		antsForTag[registration.AntID] = true
 		s.antByTag[tag] = antsForTag
 	}
+}
+
+func (s *State) updateAntsByOrg(registration *common.AntRegistration) {
+	// OrgID="" means unscoped (auth disabled or embedded ant) — still indexed under ""
+	// so the fallback path in reserve() can find them.
+	orgKey := registration.OrgID
+	antsForOrg := s.antsByOrg[orgKey]
+	if antsForOrg == nil {
+		antsForOrg = make(map[string]bool)
+	}
+	antsForOrg[registration.AntID] = true
+	s.antsByOrg[orgKey] = antsForOrg
 }
 
 func (s *State) reapStaleAllocations(timeout time.Duration) (removed []*common.AntReservation) {
@@ -737,6 +906,14 @@ func (s *State) dump(full bool) string {
 	buf.WriteString("] Methods: [")
 	for k, v := range s.antByMethod {
 		buf.WriteString(fmt.Sprintf("%s=%d,", k, len(v)))
+	}
+	buf.WriteString("] Orgs: [")
+	for k, v := range s.antsByOrg {
+		orgKey := k
+		if orgKey == "" {
+			orgKey = "<unscoped>"
+		}
+		buf.WriteString(fmt.Sprintf("%s=%d,", orgKey, len(v)))
 	}
 	buf.WriteString("]")
 	return buf.String()

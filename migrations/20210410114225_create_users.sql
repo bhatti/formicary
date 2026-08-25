@@ -48,7 +48,7 @@
       name VARCHAR(100) ,
       email VARCHAR(150),
       notify_serialized TEXT,
-      serialized_perms TEXT NOT NULL,
+      additive_perms TEXT NOT NULL DEFAULT '',
       serialized_roles TEXT NOT NULL,
       picture_url VARCHAR(150),
       url VARCHAR(150),
@@ -63,8 +63,8 @@
     CREATE INDEX formicary_users_provider_ndx ON formicary_users(auth_provider);
     CREATE INDEX formicary_users_org_ndx ON formicary_users(organization_id);
     CREATE INDEX formicary_users_active_ndx ON formicary_users(active);
-    INSERT INTO formicary_users (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', 'Admin[]');
-    INSERT INTO formicary_users (id, organization_id, username, serialized_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'bhatti', '*=-1', '');
+    INSERT INTO formicary_users (id, organization_id, username, additive_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'admin', '*=-1', 'Admin[]');
+    INSERT INTO formicary_users (id, organization_id, username, additive_perms, serialized_roles) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'bhatti', '*=-1', '');
 
     CREATE TABLE IF NOT EXISTS formicary_user_sessions (
       id VARCHAR(36) NOT NULL PRIMARY KEY,

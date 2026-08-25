@@ -10,6 +10,7 @@ import (
 	"plexobject.com/formicary/internal/acl"
 	common "plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/queen/manager"
+	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
 
 	"plexobject.com/formicary/internal/web"
@@ -18,15 +19,18 @@ import (
 // DashboardAdminController structure
 type DashboardAdminController struct {
 	dashboardStats *manager.DashboardManager
+	bannerRepo     repository.BannerRepository
 	webserver      web.Server
 }
 
 // NewDashboardAdminController admin dashboard
 func NewDashboardAdminController(
 	dashboardStats *manager.DashboardManager,
+	bannerRepo repository.BannerRepository,
 	webserver web.Server) *DashboardAdminController {
 	jraCtr := &DashboardAdminController{
 		dashboardStats: dashboardStats,
+		bannerRepo:     bannerRepo,
 		webserver:      webserver,
 	}
 	webserver.GET("/dashboard", jraCtr.dashboard, acl.NewPermission(acl.Dashboard, acl.View)).Name = "admin_dashboard"
@@ -230,6 +234,25 @@ func (ctr *DashboardAdminController) dashboard(c web.APIContext) error {
 	}
 	res["RecentActivity"] = recentActivity
 	res["TopFailingJobs"] = ctr.dashboardStats.TopFailingJobs(jobStats, 5)
+
+	// Global banners (admin-only) from DB — system banners written by BannerHealthBridge
+	var globalBanners []*common.Banner
+	if qc.IsAdmin() {
+		if banners, err := ctr.bannerRepo.GetActive(common.BannerScopeGlobal, ""); err == nil {
+			globalBanners = banners
+		}
+	}
+	res["HealthBanners"] = globalBanners
+
+	// Org-scoped banners from DB — visible to all users of the org
+	orgID := qc.GetOrganizationID()
+	var orgBanners []*common.Banner
+	if orgID != "" {
+		if banners, err := ctr.bannerRepo.GetActive(common.BannerScopeOrg, orgID); err == nil {
+			orgBanners = banners
+		}
+	}
+	res["OrgBanners"] = orgBanners
 
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "dashboard/dashboard", res)

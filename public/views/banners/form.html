@@ -1,0 +1,31 @@
+{{ define "banners/_form" }}
+<div class="mb-3">
+    <label class="form-label">Level</label>
+    <select name="level" class="form-select">
+        <option value="warning" {{if eq .Level "warning"}}selected{{end}}>Warning</option>
+        <option value="danger" {{if eq .Level "danger"}}selected{{end}}>Danger</option>
+        <option value="info" {{if eq .Level "info"}}selected{{end}}>Info</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label class="form-label">Scope</label>
+    <select name="scope" class="form-select">
+        <option value="global" {{if eq .Scope "global"}}selected{{end}}>Global (admin-visible)</option>
+        <option value="org" {{if eq .Scope "org"}}selected{{end}}>Org (org-scoped)</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label class="form-label">Org ID <span class="text-muted">(leave blank for global)</span></label>
+    <input type="text" name="org_id" class="form-control" value="{{.OrgID}}" placeholder="organization ID">
+</div>
+<div class="mb-3">
+    <label class="form-label">Message</label>
+    <textarea name="message" class="form-control" rows="3" required>{{.Message}}</textarea>
+</div>
+<div class="mb-3">
+    <label class="form-check form-switch">
+        <input type="checkbox" name="active" class="form-check-input" {{if .Active}}checked{{end}}>
+        <span class="form-check-label">Active</span>
+    </label>
+</div>
+{{ end }}

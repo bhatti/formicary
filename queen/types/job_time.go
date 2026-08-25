@@ -48,12 +48,18 @@ func (je *JobTime) ToInfo() *JobRequestInfo {
 	}
 }
 
+// formatDuration rounds a duration to one decimal place (100ms precision).
+// Converts e.g. 20.402546241s → 20.4s, 2m44.923512677s → 2m44.9s.
+func formatDuration(d time.Duration) string {
+	return d.Round(100 * time.Millisecond).String()
+}
+
 // ElapsedDuration time duration of job execution
 func (je *JobTime) ElapsedDuration() string {
 	if je.EndedAt == nil || je.StartedAt == nil {
 		return ""
 	}
-	return je.EndedAt.Sub(*je.StartedAt).String()
+	return formatDuration(je.EndedAt.Sub(*je.StartedAt))
 }
 
 // Elapsed unix time elapsed of job execution

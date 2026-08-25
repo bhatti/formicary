@@ -3,6 +3,7 @@ package queen
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/metrics"
 	"plexobject.com/formicary/internal/tracing"
@@ -25,6 +26,7 @@ import (
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/approval"
+	queenhealth "plexobject.com/formicary/queen/health"
 	"plexobject.com/formicary/queen/launcher"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
@@ -33,7 +35,7 @@ import (
 )
 
 // Start starts all services for formicary server
-func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
+func Start(ctx context.Context, serverCfg *config.ServerConfig, publicFS fs.FS) error {
 	tracingCfg := tracing.ConfigFromCommon(serverCfg.Common.Tracing, "formicary-queen")
 	tracingShutdown, err := tracing.Init(ctx, tracingCfg)
 	if err != nil {
@@ -50,8 +52,8 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 		return err
 	}
 
-	// Create web server
-	webServer, err := web.NewDefaultWebServer(&serverCfg.Common)
+	// Create web server — serve static assets and templates from the embedded FS when available.
+	webServer, err := web.NewDefaultWebServer(&serverCfg.Common, publicFS)
 	if err != nil {
 		return err
 	}
@@ -197,6 +199,41 @@ func Start(ctx context.Context, serverCfg *config.ServerConfig) error {
 	if err != nil {
 		return err
 	}
+	// Start optional Slack Socket Mode inbound command listener.
+	// Disabled when SLACK_APP_TOKEN is unset — queen starts normally.
+	slackService, err := slack.NewSlackService(serverCfg, jobManager, userManager, repoFactory.ConfigRepository, repoFactory.SystemConfigRepository, repoFactory.SlackRegCodeRepository)
+	if err != nil {
+		return fmt.Errorf("slack service init: %w", err)
+	}
+	if slackService != nil {
+		if err = slackService.Start(ctx); err != nil {
+			return fmt.Errorf("slack service start: %w", err)
+		}
+		defer slackService.Stop()
+		// Slack is optional — failures are surfaced in health UI but never block job scheduling.
+		healthMonitor.RegisterNonCritical(ctx, queenhealth.NewSlackConfigMonitor(
+			serverCfg,
+			repoFactory.SystemConfigRepository,
+			slackService.IsConnected,
+		))
+	}
+
+	// Purge expired Slack registration codes once an hour to keep the table trim.
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := repoFactory.SlackRegCodeRepository.PurgeExpired(); err != nil {
+					logrus.WithError(err).Warn("failed to purge expired Slack registration codes")
+				}
+			}
+		}
+	}()
+
 	retentionManager, err := manager.NewRetentionManager(
 		repoFactory.JobDefinitionRepository,
 		repoFactory.JobRequestRepository,

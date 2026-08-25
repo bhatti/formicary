@@ -8,7 +8,7 @@
 # support full sub_workflow input/output variable mapping.
 #
 # IMPORTANT: The fan_out.source variable must be in the job execution context.
-# Use job_variables (available to all tasks) or ::set-output from a script.
+# Use job_variables (available to all tasks) or ::add-job-context from a script.
 # Task-level variables: only apply within that task and do NOT propagate.
 #
 # This example requires the child job type to be registered first:

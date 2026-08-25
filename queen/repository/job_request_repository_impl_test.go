@@ -585,7 +585,7 @@ func Test_ShouldFindActiveCronScheduledJobs(t *testing.T) {
 				require.NoError(t, err)
 				// Only PENDING cron records can be triggered — other states are skipped.
 				if jobState == common.PENDING {
-					err = repo.Trigger(qc, req.ID, nil)
+					err = repo.Trigger(qc, req.ID, nil, "")
 					require.NoError(t, err)
 				}
 			}
@@ -1333,7 +1333,7 @@ func Test_ShouldTriggerWithParamsMerge(t *testing.T) {
 		"jk1": "new-value",
 		"jk3": "updated-jk3",
 	}
-	err = repo.Trigger(qc, saved.ID, mergeParams)
+	err = repo.Trigger(qc, saved.ID, mergeParams, "")
 	require.NoError(t, err)
 
 	// THEN the reloaded job should carry the merged params
@@ -1364,7 +1364,7 @@ func Test_ShouldTriggerWithNilParamsPreservesExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN triggering with nil params
-	err = repo.Trigger(qc, saved.ID, nil)
+	err = repo.Trigger(qc, saved.ID, nil, "")
 	require.NoError(t, err)
 
 	// THEN the existing param is unchanged
@@ -1407,7 +1407,7 @@ func Test_ShouldTriggerCancelledCronSlot(t *testing.T) {
 	// WHEN the operator triggers the CANCELLED slot
 	err = repo.Trigger(qc, saved.ID, map[string]interface{}{
 		"SlackChannel": "recovery-channel",
-	})
+	}, "")
 	require.NoError(t, err)
 
 	// THEN the slot is back to PENDING with a new user_key (old key freed for next scheduler cycle)

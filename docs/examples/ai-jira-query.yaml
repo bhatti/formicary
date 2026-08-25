@@ -1,0 +1,186 @@
+# AI Jira/GitHub issue query: search open issues by free text and post results to Slack.
+#
+# Triggered by the Slack router via "@bot jira-query flaky tests" or "@bot qjira flaky".
+# Uses DEFAULT_TRACKER to pick Jira vs GitHub (default: jira).
+#
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+# Non-secret config is set via org configs.
+#
+# Deploy:
+#   ./deploy-ai-jira-workflows.sh   (included in the default YAMLS list)
+
+job_type: ai-jira-query
+description: "Search open Jira/GitHub issues by free text OR analyze issues for root cause and fixes"
+max_concurrency: 10
+timeout: 600s
+
+variables:
+  Query:
+    type: STRING
+    required: false
+  Issues:
+    type: STRING
+    required: false
+  Mode:
+    type: STRING
+    required: false
+
+tasks:
+# --- QUERY -------------------------------------------------------------------
+- task_type: query
+  method: KUBERNETES
+  timeout: 15m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SELECTED_TRACKER: "{{.DefaultTracker}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    QUERY: "{{.Query}}"
+    MODE: "{{.Mode}}"
+  context_variables:
+    - name: QUERY
+      value: "{{.Query}}"
+    - name: MODE
+      value: "{{.Mode}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256M
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    JIRA_SPACE: "{{.JiraSpace}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    QUERY: "{{.Query}}"
+    ISSUES: "{{.Issues}}"
+    MODE: "{{.Mode}}"
+    MAX_RESULTS: "{{.MaxResults}}"
+    JIRA_TEAM_FIELD: "{{.JiraTeamField}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+  script:
+    - |
+      # Smart dispatch: route to the right script based on DEFAULT_TRACKER and MODE.
+      # Guard: Formicary outputs "<no value>" for unset variables — treat as empty.
+      [ "$ISSUES"          = "<no value>" ] && ISSUES=""
+      [ "$QUERY"           = "<no value>" ] && QUERY=""
+      [ "$DEFAULT_TRACKER" = "<no value>" ] && DEFAULT_TRACKER="jira"
+      [ "$MODE"            = "<no value>" ] && MODE="list"
+      [ "$GH_ORG"          = "<no value>" ] && GH_ORG=""
+      [ "$GH_REPO"         = "<no value>" ] && GH_REPO=""
+
+      TRACKER="${DEFAULT_TRACKER:-jira}"
+      QUERY_ARG="${QUERY:-${ISSUES}}"
+
+      if [ "${MODE}" = "analyze" ]; then
+        if [ "$TRACKER" = "github" ]; then
+          # GitHub analyze — fetch by issue numbers or query
+          if [ -n "$ISSUES" ]; then
+            python -m scripts.gh.analyze_issues --issues "$ISSUES" --max "$MAX_RESULTS"
+          else
+            python -m scripts.gh.analyze_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+          fi
+        else
+          # Jira analyze — fetch by issue keys or JQL
+          if [ -n "$ISSUES" ]; then
+            python -m scripts.jira.analyze_issues --issues "$ISSUES" --max "$MAX_RESULTS"
+          else
+            python -m scripts.jira.analyze_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+          fi
+        fi
+      elif [ "$TRACKER" = "github" ]; then
+        python -m scripts.gh.query_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+      else
+        python -m scripts.jira.query_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+      fi
+  artifacts:
+    paths:
+      - ./reports
+      - ./logs
+    expire_after: 72h
+  on_exit_code:
+    2: COMPLETED    # No results found — not an error
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 3m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    MESSAGE: "❌ Issue query failed. Check Formicary logs."
+    SKILL_NAME: ai-jira-query
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Query complete"
+
+job_variables:
+  MaxResults: "20"
+  Mode: "list"
+  DefaultTracker: "jira"
+  SlackChannel: ""
+  SlackThreadTs: ""
+  JiraSpace: ""
+  Issues: ""
+  Query: ""
+  JiraTeamField: "EngScrumTeam"
+  MaxClaudeProcessTimeout: ""
+  ExtraSkillsRepos: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Injected via org configs: JiraUrl, JiraProject, BitbucketWorkspace, GitHubOrg, GitHubRepo
+  # Injected from 'ai-dev-credentials' secret: JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN

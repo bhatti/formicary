@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -70,8 +71,10 @@ func newWebSocketAntClient(ctx context.Context, config *types.QueueConfig) (*Cli
 	wsCfg := config.WebSocket
 	if wsCfg == nil {
 		wsCfg = &types.WebSocketConfig{}
-		wsCfg.Validate()
 	}
+	// Always call Validate so defaults (including BufferDBPath=":memory:") are applied,
+	// even when wsCfg was populated from config but individual fields were left empty.
+	wsCfg.Validate()
 
 	buf, err := newWSOfflineBuffer(wsCfg.BufferDBPath, wsCfg.MaxBufferSize, wsCfg.BufferTTL)
 	if err != nil {
@@ -90,9 +93,14 @@ func newWebSocketAntClient(ctx context.Context, config *types.QueueConfig) (*Cli
 		reconnectCh:    make(chan struct{}, 1),
 	}
 
-	// Attempt initial connection
+	// Attempt initial connection; if it fails, prime the reconnect loop so it
+	// retries immediately rather than waiting for a signal that never arrives.
 	if err := c.connect(); err != nil {
 		logrus.WithError(err).Warn("ClientWebSocketAnt: initial connect failed; will retry in background")
+		select {
+		case c.reconnectCh <- struct{}{}:
+		default:
+		}
 	}
 
 	go c.reconnectLoop(ctx)
@@ -117,6 +125,9 @@ func (c *ClientWebSocketAnt) connect() error {
 		HandshakeTimeout: *c.config.ConnectionTimeout,
 		ReadBufferSize:   c.wsCfg.ReadBufferSize,
 		WriteBufferSize:  c.wsCfg.WriteBufferSize,
+	}
+	if c.wsCfg.TLSSkipVerify {
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 — self-signed cert, dev/nip.io only
 	}
 
 	conn, _, err := dialer.Dial(c.wsCfg.ServerEndpoint, header)

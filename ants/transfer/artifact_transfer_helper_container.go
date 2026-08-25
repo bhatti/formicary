@@ -113,9 +113,13 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			zipName = strings.TrimPrefix(p, "/")
 		} else {
 			// Relative path: copy flat into dir. Runs in the main container
-			// (helper=false) which has the task's working directory in its CWD
-			// and shares the artifacts emptyDir with the helper container.
-			cmd = fmt.Sprintf("cp -r %s %s", p, dir)
+			// (helper=false). kubectl exec doesn't inherit the container's workingDir,
+			// so cd into it explicitly before copying.
+			wd := t.taskReq.ExecutorOpts.WorkingDirectory
+			if wd == "" {
+				wd = "."
+			}
+			cmd = fmt.Sprintf("cd %s && cp -r %s %s", wd, p, dir)
 			zipName = filepath.Base(p)
 		}
 		if _, stderr, _, _, err := t.execute(

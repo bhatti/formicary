@@ -251,12 +251,12 @@ func (jr *JobRequest) ElapsedDuration() string {
 		if jr.ScheduledAt.Unix() > time.Now().Unix() {
 			return ""
 		}
-		return time.Now().Sub(jr.ScheduledAt).String()
+		return formatDuration(time.Since(jr.ScheduledAt))
 	}
 	if jr.ScheduledAt.Unix() < jr.UpdatedAt.Unix() {
-		return jr.UpdatedAt.Sub(jr.ScheduledAt).String()
+		return formatDuration(jr.UpdatedAt.Sub(jr.ScheduledAt))
 	}
-	return jr.UpdatedAt.Sub(jr.CreatedAt).String()
+	return formatDuration(jr.UpdatedAt.Sub(jr.CreatedAt))
 }
 
 // ShortID returns first 6 characters of ID
@@ -286,7 +286,7 @@ func (jr *JobRequest) ShortUserKey() string {
 // DescriptionShort returns description for display in listings.
 // Uses the struct Description field first, falls back to the "Description" param.
 // If the value is a markdown link, returns the full value for hyperlink rendering.
-// Otherwise truncates to 10 characters.
+// Otherwise truncates to 20 characters.
 func (jr *JobRequest) DescriptionShort() string {
 	val := jr.Description
 	if val == "" {
@@ -301,8 +301,8 @@ func (jr *JobRequest) DescriptionShort() string {
 	if strings.HasPrefix(val, "[") && strings.Contains(val, "](") {
 		return val
 	}
-	if len(val) > 10 {
-		return val[0:10] + "..."
+	if len(val) > 20 {
+		return val[0:20] + "..."
 	}
 	return val
 }
@@ -315,8 +315,8 @@ func (jr *JobRequest) IsForkedJob() bool {
 
 // ShortJobType short job-type
 func (jr *JobRequest) ShortJobType() string {
-	if len(jr.JobType) > 12 {
-		return jr.JobType[:12] + "..."
+	if len(jr.JobType) > 20 {
+		return jr.JobType[:20] + "..."
 	}
 	return jr.JobType
 }

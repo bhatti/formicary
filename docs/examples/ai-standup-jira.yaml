@@ -29,6 +29,10 @@ timeout: 900s
 job_variables:
   SlackThreadTs: ""
   SlackChannel: ""
+  StandupTeamMembers: ""
+  # JiraBoards: set to your board ID (from /boards/<ID> in the Jira URL) to skip
+  # the board scan and go straight to your board. Leave empty to auto-discover.
+  JiraBoards: ""
   StandupLookbackHours: "26"
   StandupStaleDays: "2"
   MaxTurnsStandup: "30"
@@ -60,12 +64,29 @@ tasks:
 # --- GATHER ------------------------------------------------------------------
 - task_type: gather
   method: KUBERNETES
-  timeout: 3m
+  timeout: 10m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SELECTED_TRACKER
+      value: jira
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: JIRA_BOARDS
+      value: "{{.JiraBoards}}"
+    - name: STANDUP_TEAM
+      value: "{{.StandupTeamMembers}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256M
     volumes:
       empty_dir:
         - name: workspace
@@ -76,6 +97,7 @@ tasks:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
     JIRA_PROJECT: "{{.JiraProject}}"
+    JIRA_BOARDS: "{{.JiraBoards}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
@@ -94,12 +116,26 @@ tasks:
 # --- SYNTHESIZE --------------------------------------------------------------
 - task_type: synthesize
   method: KUBERNETES
-  timeout: 10m
+  timeout: 15m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    MAX_TURNS: "{{.MaxTurnsStandup}}"
+  context_variables:
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: MAX_TURNS
+      value: "{{.MaxTurnsStandup}}"
+    - name: SELECTED_TRACKER
+      value: jira
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 3G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -124,21 +160,32 @@ tasks:
     paths:
       - ./signals.json
       - ./standup_brief.md
-      - ./risk_report.md
       - ./synthesize_result.json
+      - ./reports
       - ./logs
     expire_after: 72h
   on_completed: post
+  on_failed: notify-error
 
 # --- POST --------------------------------------------------------------------
 - task_type: post
   method: KUBERNETES
-  timeout: 2m
+  timeout: 10m
+  task_variables:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: jira
+    - name: JOB_ID
+      value: "{{.JobID}}"
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -173,12 +220,18 @@ tasks:
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 1m
+  timeout: 3m
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     env_from:
       - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: jira
   environment:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"

@@ -43,7 +43,7 @@ func RunServer(_ *cobra.Command, _ []string) {
 		}
 	}
 
-	err = queen.Start(context.Background(), serverConfig)
+	err = queen.Start(context.Background(), serverConfig, PublicFS)
 	if err != nil {
 		log.WithFields(log.Fields{"Error": err}).
 			Errorf("failed to start server...")
@@ -105,7 +105,7 @@ func configureEmbeddedAnts(serverConfig *config.ServerConfig) error {
 			case "KUBERNETES", "K8S":
 				methods = append(methods, types.Kubernetes)
 			case "HTTP_GET":
-				methods = append(methods, types.HTTPPostJSON)
+				methods = append(methods, types.HTTPGet)
 			case "HTTP_POST":
 				methods = append(methods, types.HTTPPostJSON)
 			case "HTTP_PUT":

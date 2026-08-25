@@ -537,8 +537,10 @@ func TestAuthenticate_NoAuth(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(srv.Close)
 
-	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "")))
-	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "anything")))
+	_, authErr0 := srv.authenticate(makeAuthRequest(t, ""))
+	assert.NoError(t, authErr0)
+	_, authErr1 := srv.authenticate(makeAuthRequest(t, "anything"))
+	assert.NoError(t, authErr1)
 }
 
 // TestAuthenticate_JWTSecret_ValidAPIToken: valid JWT with token_type=api is accepted.
@@ -547,7 +549,8 @@ func TestAuthenticate_JWTSecret_ValidAPIToken(t *testing.T) {
 	srv := serverWithJWTSecret(t, secret)
 
 	token := buildSignedJWT(t, secret, web.TokenTypeAPI)
-	assert.NoError(t, srv.authenticate(makeAuthRequest(t, token)))
+	_, authErr := srv.authenticate(makeAuthRequest(t, token))
+	assert.NoError(t, authErr)
 }
 
 // TestAuthenticate_JWTSecret_SessionTokenRejected: session tokens must NOT connect as ants.
@@ -556,7 +559,7 @@ func TestAuthenticate_JWTSecret_SessionTokenRejected(t *testing.T) {
 	srv := serverWithJWTSecret(t, secret)
 
 	token := buildSignedJWT(t, secret, web.TokenTypeSession)
-	err := srv.authenticate(makeAuthRequest(t, token))
+	_, err := srv.authenticate(makeAuthRequest(t, token))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "token_type")
 }
@@ -567,7 +570,7 @@ func TestAuthenticate_JWTSecret_WrongSecret(t *testing.T) {
 	srv := serverWithJWTSecret(t, secret)
 
 	token := buildSignedJWT(t, "completely-different-secret-xyz!!", web.TokenTypeAPI)
-	err := srv.authenticate(makeAuthRequest(t, token))
+	_, err := srv.authenticate(makeAuthRequest(t, token))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid JWT")
 }
@@ -575,7 +578,7 @@ func TestAuthenticate_JWTSecret_WrongSecret(t *testing.T) {
 // TestAuthenticate_JWTSecret_MissingHeader: no Authorization header is rejected.
 func TestAuthenticate_JWTSecret_MissingHeader(t *testing.T) {
 	srv := serverWithJWTSecret(t, "test-secret-32-bytes-long-enough!")
-	err := srv.authenticate(makeAuthRequest(t, ""))
+	_, err := srv.authenticate(makeAuthRequest(t, ""))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Bearer")
 }
@@ -595,7 +598,7 @@ func TestAuthenticate_JWTSecret_ExpiredToken(t *testing.T) {
 	signed, err := tok.SignedString([]byte(secret))
 	require.NoError(t, err)
 
-	authErr := srv.authenticate(makeAuthRequest(t, signed))
+	_, authErr := srv.authenticate(makeAuthRequest(t, signed))
 	require.Error(t, authErr)
 	assert.Contains(t, authErr.Error(), "invalid JWT")
 }
@@ -603,13 +606,14 @@ func TestAuthenticate_JWTSecret_ExpiredToken(t *testing.T) {
 // TestAuthenticate_StaticToken_Valid: correct static token is accepted.
 func TestAuthenticate_StaticToken_Valid(t *testing.T) {
 	srv := serverWithStaticToken(t, "my-static-secret")
-	assert.NoError(t, srv.authenticate(makeAuthRequest(t, "my-static-secret")))
+	_, authErr := srv.authenticate(makeAuthRequest(t, "my-static-secret"))
+	assert.NoError(t, authErr)
 }
 
 // TestAuthenticate_StaticToken_Wrong: wrong static token is rejected.
 func TestAuthenticate_StaticToken_Wrong(t *testing.T) {
 	srv := serverWithStaticToken(t, "my-static-secret")
-	err := srv.authenticate(makeAuthRequest(t, "wrong-token"))
+	_, err := srv.authenticate(makeAuthRequest(t, "wrong-token"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid token")
 }
@@ -617,9 +621,40 @@ func TestAuthenticate_StaticToken_Wrong(t *testing.T) {
 // TestAuthenticate_StaticToken_MissingHeader: no Authorization header is rejected.
 func TestAuthenticate_StaticToken_MissingHeader(t *testing.T) {
 	srv := serverWithStaticToken(t, "my-static-secret")
-	err := srv.authenticate(makeAuthRequest(t, ""))
+	_, err := srv.authenticate(makeAuthRequest(t, ""))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Bearer")
+}
+
+// TestAuthenticate_JWTSecret_ReturnsOrgID: OrgID is extracted from JWT claims.
+func TestAuthenticate_JWTSecret_ReturnsOrgID(t *testing.T) {
+	const secret = "test-secret-32-bytes-long-enough!"
+	srv := serverWithJWTSecret(t, secret)
+
+	// Build a JWT that includes an OrgID claim.
+	claims := &web.JwtClaims{
+		UserID:    "test-user",
+		OrgID:     "org-acme",
+		TokenType: web.TokenTypeAPI,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(secret))
+	require.NoError(t, err)
+
+	orgID, authErr := srv.authenticate(makeAuthRequest(t, signed))
+	require.NoError(t, authErr)
+	assert.Equal(t, "org-acme", orgID)
+}
+
+// TestAuthenticate_StaticToken_ReturnsEmptyOrgID: static token path always returns "" for OrgID.
+func TestAuthenticate_StaticToken_ReturnsEmptyOrgID(t *testing.T) {
+	srv := serverWithStaticToken(t, "my-static-secret")
+	orgID, authErr := srv.authenticate(makeAuthRequest(t, "my-static-secret"))
+	require.NoError(t, authErr)
+	assert.Equal(t, "", orgID)
 }
 
 // TestAuthenticate_HTTPHandler_RejectsUnauth: HTTPHandler returns 401 for unauthenticated requests.

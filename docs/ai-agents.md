@@ -73,19 +73,26 @@ Every 4 hours:
 
 ### 1. Formicary Running in Kubernetes
 
-Deploy Formicary to Kubernetes using `k8s.yaml` — this gives the server in-cluster credentials automatically. All AI workflow tasks run as Kubernetes pods spawned by the embedded ant worker; no separate ant worker setup is needed.
+Deploy the Formicary queen using the deploy script — it creates the required secrets and applies the manifest:
 
 ```bash
-kubectl create secret generic formicary-auth \
-  --from-literal=jwt-secret="$(openssl rand -base64 32)" \
-  --from-literal=google-client-id="<id>.apps.googleusercontent.com" \
-  --from-literal=google-client-secret="<secret>"
+# Set credentials in env (never as CLI flags)
+export COMMON_AUTH_JWT_SECRET="my-strong-secret"
+export COMMON_AUTH_GOOGLE_CLIENT_ID="<id>.apps.googleusercontent.com"
+export COMMON_AUTH_GOOGLE_CLIENT_SECRET="<secret>"
+export COMMON_AUTH_GOOGLE_CALLBACK_HOST="your-host.example.com"
+# Optional Slack (omit to disable):
+export SLACK_APP_TOKEN="xapp-..."
+export SLACK_BOT_TOKEN="xoxb-..."
 
-kubectl apply -f k8s.yaml
-kubectl port-forward svc/formicary 7777:7777 19000:19000
+# Local Docker Desktop k8s:
+./scripts/deploy-formicary.sh
+
+# EC2 k3s (kubectl tunneled over SSH):
+./scripts/deploy-formicary.sh --ec2-ip <EC2_IP>
 ```
 
-All AI workflow YAMLs use `method: KUBERNETES` and `image: plexobject/ai-dev-tools:latest`. No host directories or ant worker binaries are needed — each task runs in a fresh pod that is deleted on completion.
+All AI workflow YAMLs use `method: KUBERNETES` and `image: plexobject/ai-dev-tools:latest`. Each task runs in a fresh pod that is deleted on completion.
 
 #### Alternative: SHELL Execution (Local Development Only)
 
@@ -139,61 +146,39 @@ To trigger the workflow on an issue:
 gh issue edit <number> --repo <org>/<repo> --add-label "ai-ready"
 ```
 
-### 3. Configure Encrypted Secrets
+### 3. Deploy Workflows and Configure Secrets
 
-Store API keys as org-level configs (encrypted at rest, redacted from logs):
-
-```bash
-BASE="http://localhost:7777/api/orgs/{org-id}/configs"
-AUTH="-H 'Authorization: Bearer <admin-token>'"
-
-# Anthropic API key
-curl -X POST $BASE $AUTH -H 'Content-Type: application/json' \
-  -d '{"name":"AnthropicApiKey","value":"sk-ant-...","secret":true}'
-
-# GitHub personal access token (needs: repo, issues, pull_requests)
-curl -X POST $BASE $AUTH -H 'Content-Type: application/json' \
-  -d '{"name":"GithubToken","value":"ghp_...","secret":true}'
-
-# Formicary API token (for capacity checks in picker)
-curl -X POST $BASE $AUTH -H 'Content-Type: application/json' \
-  -d '{"name":"FormicaryToken","value":"<formicary-api-token>","secret":true}'
-```
-
-Secrets are accessible in job YAML as `{{.AnthropicApiKey}}`, `{{.GithubToken}}`, etc.
-
-### 4. Register Job Definitions
+Use the deploy scripts — they create the Kubernetes secret, push org configs, and upload all workflow YAMLs in one step:
 
 ```bash
-API="http://localhost:7777/api/jobs/definitions"
-AUTH="-H 'Authorization: Bearer <token>'"
+cd docs/examples
 
-curl -X POST $API $AUTH -H 'Content-Type: application/yaml' \
-  --data-binary @docs/examples/ai-gh-issue-picker.yaml
+export FORMICARY_TOKEN="<jwt-from-dashboard>"
+export GH_TOKEN="<github-pat>"          # needs repo + issues + pull_requests scopes
+export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
 
-curl -X POST $API $AUTH -H 'Content-Type: application/yaml' \
-  --data-binary @docs/examples/ai-gh-implement.yaml
+# GitHub workflows — creates K8s secret, sets org configs, uploads YAMLs
+./deploy-ai-workflows.sh \
+  --create-k8s-secret \
+  --set-configs \
+  --gh-org YOUR_ORG \
+  --gh-repo YOUR_REPO \
+  --bedrock                              # omit if using ANTHROPIC_API_KEY directly
+# With auth enabled, org-based routing is automatic — no --ant-user-tag flag needed.
 
-curl -X POST $API $AUTH -H 'Content-Type: application/yaml' \
-  --data-binary @docs/examples/ai-gh-pr-feedback.yaml
+# Jira/Bitbucket workflows
+export JIRA_API_TOKEN="<token>"          # or reads from ~/.config/acli/config.json
+export BITBUCKET_TOKEN="<app-password>"
 
-curl -X POST $API $AUTH -H 'Content-Type: application/yaml' \
-  --data-binary @docs/examples/ai-gh-cleanup.yaml
+./deploy-ai-jira-workflows.sh \
+  --create-k8s-secret \
+  --set-configs \
+  --bb-workspace YOUR_WORKSPACE \
+  --bb-repo YOUR_REPO \
+  --bedrock
 ```
 
-### 5. Configure the Picker
-
-Update `job_variables` in `ai-gh-issue-picker.yaml` before registering:
-
-```yaml
-job_variables:
-  MaxPendingJobs: "10"   # max concurrent AI implementation jobs
-  FormicaryURL: "http://localhost:7777"
-  GitHubOrg: "your-org"
-  GitHubRepo: "your-repo"
-  PickupLabel: "ai-ready"
-  InProgressLabel: "ai-in-progress"
-```
+Org configs (project names, Slack channel) are stored encrypted in the Formicary database and accessible in job YAML as `{{.GitHubOrg}}`, `{{.JiraUrl}}`, etc. Credentials (tokens, SSH keys) are stored in the `ai-dev-credentials` Kubernetes secret and injected directly into pods — never written to the Formicary database.
 
 ---
 
@@ -578,6 +563,209 @@ Insert between `review` and `create-pr`:
 
 ---
 
+## Slack Integration
+
+Formicary includes a built-in Slack Socket Mode router. When `SLACK_APP_TOKEN` is set, the queen process listens for bot mentions and routes commands directly to Formicary jobs — no separate service required.
+
+### Architecture
+
+```
+Slack (Socket Mode)
+      │  @bot <command> [entity]
+      ▼
+┌─────────────────────────────────────────────┐
+│  Formicary queen — SlackService             │
+│  - Strips mention prefix                    │
+│  - Looks up registered user → OrganizationID│
+│  - CommandRouter: verb → job_type + params  │
+│  - Submits job via JobManager               │
+│  - Replies in thread with job link          │
+└──────────────────┬──────────────────────────┘
+                   │ job params (SlackChannel,
+                   │  SlackThreadTs, IdVar, Params…)
+                   ▼
+         Formicary job container
+         (ai-dev-tools + you-got-skills)
+                   │
+                   ▼
+         Slack thread reply (via SlackChannel/SlackThreadTs)
+```
+
+**Layers:**
+- **Formicary** — generic job orchestration, routing table, user registry, secrets. No AI-specific logic.
+- **ai-dev-tools** — CLI layer that runs inside job containers; talks to Claude, GitHub, Jira APIs.
+- **you-got-skills** — skill library (SKILL.md files) invoked by ai-dev-tools (`Skill` param).
+- **Formicary workflow YAMLs** — job definitions in `docs/examples/`; declare params, tasks, cron schedule.
+
+### Route Configuration
+
+Routes live in `queen.slack.routes` in the queen config (or `k8s/formicary-leader.yaml`). Each route is generic — Formicary does not interpret `params`; it passes them verbatim to the job container:
+
+```yaml
+slack:
+  routes:
+    - triggers: ["standup", "status"]
+      job_type: ai-standup-jira
+      description: "Daily standup from Jira"
+
+    - triggers: ["review"]
+      job_type: ai-gh-review
+      id_var: PRUrl          # trailing text bound to this param
+      description: "Review a PR"
+
+    - triggers: ["risk", "risk scan"]
+      job_type: ai-adhoc
+      params:                # merged verbatim — job container decides what to do with them
+        Skill: ygs-risk-scan
+      description: "Scan sprint for risks"
+
+    - triggers: ["adhoc"]
+      job_type: ai-adhoc
+      id_var: Prompt         # trailing text → Prompt param
+      description: "Run any ad-hoc prompt"
+```
+
+**How `id_var` works:** when a user types `@bot review https://github.com/org/repo/pull/42`, the router sets `PRUrl=https://github.com/org/repo/pull/42`. The job container (ai-dev-tools) uses `$PRUrl` to fetch the PR. Formicary never inspects the value.
+
+**How `params` works:** key/value pairs merged into every job submitted by this route. Useful for fixed values like skill names, modes, or feature flags that the job container reads as env vars.
+
+### Multi-Tenant Isolation
+
+Every Slack command is fully scoped to the individual user's org — no shared token, no cross-tenant leakage.
+
+**End-to-end flow:**
+
+```
+@mention arrives (Slack user ID: U0A1HQL0C9J)
+        │
+        ▼
+LookupBySlackID("U0A1HQL0C9J")
+  → queries user_configs (admin read-only lookup)
+  → returns User{ID: "u123", OrganizationID: "org456"}
+        │
+        ▼
+QueryContext = NewQueryContextFromIDs("u123", "org456")
+SaveJobRequest(qc, req)
+  → request.UserID = "u123"            ← set from QC, not from params
+  → request.OrganizationID = "org456"  ← set from QC, cannot be spoofed
+        │
+        ▼
+Ant scheduler: Reserve(method, tags, orgID="org456")
+  → prefers ants registered with orgID="org456" (user's own ant worker)
+  → falls back to unscoped ants (OrgID="") if no personal ant is online
+```
+
+Key properties:
+- **Job auth is set by the server** — `SaveJobRequest` overwrites `UserID`/`OrganizationID` from the `QueryContext` derived from the registered user's token, not from any user-supplied job param.
+- **Unregistered users are blocked** — if `LookupBySlackID` returns nil, the bot replies with the registration prompt and no job is submitted.
+- **Credentials stored encrypted** — the user's Formicary API token is stored using AES-256-GCM in `user_configs`, same infrastructure used for all org secrets. The DM is deleted after registration.
+- **Ant routing is automatic** — when a user connects their ant worker with `setup-ant-worker.sh --token <their-token>`, the queen records `org_id` from the JWT. Jobs submitted via that user's Slack commands prefer their org's ant. If their ant is offline, an unscoped embedded ant (e.g., the one in `formicary-all-in-one.yaml`) handles the job.
+
+**What `UserTag` and `DefaultTracker` do:**
+Two job params added by the dispatcher are informational, not auth-related:
+- `UserTag=username` — passed to ai-dev-tools containers as `$UserTag`; used for attribution in Slack replies and PR descriptions.
+- `DefaultTracker=jira|github` — read from the user's org config (set by `deploy-ai-jira-workflows.sh --set-configs`); tells the ai-dev-tools Python router which tracker to use when the Slack message contains no URL (`@bot standup` → jira or github). This is resolved inside the job container, not by Formicary itself.
+
+Set `DefaultTracker` via the deploy script:
+```bash
+./deploy-ai-jira-workflows.sh --set-configs --jira-project MYPROJ  # sets DefaultTracker=jira
+./deploy-ai-workflows.sh --set-configs --gh-org ORG --gh-repo REPO  # sets DefaultTracker=github
+```
+
+### User Registration
+
+Users DM the bot once to register their Formicary token:
+
+```
+DM: setup <api-token-from-formicary>
+```
+
+Get the token at `https://<formicary-url>/dashboard/users/tokens`. Once registered:
+1. The queen validates the JWT inline (no HTTP round-trip)
+2. `slack_user_id` and `slack_api_token` are stored in `user_configs` (encrypted)
+3. The DM is deleted so the token doesn't persist in chat
+4. All subsequent `@bot` commands from this Slack user are scoped to their org automatically
+
+### Supported Commands (default routes)
+
+| Command | Job type | Notes |
+|---------|----------|-------|
+| `@bot standup` | `ai-standup-jira` | Also: `status`, `daily` |
+| `@bot standup gh` | `ai-standup-gh` | GitHub standup |
+| `@bot review <pr-url>` | `ai-gh-review` | AI code review posted to PR |
+| `@bot security review <pr-url>` | `ai-gh-review` | Security-focused review |
+| `@bot sre review <pr-url>` | `ai-gh-review` | SRE/reliability review |
+| `@bot implement <issue>` | `ai-jira-implement` | Jira issue number |
+| `@bot implement gh <issue>` | `ai-gh-implement` | GitHub issue number |
+| `@bot risk` | `ai-adhoc` | Sprint risk scan |
+| `@bot prs` | `ai-adhoc` | Open PR queue |
+| `@bot pr feedback <pr-url>` | `ai-adhoc` | PR comments summary |
+| `@bot jira query <text>` | `ai-jira-query` | Search Jira |
+| `@bot doctor` | `ai-connectivity-check` | Credential check |
+| `@bot adhoc <prompt>` | `ai-adhoc` | Any free-form prompt |
+| `@bot help` | _(builtin)_ | List available commands |
+
+### Testing Without Slack
+
+Trigger any command via the Formicary API directly — identical to a Slack submission but with no bot token required:
+
+```bash
+export FORMICARY_URL=https://10.8.97.24.nip.io
+export T=$FORMICARY_TOKEN
+
+# standup
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-standup-jira","params":{"SlackChannel":"","SlackThreadTs":""}}'
+
+# review a PR
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-gh-review","params":{"PRUrl":"https://github.com/ORG/REPO/pull/42"}}'
+
+# implement a Jira issue
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-jira-implement","params":{"IssueNumber":"PROJ-123"}}'
+
+# risk scan (Skill param consumed by ai-dev-tools container)
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-adhoc","params":{"Skill":"ygs-risk-scan"}}'
+
+# open PR queue
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-adhoc","params":{"Skill":"ygs-pr-queue"}}'
+
+# ad-hoc prompt
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-adhoc","params":{"Prompt":"summarize open blockers this sprint"}}'
+
+# doctor — connectivity check
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-connectivity-check","params":{}}'
+```
+
+Watch job output at `$FORMICARY_URL/dashboard/jobs/requests/<id>`. When `SlackChannel` is empty the result appears in the job artifacts only — set it to a real channel ID to have the bot post back.
+
+### Adding a New Command
+
+No code changes needed — add a route entry to `queen.slack.routes` in the config and redeploy:
+
+```yaml
+- triggers: ["deploy", "release"]
+  job_type: my-deploy-job
+  id_var: Environment      # e.g. "@bot deploy staging" → Environment=staging
+  params:
+    Region: us-west-2      # fixed param passed to every invocation
+  description: "Deploy to an environment"
+```
+
+---
+
 ## Comparison with Imperative Orchestrators
 
 | Dimension | Imperative Bot | Formicary AI Agents |
@@ -594,3 +782,59 @@ Insert between `review` and `create-pr`:
 | **Dashboard visibility** | ❌ None | ✅ Job description with markdown links |
 | **Multi-tracker** | ❌ Hardcoded | ✅ Clone YAML, change API calls |
 | **Secrets** | K8s secrets only | DB-encrypted org configs (cross-platform) |
+
+---
+
+---
+
+## Task Execution Context — Capturing Debug Info
+
+Scripts can write structured key/value pairs that appear in the Formicary dashboard under each task's **Execution Context** view. Two mechanisms are available:
+
+### Stdout markers (runtime, from scripts)
+
+Print these lines to stdout during task execution:
+
+```bash
+# Writes to this task's execution context (visible under the task in the dashboard)
+echo "::add-task-context SELECTED_MODEL::claude-3-5-sonnet"
+echo "::add-task-context ISSUE_COUNT::42"
+echo "::add-task-context SELECTED_TRACKER::jira"
+
+# Writes to the job execution context (shared across all tasks in the job)
+echo "::add-job-context PR_URL::https://github.com/org/repo/pull/1"
+echo "::add-job-context ISSUE_ID::PROJ-123"
+```
+
+**Format:** `KEY::VALUE` — key must be non-empty; value may be empty or contain `::`.
+
+All ai-dev-tools scripts emit `::add-task-context` markers at exit with at minimum:
+- `SELECTED_MODEL` — the Claude model used (resolved from `AI_MODEL` env)
+- `SELECTED_TRACKER` — `jira` or `github`
+- `ISSUE_COUNT`, `PR_COUNT`, `FINDINGS_COUNT`, etc. — counts of items processed
+
+### `context_variables` YAML field (static, rendered by the queen)
+
+Declare values directly in the YAML task definition. They are rendered through Go templates before the task runs and appear in the task context automatically — no script change needed.
+
+```yaml
+tasks:
+  - task_type: synthesize
+    context_variables:
+      - name: SELECTED_MODEL
+        value: "{{.AnthropicSonnetModel}}"
+      - name: SELECTED_TRACKER
+        value: jira
+      - name: MAX_TURNS
+        value: "{{.MaxTurnsStandup}}"
+```
+
+`context_variables` is rendered server-side; stdout markers are emitted client-side. Use `context_variables` for job params and model labels; use stdout markers for runtime values (counts, verdicts, etc.).
+
+---
+
+## See Also
+
+- [Ant worker setup](ant-worker-setup.md) — connect your laptop as a personal ant worker, register with the bot
+- [Examples README](examples/README.md) — full Slack integration setup, supported commands, deploy scripts
+- [Configuration Reference](15-configuration.md) — queen config including Slack routes

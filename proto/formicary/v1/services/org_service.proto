@@ -181,6 +181,29 @@ message DeleteUserConfigRequest {
   string config_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+// ResourceUsageSummary aggregates CPU and disk consumption for a user/org combination.
+message ResourceUsageSummary {
+  string organization_id = 1;
+  string user_id = 2;
+  double cpu_secs = 3;
+  double disk_mb = 4;
+}
+
+// GetResourceUsageReportRequest carries an optional date range for the usage report.
+message GetResourceUsageReportRequest {
+  // from_date is an optional RFC3339 start of the reporting window.
+  string from_date = 1;
+  // to_date is an optional RFC3339 end of the reporting window.
+  string to_date = 2;
+}
+
+// GetResourceUsageReportResponse returns aggregated resource usage records.
+message GetResourceUsageReportResponse {
+  repeated ResourceUsageSummary records = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+
 // OrganizationService manages organizations and their configurations.
 service OrganizationService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
@@ -406,6 +429,20 @@ service OrganizationService {
       responses: {
         key: "204"
         value: {description: "Deleted successfully."}
+      }
+    };
+  }
+
+  // GetResourceUsageReport returns aggregated CPU and disk usage grouped by user and org.
+  rpc GetResourceUsageReport(GetResourceUsageReportRequest) returns (GetResourceUsageReportResponse) {
+    option (google.api.http) = {get: "/api/v1/orgs/usage"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get resource usage report"
+      description: "Returns aggregated CPU and disk resource usage grouped by user and organization. All authenticated users may call this; admins see all orgs, org users see only their org."
+      tags: ["organizations"]
+      responses: {
+        key: "200"
+        value: {description: "Resource usage report."}
       }
     };
   }

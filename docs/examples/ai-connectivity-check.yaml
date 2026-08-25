@@ -56,7 +56,6 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     # Slack
     SLACK_CHANNEL: "{{.SlackChannel}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
     # Claude
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -86,7 +85,7 @@ job_variables:
   #   GitHubOrg, GitHubRepo              (plain, optional)
   #   JiraUrl, JiraProject               (plain, optional)
   #   BitbucketWorkspace, BitbucketRepo  (plain, optional)
-  #   SlackChannel, SlackChannel  (plain, optional)
+  #   SlackChannel               (plain, optional)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   GH_TOKEN                           (GitHub)
   #   JIRA_EMAIL, JIRA_API_TOKEN         (Jira)

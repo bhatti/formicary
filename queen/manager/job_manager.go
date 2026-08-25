@@ -1383,8 +1383,9 @@ func (jm *JobManager) SetJobRequestReadyToExecute(
 func (jm *JobManager) TriggerJobRequest(
 	qc *common.QueryContext,
 	id string,
-	params map[string]interface{}) (err error) {
-	if err = jm.jobRequestRepository.Trigger(qc, id, params); err == nil {
+	params map[string]interface{},
+	description string) (err error) {
+	if err = jm.jobRequestRepository.Trigger(qc, id, params, description); err == nil {
 		if req, dbErr := jm.jobRequestRepository.Get(qc, id); dbErr == nil {
 			logrus.WithFields(logrus.Fields{
 				"Component":    "JobManager",

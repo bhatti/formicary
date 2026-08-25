@@ -1,9 +1,7 @@
 package diagrams
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/goccy/go-graphviz"
 	"strings"
 
 	common "plexobject.com/formicary/internal/types"
@@ -54,23 +52,15 @@ func NewDot(
 	}, nil
 }
 
-// GenerateDotImage creates diagrams image in PNG format
+// GenerateDotImage returns the DOT source as bytes.
+// PNG rendering via go-graphviz (CGO) is not supported in this build;
+// use the DOT text with an external renderer (e.g. graphviz CLI or online viewer).
 func (dg *DotGenerator) GenerateDotImage() ([]byte, error) {
-	g := graphviz.New()
-	conf, err := dg.GenerateDot()
+	dot, err := dg.GenerateDot()
 	if err != nil {
 		return nil, err
 	}
-	graph, err := graphviz.ParseBytes([]byte(conf))
-	if err != nil {
-		return nil, err
-	}
-	var b bytes.Buffer
-	err = g.Render(graph, graphviz.PNG, &b)
-	if err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
+	return []byte(dot), nil
 }
 
 // GenerateDot creates diagrams config

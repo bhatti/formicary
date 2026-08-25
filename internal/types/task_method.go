@@ -42,6 +42,16 @@ const (
 	FanOutJob TaskMethod = "FAN_OUT_JOB"
 )
 
+// IsInternal returns true for methods that are handled by built-in queen tasklets
+// rather than external ant workers. These ants don't need a Logs page.
+func (m TaskMethod) IsInternal() bool {
+	switch m {
+	case ExpireArtifacts, ForkJob, AwaitForkedJob, FanOutJob, Messaging, Manual:
+		return true
+	}
+	return false
+}
+
 // SupportsCaptureStdout checks method can store stdout to a file
 func (m TaskMethod) SupportsCaptureStdout() bool {
 	return m == HTTPGet ||

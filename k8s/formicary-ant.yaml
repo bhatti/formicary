@@ -1,0 +1,171 @@
+# Formicary — ant worker deployment.
+#
+# Do NOT apply this file directly. Use setup-ant-worker.sh which renders the
+# QUEEN_HOST, QUEEN_PORT, and QUEEN_S3_PORT placeholders in the ConfigMap before applying:
+#
+#   ./scripts/setup-ant-worker.sh \
+#     --queen <ec2-ip-or-hostname> \
+#     --token <JWT from Formicary dashboard>
+#     [--port 7777]        # default: 7777
+#     [--s3-port 19000]    # default: 19000
+#     [--buffer-db :memory:]  # default: :memory: (ephemeral); use a file path for durable deployments
+#
+# Delete:
+#   kubectl delete -f k8s/formicary-ant.yaml
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: formicary-ant
+  namespace: default
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: formicary-ant
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "configmaps", "secrets", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: formicary-ant
+subjects:
+  - kind: ServiceAccount
+    name: formicary-ant
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: formicary-ant
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Config template — QUEEN_HOST, QUEEN_PORT, and QUEEN_S3_PORT are substituted by setup-ant-worker.sh before apply.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: formicary-ant-config
+  namespace: default
+data:
+  formicary-ant.yaml: |
+    common:
+        http_port: 7778
+        queue:
+            provider: "WEBSOCKET_MESSAGING"
+            websocket:
+                server_endpoint: "ANT_WS_SCHEME://QUEEN_HOST:QUEEN_PORT/ws/queue"
+                buffer_db_path: ":memory:"
+                tls_skip_verify: ANT_TLS_SKIP_VERIFY
+                reconnect_min_delay: 1s
+                reconnect_max_delay: 30s
+        s3:
+            endpoint: "QUEEN_HOST:QUEEN_S3_PORT"
+            # QUEEN_S3_PORT: use 4443 when connecting to EC2 (external port → DNAT → pod:19000)
+            access_key_id: localkey
+            secret_access_key: localsecret
+            region: us-west-2
+            bucket: formicary-artifacts
+    tags: ["docker", "kubernetes", "shell", "builder"]
+    methods:
+        - KUBERNETES
+        - SHELL
+        - HTTP_GET
+        - HTTP_POST_FORM
+        - HTTP_POST_JSON
+        - HTTP_PUT_FORM
+        - HTTP_PUT_JSON
+        - HTTP_DELETE
+    max_capacity: 5
+    kubernetes:
+        namespace: "default"
+        allow_privilege_escalation: true
+        dns_policy: cluster-first-with-host-net
+        registry:
+            pull_policy: if-not-present
+        default_resources:
+            cpuRequest: "500m"
+            memoryRequest: "512Mi"
+            cpuLimit: "2"
+            memoryLimit: "2Gi"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: formicary-ant
+  namespace: default
+  labels:
+    app: formicary-ant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: formicary-ant
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: formicary-ant
+    spec:
+      serviceAccountName: formicary-ant
+      hostNetwork: true    # ant needs to reach job pods launched on the same host network
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: ant
+          image: ANT_IMAGE
+          imagePullPolicy: ANT_IMAGE_PULL_POLICY
+          # setup-ant-worker.sh renders QUEEN_HOST into the ConfigMap before applying.
+          # Copy to /tmp (writable) and exec. ID is set to the pod hostname at runtime.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /config-template/formicary-ant.yaml /tmp/formicary-ant.yaml
+              exec /formicary ant --config=/tmp/formicary-ant.yaml --id=$(hostname)
+          env:
+            - name: COMMON_QUEUE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-ant-credentials
+                  key: queue-token
+            - name: COMMON_QUEUE_WEBSOCKET_BUFFER_DB_PATH
+              valueFrom:
+                secretKeyRef:
+                  name: formicary-ant-credentials
+                  key: buffer-db-path
+            - name: COMMON_S3_ACCESS_KEY_ID
+              value: localkey
+            - name: COMMON_S3_SECRET_ACCESS_KEY
+              value: localsecret
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              memory: "1Gi"
+          volumeMounts:
+            - name: config-template
+              mountPath: /config-template
+              readOnly: true
+            - name: kube-config
+              mountPath: /home/formicary-user/.kube
+              readOnly: true
+      volumes:
+        - name: config-template
+          configMap:
+            name: formicary-ant-config
+        - name: kube-config
+          hostPath:
+            path: /var/lib/formicary-ant/kube   # setup-ant-worker.sh copies ~/.kube here
+            type: DirectoryOrCreate

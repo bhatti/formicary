@@ -32,7 +32,7 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
-    cpu_limit: "2"
+    image_pull_policy: Always
     cpu_request: "500m"
     memory_limit: 4G
     memory_request: 1G
@@ -59,6 +59,14 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+  context_variables:
+    - name: ISSUE_NUMBER
+      value: "{{.IssueNumber}}"
+    - name: SELECTED_TRACKER
+      value: jira
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
   script:
     - python -m scripts.jira.issue_picker --issue-id {{.IssueNumber}}
     - python -m scripts.jira.plan --issue-id {{.IssueNumber}}
@@ -72,17 +80,18 @@ tasks:
   on_exit_code:
     2: PAUSE_JOB    # BLOCKED — needs human intervention
   on_completed: implement
+  on_failed: notify-error
 
 # --- IMPLEMENT ---------------------------------------------------------------
 - task_type: implement
   method: KUBERNETES
-  timeout: 45m
+  timeout: 90m
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
-    cpu_limit: "2"
+    image_pull_policy: Always
     cpu_request: "500m"
     memory_limit: 4G
     memory_request: 2G
@@ -111,25 +120,91 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    ANTHROPIC_COMPLEXITY_LOW_MODEL:  "{{.AnthropicComplexityLowModel}}"
+    ANTHROPIC_COMPLEXITY_HIGH_MODEL: "{{.AnthropicComplexityHighModel}}"
+    CODEBASE_DIR: /workspace/repo
   script:
-    - python -m scripts.jira.implement --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.clone_repo --issue-id {{.IssueNumber}}
+    - |
+      COMPLEXITY=$(cat /workspace/plan_complexity.txt 2>/dev/null || echo "medium")
+      if [ "$COMPLEXITY" = "high" ] && [ -n "$ANTHROPIC_COMPLEXITY_HIGH_MODEL" ] && [ "$ANTHROPIC_COMPLEXITY_HIGH_MODEL" != "<no value>" ]; then
+        export AI_MODEL="$ANTHROPIC_COMPLEXITY_HIGH_MODEL"
+        export ANTHROPIC_DEFAULT_SONNET_MODEL="$ANTHROPIC_COMPLEXITY_HIGH_MODEL"
+      elif [ "$COMPLEXITY" = "low" ] && [ -n "$ANTHROPIC_COMPLEXITY_LOW_MODEL" ] && [ "$ANTHROPIC_COMPLEXITY_LOW_MODEL" != "<no value>" ]; then
+        export AI_MODEL="$ANTHROPIC_COMPLEXITY_LOW_MODEL"
+        export ANTHROPIC_DEFAULT_SONNET_MODEL="$ANTHROPIC_COMPLEXITY_LOW_MODEL"
+      fi
+      echo "[implement] complexity=$COMPLEXITY AI_MODEL=$AI_MODEL"
+    - python -m scripts.jira.run_implement --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.push_impl --issue-id {{.IssueNumber}}
   artifacts:
     paths:
       - ./impl_result.json
+      - ./impl_run_result.json
+      - ./impl_report.md
+      - ./impl_report.html
+      - ./clone_result.json
       - ./branch.txt
+      - ./logs
     expire_after: 24h
-  on_completed: create-pr
+  on_exit_code:
+    2: PAUSE_JOB    # BLOCKED / MAX_TURNS_REACHED — needs human review
+  on_completed: self-review
+  on_failed: notify-error
 
-# --- CREATE-PR ---------------------------------------------------------------
-- task_type: create-pr
+# --- SELF-REVIEW -------------------------------------------------------------
+- task_type: self-review
   method: KUBERNETES
-  timeout: 10m
+  timeout: 15m
   report_stdout: true
   host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
-    cpu_limit: "1"
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - implement
+  environment:
+    WORKSPACE_DIR: /workspace
+    BASE_BRANCH: "{{.GitBranch}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+  script:
+    - python -m scripts.review.run --mode self-review --issue-id {{.IssueNumber}} --base-branch {{.GitBranch}}
+  artifacts:
+    paths:
+      - ./self_review.json
+    expire_after: 24h
+  on_exit_code:
+    2: PAUSE_JOB    # BLOCKED — critical findings require human review before PR
+  on_completed: create-pr
+  on_failed: notify-error
+
+# --- CREATE-PR ---------------------------------------------------------------
+- task_type: create-pr
+  method: KUBERNETES
+  timeout: 15m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     cpu_request: "200m"
     memory_limit: 2Gi
     memory_request: 512Mi
@@ -142,6 +217,7 @@ tasks:
   dependencies:
     - plan
     - implement
+    - self-review
   environment:
     WORKSPACE_DIR: /workspace
     JIRA_BASE_URL: "{{.JiraUrl}}"
@@ -158,13 +234,17 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
   script:
-    - python -m scripts.jira.create_pr --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.build_pr --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.notify_pr --issue-id {{.IssueNumber}}
   artifacts:
     paths:
       - ./pr.json
+      - ./notify_result.json
     expire_after: 24h
   on_completed: poll-pr
+  on_failed: notify-error
 
 # --- POLL-PR -----------------------------------------------------------------
 # poll_pr.py runs once: exits 0 (merged/declined), 3 (still open → PAUSED), 1 (error).
@@ -177,6 +257,7 @@ tasks:
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
     volumes:
       empty_dir:
         - name: workspace
@@ -193,6 +274,8 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
+    GIT_USER_NAME: "{{.GitUserName}}"
+    GIT_USER_EMAIL: "{{.GitUserEmail}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -201,18 +284,44 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
   script:
-    - python -m scripts.jira.poll_pr --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.check_pr_state --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.fetch_comments --issue-id {{.IssueNumber}}
+    - python -m scripts.jira.respond_comments --issue-id {{.IssueNumber}}
   artifacts:
     paths:
       - ./pr.json
       - ./monitor_result.json
       - ./processed_comments.json
+      - ./pending_comments.json
+      - ./poll_state.json
     expire_after: 168h    # 7 days
   on_exit_code:
     3: PAUSE_JOB    # PR still open — formicary waits delay then retries
   on_completed: done
+  on_failed: notify-error
   delay: "{{.PollInterval}}s"
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  timeout: 1m
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-jira-implement"
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
 
 # --- DONE --------------------------------------------------------------------
 - task_type: done
@@ -223,8 +332,10 @@ tasks:
 
 job_variables:
   MaxTurnsPlan: "50"
-  MaxTurnsImplement: "100"
+  MaxTurnsImplement: "200"
   MaxTurnsFeedback: "20"
+  MaxClaudeProcessTimeout: ""
+  ExtraSkillsRepos: ""
   PollInterval: "120"
   GitUserName: "AI Agent"
   GitUserEmail: "ai-agent@noreply.local"
@@ -239,13 +350,15 @@ job_variables:
   AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # Complexity-tiered model selection (set via deploy-ai-jira-workflows.sh --set-configs):
+  AnthropicComplexityLowModel: ""   # empty = use Haiku default from org config
+  AnthropicComplexityHighModel: ""  # empty = use Opus default from org config
   # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
   #   JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
   #   SlackChannel             (plain, optional — Slack notifications)
+  #   AnthropicComplexityLowModel, AnthropicComplexityHighModel (from models.env)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   JIRA_EMAIL, JIRA_API_TOKEN, BITBUCKET_USERNAME, BITBUCKET_TOKEN
   #   SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)
   #   SLACK_BOT_TOKEN          (optional — enables Slack notifications)
-  # NOTE: Two separate username vars are required:
-  #   BITBUCKET_USERNAME     — account email (e.g. user@example.com) for REST API Basic Auth
-  #   BITBUCKET_GIT_USERNAME — account nickname for git HTTPS clone/push
+  # BITBUCKET_USERNAME is used for both REST API Basic Auth and git HTTPS clone/push

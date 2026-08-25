@@ -102,12 +102,12 @@ func (te *TaskExecution) String() string {
 // ElapsedDuration time duration of job execution
 func (te *TaskExecution) ElapsedDuration() string {
 	if te.EndedAt == nil || te.TaskState == types.EXECUTING {
-		return time.Now().Sub(te.StartedAt).String()
+		return formatDuration(time.Since(te.StartedAt))
 	}
 	if te.EndedAt.Sub(te.StartedAt).Milliseconds() < 0 {
 		return ""
 	}
-	return te.EndedAt.Sub(te.StartedAt).String()
+	return formatDuration(te.EndedAt.Sub(te.StartedAt))
 }
 
 // ExecutionCostSecs cost of execution

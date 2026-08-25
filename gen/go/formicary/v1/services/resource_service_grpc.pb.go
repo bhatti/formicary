@@ -26,6 +26,7 @@ const (
 	ResourceService_QuerySubscriptions_FullMethodName    = "/formicary.v1.services.ResourceService/QuerySubscriptions"
 	ResourceService_GetSubscription_FullMethodName       = "/formicary.v1.services.ResourceService/GetSubscription"
 	ResourceService_SaveSubscription_FullMethodName      = "/formicary.v1.services.ResourceService/SaveSubscription"
+	ResourceService_QueryContainerEvents_FullMethodName  = "/formicary.v1.services.ResourceService/QueryContainerEvents"
 )
 
 // ResourceServiceClient is the client API for ResourceService service.
@@ -44,6 +45,8 @@ type ResourceServiceClient interface {
 	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
 	// SaveSubscription creates or updates a subscription.
 	SaveSubscription(ctx context.Context, in *SaveSubscriptionRequest, opts ...grpc.CallOption) (*SaveSubscriptionResponse, error)
+	// QueryContainerEvents returns a paginated list of container lifecycle events.
+	QueryContainerEvents(ctx context.Context, in *QueryContainerEventsRequest, opts ...grpc.CallOption) (*QueryContainerEventsResponse, error)
 }
 
 type resourceServiceClient struct {
@@ -104,6 +107,16 @@ func (c *resourceServiceClient) SaveSubscription(ctx context.Context, in *SaveSu
 	return out, nil
 }
 
+func (c *resourceServiceClient) QueryContainerEvents(ctx context.Context, in *QueryContainerEventsRequest, opts ...grpc.CallOption) (*QueryContainerEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryContainerEventsResponse)
+	err := c.cc.Invoke(ctx, ResourceService_QueryContainerEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ResourceServiceServer is the server API for ResourceService service.
 // All implementations should embed UnimplementedResourceServiceServer
 // for forward compatibility.
@@ -120,6 +133,8 @@ type ResourceServiceServer interface {
 	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
 	// SaveSubscription creates or updates a subscription.
 	SaveSubscription(context.Context, *SaveSubscriptionRequest) (*SaveSubscriptionResponse, error)
+	// QueryContainerEvents returns a paginated list of container lifecycle events.
+	QueryContainerEvents(context.Context, *QueryContainerEventsRequest) (*QueryContainerEventsResponse, error)
 }
 
 // UnimplementedResourceServiceServer should be embedded to have
@@ -143,6 +158,9 @@ func (UnimplementedResourceServiceServer) GetSubscription(context.Context, *GetS
 }
 func (UnimplementedResourceServiceServer) SaveSubscription(context.Context, *SaveSubscriptionRequest) (*SaveSubscriptionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaveSubscription not implemented")
+}
+func (UnimplementedResourceServiceServer) QueryContainerEvents(context.Context, *QueryContainerEventsRequest) (*QueryContainerEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryContainerEvents not implemented")
 }
 func (UnimplementedResourceServiceServer) testEmbeddedByValue() {}
 
@@ -254,6 +272,24 @@ func _ResourceService_SaveSubscription_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ResourceService_QueryContainerEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryContainerEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceServiceServer).QueryContainerEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceService_QueryContainerEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceServiceServer).QueryContainerEvents(ctx, req.(*QueryContainerEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ResourceService_ServiceDesc is the grpc.ServiceDesc for ResourceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -280,6 +316,10 @@ var ResourceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveSubscription",
 			Handler:    _ResourceService_SaveSubscription_Handler,
+		},
+		{
+			MethodName: "QueryContainerEvents",
+			Handler:    _ResourceService_QueryContainerEvents_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

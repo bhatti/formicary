@@ -1,0 +1,32 @@
+<div class="mb-3">
+  <label class="form-label">Message <span class="text-danger">*</span></label>
+  <textarea class="form-control" name="message" rows="3" required>{{.Message}}</textarea>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    <label class="form-label">Level</label>
+    <select class="form-select" name="level">
+      <option value="warning" {{if eq .Level "warning"}}selected{{end}}>Warning</option>
+      <option value="danger"  {{if eq .Level "danger"}}selected{{end}}>Danger</option>
+      <option value="info"    {{if eq .Level "info"}}selected{{end}}>Info</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Scope</label>
+    <select class="form-select" name="scope">
+      <option value="global" {{if eq .Scope "global"}}selected{{end}}>Global (all admins)</option>
+      <option value="org"    {{if eq .Scope "org"}}selected{{end}}>Org (org members)</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Org ID <span class="text-muted small">(for org scope)</span></label>
+    <input type="text" class="form-control" name="org_id" value="{{.OrgID}}" placeholder="leave blank for global">
+  </div>
+</div>
+<div class="mt-3">
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="active" value="true" id="bannerActive"
+      {{if .Active}}checked{{end}}>
+    <label class="form-check-label" for="bannerActive">Active (visible on dashboard)</label>
+  </div>
+</div>

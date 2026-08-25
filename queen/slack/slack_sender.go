@@ -14,6 +14,7 @@ import (
 // DefaultSlackSender defines operations to send slack
 type DefaultSlackSender struct {
 	cfg         *config.ServerConfig
+	slackCfg    *config.SlackConfig
 	userManager *manager.UserManager
 }
 
@@ -24,6 +25,7 @@ func New(
 ) (types.Sender, error) {
 	return &DefaultSlackSender{
 		cfg:         cfg,
+		slackCfg:    &cfg.Slack,
 		userManager: userManager,
 	}, nil
 }
@@ -46,7 +48,10 @@ func (d *DefaultSlackSender) SendMessage(
 		token = user.Organization.GetConfigString(types.SlackToken)
 	}
 	if token == "" {
-		return fmt.Errorf("SlackToken is not found in organization config")
+		token = d.slackCfg.BotToken // system fallback
+	}
+	if token == "" {
+		return fmt.Errorf("Slack bot token not configured: set via org Notification tab or SLACK_BOT_TOKEN env")
 	}
 
 	api := slack.New(strings.TrimSpace(token))

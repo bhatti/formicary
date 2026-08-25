@@ -556,12 +556,19 @@ func (jrr *JobRequestRepositoryImpl) PurgeOldRequests(
 func (jrr *JobRequestRepositoryImpl) Trigger(
 	qc *common.QueryContext,
 	id string,
-	params map[string]interface{}) error {
+	params map[string]interface{},
+	description string) error {
 	// Reset scheduled_at to now and rotate user_key so the unique index slot is freed.
 	// Allow triggering from PENDING or CANCELLED — a CANCELLED cron slot can be re-activated
 	// via trigger so operators don't need direct DB access to recover a broken cron schedule.
-	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ?, job_state = ? WHERE id = ? AND cron_triggered = ? AND job_state IN ?"
-	args := []interface{}{time.Now(), time.Now(), ulid.Make().String(), common.PENDING, id, true, []string{string(common.PENDING), string(common.CANCELLED)}}
+	sql := "UPDATE formicary_job_requests SET scheduled_at = ?, updated_at = ?, user_key = ?, job_state = ?"
+	args := []interface{}{time.Now(), time.Now(), ulid.Make().String(), common.PENDING}
+	if description != "" {
+		sql += ", description = ?"
+		args = append(args, description)
+	}
+	sql += " WHERE id = ? AND cron_triggered = ? AND job_state IN ?"
+	args = append(args, id, true, []string{string(common.PENDING), string(common.CANCELLED)})
 	if !qc.IsAdmin() {
 		if qc.HasOrganization() {
 			sql += " AND organization_id = ?"
@@ -584,22 +591,23 @@ func (jrr *JobRequestRepositoryImpl) Trigger(
 	if len(params) > 0 {
 		return jrr.db.Transaction(func(tx *gorm.DB) error {
 			for name, value := range params {
-				strVal := fmt.Sprintf("%v", value)
 				now := time.Now()
 				upd := tx.Exec(
 					"UPDATE formicary_job_request_params SET value = ?, updated_at = ? WHERE job_request_id = ? AND name = ?",
-					strVal, now, id, name,
+					fmt.Sprintf("%v", value), now, id, name,
 				)
 				if upd.Error != nil {
 					return upd.Error
 				}
 				if upd.RowsAffected == 0 {
-					ins := tx.Exec(
-						"INSERT INTO formicary_job_request_params (id, job_request_id, name, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-						ulid.Make().String(), id, name, strVal, now, now,
-					)
-					if ins.Error != nil {
-						return ins.Error
+					param, err := types.NewJobRequestParam(name, value, false)
+					if err != nil {
+						return err
+					}
+					param.ID = ulid.Make().String()
+					param.JobRequestID = id
+					if res := tx.Create(param); res.Error != nil {
+						return res.Error
 					}
 				}
 			}

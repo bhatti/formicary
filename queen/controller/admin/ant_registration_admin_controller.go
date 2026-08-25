@@ -23,15 +23,20 @@ func NewAntAdminController(
 		resourceManager: resourceManager,
 		webserver:       webserver,
 	}
-	webserver.GET("/dashboard/ants", wac.queryAnts, acl.NewPermission(acl.AntExecutor, acl.Query)).Name = "query_admin_ants"
-	webserver.GET("/dashboard/ants/:id", wac.getAnt, acl.NewPermission(acl.AntExecutor, acl.View)).Name = "get_admin_ant"
+	webserver.GET("/dashboard/ants", wac.queryAnts, acl.NewPermission(acl.AntExecutor, acl.Query)).Name = "query_ants"
+	webserver.GET("/dashboard/ants/:id", wac.getAnt, acl.NewPermission(acl.AntExecutor, acl.View)).Name = "get_ant"
 	return wac
 }
 
 // ********************************* HTTP Handlers ***********************************
-// queryAnts - queries ants registered with the server
+// queryAnts - queries ants registered with the server, org-filtered for non-admin users
 func (wac *AntAdminController) queryAnts(c web.APIContext) error {
-	ants := wac.resourceManager.Registrations()
+	qc := web.BuildQueryContext(c)
+	orgID := ""
+	if !qc.IsAdmin() {
+		orgID = qc.GetOrganizationID()
+	}
+	ants := wac.resourceManager.RegistrationsByOrg(orgID)
 	res := map[string]interface{}{"Ants": ants}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "ants/index", res)

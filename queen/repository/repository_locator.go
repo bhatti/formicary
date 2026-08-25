@@ -17,7 +17,6 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
-	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"plexobject.com/formicary/queen/config"
@@ -42,7 +41,33 @@ type Locator struct {
 	EmailVerificationRepository EmailVerificationRepository
 	AuditRecordRepository       AuditRecordRepository
 	TriggerStateRepository      TriggerStateRepository
+	SlackRegCodeRepository      SlackRegCodeRepository
+	BannerRepository            BannerRepository
 	DB                          *gorm.DB
+}
+
+// sqliteDSN builds a SQLite DSN with WAL mode and performance pragmas appended.
+// WAL allows concurrent readers with a single writer, _busy_timeout prevents
+// SQLITE_BUSY errors under concurrent load, and NORMAL synchronous mode is safe
+// with WAL while being significantly faster than the FULL default.
+func sqliteDSN(serverCfg *config.ServerConfig) string {
+	if !serverCfg.DB.SQLiteWALMode {
+		return serverCfg.DB.DataSource
+	}
+	ds := serverCfg.DB.DataSource
+	sep := "?"
+	if strings.Contains(ds, "?") {
+		sep = "&"
+	}
+	pragmas := fmt.Sprintf("%s_journal_mode=WAL&_busy_timeout=%d&_synchronous=%s&_foreign_keys=on",
+		sep,
+		serverCfg.DB.SQLiteBusyTimeout,
+		serverCfg.DB.SQLiteSynchronous,
+	)
+	if serverCfg.DB.SQLiteCacheSize > 0 {
+		pragmas += fmt.Sprintf("&_cache_size=-%d", serverCfg.DB.SQLiteCacheSize)
+	}
+	return ds + pragmas
 }
 
 // NewLocator creates new repository locator
@@ -66,10 +91,8 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		db, err = gorm.Open(mysql.Open(serverCfg.DB.DataSource), opts)
 	} else if serverCfg.DB.Type == "postgres" {
 		db, err = gorm.Open(postgres.Open(serverCfg.DB.DataSource), opts)
-	} else if serverCfg.DB.Type == "sqlserver" {
-		db, err = gorm.Open(sqlserver.Open(serverCfg.DB.DataSource), opts)
 	} else if serverCfg.DB.Type == "sqlite" {
-		db, err = gorm.Open(sqlite.Open(serverCfg.DB.DataSource), opts)
+		db, err = gorm.Open(sqlite.Open(sqliteDSN(serverCfg)), opts)
 	} else {
 		return nil, fmt.Errorf("unsupported database type=%s source=%s", serverCfg.DB.Type, serverCfg.DB.DataSource)
 	}
@@ -220,6 +243,16 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		return nil, err
 	}
 
+	slackRegCodeRepository, err := NewSlackRegCodeRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
+
+	bannerRepository, err := NewBannerRepositoryImpl(db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Run GORM AutoMigrate when goose has NOT already set up the schema.
 	// In Docker/production the entrypoint runs goose first (migrate.sh), so AutoMigrate is skipped.
 	// In unit/integration tests (SQLite) and non-goose Postgres environments this creates/updates
@@ -304,11 +337,54 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		SubscriptionRepository:      subscriptionRepository,
 		EmailVerificationRepository: cachedEmailVerificationRepository,
 		TriggerStateRepository:      triggerStateRepository,
+		SlackRegCodeRepository:      slackRegCodeRepository,
+		BannerRepository:            bannerRepository,
 	}
 	return f, nil
 }
 
 // ///////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
+
+// allowedQueryColumns is the allowlist of snake_case column names that may be
+// interpolated into SQL WHERE clauses via addQueryParamsWhere.
+// Column names from URL query params are validated against this set before
+// being used in SQL to prevent column-name injection.
+var allowedQueryColumns = map[string]bool{
+	// common
+	"id": true, "created_at": true, "updated_at": true,
+	// log events
+	"level": true, "source": true, "ant_id": true, "job_type": true,
+	"job_request_id": true, "job_execution_id": true, "task_execution_id": true,
+	"task_type": true, "user_id": true, "tags": true,
+	// jobs
+	"job_state": true, "org_id": true, "organization_id": true,
+	"public_plugin": true, "sem_version": true, "disabled": true, "paused": true,
+	"platform": true, "tags_str": true, "cron_triggered": true,
+	// job requests
+	"scheduled_at": true, "cron_expression": true,
+	// artifacts
+	"artifact_id": true, "sha256": true, "kind": true, "name": true, "content_type": true,
+	// configs
+	"scope": true, "value": true,
+	// users
+	"username": true, "email": true, "verified": true, "active": true, "locked": true,
+	// orgs
+	"org_unit": true, "bundle_id": true,
+	// audit
+	"audit_kind": true, "remote_ip": true,
+	// resources
+	"resource_type": true, "max_quota": true, "quota": true,
+	// error codes
+	"task_type_error": true, "job_type_error": true, "exit_code": true, "error_code": true,
+	// subscriptions
+	"subscription_state": true,
+	// invitations
+	"accepted": true, "invitation_code": true,
+	// email verification
+	"email_code": true,
+	// trigger states
+	"trigger_type": true, "external_id": true,
+}
 
 // gooseMigrated returns true when the goose version table is present in the DB,
 // indicating that the schema was already set up by goose (i.e. running in Docker/production).
@@ -320,6 +396,7 @@ func gooseMigrated(db *gorm.DB) bool {
 func migrate(db *gorm.DB) error {
 	db.DisableForeignKeyConstraintWhenMigrating = true
 	// Rename serialized_perms → additive_perms if the old column still exists.
+	// Idempotent: HasColumn checks prevent any error on already-migrated databases.
 	if db.Migrator().HasColumn(&common.User{}, "serialized_perms") &&
 		!db.Migrator().HasColumn(&common.User{}, "additive_perms") {
 		if err := db.Migrator().RenameColumn(&common.User{}, "serialized_perms", "additive_perms"); err != nil {
@@ -356,6 +433,8 @@ func migrate(db *gorm.DB) error {
 		&common.Payment{},
 		&types.EmailVerification{},
 		&types.TriggerState{},
+		&common.SlackRegCode{},
+		&common.Banner{},
 		&types.ApprovalPolicy{},
 		&types.ApprovalVote{},
 		&types.ApprovalDeadline{},
@@ -371,6 +450,10 @@ func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 	for k, v := range params {
 		k = strcase.ToSnake(k)
 		keyParts := strings.Split(k, ":")
+		// Validate the column name against the allowlist to prevent SQL injection.
+		if !allowedQueryColumns[keyParts[0]] {
+			continue
+		}
 		if reflect.TypeOf(v).String() == "string" &&
 			(strings.HasSuffix(keyParts[0], "_date") || strings.HasSuffix(keyParts[0], "_at")) {
 			if date, err := time.Parse(time.RFC3339, v.(string)); err == nil {

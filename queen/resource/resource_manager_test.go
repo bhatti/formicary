@@ -32,6 +32,7 @@ func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER", "KUBERNETES"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	require.Error(t, err)
 
@@ -55,6 +56,7 @@ func Test_ShouldFindAntsForGivenMethodsAndTasks(t *testing.T) {
 	if err := mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER", "KUBERNETES"},
 		[]string{"client-1", "aws"},
+		"",
 	); err != nil {
 		t.Fatalf("expected availability %v", err)
 	}
@@ -95,6 +97,7 @@ func Test_ShouldNotFindAntsWithoutRequiredMethods(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER", "KUBERNETES", "SHELL"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	require.Error(t, err)
 
@@ -135,6 +138,7 @@ func Test_ShouldNotFindAntsWithoutRequiredTags(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER", "KUBERNETES", "SHELL"},
 		[]string{"client-1", "aws", "google"},
+		"",
 	)
 	require.Error(t, err)
 
@@ -177,7 +181,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN Reserving without registration
-	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-1", "aws"})
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-1", "aws"}, "")
 	// THEN it should fail
 	require.Error(t, err)
 
@@ -192,7 +196,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 
 	allocs := make([]*common.AntReservation, 0)
 	for i := 0; i < 10; i++ {
-		alloc, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"}, "")
 		require.NoError(t, err)
 		allocs = append(allocs, alloc)
 	}
@@ -201,6 +205,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	// THEN it should fail
 	require.Error(t, err)
@@ -209,6 +214,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	// THEN it should fail
 	require.Error(t, err)
@@ -223,6 +229,7 @@ func Test_ShouldReserveTasks(t *testing.T) {
 		err = mgr.HasAntsForJobTags(
 			[]common.TaskMethod{"DOCKER"},
 			[]string{"client-1", "aws"},
+			"",
 		)
 		// THEN it should not fail
 		require.NoError(t, err)
@@ -258,7 +265,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		job := newTestJobDefinition(fmt.Sprintf("job-%d", i))
 		job.ID = fmt.Sprintf("job-%d", i)
-		reservations, err := mgr.ReserveJobResources(job.ID, job)
+		reservations, err := mgr.ReserveJobResources(job.ID, "", job)
 		require.NoError(t, err)
 		allocs = append(allocs, reservations)
 	}
@@ -267,6 +274,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	// THEN it should fail
 	require.Error(t, err)
@@ -276,7 +284,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		job := newTestJobDefinition(fmt.Sprintf("job-%d", i))
 		job.ID = fmt.Sprintf("job-%d", i)
-		reservations, err := mgr.ReserveJobResources(job.ID, job)
+		reservations, err := mgr.ReserveJobResources(job.ID, "", job)
 		require.NoError(t, err)
 		allocs = append(allocs, reservations)
 		ids = append(ids, job.ID)
@@ -286,6 +294,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 	err = mgr.HasAntsForJobTags(
 		[]common.TaskMethod{"DOCKER"},
 		[]string{"client-1", "aws"},
+		"",
 	)
 	// THEN it should fail
 	require.Error(t, err)
@@ -300,6 +309,7 @@ func Test_ShouldReserveJobs(t *testing.T) {
 		err = mgr.HasAntsForJobTags(
 			[]common.TaskMethod{"DOCKER"},
 			[]string{"client-1", "aws"},
+			"",
 		)
 		// THEN it should not fail
 		require.NoError(t, err)
@@ -330,7 +340,7 @@ func Test_ShouldFailReservationWithoutMethod(t *testing.T) {
 	require.NoError(t, err)
 
 	// THEN reservation should fail because `KUBERNETES` method is not available
-	_, err = mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-1", "aws"})
+	_, err = mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-1", "aws"}, "")
 	require.Error(t, err)
 }
 
@@ -365,7 +375,7 @@ func Test_ShouldFailReservationWithoutTag(t *testing.T) {
 	require.NoError(t, err)
 
 	// WHEN reservation by tags `DOCKER` and `client-2` is not available
-	_, err = mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-2", "aws"})
+	_, err = mgr.Reserve(ulid.Make().String(), "task", "DOCKER", []string{"client-2", "aws"}, "")
 	// THEN reservation should fail because `DOCKER` and `client-2` is not available
 	require.Error(t, err)
 	err = mgr.Stop(context.Background())
@@ -403,7 +413,7 @@ func Test_ShouldReapStaleAllocations(t *testing.T) {
 
 	// THEN reservation should succeed up to max-capacity 10
 	for i := 0; i < 10; i++ {
-		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"}, "")
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
 	}
@@ -472,7 +482,7 @@ func Test_ShouldReapStaleAnts(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		// WHEN making reservation
-		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"}, "")
 		// THEN reservation should succeed
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
@@ -541,14 +551,14 @@ func Test_ShouldFindAntWithLeastLoad(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		// WHEN making reservation
-		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
+		alloc, err := mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"}, "")
 		// THEN reservation should succeed
 		require.NoError(t, err)
 		require.Contains(t, alloc.AntID, "ant-id-") // ant-id-1 or ant-id-2
 	}
 
 	for i := 0; i < 20; i++ {
-		_, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"})
+		_, err = mgr.Reserve(ulid.Make().String(), "my-task", "DOCKER", []string{"client-1", "aws"}, "")
 		require.NoError(t, err)
 	}
 
@@ -593,7 +603,7 @@ func Test_ShouldIncrementLoadAfterAReservation(t *testing.T) {
 	require.NoError(t, err)
 
 	// THEN reservation add load
-	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-2", "aws"})
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "KUBERNETES", []string{"client-2", "aws"}, "")
 	require.NoError(t, err)
 	require.Equal(t, 4, alloc.CurrentLoad)
 
@@ -641,6 +651,255 @@ func registerAnt(
 		)
 	}
 	return
+}
+
+// registerAntWithOrg registers an ant with an org scoping for unit tests.
+// It sets OrgID in both the AntRegistration JSON body and the AntOrgIDHeader property.
+//
+// In production the queen ignores OrgID in the JSON body and stamps it exclusively
+// from the server-side AntOrgIDHeader (populated from the JWT at WebSocket connect time).
+// This helper sets both because unit tests bypass the WebSocket auth layer — the
+// subscription callback reads the header and overwrites the body value, so the
+// double-set is idempotent and does not validate that ants can self-report their org.
+func registerAntWithOrg(
+	queueClient queue.Client,
+	registrationTopic string,
+	methods []common.TaskMethod,
+	tags []string,
+	orgID string,
+	load int) (err error) {
+	testAntID++
+	allocations := make(map[string]*common.AntAllocation)
+	antID := fmt.Sprintf("ant-id-%d", testAntID)
+	for i := 0; i < load; i++ {
+		alloc := &common.AntAllocation{
+			JobRequestID: ulid.Make().String(),
+			TaskTypes:    map[string]common.RequestState{"task": common.EXECUTING},
+			AntID:        antID,
+			AllocatedAt:  time.Now(),
+		}
+		allocations[alloc.JobRequestID] = alloc
+	}
+	registration := common.AntRegistration{
+		AntID:       antID,
+		MaxCapacity: 10,
+		Tags:        tags,
+		Methods:     methods,
+		Allocations: allocations,
+		OrgID:       orgID,
+	}
+	registration.AntTopic = testIncomingTopic
+	registration.CurrentLoad = load
+	var b []byte
+	if b, err = registration.Marshal(); err == nil {
+		props := make(map[string]string)
+		if orgID != "" {
+			props[queue.AntOrgIDHeader] = orgID
+		}
+		_, err = queueClient.Publish(
+			context.Background(),
+			registrationTopic,
+			b,
+			props,
+		)
+	}
+	return
+}
+
+func Test_Should_Route_Job_To_OrgScoped_Ant_First(t *testing.T) {
+	// GIVEN antA(OrgID="org-1") and antB(OrgID="") both support SHELL
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-1", 0)
+	require.NoError(t, err)
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "", 0)
+	require.NoError(t, err)
+
+	// WHEN reserving with orgID="org-1"
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "org-1")
+	// THEN org-scoped ant is preferred
+	require.NoError(t, err)
+	reg := mgr.state.antRegistrations[alloc.AntID]
+	require.Equal(t, "org-1", reg.OrgID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Fallback_To_Unscoped_Ant_When_No_Org_Ant_Alive(t *testing.T) {
+	// GIVEN only antA(OrgID="") is available; no org-scoped ant
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "", 0)
+	require.NoError(t, err)
+
+	// WHEN reserving with orgID="org-1" but no org-1 ant exists
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "org-1")
+	// THEN unscoped ant is used as fallback
+	require.NoError(t, err)
+	reg := mgr.state.antRegistrations[alloc.AntID]
+	require.Equal(t, "", reg.OrgID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Not_Route_Job_To_Different_Org_Ant(t *testing.T) {
+	// GIVEN antA(OrgID="org-1") and antB(OrgID="org-2"), no unscoped ant
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-1", 0)
+	require.NoError(t, err)
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-2", 0)
+	require.NoError(t, err)
+
+	// WHEN reserving with orgID="org-1"
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "org-1")
+	// THEN only org-1 ant is chosen
+	require.NoError(t, err)
+	reg := mgr.state.antRegistrations[alloc.AntID]
+	require.Equal(t, "org-1", reg.OrgID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Be_Noop_When_Auth_Disabled(t *testing.T) {
+	// GIVEN two ants with no OrgID (auth disabled)
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "", 0)
+	require.NoError(t, err)
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "", 0)
+	require.NoError(t, err)
+
+	// WHEN reserving with orgID="" (auth disabled)
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "")
+	// THEN either ant can be chosen without error
+	require.NoError(t, err)
+	require.NotEmpty(t, alloc.AntID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Apply_Org_Filter_Before_Method_Filter(t *testing.T) {
+	// GIVEN antA(OrgID="org-1", method=DOCKER), antB(OrgID="org-2", method=SHELL)
+	// no unscoped ant
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"DOCKER"}, []string{}, "org-1", 0)
+	require.NoError(t, err)
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-2", 0)
+	require.NoError(t, err)
+
+	// WHEN reserving org-1 with SHELL (org-1 ant only supports DOCKER)
+	_, err = mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "org-1")
+	// THEN no ant found — org-1 ant doesn't support SHELL, org-2 ant excluded by org filter
+	require.Error(t, err)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Fallback_To_Unscoped_When_OrgAnt_Goes_Stale(t *testing.T) {
+	// GIVEN antA(OrgID="org-1") registered but goes stale, antB(OrgID="") is live
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-1", 0)
+	require.NoError(t, err)
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "", 0)
+	require.NoError(t, err)
+
+	// Force the org-1 ant to appear stale (ReceivedAt far in the past)
+	for id, reg := range mgr.state.antRegistrations {
+		if reg.OrgID == "org-1" {
+			mgr.state.antRegistrations[id].ReceivedAt = time.Unix(0, 0)
+		}
+	}
+
+	// WHEN reserving with orgID="org-1" — org ant is stale, unscoped ant is live
+	alloc, err := mgr.Reserve(ulid.Make().String(), "task", "SHELL", []string{}, "org-1")
+	// THEN fallback to unscoped ant succeeds (not a "no ants could be reserved" error)
+	require.NoError(t, err)
+	reg := mgr.state.antRegistrations[alloc.AntID]
+	require.Equal(t, "", reg.OrgID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
+}
+
+func Test_Should_Remove_Org_Index_On_Ant_Removal(t *testing.T) {
+	// GIVEN antA registered with OrgID="org-1"
+	testAntID = 0
+	conf := config.TestServerConfig()
+	require.NoError(t, conf.Validate())
+	client, err := queue.NewClientManager().GetClient(context.Background(), &conf.Common)
+	require.NoError(t, err)
+	mgr := New(conf, client)
+	require.NoError(t, mgr.Start(context.Background()))
+
+	err = registerAntWithOrg(client, conf.Common.GetRegistrationTopic(),
+		[]common.TaskMethod{"SHELL"}, []string{}, "org-1", 0)
+	require.NoError(t, err)
+
+	// Capture the ant ID
+	var antID string
+	for id := range mgr.state.antRegistrations {
+		antID = id
+	}
+	require.NotEmpty(t, antID)
+	require.Contains(t, mgr.state.antsByOrg["org-1"], antID)
+
+	// WHEN ant is unregistered
+	_, err = mgr.Unregister(context.Background(), antID)
+	require.NoError(t, err)
+
+	// THEN antsByOrg index is cleaned up
+	require.NotContains(t, mgr.state.antsByOrg["org-1"], antID)
+
+	require.NoError(t, mgr.Stop(context.Background()))
 }
 
 func newTestJobDefinition(name string) *types.JobDefinition {

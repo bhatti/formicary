@@ -15,12 +15,16 @@ const (
 	MessageTarget = "MessageTarget"
 	// CorrelationIDKey for send/receive
 	CorrelationIDKey = "CorrelationID"
-	replyTopicKey    = "ReplyTopic"
-	messageKey       = "Key"
-	producerKey      = "Producer"
-	groupKey         = "ArtifactGroup"
-	lastOffsetKey    = "lastOffset"
-	firstOffsetKey   = "lastOffset"
+	// AntOrgIDHeader is a server-side header set by the queen on registration messages.
+	// It carries the org_id extracted from the ant's JWT at WebSocket connect time.
+	// Ants never set this; the queen stamps it so OrgID is always authoritative from auth.
+	AntOrgIDHeader = "AntOrgID"
+	replyTopicKey  = "ReplyTopic"
+	messageKey     = "Key"
+	producerKey    = "Producer"
+	groupKey       = "ArtifactGroup"
+	lastOffsetKey  = "lastOffset"
+	firstOffsetKey = "lastOffset"
 )
 
 // MessageHeaders for message headers

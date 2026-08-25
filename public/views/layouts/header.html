@@ -78,12 +78,6 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/dashboard/errors">
-              <span class="nav-link-icon"><i class="ti ti-alert-triangle"></i></span>
-              <span class="nav-link-title">Error Codes</span>
-            </a>
-          </li>
-          <li class="nav-item">
             <a class="nav-link" href="{{.APIDocsURL}}" target="_blank" rel="noopener">
               <span class="nav-link-icon"><i class="ti ti-book"></i></span>
               <span class="nav-link-title">API Docs</span>
@@ -106,21 +100,36 @@
           </li>
           {{ end }}
 
-          {{ if $.ReadAdmin }}
+          {{ if .DBUser }}
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:void(0)">
+              <span class="nav-link-icon"><i class="ti ti-cpu"></i></span>
+              <span class="nav-link-title">Workers</span>
+            </a>
+            <ul class="navbar-nav ps-4" id="workers-submenu">
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/ants"><i class="ti ti-cpu me-2"></i>Ant Workers</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/executors"><i class="ti ti-box me-2"></i>Ant Executors</a></li>
+            </ul>
+          </li>
+
           <li class="nav-item">
             <a class="nav-link" href="javascript:void(0)">
               <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
               <span class="nav-link-title">Reports</span>
             </a>
             <ul class="navbar-nav ps-4" id="reports-submenu">
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs/usage_report"><i class="ti ti-activity me-2"></i>Resource Usage Report</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs/usage_report"><i class="ti ti-activity me-2"></i>Resource Usage</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/definitions/stats"><i class="ti ti-trending-up me-2"></i>Realtime Stats</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/jobs/requests/stats"><i class="ti ti-database me-2"></i>Historical Stats</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/health"><i class="ti ti-heart-rate-monitor me-2"></i>Health Status</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits"><i class="ti ti-file-text me-2"></i>Audit Logs</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits/job_submissions"><i class="ti ti-report-analytics me-2"></i>Job Submissions</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/errors"><i class="ti ti-alert-circle me-2"></i>Error Codes</a></li>
+              {{ if $.Admin }}<li class="nav-item"><a class="nav-link py-1" href="/dashboard/slack/routes"><i class="ti ti-brand-slack me-2"></i>Slack Routes</a></li>{{ end }}
+              {{ if $.ReadAdmin }}<li class="nav-item"><a class="nav-link py-1" href="/dashboard/reports/logs"><i class="ti ti-file-text me-2"></i>System Logs</a></li>{{ end }}
             </ul>
           </li>
+          {{ end }}
+
+          {{ if $.ReadAdmin }}
           <li class="nav-item">
             <a class="nav-link" href="javascript:void(0)">
               <span class="nav-link-icon"><i class="ti ti-shield"></i></span>
@@ -131,9 +140,10 @@
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs"><i class="ti ti-users me-2"></i>Organizations</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/users/email_verifications"><i class="ti ti-mail me-2"></i>Email Verifications</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/orgs/invitations"><i class="ti ti-bolt me-2"></i>Invitations</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/ants"><i class="ti ti-cpu me-2"></i>Ant Workers</a></li>
-              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/executors"><i class="ti ti-box me-2"></i>Ant Executors</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/audits"><i class="ti ti-file-text me-2"></i>Audit Logs</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/health"><i class="ti ti-heart-rate-monitor me-2"></i>Health Status</a></li>
               <li class="nav-item"><a class="nav-link py-1" href="/dashboard/configs"><i class="ti ti-adjustments me-2"></i>Sys Configs</a></li>
+              <li class="nav-item"><a class="nav-link py-1" href="/dashboard/banners"><i class="ti ti-speakerphone me-2"></i>Banners</a></li>
             </ul>
           </li>
           {{ end }}
@@ -154,6 +164,7 @@
                 <a href="/dashboard/users/{{.ID}}" class="text-reset">{{.Name}}{{ if $.Admin }} (Admin){{ end }}</a>
               </div>
               <div class="text-muted small text-truncate">{{.Email}}</div>
+              <a href="/dashboard/slack/setup" class="text-muted small d-block"><i class="ti ti-brand-slack me-1"></i>Connect Slack</a>
               <a href="/logout" class="text-muted small"><i class="ti ti-logout me-1"></i>Sign out</a>
             </div>
           </div>

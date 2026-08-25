@@ -3,6 +3,8 @@ package logs
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/events"
@@ -88,8 +90,8 @@ func (s *LogStreamer) publish(data []byte, tags string) {
 	}
 	var msg string
 	if len(data) > s.maxMessageSize {
-		msg = fmt.Sprintf("%s\n__TRUNCATED__(%d:%d)\n%s",
-			data[0:s.maxMessageSize/2], len(data), s.maxMessageSize, data[s.maxMessageSize/2:])
+		half := s.maxMessageSize / 2
+		msg = fmt.Sprintf("%s\n__TRUNCATED__(%d bytes → %d)\n", string(data[:half]), len(data), s.maxMessageSize)
 	} else {
 		msg = string(data)
 	}
@@ -106,30 +108,31 @@ func (s *LogStreamer) publish(data []byte, tags string) {
 		tags,
 		s.antID)
 
-	if b, serErr := event.Marshal(); serErr != nil {
+	b, serErr := event.Marshal()
+	if serErr != nil {
 		logrus.WithFields(logrus.Fields{
 			"Component": "LogStreamer",
-			"Message":   string(data),
 			"Tags":      tags,
 			"Error":     serErr,
 		}).Error("failed to marshal log event")
-	} else {
-		if _, pubErr := s.queueClient.Publish(
-			s.ctx,
-			s.logTopic,
-			b,
-			queue.NewMessageHeaders(
-				queue.DisableBatchingKey, "true",
-				"RequestID", s.requestID,
-				"UserID", s.userID,
-			),
-		); pubErr != nil {
-			logrus.WithFields(logrus.Fields{
-				"Component": "LogStreamer",
-				"Message":   string(data),
-				"Tags":      tags,
-			}).WithError(pubErr).Error("failed to publish log event")
-		}
+		return
+	}
+	pubCtx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
+	defer cancel()
+	if _, pubErr := s.queueClient.Publish(
+		pubCtx,
+		s.logTopic,
+		b,
+		queue.NewMessageHeaders(
+			queue.DisableBatchingKey, "true",
+			"RequestID", s.requestID,
+			"UserID", s.userID,
+		),
+	); pubErr != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "LogStreamer",
+			"Tags":      tags,
+		}).WithError(pubErr).Warn("failed to publish log event")
 	}
 }
 

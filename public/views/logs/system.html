@@ -1,0 +1,75 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">System Logs <small class="text-secondary fs-6">(pod)</small></h2>
+            <div class="text-secondary mt-1">Live pod logs from the queen kubernetes container. Admin only.</div>
+        </div>
+        <div class="col-auto d-flex gap-2 flex-wrap">
+            <form action="/dashboard/reports/logs" method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+                <input type="hidden" name="source" value="system">
+                <label class="form-label mb-0">Level:</label>
+                <select class="form-select form-select-sm" name="level" style="width:auto;">
+                    <option value="error" {{if eq .Level "error"}}selected{{end}}>Error</option>
+                    <option value="warn"  {{if eq .Level "warn"}}selected{{end}}>Warn+</option>
+                    <option value="info"  {{if or (eq .Level "info") (eq .Level "")}}selected{{end}}>Info+</option>
+                </select>
+                <label class="form-label mb-0">Limit:</label>
+                <input type="number" class="form-control form-control-sm" name="limit" value="{{.PageSize}}" min="1" max="1000" style="width:80px;">
+                <input type="text" class="form-control form-control-sm" name="q" value="{{.Q}}" placeholder="Search text">
+                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                <a href="/dashboard/reports/logs" class="btn btn-secondary btn-sm">DB Logs</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{if .Error}}
+<div class="alert alert-warning">
+    <strong>Could not fetch pod logs:</strong> {{.Error}}
+    <br><small>Is the server running inside a Kubernetes pod with the correct RBAC permissions?</small>
+</div>
+{{end}}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="text-secondary">{{.Count}} lines (last {{.PageSize}} from pod)</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm card-table">
+            <thead>
+            <tr>
+                <th style="width:160px;">Time</th>
+                <th style="width:70px;">Level</th>
+                <th>Message</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .Lines}}
+            <tr>
+                <td class="text-nowrap">
+                    <small>{{if .Timestamp.IsZero}}{{else}}{{.Timestamp.Format "2006-01-02 15:04:05"}}{{end}}</small>
+                </td>
+                <td>
+                    {{if eq .Level "error"}}
+                    <span class="badge bg-danger">error</span>
+                    {{else if eq .Level "warn"}}
+                    <span class="badge bg-warning text-dark">warn</span>
+                    {{else}}
+                    <span class="badge bg-secondary">info</span>
+                    {{end}}
+                </td>
+                <td style="max-width:800px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:0.8em;" title="{{.Raw}}">{{.Raw}}</td>
+            </tr>
+            {{else}}
+            <tr>
+                <td colspan="3" class="text-center text-secondary py-4">
+                    {{if .Error}}Unable to retrieve pod logs — see error above.{{else}}No log entries found.{{end}}
+                </td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ template "layouts/footer" }}

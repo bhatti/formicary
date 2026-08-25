@@ -2,7 +2,7 @@
 # Runs as a Kubernetes pod every 5 minutes via cron.
 #
 # gather-issues: runs ai-dev-tools image, writes /workspace/{issue_id}/issue.json
-#   per issue, and emits ::set-output name=IssuesJSON:: with a JSON array.
+#   per issue, and emits ::add-job-context IssuesJSON:: with a JSON array.
 # submit-jobs: uses SubmitJobsFromJSON to fan out one ai-gh-implement job per issue.
 #
 # Reserved fields in each IssuesJSON entry:

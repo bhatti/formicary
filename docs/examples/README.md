@@ -131,6 +131,10 @@ The secret is idempotent — re-running `--create-k8s-secret` updates it in plac
 
 Polls GitHub for issues labeled `ai-ready`, plans and implements them with Claude Code, opens a PR, and polls until merged or abandoned.
 
+The implement pipeline includes two enhancements:
+- **Self-review**: after `implement`, Claude runs a self-review pass (`/ygs-review-pr --mode self-review`). If it returns BLOCKED (exit 2), the job pauses before creating the PR.
+- **Complexity-tiered models**: `plan` writes `plan_complexity.txt` (low/medium/high); `implement` picks Haiku/Sonnet/Opus automatically.
+
 **Deploy:**
 
 ```bash
@@ -146,6 +150,7 @@ export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
   --set-configs \
   --gh-org YOUR_ORG \
   --gh-repo YOUR_REPO
+# With auth enabled, org-based routing is automatic — no --ant-user-tag flag needed.
 
 # Subsequent deploys (secret already exists):
 ./deploy-ai-workflows.sh \
@@ -176,6 +181,10 @@ Use `--bedrock` to route Claude through an AWS Bedrock proxy instead of the dire
 Same flow as GitHub but sources issues from Jira and commits to Bitbucket.  
 Reads credentials from `~/.config/acli/config.json` automatically.
 
+The implement pipeline includes two enhancements:
+- **Self-review**: after `implement`, Claude runs a self-review pass (`/ygs-review-pr --mode self-review`). If it returns BLOCKED (exit 2), the job pauses before creating the PR.
+- **Complexity-tiered models**: `plan` writes `plan_complexity.txt` (low/medium/high); `implement` picks Haiku/Sonnet/Opus automatically.
+
 **Deploy:**
 
 ```bash
@@ -192,6 +201,7 @@ export FORMICARY_TOKEN="<jwt>"
   --jira-project MYPROJ \
   --bb-workspace myworkspace \
   --bb-repo myrepo
+# With auth enabled, org-based routing is automatic — no --ant-user-tag flag needed.
 
 # Subsequent deploys (secret already exists):
 ./deploy-ai-jira-workflows.sh \
@@ -326,7 +336,7 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
   -d "{\"job_type\":\"ai-gh-review\",\"params\":{\"PRUrl\":\"https://github.com/$GH_ORG/$GH_REPO/pull/1\",\"SlackChannel\":\"$SLACK_CHANNEL\"}}"
 ```
 
-**Trigger via Slack** (after deploying the router below):
+**Trigger via Slack** (Slack integration built into the queen — see [Slack Integration](#slack-integration-built-into-the-queen--no-separate-pod) below):
 ```
 @ai-agent review https://github.com/ORG/REPO/pull/1
 ```
@@ -354,54 +364,162 @@ Deployed automatically by both `deploy-ai-workflows.sh` and `deploy-ai-jira-work
 
 ---
 
-### Slack Agent Router
+### Slack Integration (built into the queen — no separate pod)
 
-A Bolt Socket Mode app that listens for mentions in a Slack channel and routes them to formicary jobs. No public ingress — uses an outbound WebSocket.
+Slack Socket Mode is built directly into the Formicary queen. There is no separate router pod or Python process — the queen listens on an outbound WebSocket and dispatches @mentions as jobs.
 
-**One-time Slack app setup** — see [full guide with screenshots](https://github.com/bhatti/ai-dev-tools/blob/main/docs/slack-setup.md). Quick summary:
+**How it works:**
+1. You @mention the bot in a Slack channel
+2. The queen maps the verb to a job type and extracts any trailing text as a `Prompt` param
+3. A job container (ai-dev-tools) runs the AI logic using you-got-skills formatting
+4. The output is posted back to the same Slack thread
+
+Formicary is a thin passthrough — it never builds prompts, invokes skills, or formats output. All AI logic lives in the job container.
+
+---
+
+#### One-time Slack app setup
+
+See [full guide with screenshots](https://github.com/bhatti/ai-dev-tools/blob/main/docs/slack-setup.md). Quick summary:
 
 1. **Socket Mode** → enable → **Generate an app-level token** → add `connections:write` scope → copy `xapp-...` → `SLACK_APP_TOKEN`
-2. **OAuth & Permissions → Bot Token Scopes** → add: `app_mentions:read`, `channels:history`, `channels:read`, `groups:history`, `groups:read`, `chat:write`, `users:read`
-3. **Event Subscriptions** → enable → subscribe to bot events: `app_mention`, `message.channels`, `message.groups` → Save
+2. **OAuth & Permissions → Bot Token Scopes** → add exactly these 9 scopes:
+
+   | Scope | Purpose |
+   |-------|---------|
+   | `app_mentions:read` | Receive @bot mentions in channels |
+   | `channels:history` | Read public channel messages |
+   | `channels:read` | List public channels |
+   | `chat:write` | Post messages and replies |
+   | `groups:history` | Read private channel messages |
+   | `groups:read` | List private channels |
+   | `im:history` | Read DMs (for `setup <token>` registration) |
+   | `im:write` | Reply to DMs (required to confirm registration) |
+   | `users:read` | Look up user info |
+
+3. **Event Subscriptions** → enable → **Subscribe to bot events** → add both:
+   - `app_mention` — @bot mentions in channels
+   - `message.im` — DMs for `setup <token>` registration
+   → Save Changes
+
 4. **Interactivity & Shortcuts** → enable (required for Block Kit Approve/Request Changes buttons)
-5. **Install App** → Reinstall to Workspace → copy `xoxb-...` → `SLACK_BOT_TOKEN`
+5. **Install App** → Install to Workspace → copy `xoxb-...` → `SLACK_BOT_TOKEN`
+   > If your workspace requires admin approval, click **Request to install** and have the workspace admin approve at: Slack → Settings & administration → Manage apps → Requests
 6. In Slack: `/invite @<your-bot-name>`
 
 To find your bot's name: `curl -s "https://slack.com/api/auth.test" -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -c "import json,sys; print('@'+json.load(sys.stdin)['user'])"`
 
-**Deploy:**
-```bash
-source ~/.zshrc   # loads SLACK_BOT_TOKEN, SLACK_APP_TOKEN, FORMICARY_TOKEN, etc.
+---
 
-cd ~/workplace/formicary/docs/examples
-./deploy-ai-slack-router.sh \
-  --create-k8s-secret --set-configs \
-  --slack-channel "$SLACK_CHANNEL" \
-  --bot-name "@your-bot-name" \
-  --default-tracker jira    # or "github"
+#### Admin deploy (one-time per cluster)
+
+```bash
+source ~/.zshrc   # loads SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_SIGNING_SECRET, etc.
+
+# Local Docker Desktop k8s:
+./scripts/deploy-formicary.sh
+
+# EC2 k3s (kubectl tunneled over SSH — port 6443 not open externally):
+./scripts/deploy-formicary.sh --ec2-ip 10.8.97.24
+./scripts/deploy-formicary.sh --ec2-ip 10.8.97.24 --ec2-key ~/path/to/key.pem
+
+# All-in-one (leader + embedded ant, good for single-node):
+./scripts/deploy-formicary.sh --all-in-one
 ```
 
-`--default-tracker` controls routing for bare commands (no URL/key):
-- `jira` (default) → `standup` → `ai-standup-jira`, `implement PROJ-123` → `ai-jira-implement`
-- `github` → `standup` → `ai-standup-gh`, `implement 42` → `ai-gh-implement`
+Reads from environment (never CLI flags):
 
-`--bot-name` sets the display name shown in `@bot help` output.
-
-**Verify the router connected:**
-```bash
-kubectl logs -l app=ai-slack-router --tail=20
-# Should show: "Starting Slack router in Socket Mode …"
-# followed by Bolt's "Bolt app is running!" or WebSocket connect log
+```
+COMMON_AUTH_JWT_SECRET            (required)
+COMMON_AUTH_GOOGLE_CLIENT_ID      (optional)
+COMMON_AUTH_GOOGLE_CLIENT_SECRET  (optional)
+SLACK_BOT_TOKEN                   (optional — omit to disable Slack)
+SLACK_APP_TOKEN                   (optional — omit to disable Slack)
+SLACK_SIGNING_SECRET              (optional)
 ```
 
-**Invite the bot to your channel — this is mandatory:**
+**Verify the queen connected:**
+```bash
+# Local:
+kubectl logs -l app=formicary --tail=30 | grep -i slack
+
+# EC2:
+./scripts/deploy-formicary.sh --ec2-ip 10.8.97.24 --logs
+# Expected: "Slack Socket Mode starting" then "connected to Slack"
+```
+
+---
+
+#### Per-user registration (each developer, one-time)
+
+Each developer registers their personal Formicary API token with the bot so their jobs run on their ant worker under their credentials:
+
+```bash
+# Step 1: connect your local Kubernetes cluster as an ant worker
+source ~/.zshrc   # loads FORMICARY_TOKEN, etc.
+export QUEEN_HOST="<EC2_IP_OR_HOSTNAME>"
+
+./scripts/setup-ant-worker.sh \
+  --queen "$QUEEN_HOST" \
+  --token "$FORMICARY_TOKEN"
+# Your ant registers with pod_label user=$USER — jobs route to your machine, not teammates'
+
+# Step 2: upload your workflow YAMLs and set your org configs
+./scripts/setup-user-creds.sh                   # auto-detect tracker from env
+./scripts/setup-user-creds.sh --tracker jira    # Jira + Bitbucket
+./scripts/setup-user-creds.sh --tracker github  # GitHub
+# setup-user-creds.sh calls deploy-ai-workflows.sh (or deploy-ai-jira-workflows.sh)
+# with --create-k8s-secret --set-configs (org routing is automatic when auth is enabled)
+
+# Step 3: register your token with the bot in Slack
+# Open a DM to your bot and type:
+#   setup <your-formicary-token>
+# The bot confirms registration and deletes your DM so the token is not stored in chat.
+# Get your token at: https://<formicary-host>/dashboard/users/tokens
+```
+
+**Invite the bot to your channel — mandatory:**
 ```
 /invite @<your-bot-name>
 ```
 
+---
+
+#### Supported commands
+
+Mention the bot in any channel it has been invited to:
+
+| Command | What it does | Workflow |
+|---------|-------------|---------|
+| `@bot help` | List all available commands | — |
+| `@bot standup` | Compact daily brief: board status, per-person status, risks, discussion | `ai-standup-jira` / `ai-standup-gh` |
+| `@bot status` | Same as standup | `ai-standup-jira` |
+| `@bot risk` / `@bot risks` | Ranked sprint risks: stale work, PR bottlenecks, dependency chains | `ai-adhoc` |
+| `@bot prs` | Open PRs grouped by author vs reviewer, sorted by age | `ai-adhoc` |
+| `@bot open prs` | Same as prs | `ai-adhoc` |
+| `@bot review queue` | Same as prs | `ai-adhoc` |
+| `@bot pr comments <url>` | All comments, inline feedback, and open tasks for a PR | `ai-adhoc` |
+| `@bot review <github-pr-url>` | Full PR review: correctness, security, API, SRE | `ai-gh-review` |
+| `@bot review <bitbucket-pr-url>` | Same for Bitbucket | `ai-jira-review` |
+| `@bot security review <pr-url>` | OWASP-style security audit | `ai-gh-review` |
+| `@bot sre review <pr-url>` | Failure mode and operational risk review | `ai-gh-review` |
+| `@bot implement PROJ-123` | Implement a Jira issue end-to-end | `ai-jira-implement` |
+| `@bot implement 42` | Implement a GitHub issue end-to-end | `ai-gh-implement` |
+| `@bot jira query <keywords>` | Search Jira issues by keyword | `ai-jira-query` |
+| `@bot search jira <keywords>` | Same as jira query | `ai-jira-query` |
+| `@bot jira-analyze PROJ-1,PROJ-2` | Analyze and summarize a set of Jira issues | `ai-jira-query` (Mode=analyze) |
+| `@bot gh-query <keywords>` | Search GitHub issues by keyword | `ai-jira-query` (DefaultTracker=github) |
+| `@bot gh-analyze #123,#456` | Analyze GitHub issues for root cause and fixes | `ai-jira-query` (Mode=analyze, DefaultTracker=github) |
+| `@bot doctor` | Connectivity check against all configured services | `ai-connectivity-check` |
+| `@bot adhoc <free-form prompt>` | Run any you-got-skills skill with a free-form prompt | `ai-adhoc` |
+
+Replace `@bot` with your bot's actual name (find it with `curl -s https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool | grep '"user"'`).
+
+Thread replies on a paused job resume it — no button required.
+
 > **If @mention does nothing**, run this diagnostic:
 > ```bash
-> # 1. Confirm bot token scopes — must include app_mentions:read
+> # 1. Confirm bot identity and that the token is valid
 > curl -s https://slack.com/api/auth.test \
 >   -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool
 >
@@ -414,46 +532,83 @@ kubectl logs -l app=ai-slack-router --tail=20
 >     if c.get('is_member'): print(c['name'], c['id'])
 > "
 > ```
-> Missing `app_mentions:read` scope → add it in OAuth & Permissions, then reinstall the app.
+> Required scopes: `app_mentions:read`, `channels:history`, `channels:read`, `chat:write`,
+> `groups:history`, `groups:read`, `im:history`, `im:write`, `users:read`
+>
+> Required events: `app_mention`, `message.im`
+>
+> If any are missing: add them in OAuth & Permissions / Event Subscriptions, then reinstall the app.
+> If reinstall requires admin approval: Slack → Settings & administration → Manage apps → Requests.
 
-**Supported commands** (mention the bot in any message):
+---
 
-| Command | What it does | Workflow |
-|---------|-------------|---------|
-| `@bot help` | List all available commands and how to add new skills | — |
-| `@bot standup` | Compact daily brief: board status, per-person status, risks, discussion | `ai-standup-jira` / `ai-standup-gh` |
-| `@bot status` | Same as standup | `ai-standup-jira` |
-| `@bot risk` / `@bot risks` | Ranked sprint risks: stale work, PR bottlenecks, dependency chains | `ai-adhoc` (ygs-risk-scan) |
-| `@bot prs` | Open PRs grouped by author vs reviewer, sorted by age | `ai-adhoc` |
-| `@bot open prs` | Same as prs | `ai-adhoc` |
-| `@bot review queue` | Same as prs | `ai-adhoc` |
-| `@bot pr comments <url>` | All comments, inline feedback, and open tasks for a PR | `ai-adhoc` |
-| `@bot pr feedback <url>` | Same as pr comments | `ai-adhoc` |
-| `@bot show pr <url>` | Same as pr comments | `ai-adhoc` |
-| `@bot review <github-pr-url>` | Full PR review: correctness, security, API, SRE | `ai-gh-review` |
-| `@bot review <bitbucket-pr-url>` | Same for Bitbucket | `ai-jira-review` |
-| `@bot security review <pr-url>` | OWASP-style security audit | `ai-gh-review` (ygs-security-review) |
-| `@bot sre review <pr-url>` | Failure mode and operational risk review | `ai-gh-review` (ygs-sre-review) |
-| `@bot implement PROJ-123` | Implement a Jira issue end-to-end | `ai-jira-implement` |
-| `@bot implement 42` | Implement a GitHub issue end-to-end | `ai-gh-implement` |
+#### Adding custom commands
 
-Replace `@bot` with your bot's actual name (find it with `curl -s https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool | grep '"user"'`).
+Slack routes are configured via the admin API (`/api/v1/configs` with `kind=JSON`, `name=SlackRoutes`). The deploy scripts handle this with `--set-slack-routes`. Each route maps one or more trigger words to a job type and an optional variable binding:
 
-Thread replies on a paused job resume it — no button required.
+```json
+[
+  {"triggers": ["standup", "status"], "job_type": "ai-standup-jira", "description": "Daily standup"},
+  {"triggers": ["review"], "job_type": "ai-gh-review", "id_var": "PRUrl", "description": "Review a PR"},
+  {"triggers": ["implement"], "job_type": "ai-jira-implement", "id_var": "JiraIssueKey", "description": "Implement a Jira issue"},
+  {"triggers": ["security review"], "job_type": "ai-gh-review", "id_var": "PRUrl",
+   "params": {"Skill": "ygs-security-review"}, "description": "Security audit a PR"}
+]
+```
+
+**Field reference:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `triggers` | yes | List of trigger phrases (matched against first word(s) of mention) |
+| `job_type` | yes | Formicary job type to submit |
+| `description` | yes | Shown in `@bot help` output |
+| `id_var` | no | Job param name to receive the trailing text (e.g. `PRUrl`, `JiraIssueKey`) |
+| `params` | no | Static params merged into every job submission (e.g. `{"Skill": "ygs-security-review"}`) |
+
+**Important:** `SlackRouteConfig` uses `json:` struct tags — all field names are snake_case in the JSON payload (`job_type`, `id_var`, not `JobType`, `IdVar`). The deploy scripts use the correct casing.
+
+**Upload routes:**
+```bash
+cd docs/examples
+./deploy-ai-workflows.sh --set-configs --set-slack-routes --gh-org ORG --gh-repo REPO
+# or for Jira:
+./deploy-ai-jira-workflows.sh --set-configs --set-slack-routes
+```
+
+**View routes in the UI:** `https://<formicary-host>/dashboard/slack/routes` (requires Admin role)
+
+**YAML config also works** (static config, no admin API needed):
+```yaml
+slack:
+  routes:
+    - triggers: ["standup", "status"]
+      job_type: ai-standup-jira
+      description: "Daily standup brief from Jira"
+```
+The trailing text after the trigger is bound to `id_var` (if set) or discarded — Formicary never reads or transforms the content.
 
 ---
 
 ## Deploy Script Reference
 
-| Script | Uploads | Tracker |
-|--------|---------|---------|
-| `deploy-ai-workflows.sh` | `ai-gh-issue-picker`, `ai-gh-implement`, `ai-gh-cleanup`, `ai-gh-review`, `ai-adhoc` | GitHub |
-| `deploy-ai-jira-workflows.sh` | `ai-jira-issue-picker`, `ai-jira-implement`, `ai-jira-review`, `ai-adhoc` | Jira + Bitbucket |
-| `deploy-ai-standup-jira.sh` | `ai-standup-jira` | Jira + Bitbucket + Slack |
-| `deploy-ai-standup-gh.sh` | `ai-standup-gh` | GitHub + Slack |
-| `deploy-ai-slack-router.sh` | `ai-slack-router` K8s Deployment | Slack → Formicary |
+### Admin scripts (once per cluster)
 
-All scripts support:
+| Script | What it does |
+|--------|-------------|
+| `../../scripts/deploy-formicary.sh` | Deploy/update the Formicary queen (auth + Slack secrets, k8s manifest) |
+
+### Per-user scripts (once per developer)
+
+| Script | What it does |
+|--------|-------------|
+| `../../scripts/setup-user-creds.sh` | Upload workflow YAMLs + push org configs for a developer |
+| `deploy-ai-workflows.sh` | Upload GitHub workflow YAMLs (called by setup-user-creds.sh) |
+| `deploy-ai-jira-workflows.sh` | Upload Jira workflow YAMLs (called by setup-user-creds.sh) |
+| `deploy-ai-standup-jira.sh` | Upload `ai-standup-jira` YAML only | 
+| `deploy-ai-standup-gh.sh` | Upload `ai-standup-gh` YAML only |
+
+Workflow deploy scripts (`deploy-ai-workflows.sh`, `deploy-ai-jira-workflows.sh`, etc.) support:
 
 ```
 --server URL           Formicary queen URL (default: http://localhost:7777)
@@ -464,6 +619,13 @@ All scripts support:
 --help                 Show usage
 ```
 
+`setup-user-creds.sh` supports:
+
+```
+--server URL           Formicary queen URL (default: value of $FORMICARY_URL)
+--tracker jira|github  Override auto-detected tracker
+```
+
 Credentials go in the `ai-dev-credentials` Kubernetes secret (via `--create-k8s-secret`). Non-secret config is pushed via `--set-configs`. Secrets are **always** passed via environment variables, never CLI flags:
 
 ```bash
@@ -471,7 +633,9 @@ FORMICARY_TOKEN        # Formicary JWT (from Profile → API Token in the UI)
 GH_TOKEN               # GitHub PAT (also GITHUB_TOKEN)
 JIRA_API_TOKEN         # Jira API token
 BITBUCKET_TOKEN        # Bitbucket app password
-SLACK_BOT_TOKEN        # Slack bot token (xoxb-...)
+SLACK_BOT_TOKEN        # Slack bot token (xoxb-...) — for Slack integration
+SLACK_APP_TOKEN        # Slack app-level token (xapp-...) — for Socket Mode
+SLACK_SIGNING_SECRET   # Slack signing secret — for request verification
 ANTHROPIC_API_KEY      # Anthropic API key (optional when using Bedrock)
 SSH_PRIVATE_KEY        # SSH key for git push (AI agent workflows)
 ```
@@ -667,30 +831,65 @@ The job pauses after posting findings to Slack. Click **Approve** or **Request C
 
 ---
 
-### Test Slack router commands
+### Test Slack commands — interactive REPL (no Slack workspace needed)
 
-After deploying the Slack router (`deploy-ai-slack-router.sh`), mention the bot in your channel. Verify with:
+The fastest way to test all Slack commands locally is the interactive REPL from `ai-dev-tools`:
 
 ```bash
-# Check router logs — should show incoming events and job submissions
-kubectl logs -l app=ai-slack-router --tail=50 -f
+source ~/.zshrc   # loads FORMICARY_URL, FORMICARY_TOKEN, SLACK_CHANNEL, DEFAULT_TRACKER
+cd /path/to/ai-dev-tools
+
+# Live mode — submits real jobs to your Formicary server:
+python3 scripts/slack/slack_repl.py
+
+# Dry-run — no network calls, prints what would be submitted:
+python3 scripts/slack/slack_repl.py --dry-run
 ```
+
+> **TLS note:** If your server uses a self-signed cert (e.g. `*.nip.io`), the REPL auto-sets `FORMICARY_TLS_VERIFY=false` for nip.io URLs. For other hosts, `export FORMICARY_TLS_VERIFY=false` before launching.
 
 **Full command test matrix:**
 
-| Slack message | Expected job | Key param set |
+| Slack message | Expected job | Key params |
 |---|---|---|
-| `@bot standup` | `ai-standup-jira` triggered (PENDING slot) | `SlackChannel`, `SlackThreadTs` |
+| `@bot standup` | `ai-standup-jira` | `SlackChannel`, `SlackThreadTs` |
 | `@bot status` | same as standup | — |
-| `@bot prs` | `ai-adhoc` submitted | `Skill=ygs-pr-queue`, `DefaultTracker=jira` |
-| `@bot risk` / `@bot risks` | `ai-adhoc` submitted | `Skill=ygs-risk-scan` |
-| `@bot review <pr-url>` | `ai-gh-review` or `ai-jira-review` | `PRUrl` |
+| `@bot prs` | `ai-adhoc` (ygs-pr-queue) | `Skill=ygs-pr-queue`, `DefaultTracker` |
+| `@bot risk` / `@bot risks` | `ai-adhoc` (ygs-risk-scan) | `Skill=ygs-risk-scan` |
+| `@bot review <github-pr-url>` | `ai-gh-review` | `PRUrl=<url>` |
+| `@bot review <bitbucket-pr-url>` | `ai-jira-review` | `PRUrl=<url>` |
+| `@bot security review <pr-url>` | `ai-gh-review` | `PRUrl=<url>`, `Skill=ygs-security-review` |
+| `@bot sre review <pr-url>` | `ai-gh-review` | `PRUrl=<url>`, `Skill=ygs-sre-review` |
 | `@bot implement PROJ-123` | `ai-jira-implement` | `JiraIssueKey=PROJ-123` |
 | `@bot implement 42` | `ai-gh-implement` | `GitHubIssueNumber=42` |
+| `@bot jira query <keywords>` | `ai-jira-query` | `Query=<keywords>` |
+| `@bot search jira <keywords>` | `ai-jira-query` | `Query=<keywords>` |
+| `@bot jira-analyze PROJ-1` | `ai-jira-query` | `Mode=analyze`, `Query=PROJ-1` |
+| `@bot gh-query <keywords>` | `ai-jira-query` | `Query=<keywords>`, `DefaultTracker=github` |
+| `@bot gh-analyze #123` | `ai-jira-query` | `Mode=analyze`, `DefaultTracker=github` |
+| `@bot doctor` | `ai-connectivity-check` | `SlackChannel` |
+
+**Standup "no scheduled slot" error** — the cron PENDING slot was consumed. Fix:
+```bash
+cd docs/examples
+./deploy-ai-jira-workflows.sh --set-configs   # re-registers the job, recreates PENDING slot
+```
+
+### Test Slack commands (built-in queen integration)
+
+After deploying with `scripts/deploy-formicary.sh` and registering via `@bot setup`, test via real Slack:
+
+```bash
+# Local:
+kubectl logs -l app=formicary --tail=50 -f | grep -i slack
+
+# EC2:
+./scripts/deploy-formicary.sh --ec2-ip 10.8.97.24 --logs
+```
 
 **Verify job was submitted:**
 ```bash
-curl -s "$BASE/api/v1/jobs/requests?pageSize=5" \
+curl -s "$FORMICARY_URL/api/v1/jobs/requests?pageSize=5" \
   -H "Authorization: Bearer $FORMICARY_TOKEN" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
@@ -734,12 +933,86 @@ curl -s -X POST "$BASE/api/v1/jobs/requests" \
 
 ### Inspect job artifacts
 
-After any job completes, artifacts are visible in the UI at `http://localhost:7777/dashboard/jobs/requests/{id}` and downloadable via:
+After any job completes, artifacts are visible in the UI at `http://localhost:7777/dashboard/jobs/requests/{id}` and downloadable via the API.
+
+> **TLS note:** All curl commands below use `-sk` to skip certificate verification for self-signed certs on `*.nip.io` / EC2 deployments. Omit `-k` for localhost.
 
 ```bash
-JOB_ID=<id>
-curl -s "$BASE/api/v1/jobs/requests/$JOB_ID/artifacts" \
-  -H "Authorization: Bearer $FORMICARY_TOKEN" | python3 -m json.tool
+# Set these once from your shell (loaded from ~/.zshrc on EC2 deployments):
+BASE="${FORMICARY_URL:-https://10.8.97.24.nip.io}"   # or http://localhost:7777
+TOKEN="${FORMICARY_TOKEN}"
+JOB_ID="<job-request-id>"
+```
+
+**List all artifacts for a job** (returns name + SHA-256 digest for each file):
+```bash
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/artifacts?job_request_id=${JOB_ID}" | python3 -m json.tool
+```
+
+**Get job details** (state, error_message, task results):
+```bash
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/jobs/requests/${JOB_ID}" | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+jr=d.get('job_request',d)
+print('state:', jr.get('job_state'))
+print('error:', jr.get('error_message',''))
+"
+```
+
+**Download a specific artifact by SHA-256 digest** — use the SHA from the artifact list above:
+```bash
+SHA="<sha256-from-artifact-list>"
+# Download to stdout:
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/artifacts/${SHA}/download"
+
+# Download to a file:
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/artifacts/${SHA}/download" -o findings.json
+```
+
+**Get the console log for a task** — the console log SHA is in `.task_executions[].tasks[].console_sha`:
+```bash
+# Step 1: extract console SHA for each task
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/jobs/requests/${JOB_ID}" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+jr=d.get('job_request',d)
+for te in jr.get('task_executions') or []:
+    for t in te.get('tasks') or []:
+        sha = t.get('console_sha','')
+        typ = t.get('task_type','?')
+        if sha:
+            print(f'{typ}: {sha}')
+"
+
+# Step 2: download the log (same /api/artifacts/<sha>/download endpoint)
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/artifacts/<CONSOLE_SHA>/download"
+```
+
+**One-liner: tail the console log of the most-recent job of a given type**:
+```bash
+JOB_TYPE="ai-jira-review"
+curl -sk -H "Authorization: Bearer ${TOKEN}" \
+  "${BASE}/api/jobs/requests?job_type=${JOB_TYPE}&pageSize=1" | python3 -c "
+import json,sys,subprocess,os
+d=json.load(sys.stdin)
+items=d.get('records') or d.get('Records') or (d if isinstance(d,list) else [])
+if not items: sys.exit('no jobs found')
+jr=items[0]
+print('job:', jr['id'], 'state:', jr.get('job_state'))
+for te in jr.get('task_executions') or []:
+    for t in te.get('tasks') or []:
+        sha=t.get('console_sha','')
+        if sha:
+            print(f'--- task: {t[\"task_type\"]} ---')
+            subprocess.run(['curl','-sk','-H',f'Authorization: Bearer {os.environ[\"FORMICARY_TOKEN\"]}',
+                f'{os.environ[\"FORMICARY_URL\"]}/api/artifacts/{sha}/download'])
+"
 ```
 
 Key artifact files by workflow:
@@ -777,10 +1050,33 @@ for j in items: print(j['id'], j['job_state'])
 kubectl logs -l formicary-job-id=$JOB_ID --tail=100
 ```
 
-**Slack bot does nothing** — Check router logs and confirm bot is in the channel:
+**Read console log via API** (when kubectl isn't available):
 ```bash
-kubectl logs -l app=ai-slack-router --tail=50
-# In Slack: /invite @<bot-name>
+# Get console SHA from job details, then download it
+curl -sk -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+  "${FORMICARY_URL}/api/jobs/requests/${JOB_ID}" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+jr=d.get('job_request',d)
+for te in jr.get('task_executions') or []:
+    for t in te.get('tasks') or []:
+        sha=t.get('console_sha','')
+        if sha: print(t['task_type'], sha)
+"
+# Then: curl -sk -H "Authorization: Bearer ${FORMICARY_TOKEN}" "${FORMICARY_URL}/api/artifacts/<SHA>/download"
+```
+
+**Slack bot does nothing** — Slack I/O is built into the queen; there is no separate router pod. Check queen logs and confirm the bot is in the channel:
+```bash
+# Local:
+kubectl logs -l app=formicary --tail=50 | grep -i slack
+
+# EC2 (kubectl tunneled over SSH):
+./scripts/deploy-formicary.sh --ec2-ip 10.8.97.24 --logs
+# Expected: "Slack Socket Mode starting"
+
+# Confirm bot is invited: /invite @<bot-name> in the channel
+# Confirm the user has registered: DM the bot with "setup <formicary-token>"
 ```
 
 ---
@@ -793,3 +1089,4 @@ kubectl logs -l app=ai-slack-router --tail=50
 - [Scheduling and triggers](../08-scheduling-and-triggers.md)
 - [Artifacts and caching](../09-artifacts-and-caching.md)
 - [AI agents guide](../ai-agents.md)
+- [Ant worker setup](../ant-worker-setup.md)
