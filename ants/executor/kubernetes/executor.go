@@ -309,7 +309,10 @@ func (ke *Executor) doAsyncExecute(
 		ke.ExecutorOptions.MainContainer.ImageDefinition.Entrypoint = ke.AntConfig.DefaultShell
 	}
 	if len(ke.ExecutorOptions.HelperContainer.ImageDefinition.Entrypoint) == 0 {
-		ke.ExecutorOptions.HelperContainer.ImageDefinition.Entrypoint = ke.AntConfig.DefaultShell
+		// Keep helper alive for artifact collection via kubectl exec.
+		// DefaultShell as entrypoint exits immediately with no args; sleep infinity stays alive.
+		ke.ExecutorOptions.HelperContainer.ImageDefinition.Entrypoint = []string{"sleep"}
+		ke.ExecutorOptions.HelperContainer.ImageDefinition.Command = []string{"infinity"}
 	}
 
 	err := ke.ensurePodsConfigured()

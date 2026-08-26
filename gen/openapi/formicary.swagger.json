@@ -35,7 +35,7 @@
     },
     {
       "name": "health",
-      "description": "System health checks and Prometheus metrics."
+      "description": "System health checks and server information."
     },
     {
       "name": "job-definitions",
@@ -1544,6 +1544,63 @@
           },
           "503": {
             "description": "System is degraded or down.",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "health"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/info": {
+      "get": {
+        "summary": "Server info",
+        "description": "Returns build version, commit hash, build date, and server start time. No authentication required.",
+        "operationId": "HealthService_GetInfo",
+        "responses": {
+          "200": {
+            "description": "Build and runtime info.",
+            "schema": {
+              "$ref": "#/definitions/servicesInfoResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
             "schema": {}
           },
           "default": {
@@ -8660,6 +8717,32 @@
         }
       },
       "description": "HealthResponse reports overall system health and per-component status."
+    },
+    "servicesInfoResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "name is the application name."
+        },
+        "version": {
+          "type": "string",
+          "description": "version is the semantic version string (e.g. \"0.1.123\")."
+        },
+        "commit": {
+          "type": "string",
+          "description": "commit is the VCS commit hash or git-describe string."
+        },
+        "build_date": {
+          "type": "string",
+          "description": "build_date is the ISO-8601 build timestamp."
+        },
+        "started_at": {
+          "type": "string",
+          "description": "started_at is the ISO-8601 timestamp when the server process started."
+        }
+      },
+      "description": "InfoResponse carries build version and runtime information."
     },
     "servicesJobCountsByDay": {
       "type": "object",

@@ -33,10 +33,24 @@ message MetricsResponse {
   bytes body = 2;
 }
 
-// HealthService provides liveness, readiness, and metrics endpoints.
+// InfoResponse carries build version and runtime information.
+message InfoResponse {
+  // name is the application name.
+  string name = 1;
+  // version is the semantic version string (e.g. "0.1.123").
+  string version = 2;
+  // commit is the VCS commit hash or git-describe string.
+  string commit = 3;
+  // build_date is the ISO-8601 build timestamp.
+  string build_date = 4;
+  // started_at is the ISO-8601 timestamp when the server process started.
+  string started_at = 5;
+}
+
+// HealthService provides liveness, readiness, and server info endpoints.
 service HealthService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
-    description: "System health checks and Prometheus metrics."
+    description: "System health checks and server information."
     name: "health"
   };
 
@@ -70,6 +84,21 @@ service HealthService {
       responses: {
         key: "200"
         value: {description: "OK."}
+      }
+    };
+  }
+
+  // GetInfo returns build version and runtime information for the server.
+  rpc GetInfo(google.protobuf.Empty) returns (InfoResponse) {
+    option (google.api.http) = {get: "/api/v1/info"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Server info"
+      description: "Returns build version, commit hash, build date, and server start time. No authentication required."
+      tags: ["health"]
+      security: {}
+      responses: {
+        key: "200"
+        value: {description: "Build and runtime info."}
       }
     };
   }

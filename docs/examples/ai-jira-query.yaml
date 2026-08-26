@@ -137,8 +137,8 @@ tasks:
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 3m
-  working_dir: /workspace
+  host_network: true
+  timeout: 5m
   container:
     image: plexobject/ai-dev-tools:latest
     env_from:
@@ -151,7 +151,7 @@ tasks:
   environment:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    MESSAGE: "❌ Issue query failed. Check Formicary logs."
+    MESSAGE: ":x: Issue query failed. Check Formicary logs."
     SKILL_NAME: ai-jira-query
   script:
     - python -m scripts.standup.slack_client

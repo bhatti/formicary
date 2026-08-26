@@ -164,24 +164,24 @@ message QueueConfig {
 // S3Config holds S3 / S3-compatible object-storage configuration.
 // In local_mode an embedded SeaweedFS subprocess is started instead of connecting to an external endpoint.
 message S3Config {
-  string endpoint            = 1  [(formicary.v1.tags) = "yaml:\"endpoint\" mapstructure:\"endpoint\" env:\"ENDPOINT\""];
-  string access_key_id       = 2  [(formicary.v1.tags) = "yaml:\"access_key_id\" mapstructure:\"access_key_id\" env:\"ACCESS_KEY_ID\""];
-  string secret_access_key   = 3  [(formicary.v1.tags) = "yaml:\"secret_access_key\" mapstructure:\"secret_access_key\" env:\"SECRET_ACCESS_KEY\""];
-  string token               = 4  [(formicary.v1.tags) = "yaml:\"token\" mapstructure:\"token\""];
-  string region              = 5  [(formicary.v1.tags) = "yaml:\"region\" mapstructure:\"region\" env:\"REGION\""];
-  string prefix              = 6  [(formicary.v1.tags) = "yaml:\"prefix\" mapstructure:\"prefix\" env:\"PREFIX\""];
-  string bucket              = 7  [(formicary.v1.tags) = "yaml:\"bucket\" mapstructure:\"bucket\" env:\"BUCKET\""];
-  string encryption_password = 8  [(formicary.v1.tags) = "yaml:\"encryption_password\" mapstructure:\"encryption_password\" env:\"PASSWORD\""];
-  bool   use_ssl             = 9  [(formicary.v1.tags) = "yaml:\"useSSL\" mapstructure:\"useSSL\""];
-  bool   local_mode          = 10 [(formicary.v1.tags) = "yaml:\"local_mode\" mapstructure:\"local_mode\""];
-  string local_data_dir      = 11 [(formicary.v1.tags) = "yaml:\"local_data_dir\" mapstructure:\"local_data_dir\""];
-  string local_weed_bin      = 12 [(formicary.v1.tags) = "yaml:\"local_weed_bin\" mapstructure:\"local_weed_bin\""];
-  int32  local_s3_port       = 13 [(formicary.v1.tags) = "yaml:\"local_s3_port\" mapstructure:\"local_s3_port\""];
+  string endpoint = 1 [(formicary.v1.tags) = "yaml:\"endpoint\" mapstructure:\"endpoint\" env:\"ENDPOINT\""];
+  string access_key_id = 2 [(formicary.v1.tags) = "yaml:\"access_key_id\" mapstructure:\"access_key_id\" env:\"ACCESS_KEY_ID\""];
+  string secret_access_key = 3 [(formicary.v1.tags) = "yaml:\"secret_access_key\" mapstructure:\"secret_access_key\" env:\"SECRET_ACCESS_KEY\""];
+  string token = 4 [(formicary.v1.tags) = "yaml:\"token\" mapstructure:\"token\""];
+  string region = 5 [(formicary.v1.tags) = "yaml:\"region\" mapstructure:\"region\" env:\"REGION\""];
+  string prefix = 6 [(formicary.v1.tags) = "yaml:\"prefix\" mapstructure:\"prefix\" env:\"PREFIX\""];
+  string bucket = 7 [(formicary.v1.tags) = "yaml:\"bucket\" mapstructure:\"bucket\" env:\"BUCKET\""];
+  string encryption_password = 8 [(formicary.v1.tags) = "yaml:\"encryption_password\" mapstructure:\"encryption_password\" env:\"PASSWORD\""];
+  bool use_ssl = 9 [(formicary.v1.tags) = "yaml:\"useSSL\" mapstructure:\"useSSL\""];
+  bool local_mode = 10 [(formicary.v1.tags) = "yaml:\"local_mode\" mapstructure:\"local_mode\""];
+  string local_data_dir = 11 [(formicary.v1.tags) = "yaml:\"local_data_dir\" mapstructure:\"local_data_dir\""];
+  string local_weed_bin = 12 [(formicary.v1.tags) = "yaml:\"local_weed_bin\" mapstructure:\"local_weed_bin\""];
+  int32 local_s3_port = 13 [(formicary.v1.tags) = "yaml:\"local_s3_port\" mapstructure:\"local_s3_port\""];
   string local_container_host = 14 [(formicary.v1.tags) = "yaml:\"local_container_host\" mapstructure:\"local_container_host\""];
   // public_endpoint overrides the host used in presigned artifact download URLs returned to browsers.
   // Set to the externally-reachable address when the internal endpoint (e.g. 127.0.0.1:19000) is not
   // accessible from outside the container (e.g. localhost:19000 with -p 19000:19000).
-  string public_endpoint     = 15 [(formicary.v1.tags) = "yaml:\"public_endpoint\" mapstructure:\"public_endpoint\""];
+  string public_endpoint = 15 [(formicary.v1.tags) = "yaml:\"public_endpoint\" mapstructure:\"public_endpoint\""];
 }
 
 // SlackRoute maps one or more trigger words to a Formicary job type.
@@ -189,28 +189,28 @@ message S3Config {
 // text as the Prompt param, and queues the job. All AI logic lives in the job container.
 message SlackRoute {
   // triggers is the list of case-insensitive command words (e.g. ["standup", "status"]).
-  repeated string triggers    = 1 [(formicary.v1.tags) = "yaml:\"triggers\" mapstructure:\"triggers\""];
+  repeated string triggers = 1 [(formicary.v1.tags) = "yaml:\"triggers\" mapstructure:\"triggers\""];
   // job_type is the Formicary job type to submit (e.g. "ai-standup-jira").
-  string job_type             = 2 [(formicary.v1.tags) = "yaml:\"job_type\" mapstructure:\"job_type\""];
+  string job_type = 2 [(formicary.v1.tags) = "yaml:\"job_type\" mapstructure:\"job_type\""];
   // description is shown in @bot help output.
-  string description          = 3 [(formicary.v1.tags) = "yaml:\"description\" mapstructure:\"description\""];
+  string description = 3 [(formicary.v1.tags) = "yaml:\"description\" mapstructure:\"description\""];
   // id_var is the job param name that receives the trailing text after the command verb.
   // For example, id_var="PRUrl" means trailing text is submitted as params["PRUrl"].
-  string id_var               = 4 [(formicary.v1.tags) = "yaml:\"id_var\" mapstructure:\"id_var\""];
+  string id_var = 4 [(formicary.v1.tags) = "yaml:\"id_var\" mapstructure:\"id_var\""];
   // params are fixed key-value pairs merged into every job submission for this route.
   // The job container interprets them — Formicary treats them as opaque.
-  map<string, string> params  = 5 [(formicary.v1.tags) = "yaml:\"params\" mapstructure:\"params\""];
+  map<string, string> params = 5 [(formicary.v1.tags) = "yaml:\"params\" mapstructure:\"params\""];
 }
 
 // SlackConfig holds the Slack Socket Mode credentials and command routing table.
 // All fields are optional; Slack is disabled when app_token is empty.
 message SlackConfig {
   // bot_token is the xoxb-... OAuth bot token (SLACK_BOT_TOKEN env var).
-  string bot_token            = 1 [(formicary.v1.tags) = "yaml:\"bot_token\" mapstructure:\"bot_token\""];
+  string bot_token = 1 [(formicary.v1.tags) = "yaml:\"bot_token\" mapstructure:\"bot_token\""];
   // app_token is the xapp-... app-level token for Socket Mode (SLACK_APP_TOKEN env var).
-  string app_token            = 2 [(formicary.v1.tags) = "yaml:\"app_token\" mapstructure:\"app_token\""];
+  string app_token = 2 [(formicary.v1.tags) = "yaml:\"app_token\" mapstructure:\"app_token\""];
   // signing_secret is used for request signature verification (SLACK_SIGNING_SECRET env var).
-  string signing_secret       = 3 [(formicary.v1.tags) = "yaml:\"signing_secret\" mapstructure:\"signing_secret\""];
+  string signing_secret = 3 [(formicary.v1.tags) = "yaml:\"signing_secret\" mapstructure:\"signing_secret\""];
   // routes maps command verbs to Formicary job types.
-  repeated SlackRoute routes  = 4 [(formicary.v1.tags) = "yaml:\"routes\" mapstructure:\"routes\""];
+  repeated SlackRoute routes = 4 [(formicary.v1.tags) = "yaml:\"routes\" mapstructure:\"routes\""];
 }

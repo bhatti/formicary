@@ -39,12 +39,6 @@ job_variables:
   # so the Slack message includes a direct link to the job's artifacts (HTML report).
   FormicaryPublicURL: ""
 
-notify:
-  slack:
-    recipients:
-      - "{{.SlackChannel}}"
-    when: onFailure
-
 tasks:
 
 # --- GATHER ------------------------------------------------------------------
@@ -197,8 +191,8 @@ tasks:
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 3m
-  working_dir: /workspace
+  host_network: true
+  timeout: 5m
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
@@ -212,7 +206,7 @@ tasks:
   environment:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    MESSAGE: ":x: Standup job failed. Check Formicary logs for details."
+    MESSAGE: ":x: Standup job failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
   script:
     - python -m scripts.standup.slack_client
   on_completed: done

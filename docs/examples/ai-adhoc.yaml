@@ -52,8 +52,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 3G
-    memory_request: 512M
+    memory_limit: 4G
+    memory_request: 1G
     volumes:
       empty_dir:
         - name: workspace
@@ -160,8 +160,7 @@ tasks:
   report_stdout: true
   always_run: true
   host_network: true
-  timeout: 3m
-  working_dir: /workspace
+  timeout: 5m
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
@@ -178,6 +177,7 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "{{.Skill}}"
+    MESSAGE: ":x: *{{.Skill}}* failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
   script:
     - python -m scripts.standup.slack_client
   on_completed: done

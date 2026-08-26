@@ -294,8 +294,8 @@ tasks:
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 3m
-  working_dir: /workspace
+  host_network: true
+  timeout: 5m
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
@@ -312,6 +312,7 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JOB_TYPE: "ai-gh-implement"
+    MESSAGE: ":x: Job failed."
   script:
     - python -m scripts.standup.slack_client
   on_completed: done
@@ -338,6 +339,8 @@ job_variables:
   PrOpenLabel: "ai-pr-open"
   NeedsHumanLabel: "needs-human"
   SlackChannel: ""
+  SlackThreadTs: ""
+  FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"

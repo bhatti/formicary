@@ -24,18 +24,21 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	HealthService_GetHealth_FullMethodName = "/formicary.v1.services.HealthService/GetHealth"
 	HealthService_Ping_FullMethodName      = "/formicary.v1.services.HealthService/Ping"
+	HealthService_GetInfo_FullMethodName   = "/formicary.v1.services.HealthService/GetInfo"
 )
 
 // HealthServiceClient is the client API for HealthService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// HealthService provides liveness, readiness, and metrics endpoints.
+// HealthService provides liveness, readiness, and server info endpoints.
 type HealthServiceClient interface {
 	// GetHealth returns the overall system health and per-component status.
 	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	// Ping is a lightweight liveness probe.
 	Ping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GetInfo returns build version and runtime information for the server.
+	GetInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InfoResponse, error)
 }
 
 type healthServiceClient struct {
@@ -66,16 +69,28 @@ func (c *healthServiceClient) Ping(ctx context.Context, in *emptypb.Empty, opts 
 	return out, nil
 }
 
+func (c *healthServiceClient) GetInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InfoResponse)
+	err := c.cc.Invoke(ctx, HealthService_GetInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HealthServiceServer is the server API for HealthService service.
 // All implementations should embed UnimplementedHealthServiceServer
 // for forward compatibility.
 //
-// HealthService provides liveness, readiness, and metrics endpoints.
+// HealthService provides liveness, readiness, and server info endpoints.
 type HealthServiceServer interface {
 	// GetHealth returns the overall system health and per-component status.
 	GetHealth(context.Context, *emptypb.Empty) (*HealthResponse, error)
 	// Ping is a lightweight liveness probe.
 	Ping(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// GetInfo returns build version and runtime information for the server.
+	GetInfo(context.Context, *emptypb.Empty) (*InfoResponse, error)
 }
 
 // UnimplementedHealthServiceServer should be embedded to have
@@ -90,6 +105,9 @@ func (UnimplementedHealthServiceServer) GetHealth(context.Context, *emptypb.Empt
 }
 func (UnimplementedHealthServiceServer) Ping(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedHealthServiceServer) GetInfo(context.Context, *emptypb.Empty) (*InfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInfo not implemented")
 }
 func (UnimplementedHealthServiceServer) testEmbeddedByValue() {}
 
@@ -147,6 +165,24 @@ func _HealthService_Ping_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HealthService_GetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HealthServiceServer).GetInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HealthService_GetInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HealthServiceServer).GetInfo(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HealthService_ServiceDesc is the grpc.ServiceDesc for HealthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -161,6 +197,10 @@ var HealthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ping",
 			Handler:    _HealthService_Ping_Handler,
+		},
+		{
+			MethodName: "GetInfo",
+			Handler:    _HealthService_GetInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

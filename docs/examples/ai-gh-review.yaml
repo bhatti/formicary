@@ -122,8 +122,8 @@ tasks:
   method: KUBERNETES
   report_stdout: true
   always_run: true
-  timeout: 3m
-  working_dir: /workspace
+  host_network: true
+  timeout: 5m
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
@@ -140,6 +140,7 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "review"
+    MESSAGE: ":x: Job failed."
   script:
     - python -m scripts.standup.slack_client
   on_completed: done
@@ -159,6 +160,7 @@ job_variables:
   ReviewDepth: "standard"   # set to "deep" for 7-domain review (perf + testing + arch)
   SlackChannel: ""
   SlackThreadTs: ""
+  FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"

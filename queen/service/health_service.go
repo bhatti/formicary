@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	svcpb "plexobject.com/formicary/gen/go/formicary/v1/services"
+	"plexobject.com/formicary/internal/buildversion"
 	"plexobject.com/formicary/queen/manager"
 )
 
@@ -15,11 +16,12 @@ import (
 type HealthService struct {
 	svcpb.UnimplementedHealthServiceServer
 	dashboardManager *manager.DashboardManager
+	version          *buildversion.Info
 }
 
 // NewHealthService creates a HealthService.
-func NewHealthService(dashboardManager *manager.DashboardManager) *HealthService {
-	return &HealthService{dashboardManager: dashboardManager}
+func NewHealthService(dashboardManager *manager.DashboardManager, version *buildversion.Info) *HealthService {
+	return &HealthService{dashboardManager: dashboardManager, version: version}
 }
 
 func (s *HealthService) GetHealth(_ context.Context, _ *emptypb.Empty) (*svcpb.HealthResponse, error) {
@@ -60,5 +62,19 @@ func (s *HealthService) GetHealth(_ context.Context, _ *emptypb.Empty) (*svcpb.H
 
 func (s *HealthService) Ping(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
+}
+
+func (s *HealthService) GetInfo(_ context.Context, _ *emptypb.Empty) (*svcpb.InfoResponse, error) {
+	resp := &svcpb.InfoResponse{}
+	if s.version != nil {
+		resp.Name = s.version.Name
+		resp.Version = s.version.Version
+		resp.Commit = s.version.Commit
+		resp.BuildDate = s.version.Date
+		if !s.version.Started.IsZero() {
+			resp.StartedAt = s.version.Started.UTC().Format("2006-01-02T15:04:05Z07:00")
+		}
+	}
+	return resp, nil
 }
 

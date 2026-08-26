@@ -621,7 +621,7 @@ func (u *Utils) BuildPod(
 		helperContainer := buildContainer(
 			&u.config.Kubernetes,
 			helperName,
-			"",
+			opts.WorkingDirectory,
 			opts.HelperContainer.Image,
 			opts.HelperContainer.ImageDefinition,
 			helperRequests,

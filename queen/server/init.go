@@ -196,7 +196,7 @@ func buildServices(
 		audit:     queenService.NewAuditService(repoFactory.AuditRecordRepository),
 		errorCode: queenService.NewErrorCodeService(repoFactory.ErrorCodeRepository),
 		jobRes:    queenService.NewJobResourceService(repoFactory.JobResourceRepository),
-		health:    queenService.NewHealthService(dashboardStats),
+		health:    queenService.NewHealthService(dashboardStats, serverCfg.Common.Version),
 		admin:     queenService.NewAdminService(dashboardStats, userManager),
 		triggers:  queenService.NewTriggerService(jobManager, repoFactory.TriggerStateRepository, triggerEvaluator, triggerSubmitter),
 		slack:     queenService.NewSlackService(repoFactory.SystemConfigRepository),
@@ -228,6 +228,7 @@ func buildGRPCServer(
 		SkipAuthMethods: []string{
 			svcpb.HealthService_Ping_FullMethodName,
 			svcpb.HealthService_GetHealth_FullMethodName,
+			svcpb.HealthService_GetInfo_FullMethodName,
 		},
 	})
 

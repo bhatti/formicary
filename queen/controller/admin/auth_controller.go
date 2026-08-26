@@ -101,9 +101,9 @@ func NewAuthController(
 
 // ********************************* HTTP Handlers ***********************************
 
-// root - authentication
+// root redirects to the dashboard
 func (ac *AuthController) root(c web.APIContext) error {
-	return c.JSON(http.StatusOK, ac.commonCfg.Version)
+	return c.Redirect(http.StatusFound, "/dashboard")
 }
 
 // providerAuthCallback - authentication
