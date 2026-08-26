@@ -38,7 +38,7 @@
 #   export SLACK_CHANNEL="C0XXXXXXX"       # Default channel ID
 #
 #   # EC2 deployment target
-#   export EC2_IP="10.8.97.24"
+#   export EC2_IP="YOUR_EC2_IP"
 #   export EC2_KEY="~/Downloads/sbhatti-linux-key.pem"
 #
 #   # Jira (optional — for ai-jira-* workflows)
@@ -113,7 +113,7 @@ check_var COMMON_AUTH_JWT_SECRET   yes "generate with: openssl rand -hex 32"
 check_var FORMICARY_TOKEN          yes "get from https://\$EC2_IP.nip.io/dashboard after first login"
 check_var COMMON_AUTH_GOOGLE_CLIENT_ID     yes "from Google Cloud Console OAuth credentials"
 check_var COMMON_AUTH_GOOGLE_CLIENT_SECRET yes "from Google Cloud Console OAuth credentials"
-check_var COMMON_AUTH_GOOGLE_CALLBACK_HOST yes "e.g. https://10.8.97.24.nip.io"
+check_var COMMON_AUTH_GOOGLE_CALLBACK_HOST yes "e.g. https://YOUR_EC2_IP.nip.io"
 
 check_var EC2_IP  yes "EC2 instance IP"
 check_var EC2_KEY no  "default: ~/Downloads/sbhatti-linux-key.pem"

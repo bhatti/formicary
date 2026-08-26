@@ -11,7 +11,7 @@ Usage:
     python3 tests/test_functional_workflows.py --tests all --timeout 900
 
 Environment:
-    FORMICARY_URL   Queen URL (default: https://10.8.97.24.nip.io)
+    FORMICARY_URL   Queen URL (default: https://YOUR_EC2_IP.nip.io)
     FORMICARY_TOKEN API token
 """
 
@@ -28,7 +28,7 @@ import ssl
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DEFAULT_URL = os.environ.get("FORMICARY_URL", "https://10.8.97.24.nip.io")
+DEFAULT_URL = os.environ.get("FORMICARY_URL", "https://YOUR_EC2_IP.nip.io")
 DEFAULT_TOKEN = os.environ.get("FORMICARY_TOKEN", "")
 POLL_INTERVAL = 15   # seconds between status polls
 DEFAULT_TIMEOUT = 900  # seconds per test (risk-scan can take 5-10m)

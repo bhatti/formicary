@@ -37,6 +37,12 @@
         <a class="nav-link" id="notify-tab" data-bs-toggle="tab" href="#notify" role="tab" aria-controls="notify"
            aria-selected="false">Notification</a>
     </li>
+    {{ if $.SlackCode }}
+    <li class="nav-item">
+        <a class="nav-link" id="slack-tab" data-bs-toggle="tab" href="#slack" role="tab" aria-controls="slack"
+           aria-selected="false">Connect Slack</a>
+    </li>
+    {{ end }}
     {{end}}
     {{if $.ReadAdmin}}
     <li class="nav-item">
@@ -232,6 +238,17 @@
                     <input type="hidden" name="email" value="{{.}}">
                 </form>
                 {{ end }}
+                {{ if $.SlackCode }}
+                <div class="mt-3 p-3 border rounded bg-light d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <strong>Connect Slack bot</strong>
+                        <div class="text-secondary small mt-1">
+                            Register your Slack account so the bot can tag you in job notifications and accept commands like <code>@bot implement</code>.
+                        </div>
+                    </div>
+                    <a href="#slack" class="btn btn-sm btn-outline-primary text-nowrap" data-bs-toggle="tab" role="tab">Connect Slack</a>
+                </div>
+                {{ end }}
                 <p class="text-secondary mt-3 small">
                     The Slack support requires an organization account and your Slack token will be saved as a
                     <a href="/dashboard/orgs/{{$.User.OrganizationID}}/configs">secret organization config</a>.
@@ -241,6 +258,45 @@
         </div>
         {{end}}
     </div>
+
+    {{ if $.SlackCode }}
+    <div class="tab-pane fade" id="slack" role="tabpanel" aria-labelledby="slack-tab">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Connect Slack</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-secondary">
+                    Register your Slack account so the bot can tag you in notifications and accept AI commands like
+                    <code>@bot implement https://github.com/org/repo/issues/1</code>.
+                </p>
+                <div class="alert alert-info">
+                    <strong>Your one-time registration code</strong> (expires {{ $.SlackCodeExpires }}):
+                    <pre class="mb-0 mt-2 fs-5 fw-bold user-select-all">{{ $.SlackCode }}</pre>
+                </div>
+                <p class="mt-3 mb-2"><strong>Use any of these methods to register:</strong></p>
+                <ol>
+                    <li class="mb-2">
+                        <strong>Slash command</strong> (if your workspace admin has approved it):<br>
+                        <code>/register {{ $.SlackCode }}</code>
+                    </li>
+                    <li class="mb-2">
+                        <strong>Mention the bot</strong> in any channel the bot is in:<br>
+                        <code>@bot setup {{ $.SlackCode }}</code>
+                    </li>
+                    <li class="mb-2">
+                        <strong>Direct message</strong> the bot (if DMs are enabled for this bot):<br>
+                        Send: <code>setup {{ $.SlackCode }}</code>
+                    </li>
+                </ol>
+                <p class="text-secondary small mt-3">
+                    The code expires in 15 minutes. Reload this page to generate a new code.
+                    Visit <a href="/dashboard/users/self">your profile</a> at any time to get a fresh code.
+                </p>
+            </div>
+        </div>
+    </div>
+    {{ end }}
 
     <div class="tab-pane fade" id="token" role="tabpanel" aria-labelledby="token-tab">
         {{ with .DBUser }}

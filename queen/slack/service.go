@@ -53,6 +53,11 @@ type SlackService struct {
 	// admins can rotate credentials via the API without redeploying the queen.
 	botToken string
 	appToken string
+	// routeReloadAt tracks when routes were last refreshed from DB.
+	// Routes are reloaded lazily on each dispatch with a 30s TTL so that
+	// admin route changes are visible within 30 seconds — no restart needed.
+	routeReloadAt time.Time
+	routeReloadMu sync.Mutex
 }
 
 // IsConnected returns true after the Socket Mode connection receives a hello event.
@@ -148,6 +153,23 @@ func (s *SlackService) reloadAdminRoutes() {
 		"Component": "SlackService",
 		"Count":     len(routes),
 	}).Infof("loaded %d Slack routes from admin SystemConfig", len(routes))
+}
+
+// routeReloadTTL is how long the in-memory route table is considered fresh.
+// After this window, the next dispatch call will reload routes from DB.
+const routeReloadTTL = 30 * time.Second
+
+// maybeReloadRoutes reloads the route table from DB if the TTL has expired.
+// All callers serialize on routeReloadMu. During an active reload (one DB read, ~1–5ms)
+// other dispatches wait — acceptable for human-paced Slack commands.
+func (s *SlackService) maybeReloadRoutes() {
+	s.routeReloadMu.Lock()
+	defer s.routeReloadMu.Unlock()
+	if time.Since(s.routeReloadAt) < routeReloadTTL {
+		return
+	}
+	s.reloadAdminRoutes()
+	s.routeReloadAt = time.Now()
 }
 
 // Start launches the Socket Mode event loop in a background goroutine.
@@ -333,6 +355,20 @@ func (s *SlackService) runEventLoop(parentCtx, loopCtx context.Context, cancelCt
 				s.handleDirectMessage(*msg, api)
 			}
 		})
+		handler.HandleSlashCommand("/register", func(evt *socketmode.Event, c *socketmode.Client) {
+			cmd, ok := evt.Data.(slackapi.SlashCommand)
+			if !ok {
+				c.Ack(*evt.Request)
+				return
+			}
+			// Ack immediately with an ephemeral "processing" message — Slack
+			// requires an ack within 3 seconds; the real reply follows below.
+			c.Ack(*evt.Request, map[string]interface{}{
+				"response_type": "ephemeral",
+				"text":          "Registering…",
+			})
+			s.handleSlashRegister(context.Background(), cmd, api)
+		})
 		handler.Handle(socketmode.EventTypeInteractive, func(evt *socketmode.Event, c *socketmode.Client) {
 			c.Ack(*evt.Request)
 			if cb, ok := evt.Data.(slackapi.InteractionCallback); ok {
@@ -416,13 +452,30 @@ func (s *SlackService) handleDirectMessage(evt slackevents.MessageEvent, api *sl
 	lower := strings.ToLower(text)
 	if strings.HasPrefix(lower, "setup ") {
 		token := strings.TrimSpace(text[len("setup "):])
-		s.handleSetup(context.Background(), evt.User, token, api, channel, evt.TimeStamp)
+		s.handleSetup(context.Background(), evt.User, token, api, channel, evt.TimeStamp, false)
 		return
 	}
 	// For non-DM channel messages that aren't app mentions, ignore.
 }
 
-func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token string, api *slackapi.Client, channelID, msgTS string) {
+// postSetupReply sends a setup-flow reply. When ephemeral is true (slash command,
+// @bot setup), only the invoking user sees the message; otherwise it's threaded.
+func (s *SlackService) postSetupReply(api *slackapi.Client, channelID, slackUserID, msgTS, text string, ephemeral bool) {
+	if ephemeral {
+		_, err := api.PostEphemeral(channelID, slackUserID, slackapi.MsgOptionText(text, false))
+		if err != nil {
+			logrus.WithField("Component", "SlackService").Warnf("postSetupReply ephemeral failed: %v", err)
+		}
+		return
+	}
+	opts := []slackapi.MsgOption{slackapi.MsgOptionText(text, false)}
+	if msgTS != "" {
+		opts = append(opts, slackapi.MsgOptionTS(msgTS))
+	}
+	_, _, _ = api.PostMessage(channelID, opts...)
+}
+
+func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token string, api *slackapi.Client, channelID, msgTS string, ephemeral bool) {
 	// Determine whether this is a one-time registration code or a legacy JWT token.
 	// A registration code is 64 hex characters with no '.' separators.
 	// A JWT has exactly two '.' separators (header.payload.signature).
@@ -436,10 +489,9 @@ func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token strin
 				"SlackUserID": slackUserID,
 				"Error":       err,
 			}).Warnf("registration code exchange failed")
-			_, _, _ = api.PostMessage(channelID,
-				slackapi.MsgOptionText(fmt.Sprintf(
-					"Registration failed: %s\nVisit %s/dashboard/slack/setup to generate a new code.",
-					err.Error(), s.publicURL()), false))
+			s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf(
+				"Registration failed: %s\nVisit %s/dashboard/slack/setup to generate a new code.",
+				err.Error(), s.publicURL()), ephemeral)
 			return
 		}
 		// Load the user identified by the registration code.
@@ -447,21 +499,18 @@ func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token strin
 		u, err := s.userManager.GetUser(qc, regCode.UserID)
 		if err != nil {
 			logrus.WithError(err).Warnf("[SlackService] code exchange: user not found")
-			_, _, _ = api.PostMessage(channelID,
-				slackapi.MsgOptionText("Registration failed: user not found.", false))
+			s.postSetupReply(api, channelID, slackUserID, msgTS, "Registration failed: user not found.", ephemeral)
 			return
 		}
 		// Register the Slack → user mapping without a token (no token to store).
 		if err := s.registry.RegisterByUserID(ctx, slackUserID, u, api, channelID, msgTS); err != nil {
 			logrus.WithError(err).Warnf("[SlackService] RegisterByUserID failed")
-			_, _, _ = api.PostMessage(channelID,
-				slackapi.MsgOptionText(fmt.Sprintf("Registration failed: %s", err.Error()), false))
+			s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf("Registration failed: %s", err.Error()), ephemeral)
 			return
 		}
-		_, _, _ = api.PostMessage(channelID,
-			slackapi.MsgOptionText(fmt.Sprintf(
-				"Registered as *%s*. You can now use @bot commands in channels.",
-				u.Username), false))
+		s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf(
+			"Registered as *%s*. You can now use @bot commands in channels.",
+			u.Username), ephemeral)
 		return
 	}
 
@@ -471,10 +520,9 @@ func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token strin
 			Warn("[SlackService] setup via raw JWT token — consider using the dashboard setup code instead")
 		apiToken = token
 	} else {
-		_, _, _ = api.PostMessage(channelID,
-			slackapi.MsgOptionText(fmt.Sprintf(
-				"Unrecognised setup code. Visit %s/dashboard/slack/setup to get a one-time registration code.",
-				s.publicURL()), false))
+		s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf(
+			"Unrecognised setup code. Visit %s/dashboard/slack/setup to get a one-time registration code.",
+			s.publicURL()), ephemeral)
 		return
 	}
 
@@ -485,16 +533,36 @@ func (s *SlackService) handleSetup(ctx context.Context, slackUserID, token strin
 			"SlackUserID": slackUserID,
 			"Error":       err,
 		}).Warnf("registration failed")
-		_, _, _ = api.PostMessage(channelID,
-			slackapi.MsgOptionText(fmt.Sprintf("Registration failed: %s\nVisit %s/dashboard/slack/setup for a secure setup code.",
-				err.Error(), s.publicURL()), false))
+		s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf(
+			"Registration failed: %s\nVisit %s/dashboard/slack/setup for a secure setup code.",
+			err.Error(), s.publicURL()), ephemeral)
 		return
 	}
-	_, _, _ = api.PostMessage(channelID,
-		slackapi.MsgOptionText(fmt.Sprintf(
-			"Registered as *%s*. You can now use @bot commands in channels.\n"+
-				"_Consider using the dashboard setup page next time: %s/dashboard/slack/setup_",
-			user.Username, s.publicURL()), false))
+	s.postSetupReply(api, channelID, slackUserID, msgTS, fmt.Sprintf(
+		"Registered as *%s*. You can now use @bot commands in channels.\n"+
+			"_Consider using the dashboard setup page next time: %s/dashboard/slack/setup_",
+		user.Username, s.publicURL()), ephemeral)
+}
+
+// handleSlashRegister processes /register <code> slash commands.
+// The response is ephemeral — only the invoking user sees it.
+func (s *SlackService) handleSlashRegister(ctx context.Context, cmd slackapi.SlashCommand, api *slackapi.Client) {
+	code := strings.TrimSpace(cmd.Text)
+	if code == "" {
+		// No code provided — send setup instructions ephemerally.
+		_, err := api.PostEphemeral(cmd.ChannelID, cmd.UserID,
+			slackapi.MsgOptionText(s.registrationInstructions(), false))
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"Component": "SlackService",
+				"Error":     err,
+			}).Warnf("handleSlashRegister: PostEphemeral failed")
+		}
+		return
+	}
+	// Delegate to the shared code-exchange handler with ephemeral=true so only
+	// the invoking user sees the result (code exchange must not be public).
+	s.handleSetup(ctx, cmd.UserID, code, api, cmd.ChannelID, "", true)
 }
 
 func (s *SlackService) handleInteraction(cb slackapi.InteractionCallback, api *slackapi.Client) {
@@ -507,6 +575,8 @@ func (s *SlackService) handleInteraction(cb slackapi.InteractionCallback, api *s
 
 // dispatch routes a Slack text to a Formicary job and replies in thread.
 func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel, threadTS string, api *slackapi.Client) {
+	// Reload routes from DB if TTL has expired — no restart needed after route config changes.
+	s.maybeReloadRoutes()
 	text = strings.TrimSpace(text)
 	logrus.WithFields(logrus.Fields{
 		"Component": "SlackService",
@@ -516,13 +586,20 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		"ThreadTS":  threadTS,
 	}).Infof("dispatching Slack command")
 
-	// Builtin: setup instruction
+	// Builtin: setup — no code provided, show instructions
 	if strings.ToLower(text) == "setup" {
 		_, _, _ = api.PostMessage(channel,
 			slackapi.MsgOptionTS(threadTS),
-			slackapi.MsgOptionText(fmt.Sprintf(
-				"To register:\n1. Visit %s/dashboard/slack/setup\n2. Copy the one-time code shown\n3. DM me: `setup <code>`",
-				s.publicURL()), false))
+			slackapi.MsgOptionText(s.registrationInstructions(), false))
+		return
+	}
+
+	// Builtin: @bot setup <code> — inline registration from any channel.
+	// ephemeral=false: reply in thread so the user can see confirmation
+	// (the code is already visible in the channel, so privacy is not a concern).
+	if lower := strings.ToLower(text); strings.HasPrefix(lower, "setup ") {
+		code := strings.TrimSpace(text[len("setup "):])
+		s.handleSetup(ctx, slackUserID, code, api, channel, threadTS, false)
 		return
 	}
 
@@ -545,9 +622,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 	if user == nil {
 		_, _, _ = api.PostMessage(channel,
 			slackapi.MsgOptionTS(threadTS),
-			slackapi.MsgOptionText(fmt.Sprintf(
-				"You're not registered yet. Visit %s/dashboard/slack/setup to get a one-time registration code, then DM me: `setup <code>`",
-				s.publicURL()), false))
+			slackapi.MsgOptionText(s.registrationInstructions(), false))
 		return
 	}
 
@@ -575,9 +650,16 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		return
 	}
 
+	// Resolve job type: text signals take priority over org DefaultTracker config.
+	// DetectTracker checks for github/jira URLs and keywords in the full message text.
+	tracker := DetectTracker(text)
+	if tracker == "" {
+		tracker = s.defaultTracker(user.OrganizationID)
+	}
+
 	// Build and submit job — Formicary passes params verbatim; job container owns all AI logic.
 	req := qtypes.NewRequest()
-	req.JobType = result.JobType
+	req.JobType = result.ResolveJobType(tracker)
 	qc := common.NewQueryContextFromIDs(user.ID, user.OrganizationID)
 
 	// addParam replies to the Slack thread and returns false on error.
@@ -630,7 +712,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 	if user.Username != "" && !addParam("UserTag", user.Username) {
 		return
 	}
-	if tracker := s.defaultTracker(user.OrganizationID); tracker != "" && !addParam("DefaultTracker", tracker) {
+	if tracker != "" && !addParam("DefaultTracker", tracker) {
 		return
 	}
 
@@ -650,7 +732,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		// Cron jobs have a user_key uniqueness constraint — a pending instance already
 		// exists for today's schedule. Find it and trigger it immediately instead.
 		if strings.Contains(err.Error(), "UNIQUE constraint") || strings.Contains(err.Error(), "Duplicate entry") {
-			if triggered, triggerErr := s.triggerExistingJobRequest(qc, result.JobType, req, channel, threadTS, api); triggered {
+			if triggered, triggerErr := s.triggerExistingJobRequest(qc, req.JobType, req, channel, threadTS, api); triggered {
 				if triggerErr != nil {
 					_, _, _ = api.PostMessage(channel,
 						slackapi.MsgOptionTS(threadTS),
@@ -661,7 +743,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		}
 		logrus.WithFields(logrus.Fields{
 			"Component": "SlackService",
-			"JobType":   result.JobType,
+			"JobType":   req.JobType,
 			"UserID":    user.ID,
 			"Error":     err,
 		}).Warnf("failed to save job request")
@@ -673,7 +755,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 
 	logrus.WithFields(logrus.Fields{
 		"Component": "SlackService",
-		"JobType":   result.JobType,
+		"JobType":   req.JobType,
 		"JobID":     saved.ID,
 		"UserID":    user.ID,
 	}).Infof("submitted job from Slack")
@@ -683,7 +765,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		slackapi.MsgOptionTS(threadTS),
 		slackapi.MsgOptionText(fmt.Sprintf(
 			"Started *%s* (job `%s`) — I'll post updates here. <%s|View>",
-			result.JobType, saved.ShortID(), link), false))
+			req.JobType, saved.ShortID(), link), false))
 }
 
 // tryResumeJob checks for a PAUSED job in this thread and resumes it with the reply text.
@@ -779,7 +861,7 @@ func (s *SlackService) replyHelp(channel, threadTS string, api *slackapi.Client)
 		"*Formicary Bot — Available Commands*",
 		"",
 		"*Setup & Registration*",
-		fmt.Sprintf("• _Not registered?_ Go to <%s/dashboard/slack/setup|%s/dashboard/slack/setup>, copy the one-time code, then DM me:_ `setup <code>`", s.publicURL(), s.publicURL()),
+		fmt.Sprintf("• _Not registered?_ Go to <%[1]s/dashboard/slack/setup|%[1]s/dashboard/slack/setup>, copy the one-time code, then use `/register <code>`, `@bot setup <code>`, or DM me: `setup <code>`", s.publicURL()),
 		"",
 		"*AI Workflows*",
 	}
@@ -840,6 +922,21 @@ func (s *SlackService) publicURL() string {
 		url = fmt.Sprintf("http://localhost:%d", port)
 	}
 	return strings.TrimRight(url, "/")
+}
+
+// registrationInstructions returns a consistent help string for all three
+// registration paths: DM, slash command, and channel mention.
+func (s *SlackService) registrationInstructions() string {
+	base := s.publicURL()
+	return fmt.Sprintf(
+		"To register your Slack account:\n"+
+			"1. Visit %s/dashboard/slack/setup\n"+
+			"2. Copy the one-time code shown\n"+
+			"3. Use *any* of these methods:\n"+
+			"   • `/register <code>` — ephemeral slash command (only you see it)\n"+
+			"   • `@bot setup <code>` — mention in any channel\n"+
+			"   • DM the bot: `setup <code>`",
+		base)
 }
 
 func (s *SlackService) defaultTracker(orgID string) string {

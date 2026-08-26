@@ -634,7 +634,8 @@ func startAdminControllers(
 		webServer)
 	admin.NewUserAdminController(
 		&serverCfg.Common, userManager,
-		repoFactory.JobExecutionRepository, repoFactory.ArtifactRepository, webServer)
+		repoFactory.JobExecutionRepository, repoFactory.ArtifactRepository,
+		repoFactory.SlackRegCodeRepository, webServer)
 	admin.NewOrganizationConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
 	admin.NewUserConfigAdminController(repoFactory.AuditRecordRepository, repoFactory.ConfigRepository, webServer)
 	admin.NewOrganizationAdminController(userManager, webServer)

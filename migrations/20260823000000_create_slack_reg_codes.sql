@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS formicary_slack_reg_codes (
     org_id        VARCHAR(36)  NOT NULL,
     expires_at    DATETIME     NOT NULL,
     used          BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME
 );
 CREATE INDEX IF NOT EXISTS idx_slack_reg_codes_user ON formicary_slack_reg_codes(user_id);
 

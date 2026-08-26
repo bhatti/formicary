@@ -20,17 +20,22 @@ import (
 // What those params mean is entirely up to the job container — no AI-specific
 // semantics here.
 type SlackRouteConfig struct {
-	Triggers    []string          `yaml:"triggers"     mapstructure:"triggers"    json:"triggers"`
-	JobType     string            `yaml:"job_type"     mapstructure:"job_type"    json:"job_type"`
-	Description string            `yaml:"description"  mapstructure:"description" json:"description"`
+	Triggers    []string          `yaml:"triggers"          mapstructure:"triggers"          json:"triggers"`
+	JobType     string            `yaml:"job_type"          mapstructure:"job_type"          json:"job_type"`
+	Description string            `yaml:"description"       mapstructure:"description"       json:"description"`
 	// IdVar is the job param name that receives the entity extracted from trailing
 	// message text (e.g. "PRUrl", "IssueNumber", "Prompt"). When empty, trailing
 	// text is discarded (use Params to pass a fixed value instead).
-	IdVar       string            `yaml:"id_var"       mapstructure:"id_var"      json:"id_var,omitempty"`
+	IdVar       string            `yaml:"id_var"            mapstructure:"id_var"            json:"id_var,omitempty"`
+	// TrackerVariants maps tracker name ("github", "jira") to an alternate job type.
+	// When the router detects a tracker signal in the message text (or falls back to
+	// the org DefaultTracker config), it substitutes the job type from this map.
+	// JobType remains the default when no tracker is detected and no org default is set.
+	TrackerVariants map[string]string `yaml:"tracker_variants" mapstructure:"tracker_variants" json:"tracker_variants,omitempty"`
 	// Params are merged verbatim into every job submitted by this route.
 	// Use this for any fixed values the job needs: Skill, Mode, Prompt templates,
 	// or anything else — Formicary passes them through without interpretation.
-	Params      map[string]string `yaml:"params"       mapstructure:"params"      json:"params,omitempty"`
+	Params      map[string]string `yaml:"params"            mapstructure:"params"            json:"params,omitempty"`
 }
 
 // SlackConfig holds Socket Mode credentials and the command routing table.

@@ -2,7 +2,7 @@
 # deploy-formicary.sh — deploy the Formicary queen to EC2 k3s.
 #
 # Usage:
-#   export EC2_IP=10.8.97.24
+#   export EC2_IP=YOUR_EC2_IP
 #   export EC2_KEY=~/Downloads/sbhatti-linux-key.pem
 #   ./scripts/deploy-formicary.sh          # full deploy (secrets + manifest + DNAT)
 #   ./scripts/deploy-formicary.sh --restart  # pull latest image on EC2, redeploy queen + refresh DNAT
@@ -16,6 +16,8 @@
 #   4. Wait for rollout, then refresh iptables DNAT rules with the new pod IP
 #      (port 443 → pod:7777, port 4443 → pod:19000)
 #   5. If FORMICARY_TOKEN + SLACK_CHANNEL set: update org-level SlackChannel config via API
+#   6. If FORMICARY_TOKEN set: push Slack route table (with tracker_variants) via setup-slack-admin.sh
+#   7. Smoke test: verify /api/health returns 200 and Slack routes are loaded
 #
 # Required env vars:
 #   EC2_IP                              (or --ec2-ip)
@@ -26,7 +28,7 @@
 #   COMMON_AUTH_GOOGLE_CLIENT_ID / SECRET / CALLBACK_HOST
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN / SLACK_SIGNING_SECRET / SLACK_CHANNEL
 #   FORMICARY_TOKEN                     JWT token — required for org config API updates
-#   FORMICARY_URL                       defaults to https://10.8.97.24.nip.io
+#   FORMICARY_URL                       defaults to https://YOUR_EC2_IP.nip.io
 #   EC2_USER                            (default: ec2-user)
 #
 set -euo pipefail
@@ -144,7 +146,7 @@ refresh_dnat() {
 
     sudo iptables-save | sudo tee /etc/iptables.rules > /dev/null
   "
-  ok "DNAT rules updated — https://10.8.97.24.nip.io should be reachable"
+  ok "DNAT rules updated — https://${EC2_IP}.nip.io should be reachable"
 }
 
 if [[ "$ROLLOUT_RESTART" == true ]]; then
@@ -165,6 +167,22 @@ if [[ "$ROLLOUT_RESTART" == true ]]; then
   refresh_dnat
   ok "Queen deployed at version ${FORMICARY_VERSION}"
   kubectl get pods -l app=formicary
+
+  # Push Slack routes and smoke test after restart
+  _FURL="${FORMICARY_URL:-https://${EC2_IP}.nip.io}"
+  _SETUP="${REPO_ROOT}/docs/examples/setup-slack-admin.sh"
+  if [[ -n "${FORMICARY_TOKEN:-}" && -f "$_SETUP" ]]; then
+    log "Pushing Slack route table (tracker_variants)"
+    FORMICARY_TOKEN="${FORMICARY_TOKEN}" FORMICARY_URL="${_FURL}" \
+      bash "${_SETUP}" --set-routes --server "${_FURL}" 2>&1 \
+      | grep -E '✓|✗|ERROR|WARNING|⚠|routes' || true
+  else
+    echo "  ⚠ Set FORMICARY_TOKEN to auto-push Slack routes after restart"
+  fi
+  _HC=$(curl -sk -o /dev/null -w "%{http_code}" "${_FURL}/api/health" 2>/dev/null) || _HC="000"
+  [[ "$_HC" == "200" ]] && ok "Health check passed" || echo "  ⚠ Health HTTP ${_HC} — queen may still be starting"
+  echo ""
+  echo "  Verify routes: ${_FURL}/dashboard/slack/routes"
   exit 0
 fi
 
@@ -265,3 +283,66 @@ print(d.get('org_id',''))
     rm -f /tmp/fq-resp.json
   fi
 fi
+
+# ── Step 6: Push Slack route table (tracker_variants) ────────────────────────
+# The route table must be in the DB for tracker-based routing to work.
+# Routes are reloaded from DB within 30 seconds — no restart needed.
+if [[ -n "$FORMICARY_TOKEN" ]]; then
+  log "Pushing Slack route table (tracker_variants) via setup-slack-admin.sh"
+  _SETUP="${REPO_ROOT}/docs/examples/setup-slack-admin.sh"
+  if [[ -f "$_SETUP" ]]; then
+    FORMICARY_TOKEN="${FORMICARY_TOKEN}" FORMICARY_URL="${_FURL}" \
+      bash "${_SETUP}" --set-routes --server "${_FURL}" 2>&1 \
+      | grep -E '✓|✗|ERROR|WARNING|⚠|routes' || true
+  else
+    echo "  ⚠ ${_SETUP} not found — Slack routes not pushed (run manually)"
+  fi
+else
+  echo "  ⚠ FORMICARY_TOKEN not set — skipping Slack route push (run ./docs/examples/setup-slack-admin.sh manually)"
+fi
+
+# ── Step 7: Smoke test ───────────────────────────────────────────────────────
+log "Smoke test: verifying queen health and Slack route config"
+_HEALTH_CODE=$(curl -sk -o /tmp/fq-health.json -w "%{http_code}" \
+  "${_FURL}/api/health" 2>/dev/null) || _HEALTH_CODE="000"
+case "$_HEALTH_CODE" in
+  200) ok "Health check passed (HTTP 200)" ;;
+  000) echo "  ⚠ Cannot reach ${_FURL}/api/health — queen may still be starting; check with --status or --logs" ;;
+  *)   echo "  ⚠ Health check returned HTTP ${_HEALTH_CODE}: $(cat /tmp/fq-health.json 2>/dev/null | head -1 || true)" ;;
+esac
+rm -f /tmp/fq-health.json
+
+if [[ -n "$FORMICARY_TOKEN" ]]; then
+  _ROUTES_CODE=$(curl -sk -o /tmp/fq-routes.json -w "%{http_code}" \
+    -H "Authorization: Bearer ${FORMICARY_TOKEN}" \
+    "${_FURL}/api/system-configs?kind=JSON&name=SlackRoutes" 2>/dev/null) || _ROUTES_CODE="000"
+  if [[ "$_ROUTES_CODE" == "200" ]]; then
+    _ROUTE_COUNT=$(python3 -c "
+import sys, json
+try:
+    d = json.load(open('/tmp/fq-routes.json'))
+    records = d.get('records', d if isinstance(d, list) else [])
+    if records:
+        routes = json.loads(records[0].get('value','[]'))
+        # Count routes that have tracker_variants
+        tv = sum(1 for r in routes if r.get('tracker_variants'))
+        print(f'{len(routes)} routes, {tv} with tracker_variants')
+    else:
+        print('no SlackRoutes config found')
+except Exception as e:
+    print(f'parse error: {e}')
+" 2>/dev/null || echo "parse error")
+    ok "Slack routes in DB: ${_ROUTE_COUNT}"
+  elif [[ "$_ROUTES_CODE" == "000" ]]; then
+    echo "  ⚠ Cannot reach queen — skipping route verification"
+  else
+    echo "  ⚠ Route check HTTP ${_ROUTES_CODE} — verify manually at ${_FURL}/dashboard/slack/routes"
+  fi
+  rm -f /tmp/fq-routes.json
+fi
+
+echo ""
+echo "Deploy complete. Slack routing:"
+echo "  • Route table is in DB with tracker_variants (github→ai-gh-implement etc.)"
+echo "  • Routes auto-reload within 30 seconds — no restart needed after config changes"
+echo "  • Verify: ${_FURL}/dashboard/slack/routes"

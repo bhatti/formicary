@@ -198,7 +198,7 @@ func (r *UserRegistry) RegisterByUserID(
 		_, _, _, err = client.UpdateMessage(channelID, msgTS,
 			slackapi.MsgOptionText("[registration code used — this message can be deleted]", false))
 		if err != nil {
-			logrus.WithField("SlackUserID", slackUserID).Warnf("[UserRegistry] failed to overwrite code DM")
+			logrus.WithField("SlackUserID", slackUserID).Debugf("[UserRegistry] could not overwrite setup message (expected if bot lacks message:write for user messages)")
 		}
 	}
 

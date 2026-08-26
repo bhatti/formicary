@@ -13,6 +13,7 @@ type SlackRegCode struct {
 	ExpiresAt time.Time `json:"expires_at" gorm:"column:expires_at;not null"`
 	Used      bool      `json:"used"       gorm:"column:used;not null;default:false"`
 	CreatedAt time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt *time.Time `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
 }
 
 // TableName returns the DB table name.

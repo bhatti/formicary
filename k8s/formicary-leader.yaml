@@ -94,7 +94,7 @@ data:
         public_dir: /app/public/
         http_port: 7777
         rate_limit_sec: 100
-        external_base_url: https://10.8.97.24.nip.io
+        external_base_url: https://YOUR_EC2_IP.nip.io
         tls:
             enabled: true
             cert_file: /certs/tls.crt

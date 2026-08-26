@@ -19,12 +19,27 @@
         <div class="alert alert-danger">{{ . }}</div>
         {{ end }}
 
-        <p>DM this command to the Slack bot:</p>
-        <pre class="bg-light p-3 rounded border"><code>setup {{ .Code }}</code></pre>
+        <p>Use <strong>any one</strong> of these methods to register:</p>
+
+        <div class="mb-2">
+            <span class="badge bg-green-lt me-1">Recommended</span>
+            <strong>Slash command</strong> — only you see the response:
+        </div>
+        <pre class="bg-light p-3 rounded border mb-3"><code>/register {{ .Code }}</code></pre>
+
+        <div class="mb-2">
+            <strong>Mention the bot</strong> — works in any channel:
+        </div>
+        <pre class="bg-light p-3 rounded border mb-3"><code>@bot setup {{ .Code }}</code></pre>
+
+        <div class="mb-2">
+            <strong>Direct message</strong> — if your workspace allows bot DMs:
+        </div>
+        <pre class="bg-light p-3 rounded border mb-3"><code>setup {{ .Code }}</code></pre>
 
         <div class="alert alert-warning mt-3">
             <strong>Important:</strong> This code expires at <strong>{{ .Expires }}</strong> and can only be used once.
-            Do not share it.
+            Do not share it with others.
         </div>
 
         <form action="/dashboard/slack/setup/generate" method="POST" class="mt-3">

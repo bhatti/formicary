@@ -177,10 +177,10 @@ docker-manifest:
 # Full build: vendor → build arm64 → build amd64 → manifest.
 docker-build: vendor docker-build-arm64 docker-build-amd64 docker-manifest
 
-# docker-push: re-push already-built versioned + latest tags (no rebuild).
-docker-push:
-	docker push $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)
-	docker push $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):latest
+# docker-push: rebuild the multi-arch manifest (and push :latest) from already-pushed arch tags.
+# buildx images are never loaded locally — "docker push" would fail with "tag does not exist".
+# imagetools create is idempotent and works from the already-pushed arch-specific tags on Hub.
+docker-push: docker-manifest
 
 docker-release:
 	docker tag $(BINARY_NAME) $(DOCKER_REGISTRY)$(BINARY_NAME):latest
@@ -369,12 +369,12 @@ endif
 # Optional overrides: QUEEN_PORT (default: derived from URL), QUEEN_S3_PORT (default: 19000),
 #                     BUFFER_DB_PATH (default: :memory:), ANT_IMAGE (default: plexobject/formicary:latest)
 # Example:
-#   export FORMICARY_URL=https://10.8.97.24.nip.io
+#   export FORMICARY_URL=https://YOUR_EC2_IP.nip.io
 #   export FORMICARY_TOKEN=<jwt>
 #   make deploy-ant
 deploy-ant:
 	@if [ -z "$(FORMICARY_URL)" ]; then \
-	  echo "Error: FORMICARY_URL is required. Example: export FORMICARY_URL=https://10.8.97.24.nip.io" >&2; \
+	  echo "Error: FORMICARY_URL is required. Example: export FORMICARY_URL=https://YOUR_EC2_IP.nip.io" >&2; \
 	  exit 1; \
 	fi
 	@if [ -z "$(FORMICARY_TOKEN)" ]; then \
@@ -393,12 +393,12 @@ deploy-ant:
 # Requires: EC2_IP env var (or --ec2-ip flag).
 # Use --restart to pull the latest image and restart without full redeploy.
 # Example:
-#   export EC2_IP=10.8.97.24
+#   export EC2_IP=YOUR_EC2_IP
 #   make deploy-queen            # full deploy
 #   make deploy-queen ARGS=--restart  # pull latest image + restart
 deploy-queen:
 	@if [ -z "$(EC2_IP)" ]; then \
-	  echo "Error: EC2_IP is required. Example: export EC2_IP=10.8.97.24" >&2; \
+	  echo "Error: EC2_IP is required. Example: export EC2_IP=YOUR_EC2_IP" >&2; \
 	  exit 1; \
 	fi
 	EC2_IP="$(EC2_IP)" ./scripts/deploy-formicary.sh $(ARGS)
@@ -443,7 +443,7 @@ bump-major:
 ## Includes IP SAN for EC2_IP and nip.io DNS SAN (required for Google OAuth).
 ## Google OAuth blocks IP redirect URIs — use <ip>.nip.io as the OAuth callback domain.
 ## Usage:
-##   make gen-tls-certs EC2_IP=10.8.97.24
+##   make gen-tls-certs EC2_IP=YOUR_EC2_IP
 EC2_IP ?= 127.0.0.1
 gen-tls-certs:
 	mkdir -p certs

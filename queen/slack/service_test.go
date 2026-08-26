@@ -5,6 +5,7 @@ package slack
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -160,4 +161,92 @@ func Test_Should_Ignore_Invalid_Admin_Routes_JSON(t *testing.T) {
 	result, _, routeErr := router.Route("standup")
 	require.NoError(t, routeErr)
 	require.Equal(t, "ai-standup-jira", result.JobType)
+}
+
+func Test_MaybeReloadRoutes_Reloads_After_TTL_Expires(t *testing.T) {
+	// GIVEN a service with a static base route
+	baseRoutes := []config.SlackRouteConfig{
+		{Triggers: []string{"standup"}, JobType: "ai-standup-jira"},
+	}
+	sysRepo := newStubSystemConfigRepo()
+	svc := &SlackService{
+		router:           NewCommandRouter(baseRoutes),
+		systemConfigRepo: sysRepo,
+		// routeReloadAt zero → TTL already expired on first call
+	}
+
+	// WHEN a new admin route is added to the sysconfig and TTL has expired
+	adminRoutes := []config.SlackRouteConfig{
+		{
+			Triggers: []string{"deploy"},
+			JobType:  "ai-deploy",
+			TrackerVariants: map[string]string{
+				"github": "ai-gh-deploy",
+			},
+		},
+	}
+	b, err := json.Marshal(adminRoutes)
+	require.NoError(t, err)
+	sysRepo.set("JSON", slackRoutesConfigName, string(b))
+
+	svc.maybeReloadRoutes()
+
+	// THEN the new admin route is active
+	result, _, routeErr := svc.router.Route("deploy prod")
+	require.NoError(t, routeErr)
+	require.Equal(t, "ai-deploy", result.JobType)
+	require.Equal(t, "ai-gh-deploy", result.ResolveJobType("github"))
+
+	// AND the static base route is still reachable
+	result2, _, err2 := svc.router.Route("standup")
+	require.NoError(t, err2)
+	require.Equal(t, "ai-standup-jira", result2.JobType)
+}
+
+func Test_MaybeReloadRoutes_Does_Not_Reload_Within_TTL(t *testing.T) {
+	// GIVEN a service with routes loaded recently (within TTL)
+	baseRoutes := []config.SlackRouteConfig{
+		{Triggers: []string{"standup"}, JobType: "ai-standup-jira"},
+	}
+	sysRepo := newStubSystemConfigRepo()
+	svc := &SlackService{
+		router:           NewCommandRouter(baseRoutes),
+		systemConfigRepo: sysRepo,
+		routeReloadAt:    time.Now(), // freshly loaded
+	}
+
+	// WHEN a new admin route is added to sysconfig but TTL has NOT expired
+	adminRoutes := []config.SlackRouteConfig{
+		{Triggers: []string{"deploy"}, JobType: "ai-deploy"},
+	}
+	b, err := json.Marshal(adminRoutes)
+	require.NoError(t, err)
+	sysRepo.set("JSON", slackRoutesConfigName, string(b))
+
+	svc.maybeReloadRoutes() // should be a no-op — TTL not expired
+
+	// THEN the new admin route is NOT yet visible (stale cache intentional)
+	_, _, routeErr := svc.router.Route("deploy prod")
+	require.Error(t, routeErr, "route should not be visible within TTL window")
+
+	// AND existing static route still works
+	result, _, err2 := svc.router.Route("standup")
+	require.NoError(t, err2)
+	require.Equal(t, "ai-standup-jira", result.JobType)
+}
+
+func Test_RegistrationInstructions_Contains_All_Three_Paths(t *testing.T) {
+	// GIVEN a service with a public URL configured
+	serverCfg := config.TestServerConfig()
+	serverCfg.Common.ExternalBaseURL = "https://example.nip.io"
+	svc := &SlackService{cfg: serverCfg}
+
+	// WHEN generating registration instructions
+	instructions := svc.registrationInstructions()
+
+	// THEN all three registration paths are present
+	require.Contains(t, instructions, "/register", "slash command path must be present")
+	require.Contains(t, instructions, "@bot setup", "channel mention path must be present")
+	require.Contains(t, instructions, "DM", "DM path must be present")
+	require.Contains(t, instructions, "https://example.nip.io/dashboard/slack/setup", "setup URL must be present")
 }

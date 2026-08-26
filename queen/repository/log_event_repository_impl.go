@@ -147,6 +147,8 @@ func (l *LogEventRepositoryImpl) addQuery(params map[string]interface{}, tx *gor
 	q := params["q"]
 	if q != nil {
 		qs := fmt.Sprintf("%%%s%%", q)
+		// TODO: full-text search on encoded_message was removed (full-table-scan on large log tables);
+		// add a full-text index (FTS5 on SQLite, FULLTEXT on MySQL) before re-enabling it.
 		tx = tx.Where("job_request_id = ? OR job_type LIKE ? OR ant_id LIKE ?", q, qs, qs)
 	}
 	// handle level filter — translate to an IN clause for the level and all higher levels

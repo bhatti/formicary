@@ -710,7 +710,7 @@ Get the token at `https://<formicary-url>/dashboard/users/tokens`. Once register
 Trigger any command via the Formicary API directly — identical to a Slack submission but with no bot token required:
 
 ```bash
-export FORMICARY_URL=https://10.8.97.24.nip.io
+export FORMICARY_URL=https://YOUR_EC2_IP.nip.io
 export T=$FORMICARY_TOKEN
 
 # standup

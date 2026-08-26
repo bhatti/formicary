@@ -46,23 +46,30 @@ func (r *SlackRegCodeRepositoryImpl) Create(_ *common.QueryContext, code *common
 }
 
 // Consume atomically validates and marks the code as used.
+// Uses a single conditional UPDATE (code=? AND used=false AND expires_at>now) so that
+// only one concurrent caller can succeed — no TOCTOU race possible.
 // Returns NotFoundError if the code does not exist, is already used, or is expired.
 func (r *SlackRegCodeRepositoryImpl) Consume(code string) (*common.SlackRegCode, error) {
-	var rec common.SlackRegCode
-	err := r.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Where("code = ?", code).First(&rec)
-		if res.Error != nil {
-			return common.NewNotFoundError(fmt.Errorf("registration code not found"))
+	now := time.Now()
+	result := r.db.Model(&common.SlackRegCode{}).
+		Where("code = ? AND used = ? AND expires_at > ?", code, false, now).
+		Updates(map[string]interface{}{"used": true, "updated_at": now.UTC()})
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		// Distinguish: not found vs already used vs expired for a clear error message.
+		var rec common.SlackRegCode
+		if err := r.db.Where("code = ?", code).First(&rec).Error; err != nil {
+			return nil, common.NewNotFoundError(fmt.Errorf("registration code not found"))
 		}
 		if rec.Used {
-			return common.NewValidationError(fmt.Errorf("registration code already used"))
+			return nil, common.NewValidationError(fmt.Errorf("registration code already used"))
 		}
-		if time.Now().After(rec.ExpiresAt) {
-			return common.NewValidationError(fmt.Errorf("registration code expired"))
-		}
-		return tx.Model(&rec).Update("used", true).Error
-	})
-	if err != nil {
+		return nil, common.NewValidationError(fmt.Errorf("registration code expired"))
+	}
+	var rec common.SlackRegCode
+	if err := r.db.Where("code = ?", code).First(&rec).Error; err != nil {
 		return nil, err
 	}
 	return &rec, nil

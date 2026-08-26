@@ -35,7 +35,7 @@ OPTIONS
 
 REQUIRED ENV VARS
   FORMICARY_TOKEN      API token  (get one at <server>/dashboard/users/tokens)
-  FORMICARY_URL        Queen URL  (e.g. https://10.8.97.24.nip.io)
+  FORMICARY_URL        Queen URL  (e.g. https://YOUR_EC2_IP.nip.io)
 
   For --tracker jira:
     JIRA_EMAIL         Jira account email

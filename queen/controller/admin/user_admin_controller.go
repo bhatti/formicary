@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -23,6 +25,7 @@ type UserAdminController struct {
 	userManager        *manager.UserManager
 	jobExecRepository  repository.JobExecutionRepository
 	artifactRepository repository.ArtifactRepository
+	regCodeRepo        repository.SlackRegCodeRepository
 	webserver          web.Server
 }
 
@@ -32,14 +35,17 @@ func NewUserAdminController(
 	userManager *manager.UserManager,
 	jobExecRepository repository.JobExecutionRepository,
 	artifactRepository repository.ArtifactRepository,
+	regCodeRepo repository.SlackRegCodeRepository,
 	webserver web.Server) *UserAdminController {
 	jraCtr := &UserAdminController{
 		commonCfg:          commonCfg,
 		userManager:        userManager,
 		jobExecRepository:  jobExecRepository,
 		artifactRepository: artifactRepository,
+		regCodeRepo:        regCodeRepo,
 		webserver:          webserver,
 	}
+	webserver.GET("/dashboard/users/self", jraCtr.getSelf, acl.NewPermission(acl.User, acl.View)).Name = "get_self_user"
 	webserver.GET("/dashboard/users", jraCtr.queryUsers, acl.NewPermission(acl.User, acl.Query)).Name = "query_admin_users"
 	webserver.GET("/dashboard/users/new", jraCtr.newUser, acl.NewPermission(acl.User, acl.Signup)).Name = "new_admin_users"
 	webserver.POST("/dashboard/users", jraCtr.createUser, acl.NewPermission(acl.User, acl.Signup)).Name = "create_admin_users"
@@ -55,6 +61,16 @@ func NewUserAdminController(
 }
 
 // ********************************* HTTP Handlers ***********************************
+// getSelf redirects the logged-in user to their own profile page.
+// Supports bookmarkable links like /dashboard/users/self.
+func (uc *UserAdminController) getSelf(c web.APIContext) error {
+	user := web.GetDBLoggedUserFromSession(c)
+	if user == nil {
+		return c.Redirect(http.StatusSeeOther, "/dashboard/login")
+	}
+	return c.Redirect(http.StatusFound, "/dashboard/users/"+user.ID)
+}
+
 // queryUsers - queries user
 func (uc *UserAdminController) queryUsers(c web.APIContext) error {
 	params, order, page, pageSize, q, qs := controller.ParseParams(c)
@@ -246,8 +262,34 @@ func (uc *UserAdminController) getUser(c web.APIContext) error {
 		res["SlackToken"], _ = uc.userManager.GetSlackToken(qc, user.Organization)
 	}
 
+	// Generate a Slack registration code when the logged-in user views their own profile.
+	// Only for self-view — never generate codes on behalf of another user.
+	sessionUser := web.GetDBLoggedUserFromSession(c)
+	if sessionUser != nil && sessionUser.ID == id && uc.regCodeRepo != nil {
+		if slackCode, err := uc.newSlackCode(sessionUser); err == nil {
+			res["SlackCode"]        = slackCode.Code
+			res["SlackCodeExpires"] = slackCode.ExpiresAt.Format("15:04:05 MST")
+		}
+	}
+
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "users/view", res)
+}
+
+// newSlackCode generates a one-time Slack registration code for the given user.
+func (uc *UserAdminController) newSlackCode(user *common.User) (*common.SlackRegCode, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return nil, err
+	}
+	qc := common.NewQueryContextFromIDs(user.ID, user.OrganizationID)
+	code := &common.SlackRegCode{
+		Code:      hex.EncodeToString(raw),
+		UserID:    user.ID,
+		OrgID:     user.OrganizationID,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+	return code, uc.regCodeRepo.Create(qc, code)
 }
 
 // editUser - shows user for edit

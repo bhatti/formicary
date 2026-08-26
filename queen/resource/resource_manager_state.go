@@ -533,6 +533,7 @@ func (s *State) getContainerEvents(
 
 // evictStaleContainers removes container events whose elapsed time exceeds maxAge.
 // Returns the number of evicted entries.
+// TODO: add unit test — this runs on every reaper tick and deletes entries; currently untested.
 func (s *State) evictStaleContainers(maxAge time.Duration) int {
 	s.lock.Lock()
 	defer s.lock.Unlock()

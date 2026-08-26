@@ -19,6 +19,8 @@ import (
 // systemHTTPClient uses http.DefaultTransport (system CA pool) for outbound calls.
 // This ensures token-exchange requests to oauth2.googleapis.com use the OS trust store,
 // not any server-side TLS config that may carry a self-signed cert.
+// TODO: move to a shared auth_http.go in this package — github_auth.go also references it
+// and an implicit cross-file dependency is surprising for a package-level var.
 var systemHTTPClient = &http.Client{Transport: http.DefaultTransport}
 
 // GoogleAuth for oauth support using Google login
