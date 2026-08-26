@@ -420,8 +420,8 @@ source ~/.zshrc   # loads SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_SIGNING_SECRET
 ./scripts/deploy-formicary.sh
 
 # EC2 k3s (kubectl tunneled over SSH — port 6443 not open externally):
-./scripts/deploy-formicary.sh --ec2-ip YOUR_EC2_IP
-./scripts/deploy-formicary.sh --ec2-ip YOUR_EC2_IP --ec2-key ~/path/to/key.pem
+./scripts/deploy-formicary.sh --queen-ip YOUR_QUEEN_IP
+./scripts/deploy-formicary.sh --queen-ip YOUR_QUEEN_IP --queen-ssh-key ~/path/to/key.pem
 
 # All-in-one (leader + embedded ant, good for single-node):
 ./scripts/deploy-formicary.sh --all-in-one
@@ -444,7 +444,7 @@ SLACK_SIGNING_SECRET              (optional)
 kubectl logs -l app=formicary --tail=30 | grep -i slack
 
 # EC2:
-./scripts/deploy-formicary.sh --ec2-ip YOUR_EC2_IP --logs
+./scripts/deploy-formicary.sh --queen-ip YOUR_QUEEN_IP --logs
 # Expected: "Slack Socket Mode starting" then "connected to Slack"
 ```
 
@@ -457,7 +457,7 @@ Each developer registers their personal Formicary API token with the bot so thei
 ```bash
 # Step 1: connect your local Kubernetes cluster as an ant worker
 source ~/.zshrc   # loads FORMICARY_TOKEN, etc.
-export QUEEN_HOST="<EC2_IP_OR_HOSTNAME>"
+export QUEEN_HOST="<QUEEN_IP_OR_HOSTNAME>"
 
 ./scripts/setup-ant-worker.sh \
   --queen "$QUEEN_HOST" \
@@ -884,7 +884,7 @@ After deploying with `scripts/deploy-formicary.sh` and registering via `@bot set
 kubectl logs -l app=formicary --tail=50 -f | grep -i slack
 
 # EC2:
-./scripts/deploy-formicary.sh --ec2-ip YOUR_EC2_IP --logs
+./scripts/deploy-formicary.sh --queen-ip YOUR_QUEEN_IP --logs
 ```
 
 **Verify job was submitted:**
@@ -939,7 +939,7 @@ After any job completes, artifacts are visible in the UI at `http://localhost:77
 
 ```bash
 # Set these once from your shell (loaded from ~/.zshrc on EC2 deployments):
-BASE="${FORMICARY_URL:-https://YOUR_EC2_IP.nip.io}"   # or http://localhost:7777
+BASE="${FORMICARY_URL:-https://YOUR_QUEEN_IP.nip.io}"   # or http://localhost:7777
 TOKEN="${FORMICARY_TOKEN}"
 JOB_ID="<job-request-id>"
 ```
@@ -1072,7 +1072,7 @@ for te in jr.get('task_executions') or []:
 kubectl logs -l app=formicary --tail=50 | grep -i slack
 
 # EC2 (kubectl tunneled over SSH):
-./scripts/deploy-formicary.sh --ec2-ip YOUR_EC2_IP --logs
+./scripts/deploy-formicary.sh --queen-ip YOUR_QUEEN_IP --logs
 # Expected: "Slack Socket Mode starting"
 
 # Confirm bot is invited: /invite @<bot-name> in the channel

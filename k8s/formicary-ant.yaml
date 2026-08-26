@@ -4,7 +4,7 @@
 # QUEEN_HOST, QUEEN_PORT, and QUEEN_S3_PORT placeholders in the ConfigMap before applying:
 #
 #   ./scripts/setup-ant-worker.sh \
-#     --queen <ec2-ip-or-hostname> \
+#     --queen <queen-ip-or-hostname> \
 #     --token <JWT from Formicary dashboard>
 #     [--port 7777]        # default: 7777
 #     [--s3-port 19000]    # default: 19000

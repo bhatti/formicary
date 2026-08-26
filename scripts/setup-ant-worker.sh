@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# setup-ant-worker.sh — deploy a Formicary ant worker and optionally set up
-# issue-tracker / VCS credentials and AI workflows.
+# setup-ant-worker.sh — deploy a Formicary ant worker and set up credentials
+# and AI workflows.  Autodetects everything from env / ~/.zshrc — run with no
+# arguments for a full setup.
 #
 # Can be run standalone (outside the repo): the script sparse-clones the
 # required files from GitHub into /tmp/formicary-setup if it cannot find a
@@ -9,12 +10,21 @@
 # USAGE
 #   setup-ant-worker.sh [TRACKER...] [OPTIONS]
 #
-# TRACKERS (positional, pick one or more)
+# DEFAULT (no args)
+#   Deploys the ant worker, then autodetects which trackers to configure based
+#   on which credentials are present in the environment:
+#     GH_TOKEN set        → configure GitHub + deploy GitHub AI workflows
+#     JIRA_API_TOKEN set  → configure Jira + deploy Jira AI workflows
+#     BITBUCKET_TOKEN set → configure Bitbucket
+#   Runs credential doctor and verifies ant connection.
+#
+# TRACKERS (optional — limit to specific trackers)
 #   jira         Jira credentials + deploy Jira/BB AI workflows
 #   bb           Bitbucket credentials + deploy Jira/BB AI workflows
 #   bitbucket    Same as bb
 #   github       GitHub credentials + deploy GitHub AI workflows
 #   gh           Same as github
+#   all          All trackers
 #
 # OPTIONS
 #   -s, --server  URL    Queen URL          (env: FORMICARY_URL)
@@ -25,21 +35,16 @@
 #       --buffer-db P    SQLite path        (default: :memory:)
 #       --repo-url URL   Formicary git URL  (env: FORMICARY_REPO_URL)
 #       --skip-worker    Skip ant deploy, run creds/workflows only
+#       --check-only     Run credential check and exit (no deploy)
 #       --dry-run        Print what would happen without making changes
 #   -h, --help
 #
 # EXAMPLES
-#   # Deploy ant only
-#   FORMICARY_URL=https://queen.example.com FORMICARY_TOKEN=<tok> setup-ant-worker.sh
-#
-#   # Deploy ant + set up Jira + BB workflows
-#   setup-ant-worker.sh jira bb
-#
-#   # Deploy ant + all trackers
-#   setup-ant-worker.sh jira bb github
-#
-#   # Credentials + workflows only (ant already running)
-#   setup-ant-worker.sh --skip-worker jira github
+#   setup-ant-worker.sh                     # full auto setup
+#   setup-ant-worker.sh github              # GitHub only
+#   setup-ant-worker.sh jira bb github      # all three
+#   setup-ant-worker.sh --skip-worker       # creds + workflows only
+#   setup-ant-worker.sh --check-only        # local credential check only
 
 set -euo pipefail
 
@@ -71,11 +76,15 @@ KUBE_CONTEXT="${KUBE_CONTEXT:-}"
 ANT_TLS_SKIP_VERIFY="${ANT_TLS_SKIP_VERIFY:-}"
 SKIP_WORKER=false
 DRY_RUN=false
+CHECK_ONLY=false
 
-# Trackers requested — will accumulate from positional args
+# Trackers requested — will accumulate from positional args.
+# _EXPLICIT_TRACKER stays false when no tracker arg was given; smart defaulting
+# then activates all trackers for which credentials are available.
 _DO_JIRA=false
 _DO_BB=false
 _DO_GH=false
+_EXPLICIT_TRACKER=false
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -92,9 +101,11 @@ while [[ $# -gt 0 ]]; do
     --repo-url)      FORMICARY_REPO_URL="$2"; shift 2 ;;
     --skip-worker)   SKIP_WORKER=true;        shift ;;
     --dry-run)       DRY_RUN=true;            shift ;;
+    --check-only)    CHECK_ONLY=true;         shift ;;
     --queen)         FORMICARY_URL="https://$2"; shift 2 ;;  # legacy alias
     --user)          shift 2 ;;                              # legacy, ignored
     --tracker|-T)    # legacy: single tracker flag
+      _EXPLICIT_TRACKER=true
       case "$2" in
         jira)              _DO_JIRA=true ;;
         bb|bitbucket)      _DO_BB=true ;;
@@ -103,22 +114,59 @@ while [[ $# -gt 0 ]]; do
         *) fail "Unknown tracker '$2'. Valid: jira bb bitbucket github gh all" ;;
       esac
       shift 2 ;;
-    jira)        _DO_JIRA=true; shift ;;
-    bb|bitbucket) _DO_BB=true; shift ;;
-    github|gh)   _DO_GH=true;  shift ;;
-    all)         _DO_JIRA=true; _DO_BB=true; _DO_GH=true; shift ;;
+    jira)        _DO_JIRA=true; _EXPLICIT_TRACKER=true; shift ;;
+    bb|bitbucket) _DO_BB=true; _EXPLICIT_TRACKER=true; shift ;;
+    github|gh)   _DO_GH=true;  _EXPLICIT_TRACKER=true; shift ;;
+    all)         _DO_JIRA=true; _DO_BB=true; _DO_GH=true; _EXPLICIT_TRACKER=true; shift ;;
     *) fail "Unknown option: $1  (try --help)" ;;
   esac
 done
 
-# ── Token fallback ────────────────────────────────────────────────────────────
-if [[ -z "${FORMICARY_TOKEN}" && -f "${HOME}/.zshrc" ]]; then
-  FORMICARY_TOKEN="$(grep 'FORMICARY_TOKEN=' "${HOME}/.zshrc" \
-    | sed "s/.*FORMICARY_TOKEN=['\"]\\?\\([^'\"]*\\)['\"]\\?.*/\\1/" | tail -1)"
-fi
-if [[ -z "${FORMICARY_TOKEN}" && -f "${HOME}/.bashrc" ]]; then
-  FORMICARY_TOKEN="$(grep 'FORMICARY_TOKEN=' "${HOME}/.bashrc" \
-    | sed "s/.*FORMICARY_TOKEN=['\"]\\?\\([^'\"]*\\)['\"]\\?.*/\\1/" | tail -1)"
+# ── Autodetect credentials from shell RC files ────────────────────────────────
+# For any credential variable not already in the environment, attempt to read it
+# from ~/.zshrc or ~/.bashrc. This lets the script work without "source ~/.zshrc"
+# in a fresh terminal session.
+_autodetect_var() {
+  local _var="$1"
+  if [[ -z "${!_var:-}" ]]; then
+    for _rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+      [[ -f "$_rc" ]] || continue
+      local _line _val
+      _line="$(grep -E "^export ${_var}=" "$_rc" | tail -1)" || true
+      if [[ -n "$_line" ]]; then
+        _val="$(echo "$_line" | sed "s/^export ${_var}=//;s/^['\"]//;s/['\"]$//")"
+        # Expand $VAR/${VAR} references and $(...) command substitutions
+        _val="$(eval echo "\"${_val}\"" 2>/dev/null || echo "${_val}")"
+        if [[ -n "$_val" ]]; then
+          export "${_var}=${_val}"
+          break
+        fi
+      fi
+    done
+  fi
+}
+
+# QUEEN_IP must come first so FORMICARY_URL="https://${QUEEN_IP}.nip.io" expands correctly
+for _cred_var in QUEEN_IP FORMICARY_TOKEN FORMICARY_URL \
+                 GH_TOKEN GH_ORG GH_REPO SSH_PRIVATE_KEY \
+                 JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_HOST \
+                 BITBUCKET_TOKEN BITBUCKET_USERNAME BITBUCKET_WORKSPACE \
+                 SLACK_BOT_TOKEN; do
+  _autodetect_var "$_cred_var"
+done
+
+# ── Smart tracker defaults ────────────────────────────────────────────────────
+# When no tracker was explicitly requested, activate all trackers for which
+# credentials are present.  "No args" means "do everything you can".
+if [[ "$_EXPLICIT_TRACKER" == "false" ]]; then
+  [[ -n "${GH_TOKEN:-}"         ]] && _DO_GH=true
+  [[ -n "${JIRA_API_TOKEN:-}"   ]] && _DO_JIRA=true
+  [[ -n "${BITBUCKET_TOKEN:-}"  ]] && _DO_BB=true
+  if [[ "$_DO_GH" == "false" && "$_DO_JIRA" == "false" && "$_DO_BB" == "false" ]]; then
+    warn "No tracker credentials found in env or ~/.zshrc"
+    warn "Set GH_TOKEN, JIRA_API_TOKEN, or BITBUCKET_TOKEN to auto-configure workflows"
+    warn "Or pass a tracker explicitly: $(basename "$0") github|jira|bb"
+  fi
 fi
 
 # ── Validation ────────────────────────────────────────────────────────────────
@@ -228,6 +276,14 @@ printf "  Trackers:   %s\n"               "${_trackers:-none}"
 ${SKIP_WORKER} && printf "  Worker:     skip (--skip-worker)\n"
 ${DRY_RUN}     && printf "  Mode:       DRY RUN\n"
 sep
+
+# ── Credential check (early, before any deployment) ──────────────────────────
+if [[ -f "${SCRIPTS_DIR}/check-credentials.sh" ]]; then
+  bash "${SCRIPTS_DIR}/check-credentials.sh" || true
+fi
+
+# If --check-only was passed, skip all deployment steps.
+${CHECK_ONLY} && { printf "\nCredential check complete.\n"; exit 0; }
 
 # ── Worker deploy ─────────────────────────────────────────────────────────────
 if ! ${SKIP_WORKER}; then
@@ -400,10 +456,10 @@ printf "\n"
 sep
 printf "  Dashboard:  %s/dashboard/ants\n" "${FORMICARY_URL}"
 if ! ${_any_tracker}; then
-  printf "\n  Set up credentials and deploy workflows:\n"
-  printf "    $(basename "$0") jira        # Jira + Bitbucket workflows\n"
-  printf "    $(basename "$0") gh          # GitHub workflows\n"
-  printf "    $(basename "$0") jira bb gh  # All three\n"
+  printf "\n  No tracker credentials detected. To set up AI workflows:\n"
+  printf "    1. Export credentials in ~/.zshrc (GH_TOKEN, JIRA_API_TOKEN, etc.)\n"
+  printf "    2. Re-run: $(basename "$0")\n"
+  printf "    Or specify explicitly: $(basename "$0") github|jira|bb\n"
 fi
 sep
 printf "\n"

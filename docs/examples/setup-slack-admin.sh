@@ -11,24 +11,34 @@
 # Usage:
 #   source ~/.zshrc   # sets FORMICARY_TOKEN, SLACK_BOT_TOKEN, SLACK_APP_TOKEN
 #   ./setup-slack-admin.sh
-#   ./setup-slack-admin.sh --server https://YOUR_EC2_IP.nip.io
+#   ./setup-slack-admin.sh --server https://YOUR_QUEEN_IP.nip.io
 #   ./setup-slack-admin.sh --set-routes   # also push Slack route table
 #   ./setup-slack-admin.sh --restart      # also restart the queen pod
 #
 # Secrets MUST be set via environment variables — never as CLI flags:
 #   FORMICARY_TOKEN      Admin Formicary API token
-#   SLACK_BOT_TOKEN      xoxb-... bot OAuth token
-#   SLACK_APP_TOKEN      xapp-... Socket Mode app-level token
+#   SLACK_BOT_TOKEN      xoxb-... bot OAuth token (workers also need this)
+#   SLACK_APP_TOKEN      xapp-... Socket Mode app-level token (server/queen admin ONLY)
 #   SLACK_SIGNING_SECRET Optional webhook signing secret
-#   EC2_IP               EC2 host IP (required when --restart is used)
+#   QUEEN_IP             Queen host IP (required when --restart is used)
+#   QUEEN_SSH_KEY        SSH key path (optional — uses SSH agent if unset)
+#   QUEEN_SSH_USER       SSH user (optional — uses SSH config default if unset)
+#
+# Slack token roles:
+#   SLACK_APP_TOKEN (xapp-...): used ONLY by the queen server for Socket Mode.
+#     Never share with ant workers or regular users.
+#   SLACK_BOT_TOKEN (xoxb-...): used by the queen for posting messages, AND by
+#     ant workers for job notifications. Share this with users running setup-ant-worker.sh.
 #
 set -euo pipefail
 
-FORMICARY_URL="${FORMICARY_URL:-https://YOUR_EC2_IP.nip.io}"
+FORMICARY_URL="${FORMICARY_URL:-https://YOUR_QUEEN_IP.nip.io}"
 TOKEN="${FORMICARY_TOKEN:-}"
 SET_ROUTES=true
 DO_RESTART=false
-EC2_IP="${EC2_IP:-}"
+QUEEN_IP="${QUEEN_IP:-}"
+QUEEN_SSH_KEY="${QUEEN_SSH_KEY:-}"
+QUEEN_SSH_USER="${QUEEN_SSH_USER:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -137,15 +147,14 @@ case "$_http" in
 esac
 
 # ---------------------------------------------------------------------------
-# Update k8s 'formicary-slack' secret on EC2 when EC2_IP is set.
+# Update k8s 'formicary-slack' secret on the queen host when QUEEN_IP is set.
 # This ensures the pod reads the latest tokens on next restart.
 # ---------------------------------------------------------------------------
-EC2_KEY="${EC2_KEY:-${HOME}/Downloads/sbhatti-linux-key.pem}"
-EC2_USER="${EC2_USER:-ec2-user}"
-if [[ -n "$EC2_IP" && -n "${SLACK_APP_TOKEN:-}" ]]; then
-  log "Updating formicary-slack k8s secret on EC2 ${EC2_IP} ..."
+if [[ -n "$QUEEN_IP" && -n "${SLACK_APP_TOKEN:-}" ]]; then
+  log "Updating formicary-slack k8s secret on ${QUEEN_IP} ..."
   SLACK_CHANNEL_VAL="${SLACK_CHANNEL:-}"
-  ssh -i "${EC2_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${EC2_USER}@${EC2_IP}" \
+  _ssh_host="${QUEEN_SSH_USER:+${QUEEN_SSH_USER}@}${QUEEN_IP}"
+  ssh${QUEEN_SSH_KEY:+ -i "$QUEEN_SSH_KEY"} -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${_ssh_host}" \
     "KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl create secret generic formicary-slack \
       --from-literal=app-token='${SLACK_APP_TOKEN}' \
       --from-literal=bot-token='${SLACK_BOT_TOKEN:-}' \
@@ -194,10 +203,11 @@ fi
 # Optionally restart the queen to apply new tokens
 # ---------------------------------------------------------------------------
 if [[ "$DO_RESTART" == true ]]; then
-  [[ -z "$EC2_IP" ]] && fail "--restart requires EC2_IP to be set"
-  log "Restarting Formicary queen on EC2 ${EC2_IP} ..."
+  [[ -z "$QUEEN_IP" ]] && fail "--restart requires QUEEN_IP to be set"
+  log "Restarting Formicary queen on ${QUEEN_IP} ..."
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  EC2_IP="$EC2_IP" "${SCRIPT_DIR}/../../scripts/deploy-formicary.sh" --restart
+  QUEEN_IP="$QUEEN_IP" QUEEN_SSH_KEY="$QUEEN_SSH_KEY" QUEEN_SSH_USER="$QUEEN_SSH_USER" \
+    "${SCRIPT_DIR}/../../scripts/deploy-formicary.sh" --restart
   ok "Queen restarted"
 fi
 
@@ -205,7 +215,7 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Slack admin setup complete."
 echo "  Restart the queen to apply new tokens:"
-echo "    EC2_IP=\$EC2_IP ./docs/examples/setup-slack-admin.sh --restart"
+echo "    QUEEN_IP=\$QUEEN_IP ./docs/examples/setup-slack-admin.sh --restart"
 echo "  Or manually:"
-echo "    EC2_IP=\$EC2_IP ./scripts/deploy-formicary.sh --restart"
+echo "    QUEEN_IP=\$QUEEN_IP ./scripts/deploy-formicary.sh --restart"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

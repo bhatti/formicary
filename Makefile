@@ -369,12 +369,12 @@ endif
 # Optional overrides: QUEEN_PORT (default: derived from URL), QUEEN_S3_PORT (default: 19000),
 #                     BUFFER_DB_PATH (default: :memory:), ANT_IMAGE (default: plexobject/formicary:latest)
 # Example:
-#   export FORMICARY_URL=https://YOUR_EC2_IP.nip.io
+#   export FORMICARY_URL=https://YOUR_QUEEN_IP.nip.io
 #   export FORMICARY_TOKEN=<jwt>
 #   make deploy-ant
 deploy-ant:
 	@if [ -z "$(FORMICARY_URL)" ]; then \
-	  echo "Error: FORMICARY_URL is required. Example: export FORMICARY_URL=https://YOUR_EC2_IP.nip.io" >&2; \
+	  echo "Error: FORMICARY_URL is required. Example: export FORMICARY_URL=https://YOUR_QUEEN_IP.nip.io" >&2; \
 	  exit 1; \
 	fi
 	@if [ -z "$(FORMICARY_TOKEN)" ]; then \
@@ -389,19 +389,19 @@ deploy-ant:
 	ANT_IMAGE="$(ANT_IMAGE)" \
 	./scripts/setup-ant-worker.sh
 
-# deploy-queen: deploy or restart the Formicary queen on EC2.
-# Requires: EC2_IP env var (or --ec2-ip flag).
+# deploy-queen: deploy or restart the Formicary queen on the remote host.
+# Requires: QUEEN_IP env var (or --queen-ip flag).
 # Use --restart to pull the latest image and restart without full redeploy.
 # Example:
-#   export EC2_IP=YOUR_EC2_IP
+#   export QUEEN_IP=YOUR_HOST_IP
 #   make deploy-queen            # full deploy
 #   make deploy-queen ARGS=--restart  # pull latest image + restart
 deploy-queen:
-	@if [ -z "$(EC2_IP)" ]; then \
-	  echo "Error: EC2_IP is required. Example: export EC2_IP=YOUR_EC2_IP" >&2; \
+	@if [ -z "$(QUEEN_IP)" ]; then \
+	  echo "Error: QUEEN_IP is required. Example: export QUEEN_IP=YOUR_HOST_IP" >&2; \
 	  exit 1; \
 	fi
-	EC2_IP="$(EC2_IP)" ./scripts/deploy-formicary.sh $(ARGS)
+	QUEEN_IP="$(QUEEN_IP)" ./scripts/deploy-formicary.sh $(ARGS)
 
 vendor:
 	$(GOCMD) mod vendor
@@ -440,24 +440,24 @@ bump-major:
 	@$(MAKE) tag-release
 
 ## gen-tls-certs: Generate self-signed TLS cert+key.
-## Includes IP SAN for EC2_IP and nip.io DNS SAN (required for Google OAuth).
+## Includes IP SAN for QUEEN_IP and nip.io DNS SAN (required for Google OAuth).
 ## Google OAuth blocks IP redirect URIs — use <ip>.nip.io as the OAuth callback domain.
 ## Usage:
-##   make gen-tls-certs EC2_IP=YOUR_EC2_IP
-EC2_IP ?= 127.0.0.1
+##   make gen-tls-certs QUEEN_IP=YOUR_HOST_IP
+QUEEN_IP ?= 127.0.0.1
 gen-tls-certs:
 	mkdir -p certs
 	openssl req -x509 -newkey rsa:4096 \
 	    -keyout certs/tls.key \
 	    -out    certs/tls.crt \
 	    -days   365 -nodes \
-	    -subj   "/CN=$(EC2_IP).nip.io/O=Formicary/C=US" \
-	    -addext "subjectAltName=IP:$(EC2_IP),IP:127.0.0.1,DNS:$(EC2_IP).nip.io,DNS:formicary.local,DNS:localhost"
+	    -subj   "/CN=$(QUEEN_IP).nip.io/O=Formicary/C=US" \
+	    -addext "subjectAltName=IP:$(QUEEN_IP),IP:127.0.0.1,DNS:$(QUEEN_IP).nip.io,DNS:formicary.local,DNS:localhost"
 	@echo ""
 	@echo "Certificate: certs/tls.crt"
-	@echo "  SANs: IP:$(EC2_IP), IP:127.0.0.1, DNS:$(EC2_IP).nip.io, DNS:localhost"
+	@echo "  SANs: IP:$(QUEEN_IP), IP:127.0.0.1, DNS:$(QUEEN_IP).nip.io, DNS:localhost"
 	@echo ""
-	@echo "Google OAuth redirect URI: https://$(EC2_IP).nip.io/auth/google/callback"
+	@echo "Google OAuth redirect URI: https://$(QUEEN_IP).nip.io/auth/google/callback"
 	@echo ""
 	@echo "Create K8s secret:"
 	@echo "  kubectl create secret tls formicary-tls \\"

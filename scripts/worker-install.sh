@@ -21,7 +21,7 @@
 #   --dry-run         check env vars only, don't deploy
 #
 # Required env vars (can be set in ~/.zshrc or entered interactively):
-#   FORMICARY_URL           e.g. https://YOUR_EC2_IP.nip.io
+#   FORMICARY_URL           e.g. https://YOUR_QUEEN_IP.nip.io
 #   FORMICARY_TOKEN         API token from the dashboard (api token type)
 #   COMMON_AUTH_JWT_SECRET  JWT signing secret (must match the queen's secret)
 #
@@ -99,9 +99,9 @@ log "Step 0: Environment setup"
 sep
 
 info "Formicary URL and token are required. Get your token from:"
-info "  ${FORMICARY_URL:-https://YOUR_EC2_IP.nip.io}/dashboard → click your name (bottom nav) → API Tokens"
+info "  ${FORMICARY_URL:-https://YOUR_QUEEN_IP.nip.io}/dashboard → click your name (bottom nav) → API Tokens"
 
-prompt_var FORMICARY_URL   "Formicary server URL"    "e.g. https://YOUR_EC2_IP.nip.io" required
+prompt_var FORMICARY_URL   "Formicary server URL"    "e.g. https://YOUR_QUEEN_IP.nip.io" required
 prompt_var FORMICARY_TOKEN "Your Formicary API token" "generate at \$FORMICARY_URL/dashboard → API Tokens" required
 
 # Prompt for integration type

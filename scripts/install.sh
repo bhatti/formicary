@@ -16,7 +16,7 @@
 #
 # What it does:
 #   1. Checks required env vars (prints instructions for missing ones)
-#   2. Bootstraps EC2 if EC2_IP is set (k3s, iptables, CoreDNS — idempotent)
+#   2. Bootstraps queen host if QUEEN_IP is set (k3s, iptables, CoreDNS — idempotent)
 #   3. Deploys the Formicary queen to EC2 k3s
 #   4. Deploys workflow YAMLs to the queen
 #   5. Deploys the ant worker to the local k8s cluster
@@ -37,9 +37,10 @@
 #   export SLACK_BOT_TOKEN="xoxb-..."      # Bot User OAuth Token
 #   export SLACK_CHANNEL="C0XXXXXXX"       # Default channel ID
 #
-#   # EC2 deployment target
-#   export EC2_IP="YOUR_EC2_IP"
-#   export EC2_KEY="~/Downloads/sbhatti-linux-key.pem"
+#   # Queen (server) deployment target
+#   export QUEEN_IP="YOUR_HOST_IP"
+#   export QUEEN_SSH_KEY="~/.ssh/id_rsa"     # optional — uses SSH agent if unset
+#   export QUEEN_SSH_USER="ec2-user"          # optional — uses SSH config default if unset
 #
 #   # Jira (optional — for ai-jira-* workflows)
 #   export JIRA_URL="https://yourorg.atlassian.net"
@@ -110,13 +111,13 @@ check_var() {
 }
 
 check_var COMMON_AUTH_JWT_SECRET   yes "generate with: openssl rand -hex 32"
-check_var FORMICARY_TOKEN          yes "get from https://\$EC2_IP.nip.io/dashboard after first login"
+check_var FORMICARY_TOKEN          yes "get from https://\$QUEEN_IP.nip.io/dashboard after first login"
 check_var COMMON_AUTH_GOOGLE_CLIENT_ID     yes "from Google Cloud Console OAuth credentials"
 check_var COMMON_AUTH_GOOGLE_CLIENT_SECRET yes "from Google Cloud Console OAuth credentials"
-check_var COMMON_AUTH_GOOGLE_CALLBACK_HOST yes "e.g. https://YOUR_EC2_IP.nip.io"
+check_var COMMON_AUTH_GOOGLE_CALLBACK_HOST yes "e.g. https://YOUR_QUEEN_IP.nip.io"
 
-check_var EC2_IP  yes "EC2 instance IP"
-check_var EC2_KEY no  "default: ~/Downloads/sbhatti-linux-key.pem"
+check_var QUEEN_IP      yes "queen host IP or hostname"
+check_var QUEEN_SSH_KEY no  "SSH key path (leave unset to use SSH agent)"
 
 check_var SLACK_APP_TOKEN no "xapp-... from api.slack.com/apps"
 check_var SLACK_BOT_TOKEN no "xoxb-... from api.slack.com/apps"
@@ -137,20 +138,20 @@ fi
 [[ "$DRY_RUN" == true ]] && { echo ""; echo "  [dry-run] Env check complete. Exiting."; exit 0; }
 
 # ── Step 1: Bootstrap EC2 ─────────────────────────────────────────────────────
-if [[ "$SKIP_BOOTSTRAP" == false && -n "${EC2_IP:-}" ]]; then
-  log "Step 1: Bootstrapping EC2 ${EC2_IP} (k3s + iptables + CoreDNS) ..."
+if [[ "$SKIP_BOOTSTRAP" == false && -n "${QUEEN_IP:-}" ]]; then
+  log "Step 1: Bootstrapping queen host ${QUEEN_IP} (k3s + iptables + CoreDNS) ..."
   sep
   "${SCRIPT_DIR}/bootstrap-ec2.sh"
-  ok "EC2 bootstrap done"
+  ok "Queen host bootstrap done"
 else
-  warn "Skipping EC2 bootstrap (--skip-bootstrap or EC2_IP not set)"
+  warn "Skipping bootstrap (--skip-bootstrap or QUEEN_IP not set)"
 fi
 
 # ── Step 2: Deploy Formicary queen ────────────────────────────────────────────
 if [[ "$SKIP_QUEEN" == false ]]; then
   log "Step 2: Deploying Formicary queen to EC2 ..."
   sep
-  "${SCRIPT_DIR}/deploy-formicary.sh" ${EC2_IP:+--ec2-ip "$EC2_IP"}
+  "${SCRIPT_DIR}/deploy-formicary.sh" ${QUEEN_IP:+--queen-ip "$QUEEN_IP"}
   ok "Queen deployed"
 else
   warn "Skipping queen deploy (--skip-queen)"
@@ -163,7 +164,7 @@ if [[ "$SKIP_WORKFLOWS" == false ]]; then
   EXAMPLES_DIR="${REPO_ROOT}/docs/examples"
   [[ -d "$EXAMPLES_DIR" ]] || fail "docs/examples not found: ${EXAMPLES_DIR}"
 
-  FORMICARY_URL="${FORMICARY_URL:-https://${EC2_IP}.nip.io}"
+  FORMICARY_URL="${FORMICARY_URL:-https://${QUEEN_IP}.nip.io}"
 
   # Determine which deploy script to use based on available env vars
   if [[ -n "${JIRA_URL:-}" && -n "${JIRA_API_TOKEN:-}" ]]; then
@@ -197,7 +198,7 @@ fi
 if [[ "$SKIP_ANT" == false ]]; then
   log "Step 4: Deploying ant worker ..."
   sep
-  FORMICARY_URL="${FORMICARY_URL:-https://${EC2_IP}.nip.io}" \
+  FORMICARY_URL="${FORMICARY_URL:-https://${QUEEN_IP}.nip.io}" \
   FORMICARY_TOKEN="$FORMICARY_TOKEN" \
     "${SCRIPT_DIR}/setup-ant-worker.sh" 2>&1 | sed 's/^/  /'
   ok "Ant worker deployed"
@@ -206,7 +207,7 @@ else
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-FORMICARY_URL="${FORMICARY_URL:-https://${EC2_IP:-localhost}.nip.io}"
+FORMICARY_URL="${FORMICARY_URL:-https://${QUEEN_IP:-localhost}.nip.io}"
 echo ""
 echo "════════════════════════════════════════════════════"
 echo "  ✅  Installation complete!"

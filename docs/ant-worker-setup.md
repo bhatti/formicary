@@ -1,10 +1,10 @@
 # Ant Worker Setup — Developer Onboarding
 
-Connect your personal ant worker to the shared Formicary leader. Your ant runs
-on your laptop, registers with the EC2 leader over WebSocket, and runs all job
-pods locally so your work stays isolated from your teammates'.
+Connect your personal ant worker to the shared Formicary queen. Your ant runs
+on your laptop, registers over WebSocket, and executes job pods locally so your
+work stays isolated from teammates'.
 
-**Time to complete:** ~5 minutes after the leader is up.
+**Time to complete:** ~5 minutes after the queen is up.
 
 ---
 
@@ -12,132 +12,118 @@ pods locally so your work stays isolated from your teammates'.
 
 - Docker Desktop (or k3s / Rancher Desktop) running locally
 - `kubectl` pointing at your local cluster (`kubectl get nodes` returns your machine)
-- The Formicary leader URL from your team lead, e.g. `https://formicary.example.com` or `http://EC2_IP:7777`
-- A personal API token (generate in the Formicary UI)
+- Credentials exported in `~/.zshrc` (see Step 1)
 
 ---
 
-## Step 1 — Generate your API token
+## Step 1 — Export credentials to ~/.zshrc
 
-Open the Formicary dashboard in your browser, register / log in, then:
-
-```
-Dashboard → (your name top-right) → API Tokens → New Token
-```
-
-Copy the token. It is a JWT — treat it like a password.
+Add all of the following to `~/.zshrc`. The setup scripts autodetect these — you
+**never** need to `source ~/.zshrc` or pass flags manually.
 
 ```bash
-export FORMICARY_URL="https://<EC2_IP_OR_HOSTNAME>.nip.io"   # same URL used by deploy-ai-workflows.sh
-export FORMICARY_TOKEN="<token from UI>"
+# Formicary queen connection
+export QUEEN_IP="<server-ip>"
+export QUEEN_SSH_KEY="~/.ssh/your-key.pem"     # path to SSH key (omit = use ssh-agent)
+export QUEEN_SSH_USER="ec2-user"               # ec2-user (Amazon Linux) or ubuntu (Ubuntu)
+export FORMICARY_URL="https://${QUEEN_IP}.nip.io"
+export FORMICARY_TOKEN="<token from dashboard → Profile → API Tokens>"
+
+# GitHub AI workflows
+export GH_TOKEN="ghp_..."
+export GH_ORG="your-org"
+export GH_REPO="your-default-repo"
+export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_ed25519)"   # key CONTENT not path
+
+# Jira / Bitbucket (skip if not using Jira)
+export JIRA_BASE_URL="https://yourcompany.atlassian.net"
+export JIRA_HOST="yourcompany.atlassian.net"
+export JIRA_EMAIL="you@company.com"
+export JIRA_API_TOKEN="ATATT3x..."
+export BITBUCKET_WORKSPACE="your-workspace"
+export BITBUCKET_USERNAME="you@company.com"
+export BITBUCKET_TOKEN="..."
+
+# Slack (bot token only — NOT the xapp- Socket Mode token)
+export SLACK_BOT_TOKEN="xoxb-..."
 ```
 
-> **TLS note:** If the leader has HTTPS via nginx, `QUEEN_HOST` is the domain
-> name (`formicary.example.com`). The ant connects to the WebSocket endpoint
-> `ws://QUEEN_HOST:7777/ws/queue`. If nginx terminates TLS and proxies to 7777
-> internally, use the IP/hostname directly without `https://`; the ant only
-> needs the raw WebSocket port, not the HTTPS port.
+> **SSH_PRIVATE_KEY**: Must be the actual key **content**, not a file path.
+> Use `export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_ed25519)"`.
 
 ---
 
-## Step 2 — Run the setup script
+## Step 2 — Verify credentials locally
 
-From the formicary repo on your laptop:
+Before deploying, run the credential doctor from a fresh terminal (no source needed):
 
 ```bash
 cd ~/workplace/formicary
-
-./scripts/setup-ant-worker.sh
-  # Uses FORMICARY_URL and FORMICARY_TOKEN from env (same as deploy-ai-workflows.sh)
-  # Optional overrides:
-  # --server  $FORMICARY_URL   (or set FORMICARY_URL env var)
-  # --token   $FORMICARY_TOKEN (or set FORMICARY_TOKEN env var)
-  # --port    7777             (WebSocket port, default: 7777)
-  # --s3-port 19000            (S3 port, default: 19000)
-  # --namespace default        (kubectl namespace, default: default)
-  # --dry-run                  (prints rendered YAML without applying)
+bash scripts/check-credentials.sh
 ```
 
-The script does three things:
-1. Creates a `formicary-ant-credentials` Kubernetes secret with your queen host and token
-2. Renders `k8s/formicary-ant.yaml` with your values substituted in
-3. `kubectl apply`s the manifest — ant pod starts and registers with the leader
-
-With auth enabled the queen extracts `org_id` from your token's JWT at connect time
-and automatically routes your org's jobs to this ant. No `--user` tag is needed.
+All checks should pass. Fix any failures before proceeding.
 
 ---
 
-## Step 3 — Verify the ant is connected
+## Step 3 — Deploy ant worker + credentials + workflows
 
-Open the Formicary dashboard:
-
-```
-${FORMICARY_URL}/dashboard/ants
+```bash
+bash scripts/setup-ant-worker.sh
 ```
 
-Your ant should appear in the list within 30 seconds.
+No arguments needed. The script autodetects all credentials from `~/.zshrc` and:
+1. Creates the `formicary-ant-credentials` k8s secret
+2. Deploys the `formicary-ant` pod
+3. Sets up credentials for every tracker whose token is present (GitHub, Jira, Bitbucket)
+4. Deploys AI workflow job definitions (`ai-gh-implement`, `ai-jira-implement`, etc.)
+5. Runs the credential doctor
+6. Verifies ant connection
 
-Check local pod status:
+To limit scope:
+```bash
+bash scripts/setup-ant-worker.sh github        # GitHub only
+bash scripts/setup-ant-worker.sh jira bb       # Jira + Bitbucket only
+bash scripts/setup-ant-worker.sh --skip-worker # credentials + workflows only (ant already running)
+bash scripts/setup-ant-worker.sh --check-only  # credential check only, no deploy
+```
+
+With auth enabled, the queen extracts `org_id` from your JWT at connect time and
+routes your org's Slack commands to your ant automatically.
+
+---
+
+## Step 4 — Verify the ant is connected
 
 ```bash
 kubectl get pods | grep formicary-ant
 kubectl logs deployment/formicary-ant --tail=20
-# Expected: "connected to queen at ws://..."
+# Expected: "connected to queen at wss://..."
 ```
 
----
+Dashboard: `${FORMICARY_URL}/dashboard/ants` — your ant should appear within 30 seconds.
 
-## Step 4 — Upload your workflow YAMLs
-
-Each developer uploads the shared workflow definitions to the leader. With auth
-enabled, org-based routing automatically directs your Slack commands to your ant —
-no additional per-user config is required.
-
+If the ant is missing, check credentials and re-run:
 ```bash
-cd ~/workplace/formicary/docs/examples
-
-export FORMICARY_URL="${FORMICARY_URL}"   # already set from Step 1
-
-# GitHub workflows
-export GH_TOKEN="ghp_..."
-export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
-export SLACK_BOT_TOKEN="xoxb-..."
-
-./deploy-ai-workflows.sh \
-  --server "$FORMICARY_URL" \
-  --create-k8s-secret \
-  --set-configs \
-  --gh-org YOUR_ORG \
-  --gh-repo YOUR_REPO
-# With auth enabled, org-based routing is automatic — no --ant-user-tag flag needed.
-
-# OR: Jira + Bitbucket workflows
-export JIRA_API_TOKEN="..."
-export BITBUCKET_TOKEN="..."
-./deploy-ai-jira-workflows.sh \
-  --server "$FORMICARY_URL" \
-  --create-k8s-secret \
-  --set-configs \
-  --jira-project MYPROJ \
-  --bb-workspace YOUR_WS \
-  --bb-repo YOUR_REPO
+bash scripts/setup-ant-worker.sh --skip-worker   # re-push creds + workflows without restarting ant
 ```
 
 ---
 
-## Step 5 — Register your Slack user
+## Step 5 — Register with the Slack bot
 
-Each developer must register their Formicary token with the bot before Slack commands will work.
+Each developer must link their Formicary account to Slack before `@bot` commands will work.
 
-Open a DM to your bot in Slack and type:
+1. Visit your profile: `${FORMICARY_URL}/dashboard/users/self`
+2. Open the **Connect Slack** tab
+3. Copy your one-time code and follow one of the three methods shown
+
+Or from Slack directly (DM the bot):
 ```
-setup <your-formicary-token>
+@bot setup <one-time-code>
 ```
 
-The bot validates the token, stores it encrypted, and deletes the DM. You only need to do this once.
-
-Get your token at: `https://<formicary-host>/dashboard/users/tokens`
+You only need to do this once. Generate a new code at any time from your profile page.
 
 ---
 
@@ -265,57 +251,19 @@ The health checker reuses the executor's existing Kubernetes client (`GetClient(
 
 ---
 
-## Slack k8s secret (required for Socket Mode bot)
+## Slack tokens — worker vs server
 
-The inbound Slack bot (`@bot help`, `@bot standup`, etc.) uses Socket Mode and requires an App-level token (xapp-).
-The `deploy-formicary.sh` script creates the `formicary-slack` k8s secret automatically when `SLACK_APP_TOKEN` is set:
+| Token | Starts with | Who needs it | Purpose |
+|-------|-------------|--------------|---------|
+| `SLACK_BOT_TOKEN` | `xoxb-` | **Workers** + queen | Job notifications, API calls |
+| `SLACK_APP_TOKEN` | `xapp-` | **Queen only** | Socket Mode inbound commands |
 
-```bash
-export SLACK_APP_TOKEN=xapp-1-...
-export SLACK_BOT_TOKEN=xoxb-...
-export SLACK_SIGNING_SECRET=...      # optional
-export SLACK_CHANNEL=sb-bot-notify  # optional default channel
+Workers only need `SLACK_BOT_TOKEN` (set in `~/.zshrc`, autodetected by `setup-ant-worker.sh`).
+The `SLACK_APP_TOKEN` is a server-admin concern — see the queen setup docs.
 
-EC2_IP=<your-ec2-ip> ./scripts/deploy-formicary.sh
-```
-
-To create or update the secret manually:
-```bash
-kubectl create secret generic formicary-slack \
-  --from-literal=app-token="${SLACK_APP_TOKEN}" \
-  --from-literal=bot-token="${SLACK_BOT_TOKEN}" \
-  --from-literal=signing-secret="${SLACK_SIGNING_SECRET:-}" \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-If `SLACK_APP_TOKEN` is not set, the bot is disabled with a warning in queen logs. Bot posting (outbound notifications) still works as long as `SLACK_BOT_TOKEN` is set (either via env or via Admin > System Config `kind=SLACK name=BotToken`).
-
-See [Configuration Reference — Slack](15-configuration.md#slack-configuration) for the full 2-level token override table and Admin UI settings.
-
----
-
-## Custom Slack commands (no code changes needed)
-
-Add your own Slack commands by adding routes to the queen config. Edit `k8s/formicary-leader.yaml`:
-
-```yaml
-# In the formicary ConfigMap, under slack.routes:
-slack:
-  routes:
-    - triggers: ["standup", "status"]
-      job_type: ai-standup-jira
-      description: "Daily standup brief from Jira"
-    - triggers: ["deploy"]
-      job_type: ai-adhoc
-      description: "My custom deploy workflow"
-```
-
-Then redeploy:
-```bash
-./scripts/deploy-formicary.sh --ec2-ip $EC2_IP
-```
-
-Trailing text after the trigger is passed as the `Prompt` param to the job container.
+For custom Slack commands (new `@bot` triggers), ask the server admin to update the
+route table via `docs/examples/setup-slack-admin.sh --set-routes`.
+See [Getting Started — Phase 1](00-getting-started.md) for the queen setup guide.
 
 ---
 

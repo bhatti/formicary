@@ -5,11 +5,12 @@
 #
 # Usage:
 #   # From your laptop:
-#   export EC2_IP=10.8.97.24
-#   export EC2_KEY=~/Downloads/sbhatti-linux-key.pem   # default
+#   export QUEEN_IP=YOUR_HOST_IP
+#   export QUEEN_SSH_KEY=~/.ssh/id_rsa   # optional — uses SSH agent if unset
+#   export QUEEN_SSH_USER=ec2-user        # optional — omit to use SSH config default
 #   ./scripts/bootstrap-ec2.sh
 #
-#   # Or run the embedded remote script directly on EC2:
+#   # Or run the embedded remote script directly on the host:
 #   sudo bash /path/to/bootstrap-ec2-remote.sh
 #
 # What it does:
@@ -22,13 +23,13 @@
 #   6. Adds a boot-time hook that re-inserts KUBE-SERVICES if k3s removed it
 #
 # After bootstrap, deploy Formicary with:
-#   ./scripts/deploy-formicary.sh --ec2-ip $EC2_IP
+#   ./scripts/deploy-formicary.sh --queen-ip $QUEEN_IP
 #
 set -euo pipefail
 
-EC2_IP="${EC2_IP:-}"
-EC2_KEY="${EC2_KEY:-${HOME}/Downloads/sbhatti-linux-key.pem}"
-EC2_USER="${EC2_USER:-ec2-user}"
+QUEEN_IP="${QUEEN_IP:-}"
+QUEEN_SSH_KEY="${QUEEN_SSH_KEY:-}"
+QUEEN_SSH_USER="${QUEEN_SSH_USER:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log()  { echo "▶ $*"; }
@@ -36,14 +37,16 @@ ok()   { echo "  ✓ $*"; }
 fail() { echo "  ✗ ERROR: $*" >&2; exit 1; }
 
 # ── SSH wrapper (run everything remotely via heredoc) ─────────────────────────
-[[ -n "$EC2_IP" ]] || fail "EC2_IP is required — export EC2_IP=<ip>"
-[[ -f "$EC2_KEY" ]] || fail "EC2 SSH key not found: $EC2_KEY"
+[[ -n "$QUEEN_IP" ]] || fail "QUEEN_IP is required — export QUEEN_IP=<ip>"
+[[ -n "$QUEEN_SSH_KEY" && ! -f "$QUEEN_SSH_KEY" ]] && \
+  fail "SSH key not found: $QUEEN_SSH_KEY (set QUEEN_SSH_KEY or leave unset to use SSH agent)"
 
-SSH_CMD="ssh -i ${EC2_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 ${EC2_USER}@${EC2_IP}"
-$SSH_CMD "echo ok" > /dev/null 2>&1 || fail "Cannot SSH to ${EC2_USER}@${EC2_IP}"
+_ssh_host="${QUEEN_SSH_USER:+${QUEEN_SSH_USER}@}${QUEEN_IP}"
+SSH_CMD="ssh${QUEEN_SSH_KEY:+ -i $QUEEN_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 ${_ssh_host}"
+$SSH_CMD "echo ok" > /dev/null 2>&1 || fail "Cannot SSH to ${_ssh_host}"
 ok "SSH verified"
 
-log "Running bootstrap on EC2 ${EC2_IP} ..."
+log "Running bootstrap on ${QUEEN_IP} ..."
 
 $SSH_CMD 'sudo bash -s' << 'REMOTE_SCRIPT'
 set -euo pipefail
@@ -251,8 +254,7 @@ echo "  ════════════════════════
 echo "  ✅  EC2 bootstrap complete"
 echo ""
 echo "  Next: deploy Formicary queen from your laptop:"
-echo "    export EC2_IP=$(hostname -I | awk '{print $1}')"
-echo "    export EC2_KEY=~/Downloads/sbhatti-linux-key.pem"
+echo "    export QUEEN_IP=$(hostname -I | awk '{print $1}')"
 echo "    export COMMON_AUTH_JWT_SECRET=<secret>"
 echo "    export SLACK_APP_TOKEN=<xapp-...>"
 echo "    export SLACK_BOT_TOKEN=<xoxb-...>"
@@ -261,4 +263,4 @@ echo "  ════════════════════════
 
 REMOTE_SCRIPT
 
-ok "Bootstrap complete on EC2 ${EC2_IP}"
+ok "Bootstrap complete on ${QUEEN_IP}"

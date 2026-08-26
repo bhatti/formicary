@@ -89,7 +89,7 @@ export SLACK_BOT_TOKEN="xoxb-..."
 ./scripts/deploy-formicary.sh
 
 # EC2 k3s (kubectl tunneled over SSH):
-./scripts/deploy-formicary.sh --ec2-ip <EC2_IP>
+./scripts/deploy-formicary.sh --queen-ip <QUEEN_IP>
 ```
 
 All AI workflow YAMLs use `method: KUBERNETES` and `image: plexobject/ai-dev-tools:latest`. Each task runs in a fresh pod that is deleted on completion.
@@ -710,7 +710,7 @@ Get the token at `https://<formicary-url>/dashboard/users/tokens`. Once register
 Trigger any command via the Formicary API directly — identical to a Slack submission but with no bot token required:
 
 ```bash
-export FORMICARY_URL=https://YOUR_EC2_IP.nip.io
+export FORMICARY_URL=https://YOUR_QUEEN_IP.nip.io
 export T=$FORMICARY_TOKEN
 
 # standup

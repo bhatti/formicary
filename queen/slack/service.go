@@ -701,6 +701,7 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		}
 	}
 
+
 	// Merge fixed params from the route config verbatim — no interpretation.
 	// These can be anything: Skill, Mode, Prompt templates, feature flags, etc.
 	for k, v := range result.Params {
