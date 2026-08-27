@@ -187,7 +187,7 @@ func (c *AntConfig) Validate() error {
 
 // NewAntRegistration constructor for ant registration
 func (c *AntConfig) NewAntRegistration() *types.AntRegistration {
-	return &types.AntRegistration{
+	reg := &types.AntRegistration{
 		AntID:        c.Common.ID,
 		MaxCapacity:  c.MaxCapacity,
 		Tags:         c.Tags,
@@ -196,6 +196,12 @@ func (c *AntConfig) NewAntRegistration() *types.AntRegistration {
 		CreatedAt:    time.Now(),
 		AntStartedAt: c.antStartedAt,
 	}
+	if c.Common.Version != nil {
+		reg.Version = c.Common.Version.Version
+		reg.Commit = c.Common.Version.Commit
+		reg.BuildDate = c.Common.Version.Date
+	}
+	return reg
 }
 
 // GetPollInterval returns poll interval in secs

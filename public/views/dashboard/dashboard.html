@@ -370,7 +370,7 @@
     {{ range .AntRegistrations }}
       <div class="d-flex align-items-center gap-1 border rounded px-2 py-1 bg-white">
         <span class="status-indicator status-green status-indicator-animated"></span>
-        <span class="small text-truncate" style="max-width:160px" title="{{.AntID}}">{{.AntID}}</span>
+        <span class="small text-truncate" style="max-width:160px" title="{{.AntID}}{{if .Version}} — {{.Version}}{{end}}">{{.AntID}}</span>
         <span class="text-muted small">({{.CurrentLoad}}/{{.MaxCapacity}})</span>
       </div>
     {{ end }}

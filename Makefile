@@ -174,6 +174,18 @@ docker-manifest:
 	  $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION)-amd64
 	@echo "=== Multi-arch manifest published: $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):$(VERSION) / latest ==="
 
+# Build a local :dev image for use with the local k8s ant worker (Docker Desktop).
+# Does NOT push to Docker Hub. Uses the current architecture.
+# Usage: make docker-build-dev
+docker-build-dev: vendor
+	@echo "=== Building local dev image ==="
+	docker build \
+	  --platform linux/$(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
+	  --build-arg APP_VERSION=$(VERSION) \
+	  --build-arg CACHEBUST=$(shell date +%s) \
+	  -t $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):dev .
+	@echo "=== Local dev image built: $(DOCKER_REGISTRY_PREFIX)/$(BINARY_NAME):dev (v$(VERSION)) ==="
+
 # Full build: vendor → build arm64 → build amd64 → manifest.
 docker-build: vendor docker-build-arm64 docker-build-amd64 docker-manifest
 

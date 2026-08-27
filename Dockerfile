@@ -1,4 +1,6 @@
 ARG WEED_VERSION=3.68
+# APP_VERSION defaults to 0.1.0; always override via --build-arg APP_VERSION=<semver>
+# so the binary reports the correct version. The Makefile targets do this automatically.
 ARG APP_VERSION=0.1.0
 
 FROM golang:1.26 AS go-builder

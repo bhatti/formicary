@@ -74,6 +74,19 @@ SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 STANDUP_TEAM="${STANDUP_TEAM_MEMBERS:-}"
 JIRA_BOARDS_ARG="${JIRA_BOARDS:-}"
 
+# ── Autodetect DEFAULT_TRACKER from ~/.zshrc / ~/.bashrc if not set ───────────
+if [[ -z "${DEFAULT_TRACKER:-}" ]]; then
+  for _rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+    [[ -f "$_rc" ]] || continue
+    _line="$(grep -E '^export DEFAULT_TRACKER=' "$_rc" | tail -1)" || true
+    if [[ -n "$_line" ]]; then
+      _val="$(echo "$_line" | sed "s/^export DEFAULT_TRACKER=//;s/^['\"]//;s/['\"]$//")"
+      _val="$(eval echo "\"${_val}\"" 2>/dev/null || echo "${_val}")"
+      [[ -n "$_val" ]] && export DEFAULT_TRACKER="${_val}" && break
+    fi
+  done
+fi
+
 # ── Argument parsing ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -134,7 +147,7 @@ create_k8s_secret() {
     --from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}" \
     --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
     --from-literal=SSH_PRIVATE_KEY="${SSH_KEY:-}" \
-    --save-config --dry-run=client -o yaml | kubectl apply -f -
+    --save-config --dry-run=client -o yaml | kubectl apply -f - --validate=false
   ok "Secret 'ai-dev-credentials' created/updated."
 }
 
@@ -361,7 +374,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "$JIRA_PROJECT" ]] && set_org_config "JiraProject" "$JIRA_PROJECT"
   set_org_config "BitbucketWorkspace" "$BB_WORKSPACE"
   set_org_config "BitbucketRepo"      "$BB_REPO"
-  set_org_config "DefaultTracker"     "jira"
+  set_org_config "DefaultTracker"     "${DEFAULT_TRACKER:-jira}"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK"
     set_org_config "ClaudeSkipBedrockAuth"   "1"

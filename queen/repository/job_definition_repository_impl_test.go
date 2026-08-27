@@ -690,6 +690,63 @@ func Test_ShouldSaveJobDefinitionWithMultipleVersions(t *testing.T) {
 	require.Equal(t, int32(9), res[0].Version)
 }
 
+// Test that admin re-saving a job_type that also exists for another user does not
+// hit the unique (user_id, job_type, version) constraint and return a 403.
+func Test_ShouldSaveJobDefinitionWithMultipleUsersSameJobType(t *testing.T) {
+	// GIVEN a job-definition repository with two users
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	repo.Clear()
+
+	qc1, err := NewTestQC()
+	require.NoError(t, err)
+	qc2, err := NewTestQC()
+	require.NoError(t, err)
+
+	const jobType = "io.formicary.test.shared-job-type"
+
+	// User 1 saves the job twice (versions 0 and 1)
+	for i := 0; i < 2; i++ {
+		job := types.NewJobDefinition(jobType)
+		job.UserID = qc1.User.ID
+		job.OrganizationID = qc1.User.OrganizationID
+		task := types.NewTaskDefinition(fmt.Sprintf("task%d", i), common.Shell)
+		task.Script = []string{fmt.Sprintf("echo v%d", i)}
+		job.AddTask(task)
+		job.UpdateRawYaml()
+		saved, err := repo.Save(qc1, job)
+		require.NoError(t, err)
+		require.Equal(t, int32(i), saved.Version)
+	}
+
+	// User 2 saves the same job_type independently (version 0)
+	job2 := types.NewJobDefinition(jobType)
+	job2.UserID = qc2.User.ID
+	job2.OrganizationID = qc2.User.OrganizationID
+	task2 := types.NewTaskDefinition("task0", common.Shell)
+	task2.Script = []string{"echo user2"}
+	job2.AddTask(task2)
+	job2.UpdateRawYaml()
+	_, err = repo.Save(qc2, job2)
+	require.NoError(t, err)
+
+	// WHEN user 1 (admin) re-saves their job — DB now has 3 records total for this job_type
+	// (user1: v0-inactive, v1-active; user2: v0-active)
+	// Previously the count-1 trick would count 3 records, look for version=2 (not found),
+	// and try to create version=0 for user1 again — hitting the unique constraint → 403.
+	job3 := types.NewJobDefinition(jobType)
+	job3.UserID = qc1.User.ID
+	job3.OrganizationID = qc1.User.OrganizationID
+	task3 := types.NewTaskDefinition("task0", common.Shell)
+	task3.Script = []string{"echo updated"}
+	job3.AddTask(task3)
+	job3.UpdateRawYaml()
+	saved3, err := repo.Save(qc1, job3)
+	// THEN it must succeed and produce version 2 (incrementing from user1's version 1)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), saved3.Version)
+}
+
 // Test Querying job-types and cron triggers
 func Test_ShouldGetJobTypesAndCronTriggerForJobDefinition(t *testing.T) {
 	// GIVEN a job-definition repository

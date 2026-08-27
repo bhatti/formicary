@@ -231,6 +231,7 @@ Lists all currently registered Ant workers and their status.
 
 -   **Permissions:** `AntExecutor:Query`
 -   **Success Response (200 OK):** A list of `AntRegistration` objects.
+-   **Response fields include:** `ant_id`, `ant_topic`, `methods`, `tags`, `current_load`, `max_capacity`, `total_executed`, `version`, `commit`, `build_date` (version fields are present when the ant is v0.1.83+).
 
 ### `GET /api/executors`
 Lists all active task executors (e.g., Docker containers, Kubernetes pods) across all Ant workers.

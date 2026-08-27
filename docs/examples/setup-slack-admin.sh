@@ -179,21 +179,33 @@ set_sysconfig "SigningSecret" "${SLACK_SIGNING_SECRET:-}" "SLACK" "true"
 if [[ "$SET_ROUTES" == true ]]; then
   log "Setting up Slack routes ..."
   SLACK_ROUTES_JSON='[
-    {"triggers":["standup","daily","scrum","sync"],"job_type":"ai-standup-jira","description":"Daily standup summary"},
+    {"triggers":["standup","daily","scrum","sync",
+                 "jira standup","jira daily","jira scrum",
+                 "gh standup","gh daily","github standup","github daily"],
+     "job_type":"ai-standup-jira","description":"Daily standup summary",
+     "tracker_variants":{"github":"ai-standup-gh","jira":"ai-standup-jira"}},
 
-    {"triggers":["query","search","find"],"job_type":"ai-jira-query","description":"Query issues","id_var":"Prompt"},
-    {"triggers":["analyze","analysis"],"job_type":"ai-jira-query","description":"Analyze issues","id_var":"Prompt","params":{"Mode":"analyze"}},
+    {"triggers":["query","search","find","jira query","jira search","jira find"],"job_type":"ai-jira-query","description":"Query issues","id_var":"Prompt"},
+    {"triggers":["analyze","analysis","jira analyze","jira analysis"],"job_type":"ai-jira-query","description":"Analyze issues","id_var":"Prompt","params":{"Mode":"analyze"}},
 
     {"triggers":["pr comments","show pr comments","pr feedback","pr discussion"],"job_type":"ai-adhoc","description":"Show existing PR comments","id_var":"Prompt","params":{"Skill":"ygs-pr-comments"}},
 
-    {"triggers":["review","pr review","code review"],"job_type":"ai-jira-review","description":"Review a PR","id_var":"PRUrl",
+    {"triggers":["review","pr review","code review",
+                 "jira review","jira pr review",
+                 "gh review","gh pr review","github review"],"job_type":"ai-jira-review","description":"Review a PR","id_var":"PRUrl",
      "tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"}},
 
-    {"triggers":["implement","fix","create pr","open pr"],"job_type":"ai-jira-implement","description":"Implement an issue","id_var":"IssueNumber",
+    {"triggers":["implement","fix","create pr","open pr",
+                 "jira implement","jira fix",
+                 "gh implement","gh fix","github implement"],"job_type":"ai-jira-implement","description":"Implement an issue","id_var":"IssueNumber",
      "tracker_variants":{"github":"ai-gh-implement","jira":"ai-jira-implement"}},
 
-    {"triggers":["risks","risk scan","security"],"job_type":"ai-adhoc","description":"Security or risk scan","params":{"Skill":"ygs-risk-scan"}},
-    {"triggers":["prs","pr queue","open prs","list prs"],"job_type":"ai-adhoc","description":"List open PRs","params":{"Skill":"ygs-pr-queue"}},
+    {"triggers":["risks","risk scan","security",
+                 "jira risks","jira risk scan",
+                 "gh risks","github risks"],"job_type":"ai-adhoc","description":"Security or risk scan","params":{"Skill":"ygs-risk-scan"}},
+    {"triggers":["prs","pr queue","open prs","list prs",
+                 "jira prs","jira pr queue","jira open prs",
+                 "gh prs","gh pr queue","github prs","github pr queue"],"job_type":"ai-adhoc","description":"List open PRs","params":{"Skill":"ygs-pr-queue"}},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"

@@ -70,7 +70,7 @@ QUEEN_S3_PORT="${QUEEN_S3_PORT:-}"
 BUFFER_DB_PATH="${BUFFER_DB_PATH:-:memory:}"
 ANT_IMAGE="${ANT_IMAGE:-}"
 AI_DEV_TOOLS_IMAGE="${AI_DEV_TOOLS_IMAGE:-plexobject/ai-dev-tools:latest}"
-ANT_IMAGE_PULL_POLICY="Always"
+ANT_IMAGE_PULL_POLICY="IfNotPresent"
 NAMESPACE="default"
 KUBE_CONTEXT="${KUBE_CONTEXT:-}"
 ANT_TLS_SKIP_VERIFY="${ANT_TLS_SKIP_VERIFY:-}"
@@ -151,7 +151,7 @@ for _cred_var in QUEEN_IP FORMICARY_TOKEN FORMICARY_URL \
                  GH_TOKEN GH_ORG GH_REPO SSH_PRIVATE_KEY \
                  JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_HOST \
                  BITBUCKET_TOKEN BITBUCKET_USERNAME BITBUCKET_WORKSPACE \
-                 SLACK_BOT_TOKEN; do
+                 SLACK_BOT_TOKEN DEFAULT_TRACKER; do
   _autodetect_var "$_cred_var"
 done
 
@@ -250,14 +250,6 @@ if [[ -z "${ANT_IMAGE}" ]]; then
   ANT_IMAGE="plexobject/formicary:latest"
 fi
 
-# Pull policy: Docker Desktop shares the daemon with k8s containerd — IfNotPresent
-# avoids remote pull attempts for locally-built images.
-# For all other clusters default to Always so images stay fresh.
-if [[ "${ANT_IMAGE_PULL_POLICY}" == "Always" ]]; then
-  if [[ "${_CUR_CTX}" == "docker-desktop" ]]; then
-    ANT_IMAGE_PULL_POLICY="IfNotPresent"
-  fi
-fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 _trackers=""

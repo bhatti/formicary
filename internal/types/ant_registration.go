@@ -43,6 +43,12 @@ type AntRegistration struct {
 	// the whole ant. Absent entries mean the method has not been probed yet (treated as healthy).
 	// Access must be guarded by healthMu — use SetMethodHealth/methodHealthSnapshot.
 	MethodHealth map[string]*MethodHealthEntry `json:"method_health,omitempty" mapstructure:"method_health"`
+	// Version is the semver version string of the ant binary (e.g. "0.1.83"). Populated at startup.
+	Version string `json:"version,omitempty" mapstructure:"version"`
+	// Commit is the short Git SHA of the ant binary (e.g. "72c1bc3"). Populated at startup.
+	Commit string `json:"commit,omitempty" mapstructure:"commit"`
+	// BuildDate is the ISO-8601 build timestamp of the ant binary. Populated at startup.
+	BuildDate string `json:"build_date,omitempty" mapstructure:"build_date"`
 	// healthMu guards MethodHealth: the health-checker goroutine writes it while the
 	// tasklet heartbeat goroutine reads it via Marshal(). Not serialized (json:"-").
 	healthMu sync.RWMutex `json:"-" mapstructure:"-"`
@@ -196,6 +202,9 @@ type antRegistrationWire struct {
 	ConfigInfo    map[string]any            `json:"config_info"`
 	OrgID         string                    `json:"org_id,omitempty"`
 	MethodHealth  map[string]*MethodHealthEntry `json:"method_health,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Commit    string `json:"commit,omitempty"`
+	BuildDate string `json:"build_date,omitempty"`
 }
 
 // Marshal marshals the registration. MethodHealth is snapshotted under a read lock so
@@ -220,6 +229,9 @@ func (r *AntRegistration) Marshal() ([]byte, error) {
 		ConfigInfo:    r.ConfigInfo,
 		OrgID:         r.OrgID,
 		MethodHealth:  r.methodHealthSnapshot(),
+		Version:   r.Version,
+		Commit:    r.Commit,
+		BuildDate: r.BuildDate,
 	}
 	return json.Marshal(wire)
 }
@@ -237,8 +249,8 @@ func (r *AntRegistration) String() string {
 			fmt.Fprintf(&health, "%s=UNHEALTHY(%s)", m, h.Error)
 		}
 	}
-	return fmt.Sprintf("ID=%s OrgID=%s Tags=%s Methods=%v Max=%d Load=%d Executed=%d Health=[%s]\n",
-		r.AntID, r.OrgID, r.Tags, r.Methods, r.MaxCapacity, r.CurrentLoad, r.TotalExecuted, health.String())
+	return fmt.Sprintf("ID=%s Version=%s OrgID=%s Tags=%s Methods=%v Max=%d Load=%d Executed=%d Health=[%s]\n",
+		r.AntID, r.Version, r.OrgID, r.Tags, r.Methods, r.MaxCapacity, r.CurrentLoad, r.TotalExecuted, health.String())
 }
 
 // UpdatedAtString defines formatted date

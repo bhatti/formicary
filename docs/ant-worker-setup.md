@@ -228,7 +228,7 @@ if not ants:
     print('NO ANTS REGISTERED — check ant pod logs')
 else:
     for a in ants:
-        print(f\"ant={a.get('ant_id','?')}  org={a.get('org_id','?')}  alive={a.get('alive',False)}\")
+        print(f\"ant={a.get('ant_id','?')}  org={a.get('org_id','?')}  version={a.get('version','?')}  alive={a.get('alive',False)}\")
 "
 ```
 

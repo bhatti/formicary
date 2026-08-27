@@ -66,6 +66,37 @@ def get_job_status(job_id, token, base_url):
     return api_request("GET", f"/api/v1/jobs/requests/{job_id}", token, base_url=base_url)
 
 
+def get_task_contexts(job_status, token, base_url):
+    """Return a dict of all task context variables for the 'run' task in a completed job.
+
+    Fetches the job execution record and flattens contexts from the 'run' task into
+    a plain {name: value} dict.  Returns {} if execution data is unavailable.
+    """
+    jr = job_status.get("job_request") or job_status
+    exec_id = jr.get("job_execution_id") or jr.get("JobExecutionID", "")
+    if not exec_id:
+        return {}
+    try:
+        resp = api_request("GET", f"/api/v1/jobs/executions/{exec_id}", token, base_url=base_url)
+        je = resp.get("job_execution") or resp
+        for task in je.get("tasks") or []:
+            if task.get("task_type") == "run":
+                return {c["name"]: c.get("value", "") for c in task.get("contexts") or []}
+    except Exception:
+        pass
+    return {}
+
+
+def validate_task_context(job_status, token, base_url, required_keys):
+    """Return an error string if any required context key is missing/empty, else None."""
+    ctx = get_task_contexts(job_status, token, base_url)
+    missing = [k for k in required_keys if not ctx.get(k)]
+    if missing:
+        present = {k: ctx[k] for k in ctx if k in required_keys}
+        return f"task context missing {missing}; present={present}"
+    return None
+
+
 def wait_for_job(job_id, token, base_url, timeout=DEFAULT_TIMEOUT):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -278,12 +309,28 @@ def test_analyze(token, base_url, timeout):
 
 def test_risks(token, base_url, timeout):
     params = {**_base_params(), "Skill": "ygs-risk-scan", "Prompt": ""}
-    return _run_job("risks", "ai-adhoc", params, token, base_url, timeout)
+
+    def validate(status):
+        return validate_task_context(status, token, base_url,
+                                     ["SELECTED_MODEL", "SELECTED_TRACKER", "SKILL"])
+
+    return _run_job("risks", "ai-adhoc", params, token, base_url, timeout, validate_fn=validate)
 
 
 def test_prs(token, base_url, timeout):
     params = {**_base_params(), "Skill": "ygs-pr-queue", "Prompt": ""}
-    return _run_job("prs", "ai-adhoc", params, token, base_url, timeout)
+
+    def validate(status):
+        err = validate_task_context(status, token, base_url,
+                                    ["SELECTED_MODEL", "SELECTED_TRACKER", "SKILL"])
+        if err:
+            return err
+        ctx = get_task_contexts(status, token, base_url)
+        if ctx.get("SKILL") and ctx["SKILL"] != "ygs-pr-queue":
+            return f"expected SKILL=ygs-pr-queue, got {ctx['SKILL']}"
+        return None
+
+    return _run_job("prs", "ai-adhoc", params, token, base_url, timeout, validate_fn=validate)
 
 
 def test_review(token, base_url, timeout):

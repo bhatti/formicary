@@ -232,6 +232,9 @@ func toProtoAntRegistration(r *commonTypes.AntRegistration) *protoResource.AntRe
 		CreatedAt:     timestamppb.New(r.CreatedAt),
 		AntStartedAt:  timestamppb.New(r.AntStartedAt),
 		MethodHealth:  methodHealth,
+		Version:       r.Version,
+		Commit:        r.Commit,
+		BuildDate:     r.BuildDate,
 	}
 }
 

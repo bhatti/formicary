@@ -38,6 +38,14 @@
             <dd class="col-7">{{ .TotalExecuted }}</dd>
             <dt class="col-5 text-secondary">Updated At</dt>
             <dd class="col-7">{{ .UpdatedAtString }}</dd>
+            {{if .Version}}
+            <dt class="col-5 text-secondary">Version</dt>
+            <dd class="col-7"><code>{{.Version}}{{if .Commit}} ({{.Commit}}){{end}}</code></dd>
+            {{end}}
+            {{if .BuildDate}}
+            <dt class="col-5 text-secondary">Build Date</dt>
+            <dd class="col-7">{{.BuildDate}}</dd>
+            {{end}}
             {{if .MethodHealth}}
             <dt class="col-5 text-secondary">Method Health</dt>
             <dd class="col-7">

@@ -22,6 +22,34 @@ func Test_ShouldCreateAntAllocation(t *testing.T) {
 	require.NotEqual(t, "", alloc.AllocatedAtString())
 }
 
+func Test_ShouldMarshalVersionFields(t *testing.T) {
+	// GIVEN a registration with version info
+	reg := AntRegistration{
+		AntID:         "ant-v2",
+		AntTopic:      "topic",
+		MaxCapacity:   5,
+		Methods:       []TaskMethod{Kubernetes},
+		ReceivedAt:    time.Now(),
+		CreatedAt:     time.Now(),
+		AntStartedAt:  time.Now(),
+		Version:       "0.1.83",
+		Commit:        "72c1bc3",
+		BuildDate:     "2026-08-26T19:00:31",
+	}
+
+	// WHEN marshaling and unmarshaling
+	b, err := reg.Marshal()
+	require.NoError(t, err)
+	restored, err := UnmarshalAntRegistration(b)
+	require.NoError(t, err)
+
+	// THEN version fields round-trip correctly
+	require.Equal(t, "0.1.83", restored.Version)
+	require.Equal(t, "72c1bc3", restored.Commit)
+	require.Equal(t, "2026-08-26T19:00:31", restored.BuildDate)
+	require.Contains(t, reg.String(), "0.1.83")
+}
+
 func Test_ShouldMarshalAntRegistration(t *testing.T) {
 	// Given ant registration
 	reg := AntRegistration{

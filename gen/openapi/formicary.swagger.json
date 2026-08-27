@@ -8139,6 +8139,18 @@
             "$ref": "#/definitions/resourceMethodHealth"
           },
           "description": "method_health maps each supported method name (e.g. \"KUBERNETES\", \"DOCKER\") to its\nmost-recent health probe result. Populated by the ant's background health checker and\nincluded in every heartbeat. The queen skips this ant for a method when its status is\nUNHEALTHY. Absent entries mean the method has not been probed yet (treated as healthy)."
+        },
+        "version": {
+          "type": "string",
+          "description": "version is the semver version string of the ant worker binary (e.g. \"0.1.83\")."
+        },
+        "commit": {
+          "type": "string",
+          "description": "commit is the short Git SHA of the ant worker binary (e.g. \"72c1bc3\")."
+        },
+        "build_date": {
+          "type": "string",
+          "description": "build_date is the ISO-8601 timestamp at which the ant worker binary was built."
         }
       },
       "description": "AntRegistration registers a remote ant worker with the resource manager.\nAnts broadcast this on the registration topic; the queen updates its capacity map."

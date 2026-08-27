@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"os"
+	"plexobject.com/formicary/internal/buildversion"
 	"plexobject.com/formicary/internal/types"
 	"testing"
 )
@@ -91,6 +92,21 @@ func Test_ShouldFailValidateAntConfigWithoutMethods(t *testing.T) {
 	cfg := newTestConfig()
 	err := cfg.Validate()
 	require.Error(t, err)
+}
+
+func Test_ShouldNewAntRegistrationIncludeVersion(t *testing.T) {
+	// GIVEN a config with version info
+	cfg := newTestConfig()
+	cfg.Methods = []types.TaskMethod{types.Kubernetes}
+	cfg.Common.Version = buildversion.New("0.1.83", "72c1bc3", "2026-08-26T19:00:31", "test-id")
+
+	// WHEN NewAntRegistration is called
+	reg := cfg.NewAntRegistration()
+
+	// THEN version fields are propagated into the registration
+	require.Equal(t, "0.1.83", reg.Version)
+	require.Equal(t, "72c1bc3", reg.Commit)
+	require.Equal(t, "2026-08-26T19:00:31", reg.BuildDate)
 }
 
 func newTestConfig() AntConfig {

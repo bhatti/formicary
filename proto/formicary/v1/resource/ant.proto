@@ -63,6 +63,12 @@ message AntRegistration {
   // included in every heartbeat. The queen skips this ant for a method when its status is
   // UNHEALTHY. Absent entries mean the method has not been probed yet (treated as healthy).
   map<string, MethodHealth> method_health = 15 [(formicary.v1.tags) = "json:\"method_health,omitempty\" mapstructure:\"method_health\""];
+  // version is the semver version string of the ant worker binary (e.g. "0.1.83").
+  string version = 16 [(formicary.v1.tags) = "json:\"version,omitempty\" mapstructure:\"version\""];
+  // commit is the short Git SHA of the ant worker binary (e.g. "72c1bc3").
+  string commit = 17 [(formicary.v1.tags) = "json:\"commit,omitempty\" mapstructure:\"commit\""];
+  // build_date is the ISO-8601 timestamp at which the ant worker binary was built.
+  string build_date = 18 [(formicary.v1.tags) = "json:\"build_date,omitempty\" mapstructure:\"build_date\""];
 }
 
 // AntReservation records a resource reservation made for a specific job/task.

@@ -363,7 +363,7 @@ func (jdr *JobDefinitionRepositoryImpl) Save(
 		}
 	}
 	err = jdr.db.Transaction(func(tx *gorm.DB) error {
-		old, err := jdr.getLatestByType(qc, job.JobType)
+		old, err := jdr.getLatestByType(job.JobType, job.UserID, job.OrganizationID)
 		var res *gorm.DB
 		if err == nil && old.ID != "" {
 			if job.RawYaml == old.RawYaml &&
@@ -514,19 +514,24 @@ func (jdr *JobDefinitionRepositoryImpl) Count(
 
 /////////////////////////////////////////// PRIVATE METHODS ////////////////////////////////////////////
 
-// getLatestByType finds JobDefinition by type without active flag
+// getLatestByType finds the active JobDefinition for a specific user/org by type.
+// Scoping by userID/orgID (not the caller's QC) avoids a miscount when admin
+// queries across multiple users who share the same job_type — previously the
+// count-based version lookup would hit the unique (user_id, job_type, version)
+// constraint on re-save, producing an untyped DB error that surfaced as 403.
 func (jdr *JobDefinitionRepositoryImpl) getLatestByType(
-	qc *common.QueryContext,
-	jobType string) (*types.JobDefinition, error) {
+	jobType string,
+	userID string,
+	orgID string) (*types.JobDefinition, error) {
 	var job types.JobDefinition
-	var count int64
-
-	qc.AddOrgElseUserWhere(jdr.db, true).Model(&job).
-		Where("job_type = ?", jobType).
-		Count(&count)
-	res := qc.AddOrgElseUserWhere(jdr.db, true).Preload("Tasks").Preload("Configs").
-		Where("job_type = ?", jobType).
-		Where("version = ?", count-1).
+	db := jdr.db.Where("job_type = ?", jobType).Where("active = ?", true)
+	if orgID != "" {
+		db = db.Where("organization_id = ?", orgID)
+	} else if userID != "" {
+		db = db.Where("user_id = ?", userID)
+	}
+	res := db.Preload("Tasks").Preload("Configs").
+		Order("version DESC").
 		First(&job)
 	if res.Error != nil {
 		return nil, res.Error

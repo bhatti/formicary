@@ -142,11 +142,13 @@ tasks:
       value: "{{.SlackChannel}}"
     - name: SELECTED_TRACKER
       value: jira
+    - name: ERROR_REASON
+      value: "{{.ERROR_REASON}}"
   environment:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "review"
-    MESSAGE: ":x: Jira review job failed."
+    MESSAGE: ":x: Jira review failed for <{{.PRUrl}}|PR>. {{.ERROR_REASON}}"
   script:
     - python -m scripts.standup.slack_client
   on_completed: done
