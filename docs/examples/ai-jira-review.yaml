@@ -33,6 +33,8 @@ tasks:
   context_variables:
     - name: PR_URL
       value: "{{.PRUrl}}"
+    - name: SKILL
+      value: "{{.Skill}}"
     - name: SELECTED_TRACKER
       value: jira
     - name: SELECTED_MODEL
@@ -80,10 +82,6 @@ tasks:
       python -m scripts.review.run --pr-url "{{.PRUrl}}" --skill "$SKILL"
   artifacts:
     paths:
-      - ./findings.json
-      - ./review_result.json
-      - ./review_report.md
-      - ./review_report.html
       - ./reports
       - ./logs
     expire_after: 48h
@@ -118,8 +116,6 @@ tasks:
   artifacts:
     paths:
       - ./post_result.json
-      - ./review_report.md
-      - ./review_report.html
     expire_after: 168h
   on_completed: done
 

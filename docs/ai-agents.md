@@ -808,10 +808,27 @@ echo "::add-job-context ISSUE_ID::PROJ-123"
 
 **Format:** `KEY::VALUE` — key must be non-empty; value may be empty or contain `::`.
 
-All ai-dev-tools scripts emit `::add-task-context` markers at exit with at minimum:
-- `SELECTED_MODEL` — the Claude model used (resolved from `AI_MODEL` env)
-- `SELECTED_TRACKER` — `jira` or `github`
-- `ISSUE_COUNT`, `PR_COUNT`, `FINDINGS_COUNT`, etc. — counts of items processed
+All ai-dev-tools scripts emit `::add-task-context` markers. The full set of skills-related keys emitted by every job that invokes `claude_runner.py`:
+
+| Key | Description |
+|-----|-------------|
+| `SELECTED_MODEL` | Claude model used (resolved from `AI_MODEL` env) |
+| `SELECTED_TRACKER` | `jira` or `github` |
+| `SKILL` | Skill name loaded for this task (e.g. `ygs-review-pr`) |
+| `SKILL_LOADED` | `yes` if skill's `SKILL.md` was found; `no` if fallback used |
+| `YGS_SKILLS_COUNT` | Number of you-got-skills skills installed in the pod |
+| `YGS_SKILLS_INSTALLED` | Comma-separated list of installed you-got-skills skill names |
+| `YGS_SKILLS_REPO_URL` | Git URL of the you-got-skills base repo |
+| `YGS_SKILLS_REPO_COMMIT` | Short commit hash of the cloned you-got-skills repo |
+| `EXTRA_SKILLS_<SLUG>_COUNT` | Count of skills from each extra repo (`EXTRA_SKILLS_REPOS`) |
+| `EXTRA_SKILLS_<SLUG>_INSTALLED` | Comma-separated skill names from each extra repo |
+| `SKILLS_INVOKED` | Skills Claude called during the session; `none` if none detected |
+| `FINDINGS_COUNT`, `PR_COUNT`, etc. | Counts of items processed (job-specific) |
+
+`SKILLS_INVOKED` is detected by scanning Claude's output for `/skill-name` patterns matching
+installed skills — it distinguishes sessions where Claude actively used a skill from those where
+only fallback prompts ran. See [ai-dev-tools README](https://github.com/bhatti/ai-dev-tools#task-context-variables)
+for the full reference.
 
 ### `context_variables` YAML field (static, rendered by the queen)
 

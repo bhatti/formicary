@@ -37,6 +37,8 @@ fail() { echo "  ✗ ERROR: $*" >&2; echo "  ✗ ERROR: $*"; exit 1; }
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 FORMICARY_URL="${FORMICARY_URL:-http://localhost:7777}"
+CURL_OPTS=()
+[[ "${FORMICARY_URL}" == https://* ]] && CURL_OPTS+=(-k)
 TOKEN="${FORMICARY_TOKEN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -128,7 +130,7 @@ else:
     secret = secret_arg == 'true'
 print(json.dumps({'name': name, 'value': value, 'secret': secret}))
 " "$name" "$value" "$secret_arg") || fail "Failed to build JSON payload for $name"
-  local args=(-sf -X POST "$url" -H "Content-Type: application/json" -d "$payload")
+  local args=(-sf ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -X POST "$url" -H "Content-Type: application/json" -d "$payload")
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
   local resp
   resp=$(curl "${args[@]}" 2>&1) || fail "Failed to set config $name: $resp"
@@ -146,7 +148,7 @@ upload() {
   local file="$1" name
   name=$(basename "$file")
   log "Uploading $name ..."
-  local curl_args=(-s -o /tmp/formicary-upload-resp.json -w "%{http_code}"
+  local curl_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /tmp/formicary-upload-resp.json -w "%{http_code}"
                    -X POST "${FORMICARY_URL}/api/jobs/definitions"
                    -H "Content-Type: application/yaml"
                    --data-binary "@${file}")
@@ -203,7 +205,7 @@ fi
 
 # ── Verify server ──────────────────────────────────────────────────────────────
 log "Checking Formicary at ${FORMICARY_URL} ..."
-_args=(-s -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
+_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} -o /dev/null -w "%{http_code}" "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && _args+=(-H "Authorization: Bearer ${TOKEN}")
 _status=$(curl "${_args[@]}" 2>&1) || _status="000"
 case "$_status" in
@@ -225,7 +227,7 @@ echo ""; ok "Standup (GitHub) workflow registered."
 # ── List AI workflows ──────────────────────────────────────────────────────────
 echo ""
 log "Currently registered AI job types:"
-_list_args=(-s "${FORMICARY_URL}/api/jobs/definitions")
+_list_args=(-s ${CURL_OPTS[@]+"${CURL_OPTS[@]}"} "${FORMICARY_URL}/api/jobs/definitions")
 [[ -n "$TOKEN" ]] && _list_args+=(-H "Authorization: Bearer ${TOKEN}")
 curl "${_list_args[@]}" 2>/dev/null | python3 -c "
 import sys, json

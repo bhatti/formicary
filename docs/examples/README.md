@@ -341,6 +341,20 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 @ai-agent review https://github.com/ORG/REPO/pull/1
 ```
 
+**Task Context Variables** (visible on the job request dashboard after completion):
+
+| Key | Description |
+|-----|-------------|
+| `SKILL` | Skill name used for the review (e.g. `ygs-review-pr`, `ygs-review-deep`) |
+| `SKILL_LOADED` | `yes` if the skill's `SKILL.md` was found; `no` if fallback prompt used |
+| `YGS_SKILLS_COUNT` | Number of you-got-skills skills installed in the pod |
+| `YGS_SKILLS_INSTALLED` | Comma-separated list of installed skill names |
+| `YGS_SKILLS_REPO_COMMIT` | Short commit hash of the cloned you-got-skills repo |
+| `SKILLS_INVOKED` | Skills Claude actually called during the review; `none` if none detected |
+| `FINDINGS_COUNT` | Number of findings in the review output |
+| `REVIEW_VERDICT` | Final verdict (`APPROVED`, `CONCERNS`, `REJECTED`) |
+| `SELECTED_MODEL` | Model ID used for the Claude invocation |
+
 ---
 
 ### Ad-hoc Skill (`ai-adhoc`)
