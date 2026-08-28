@@ -159,7 +159,7 @@ tasks:
 
 job_variables:
   MaxTurnsReview: "100"
-  MaxClaudeProcessTimeout: ""
+  MaxClaudeProcessTimeout: "1080"
   ExtraSkillsRepos: ""
   Skill: "ygs-review-pr"
   ReviewDepth: "standard"   # set to "deep" for 7-domain review (perf + testing + arch)

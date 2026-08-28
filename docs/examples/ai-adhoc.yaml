@@ -204,7 +204,7 @@ job_variables:
   # run_skill.py will look for .claude/skills/<name>/SKILL.md there first.
   CodebaseDir: ""
   MaxTurnsAdhoc: "50"
-  MaxClaudeProcessTimeout: ""
+  MaxClaudeProcessTimeout: "1350"
   ExtraSkillsRepos: ""
   CodebaseRepoUrl: ""
   GitBranch: "main"

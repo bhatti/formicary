@@ -160,8 +160,8 @@ tasks:
     - echo "Review pipeline complete"
 
 job_variables:
-  MaxTurnsReview: "50"
-  MaxClaudeProcessTimeout: ""
+  MaxTurnsReview: "100"
+  MaxClaudeProcessTimeout: "1080"
   ExtraSkillsRepos: ""
   Skill: "ygs-review-pr"
   ReviewDepth: "standard"   # set to "deep" for 7-domain review (perf + testing + arch)
