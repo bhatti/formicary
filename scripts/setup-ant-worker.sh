@@ -327,11 +327,29 @@ if ! ${SKIP_WORKER}; then
   log "Step 4: Rolling restart..."
   kubectl rollout restart deployment/formicary-ant --namespace "${NAMESPACE}"
 
-  log "Waiting for rollout (timeout: 90s)..."
-  kubectl rollout status deployment/formicary-ant \
-    --namespace "${NAMESPACE}" --timeout=90s \
-    && ok "ant worker is running" \
-    || warn "rollout timed out — pod may still be starting; run: kubectl get pods -n ${NAMESPACE}"
+  # kubectl rollout status uses an http2 watch that drops on API server pod churn,
+  # causing spurious timeouts even when the rollout succeeds. Poll pod readiness directly.
+  log "Waiting for ant pod to become ready (up to 120s)..."
+  _DEADLINE=$(( $(date +%s) + 120 ))
+  _ANT_READY=false
+  while [[ $(date +%s) -lt $_DEADLINE ]]; do
+    if kubectl wait pod \
+        --for=condition=Ready \
+        --selector=app=formicary-ant \
+        --namespace="${NAMESPACE}" \
+        --timeout=10s \
+        2>/dev/null; then
+      _ANT_READY=true
+      break
+    fi
+    sleep 3
+  done
+
+  if ${_ANT_READY}; then
+    ok "ant worker is running"
+  else
+    warn "pod not ready after 120s — pod may still be starting; run: kubectl get pods -n ${NAMESPACE}"
+  fi
 
 fi  # SKIP_WORKER
 

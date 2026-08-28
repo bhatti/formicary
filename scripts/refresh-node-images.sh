@@ -40,36 +40,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Build grep pattern and ctr rm list from comma-separated image list ─────────
-# Turn "plexobject/formicary:latest,plexobject/ai-dev-tools:latest"
-# into grep pattern "formicary\|ai-dev-tools" and explicit ctr rm calls
 IFS=',' read -ra IMAGE_LIST <<< "$IMAGES"
 
-GREP_PATTERN=""
-CTR_RM_CMDS=""
-PULL_PODS_JSON=""
+# ── Helper: run a privileged pod, wait for completion, print logs, delete ──────
+# Usage: _run_privileged_pod POD_NAME CMD TIMEOUT_SECS
+_run_privileged_pod() {
+  local POD="$1" CMD="$2" TIMEOUT="${3:-90}"
 
-for img in "${IMAGE_LIST[@]}"; do
-  img="${img// /}"   # trim whitespace
-  # short name for grep (strip registry prefix and tag)
-  short=$(echo "$img" | sed 's|.*/||; s|:.*||')
-  GREP_PATTERN="${GREP_PATTERN:+${GREP_PATTERN}\\|}${short}"
-  # explicit crictl rmi call
-  CTR_RM_CMDS="${CTR_RM_CMDS}crictl rmi '${img}' 2>/dev/null || true; "
-done
+  # Delete any leftover pod from a previous run
+  kubectl delete pod "${POD}" --namespace="${NAMESPACE}" --ignore-not-found --grace-period=0 2>/dev/null || true
 
-# ── Step 1: Purge images from node containerd via privileged pod ───────────────
-printf "\n"
-log "Step 1: Purging cached images from node '${NODE}'..."
-log "  Images: ${IMAGES}"
-
-PURGE_CMD="ctr -n k8s.io images ls 2>/dev/null | grep -E '${GREP_PATTERN}' | awk '{print \$1}' | xargs -r -I{} ctr -n k8s.io images rm {} 2>/dev/null || true; ${CTR_RM_CMDS}echo 'purge done'"
-
-kubectl run img-cleaner-$$ \
-  --image=docker.io/library/alpine:latest \
-  --restart=Never \
-  --namespace="${NAMESPACE}" \
-  --overrides="$(cat <<EOF
+  kubectl run "${POD}" \
+    --image=docker.io/library/alpine:latest \
+    --restart=Never \
+    --namespace="${NAMESPACE}" \
+    --overrides="$(cat <<EOF
 {
   "spec": {
     "nodeName": "${NODE}",
@@ -77,58 +62,123 @@ kubectl run img-cleaner-$$ \
     "containers": [{
       "name": "c",
       "image": "alpine:latest",
-      "command": ["sh", "-c", "${PURGE_CMD}"],
-      "securityContext": {"privileged": true}
+      "command": ["sh", "-c", "${CMD}"],
+      "securityContext": {"privileged": true},
+      "volumeMounts": [{"name": "run", "mountPath": "/run"}]
     }],
+    "volumes": [{"name": "run", "hostPath": {"path": "/run"}}],
     "tolerations": [{"operator": "Exists"}]
   }
 }
 EOF
-)" --rm -i --timeout=60s 2>/dev/null && ok "Images purged from containerd cache" \
-  || warn "Purge pod failed or timed out — images may still be cached"
+)" 2>/dev/null
 
-# ── Step 2: Force-pull each image on the node ─────────────────────────────────
+  # Wait for pod to reach Succeeded or Failed (no -i/--rm — they hang without a TTY)
+  local elapsed=0
+  local phase=""
+  while [[ $elapsed -lt $TIMEOUT ]]; do
+    phase=$(kubectl get pod "${POD}" --namespace="${NAMESPACE}" \
+              -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+    if [[ "$phase" == "Succeeded" || "$phase" == "Failed" ]]; then
+      break
+    fi
+    sleep 2
+    (( elapsed += 2 ))
+  done
+
+  # Print logs regardless of exit status so the user can see what happened
+  kubectl logs "${POD}" --namespace="${NAMESPACE}" 2>/dev/null || true
+
+  # Capture exit code
+  local exit_code
+  exit_code=$(kubectl get pod "${POD}" --namespace="${NAMESPACE}" \
+    -o jsonpath='{.status.containerStatuses[0].state.terminated.exitCode}' 2>/dev/null || echo "1")
+
+  # Clean up
+  kubectl delete pod "${POD}" --namespace="${NAMESPACE}" --ignore-not-found --grace-period=0 2>/dev/null || true
+
+  if [[ "$phase" == "" ]]; then
+    warn "Pod '${POD}' did not complete within ${TIMEOUT}s"
+    return 1
+  fi
+  return "${exit_code:-0}"
+}
+
+# ── Step 1: Purge images from node containerd via privileged pod ───────────────
+printf "\n"
+log "Step 1: Purging cached images from node '${NODE}'..."
+log "  Images: ${IMAGES}"
+
+PURGE_CMD=""
+for img in "${IMAGE_LIST[@]}"; do
+  img="${img// /}"
+  PURGE_CMD="${PURGE_CMD}echo '  removing ${img}...'; crictl rmi '${img}' 2>/dev/null && echo '  removed: ${img}' || echo '  not cached (ok): ${img}'; "
+done
+PURGE_CMD="${PURGE_CMD}echo 'purge done'"
+
+if _run_privileged_pod "img-purge-$$" "${PURGE_CMD}" 60; then
+  ok "Purge step complete"
+else
+  warn "Purge had errors (non-fatal — images may not have been cached)"
+fi
+
+# ── Step 2: Force-pull fresh images on the node via crictl ────────────────────
 printf "\n"
 log "Step 2: Force-pulling fresh images on node '${NODE}'..."
 
+PULL_CMD=""
 for img in "${IMAGE_LIST[@]}"; do
   img="${img// /}"
-  short=$(echo "$img" | sed 's|.*/||; s|:.*||')
-  log "  Pulling ${img}..."
-  kubectl run "img-pull-${short}-$$" \
-    --image="${img}" \
-    --restart=Never \
-    --namespace="${NAMESPACE}" \
-    --overrides="$(cat <<EOF
-{
-  "spec": {
-    "nodeName": "${NODE}",
-    "containers": [{
-      "name": "c",
-      "image": "${img}",
-      "imagePullPolicy": "Always",
-      "command": ["sh", "-c", "echo 'pulled ${img}'"]
-    }],
-    "tolerations": [{"operator": "Exists"}]
-  }
-}
-EOF
-)" --rm -i --timeout=120s 2>/dev/null \
-    && ok "  Pulled ${img}" \
-    || warn "  Pull pod failed for ${img} — check registry access"
+  PULL_CMD="${PULL_CMD}echo '  pulling ${img}...'; crictl pull '${img}' && echo '  pulled: ${img}' || echo '  WARN: pull failed for ${img}'; "
 done
+PULL_CMD="${PULL_CMD}echo 'pull done'"
 
-# ── Step 3: Restart ant deployment ────────────────────────────────────────────
+if _run_privileged_pod "img-pull-$$" "${PULL_CMD}" 180; then
+  ok "Pull step complete"
+else
+  warn "Pull had errors — check output above for per-image status"
+fi
+
+# ── Step 3: Restart ant deployment and wait for pod ready ─────────────────────
 if ! ${NO_RESTART}; then
   printf "\n"
   log "Step 3: Restarting formicary-ant deployment..."
-  if kubectl get deployment formicary-ant --namespace="${NAMESPACE}" &>/dev/null; then
-    kubectl rollout restart deployment/formicary-ant --namespace="${NAMESPACE}"
-    kubectl rollout status deployment/formicary-ant --namespace="${NAMESPACE}" --timeout=90s \
-      && ok "formicary-ant restarted with fresh images" \
-      || warn "Rollout timed out — check: kubectl get pods -n ${NAMESPACE}"
-  else
+  if ! kubectl get deployment formicary-ant --namespace="${NAMESPACE}" &>/dev/null; then
     warn "formicary-ant deployment not found in namespace '${NAMESPACE}' — skipping restart"
+  else
+    kubectl rollout restart deployment/formicary-ant --namespace="${NAMESPACE}"
+
+    # kubectl rollout status uses an http2 watch that drops on API server pod churn.
+    # Poll kubectl wait pod instead — retries cleanly on disconnect.
+    log "Waiting for ant pod to become ready (up to 120s)..."
+    DEADLINE=$(( $(date +%s) + 120 ))
+    READY=false
+    while [[ $(date +%s) -lt $DEADLINE ]]; do
+      if kubectl wait pod \
+          --for=condition=Ready \
+          --selector=app=formicary-ant \
+          --namespace="${NAMESPACE}" \
+          --timeout=10s \
+          2>/dev/null; then
+        READY=true
+        break
+      fi
+      sleep 3
+    done
+
+    if ${READY}; then
+      NEW_POD=$(kubectl get pod -l app=formicary-ant -n "${NAMESPACE}" \
+                  --sort-by=.metadata.creationTimestamp \
+                  -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null)
+      NEW_IMAGE=$(kubectl get pod "${NEW_POD}" -n "${NAMESPACE}" \
+                    -o jsonpath='{.status.containerStatuses[0].imageID}' 2>/dev/null)
+      ok "formicary-ant is ready"
+      ok "  pod:     ${NEW_POD}"
+      ok "  imageID: ${NEW_IMAGE}"
+    else
+      warn "Pod not ready after 120s — current state:"
+      kubectl get pods -l app=formicary-ant -n "${NAMESPACE}" 2>/dev/null || true
+    fi
   fi
 fi
 
