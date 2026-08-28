@@ -52,8 +52,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 4G
-    memory_request: 1G
+    memory_limit: 4Gi
+    memory_request: 1Gi
     volumes:
       empty_dir:
         - name: workspace
@@ -209,6 +209,9 @@ job_variables:
   CodebaseRepoUrl: ""
   GitBranch: "main"
   AiModel: ""
+  # GitHub — set via org configs (deploy-ai-workflows.sh --set-configs) or override per-job
+  GitHubOrg: ""
+  GitHubRepo: ""
   FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"

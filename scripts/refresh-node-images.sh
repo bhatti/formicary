@@ -71,7 +71,7 @@ _run_privileged_pod() {
   }
 }
 EOF
-)" 2>/dev/null
+)" 2>/dev/null || true  # kubectl run failure is non-fatal; pod phase check below will catch it
 
   # Wait for pod to reach Succeeded or Failed (no -i/--rm — they hang without a TTY)
   local elapsed=0
@@ -97,8 +97,9 @@ EOF
   # Clean up
   kubectl delete pod "${POD}" --namespace="${NAMESPACE}" --ignore-not-found --grace-period=0 2>/dev/null || true
 
-  if [[ "$phase" == "" ]]; then
-    warn "Pod '${POD}' did not complete within ${TIMEOUT}s"
+  # Warn clearly if pod never completed (Pending/Running/Unknown/empty after timeout)
+  if [[ "$phase" != "Succeeded" && "$phase" != "Failed" ]]; then
+    warn "Pod '${POD}' timed out after ${TIMEOUT}s (phase: ${phase:-unknown}) — images may not be refreshed"
     return 1
   fi
   return "${exit_code:-0}"
@@ -147,6 +148,16 @@ if ! ${NO_RESTART}; then
     warn "formicary-ant deployment not found in namespace '${NAMESPACE}' — skipping restart"
   else
     kubectl rollout restart deployment/formicary-ant --namespace="${NAMESPACE}"
+
+    # With strategy: Recreate, old pod is killed before the new one starts.
+    # Wait for old pod to terminate first — otherwise kubectl wait matches the old
+    # (still-Ready) pod and returns immediately before the new one exists.
+    log "Waiting for old pod to terminate..."
+    kubectl wait pod \
+      --for=delete \
+      --selector=app=formicary-ant \
+      --namespace="${NAMESPACE}" \
+      --timeout=20s 2>/dev/null || true
 
     # kubectl rollout status uses an http2 watch that drops on API server pod churn.
     # Poll kubectl wait pod instead — retries cleanly on disconnect.

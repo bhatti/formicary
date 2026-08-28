@@ -329,6 +329,17 @@ if ! ${SKIP_WORKER}; then
 
   # kubectl rollout status uses an http2 watch that drops on API server pod churn,
   # causing spurious timeouts even when the rollout succeeds. Poll pod readiness directly.
+  #
+  # With strategy: Recreate, the old pod is killed before the new one starts.
+  # Wait up to 20s for the old pod to terminate before polling readiness — otherwise
+  # kubectl wait matches the old pod (still Ready for a brief window) and returns immediately.
+  log "Waiting for old pod to terminate..."
+  kubectl wait pod \
+    --for=delete \
+    --selector=app=formicary-ant \
+    --namespace="${NAMESPACE}" \
+    --timeout=20s 2>/dev/null || true
+
   log "Waiting for ant pod to become ready (up to 120s)..."
   _DEADLINE=$(( $(date +%s) + 120 ))
   _ANT_READY=false
