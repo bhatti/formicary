@@ -117,6 +117,8 @@ type Executor interface {
 		msg string) (err error)
 	GetHost() string
 	GetContainerIP() string
+	GetImageSHA() string       // sha256 digest of main container image actually pulled
+	GetHelperImageSHA() string // sha256 digest of helper container image actually pulled
 	GetLabels() map[string]string // returns labels
 }
 
@@ -129,6 +131,8 @@ type BaseExecutor struct {
 	Name              string
 	Host              string // host where command ran
 	ContainerIP       string // container ip-address where command ran
+	ImageSHA          string // sha256 digest of the main container image actually pulled
+	HelperImageSHA    string // sha256 digest of the helper container image actually pulled
 	State             State
 	StartedAt         time.Time
 	EndedAt           *time.Time
@@ -283,4 +287,14 @@ func (e *BaseExecutor) GetHost() string {
 // GetContainerIP --
 func (e *BaseExecutor) GetContainerIP() string {
 	return e.ContainerIP
+}
+
+// GetImageSHA returns the sha256 digest of the main container image that was actually pulled.
+func (e *BaseExecutor) GetImageSHA() string {
+	return e.ImageSHA
+}
+
+// GetHelperImageSHA returns the sha256 digest of the helper container image that was actually pulled.
+func (e *BaseExecutor) GetHelperImageSHA() string {
+	return e.HelperImageSHA
 }

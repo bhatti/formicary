@@ -415,6 +415,31 @@ deploy-queen:
 	fi
 	QUEEN_IP="$(QUEEN_IP)" ./scripts/deploy-formicary.sh $(ARGS)
 
+# refresh-images: purge stale cached images from a k8s node's containerd and force-pull fresh ones.
+# Clears both plexobject/formicary:latest and plexobject/ai-dev-tools:latest by default.
+# Use after pushing new images to Docker Hub to guarantee the node runs the new digest.
+#
+# Why this is needed: docker rmi on macOS only removes from the Docker daemon cache, NOT from
+# Docker Desktop k8s's internal containerd.  With imagePullPolicy: IfNotPresent the node will
+# keep using the stale digest on pod restarts until the containerd cache is explicitly cleared.
+#
+# Optional overrides:
+#   NODE      k8s node name  (default: desktop-control-plane)
+#   NAMESPACE k8s namespace  (default: default)
+#   IMAGES    comma-separated image:tag list (default: both formicary and ai-dev-tools)
+#
+# Examples:
+#   make refresh-images
+#   make refresh-images NODE=k3s-node
+#   make refresh-images IMAGES=plexobject/formicary:latest
+#   make refresh-images IMAGES=plexobject/ai-dev-tools:latest NODE=desktop-control-plane
+NODE      ?= desktop-control-plane
+NAMESPACE ?= default
+IMAGES    ?= plexobject/formicary:latest,plexobject/ai-dev-tools:latest
+refresh-images:
+	NODE="$(NODE)" NAMESPACE="$(NAMESPACE)" IMAGES="$(IMAGES)" \
+	  ./scripts/refresh-node-images.sh
+
 vendor:
 	$(GOCMD) mod vendor
 
@@ -480,5 +505,5 @@ gen-tls-certs:
         ant ant-remote ant-docker gen-tls-certs \
         docker-builder docker-builder-reset \
         docker-build docker-build-arm64 docker-build-amd64 docker-manifest docker-push \
-        deploy-ant deploy-queen
+        deploy-ant deploy-queen refresh-images
 

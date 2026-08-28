@@ -144,7 +144,6 @@ create_k8s_secret() {
     --from-literal=GH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}" \
     --from-literal=GH_ORG="${GH_ORG:-}" \
     --from-literal=GH_REPO="${GH_REPO:-}" \
-    --from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}" \
     --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
     --from-literal=SSH_PRIVATE_KEY="${SSH_KEY:-}" \
     --save-config --dry-run=client -o yaml | kubectl apply -f - --validate=false
@@ -389,8 +388,9 @@ if [[ "$SET_CONFIGS" == true ]]; then
   set_org_config "AnthropicComplexityHighModel" "${ANTHROPIC_COMPLEXITY_HIGH_MODEL}" "false"
   [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"        "$GIT_USER_NAME"
   [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail"       "$GIT_USER_EMAIL"
-  [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel"       "$SLACK_CHANNEL"     "false"
-  [[ -n "$STANDUP_TEAM" ]]      && set_org_config "StandupTeamMembers" "$STANDUP_TEAM"      "false"
+  [[ -n "$SLACK_CHANNEL" ]]           && set_org_config "SlackChannel"       "$SLACK_CHANNEL"        "false"
+  [[ -n "${SLACK_BOT_TOKEN:-}" ]]    && set_org_config "SlackToken"         "${SLACK_BOT_TOKEN}"    "true"
+  [[ -n "$STANDUP_TEAM" ]]           && set_org_config "StandupTeamMembers" "$STANDUP_TEAM"         "false"
   [[ -n "$JIRA_BOARDS_ARG" ]]      && set_org_config "JiraBoards"             "$JIRA_BOARDS_ARG"           "false"
   [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]   && set_org_config "ExtraSkillsRepos"       "${EXTRA_SKILLS_REPOS}"        "false"
   [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]] && set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
@@ -399,8 +399,8 @@ if [[ "$SET_CONFIGS" == true ]]; then
   ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
   echo ""
 
-  # NOTE: Slack bot/app tokens and route table are admin-level (shared across orgs).
-  # Use setup-slack-admin.sh for those — this script only handles org-level configs.
+  # NOTE: SLACK_BOT_TOKEN is stored as encrypted org config "SlackToken" (per-org).
+  # Slack app/signing tokens and route table are admin-level — use setup-slack-admin.sh.
   # See: ./docs/examples/setup-slack-admin.sh
 else
   # Auto-set org configs from environment variables when --set-configs not passed.
@@ -420,6 +420,11 @@ else
   if [[ -n "$SLACK_CHANNEL" ]]; then
     [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
     set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
+    _AUTO=true
+  fi
+  if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "SlackToken" "${SLACK_BOT_TOKEN}" "true"
     _AUTO=true
   fi
   if [[ -n "$STANDUP_TEAM" ]]; then
@@ -497,7 +502,7 @@ echo "     export JIRA_API_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export BITBUCKET_TOKEN=<token>  # or use ~/.config/acli/config.json"
 echo "     export SSH_PRIVATE_KEY=\$(cat ~/.ssh/id_rsa)"
 echo "     export BEDROCK_URL=http://ai/bedrock   # or ANTHROPIC_API_KEY for direct API"
-echo "     export SLACK_BOT_TOKEN=xoxb-...       # optional: Slack notifications"
+echo "     export SLACK_BOT_TOKEN=xoxb-...       # stored as encrypted org config SlackToken"
 echo "     $0 --create-k8s-secret --set-configs --bb-workspace myworkspace --bb-repo myrepo --bedrock --slack-channel my-channel
 #    (Org-based routing is automatic when auth is enabled — no --ant-user-tag needed)"
 echo ""

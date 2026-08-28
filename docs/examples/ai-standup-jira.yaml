@@ -3,7 +3,7 @@
 # Three tasks:
 #   gather   — pulls Jira sprint issues (with comments), Bitbucket open PRs, Slack messages
 #   synthesize — Claude + /ygs-standup + /ygs-risk-scan → standup_brief.md + risk_report.md
-#   post     — posts brief to Slack, writes standup_report.md artifact
+#   post     — posts brief to Slack, writes reports/report.md artifact
 #
 # Default cron: 8:00 AM weekdays.  Override StandupCron in org configs to change schedule.
 #
@@ -45,13 +45,14 @@ job_variables:
   # Optional: set FormicaryPublicURL to your Formicary UI base URL (e.g. https://formicary.example.com)
   # so the Slack message includes a direct link to the job's artifacts (HTML report).
   FormicaryPublicURL: ""
+  # Optional: comma-separated list of extra skill repo URLs to clone before synthesize.
+  ExtraSkillsRepos: ""
   # Injected via org/user configs (set by deploy script):
-  #   JiraUrl, JiraProject, JiraEmail*          (plain)
-  #   SlackChannel, StandupTeamMembers    (plain, optional)
+  #   JiraUrl, JiraProject                       (plain)
+  #   SlackChannel, StandupTeamMembers           (plain, optional)
   #   BitbucketWorkspace, BitbucketRepo          (plain, optional)
-  #   JiraApiToken*, SlackBotToken*              (secret)
-  #   BitbucketUsername*, BitbucketToken*        (secret, optional)
-  # * = user config
+  #   SlackToken*                                (secret — set via deploy-ai-jira-workflows.sh)
+  # * = encrypted org config
 
 tasks:
 
@@ -79,8 +80,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256M
+    memory_limit: 2G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -89,6 +90,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     JIRA_BASE_URL: "{{.JiraUrl}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     JIRA_BOARDS: "{{.JiraBoards}}"
@@ -140,6 +142,8 @@ tasks:
     - gather
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     MAX_TURNS_STANDUP: "{{.MaxTurnsStandup}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -191,6 +195,7 @@ tasks:
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
@@ -201,9 +206,7 @@ tasks:
     - python -m scripts.standup.post
   artifacts:
     paths:
-      - ./standup_report.md
-      - ./standup_report.html
-      - ./post_result.json
+      - ./reports
     when: always
     expire_after: 168h    # 7 days
   on_completed: done
@@ -227,6 +230,7 @@ tasks:
     - name: SELECTED_TRACKER
       value: jira
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     MESSAGE: ":x: Standup job failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."

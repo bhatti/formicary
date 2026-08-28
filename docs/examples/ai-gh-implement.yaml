@@ -44,6 +44,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     MAX_TURNS_PLAN: "{{.MaxTurnsPlan}}"
@@ -96,6 +97,7 @@ tasks:
     - plan
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     MAX_TURNS_IMPLEMENT: "{{.MaxTurnsImplement}}"
@@ -164,6 +166,7 @@ tasks:
     - implement
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     BASE_BRANCH: "{{.GitBranch}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -209,6 +212,7 @@ tasks:
     - self-review
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     INPROGRESS_LABEL: "{{.InProgressLabel}}"
@@ -256,6 +260,7 @@ tasks:
     - poll-pr
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
@@ -309,6 +314,7 @@ tasks:
     - name: SLACK_CHANNEL
       value: "{{.SlackChannel}}"
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JOB_TYPE: "ai-gh-implement"
@@ -356,4 +362,5 @@ job_variables:
   #   AnthropicComplexityLowModel, AnthropicComplexityHighModel (from models.env)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   GH_TOKEN, SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)
-  #   SLACK_BOT_TOKEN          (optional — enables Slack notifications)
+  # Injected via org config (encrypted — set by deploy-ai-jira-workflows.sh):
+  #   SLACK_BOT_TOKEN          (from SlackToken org config — enables Slack notifications)

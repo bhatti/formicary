@@ -60,6 +60,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     JIRA_BASE_URL: "{{.JiraUrl}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
@@ -109,13 +110,14 @@ tasks:
     - review
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
   script:
-    - python -m scripts.review.post_findings --findings /workspace/findings.json
+    - python -m scripts.review.post_findings --findings reports/findings.json
   artifacts:
     paths:
-      - ./post_result.json
+      - ./reports
     expire_after: 168h
   on_completed: done
 
@@ -141,6 +143,7 @@ tasks:
     - name: ERROR_REASON
       value: "{{.ERROR_REASON}}"
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "review"
@@ -176,7 +179,8 @@ job_variables:
   #   SlackChannel             (plain, optional)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   JIRA_EMAIL, JIRA_API_TOKEN, BITBUCKET_USERNAME, BITBUCKET_TOKEN
-  #   SLACK_BOT_TOKEN          (required for Slack posting)
   #   ANTHROPIC_API_KEY        (optional — Bedrock used by default)
+  # Injected via org config (encrypted — set by deploy-ai-jira-workflows.sh):
+  #   SLACK_BOT_TOKEN          (from SlackToken org config)
   # Set by the Formicary queen's Slack integration on submit:
   #   SlackThreadTs

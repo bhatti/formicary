@@ -79,8 +79,7 @@ done
 # ── Create K8s secret ─────────────────────────────────────────────────────────
 create_k8s_secret() {
   log "Creating/updating 'ai-dev-credentials' Kubernetes secret ..."
-  [[ -n "$GH_TOKEN" ]]    || fail "GH_TOKEN / GITHUB_TOKEN is required for --create-k8s-secret"
-  [[ -n "$SLACK_TOKEN" ]] || fail "SLACK_BOT_TOKEN is required for --create-k8s-secret"
+  [[ -n "$GH_TOKEN" ]] || fail "GH_TOKEN / GITHUB_TOKEN is required for --create-k8s-secret"
 
   kubectl create secret generic ai-dev-credentials \
     --from-literal=JIRA_BASE_URL="${JIRA_BASE_URL:-}" \
@@ -93,7 +92,6 @@ create_k8s_secret() {
     --from-literal=GH_TOKEN="${GH_TOKEN}" \
     --from-literal=GH_ORG="${GH_ORG:-}" \
     --from-literal=GH_REPO="${GH_REPO:-}" \
-    --from-literal=SLACK_BOT_TOKEN="${SLACK_TOKEN}" \
     --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
     --from-literal=SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-}" \
     --save-config --dry-run=client -o yaml | kubectl apply -f -
@@ -193,6 +191,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   set_org_config "GHOrg"               "$GH_ORG"       "false"
   set_org_config "GHRepo"              "$GH_REPO"      "false"
   set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
+  [[ -n "$SLACK_TOKEN" ]] && set_org_config "SlackToken" "$SLACK_TOKEN" "true"
   [[ -n "$STANDUP_TEAM_MEMBERS" ]] && set_org_config "StandupTeamMembers" "$STANDUP_TEAM_MEMBERS" "false"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK" "false"

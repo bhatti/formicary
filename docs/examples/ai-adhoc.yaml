@@ -62,6 +62,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     GH_ORG: "{{.GitHubOrg}}"
@@ -142,6 +143,7 @@ tasks:
       value: "{{.DefaultTracker}}"
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "{{.Skill}}"
@@ -174,6 +176,7 @@ tasks:
     - name: SELECTED_TRACKER
       value: "{{.DefaultTracker}}"
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "{{.Skill}}"

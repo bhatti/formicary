@@ -188,10 +188,12 @@ refresh_dnat() {
 
 if [[ "$ROLLOUT_RESTART" == true ]]; then
   [[ -n "$QUEEN_IP" ]] || fail "--restart requires QUEEN_IP (or --queen-ip)"
-  IMG="docker.io/plexobject/formicary:${FORMICARY_VERSION}"
-  log "Deploying version ${FORMICARY_VERSION} — pulling ${IMG} via crictl"
+  IMG="docker.io/plexobject/formicary:latest"
+  log "Deploying latest — pulling ${IMG} via crictl"
   $SSH_CMD "
     set -e
+    echo '  Removing cached latest digest to force re-pull...'
+    sudo crictl rmi '${IMG}' 2>/dev/null || true
     echo '  Pulling ${IMG}...'
     sudo crictl pull '${IMG}'
     echo '  Setting deployment image to ${IMG}'
@@ -200,7 +202,7 @@ if [[ "$ROLLOUT_RESTART" == true ]]; then
     KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl rollout status deployment/formicary --timeout=120s
   "
   refresh_dnat
-  ok "Queen deployed at version ${FORMICARY_VERSION}"
+  ok "Queen deployed (latest)"
   kubectl get pods -l app=formicary
 
   _FURL="${FORMICARY_URL:-https://${QUEEN_IP}.nip.io}"

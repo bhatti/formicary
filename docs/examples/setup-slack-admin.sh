@@ -27,8 +27,9 @@
 # Slack token roles:
 #   SLACK_APP_TOKEN (xapp-...): used ONLY by the queen server for Socket Mode.
 #     Never share with ant workers or regular users.
-#   SLACK_BOT_TOKEN (xoxb-...): used by the queen for posting messages, AND by
-#     ant workers for job notifications. Share this with users running setup-ant-worker.sh.
+#   SLACK_BOT_TOKEN (xoxb-...): used by the queen for posting messages (stored in
+#     formicary-slack k8s secret + SLACK/BotToken SystemConfig). AI workflow job containers
+#     get the same token via the "SlackToken" org config set by deploy-ai-jira-workflows.sh.
 #
 set -euo pipefail
 

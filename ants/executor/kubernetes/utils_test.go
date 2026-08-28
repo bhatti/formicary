@@ -177,3 +177,18 @@ func Test_ShouldUsePerTaskServiceAccount(t *testing.T) {
 	// nil opts: fall back to worker default safely
 	require.Equal(t, "default-worker-sa", resolveServiceAccount(config, nil))
 }
+
+func Test_ShouldExtractSHA256(t *testing.T) {
+	// Full docker-pullable ImageID format
+	require.Equal(t, "sha256:abc123def456",
+		extractSHA256("docker-pullable://docker.io/plexobject/ai-dev-tools@sha256:abc123def456"))
+
+	// Bare sha256 format
+	require.Equal(t, "sha256:abc123def456", extractSHA256("sha256:abc123def456"))
+
+	// Image with tag but no digest — no sha256 present
+	require.Equal(t, "", extractSHA256("docker.io/plexobject/ai-dev-tools:latest"))
+
+	// Empty string
+	require.Equal(t, "", extractSHA256(""))
+}

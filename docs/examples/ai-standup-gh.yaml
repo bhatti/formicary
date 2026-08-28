@@ -38,6 +38,8 @@ job_variables:
   # Optional: set FormicaryPublicURL to your Formicary UI base URL (e.g. https://formicary.example.com)
   # so the Slack message includes a direct link to the job's artifacts (HTML report).
   FormicaryPublicURL: ""
+  # Optional: comma-separated list of extra skill repo URLs to clone before synthesize.
+  ExtraSkillsRepos: ""
 
 tasks:
 
@@ -64,6 +66,9 @@ tasks:
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 2G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -72,6 +77,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     GH_ORG: "{{.GHOrg}}"
     GH_REPO: "{{.GHRepo}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
@@ -107,6 +113,9 @@ tasks:
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 3G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -117,6 +126,8 @@ tasks:
     - gather
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     MAX_TURNS_STANDUP: "{{.MaxTurnsStandup}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
@@ -168,6 +179,7 @@ tasks:
     - synthesize
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
@@ -178,9 +190,7 @@ tasks:
     - python -m scripts.standup.post
   artifacts:
     paths:
-      - ./standup_report.md
-      - ./standup_report.html
-      - ./post_result.json
+      - ./reports
     when: always
     expire_after: 168h
   on_completed: done
@@ -204,6 +214,7 @@ tasks:
     - name: SELECTED_TRACKER
       value: github
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     MESSAGE: ":x: Standup job failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."

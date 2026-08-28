@@ -713,6 +713,12 @@ func (re *RequestExecutorImpl) updateResponseContext(
 	taskResp.Host, _ = os.Hostname()
 	taskResp.AddContext("Image", taskReq.ExecutorOpts.MainContainer.Image)
 	taskResp.AddContext("HelperImage", taskReq.ExecutorOpts.HelperContainer.Image)
+	if sha := container.GetImageSHA(); sha != "" {
+		taskResp.AddContext("ImageSHA", sha)
+	}
+	if sha := container.GetHelperImageSHA(); sha != "" {
+		taskResp.AddContext("HelperImageSHA", sha)
+	}
 	if taskReq.ExecutorOpts.Method == types.Kubernetes {
 		taskResp.AddContext("Namespace", re.antCfg.Kubernetes.Namespace)
 		if re.antCfg.Kubernetes.Host != "" {

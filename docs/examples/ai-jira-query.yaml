@@ -64,6 +64,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JIRA_BASE_URL: "{{.JiraUrl}}"
@@ -149,6 +150,7 @@ tasks:
     - name: SELECTED_TRACKER
       value: "{{.DefaultTracker}}"
   environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     MESSAGE: ":x: Issue query failed. Check Formicary logs."

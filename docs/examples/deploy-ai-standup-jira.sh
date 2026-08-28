@@ -173,8 +173,6 @@ create_k8s_secret() {
   [[ -n "$JIRA_URL" ]]       || fail "JIRA_BASE_URL (or --jira-url) is required for --create-k8s-secret"
   [[ -n "$JIRA_EMAIL" ]]     || fail "JIRA_EMAIL is required for --create-k8s-secret"
   [[ -n "$JIRA_API_TOKEN" ]] || fail "JIRA_API_TOKEN is required for --create-k8s-secret"
-  [[ -n "$SLACK_TOKEN" ]]    || fail "SLACK_BOT_TOKEN is required for --create-k8s-secret"
-
   kubectl create secret generic ai-dev-credentials \
     --from-literal=JIRA_BASE_URL="${JIRA_URL}" \
     --from-literal=JIRA_EMAIL="${JIRA_EMAIL}" \
@@ -186,7 +184,6 @@ create_k8s_secret() {
     --from-literal=GH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}" \
     --from-literal=GH_ORG="${GH_ORG:-}" \
     --from-literal=GH_REPO="${GH_REPO:-}" \
-    --from-literal=SLACK_BOT_TOKEN="${SLACK_TOKEN}" \
     --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
     --from-literal=SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-}" \
     --save-config --dry-run=client -o yaml | kubectl apply -f -
@@ -256,6 +253,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   # JiraProject is optional — Python gather script auto-discovers it via the Jira API.
   [[ -n "$JIRA_PROJECT" ]] && set_org_config "JiraProject" "$JIRA_PROJECT" "false"
   set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
+  [[ -n "$SLACK_TOKEN" ]] && set_org_config "SlackToken" "$SLACK_TOKEN" "true"
   [[ -n "$BB_WORKSPACE" ]]          && set_org_config "BitbucketWorkspace"  "$BB_WORKSPACE"          "false"
   [[ -n "$BB_REPO" ]]               && set_org_config "BitbucketRepo"       "$BB_REPO"               "false"
   [[ -n "$STANDUP_TEAM_MEMBERS" ]]  && set_org_config "StandupTeamMembers"  "$STANDUP_TEAM_MEMBERS"  "false"

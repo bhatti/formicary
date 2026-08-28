@@ -88,6 +88,10 @@ data:
         namespace: "default"
         allow_privilege_escalation: true
         dns_policy: cluster-first-with-host-net
+        dns_config:
+            nameservers:
+                - 8.8.8.8
+                - 8.8.4.4
         registry:
             pull_policy: if-not-present
         default_resources:
@@ -153,7 +157,8 @@ spec:
               cpu: "200m"
               memory: "512Mi"
             limits:
-              memory: "1Gi"
+              cpu: "2"
+              memory: "2Gi"
           volumeMounts:
             - name: config-template
               mountPath: /config-template
