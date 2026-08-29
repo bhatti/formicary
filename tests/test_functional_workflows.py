@@ -350,16 +350,84 @@ def test_connectivity(token, base_url, timeout):
     return _run_job("connectivity", "ai-connectivity-check", params, token, base_url, timeout)
 
 
+def test_ask(token, base_url, timeout):
+    """ygs-ask: general Q&A — no live data needed; verifies skill loads and terminates cleanly."""
+    params = {
+        **_base_params(),
+        "Skill": "ygs-ask",
+        "Prompt": "What is a Kubernetes pod and how does it differ from a container?",
+        "MaxTurnsAdhoc": "5",
+        "MaxClaudeProcessTimeout": "270",
+    }
+    return _run_job("ask", "ai-adhoc", params, token, base_url, timeout)
+
+
+def test_ask_jira(token, base_url, timeout):
+    """ygs-ask Phase 1: fetch a Jira issue and verify PHASE1_FETCHED context key is set.
+
+    Requires JIRA_ISSUE env var (e.g. 'PROJ-123') and Jira credentials in ai-dev-credentials.
+    """
+    issue = os.environ.get("JIRA_ISSUE", "")
+    if not issue:
+        r = TestResult("ask-jira")
+        r.passed = True
+        r.message = "SKIPPED — set JIRA_ISSUE env to enable"
+        return r
+
+    params = {
+        **_base_params(),
+        "Skill": "ygs-ask",
+        "Prompt": f"Summarize issue {issue}",
+        "MaxTurnsAdhoc": "10",
+        "MaxClaudeProcessTimeout": "540",
+    }
+
+    def validate(status):
+        return validate_task_context(status, token, base_url, ["PHASE1_FETCHED"])
+
+    return _run_job("ask-jira", "ai-adhoc", params, token, base_url, timeout, validate_fn=validate)
+
+
+def test_skill_analyze(token, base_url, timeout):
+    """ygs-analyze: deep code analysis — verify REPO_CLONED and ANALYSIS_COMPLETE context keys.
+
+    Requires GH_TOKEN + GH_ORG/GH_REPO in ai-dev-credentials K8s secret.
+    Skipped when GH_ORG is not configured.
+    """
+    gh_org = os.environ.get("GH_ORG", "")
+    if not gh_org:
+        r = TestResult("skill-analyze")
+        r.passed = True
+        r.message = "SKIPPED — set GH_ORG env to enable"
+        return r
+
+    params = {
+        **_base_params(),
+        "Skill": "ygs-analyze",
+        "Prompt": "Run static analysis (unused imports, complexity) on test files",
+        "MaxTurnsAdhoc": "20",
+        "MaxClaudeProcessTimeout": "900",
+    }
+
+    def validate(status):
+        return validate_task_context(status, token, base_url, ["REPO_CLONED", "ANALYSIS_COMPLETE"])
+
+    return _run_job("skill-analyze", "ai-adhoc", params, token, base_url, timeout, validate_fn=validate)
+
+
 # ── Registry ─────────────────────────────────────────────────────────────────
 
 ALL_TESTS = {
-    "standup":      test_standup,
-    "jira-query":   test_jira_query,
-    "analyze":      test_analyze,
-    "risks":        test_risks,
-    "prs":          test_prs,
-    "review":       test_review,
-    "connectivity": test_connectivity,
+    "standup":       test_standup,
+    "jira-query":    test_jira_query,
+    "analyze":       test_analyze,
+    "risks":         test_risks,
+    "prs":           test_prs,
+    "review":        test_review,
+    "connectivity":  test_connectivity,
+    "ask":           test_ask,
+    "ask-jira":      test_ask_jira,
+    "skill-analyze": test_skill_analyze,
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────

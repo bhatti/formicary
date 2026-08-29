@@ -376,6 +376,19 @@ Via Slack:
 
 Deployed automatically by both `deploy-ai-workflows.sh` and `deploy-ai-jira-workflows.sh`.
 
+**Key job variables** (configure via org configs or per-job params):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MaxTurnsAdhoc` | `50` | Max Claude turns; cap per skill to keep runtime predictable |
+| `MaxClaudeProcessTimeout` | `1350` | Kill Claude process after N seconds (task timeout is 1500s = 25m; buffer is 150s) |
+| `GitHubOrg` | `""` | GitHub org — forwarded to the skill as `$GH_ORG` |
+| `GitHubRepo` | `""` | GitHub repo — forwarded to the skill as `$GH_REPO` |
+| `ExtraSkillsRepos` | `""` | Extra skill repos to install (comma-separated URLs or `skills-cli:org/repo`) |
+| `CodebaseRepoUrl` | `""` | Optional: shallow-clone a repo into `/workspace/repo` before the skill runs |
+
+**Why `MaxClaudeProcessTimeout` matters:** without it, the Claude CLI process runs until the task timeout fires (25 minutes), with no graceful shutdown. Setting it to `task_timeout - 150s` lets Claude finish its current turn and write the status JSON before the container is killed.
+
 ---
 
 ### Slack Integration (built into the queen — no separate pod)

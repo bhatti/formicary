@@ -99,6 +99,10 @@ data:
             memoryRequest: "512Mi"
             cpuLimit: "2"
             memoryLimit: "2Gi"
+        max_limits:
+            memory: "8G"
+            cpu: "8"
+            ephemeral-storage: "8G"
 
 ---
 apiVersion: apps/v1

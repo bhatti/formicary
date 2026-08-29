@@ -6,7 +6,7 @@
 #   refresh-node-images.sh [--node NODE] [--namespace NS] [--images IMG,IMG,...] [--no-restart]
 #
 # DEFAULTS
-#   --node      desktop-control-plane
+#   --node      auto-detected (first node returned by kubectl get nodes)
 #   --namespace default
 #   --images    plexobject/formicary:latest,plexobject/ai-dev-tools:latest
 #
@@ -22,7 +22,7 @@ ok()   { printf "  ✓ %s\n" "$*"; }
 warn() { printf "  ⚠ %s\n" "$*" >&2; }
 fail() { printf "  ✗ ERROR: %s\n" "$*" >&2; exit 1; }
 
-NODE="${NODE:-desktop-control-plane}"
+NODE="${NODE:-}"
 NAMESPACE="${NAMESPACE:-default}"
 IMAGES="${IMAGES:-plexobject/formicary:latest,plexobject/ai-dev-tools:latest}"
 NO_RESTART=false
@@ -42,8 +42,24 @@ done
 
 IFS=',' read -ra IMAGE_LIST <<< "$IMAGES"
 
+# Clean up any leftover img-purge/img-pull pods from previous interrupted runs
+kubectl get pods --namespace="${NAMESPACE}" -o name 2>/dev/null \
+  | grep -E 'pod/img-(purge|pull)-' \
+  | xargs -r kubectl delete --namespace="${NAMESPACE}" --ignore-not-found 2>/dev/null || true
+
+# Auto-detect node name if not supplied (works for single-node k3s clusters)
+if [[ -z "${NODE}" ]]; then
+  NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+  if [[ -z "${NODE}" ]]; then
+    fail "Could not detect node name. Pass --node <name> explicitly."
+  fi
+  log "Auto-detected node: ${NODE}"
+fi
+
 # ── Helper: run a privileged pod, wait for completion, print logs, delete ──────
 # Usage: _run_privileged_pod POD_NAME CMD TIMEOUT_SECS
+# Strategy: mount host root at /host so we can chroot into it and run the
+# node's own crictl binary + config (k3s writes /etc/crictl.yaml on the host).
 _run_privileged_pod() {
   local POD="$1" CMD="$2" TIMEOUT="${3:-90}"
 
@@ -64,9 +80,15 @@ _run_privileged_pod() {
       "image": "alpine:latest",
       "command": ["sh", "-c", "${CMD}"],
       "securityContext": {"privileged": true},
-      "volumeMounts": [{"name": "run", "mountPath": "/run"}]
+      "volumeMounts": [
+        {"name": "host", "mountPath": "/host"},
+        {"name": "run",  "mountPath": "/host/run"}
+      ]
     }],
-    "volumes": [{"name": "run", "hostPath": {"path": "/run"}}],
+    "volumes": [
+      {"name": "host", "hostPath": {"path": "/"}},
+      {"name": "run",  "hostPath": {"path": "/run"}}
+    ],
     "tolerations": [{"operator": "Exists"}]
   }
 }
@@ -113,7 +135,7 @@ log "  Images: ${IMAGES}"
 PURGE_CMD=""
 for img in "${IMAGE_LIST[@]}"; do
   img="${img// /}"
-  PURGE_CMD="${PURGE_CMD}echo '  removing ${img}...'; crictl rmi '${img}' 2>/dev/null && echo '  removed: ${img}' || echo '  not cached (ok): ${img}'; "
+  PURGE_CMD="${PURGE_CMD}echo '  removing ${img}...'; chroot /host crictl rmi '${img}' 2>/dev/null && echo '  removed: ${img}' || echo '  not cached (ok): ${img}'; "
 done
 PURGE_CMD="${PURGE_CMD}echo 'purge done'"
 
@@ -130,7 +152,7 @@ log "Step 2: Force-pulling fresh images on node '${NODE}'..."
 PULL_CMD=""
 for img in "${IMAGE_LIST[@]}"; do
   img="${img// /}"
-  PULL_CMD="${PULL_CMD}echo '  pulling ${img}...'; crictl pull '${img}' && echo '  pulled: ${img}' || echo '  WARN: pull failed for ${img}'; "
+  PULL_CMD="${PULL_CMD}echo '  pulling ${img}...'; chroot /host crictl pull '${img}' && echo '  pulled: ${img}' || echo '  WARN: pull failed for ${img}'; "
 done
 PULL_CMD="${PULL_CMD}echo 'pull done'"
 

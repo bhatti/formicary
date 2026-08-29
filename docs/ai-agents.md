@@ -273,6 +273,62 @@ Claude Code tasks embed skill instructions directly in the prompt. If `you-got-s
 | fix-tests | ygs-investigate | Root-cause debugging, not symptom masking |
 | review | ygs-code-review | Two-pass review: critical first, informational second |
 | create-pr | ygs-ship | PR creation with rich metadata |
+| adhoc (Q&A) | ygs-ask | General Q&A with two-phase context enrichment (issue fetch → sparse clone) |
+| adhoc (deep analysis) | ygs-analyze | Evidence-based code analysis: flaky tests, coverage, static analysis |
+
+#### ygs-ask — Two-Phase Context Enrichment
+
+`ygs-ask` minimizes token usage by fetching only what the question needs:
+
+**Phase 1 (always):** fetch the linked issue (Jira/GitHub) and PR diff (up to 40k chars). Emits `PHASE1_FETCHED` task context key. If Phase 1 is sufficient to answer the question, it stops here.
+
+**Phase 2 (only when code context is needed):** sparse-clone the 1–3 most relevant paths identified from the diff. Triggers when the question asks "how does X work", "show me the code for", or references file paths not visible in the diff. Emits `REPO_CLONED` and `REPO_CLONED_PATHS` task context keys.
+
+Auth is automatic:
+- Bitbucket ATATT tokens → `x-token-auth:$TOKEN@` in clone URL; `Bearer $TOKEN` for REST API
+- Bitbucket app passwords → `$BITBUCKET_USERNAME:$TOKEN@` in clone URL
+- GitHub → `x-access-token:$GH_TOKEN@github.com` (not `x-token-auth` which is Bitbucket-specific)
+
+```bash
+# Trigger via Slack
+@ai-agent ask how does the retry logic in the billing service work?
+
+# Trigger via curl
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-adhoc","params":{"Skill":"ygs-ask","Prompt":"tldr PROJ-1234"}}'
+```
+
+#### ygs-analyze — Evidence-Based Code Analysis
+
+`ygs-analyze` always clones the repo and runs the code — it never just reads it. Use it for:
+
+- **Flaky test detection**: runs the test N times (default 10), classifies failures as timing/order/resource-dependent
+- **Static analysis**: ruff/vulture (Python), ts-prune/depcheck (JS), staticcheck (Go)
+- **Test coverage**: pytest --cov, go test -coverprofile
+- **Performance benchmarks**: pytest-benchmark, go test -bench
+
+Emits task context keys throughout: `REPO_CLONED`, `ANALYSIS_TYPE`, `FINDINGS_COUNT`, `ANALYSIS_COMPLETE`. Writes `reports/analysis.md` (full findings with file:line refs) and `reports/summary.txt` (one paragraph for Slack).
+
+```bash
+# Run flaky test analysis
+@ai-agent ask find flaky tests in tests/billing/
+
+# Trigger via curl with specific paths
+curl -sk -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  -d '{"job_type":"ai-adhoc","params":{"Skill":"ygs-analyze","Prompt":"find unused imports in src/","MaxTurnsAdhoc":"20","MaxClaudeProcessTimeout":"900"}}'
+```
+
+**Choosing between skills:**
+
+| Question type | Use skill |
+|---------------|-----------|
+| "What does PROJ-123 mean?" / "tldr this PR" | `ygs-ask` (Phase 1 only) |
+| "How does function X work?" | `ygs-ask` (Phase 2) |
+| "Is test Y flaky?" / "Run the test suite" | `ygs-analyze` |
+| "Find unused code in module Z" | `ygs-analyze` |
+| "Fix the bug in issue X" | `ygs-investigate` |
 
 ---
 

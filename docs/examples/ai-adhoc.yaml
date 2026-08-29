@@ -52,8 +52,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 4Gi
-    memory_request: 1Gi
+    memory_limit: 4G
+    memory_request: 1G
     volumes:
       empty_dir:
         - name: workspace
