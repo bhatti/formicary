@@ -298,3 +298,12 @@ func (e *BaseExecutor) GetImageSHA() string {
 func (e *BaseExecutor) GetHelperImageSHA() string {
 	return e.HelperImageSHA
 }
+
+// ExtractSHA256 pulls the "sha256:<hex>" token out of an image identifier string
+// (e.g. a Docker RepoDigest or a Kubernetes ContainerStatus.ImageID).
+func ExtractSHA256(imageID string) string {
+	if idx := strings.Index(imageID, "sha256:"); idx >= 0 {
+		return imageID[idx:]
+	}
+	return ""
+}

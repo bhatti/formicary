@@ -76,6 +76,16 @@ func NewDockerExecutor(
 
 	exec.Name = opts.Name
 
+	// Capture image digests from the registry (best-effort; does not fail the executor).
+	if digest, err := adapter.InspectImage(ctx, opts.MainContainer.Image); err == nil && digest != "" {
+		exec.BaseExecutor.ImageSHA = executor.ExtractSHA256(digest)
+	}
+	if opts.HelperContainer.Image != "" {
+		if digest, err := adapter.InspectImage(ctx, opts.HelperContainer.Image); err == nil && digest != "" {
+			exec.BaseExecutor.HelperImageSHA = executor.ExtractSHA256(digest)
+		}
+	}
+
 	hostName, _ := os.Hostname()
 	_ = base.WriteTrace(ctx, fmt.Sprintf(
 		"[%s DOCKER %s] ✅ running with formicary %s on %s",

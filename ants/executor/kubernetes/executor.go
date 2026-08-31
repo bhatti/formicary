@@ -291,7 +291,7 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 	// ImageID is formatted as "docker-pullable://registry/repo@sha256:<digest>" or just "sha256:<digest>".
 	helperName := ke.BaseExecutor.GetHelperName()
 	for _, cs := range status.containerStatuses {
-		digest := extractSHA256(cs.ImageID)
+		digest := executor.ExtractSHA256(cs.ImageID)
 		if digest == "" {
 			continue
 		}
@@ -305,13 +305,6 @@ func (ke *Executor) ensurePodsConfigured() (err error) {
 	return nil
 }
 
-// extractSHA256 pulls the "sha256:<hex>" token out of a container ImageID string.
-func extractSHA256(imageID string) string {
-	if idx := strings.Index(imageID, "sha256:"); idx >= 0 {
-		return imageID[idx:]
-	}
-	return ""
-}
 
 // doAsyncExecute - executing command by kubernetes executor
 func (ke *Executor) doAsyncExecute(

@@ -57,6 +57,7 @@ type Adapter interface {
 		helper bool) (ExecuteInfo, error)
 	GetLogs(ctx context.Context, name string, waitForNotRunning bool) (io.ReadCloser, error)
 	GetRuntimeInfo(ctx context.Context, container string) string
+	InspectImage(ctx context.Context, imageName string) (string, error)
 }
 
 // Utils defines helper methods using docker API
@@ -549,6 +550,18 @@ func (u *Utils) GetStatus() map[string]interface{} {
 	}
 
 	return status
+}
+
+// InspectImage returns the first RepoDigest for the given image name (e.g. "repo@sha256:...").
+func (u *Utils) InspectImage(ctx context.Context, imageName string) (string, error) {
+	info, err := u.cli.ImageInspect(ctx, imageName)
+	if err != nil {
+		return "", err
+	}
+	if len(info.RepoDigests) > 0 {
+		return info.RepoDigests[0], nil
+	}
+	return "", nil
 }
 
 // Helper methods
