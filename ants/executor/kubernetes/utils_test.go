@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	api "k8s.io/api/core/v1"
+	"plexobject.com/formicary/ants/executor"
 	"plexobject.com/formicary/internal/ant_config"
 	domain "plexobject.com/formicary/internal/types"
 )
@@ -181,14 +182,14 @@ func Test_ShouldUsePerTaskServiceAccount(t *testing.T) {
 func Test_ShouldExtractSHA256(t *testing.T) {
 	// Full docker-pullable ImageID format
 	require.Equal(t, "sha256:abc123def456",
-		extractSHA256("docker-pullable://docker.io/plexobject/ai-dev-tools@sha256:abc123def456"))
+		executor.ExtractSHA256("docker-pullable://docker.io/plexobject/ai-dev-tools@sha256:abc123def456"))
 
 	// Bare sha256 format
-	require.Equal(t, "sha256:abc123def456", extractSHA256("sha256:abc123def456"))
+	require.Equal(t, "sha256:abc123def456", executor.ExtractSHA256("sha256:abc123def456"))
 
 	// Image with tag but no digest — no sha256 present
-	require.Equal(t, "", extractSHA256("docker.io/plexobject/ai-dev-tools:latest"))
+	require.Equal(t, "", executor.ExtractSHA256("docker.io/plexobject/ai-dev-tools:latest"))
 
 	// Empty string
-	require.Equal(t, "", extractSHA256(""))
+	require.Equal(t, "", executor.ExtractSHA256(""))
 }

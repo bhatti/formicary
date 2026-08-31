@@ -143,11 +143,14 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	zipCmd := fmt.Sprintf("cd %s && ls -l && python3 -m zipfile -c %s %s && python3 -m zipfile -l %s",
 		dir, zipFile, names.String(), zipFile)
 
+	// Run zip and sha in the MAIN container: it has python3 and sha256sum, and the
+	// artifacts dir is accessible there. The helper container (aws-cli) has neither
+	// python3 nor sha256sum, and its 256Mi memory limit makes it unsuitable for zipping.
 	var stdout, stderr []byte
 	if stdout, stderr, _, _, err = t.execute(
 		ctx,
 		zipCmd,
-		true); err != nil {
+		false); err != nil {
 		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %w, stderr=%s",
 			zipFile, zipCmd, err, string(stderr))
 	}
@@ -158,7 +161,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	if stdout, stderr, _, _, err = t.execute(
 		ctx,
 		shaCmd,
-		true); err != nil {
+		false); err != nil {
 		return nil, fmt.Errorf("failed to zip artifacts %s [%s] due to %w, stderr=%s",
 			zipFile, shaCmd, err, string(stderr))
 	}
@@ -227,21 +230,25 @@ func (t *ArtifactTransferHelperContainer) DownloadArtifact(
 	ctx context.Context,
 	extractedDir string,
 	id string) (err error) {
-	// TODO verify download/upload
-	cmds := []string{
-		// endpoint is $AWS_URL
-		fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url %s cp s3://%s/%s all_artifacts.zip && ls -l all_artifacts.zip",
-			extractedDir, t.antCfg.Common.S3.BuildContainerEndpoint(), t.antCfg.Common.S3.Bucket, id),
-		fmt.Sprintf("python3 -m zipfile -e all_artifacts.zip %s", extractedDir),
-		fmt.Sprintf("rm all_artifacts.zip && find %s | head -10", extractedDir),
+	// Download via aws CLI in the helper container, then extract with python3 in the
+	// main container (which has python3). The zip is written to extractedDir so both
+	// containers see it through the shared workspace volume.
+	zipPath := filepath.Join(extractedDir, "all_artifacts.zip")
+
+	downloadCmd := fmt.Sprintf("mkdir -p %s && aws s3 --endpoint-url %s cp s3://%s/%s %s && ls -l %s",
+		extractedDir, t.antCfg.Common.S3.BuildContainerEndpoint(), t.antCfg.Common.S3.Bucket, id, zipPath, zipPath)
+	if _, stderr, _, _, err := t.execute(ctx, downloadCmd, true); err != nil {
+		return fmt.Errorf("failed to download dependent artifact '%s' due to %w, stderr=%s",
+			id, err, string(stderr))
 	}
 
-	for _, cmd := range cmds {
-		if _, stderr, _, _, err := t.execute(
-			ctx,
-			cmd,
-			true); err != nil {
-			return fmt.Errorf("failed to download dependent artifact '%s' due to %w, stderr=%s",
+	// Extract and clean up in the main container (has python3; shares the workspace volume).
+	for _, cmd := range []string{
+		fmt.Sprintf("python3 -m zipfile -e %s %s", zipPath, extractedDir),
+		fmt.Sprintf("rm %s && find %s | head -10", zipPath, extractedDir),
+	} {
+		if _, stderr, _, _, err := t.execute(ctx, cmd, false); err != nil {
+			return fmt.Errorf("failed to extract dependent artifact '%s' due to %w, stderr=%s",
 				id, err, string(stderr))
 		}
 	}
