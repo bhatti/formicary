@@ -725,7 +725,10 @@ func (kc *KubernetesConfig) Validate() error {
 		kc.MinLimits, _ = utils.CreateResourceList("0.1", "100m", "100m")
 	}
 	if kc.MaxLimits == nil {
-		kc.MaxLimits, _ = utils.CreateResourceList("2.0", "4G", "2G")
+		// api.ResourceList is not decodable by viper/mapstructure from string values,
+		// so max_limits in the config file is silently ignored. Use a sensible default
+		// that matches the typical k8s node capacity for AI workloads.
+		kc.MaxLimits, _ = utils.CreateResourceList("8.0", "8G", "8G")
 	}
 	if kc.MaxServicesPerPod <= 0 {
 		kc.MaxServicesPerPod = 100

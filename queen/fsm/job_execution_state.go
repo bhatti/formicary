@@ -1008,6 +1008,10 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 	if jsm.JobDefinition != nil {
 		cfg := jsm.JobDefinition.GetDynamicConfigAndVariables(nil)
 		for k, v := range cfg {
+			// Don't let an empty YAML default overwrite a non-empty org/user config.
+			if existing, ok := res[k]; ok && fmt.Sprintf("%v", existing.Value) != "" && fmt.Sprintf("%v", v.Value) == "" {
+				continue
+			}
 			res[k] = v
 		}
 	}

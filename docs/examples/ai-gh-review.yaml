@@ -111,6 +111,8 @@ tasks:
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
   script:
     - python -m scripts.review.post_findings --findings reports/findings.json
   artifacts:
