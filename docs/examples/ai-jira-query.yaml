@@ -24,6 +24,12 @@ variables:
   Mode:
     type: STRING
     required: false
+  GitHubOrg:
+    type: STRING
+    required: false
+  GitHubRepo:
+    type: STRING
+    required: false
 
 tasks:
 # --- QUERY -------------------------------------------------------------------
@@ -108,19 +114,20 @@ tasks:
       QUERY_ARG="${QUERY:-${ISSUES}}"
 
       if [ "${MODE}" = "analyze" ]; then
+        PROMPT_ARG="${QUERY:-$ISSUES}"
         if [ "$TRACKER" = "github" ]; then
           # GitHub analyze — fetch by issue numbers or query
           if [ -n "$ISSUES" ]; then
-            python -m scripts.gh.analyze_issues --issues "$ISSUES" --max "$MAX_RESULTS"
+            python -m scripts.gh.analyze_issues --issues "$ISSUES" --prompt "$PROMPT_ARG" --max "$MAX_RESULTS"
           else
-            python -m scripts.gh.analyze_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+            python -m scripts.gh.analyze_issues --query "$QUERY_ARG" --prompt "$PROMPT_ARG" --max "$MAX_RESULTS"
           fi
         else
           # Jira analyze — fetch by issue keys or JQL
           if [ -n "$ISSUES" ]; then
-            python -m scripts.jira.analyze_issues --issues "$ISSUES" --max "$MAX_RESULTS"
+            python -m scripts.jira.analyze_issues --issues "$ISSUES" --prompt "$PROMPT_ARG" --max "$MAX_RESULTS"
           else
-            python -m scripts.jira.analyze_issues --query "$QUERY_ARG" --max "$MAX_RESULTS"
+            python -m scripts.jira.analyze_issues --query "$QUERY_ARG" --prompt "$PROMPT_ARG" --max "$MAX_RESULTS"
           fi
         fi
       elif [ "$TRACKER" = "github" ]; then
@@ -190,5 +197,7 @@ job_variables:
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   BitbucketUsername: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
   # Injected via org configs: JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo, BitbucketUsername, GitHubOrg, GitHubRepo
   # Injected from 'ai-dev-credentials' secret: JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN

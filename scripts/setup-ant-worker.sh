@@ -362,6 +362,36 @@ if ! ${SKIP_WORKER}; then
     warn "pod not ready after 120s — pod may still be starting; run: kubectl get pods -n ${NAMESPACE}"
   fi
 
+  # Pre-pull the job container image to flush any stale cached image on the node.
+  # Runs a one-shot pod with imagePullPolicy=Always so Kubernetes fetches the latest
+  # manifest from the registry before any jobs execute.
+  if ! ${DRY_RUN}; then
+    printf "\n"
+    log "Step 5: Flushing stale job image on k8s node (${AI_DEV_TOOLS_IMAGE})..."
+    kubectl delete pod formicary-image-flush --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
+    kubectl run formicary-image-flush \
+      --image="${AI_DEV_TOOLS_IMAGE}" \
+      --image-pull-policy=Always \
+      --restart=Never \
+      --namespace="${NAMESPACE}" \
+      --command -- python3 -c "print('image ok')" 2>/dev/null \
+    && {
+      log "Waiting for image pull to complete (up to 120s)..."
+      # Wait for pod to reach Succeeded phase (exits when pull + run complete)
+      _FLUSH_DEADLINE=$(( $(date +%s) + 120 ))
+      while [[ $(date +%s) -lt $_FLUSH_DEADLINE ]]; do
+        _PHASE=$(kubectl get pod formicary-image-flush --namespace="${NAMESPACE}" \
+          -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        case "${_PHASE}" in
+          Succeeded) ok "Job image pre-pulled: ${AI_DEV_TOOLS_IMAGE}"; break ;;
+          Failed)    warn "Image pull pod failed — image may be stale"; break ;;
+        esac
+        sleep 5
+      done
+      kubectl delete pod formicary-image-flush --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
+    } || warn "Could not create image-flush pod — jobs will pull image on first run"
+  fi
+
 fi  # SKIP_WORKER
 
 # ── Credentials setup ─────────────────────────────────────────────────────────

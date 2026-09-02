@@ -402,6 +402,24 @@ for f in "${YAMLS[@]}"; do
   upload "$f"
 done
 
+# ── Optional: push Slack route table ──────────────────────────────────────────
+if [[ "$SET_SLACK_ROUTES" == true ]]; then
+  log "Pushing Slack route table ..."
+  DEFAULT_SLACK_ROUTES='[
+    {"triggers":["standup","status","daily"],"job_type":"ai-standup-jira","description":"Daily standup brief"},
+    {"triggers":["analyze","analyse","jira-analyze","deep-dive"],"job_type":"ai-jira-query","id_var":"Query","params":{"Mode":"analyze"},"description":"Deep issue/code analysis"},
+    {"triggers":["gh-analyze","github-analyze"],"job_type":"ai-jira-query","id_var":"Query","params":{"Mode":"analyze","DefaultTracker":"github"},"description":"GitHub deep analysis"},
+    {"triggers":["jira-query","qjira","query","search","find"],"job_type":"ai-jira-query","id_var":"Query","description":"Search Jira issues"},
+    {"triggers":["gh-query","github-query"],"job_type":"ai-jira-query","id_var":"Query","params":{"DefaultTracker":"github"},"description":"Search GitHub issues"},
+    {"triggers":["implement"],"job_type":"ai-jira-implement","id_var":"IssueNumber","tracker_variants":{"github":"ai-gh-implement","jira":"ai-jira-implement"},"description":"Implement issue"},
+    {"triggers":["review","pr-review"],"job_type":"ai-jira-review","id_var":"PRUrl","tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"},"description":"Review PR"},
+    {"triggers":["risk","risks"],"job_type":"ai-adhoc","params":{"Skill":"ygs-risk-scan"},"description":"Risk scan"},
+    {"triggers":["prs","queue","pulls"],"job_type":"ai-adhoc","params":{"Skill":"ygs-pr-queue"},"description":"PR queue"},
+    {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"}
+  ]'
+  set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
+fi
+
 echo ""
 ok "All workflows registered."
 
