@@ -3132,6 +3132,73 @@
         ]
       }
     },
+    "/api/v1/jobs/requests/trigger-by-type": {
+      "post": {
+        "summary": "Trigger cron job by type",
+        "description": "Finds the pending cron slot for the given job_type and triggers it immediately. Optional params override job variables.",
+        "operationId": "JobExecutionService_TriggerCronJobByType",
+        "responses": {
+          "200": {
+            "description": "Triggered successfully — returns the job request ID.",
+            "schema": {
+              "$ref": "#/definitions/servicesTriggerCronJobByTypeResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "TriggerCronJobByTypeRequest finds the pending cron slot for job_type and triggers it.\nOptional params are merged into the job's existing params before triggering.\nReturns the triggered job request ID.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/servicesTriggerCronJobByTypeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
     "/api/v1/jobs/requests/{id}": {
       "get": {
         "summary": "Get job request",
@@ -9609,6 +9676,30 @@
         }
       },
       "description": "SubmitJobResponse returns the created job request."
+    },
+    "servicesTriggerCronJobByTypeRequest": {
+      "type": "object",
+      "properties": {
+        "job_type": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "TriggerCronJobByTypeRequest finds the pending cron slot for job_type and triggers it.\nOptional params are merged into the job's existing params before triggering.\nReturns the triggered job request ID."
+    },
+    "servicesTriggerCronJobByTypeResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "description": "TriggerCronJobByTypeResponse returns the ID of the triggered job request."
     },
     "servicesUpdateJobDefinitionResponse": {
       "type": "object",

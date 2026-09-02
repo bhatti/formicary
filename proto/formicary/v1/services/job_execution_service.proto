@@ -123,6 +123,19 @@ message TriggerJobRequest {
   map<string, string> params = 2;
 }
 
+// TriggerCronJobByTypeRequest finds the pending cron slot for job_type and triggers it.
+// Optional params are merged into the job's existing params before triggering.
+// Returns the triggered job request ID.
+message TriggerCronJobByTypeRequest {
+  string job_type = 1 [(buf.validate.field).string.min_len = 1];
+  map<string, string> params = 2;
+}
+
+// TriggerCronJobByTypeResponse returns the ID of the triggered job request.
+message TriggerCronJobByTypeResponse {
+  string id = 1;
+}
+
 // VoteOnApprovalRequest casts a vote on a task awaiting multi-party approval.
 message VoteOnApprovalRequest {
   string request_id = 1 [
@@ -379,6 +392,24 @@ service JobExecutionService {
       responses: {
         key: "200"
         value: {description: "Triggered successfully."}
+      }
+    };
+  }
+
+  // TriggerCronJobByType finds the pending cron slot for the given job_type and triggers it immediately.
+  // Optional params are merged into the job's params before triggering.
+  rpc TriggerCronJobByType(TriggerCronJobByTypeRequest) returns (TriggerCronJobByTypeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/jobs/requests/trigger-by-type"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Trigger cron job by type"
+      description: "Finds the pending cron slot for the given job_type and triggers it immediately. Optional params override job variables."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Triggered successfully — returns the job request ID."}
       }
     };
   }

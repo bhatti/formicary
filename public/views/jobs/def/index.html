@@ -66,10 +66,17 @@
               <input type="submit" class="btn btn-sm btn-warning" value="Enable">
             </form>
             {{else}}
+            {{if .CronTrigger}}
+            <form action="/dashboard/jobs/trigger" method="GET">
+              <input type="submit" class="btn btn-sm btn-success" value="Run">
+              <input type="hidden" name="jobType" value="{{.JobType}}">
+            </form>
+            {{else}}
             <form action="/dashboard/jobs/requests/new" method="GET">
               <input type="submit" class="btn btn-sm btn-success" value="Run">
               <input type="hidden" name="jobType" value="{{.JobType}}">
             </form>
+            {{end}}
             <form action="/dashboard/jobs/definitions/{{.ID}}/disable" method="POST" enctype="multipart/form-data">
               <input type="submit" class="btn btn-sm btn-warning" value="Disable">
             </form>

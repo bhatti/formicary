@@ -18,7 +18,7 @@
 #
 job_type: ai-standup-gh
 description: "Daily standup brief from GitHub issues/PRs + Slack signals"
-cron_trigger: "0 0 8 * * 1-5 *"
+cron_trigger: "0 0 16 * * 1-5 *"
 max_concurrency: 1
 timeout: 900s
 

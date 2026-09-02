@@ -12,6 +12,7 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/types"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -76,7 +77,7 @@ func Test_ShouldExecuteForkWaitTasklet(t *testing.T) {
 		ExecutorOpts:    common.NewExecutorOptions("name", common.Kubernetes),
 		Variables:       make(map[string]common.VariableValue),
 	}
-	req.ExecutorOpts.ForkJobType = "io.formicary.test.my-job"
+	req.ExecutorOpts.ForkJobType = jobReq.JobType
 	req.AddVariable("log_interval", "1s", false)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -106,6 +107,13 @@ func Test_ShouldExecuteForkWaitTasklet(t *testing.T) {
 	require.Equal(t, 1, res.TaskContext["TotalRequests"])
 }
 
+// safeJobName strips characters that are not valid in a job-type string.
+var nonAlphaNum = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+
+func safeJobName(t *testing.T) string {
+	return nonAlphaNum.ReplaceAllString(t.Name(), "_")
+}
+
 func newTestForkWaitTasklet(
 	t *testing.T,
 	user *common.User,
@@ -129,7 +137,7 @@ func newTestForkWaitTasklet(
 		"requestTopic",
 	)
 	qc := common.NewQueryContext(user, "")
-	req, exec, err = repository.NewTestJobExecution(qc, "my-job")
+	req, exec, err = repository.NewTestJobExecution(qc, safeJobName(t))
 	require.NoError(t, err)
 
 	exec, err = jobExecRepo.Save(exec)

@@ -1409,6 +1409,28 @@ func (jm *JobManager) TriggerJobRequest(
 	return
 }
 
+// TriggerCronJobRequestByType finds the pending cron slot for jobType and triggers it.
+// Returns the triggered job request ID, or an error if no pending cron slot exists.
+func (jm *JobManager) TriggerCronJobRequestByType(
+	qc *common.QueryContext,
+	jobType string,
+	params map[string]interface{}) (string, error) {
+	reqs, _, err := jm.jobRequestRepository.Query(qc,
+		map[string]interface{}{"job_type": jobType, "job_state": "WAITING", "cron_triggered": true},
+		0, 1, []string{})
+	if err != nil {
+		return "", err
+	}
+	if len(reqs) == 0 {
+		return "", fmt.Errorf("no pending cron slot found for job type '%s'", jobType)
+	}
+	id := reqs[0].ID
+	if err := jm.TriggerJobRequest(qc, id, params, ""); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
 // RestartJobRequest - restarts job; hard=true forces all tasks to re-run from scratch.
 // version="" keeps the pinned definition for soft restart, uses latest for hard restart.
 // version="latest" always upgrades to the latest deployed definition.

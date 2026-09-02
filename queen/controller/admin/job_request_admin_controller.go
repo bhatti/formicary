@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"plexobject.com/formicary/internal/utils"
 	"strconv"
 	"strings"
@@ -41,6 +42,7 @@ func NewJobRequestAdminController(
 	webserver.POST("/dashboard/jobs/requests/:id/cancel", jraCtr.cancelJobRequest, acl.NewPermission(acl.JobRequest, acl.Cancel)).Name = "cancel_admin_job_requests"
 	webserver.POST("/dashboard/jobs/requests/:id/tasks/:taskType/vote", jraCtr.voteOnApproval, acl.NewPermission(acl.JobRequest, acl.Approve)).Name = "vote_admin_approval"
 	webserver.POST("/dashboard/jobs/requests/:id/restart", jraCtr.restartJobRequest, acl.NewPermission(acl.JobRequest, acl.Restart)).Name = "restart_admin_job_requests"
+	webserver.GET("/dashboard/jobs/trigger", jraCtr.triggerCronJobForm, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_cron_job_form"
 	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id/wait_time", jraCtr.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_admin_job_requests"
@@ -178,11 +180,55 @@ func (jraCtr *JobRequestAdminController) voteOnApproval(c web.APIContext) error 
 	return c.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/jobs/requests/%s", id))
 }
 
-// triggerJobRequest - triggers a scheduled job-request
+// triggerCronJobForm - GET handler that finds the pending cron slot for jobType and renders a param-override form.
+// Falls back to /dashboard/jobs/requests/new?jobType=X if no pending cron slot exists.
+func (jraCtr *JobRequestAdminController) triggerCronJobForm(c web.APIContext) error {
+	jobType := c.QueryParam("jobType")
+	qc := web.BuildQueryContext(c)
+	reqs, _, err := jraCtr.jobManager.QueryJobRequests(qc,
+		map[string]interface{}{"job_type": jobType, "job_state": "WAITING", "cron_triggered": true},
+		0, 1, []string{})
+	if err != nil || len(reqs) == 0 {
+		return c.Redirect(http.StatusFound, "/dashboard/jobs/requests/new?jobType="+jobType)
+	}
+	slot := reqs[0]
+	var paramsJSON string
+	if jobDef, defErr := jraCtr.jobManager.GetJobDefinitionByType(qc, jobType, ""); defErr == nil {
+		if vars, ok := jobDef.NameValueVariables.(map[string]interface{}); ok && len(vars) > 0 {
+			paramsMap := make(map[string]string, len(vars))
+			for k, v := range vars {
+				paramsMap[k] = fmt.Sprintf("%v", v)
+			}
+			if b, mErr := json.MarshalIndent(paramsMap, "", "  "); mErr == nil {
+				paramsJSON = string(b)
+			}
+		}
+	}
+	if paramsJSON == "" {
+		paramsJSON = "{}"
+	}
+	res := map[string]interface{}{
+		"SlotID":   slot.ID,
+		"JobType":  jobType,
+		"ParamsJSON": paramsJSON,
+	}
+	web.RenderDBUserFromSession(c, res)
+	return c.Render(http.StatusOK, "jobs/req/trigger", res)
+}
+
+// triggerJobRequest - triggers a scheduled job-request, with optional param overrides from the form.
 func (jraCtr *JobRequestAdminController) triggerJobRequest(c web.APIContext) error {
 	id := c.Param("id")
 	qc := web.BuildQueryContext(c)
-	err := jraCtr.jobManager.TriggerJobRequest(qc, id, nil, "")
+	// Parse optional param overrides submitted from the trigger form.
+	var params map[string]interface{}
+	if paramsJSON := c.FormValue("params_json"); paramsJSON != "" && paramsJSON != "{}" {
+		p := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(paramsJSON), &p); err == nil && len(p) > 0 {
+			params = p
+		}
+	}
+	err := jraCtr.jobManager.TriggerJobRequest(qc, id, params, "")
 	if err != nil {
 		return err
 	}
@@ -260,6 +306,13 @@ func (jraCtr *JobRequestAdminController) createJobRequest(c web.APIContext) (err
 		}
 		web.RenderDBUserFromSession(c, res)
 		return c.Render(http.StatusOK, "jobs/req/new", res)
+	}
+
+	// For cron jobs, redirect to the trigger form instead of creating a duplicate request.
+	if request.JobType != "" {
+		if jobDef, defErr := jraCtr.jobManager.GetJobDefinitionByType(qc, request.JobType, ""); defErr == nil && jobDef.CronTrigger != "" {
+			return c.Redirect(http.StatusFound, "/dashboard/jobs/trigger?jobType="+url.QueryEscape(request.JobType))
+		}
 	}
 
 	saved, err := jraCtr.jobManager.SaveJobRequest(qc, request)

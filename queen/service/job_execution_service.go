@@ -148,6 +148,25 @@ func (s *JobExecutionService) RestartJob(ctx context.Context, req *svcpb.Restart
 	return &emptypb.Empty{}, nil
 }
 
+func (s *JobExecutionService) TriggerCronJobByType(ctx context.Context, req *svcpb.TriggerCronJobByTypeRequest) (*svcpb.TriggerCronJobByTypeResponse, error) {
+	qc := interceptors.QueryContextFromContext(ctx)
+	if qc == nil {
+		return nil, status.Error(codes.Unauthenticated, "no query context")
+	}
+	var params map[string]interface{}
+	if len(req.Params) > 0 {
+		params = make(map[string]interface{}, len(req.Params))
+		for k, v := range req.Params {
+			params[k] = v
+		}
+	}
+	id, err := s.jobManager.TriggerCronJobRequestByType(qc, req.JobType, params)
+	if err != nil {
+		return nil, interceptors.MapDomainError(err)
+	}
+	return &svcpb.TriggerCronJobByTypeResponse{Id: id}, nil
+}
+
 func (s *JobExecutionService) TriggerJob(ctx context.Context, req *svcpb.TriggerJobRequest) (*emptypb.Empty, error) {
 	qc := interceptors.QueryContextFromContext(ctx)
 	if qc == nil {

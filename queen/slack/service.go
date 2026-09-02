@@ -880,10 +880,15 @@ func (s *SlackService) replyHelp(channel, threadTS string, api *slackapi.Client)
 			if desc == "" {
 				desc = route.JobType
 			}
-			// Show primary trigger; list aliases if more than one.
+			// Show primary trigger; list up to 3 aliases to keep help concise.
 			trigger := route.Triggers[0]
 			if len(route.Triggers) > 1 {
-				aliases := strings.Join(route.Triggers[1:], ", ")
+				maxAliases := 3
+				aliasSlice := route.Triggers[1:]
+				if len(aliasSlice) > maxAliases {
+					aliasSlice = aliasSlice[:maxAliases]
+				}
+				aliases := strings.Join(aliasSlice, ", ")
 				lines = append(lines, fmt.Sprintf("• `%s` _(also: %s)_ — %s", trigger, aliases, desc))
 			} else {
 				lines = append(lines, fmt.Sprintf("• `%s` — %s", trigger, desc))

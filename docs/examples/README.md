@@ -896,6 +896,31 @@ python3 scripts/slack/slack_repl.py --dry-run
 | `@bot gh-analyze #123` | `ai-jira-query` | `Mode=analyze`, `DefaultTracker=github` |
 | `@bot doctor` | `ai-connectivity-check` | `SlackChannel` |
 
+#### Issue analysis — git archaeology and skill matching
+
+`jira-analyze` and `gh-analyze` (Mode=analyze) perform root-cause analysis beyond reading issue text:
+
+**Git archaeology** — when a repo is configured, the analyze step clones it at depth 50 and runs:
+- Commits whose message references the issue key (`git log --grep`)
+- File volatility ranking: change count per file across the last 50 commits
+- Recent commits to the most-changed files
+
+**Skill matching** — before running plain analysis the workflow checks for a matching skill across three locations (repo `.claude/skills/`, `EXTRA_SKILLS_REPOS` paths, `~/.claude/skills/you-got-skills/skills/`). If a skill matches by keyword overlap it is invoked instead, giving Claude full tool access (`max_turns=20`). This powers active investigation workflows like running a flaky test N times, checking coverage, or any task covered by a SKILL.md.
+
+**Required org configs for git archaeology:**
+
+| Property (CamelCase) | Env var | Purpose |
+|----------------------|---------|---------|
+| `BitbucketWorkspace` | `BITBUCKET_WORKSPACE` | Bitbucket workspace |
+| `BitbucketRepo` | `BITBUCKET_REPO` | Bitbucket repo name |
+| `BitbucketToken` | `BITBUCKET_TOKEN` | ATATT token (HTTPS clone) |
+| `GitHubOrg` | `GH_ORG` | GitHub org |
+| `GitHubRepo` | `GH_REPO` | GitHub repo name |
+| `GitHubToken` | `GH_TOKEN` | GitHub personal access token |
+| `ExtraSkillsRepos` | `EXTRA_SKILLS_REPOS` | Extra skill repos (JSON array or colon-separated) |
+
+Set these once via `--set-configs` and they apply to every analyze job. The workflow gracefully degrades — if no repo is configured or the clone fails, analysis continues with issue text only.
+
 **Standup "no scheduled slot" error** — the cron PENDING slot was consumed. Fix:
 ```bash
 cd docs/examples

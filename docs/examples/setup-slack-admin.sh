@@ -186,8 +186,8 @@ if [[ "$SET_ROUTES" == true ]]; then
      "job_type":"ai-standup-jira","description":"Daily standup summary",
      "tracker_variants":{"github":"ai-standup-gh","jira":"ai-standup-jira"}},
 
-    {"triggers":["query","search","find","jira query","jira search","jira find"],"job_type":"ai-jira-query","description":"Query issues","id_var":"Prompt"},
-    {"triggers":["analyze","analysis","jira analyze","jira analysis"],"job_type":"ai-jira-query","description":"Analyze issues","id_var":"Prompt","params":{"Mode":"analyze"}},
+    {"triggers":["query","search","find","jira query","jira search","jira find","jira-query","gh query","gh search","gh find","gh-query","github query","github search"],"job_type":"ai-jira-query","description":"Query issues","id_var":"Query"},
+    {"triggers":["analyze","analysis","jira analyze","jira analysis","jira-analyze","gh analyze","gh analysis","gh-analyze","github analyze","github analysis"],"job_type":"ai-jira-query","description":"Analyze issues","id_var":"Query","params":{"Mode":"analyze"}},
 
     {"triggers":["pr comments","show pr comments","pr feedback","pr discussion"],"job_type":"ai-adhoc","description":"Show existing PR comments","id_var":"Prompt","params":{"Skill":"ygs-pr-comments"}},
 

@@ -322,6 +322,9 @@ if [[ "$SET_CONFIGS" == true ]]; then
   set_org_config "AnthropicComplexityHighModel" "${ANTHROPIC_COMPLEXITY_HIGH_MODEL}" "false"
   [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"      "$GIT_USER_NAME"
   [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail"     "$GIT_USER_EMAIL"
+  [[ -n "${BITBUCKET_WORKSPACE:-}" ]] && set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"
+  [[ -n "${BITBUCKET_REPO:-}" ]]      && set_org_config "BitbucketRepo"      "$BITBUCKET_REPO"
+  [[ -n "${BITBUCKET_USERNAME:-}" ]]  && set_org_config "BitbucketUsername"  "$BITBUCKET_USERNAME"
   [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel"     "$SLACK_CHANNEL"     "false"
   [[ -n "$STANDUP_TEAM" ]]      && set_org_config "StandupTeamMembers" "$STANDUP_TEAM"     "false"
   [[ -n "$JIRA_BOARDS_ARG" ]]      && set_org_config "JiraBoards"         "$JIRA_BOARDS_ARG"      "false"
@@ -358,6 +361,13 @@ else
   if [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]; then
     [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
     set_org_config "ExtraSkillsRepos" "${EXTRA_SKILLS_REPOS}" "false"
+    _AUTO=true
+  fi
+  if [[ -n "${BITBUCKET_WORKSPACE:-}" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"
+    [[ -n "${BITBUCKET_REPO:-}" ]]     && set_org_config "BitbucketRepo"     "$BITBUCKET_REPO"
+    [[ -n "${BITBUCKET_USERNAME:-}" ]] && set_org_config "BitbucketUsername" "$BITBUCKET_USERNAME"
     _AUTO=true
   fi
   if [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]]; then

@@ -30,6 +30,7 @@ const (
 	JobExecutionService_PauseJob_FullMethodName             = "/formicary.v1.services.JobExecutionService/PauseJob"
 	JobExecutionService_RestartJob_FullMethodName           = "/formicary.v1.services.JobExecutionService/RestartJob"
 	JobExecutionService_TriggerJob_FullMethodName           = "/formicary.v1.services.JobExecutionService/TriggerJob"
+	JobExecutionService_TriggerCronJobByType_FullMethodName = "/formicary.v1.services.JobExecutionService/TriggerCronJobByType"
 	JobExecutionService_VoteOnApproval_FullMethodName       = "/formicary.v1.services.JobExecutionService/VoteOnApproval"
 	JobExecutionService_GetApprovalStatus_FullMethodName    = "/formicary.v1.services.JobExecutionService/GetApprovalStatus"
 	JobExecutionService_ListPendingApprovals_FullMethodName = "/formicary.v1.services.JobExecutionService/ListPendingApprovals"
@@ -61,6 +62,9 @@ type JobExecutionServiceClient interface {
 	RestartJob(ctx context.Context, in *RestartJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// TriggerJob manually triggers a waiting or paused job.
 	TriggerJob(ctx context.Context, in *TriggerJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// TriggerCronJobByType finds the pending cron slot for the given job_type and triggers it immediately.
+	// Optional params are merged into the job's params before triggering.
+	TriggerCronJobByType(ctx context.Context, in *TriggerCronJobByTypeRequest, opts ...grpc.CallOption) (*TriggerCronJobByTypeResponse, error)
 	// VoteOnApproval casts an approval vote on a task awaiting multi-party approval.
 	VoteOnApproval(ctx context.Context, in *VoteOnApprovalRequest, opts ...grpc.CallOption) (*VoteOnApprovalResponse, error)
 	// GetApprovalStatus returns the current vote tally for a task awaiting approval.
@@ -165,6 +169,16 @@ func (c *jobExecutionServiceClient) TriggerJob(ctx context.Context, in *TriggerJ
 	return out, nil
 }
 
+func (c *jobExecutionServiceClient) TriggerCronJobByType(ctx context.Context, in *TriggerCronJobByTypeRequest, opts ...grpc.CallOption) (*TriggerCronJobByTypeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TriggerCronJobByTypeResponse)
+	err := c.cc.Invoke(ctx, JobExecutionService_TriggerCronJobByType_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *jobExecutionServiceClient) VoteOnApproval(ctx context.Context, in *VoteOnApprovalRequest, opts ...grpc.CallOption) (*VoteOnApprovalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(VoteOnApprovalResponse)
@@ -257,6 +271,9 @@ type JobExecutionServiceServer interface {
 	RestartJob(context.Context, *RestartJobRequest) (*emptypb.Empty, error)
 	// TriggerJob manually triggers a waiting or paused job.
 	TriggerJob(context.Context, *TriggerJobRequest) (*emptypb.Empty, error)
+	// TriggerCronJobByType finds the pending cron slot for the given job_type and triggers it immediately.
+	// Optional params are merged into the job's params before triggering.
+	TriggerCronJobByType(context.Context, *TriggerCronJobByTypeRequest) (*TriggerCronJobByTypeResponse, error)
 	// VoteOnApproval casts an approval vote on a task awaiting multi-party approval.
 	VoteOnApproval(context.Context, *VoteOnApprovalRequest) (*VoteOnApprovalResponse, error)
 	// GetApprovalStatus returns the current vote tally for a task awaiting approval.
@@ -303,6 +320,9 @@ func (UnimplementedJobExecutionServiceServer) RestartJob(context.Context, *Resta
 }
 func (UnimplementedJobExecutionServiceServer) TriggerJob(context.Context, *TriggerJobRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerJob not implemented")
+}
+func (UnimplementedJobExecutionServiceServer) TriggerCronJobByType(context.Context, *TriggerCronJobByTypeRequest) (*TriggerCronJobByTypeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TriggerCronJobByType not implemented")
 }
 func (UnimplementedJobExecutionServiceServer) VoteOnApproval(context.Context, *VoteOnApprovalRequest) (*VoteOnApprovalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteOnApproval not implemented")
@@ -489,6 +509,24 @@ func _JobExecutionService_TriggerJob_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JobExecutionService_TriggerCronJobByType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TriggerCronJobByTypeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobExecutionServiceServer).TriggerCronJobByType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: JobExecutionService_TriggerCronJobByType_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobExecutionServiceServer).TriggerCronJobByType(ctx, req.(*TriggerCronJobByTypeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _JobExecutionService_VoteOnApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VoteOnApprovalRequest)
 	if err := dec(in); err != nil {
@@ -653,6 +691,10 @@ var JobExecutionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TriggerJob",
 			Handler:    _JobExecutionService_TriggerJob_Handler,
+		},
+		{
+			MethodName: "TriggerCronJobByType",
+			Handler:    _JobExecutionService_TriggerCronJobByType_Handler,
 		},
 		{
 			MethodName: "VoteOnApproval",

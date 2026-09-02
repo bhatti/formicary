@@ -71,6 +71,8 @@ tasks:
     JIRA_PROJECT: "{{.JiraProject}}"
     JIRA_SPACE: "{{.JiraSpace}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    BITBUCKET_USERNAME: "{{.BitbucketUsername}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
@@ -96,8 +98,11 @@ tasks:
       [ "$QUERY"           = "<no value>" ] && QUERY=""
       [ "$DEFAULT_TRACKER" = "<no value>" ] && DEFAULT_TRACKER="jira"
       [ "$MODE"            = "<no value>" ] && MODE="list"
-      [ "$GH_ORG"          = "<no value>" ] && GH_ORG=""
-      [ "$GH_REPO"         = "<no value>" ] && GH_REPO=""
+      [ "$GH_ORG"               = "<no value>" ] && GH_ORG=""
+      [ "$GH_REPO"              = "<no value>" ] && GH_REPO=""
+      [ "$BITBUCKET_WORKSPACE"  = "<no value>" ] && BITBUCKET_WORKSPACE=""
+      [ "$BITBUCKET_REPO"       = "<no value>" ] && BITBUCKET_REPO=""
+      [ "$BITBUCKET_USERNAME"   = "<no value>" ] && BITBUCKET_USERNAME=""
 
       TRACKER="${DEFAULT_TRACKER:-jira}"
       QUERY_ARG="${QUERY:-${ISSUES}}"
@@ -184,5 +189,6 @@ job_variables:
   AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
   AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
   AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-  # Injected via org configs: JiraUrl, JiraProject, BitbucketWorkspace, GitHubOrg, GitHubRepo
+  BitbucketUsername: ""
+  # Injected via org configs: JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo, BitbucketUsername, GitHubOrg, GitHubRepo
   # Injected from 'ai-dev-credentials' secret: JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN

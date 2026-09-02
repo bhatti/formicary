@@ -22,7 +22,7 @@
 #
 job_type: ai-standup-jira
 description: "Daily standup brief from Jira sprint + Bitbucket PRs + Slack signals"
-cron_trigger: "0 0 8 * * 1-5 *"
+cron_trigger: "0 0 16 * * 1-5 *"
 max_concurrency: 1
 timeout: 900s
 

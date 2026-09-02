@@ -1,0 +1,28 @@
+{{ template "layouts/header" . }}
+<div class="page-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Trigger Cron Job: {{.JobType}}</h2>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Override Job Parameters (optional)</h3>
+    </div>
+    <div class="card-body">
+        <form action="/dashboard/jobs/requests/{{.SlotID}}/trigger" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label">Parameters (JSON)</label>
+                <textarea name="params_json" class="form-control" rows="12" style="font-family:monospace">{{.ParamsJSON}}</textarea>
+                <small class="form-text text-muted">Edit values to override org/job defaults before triggering. Leave as-is to use defaults.</small>
+            </div>
+            <div class="mb-3">
+                <button type="submit" class="btn btn-success">Trigger Now</button>
+                <a href="/dashboard/jobs/requests" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{{ template "layouts/footer" }}
