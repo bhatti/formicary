@@ -109,6 +109,7 @@ tasks:
       [ "$BITBUCKET_WORKSPACE"  = "<no value>" ] && BITBUCKET_WORKSPACE=""
       [ "$BITBUCKET_REPO"       = "<no value>" ] && BITBUCKET_REPO=""
       [ "$BITBUCKET_USERNAME"   = "<no value>" ] && BITBUCKET_USERNAME=""
+      [ "$MAX_RESULTS"          = "<no value>" ] && MAX_RESULTS="10"
 
       TRACKER="${DEFAULT_TRACKER:-jira}"
       QUERY_ARG="${QUERY:-${ISSUES}}"
