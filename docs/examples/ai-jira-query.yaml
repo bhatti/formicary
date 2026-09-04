@@ -99,7 +99,8 @@ tasks:
   script:
     - |
       # Smart dispatch: route to the right script based on DEFAULT_TRACKER and MODE.
-      # Guard: Formicary outputs "<no value>" for unset variables — treat as empty.
+      # Guard: Formicary outputs "<no value>" for unset org config variables — treat as empty.
+      # This prevents template values from overriding env vars injected via secret_ref.
       [ "$ISSUES"          = "<no value>" ] && ISSUES=""
       [ "$QUERY"           = "<no value>" ] && QUERY=""
       [ "$DEFAULT_TRACKER" = "<no value>" ] && DEFAULT_TRACKER="jira"
@@ -110,6 +111,13 @@ tasks:
       [ "$BITBUCKET_REPO"       = "<no value>" ] && BITBUCKET_REPO=""
       [ "$BITBUCKET_USERNAME"   = "<no value>" ] && BITBUCKET_USERNAME=""
       [ "$MAX_RESULTS"          = "<no value>" ] && MAX_RESULTS="10"
+      [ "$JIRA_BASE_URL"    = "<no value>" ] && JIRA_BASE_URL=""
+      [ "$JIRA_PROJECT"     = "<no value>" ] && JIRA_PROJECT=""
+      [ "$JIRA_SPACE"       = "<no value>" ] && JIRA_SPACE=""
+      [ "$JIRA_TEAM_FIELD"  = "<no value>" ] && JIRA_TEAM_FIELD="EngScrumTeam"
+      [ "$AI_MODEL"         = "<no value>" ] && AI_MODEL=""
+      # Debug: log key env presence (lengths, not values) to help diagnose clone issues
+      echo "[env-check] BITBUCKET_WORKSPACE=${#BITBUCKET_WORKSPACE} BITBUCKET_REPO=${#BITBUCKET_REPO} SSH_KEY_LEN=${#SSH_PRIVATE_KEY} BB_TOKEN_LEN=${#BITBUCKET_TOKEN}"
 
       TRACKER="${DEFAULT_TRACKER:-jira}"
       QUERY_ARG="${QUERY:-${ISSUES}}"
@@ -186,6 +194,7 @@ job_variables:
   SlackChannel: ""
   SlackThreadTs: ""
   JiraSpace: ""
+  JiraProject: ""
   Issues: ""
   Query: ""
   JiraTeamField: "EngScrumTeam"

@@ -60,6 +60,7 @@ GIT_USER_EMAIL=""
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 STANDUP_TEAM="${STANDUP_TEAM_MEMBERS:-}"
 JIRA_BOARDS_ARG="${JIRA_BOARDS:-}"
+JIRA_PROJECT_ARG="${JIRA_PROJECT:-}"
 SET_SLACK_ROUTES=false
 
 # ── Autodetect DEFAULT_TRACKER from ~/.zshrc / ~/.bashrc if not set ───────────
@@ -93,6 +94,7 @@ while [[ $# -gt 0 ]]; do
     --slack-channel)   SLACK_CHANNEL="$2";   shift 2 ;;
     --standup-team)    STANDUP_TEAM="$2";       shift 2 ;;
     --jira-boards)     JIRA_BOARDS_ARG="$2";    shift 2 ;;
+    --jira-project)    JIRA_PROJECT_ARG="$2";   shift 2 ;;
     --help|-h)
       sed -n '/^# Usage/,/^[^#]/p' "$0" | head -22
       exit 0 ;;
@@ -195,6 +197,31 @@ set_org_config() {
 # set_user_config stores a personal secret under the calling user's account.
 set_user_config() {
   _post_config "${FORMICARY_URL}/api/users/configs" "$1" "$2" "${3:-auto}"
+}
+
+# resolve_jira_project resolves the Jira project key from a board ID via the Agile API.
+# Mirrors the logic in test_pod_functional.py so both test and deploy use the same source.
+# Usage: key=$(resolve_jira_project "4161")
+resolve_jira_project() {
+  local board_id="${1%%,*}"   # take first board ID if comma-separated
+  [[ -z "$board_id" ]] && return 0
+  local base_url="${JIRA_BASE_URL:-}"
+  local email="${JIRA_EMAIL:-}"
+  local token="${JIRA_API_TOKEN:-}"
+  [[ -z "$base_url" || -z "$email" || -z "$token" ]] && return 0
+  local url="${base_url%/}/rest/agile/1.0/board/${board_id}"
+  python3 -c "
+import urllib.request, base64, json, sys
+url, email, token = sys.argv[1], sys.argv[2], sys.argv[3]
+creds = base64.b64encode(f'{email}:{token}'.encode()).decode()
+req = urllib.request.Request(url, headers={'Authorization': f'Basic {creds}', 'Accept': 'application/json'})
+try:
+    with urllib.request.urlopen(req, timeout=10) as r:
+        d = json.loads(r.read())
+        print((d.get('location') or {}).get('projectKey', ''))
+except Exception:
+    print('')
+" "$url" "$email" "$token" 2>/dev/null || true
 }
 
 # set_admin_slack_routes pushes the Slack route table as an admin SystemConfig.
@@ -325,9 +352,18 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "${BITBUCKET_WORKSPACE:-}" ]] && set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"
   [[ -n "${BITBUCKET_REPO:-}" ]]      && set_org_config "BitbucketRepo"      "$BITBUCKET_REPO"
   [[ -n "${BITBUCKET_USERNAME:-}" ]]  && set_org_config "BitbucketUsername"  "$BITBUCKET_USERNAME"
+  # JiraUrl: used by {{.JiraUrl}} in YAML templates — must be an org config so the template
+  # renders the correct value and doesn't override the secret's JIRA_BASE_URL with "<no value>"
+  [[ -n "${JIRA_BASE_URL:-}" ]]       && set_org_config "JiraUrl"            "$JIRA_BASE_URL"      "false"
   [[ -n "$SLACK_CHANNEL" ]]  && set_org_config "SlackChannel"     "$SLACK_CHANNEL"     "false"
   [[ -n "$STANDUP_TEAM" ]]      && set_org_config "StandupTeamMembers" "$STANDUP_TEAM"     "false"
   [[ -n "$JIRA_BOARDS_ARG" ]]      && set_org_config "JiraBoards"         "$JIRA_BOARDS_ARG"      "false"
+  # JiraProject: use explicit value, or auto-resolve from JiraBoards via the Agile API
+  if [[ -z "$JIRA_PROJECT_ARG" ]] && [[ -n "$JIRA_BOARDS_ARG" ]]; then
+    JIRA_PROJECT_ARG=$(resolve_jira_project "$JIRA_BOARDS_ARG")
+    [[ -n "$JIRA_PROJECT_ARG" ]] && echo "  Resolved JiraProject=${JIRA_PROJECT_ARG} from board ${JIRA_BOARDS_ARG%%,*}"
+  fi
+  [[ -n "$JIRA_PROJECT_ARG" ]]     && set_org_config "JiraProject"         "$JIRA_PROJECT_ARG"     "false"
   [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]   && set_org_config "ExtraSkillsRepos"   "${EXTRA_SKILLS_REPOS}"   "false"
   [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]] && set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
 
@@ -356,6 +392,11 @@ else
   if [[ -n "$JIRA_BOARDS_ARG" ]]; then
     [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
     set_org_config "JiraBoards" "$JIRA_BOARDS_ARG" "false"
+    if [[ -z "$JIRA_PROJECT_ARG" ]]; then
+      JIRA_PROJECT_ARG=$(resolve_jira_project "$JIRA_BOARDS_ARG")
+      [[ -n "$JIRA_PROJECT_ARG" ]] && echo "  Resolved JiraProject=${JIRA_PROJECT_ARG} from board ${JIRA_BOARDS_ARG%%,*}"
+    fi
+    [[ -n "$JIRA_PROJECT_ARG" ]] && set_org_config "JiraProject" "$JIRA_PROJECT_ARG" "false"
     _AUTO=true
   fi
   if [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]; then
@@ -368,6 +409,11 @@ else
     set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"
     [[ -n "${BITBUCKET_REPO:-}" ]]     && set_org_config "BitbucketRepo"     "$BITBUCKET_REPO"
     [[ -n "${BITBUCKET_USERNAME:-}" ]] && set_org_config "BitbucketUsername" "$BITBUCKET_USERNAME"
+    _AUTO=true
+  fi
+  if [[ -n "${JIRA_BASE_URL:-}" ]]; then
+    [[ "$_AUTO" == false ]] && log "Auto-setting org configs from environment ..."
+    set_org_config "JiraUrl" "$JIRA_BASE_URL" "false"
     _AUTO=true
   fi
   if [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]]; then
