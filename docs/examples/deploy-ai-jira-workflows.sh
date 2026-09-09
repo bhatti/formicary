@@ -78,7 +78,7 @@ JIRA_BOARDS_ARG="${JIRA_BOARDS:-}"
 if [[ -z "${DEFAULT_TRACKER:-}" ]]; then
   for _rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
     [[ -f "$_rc" ]] || continue
-    _line="$(grep -E '^export DEFAULT_TRACKER=' "$_rc" | tail -1)" || true
+    _line="$(grep -E '^export DEFAULT_TRACKER=' "$_rc" | tail -1)" || :  # grep exits 1 on no match — not an error
     if [[ -n "$_line" ]]; then
       _val="$(echo "$_line" | sed "s/^export DEFAULT_TRACKER=//;s/^['\"]//;s/['\"]$//")"
       _val="$(eval echo "\"${_val}\"" 2>/dev/null || echo "${_val}")"
@@ -186,7 +186,7 @@ print(json.dumps({'name': name, 'value': value, 'secret': secret}))
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-config-resp.json
   case "$http_code" in
     2*)
@@ -229,7 +229,7 @@ print(json.dumps({'scope':'default','kind':'JSON','name':'SlackRoutes','value':v
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-config-resp.json
   case "$http_code" in
     2*) ok "SlackRoutes admin config saved (restart queen to reload)" ;;
@@ -258,8 +258,8 @@ upload() {
   [[ -n "$TOKEN" ]] && curl_args+=(-H "Authorization: Bearer ${TOKEN}")
 
   local http_code response
-  http_code=$(curl "${curl_args[@]}" 2>/dev/null) || true
-  response=$(cat /tmp/formicary-upload-resp.json 2>/dev/null || true)
+  http_code=$(curl "${curl_args[@]}" 2>/dev/null) || http_code="000"
+  response=$(cat /tmp/formicary-upload-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-upload-resp.json
 
   if [[ "$http_code" == 401 ]]; then
@@ -300,7 +300,7 @@ print('BB_USERNAME=' + (bb.get('username','') or bb.get('email','')))
 print('BB_API_TOKEN=' + bb.get('api_token',''))
 print('BB_WORKSPACE=' + bb.get('defaults',{}).get('workspace',''))
 print('JIRA_PROJECT=' + p.get('defaults',{}).get('project',''))
-" 2>/dev/null || true
+" 2>/dev/null || :
   }
   while IFS='=' read -r key val; do
     case "$key" in
@@ -394,6 +394,9 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "$JIRA_BOARDS_ARG" ]]      && set_org_config "JiraBoards"             "$JIRA_BOARDS_ARG"           "false"
   [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]   && set_org_config "ExtraSkillsRepos"       "${EXTRA_SKILLS_REPOS}"        "false"
   [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]] && set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
+  set_org_config "MaxTurnsAudit"      "${MAX_TURNS_AUDIT:-120}"        "false"
+  set_org_config "NPrs"               "${N_PRS:-50}"                   "false"
+  set_org_config "PrAuditFocus"       "${PR_AUDIT_FOCUS:-all}"         "false"
 
   echo ""
   ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
@@ -459,6 +462,7 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-jira-review.yaml"
   "${SCRIPT_DIR}/ai-jira-query.yaml"
   "${SCRIPT_DIR}/ai-adhoc.yaml"
+  "${SCRIPT_DIR}/ai-jira-pr-audit.yaml"
 )
 
 echo ""
@@ -485,7 +489,7 @@ for d in defs:
         cron = d.get('cron_trigger','')
         conc = d.get('max_concurrency','')
         print(f'  {jt:<40} cron={cron or \"-\":<20} max_concurrency={conc}')
-" 2>/dev/null || true
+" 2>/dev/null || :
 
 # ── Next steps ─────────────────────────────────────────────────────────────────
 echo ""

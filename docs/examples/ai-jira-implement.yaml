@@ -192,6 +192,7 @@ tasks:
   artifacts:
     paths:
       - ./self_review.json
+      - ./logs
     expire_after: 24h
   on_exit_code:
     2: PAUSE_JOB    # BLOCKED — critical findings require human review before PR

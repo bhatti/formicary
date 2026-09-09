@@ -13,7 +13,27 @@
 #       --git-user "AI Agent" --git-email "ai@example.com"
 #   ./deploy-ai-workflows.sh --server http://host:7777
 #
-# Credentials are stored in the 'ai-dev-credentials' Kubernetes secret.
+# ── Secrets vs Org Configs ────────────────────────────────────────────────────
+# CRITICAL DESIGN RULE:
+#   Actual secrets  →  k8s secret 'ai-dev-credentials'  (--create-k8s-secret)
+#   Normal config   →  Formicary org configs             (--set-configs)
+#
+# Why: In a k8s pod, explicit env: entries override envFrom: secretRef: for the
+# same key. If a template {{.BitbucketWorkspace}} renders to "" (org config not
+# set), it silently overwrites BITBUCKET_WORKSPACE=xxx from the secret.
+# The script then sees an empty value and fails.
+#
+# k8s secret (--create-k8s-secret):   ONLY actual secrets
+#   GH_TOKEN, BITBUCKET_TOKEN, SLACK_BOT_TOKEN, SSH_PRIVATE_KEY, ANTHROPIC_API_KEY,
+#   JIRA_API_TOKEN, JIRA_EMAIL
+#
+# Org configs (--set-configs):   everything else
+#   GitHubOrg, GitHubRepo, GH_ORG, GH_REPO, DefaultTracker,
+#   BitbucketWorkspace, BitbucketRepo, BitbucketUsername,
+#   BitbucketRepoBranch, GitHubRepoBranch, JiraUrl, JiraProject,
+#   SlackChannel, model IDs, FormicaryUrl, etc.
+# ─────────────────────────────────────────────────────────────────────────────
+#
 # Use --create-k8s-secret to create/update the secret from env vars (one-time setup).
 #
 # Secrets MUST be supplied via environment variables — never as CLI flags:
@@ -67,7 +87,7 @@ SET_SLACK_ROUTES=false
 if [[ -z "${DEFAULT_TRACKER:-}" ]]; then
   for _rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
     [[ -f "$_rc" ]] || continue
-    _line="$(grep -E '^export DEFAULT_TRACKER=' "$_rc" | tail -1)" || true
+    _line="$(grep -E '^export DEFAULT_TRACKER=' "$_rc" | tail -1)" || :  # grep exits 1 on no match — not an error
     if [[ -n "$_line" ]]; then
       _val="$(echo "$_line" | sed "s/^export DEFAULT_TRACKER=//;s/^['\"]//;s/['\"]$//")"
       _val="$(eval echo "\"${_val}\"" 2>/dev/null || echo "${_val}")"
@@ -172,7 +192,7 @@ print(json.dumps({'name': name, 'value': value, 'secret': secret}))
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-config-resp.json
   case "$http_code" in
     2*)
@@ -221,7 +241,7 @@ try:
         print((d.get('location') or {}).get('projectKey', ''))
 except Exception:
     print('')
-" "$url" "$email" "$token" 2>/dev/null || true
+" "$url" "$email" "$token" 2>/dev/null || :
 }
 
 # set_admin_slack_routes pushes the Slack route table as an admin SystemConfig.
@@ -245,7 +265,7 @@ print(json.dumps({'scope':'default','kind':'JSON','name':'SlackRoutes','value':v
   [[ -n "$TOKEN" ]] && args+=(-H "Authorization: Bearer ${TOKEN}")
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/formicary-config-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-config-resp.json
   case "$http_code" in
     2*) ok "SlackRoutes admin config saved (restart queen to reload)" ;;
@@ -269,8 +289,8 @@ upload() {
   [[ -n "$TOKEN" ]] && curl_args+=(-H "Authorization: Bearer ${TOKEN}")
 
   local http_code response
-  http_code=$(curl "${curl_args[@]}" 2>/dev/null) || true
-  response=$(cat /tmp/formicary-upload-resp.json 2>/dev/null || true)
+  http_code=$(curl "${curl_args[@]}" 2>/dev/null) || http_code="000"
+  response=$(cat /tmp/formicary-upload-resp.json 2>/dev/null || :)
   rm -f /tmp/formicary-upload-resp.json
 
   if [[ "$http_code" == 401 ]]; then
@@ -366,6 +386,22 @@ if [[ "$SET_CONFIGS" == true ]]; then
   [[ -n "$JIRA_PROJECT_ARG" ]]     && set_org_config "JiraProject"         "$JIRA_PROJECT_ARG"     "false"
   [[ -n "${EXTRA_SKILLS_REPOS:-}" ]]   && set_org_config "ExtraSkillsRepos"   "${EXTRA_SKILLS_REPOS}"   "false"
   [[ -n "${MAX_CLAUDE_PROCESS_TIMEOUT:-}" ]] && set_org_config "MaxClaudeProcessTimeout" "${MAX_CLAUDE_PROCESS_TIMEOUT}" "false"
+  # Codebase audit defaults (can be overridden per-job via org configs or job params).
+  # BitbucketRepoBranch: default branch for Bitbucket repos (e.g. dev, master).
+  # GitHubRepoBranch: default branch for GitHub repos (typically main).
+  # Formicary variable resolution: job params > org configs > job_variables (YAML defaults).
+  set_org_config "BitbucketRepoBranch" "${BB_REPO_BRANCH:-${REPO_BRANCH:-main}}" "false"
+  set_org_config "GitHubRepoBranch"    "${GH_REPO_BRANCH:-main}"                 "false"
+  set_org_config "NCommits"           "${N_COMMITS:-1000}"             "false"
+  set_org_config "AuditFocus"         "${AUDIT_FOCUS:-all}"            "false"
+  set_org_config "MaxAuditSize"       "${MAX_AUDIT_SIZE:-10485760}"    "false"
+  set_org_config "MaxTurnsAudit"      "${MAX_TURNS_AUDIT:-120}"        "false"
+  set_org_config "NPrs"               "${N_PRS:-50}"                   "false"
+  set_org_config "PrAuditFocus"       "${PR_AUDIT_FOCUS:-all}"         "false"
+  # FormicaryPublicURL: base URL for artifact links in Slack messages.
+  # Set to the externally-reachable Formicary dashboard URL.
+  [[ -n "${FORMICARY_PUBLIC_URL:-}" ]] && set_org_config "FormicaryPublicURL" "${FORMICARY_PUBLIC_URL}" "false" \
+    || set_org_config "FormicaryPublicURL" "${FORMICARY_URL}" "false"
 
   echo ""
   ok "Org configs set. (Credentials stored in K8s secret 'ai-dev-credentials'.)"
@@ -439,6 +475,8 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-gh-review.yaml"
   "${SCRIPT_DIR}/ai-jira-query.yaml"
   "${SCRIPT_DIR}/ai-adhoc.yaml"
+  "${SCRIPT_DIR}/ai-codebase-audit.yaml"
+  "${SCRIPT_DIR}/ai-gh-pr-audit.yaml"
 )
 
 echo ""
@@ -461,6 +499,12 @@ if [[ "$SET_SLACK_ROUTES" == true ]]; then
     {"triggers":["review","pr-review"],"job_type":"ai-jira-review","id_var":"PRUrl","tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"},"description":"Review PR"},
     {"triggers":["risk","risks"],"job_type":"ai-adhoc","params":{"Skill":"ygs-risk-scan"},"description":"Risk scan"},
     {"triggers":["prs","queue","pulls"],"job_type":"ai-adhoc","params":{"Skill":"ygs-pr-queue"},"description":"PR queue"},
+    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","description":"Post-merge codebase archaeology (hotspots, drift, silos)"},
+    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},"description":"Jira/BB codebase audit"},
+    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},"description":"GitHub codebase audit"},
+    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze last N PRs for gaps, create skill-improvement PR"},
+    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit"},
+    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit"},
     {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"}
   ]'
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
@@ -483,7 +527,7 @@ for d in defs:
         cron = d.get('cron_trigger','')
         conc = d.get('max_concurrency','')
         print(f'  {jt:<35} cron={cron or \"-\":<20} max_concurrency={conc}')
-" 2>/dev/null || true
+" 2>/dev/null || :
 
 # ── Optional: create GitHub labels ─────────────────────────────────────────────
 if [[ "$SETUP_LABELS" == true ]]; then

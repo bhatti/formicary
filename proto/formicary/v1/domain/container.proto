@@ -52,6 +52,8 @@ message ContainerDefinition {
   repeated EnvFromSource env_from = 14 [(formicary.v1.tags) = "json:\"env_from,omitempty\" yaml:\"env_from,omitempty\""];
   // env_value_from injects individual Secret or ConfigMap keys as named env vars.
   repeated EnvVarSource env_value_from = 15 [(formicary.v1.tags) = "json:\"env_value_from,omitempty\" yaml:\"env_value_from,omitempty\""];
+  // image_pull_policy overrides the global pull policy for this container (Always, Never, IfNotPresent).
+  string image_pull_policy = 16 [(formicary.v1.tags) = "json:\"image_pull_policy,omitempty\" yaml:\"image_pull_policy,omitempty\""];
 }
 
 // ArtifactsConfig specifies artifact upload/download paths.

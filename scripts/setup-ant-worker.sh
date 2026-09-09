@@ -362,34 +362,115 @@ if ! ${SKIP_WORKER}; then
     warn "pod not ready after 120s — pod may still be starting; run: kubectl get pods -n ${NAMESPACE}"
   fi
 
-  # Pre-pull the job container image to flush any stale cached image on the node.
-  # Runs a one-shot pod with imagePullPolicy=Always so Kubernetes fetches the latest
-  # manifest from the registry before any jobs execute.
+  # Flush stale plexobject images from the k8s node's container image cache.
+  #
+  # Strategy:
+  #   1. Ant is already scaled to 0 above (image lock released)
+  #   2. Remove ALL plexobject/* images (not just one tag — stale layers included)
+  #   3. Verify removal
+  #   4. Scale ant back to 1 — imagePullPolicy=Always forces a fresh registry pull
+  #
+  # For docker-desktop: `docker rmi` targets the shared image store k8s uses.
+  # For k3s/containerd: a privileged pod runs crictl on the node to remove plexobject images.
   if ! ${DRY_RUN}; then
     printf "\n"
-    log "Step 5: Flushing stale job image on k8s node (${AI_DEV_TOOLS_IMAGE})..."
-    kubectl delete pod formicary-image-flush --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
-    kubectl run formicary-image-flush \
-      --image="${AI_DEV_TOOLS_IMAGE}" \
-      --image-pull-policy=Always \
-      --restart=Never \
-      --namespace="${NAMESPACE}" \
-      --command -- python3 -c "print('image ok')" 2>/dev/null \
-    && {
-      log "Waiting for image pull to complete (up to 120s)..."
-      # Wait for pod to reach Succeeded phase (exits when pull + run complete)
-      _FLUSH_DEADLINE=$(( $(date +%s) + 120 ))
-      while [[ $(date +%s) -lt $_FLUSH_DEADLINE ]]; do
-        _PHASE=$(kubectl get pod formicary-image-flush --namespace="${NAMESPACE}" \
+    log "Step 5: Pruning plexobject images from k8s node..."
+
+    # Scale ant to 0 so the image is not held in-use (required for rmi to succeed)
+    log "  Scaling ant to 0 replicas to release image lock..."
+    kubectl scale deployment/formicary-ant --replicas=0 --namespace "${NAMESPACE}"
+    kubectl wait pod --for=delete --selector=app=formicary-ant --namespace="${NAMESPACE}" \
+      --timeout=30s 2>/dev/null || true
+
+    _K8S_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
+    if [[ "${_K8S_CONTEXT}" == *"docker-desktop"* ]]; then
+      log "  docker-desktop: removing all plexobject/* images from Docker daemon..."
+      _PO_IMAGES=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
+        | grep '^plexobject/' || true)
+      if [[ -n "${_PO_IMAGES}" ]]; then
+        while IFS= read -r _img; do
+          log "    removing ${_img}..."
+          docker rmi -f "${_img}" 2>/dev/null && ok "    removed ${_img}" \
+            || warn "    could not remove ${_img} (may be in use)"
+        done <<< "${_PO_IMAGES}"
+      else
+        ok "  No plexobject images found in docker-desktop store"
+      fi
+      # Verify
+      _REMAINING=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
+        | grep '^plexobject/' || true)
+      if [[ -n "${_REMAINING}" ]]; then
+        warn "  Still present after prune: ${_REMAINING}"
+      else
+        ok "  All plexobject images removed from docker-desktop"
+      fi
+    else
+      # k3s/containerd: privileged pod removes all plexobject images via crictl
+      log "  k3s/containerd: removing all plexobject images on node via crictl..."
+      kubectl delete pod formicary-img-prune --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
+      # Script: list plexobject image IDs and remove each; print before/after for verification
+      _PRUNE_SCRIPT='
+set -euo pipefail
+echo "--- plexobject images before prune ---"
+crictl images 2>/dev/null | grep plexobject || echo "(none)"
+echo "--- removing ---"
+crictl images 2>/dev/null | grep plexobject | awk '"'"'{print $3}'"'"' | sort -u \
+  | xargs -r -I{} sh -c '"'"'echo "removing {}..."; crictl rmi {} 2>&1 || true'"'"'
+echo "--- plexobject images after prune ---"
+crictl images 2>/dev/null | grep plexobject || echo "(none — all removed)"
+'
+      kubectl run formicary-img-prune \
+        --image=ubuntu:22.04 \
+        --restart=Never \
+        --privileged \
+        --overrides="{\"spec\":{\"hostPID\":true,\"containers\":[{\"name\":\"formicary-img-prune\",\"image\":\"ubuntu:22.04\",\"command\":[\"nsenter\",\"--target\",\"1\",\"--mount\",\"--\",\"sh\",\"-c\",\"${_PRUNE_SCRIPT}\"],\"securityContext\":{\"privileged\":true}}]}}" \
+        --namespace="${NAMESPACE}" 2>/dev/null || true
+      _PRUNE_DEADLINE=$(( $(date +%s) + 90 ))
+      while [[ $(date +%s) -lt $_PRUNE_DEADLINE ]]; do
+        _PRUNE_PHASE=$(kubectl get pod formicary-img-prune --namespace="${NAMESPACE}" \
           -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-        case "${_PHASE}" in
-          Succeeded) ok "Job image pre-pulled: ${AI_DEV_TOOLS_IMAGE}"; break ;;
-          Failed)    warn "Image pull pod failed — image may be stale"; break ;;
-        esac
-        sleep 5
+        [[ "${_PRUNE_PHASE}" == "Succeeded" || "${_PRUNE_PHASE}" == "Failed" ]] && break
+        sleep 3
       done
-      kubectl delete pod formicary-image-flush --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
-    } || warn "Could not create image-flush pod — jobs will pull image on first run"
+      # Print the pod log for verification
+      kubectl logs formicary-img-prune --namespace="${NAMESPACE}" 2>/dev/null \
+        | while IFS= read -r _l; do printf "    %s\n" "${_l}"; done || true
+      kubectl delete pod formicary-img-prune --namespace "${NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
+      ok "  plexobject image prune complete"
+    fi
+
+    # Scale ant back up — imagePullPolicy=Always forces fresh pull from registry
+    log "  Scaling ant back to 1 replica (fresh image pull)..."
+    kubectl scale deployment/formicary-ant --replicas=1 --namespace "${NAMESPACE}"
+
+    log "  Waiting for ant pod to become ready after image refresh (up to 120s)..."
+    _FLUSH_DEADLINE=$(( $(date +%s) + 120 ))
+    _ANT_READY=false
+    while [[ $(date +%s) -lt $_FLUSH_DEADLINE ]]; do
+      if kubectl wait pod \
+          --for=condition=Ready \
+          --selector=app=formicary-ant \
+          --namespace="${NAMESPACE}" \
+          --timeout=10s \
+          2>/dev/null; then
+        _ANT_READY=true
+        break
+      fi
+      sleep 3
+    done
+    if ${_ANT_READY}; then
+      ok "Ant worker is running with fresh image"
+    else
+      warn "ant pod not ready after 120s — check: kubectl get pods -n ${NAMESPACE}"
+    fi
+
+    # Verify: show the image digest the running ant pod pulled
+    _RUNNING_IMAGE=$(kubectl get pods --selector=app=formicary-ant --namespace="${NAMESPACE}" \
+      -o jsonpath='{.items[0].spec.containers[0].image}' 2>/dev/null || echo "unknown")
+    _RUNNING_SHA=$(kubectl get pods --selector=app=formicary-ant --namespace="${NAMESPACE}" \
+      -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null || echo "unknown")
+    ok "Active ant image: ${_RUNNING_IMAGE}"
+    ok "Image digest:     ${_RUNNING_SHA}"
   fi
 
 fi  # SKIP_WORKER

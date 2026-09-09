@@ -1,0 +1,423 @@
+# AI PR audit: analyze the last N pull requests of a git repo for spec/design/skills
+# gaps, then create a skill-improvement PR with fixes.
+#
+# Uses scripts.analyze.run_pr_audit and scripts.analyze.post_pr_audit for analysis,
+# then scripts.analyze.create_skill_pr to open a PR with improvements.
+#
+# Triggered via Slack: "@bot pr-audit" or "@bot pr-audit [repo-url]"
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+#
+# Org-config keys (set via deploy-ai-workflows.sh --set-configs):
+#   BitbucketRepoBranch   default branch for Bitbucket repos (default: main)
+#   GitHubRepoBranch      default branch for GitHub repos (default: main)
+#   NPrs                  PRs to analyze (default: 50)
+#   PrAuditFocus          focus dimension: all|spec|design|skills|testing|process
+#   MaxPrAuditSize        max bytes of code to analyze (default: 10485760 = 10MB)
+
+job_type: ai-gh-pr-audit
+description: "AI PR audit: analyze last N PRs for spec/design/skills gaps, create skill-improvement PR"
+max_concurrency: 5
+timeout: 86400s
+
+variables:
+  RepoUrl:
+    type: STRING
+    required: false
+
+tasks:
+# --- AUDIT-PRS ---------------------------------------------------------------
+- task_type: audit-prs
+  method: KUBERNETES
+  timeout: 55m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SELECTED_TRACKER: "github"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: SELECTED_TRACKER
+      value: "github"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 8G
+    memory_request: 2G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "github"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
+    N_PRS: "{{.NPrs}}"
+    PR_AUDIT_FOCUS: "{{.PrAuditFocus}}"
+    MAX_TURNS_AUDIT: "{{.MaxTurnsAudit}}"
+    MAX_PR_AUDIT_SIZE: "{{.MaxPrAuditSize}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    MAX_DEEP_REVIEWS: "{{.MaxDeepReviews}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - |
+      REPO_ARG=""
+      if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
+        REPO_ARG="--repo-url {{.RepoUrl}}"
+      fi
+      mkdir -p ./logs ./reports
+      # Output goes directly to stdout so Formicary captures ::add-task-context markers in real time.
+      python -m scripts.analyze.run_pr_audit \
+        $REPO_ARG \
+        --n-prs "{{.NPrs}}" \
+        --focus "{{.PrAuditFocus}}"
+      RC=$?
+      # Post report to Slack in the same pod (files are in ./reports/)
+      if [ $RC -eq 0 ]; then
+        echo "[pr-audit-post] running post_pr_audit ..."
+        ls -la ./reports/ 2>&1 || echo "[pr-audit-post] reports dir missing"
+        python -m scripts.analyze.post_pr_audit 2>&1
+        POST_RC=$?
+        echo "[pr-audit-post] post_pr_audit exit=$POST_RC"
+      fi
+      exit $RC
+  artifacts:
+    paths:
+      - ./reports
+      - ./reports/pr_data_raw.json
+      - ./reports/pr_reviews_raw.json
+      - ./reports/issues_raw.json
+      - ./logs
+    expire_after: 72h
+  on_completed: plan-skill-updates
+  on_failed: notify-error
+
+# --- PLAN-SKILL-UPDATES ------------------------------------------------------
+# Focused Claude session: reads audit findings + skill_improvements.json, reviews
+# current skill files in the repo, and writes a detailed skill_update_plan.md.
+# Mirrors the plan task in the implement workflow (same claude_runner pattern).
+- task_type: plan-skill-updates
+  method: KUBERNETES
+  timeout: 20m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - audit-prs
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    MAX_TURNS_PLAN: "{{.MaxTurnsPlan}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - |
+      # If AiDevToolsDebug=1, clone latest scripts to /app/scripts/ before module discovery.
+      # Required for new modules not yet in the image. Noop when debug mode is off.
+      python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+      python -m scripts.analyze.plan_skill_updates
+  artifacts:
+    paths:
+      - ./reports/skill_update_plan.md
+      - ./reports/skill_update_plan_result.json
+      - ./logs
+    expire_after: 72h
+  on_completed: create-skill-pr
+  on_failed: notify-error
+
+# --- CREATE-SKILL-PR --------------------------------------------------------
+- task_type: create-skill-pr
+  method: KUBERNETES
+  timeout: 30m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - audit-prs
+    - plan-skill-updates
+  environment:
+    WORKSPACE_DIR: /workspace
+    GIT_USER_NAME: "{{.GitUserName}}"
+    GIT_USER_EMAIL: "{{.GitUserEmail}}"
+    DEFAULT_TRACKER: "github"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    CODEBASE_DIR: /workspace/repo
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -m scripts.analyze.create_skill_pr
+  artifacts:
+    paths:
+      - ./pr.json
+      - ./logs
+    expire_after: 72h
+  on_completed: create-ygs-pr
+  on_failed: done
+
+# --- CREATE-YGS-PR -----------------------------------------------------------
+# Creates a PR against you-got-skills with recommendations having 3+ PR evidence.
+# Non-blocking: on_failed goes to poll-pr so the main workflow continues.
+- task_type: create-ygs-pr
+  method: KUBERNETES
+  timeout: 20m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512M
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - create-skill-pr
+  environment:
+    WORKSPACE_DIR: /workspace
+    GIT_USER_NAME: "{{.GitUserName}}"
+    GIT_USER_EMAIL: "{{.GitUserEmail}}"
+    DEFAULT_TRACKER: "github"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -m scripts.analyze.create_ygs_pr
+  artifacts:
+    paths:
+      - ./ygs_pr.json
+      - ./logs
+    expire_after: 168h
+  on_completed: poll-pr
+  on_failed: poll-pr
+
+# --- POLL-PR -----------------------------------------------------------------
+# poll_pr.py runs once: exits 0 (merged/closed), 3 (still open -> PAUSED), 1 (error).
+# learn.py is called automatically inside poll_pr on exit 0.
+# delay: controls how long formicary waits before re-running this task after PAUSED.
+- task_type: poll-pr
+  method: KUBERNETES
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - create-ygs-pr
+    - poll-pr
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
+    MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
+    GIT_USER_NAME: "{{.GitUserName}}"
+    GIT_USER_EMAIL: "{{.GitUserEmail}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - |
+      set -euo pipefail
+      # All three phases in one block so the guard covers fetch/respond.
+      # pr.json is at /workspace/pr.json (artifacts module uses workspace root directly).
+      if [ ! -f ./pr.json ]; then
+        echo "[poll-pr] pr.json not found — no PR created, skipping"
+        exit 0
+      fi
+      PR_NUM=$(python3 -c "import json; d=json.load(open('./pr.json')); print(d.get('number',0))" 2>/dev/null || echo 0)
+      if [ "$PR_NUM" = "0" ] || [ -z "$PR_NUM" ]; then
+        echo "[poll-pr] No PR to poll (number=0) — skipping"
+        exit 0
+      fi
+      # check_pr_state/fetch_comments/respond_comments read from /workspace/{issue-id}/
+      mkdir -p /workspace/pr-audit
+      cp ./pr.json /workspace/pr-audit/pr.json
+      [ -f ./poll_state.json ] && cp ./poll_state.json /workspace/pr-audit/poll_state.json || true
+      [ -f ./processed_comments.json ] && cp ./processed_comments.json /workspace/pr-audit/processed_comments.json || true
+      [ -f ./pending_comments.json ] && cp ./pending_comments.json /workspace/pr-audit/pending_comments.json || true
+      python -m scripts.gh.check_pr_state --issue-id pr-audit
+      python -m scripts.gh.fetch_comments --issue-id pr-audit
+      python -m scripts.gh.respond_comments --issue-id pr-audit
+      # copy-back: persist updated state files to artifact paths for next iteration
+      cp /workspace/pr-audit/processed_comments.json ./processed_comments.json 2>/dev/null || true
+      cp /workspace/pr-audit/poll_state.json ./poll_state.json 2>/dev/null || true
+      cp /workspace/pr-audit/pending_comments.json ./pending_comments.json 2>/dev/null || true
+  artifacts:
+    paths:
+      - ./pr.json
+      - ./poll_state.json
+      - ./processed_comments.json
+      - ./pending_comments.json
+    expire_after: 168h    # 7 days
+  on_exit_code:
+    3: PAUSE_JOB    # PR still open — formicary waits delay then retries
+  on_completed: done
+  on_failed: notify-error
+  delay: "{{.PollInterval}}s"
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    SKILL_NAME: "ygs-pr-audit"
+    MESSAGE: ":x: *PR Audit* failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "PR audit complete"
+
+job_variables:
+  RepoUrl: ""
+  # Branch defaults — overridden at runtime by org configs BitbucketRepoBranch / GitHubRepoBranch.
+  # Formicary variable resolution: job params > org configs > job_variables (defaults).
+  BitbucketRepoBranch: "main"
+  GitHubRepoBranch: "main"
+  NPrs: "50"
+  PrAuditFocus: "all"
+  MaxTurnsAudit: "120"
+  MaxTurnsPlan: "30"
+  MaxPrAuditSize: "10485760"
+  MaxTurnsFeedback: "20"
+  PollInterval: "120"
+  GitUserName: "AI Agent"
+  GitUserEmail: "ai-agent@noreply.local"
+  SlackChannel: ""
+  SlackThreadTs: ""
+  DefaultTracker: ""
+  MaxClaudeProcessTimeout: "3300"
+  MaxDeepReviews: "2"
+  ExtraSkillsRepos: ""
+  FormicaryPublicURL: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  NeedsHumanLabel: "needs-human"
+  GitHubOrg: ""
+  GitHubRepo: ""
+  JiraUrl: ""
+  JiraProject: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  BitbucketUsername: ""
+  AiDevToolsDebug: ""
+  YgsSkillsRepo: "https://github.com/bhatti/you-got-skills.git"

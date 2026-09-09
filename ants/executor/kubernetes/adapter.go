@@ -482,7 +482,8 @@ func (u *Utils) BuildPod(
 				volumeMounts,
 				buildVariables(&u.config.Kubernetes, opts, false, envMap),
 				nil, // services don't inherit main container envFrom
-				privileged)
+				privileged,
+				"")
 			podServices = append(podServices, podService)
 			serviceNames = append(serviceNames, podService.Name)
 		}
@@ -538,6 +539,13 @@ func (u *Utils) BuildPod(
 			}
 		}
 		totalCost += cost
+		logrus.WithFields(logrus.Fields{
+			"Component":             "KubernetesAdapter",
+			"Image":                 opts.MainContainer.Image,
+			"ImagePullPolicyYAML":   opts.MainContainer.ImagePullPolicy,
+			"GlobalPullPolicy":      u.config.Kubernetes.PullPolicy,
+			"ResolvedPullPolicy":    resolveImagePullPolicy(&u.config.Kubernetes, opts.MainContainer.ImagePullPolicy),
+		}).Info("building main container")
 		mainContainer := buildContainer(
 			&u.config.Kubernetes,
 			opts.Name,
@@ -549,7 +557,8 @@ func (u *Utils) BuildPod(
 			volumeMounts,
 			buildVariables(&u.config.Kubernetes, opts, false, nil),
 			buildEnvFrom(opts.MainContainer.EnvFrom),
-			privileged)
+			privileged,
+			opts.MainContainer.ImagePullPolicy)
 		podServices = append(podServices, mainContainer)
 		//serviceNames = append(serviceNames, opts.Name)
 	}
@@ -629,7 +638,8 @@ func (u *Utils) BuildPod(
 			volumeMounts,
 			buildVariables(&u.config.Kubernetes, opts, true, nil),
 			buildEnvFrom(opts.HelperContainer.EnvFrom),
-			privileged)
+			privileged,
+			"")
 		podServices = append(podServices, helperContainer)
 		//serviceNames = append(serviceNames, helperName)
 	}
@@ -1059,6 +1069,21 @@ func preparePodConfig(
 	return &pod, nil
 }
 
+// resolveImagePullPolicy returns the per-task pull policy if set, falling back to the global ant config.
+func resolveImagePullPolicy(config *ant_config.KubernetesConfig, override string) api.PullPolicy {
+	if override != "" {
+		switch strings.ToLower(override) {
+		case "always":
+			return api.PullAlways
+		case "never":
+			return api.PullNever
+		case "ifnotpresent", "if-not-present":
+			return api.PullIfNotPresent
+		}
+	}
+	return api.PullPolicy(config.PullPolicy.GetKubernetesPullPolicy())
+}
+
 // resolveServiceAccount returns the per-task service account if set in opts, falling back to the
 // ant-worker default. This enables per-task IRSA (AWS) or Workload Identity (GCP) bindings.
 func resolveServiceAccount(config *ant_config.KubernetesConfig, opts *domain.ExecutorOptions) string {
@@ -1081,6 +1106,7 @@ func buildContainer(
 	env []api.EnvVar,
 	envFrom []api.EnvFromSource,
 	privileged bool,
+	imagePullPolicyOverride string,
 	containerCommand ...string) api.Container {
 
 	var allowPrivilegeEscalation *bool
@@ -1104,7 +1130,7 @@ func buildContainer(
 	container := api.Container{
 		Name:            name,
 		Image:           image,
-		ImagePullPolicy: api.PullPolicy(config.PullPolicy.GetKubernetesPullPolicy()),
+		ImagePullPolicy: resolveImagePullPolicy(config, imagePullPolicyOverride),
 		Command:         command,
 		Args:            args,
 		Env:             env,

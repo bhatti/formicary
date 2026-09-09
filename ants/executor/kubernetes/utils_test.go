@@ -193,3 +193,34 @@ func Test_ShouldExtractSHA256(t *testing.T) {
 	// Empty string
 	require.Equal(t, "", executor.ExtractSHA256(""))
 }
+
+func Test_ShouldResolveImagePullPolicy(t *testing.T) {
+	config := &ant_config.KubernetesConfig{}
+	config.PullPolicy = "if-not-present"
+
+	// Default: uses global config when no override
+	require.Equal(t, api.PullIfNotPresent, resolveImagePullPolicy(config, ""))
+
+	// Override: "always" (case-insensitive)
+	require.Equal(t, api.PullAlways, resolveImagePullPolicy(config, "Always"))
+	require.Equal(t, api.PullAlways, resolveImagePullPolicy(config, "always"))
+
+	// Override: "never"
+	require.Equal(t, api.PullNever, resolveImagePullPolicy(config, "Never"))
+	require.Equal(t, api.PullNever, resolveImagePullPolicy(config, "never"))
+
+	// Override: "ifnotpresent" and "if-not-present" variants
+	require.Equal(t, api.PullIfNotPresent, resolveImagePullPolicy(config, "IfNotPresent"))
+	require.Equal(t, api.PullIfNotPresent, resolveImagePullPolicy(config, "if-not-present"))
+
+	// Invalid override falls through to global config
+	config.PullPolicy = "always"
+	require.Equal(t, api.PullAlways, resolveImagePullPolicy(config, "bogus"))
+
+	// ContainerDefinition carries ImagePullPolicy field through YAML
+	cd := &domain.ContainerDefinition{
+		Image:           "plexobject/ai-dev-tools:latest",
+		ImagePullPolicy: "Always",
+	}
+	require.Equal(t, api.PullAlways, resolveImagePullPolicy(config, cd.ImagePullPolicy))
+}

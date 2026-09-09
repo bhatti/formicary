@@ -176,3 +176,24 @@ func newTestExecutorOptions() *ExecutorOptions {
 	}
 	return opts
 }
+
+func Test_ShouldRoundTripImagePullPolicy(t *testing.T) {
+	yamlData := `
+task_type: audit-prs
+method: KUBERNETES
+container:
+  image: plexobject/ai-dev-tools:latest
+  image_pull_policy: Always
+  memory_limit: 8G
+`
+	opts := NewExecutorOptions("", "")
+	err := yaml.Unmarshal([]byte(yamlData), opts)
+	require.NoError(t, err)
+	require.Equal(t, "plexobject/ai-dev-tools:latest", opts.MainContainer.Image)
+	require.Equal(t, "Always", opts.MainContainer.ImagePullPolicy)
+	require.Equal(t, "8G", opts.MainContainer.MemoryLimit)
+
+	b, err := yaml.Marshal(opts)
+	require.NoError(t, err)
+	require.Contains(t, string(b), "image_pull_policy: Always")
+}

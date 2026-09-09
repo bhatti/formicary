@@ -24,6 +24,7 @@ type EnvVarSource = domain.EnvVarSource
 
 type ContainerDefinition struct {
 	Image                   string      `json:"image" yaml:"image"`
+	ImagePullPolicy         string      `json:"image_pull_policy,omitempty" yaml:"image_pull_policy,omitempty"`
 	ImageDefinition         Image       `json:"imageDefinition,omitempty" yaml:"imageDefinition,omitempty"`
 	Volumes                 interface{} `json:"volumes,omitempty" yaml:"volumes,omitempty"`
 	VolumeDriver            string      `json:"volume_driver,omitempty" yaml:"volume_driver,omitempty"`

@@ -90,7 +90,7 @@ print(json.dumps({
 
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/fmq-sysconfig-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/fmq-sysconfig-resp.json 2>/dev/null || :)
   rm -f /tmp/fmq-sysconfig-resp.json
   case "$http_code" in
     2*) ok "sysconfig $kind/$name saved" ;;
@@ -123,7 +123,7 @@ print(json.dumps({'scope':'default','kind':'JSON','name':'SlackRoutes','value':v
 
   local http_code resp
   http_code=$(curl "${args[@]}" 2>/dev/null) || http_code="000"
-  resp=$(cat /tmp/fmq-routes-resp.json 2>/dev/null || true)
+  resp=$(cat /tmp/fmq-routes-resp.json 2>/dev/null || :)
   rm -f /tmp/fmq-routes-resp.json
   case "$http_code" in
     2*) ok "SlackRoutes admin config saved" ;;
@@ -207,6 +207,21 @@ if [[ "$SET_ROUTES" == true ]]; then
     {"triggers":["prs","pr queue","open prs","list prs",
                  "jira prs","jira pr queue","jira open prs",
                  "gh prs","gh pr queue","github prs","github pr queue"],"job_type":"ai-adhoc","description":"List open PRs","params":{"Skill":"ygs-pr-queue"}},
+    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit",
+     "description":"Codebase archaeology — hotspots, drift, test gaps, silos. Usage: @bot codebase-audit | @bot codebase-audit <repo-url> | @bot codebase-audit -- last 200 commits, max size 2MB","id_var":"RepoUrl"},
+    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},
+     "description":"Jira/BB codebase audit"},
+    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},
+     "description":"GitHub codebase audit"},
+    {"triggers":["pr-audit","pr audit"],
+     "job_type":"ai-gh-pr-audit",
+     "description":"PR audit — analyze last N PRs for spec/design/skills gaps, create skill-improvement PR. Usage: @bot pr-audit | @bot pr-audit <repo-url>",
+     "id_var":"RepoUrl",
+     "tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"}},
+    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl",
+     "description":"Jira/BB PR audit"},
+    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl",
+     "description":"GitHub PR audit"},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"

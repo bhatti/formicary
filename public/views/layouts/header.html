@@ -164,7 +164,7 @@
                 <a href="/dashboard/users/{{.ID}}" class="text-reset">{{.Name}}{{ if $.Admin }} (Admin){{ end }}</a>
               </div>
               <div class="text-muted small text-truncate">{{.Email}}</div>
-              <a href="/dashboard/slack/setup" class="text-muted small d-block"><i class="ti ti-brand-slack me-1"></i>Connect Slack</a>
+              <a href="/dashboard/users/{{.ID}}#slack" class="text-muted small d-block"><i class="ti ti-brand-slack me-1"></i>Slack Settings</a>
               <a href="/logout" class="text-muted small"><i class="ti ti-logout me-1"></i>Sign out</a>
             </div>
           </div>

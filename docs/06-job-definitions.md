@@ -12,7 +12,7 @@ These properties are defined at the root of your YAML file and apply to the job 
 | `description` | string | Optional. A human-readable description of what the job does. |
 | `max_concurrency`| integer | Optional. Limits how many instances of this job can run simultaneously. Defaults to `1`. |
 | `tasks` | list | **Required.** A list of all the task definitions that make up this job. |
-| `job_variables` | map | Optional. A map of key-value pairs that are available as template variables to all tasks in the job. |
+| `job_variables` | map | Optional. Default template variable values. **Overridden at runtime** by org configs and job submission params. See [Variable Precedence](#variable-precedence) below. |
 | `cron_trigger` | string | Optional. A cron expression to run the job on a schedule. See the [Scheduling Guide](./08-scheduling-and-triggers.md). |
 | `timeout` | duration | Optional. A duration (e.g., `1h`, `30m`) after which the entire job will be terminated if it hasn't completed. |
 | `retry` | integer | Optional. The number of times a failed job should be automatically retried. |
@@ -21,6 +21,57 @@ These properties are defined at the root of your YAML file and apply to the job 
 | `skip_if` | template | Optional. A Go template string that, if it renders to "true", will cause the job to be skipped. |
 | `public_plugin` | boolean | Optional. If `true`, marks this job definition as a public plugin available to other users. |
 | `sem_version` | string | Optional. The semantic version for a public plugin (e.g., `1.2.5`). |
+
+---
+
+## Variable Precedence
+
+Formicary resolves template variables (`{{.VarName}}`) using this priority order (highest wins):
+
+```
+job submission params  >  org configs  >  user configs  >  job_variables (YAML defaults)
+```
+
+**`job_variables`** in the YAML are defaults only. They are always overridden by org configs set via `--set-configs` or by params passed at submission time.
+
+**Example:** A YAML with `job_variables: BitbucketRepoBranch: "main"` is correct — it provides a safe default. Setting `BitbucketRepoBranch=dev` via org configs (or passing it as a job param) overrides it at runtime without touching the YAML.
+
+**Consequence:** Never hard-code environment-specific values into `job_variables`. Use them as YAML-level defaults and rely on org configs or job params to override per environment.
+
+**Do NOT** work around this by removing variables from the environment section or by reading them directly from secrets — the override chain is the intended design.
+
+---
+
+## Secrets vs Org Configs — What Goes Where
+
+This distinction is critical. Getting it wrong causes silent failures where empty template values override k8s secret values.
+
+| Category | Where to store | Examples |
+|----------|---------------|---------|
+| **Actual secrets** (tokens, passwords, private keys) | k8s secret (`ai-dev-credentials`) | `BITBUCKET_TOKEN`, `GH_TOKEN`, `SLACK_BOT_TOKEN`, `SSH_PRIVATE_KEY`, `ANTHROPIC_API_KEY` |
+| **Normal config** (workspace, repo, usernames, branches, URLs, model IDs) | Org configs (`deploy-ai-workflows.sh --set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch` |
+| **YAML defaults** (safe fallbacks when no org config is set) | `job_variables` in YAML | Default model names, empty-string placeholders for optional fields |
+
+### Why this matters — Kubernetes env precedence
+
+In a Kubernetes pod, an explicit `env:` entry **always overrides** `envFrom: secretRef:` for the same key.
+
+If a YAML has:
+```yaml
+env_from:
+  - secret_ref: ai-dev-credentials   # has BITBUCKET_WORKSPACE=xxx
+environment:
+  BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"  # renders to "" if not set in org config
+```
+
+The empty string `""` from the template **silently wins** over the secret's `cxxx` value. The pod sees `BITBUCKET_WORKSPACE=""` and the script fails.
+
+### Correct pattern
+
+- Secrets only in `env_from: secret_ref` — never also in `environment:`
+- Config values (workspace, repo, etc.) in `environment:` via templates `{{.VarName}}`
+- Those template vars set via org configs (`set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"`)
+- Org configs override `job_variables` defaults at runtime
 
 ---
 

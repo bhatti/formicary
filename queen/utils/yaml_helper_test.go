@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+	domain "plexobject.com/formicary/internal/types"
 )
 
 // Test parse yaml
@@ -64,4 +65,39 @@ func Test_ShouldParseConfigYamlTag(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(m), numConfigs[i])
 	}
+}
+
+func Test_ShouldParseImagePullPolicyFromTaskYaml(t *testing.T) {
+	jobYaml := `
+job_type: test-pull-policy
+tasks:
+- task_type: audit-prs
+  method: KUBERNETES
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    memory_limit: 8G
+  environment:
+    FOO: bar
+  on_completed: done
+- task_type: done
+  method: SHELL
+  script:
+    - echo done
+`
+	serData := ParseYamlTag(jobYaml, "task_type: audit-prs")
+	require.NotEmpty(t, serData, "ParseYamlTag should return non-empty for audit-prs")
+	t.Logf("Extracted YAML fragment:\n%s", serData)
+
+	require.Contains(t, serData, "image_pull_policy")
+
+	opts := domain.NewExecutorOptions("", "")
+	err := yaml.Unmarshal([]byte(serData), opts)
+	require.NoError(t, err)
+	require.Equal(t, "plexobject/ai-dev-tools:latest", opts.MainContainer.Image)
+	require.Equal(t, "Always", opts.MainContainer.ImagePullPolicy,
+		"ImagePullPolicy should survive ParseYamlTag + Unmarshal round-trip")
 }

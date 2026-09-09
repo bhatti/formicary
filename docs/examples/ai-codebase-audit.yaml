@@ -1,0 +1,241 @@
+# AI codebase archaeology: analyze the last N commits of a git repo for hotspots,
+# duplicate abstractions, architecture drift, brittle tests, and knowledge silos.
+#
+# Uses the ygs-codebase-audit skill, which orchestrates ygs-review-deep (architecture),
+# ygs-security-review (security), and ygs-analyze (static analysis) protocols.
+#
+# Triggered via Slack: "@bot audit" or "@bot codebase-audit [repo-url]"
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+#
+# Org-config keys (set via deploy-ai-workflows.sh --set-configs):
+#   BitbucketRepoBranch   default branch for Bitbucket repos (default: main; set to e.g. dev via org config)
+#   GitHubRepoBranch      default branch for GitHub repos (default: main)
+#   NCommits     commits to analyze (default: 1000)
+#   AuditFocus   focus dimension: all|architecture|security|tests|duplicates|health
+#   MaxAuditSize max bytes of code to analyze (default: 1048576 = 1MB)
+
+job_type: ai-codebase-audit
+description: "AI codebase archaeology: analyze last N commits for hotspots, drift, test gaps, silos"
+max_concurrency: 5
+timeout: 3600s
+
+variables:
+  RepoUrl:
+    type: STRING
+    required: false
+
+tasks:
+# --- AUDIT -------------------------------------------------------------------
+- task_type: audit
+  method: KUBERNETES
+  timeout: 55m
+  task_variables:
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SELECTED_TRACKER: "{{.DefaultTracker}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 8G
+    memory_request: 2G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    BITBUCKET_USERNAME: "{{.BitbucketUsername}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    BB_REPO_BRANCH: "{{.BitbucketRepoBranch}}"
+    GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
+    N_COMMITS: "{{.NCommits}}"
+    AUDIT_FOCUS: "{{.AuditFocus}}"
+    MAX_TURNS_AUDIT: "{{.MaxTurnsAudit}}"
+    MAX_AUDIT_SIZE: "{{.MaxAuditSize}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+  script:
+    - |
+      REPO_ARG=""
+      if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
+        REPO_ARG="--repo-url {{.RepoUrl}}"
+      fi
+      mkdir -p ./logs ./reports
+      # Output goes directly to stdout so Formicary captures ::add-task-context markers in real time.
+      # Formicary stores the full task stdout as audit_console.txt (the log artifact).
+      python -m scripts.analyze.run_codebase_audit \
+        $REPO_ARG \
+        --commits "{{.NCommits}}" \
+        --focus "{{.AuditFocus}}"
+      RC=$?
+      # Post report to Slack in the same pod (files are in ./reports/)
+      if [ $RC -eq 0 ]; then
+        echo "[audit-post] running post_audit ..."
+        ls -la ./reports/ 2>&1 || echo "[audit-post] reports dir missing"
+        python -m scripts.analyze.post_audit 2>&1
+        POST_RC=$?
+        echo "[audit-post] post_audit exit=$POST_RC"
+      fi
+      exit $RC
+  artifacts:
+    paths:
+      - ./reports
+      - ./reports/audit_data_raw.json
+      - ./logs
+    expire_after: 72h
+  on_completed: create-ygs-pr
+  on_failed: notify-error
+
+# --- CREATE-YGS-PR (optional) ------------------------------------------------
+# Only runs when CreateYgsPr=true job variable is set. Non-blocking.
+- task_type: create-ygs-pr
+  method: KUBERNETES
+  timeout: 20m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512M
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - audit
+  environment:
+    WORKSPACE_DIR: /workspace
+    GIT_USER_NAME: "{{.GitUserName}}"
+    GIT_USER_EMAIL: "{{.GitUserEmail}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - |
+      if [ "{{.CreateYgsPr}}" != "true" ]; then
+        echo "[create-ygs-pr] Skipped (CreateYgsPr != true)"
+        exit 0
+      fi
+      python -m scripts.analyze.create_ygs_pr
+  artifacts:
+    paths:
+      - ./ygs_pr.json
+      - ./logs
+    expire_after: 168h
+  on_completed: done
+  on_failed: done
+
+# --- POST is now handled inline at the end of the audit task script above ---
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    SKILL_NAME: "ygs-codebase-audit"
+    MESSAGE: ":x: *Codebase Audit* failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+  script:
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Codebase audit complete"
+
+job_variables:
+  RepoUrl: ""
+  # Branch defaults — overridden at runtime by org configs BitbucketRepoBranch / GitHubRepoBranch.
+  # Formicary variable resolution: job params > org configs > job_variables (defaults).
+  BitbucketRepoBranch: "main"
+  GitHubRepoBranch: "main"
+  NCommits: "1000"
+  AuditFocus: "all"
+  MaxTurnsAudit: "120"
+  MaxAuditSize: "10485760"
+  SlackChannel: ""
+  SlackThreadTs: ""
+  DefaultTracker: ""
+  MaxClaudeProcessTimeout: "3300"
+  ExtraSkillsRepos: ""
+  FormicaryPublicURL: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  GitHubOrg: ""
+  GitHubRepo: ""
+  JiraUrl: ""
+  JiraProject: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  BitbucketUsername: ""
+  GitUserName: "AI Agent"
+  GitUserEmail: "ai-agent@noreply.local"
+  YgsSkillsRepo: "https://github.com/bhatti/you-got-skills.git"
+  CreateYgsPr: "false"

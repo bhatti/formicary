@@ -125,6 +125,19 @@ export SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
 
 The secret is idempotent — re-running `--create-k8s-secret` updates it in place. Non-secret org config (project names, channel names, etc.) is pushed separately with `--set-configs`.
 
+### Secrets vs Org Configs — critical distinction
+
+**Rule**: actual secrets go in the k8s secret; everything else goes in org configs.
+
+| Store | What belongs here |
+|-------|------------------|
+| k8s secret (`ai-dev-credentials`) | `BITBUCKET_TOKEN`, `GH_TOKEN`, `SLACK_BOT_TOKEN`, `SSH_PRIVATE_KEY`, `ANTHROPIC_API_KEY` |
+| Org configs (`--set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch`, model IDs, Slack channel, Jira URL |
+
+**Why it matters**: In a Kubernetes pod, explicit `env:` entries override `envFrom: secretRef:` for the same key. If a YAML template `{{.BitbucketWorkspace}}` renders to `""` (because no org config is set), it silently overwrites the `BITBUCKET_WORKSPACE=xxx` value from the secret. The script then sees an empty workspace and fails. Always set non-secret config via org configs so templates render the correct values.
+
+See [Job Definitions — Secrets vs Org Configs](../06-job-definitions.md#secrets-vs-org-configs--what-goes-where) for details.
+
 ---
 
 ### GitHub AI Agent (`ai-gh-implement` + `ai-gh-issue-picker` + `ai-gh-cleanup`)
@@ -376,6 +389,74 @@ Via Slack:
 
 Deployed automatically by both `deploy-ai-workflows.sh` and `deploy-ai-jira-workflows.sh`.
 
+---
+
+### PR Audit (`ai-gh-pr-audit` / `ai-jira-pr-audit`)
+
+Analyzes the last N pull requests for spec/design/skills gaps, then creates a skill-improvement PR with fixes. The pipeline runs: `audit-prs` (analyze PRs) -> `create-skill-pr` (open improvement PR) -> `poll-pr` (wait for merge/close).
+
+**Deploy (GitHub):**
+```bash
+cd docs/examples
+
+./deploy-ai-workflows.sh \
+  --create-k8s-secret --set-configs \
+  --gh-org YOUR_ORG --gh-repo YOUR_REPO
+```
+
+**Deploy (Jira/Bitbucket):**
+```bash
+cd docs/examples
+
+./deploy-ai-jira-workflows.sh \
+  --create-k8s-secret --set-configs \
+  --jira-project MYPROJ \
+  --bb-workspace myworkspace --bb-repo myrepo
+```
+
+**Trigger via curl:**
+```bash
+curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"job_type\":\"ai-gh-pr-audit\",\"params\":{\"SlackChannel\":\"$SLACK_CHANNEL\"}}"
+```
+
+**Trigger via Slack:**
+```
+@ai-agent pr-audit
+@ai-agent pr-audit https://github.com/ORG/REPO
+```
+
+**Key job variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NPrs` | `50` | Number of PRs to analyze |
+| `PrAuditFocus` | `all` | Focus: all, spec, design, skills, testing, process |
+| `MaxTurnsPrAudit` | `120` | Max Claude turns for audit |
+| `MaxPrAuditSize` | `10485760` | Max bytes of code to analyze (10MB) |
+| `PollInterval` | `120` | Seconds between poll-pr checks |
+
+---
+
+### Variable Precedence (important)
+
+Formicary resolves `{{.VarName}}` in this order — highest wins:
+
+```
+job submission params  >  org configs  >  user configs  >  job_variables (YAML defaults)
+```
+
+`job_variables` in the YAML are **defaults only**. Set them to safe fallback values.
+Use org configs (`--set-configs`) or job params to override per environment.
+
+**Example:** `BitbucketRepoBranch: "main"` in the YAML is the fallback. Setting org config `BitbucketRepoBranch=dev` overrides it for every job in that org — no YAML change needed.
+
+**Do NOT** remove variables from the environment section to work around this — the override chain is intentional.
+
+---
+
 **Key job variables** (configure via org configs or per-job params):
 
 | Variable | Default | Description |
@@ -386,6 +467,8 @@ Deployed automatically by both `deploy-ai-workflows.sh` and `deploy-ai-jira-work
 | `GitHubRepo` | `""` | GitHub repo — forwarded to the skill as `$GH_REPO` |
 | `ExtraSkillsRepos` | `""` | Extra skill repos to install (comma-separated URLs or `skills-cli:org/repo`) |
 | `CodebaseRepoUrl` | `""` | Optional: shallow-clone a repo into `/workspace/repo` before the skill runs |
+| `BitbucketRepoBranch` | `"main"` | Default branch for Bitbucket repos (override via org config, e.g. `dev`) |
+| `GitHubRepoBranch` | `"main"` | Default branch for GitHub repos (typically `main`) |
 
 **Why `MaxClaudeProcessTimeout` matters:** without it, the Claude CLI process runs until the task timeout fires (25 minutes), with no graceful shutdown. Setting it to `task_timeout - 150s` lets Claude finish its current turn and write the status JSON before the container is killed.
 
@@ -538,6 +621,8 @@ Mention the bot in any channel it has been invited to:
 | `@bot gh-query <keywords>` | Search GitHub issues by keyword | `ai-jira-query` (DefaultTracker=github) |
 | `@bot gh-analyze #123,#456` | Analyze GitHub issues for root cause and fixes | `ai-jira-query` (Mode=analyze, DefaultTracker=github) |
 | `@bot doctor` | Connectivity check against all configured services | `ai-connectivity-check` |
+| `@bot pr-audit` | Analyze last N PRs for spec/design/skills gaps, create skill-improvement PR | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot pr-audit <repo-url>` | PR audit on a specific repo | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot adhoc <free-form prompt>` | Run any you-got-skills skill with a free-form prompt | `ai-adhoc` |
 
 Replace `@bot` with your bot's actual name (find it with `curl -s https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool | grep '"user"'`).
