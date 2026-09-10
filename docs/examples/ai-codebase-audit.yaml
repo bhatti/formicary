@@ -157,9 +157,10 @@ tasks:
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+    CREATE_YGS_PR: "{{.CreateYgsPr}}"
   script:
     - |
-      if [ "{{.CreateYgsPr}}" != "true" ]; then
+      if [ "$CREATE_YGS_PR" != "true" ]; then
         echo "[create-ygs-pr] Skipped (CreateYgsPr != true)"
         exit 0
       fi
