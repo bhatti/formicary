@@ -298,6 +298,7 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
+    - create-skill-pr
     - create-ygs-pr
     - poll-pr
   environment:
