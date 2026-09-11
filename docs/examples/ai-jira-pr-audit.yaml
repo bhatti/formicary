@@ -4,7 +4,7 @@
 # Uses scripts.analyze.run_pr_audit and scripts.analyze.post_pr_audit for analysis,
 # then scripts.analyze.create_skill_pr to open a PR with improvements.
 #
-# Triggered via Slack: "@bot pr-audit" or "@bot pr-audit [repo-url]"
+# Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <id>"
 #
 # Deploy:
 #   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs
@@ -23,6 +23,9 @@ timeout: 86400s
 
 variables:
   RepoUrl:
+    type: STRING
+    required: false
+  PrUrls:
     type: STRING
     required: false
 
@@ -90,7 +93,18 @@ tasks:
     - |
       REPO_ARG=""
       if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
-        REPO_ARG="--repo-url {{.RepoUrl}}"
+        # If the trailing Slack text is a PR URL, route it to PR_URLS; otherwise treat as repo URL.
+        case "{{.RepoUrl}}" in
+          */pull/*|*/pull-requests/*)
+            export PR_URLS="{{.RepoUrl}}"
+            ;;
+          *)
+            REPO_ARG="--repo-url {{.RepoUrl}}"
+            ;;
+        esac
+      fi
+      if [ -n "{{.PrUrls}}" ] && [ "{{.PrUrls}}" != "<no value>" ]; then
+        export PR_URLS="${PR_URLS:+$PR_URLS }{{.PrUrls}}"
       fi
       mkdir -p ./logs ./reports
       # Output goes directly to stdout so Formicary captures ::add-task-context markers in real time.
@@ -396,6 +410,7 @@ tasks:
 
 job_variables:
   RepoUrl: ""
+  PrUrls: ""
   # Branch defaults — overridden at runtime by org configs BitbucketRepoBranch / GitHubRepoBranch.
   # Formicary variable resolution: job params > org configs > job_variables (defaults).
   BitbucketRepoBranch: "main"

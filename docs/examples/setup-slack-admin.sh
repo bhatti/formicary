@@ -215,13 +215,13 @@ if [[ "$SET_ROUTES" == true ]]; then
      "description":"GitHub codebase audit"},
     {"triggers":["pr-audit","pr audit"],
      "job_type":"ai-gh-pr-audit",
-     "description":"PR audit — analyze last N PRs for spec/design/skills gaps, create skill-improvement PR. Usage: @bot pr-audit | @bot pr-audit <repo-url>",
+     "description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <model-id>. Tracker (GH vs Jira/BB) auto-detected from URL.",
      "id_var":"RepoUrl",
      "tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"}},
     {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl",
-     "description":"Jira/BB PR audit"},
+     "description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
     {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl",
-     "description":"GitHub PR audit"},
+     "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"

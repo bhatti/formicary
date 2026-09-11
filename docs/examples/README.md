@@ -426,14 +426,19 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 ```
 @ai-agent pr-audit
 @ai-agent pr-audit https://github.com/ORG/REPO
+@ai-agent pr-audit https://github.com/ORG/REPO/pull/123
+@ai-agent pr-audit https://bitbucket.org/WS/REPO/pull-requests/456 --model claude-opus-5
 ```
+
+When PR URLs are included in the Slack message, the audit fetches only those specific PRs instead of the last N. Model and focus can also be overridden inline: `audit last 30 prs focus skills --model claude-opus-5`.
 
 **Key job variables:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NPrs` | `50` | Number of PRs to analyze |
+| `NPrs` | `50` | Number of PRs to analyze (ignored when `PrUrls` is set) |
 | `PrAuditFocus` | `all` | Focus: all, spec, design, skills, testing, process |
+| `PrUrls` | `""` | Optional: space/comma-separated PR URLs to audit specific PRs instead of last N |
 | `MaxTurnsPrAudit` | `120` | Max Claude turns for audit |
 | `MaxPrAuditSize` | `10485760` | Max bytes of code to analyze (10MB) |
 | `PollInterval` | `120` | Seconds between poll-pr checks |
@@ -623,6 +628,8 @@ Mention the bot in any channel it has been invited to:
 | `@bot doctor` | Connectivity check against all configured services | `ai-connectivity-check` |
 | `@bot pr-audit` | Analyze last N PRs for spec/design/skills gaps, create skill-improvement PR | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit <repo-url>` | PR audit on a specific repo | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot pr-audit <pr-url> [<pr-url2> ...]` | Audit specific PRs by URL (auto-detects GH vs BB) | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot pr-audit ... --model <model-id>` | Override AI model for this audit run | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot adhoc <free-form prompt>` | Run any you-got-skills skill with a free-form prompt | `ai-adhoc` |
 
 Replace `@bot` with your bot's actual name (find it with `curl -s https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool | grep '"user"'`).
@@ -1159,7 +1166,7 @@ Key artifact files by workflow:
 | `ai-standup-jira/gh` | `signals.json`, `standup_brief.md`, `risk_report.md`, `standup_report.md` |
 | `ai-adhoc` (pr-queue) | `adhoc_result.json` |
 | `ai-gh-review` / `ai-jira-review` | `findings.json`, `review_result.json` |
-| `ai-gh-implement` / `ai-jira-implement` | `issue.json`, `plan.md`, `pr.json`, `learnings.md` |
+| `ai-gh-implement` / `ai-jira-implement` | `issue.json`, `plan.md`, `pr.json`, `learnings.md` (combined PR health + learnings report, posted to PR and issue after merge) |
 
 ---
 

@@ -502,9 +502,9 @@ if [[ "$SET_SLACK_ROUTES" == true ]]; then
     {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","description":"Post-merge codebase archaeology (hotspots, drift, silos)"},
     {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},"description":"Jira/BB codebase audit"},
     {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},"description":"GitHub codebase audit"},
-    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze last N PRs for gaps, create skill-improvement PR"},
-    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit"},
-    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit"},
+    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <id>. Tracker auto-detected from URL."},
+    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
+    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
     {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"}
   ]'
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
