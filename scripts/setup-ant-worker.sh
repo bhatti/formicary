@@ -529,6 +529,7 @@ if ${_deploy_gh_workflows}; then
   bash "${EXAMPLES_DIR}/deploy-ai-workflows.sh" \
     --server "${FORMICARY_URL}" \
     --set-configs \
+    --set-slack-routes \
     --create-k8s-secret \
     || warn "GitHub workflow deploy failed — check credentials and re-run"
   ok "GitHub workflows deployed"

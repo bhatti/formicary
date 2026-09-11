@@ -235,55 +235,8 @@ tasks:
       - ./pr.json
       - ./logs
     expire_after: 72h
-  on_completed: create-ygs-pr
-  on_failed: done
-
-# --- CREATE-YGS-PR -----------------------------------------------------------
-# Creates a PR against you-got-skills with recommendations having 3+ PR evidence.
-# Non-blocking: on_failed goes to poll-pr so the main workflow continues.
-- task_type: create-ygs-pr
-  method: KUBERNETES
-  timeout: 20m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "500m"
-    memory_limit: 2G
-    memory_request: 512M
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - create-skill-pr
-  environment:
-    WORKSPACE_DIR: /workspace
-    GIT_USER_NAME: "{{.GitUserName}}"
-    GIT_USER_EMAIL: "{{.GitUserEmail}}"
-    DEFAULT_TRACKER: "github"
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    SLACK_BOT_TOKEN: "{{.SlackToken}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
-    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
-    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
-    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -m scripts.analyze.create_ygs_pr
-  artifacts:
-    paths:
-      - ./ygs_pr.json
-      - ./logs
-    expire_after: 168h
   on_completed: poll-pr
-  on_failed: poll-pr
+  on_failed: done
 
 # --- POLL-PR -----------------------------------------------------------------
 # poll_pr.py runs once: exits 0 (merged/closed), 3 (still open -> PAUSED), 1 (error).
@@ -305,7 +258,6 @@ tasks:
       - secret_ref: ai-dev-credentials
   dependencies:
     - create-skill-pr
-    - create-ygs-pr
     - poll-pr
   environment:
     WORKSPACE_DIR: /workspace
@@ -314,6 +266,7 @@ tasks:
     GH_REPO: "{{.GitHubRepo}}"
     NEEDS_HUMAN_LABEL: "{{.NeedsHumanLabel}}"
     MAX_TURNS_FEEDBACK: "{{.MaxTurnsFeedback}}"
+    MAX_TURNS_LEARN: "{{.MaxTurnsLearn}}"
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
@@ -329,7 +282,6 @@ tasks:
   script:
     - |
       set -euo pipefail
-      # All three phases in one block so the guard covers fetch/respond.
       # pr.json is at /workspace/pr.json (artifacts module uses workspace root directly).
       if [ ! -f ./pr.json ]; then
         echo "[poll-pr] pr.json not found — no PR created, skipping"
@@ -340,19 +292,9 @@ tasks:
         echo "[poll-pr] No PR to poll (number=0) — skipping"
         exit 0
       fi
-      # check_pr_state/fetch_comments/respond_comments read from /workspace/{issue-id}/
-      mkdir -p /workspace/pr-audit
-      cp ./pr.json /workspace/pr-audit/pr.json
-      [ -f ./poll_state.json ] && cp ./poll_state.json /workspace/pr-audit/poll_state.json || true
-      [ -f ./processed_comments.json ] && cp ./processed_comments.json /workspace/pr-audit/processed_comments.json || true
-      [ -f ./pending_comments.json ] && cp ./pending_comments.json /workspace/pr-audit/pending_comments.json || true
       python -m scripts.gh.check_pr_state --issue-id pr-audit
       python -m scripts.gh.fetch_comments --issue-id pr-audit
       python -m scripts.gh.respond_comments --issue-id pr-audit
-      # copy-back: persist updated state files to artifact paths for next iteration
-      cp /workspace/pr-audit/processed_comments.json ./processed_comments.json 2>/dev/null || true
-      cp /workspace/pr-audit/poll_state.json ./poll_state.json 2>/dev/null || true
-      cp /workspace/pr-audit/pending_comments.json ./pending_comments.json 2>/dev/null || true
   artifacts:
     paths:
       - ./pr.json
@@ -411,6 +353,7 @@ job_variables:
   MaxTurnsPlan: "30"
   MaxPrAuditSize: "10485760"
   MaxTurnsFeedback: "20"
+  MaxTurnsLearn: "15"
   PollInterval: "120"
   GitUserName: "AI Agent"
   GitUserEmail: "ai-agent@noreply.local"
