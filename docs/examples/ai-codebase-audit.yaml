@@ -13,7 +13,7 @@
 #   BitbucketRepoBranch   default branch for Bitbucket repos (default: main; set to e.g. dev via org config)
 #   GitHubRepoBranch      default branch for GitHub repos (default: main)
 #   NCommits     commits to analyze (default: 1000)
-#   AuditFocus   focus dimension: all|architecture|security|tests|duplicates|health
+#   AuditFocus   focus dimension: all|architecture|security|tests|duplicates|health|sloppiness
 #   MaxAuditSize max bytes of code to analyze (default: 1048576 = 1MB)
 
 job_type: ai-codebase-audit
@@ -101,13 +101,17 @@ tasks:
         --commits "{{.NCommits}}" \
         --focus "{{.AuditFocus}}"
       RC=$?
-      # Post report to Slack in the same pod (files are in ./reports/)
+      # Post report to Slack in the same pod (files are in ./reports/).
+      # Slack availability must not gate audit success — POST_RC is logged only.
       if [ $RC -eq 0 ]; then
         echo "[audit-post] running post_audit ..."
         ls -la ./reports/ 2>&1 || echo "[audit-post] reports dir missing"
         python -m scripts.analyze.post_audit 2>&1
         POST_RC=$?
         echo "[audit-post] post_audit exit=$POST_RC"
+        if [ $POST_RC -ne 0 ]; then
+          echo "[audit-post] WARNING: Slack posting failed (non-fatal) — audit artifacts are saved" >&2
+        fi
       fi
       exit $RC
   artifacts:
@@ -116,62 +120,8 @@ tasks:
       - ./reports/audit_data_raw.json
       - ./logs
     expire_after: 72h
-  on_completed: create-ygs-pr
-  on_failed: notify-error
-
-# --- CREATE-YGS-PR (optional) ------------------------------------------------
-# Only runs when CreateYgsPr=true job variable is set. Non-blocking.
-- task_type: create-ygs-pr
-  method: KUBERNETES
-  timeout: 20m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "500m"
-    memory_limit: 2G
-    memory_request: 512M
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - audit
-  environment:
-    WORKSPACE_DIR: /workspace
-    GIT_USER_NAME: "{{.GitUserName}}"
-    GIT_USER_EMAIL: "{{.GitUserEmail}}"
-    DEFAULT_TRACKER: "{{.DefaultTracker}}"
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BITBUCKET_REPO: "{{.BitbucketRepo}}"
-    SLACK_BOT_TOKEN: "{{.SlackToken}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
-    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
-    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
-    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-    CREATE_YGS_PR: "{{.CreateYgsPr}}"
-  script:
-    - |
-      if [ "$CREATE_YGS_PR" != "true" ]; then
-        echo "[create-ygs-pr] Skipped (CreateYgsPr != true)"
-        exit 0
-      fi
-      python -m scripts.analyze.create_ygs_pr
-  artifacts:
-    paths:
-      - ./ygs_pr.json
-      - ./logs
-    expire_after: 168h
   on_completed: done
-  on_failed: done
+  on_failed: notify-error
 
 # --- POST is now handled inline at the end of the audit task script above ---
 
@@ -199,6 +149,7 @@ tasks:
   script:
     - python -m scripts.standup.slack_client
   on_completed: done
+  on_failed: done
 
 # --- DONE --------------------------------------------------------------------
 - task_type: done
@@ -239,4 +190,3 @@ job_variables:
   GitUserName: "AI Agent"
   GitUserEmail: "ai-agent@noreply.local"
   YgsSkillsRepo: "https://github.com/bhatti/you-got-skills.git"
-  CreateYgsPr: "false"
