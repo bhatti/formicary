@@ -342,3 +342,76 @@ func Test_ResolveJobType_Consistent_For_Constraint_Lookup(t *testing.T) {
 	// result.JobType directly (before this fix) would look up the wrong job.
 	require.NotEqual(t, result.JobType, resolved)
 }
+
+// --- Routing consistency: route-level DefaultTracker beats DetectTracker ---
+
+// routeDefaultTrackerRoutes returns a test route table that mimics production routes
+// where certain prefixed triggers hardcode DefaultTracker in Params.
+func routeDefaultTrackerRoutes() []config.SlackRouteConfig {
+	return []config.SlackRouteConfig{
+		{
+			Triggers:    []string{"jira-code-audit"},
+			JobType:     "ai-codebase-audit",
+			Description: "Jira codebase audit",
+			Params:      map[string]string{"DefaultTracker": "jira"},
+		},
+		{
+			Triggers:    []string{"gh-code-audit"},
+			JobType:     "ai-codebase-audit",
+			Description: "GitHub codebase audit",
+			Params:      map[string]string{"DefaultTracker": "github"},
+		},
+		{
+			Triggers:    []string{"pr-audit"},
+			JobType:     "ai-gh-pr-audit",
+			Description: "PR audit",
+			TrackerVariants: map[string]string{
+				"github": "ai-gh-pr-audit",
+				"jira":   "ai-jira-pr-audit",
+			},
+		},
+	}
+}
+
+func Test_RouteParams_DefaultTracker_Set_For_Explicit_Routes(t *testing.T) {
+	// GIVEN routes where jira-code-audit and gh-code-audit hardcode DefaultTracker
+	router := NewCommandRouter(routeDefaultTrackerRoutes())
+
+	// WHEN routing "jira-code-audit" even with a GitHub URL in the message
+	result, _, err := router.Route("jira-code-audit github.com/org/repo")
+	require.NoError(t, err)
+
+	// THEN route-level DefaultTracker is "jira"
+	require.Equal(t, "jira", result.Params["DefaultTracker"])
+
+	// AND DetectTracker sees "github" from the URL — but service.go must NOT let it
+	// overwrite the route-level "jira".  Verify the conflict is observable so callers
+	// know to guard against it.
+	tracker := DetectTracker("jira-code-audit github.com/org/repo")
+	require.Equal(t, "github", tracker)
+	// The detected "github" conflicts with route Params "jira" — service.go fix skips
+	// the overwrite when Params["DefaultTracker"] is already set.
+	_, routeHasTracker := result.Params["DefaultTracker"]
+	require.True(t, routeHasTracker, "route must have DefaultTracker set")
+}
+
+func Test_RouteParams_DefaultTracker_Not_Present_On_Generic_Route(t *testing.T) {
+	// GIVEN the pr-audit route which has no hardcoded DefaultTracker (uses tracker_variants)
+	router := NewCommandRouter(routeDefaultTrackerRoutes())
+
+	// WHEN routing "pr-audit"
+	result, _, err := router.Route("pr-audit")
+	require.NoError(t, err)
+
+	// THEN Params does NOT contain DefaultTracker — service.go should inject detected tracker
+	_, routeHasTracker := result.Params["DefaultTracker"]
+	require.False(t, routeHasTracker, "generic route must not hardcode DefaultTracker")
+}
+
+func Test_DetectTracker_Jira_Code_Audit_With_GH_URL_Returns_Github(t *testing.T) {
+	// DetectTracker reads the full message text and returns "github" when it sees a GitHub URL.
+	// This test documents the conflict that the service.go guard resolves: even though the
+	// trigger is "jira-code-audit", the URL causes DetectTracker to return "github".
+	tracker := DetectTracker("jira-code-audit github.com/org/repo")
+	require.Equal(t, "github", tracker)
+}

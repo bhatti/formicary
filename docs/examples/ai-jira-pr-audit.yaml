@@ -5,6 +5,10 @@
 # then scripts.analyze.create_skill_pr to open a PR with improvements.
 #
 # Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <id>"
+#   "@bot pr-audit --team alice,bob"                          filter to PRs by those Jira display names
+#   "@bot pr-audit --board <id>"                             filter to active sprint of Jira board (numeric ID)
+#   "@bot pr-audit --board"                                  use JIRA_BOARDS org config as default board
+#   "@bot pr-audit https://company.atlassian.net/.../boards/<id>"  (board URL also works)
 #
 # Deploy:
 #   ./deploy-ai-jira-workflows.sh --create-k8s-secret --set-configs
@@ -85,6 +89,10 @@ tasks:
     MAX_PR_AUDIT_SIZE: "{{.MaxPrAuditSize}}"
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
     MAX_DEEP_REVIEWS: "{{.MaxDeepReviews}}"
+    JIRA_BOARDS: "{{.JiraBoards}}"
+    PR_AUDIT_TEAM_MEMBERS: "{{.PrAuditTeamMembers}}"
+    PR_AUDIT_JIRA_BOARDS: "{{.PrAuditJiraBoards}}"
+    AUDIT_FULL_REPORT: "{{.AuditFullReport}}"
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
@@ -93,13 +101,23 @@ tasks:
     - |
       REPO_ARG=""
       if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
-        # If the trailing Slack text is a PR URL, route it to PR_URLS; otherwise treat as repo URL.
+        # Route trailing Slack text: PR URL → PR_URLS, git repo URL → REPO_ARG,
+        # filter flags / board URLs → SLACK_MESSAGE for run_pr_audit to parse.
         case "{{.RepoUrl}}" in
           */pull/*|*/pull-requests/*)
             export PR_URLS="{{.RepoUrl}}"
             ;;
-          *)
+          *atlassian.net*/boards/*)
+            # Jira board URL — extract board ID via SLACK_MESSAGE
+            export SLACK_MESSAGE="${SLACK_MESSAGE:+$SLACK_MESSAGE }{{.RepoUrl}}"
+            ;;
+          http://*|https://*)
+            # Plain git repo URL (GitHub, Bitbucket, GitLab)
             REPO_ARG="--repo-url {{.RepoUrl}}"
+            ;;
+          *)
+            # Filter flags: --team alice,bob | board:<id> | --milestone <name> | free-form text
+            export SLACK_MESSAGE="${SLACK_MESSAGE:+$SLACK_MESSAGE }{{.RepoUrl}}"
             ;;
         esac
       fi
@@ -358,6 +376,14 @@ job_variables:
   GitHubRepoBranch: "main"
   NPrs: "50"
   PrAuditFocus: "all"
+  # Team/sprint filtering (optional — leave empty to analyze all PRs)
+  # JiraBoards:         default board ID from org config             (@bot pr-audit --board uses this)
+  # PrAuditTeamMembers: comma-separated Jira display names           (@bot pr-audit --team alice,bob)
+  # PrAuditJiraBoards:  override board IDs (numeric, comma-sep)      (@bot pr-audit --board <id>)
+  JiraBoards: ""
+  PrAuditTeamMembers: ""
+  PrAuditJiraBoards: ""
+  AuditFullReport: ""
   MaxTurnsAudit: "120"
   MaxTurnsPlan: "30"
   MaxPrAuditSize: "10485760"

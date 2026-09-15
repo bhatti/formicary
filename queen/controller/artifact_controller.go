@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
@@ -27,6 +28,9 @@ func NewArtifactController(
 		webserver:       webserver,
 	}
 	webserver.GET("/api/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_artifacts"
+	// Static segment "by-job" must be registered before the parametric "/:id" routes so that
+	// Echo's radix-tree router never interprets "by-job" as an artifact SHA256 value.
+	webserver.GET("/api/artifacts/by-job/:job_id/download", ac.downloadJobArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_job_artifact"
 	webserver.GET("/api/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_artifact"
 	webserver.GET("/api/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_artifact"
 	webserver.GET("/api/artifacts/:id/download/raw", ac.downloadRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_raw_artifact"
@@ -82,13 +86,45 @@ func (ac *ArtifactController) getArtifact(c web.APIContext) error {
 	return c.JSON(http.StatusOK, art)
 }
 
-// Download artifact by its id
+// Download artifact by its id. When the optional ?file=<path> query param is provided,
+// extracts and returns just that file from the artifact zip.
 // responses:
 //   200: byteResponse
 func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	filePath := c.QueryParam("file")
+	var reader io.ReadCloser
+	var name, contentType string
+	var err error
+	if filePath != "" {
+		reader, name, contentType, err = ac.artifactManager.ExtractFileFromArtifact(context.Background(), qc, id, filePath)
+	} else {
+		reader, name, contentType, err = ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	}
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+	return c.Stream(http.StatusOK, contentType, reader)
+}
+
+// Download a single file from the artifact zip for a given job request ID.
+// The ?file=<path> query param is required (e.g. ?file=reports/pr_audit_report.html).
+// Use this when the artifact SHA256 is not yet known at request time (e.g. from inside
+// the job pod, where artifacts are uploaded after the pod exits).
+//
+// responses:
+//
+//	200: byteResponse
+func (ac *ArtifactController) downloadJobArtifact(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	jobID := c.Param("job_id")
+	filePath := c.QueryParam("file")
+	if filePath == "" {
+		return fmt.Errorf("query param 'file' is required")
+	}
+	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, filePath)
 	if err != nil {
 		return err
 	}

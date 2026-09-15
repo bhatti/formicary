@@ -713,8 +713,14 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 	if user.Username != "" && !addParam("UserTag", user.Username) {
 		return
 	}
-	if tracker != "" && !addParam("DefaultTracker", tracker) {
-		return
+	// Route-level Params["DefaultTracker"] (e.g. "jira" for jira-code-audit) is more
+	// specific than the keyword-detected tracker, so only inject the detected value when
+	// the route did not already hardcode one.  This preserves the same priority order
+	// used by Python's _resolve_effective_tracker: explicit > detected > org default.
+	if _, routeHasTracker := result.Params["DefaultTracker"]; !routeHasTracker {
+		if tracker != "" && !addParam("DefaultTracker", tracker) {
+			return
+		}
 	}
 
 	// Description: first 100 chars of trailing input (prompt/key), else the route's human label.

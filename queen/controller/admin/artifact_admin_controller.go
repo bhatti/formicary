@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -31,6 +32,8 @@ func NewArtifactAdminController(
 		webserver:       webserver,
 	}
 	webserver.GET("/dashboard/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_admin_artifacts"
+	// Static segment "by-job" must be registered before the parametric "/:id" routes.
+	webserver.GET("/dashboard/artifacts/by-job/:job_id/download", ac.downloadJobArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_job_artifact"
 	webserver.GET("/dashboard/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_admin_artifact"
 	webserver.GET("/dashboard/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_artifact"
 	webserver.GET("/dashboard/artifacts/:id/download/raw", ac.downloadRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_admin_raw_artifact"
@@ -71,7 +74,30 @@ func (ac *ArtifactAdminController) uploadArtifact(c web.APIContext) error {
 func (ac *ArtifactAdminController) downloadArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
-	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	filePath := c.QueryParam("file")
+	var reader io.ReadCloser
+	var name, contentType string
+	var err error
+	if filePath != "" {
+		reader, name, contentType, err = ac.artifactManager.ExtractFileFromArtifact(context.Background(), qc, id, filePath)
+	} else {
+		reader, name, contentType, err = ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
+	}
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+	return c.Stream(http.StatusOK, contentType, reader)
+}
+
+func (ac *ArtifactAdminController) downloadJobArtifact(c web.APIContext) error {
+	qc := web.BuildQueryContext(c)
+	jobID := c.Param("job_id")
+	filePath := c.QueryParam("file")
+	if filePath == "" {
+		return fmt.Errorf("query param 'file' is required")
+	}
+	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, filePath)
 	if err != nil {
 		return err
 	}

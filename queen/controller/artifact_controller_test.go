@@ -1,19 +1,25 @@
 package controller
 
 import (
-	"github.com/oklog/ulid/v2"
-	"github.com/stretchr/testify/require"
+	"archive/zip"
+	"bytes"
+	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strings"
+	"testing"
+
+	echo "github.com/labstack/echo/v4"
+	"github.com/oklog/ulid/v2"
+	"github.com/stretchr/testify/require"
 	"plexobject.com/formicary/internal/artifacts"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
-	"strings"
-	"testing"
 )
 
 func Test_InitializeSwaggerStructsForArtifact(t *testing.T) {
@@ -98,6 +104,119 @@ func Test_ShouldUploadAndDeleteArtifact(t *testing.T) {
 
 	// THEN it should not fail
 	require.NoError(t, err)
+}
+
+func Test_ShouldDownloadFileFromArtifactZip(t *testing.T) {
+	// GIVEN artifact controller with a zip artifact containing an HTML report
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
+	webServer := web.NewStubWebServer()
+	ctrl := NewArtifactController(mgr, webServer)
+
+	var zipBuf bytes.Buffer
+	zw := zip.NewWriter(&zipBuf)
+	fw, err := zw.Create("reports/pr_audit_report.html")
+	require.NoError(t, err)
+	_, err = fw.Write([]byte("<html><body>pr audit</body></html>"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	uploadReq := &http.Request{Body: io.NopCloser(bytes.NewReader(zipBuf.Bytes()))}
+	uploadCtx := web.NewStubContext(uploadReq)
+	require.NoError(t, ctrl.uploadArtifact(uploadCtx))
+	artifact := uploadCtx.Result.(*types.Artifact)
+
+	// WHEN downloading with ?file=reports/pr_audit_report.html
+	rec := httptest.NewRecorder()
+	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
+	dlCtx.SetResponse(echo.NewResponse(rec, echo.New()))
+	dlCtx.Params["id"] = artifact.SHA256
+	dlCtx.Params["file"] = "reports/pr_audit_report.html"
+	err = ctrl.downloadArtifact(dlCtx)
+
+	// THEN it should stream the HTML file with the correct disposition header
+	require.NoError(t, err)
+	require.Contains(t, rec.Header().Get("Content-Disposition"), "pr_audit_report.html")
+}
+
+func Test_ShouldFailDownloadMissingFileFromArtifact(t *testing.T) {
+	// GIVEN artifact controller with a zip artifact
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
+	webServer := web.NewStubWebServer()
+	ctrl := NewArtifactController(mgr, webServer)
+
+	var zipBuf bytes.Buffer
+	require.NoError(t, zip.NewWriter(&zipBuf).Close())
+
+	uploadReq := &http.Request{Body: io.NopCloser(bytes.NewReader(zipBuf.Bytes()))}
+	uploadCtx := web.NewStubContext(uploadReq)
+	require.NoError(t, ctrl.uploadArtifact(uploadCtx))
+	artifact := uploadCtx.Result.(*types.Artifact)
+
+	// WHEN downloading a file that doesn't exist in the zip
+	rec := httptest.NewRecorder()
+	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
+	dlCtx.SetResponse(echo.NewResponse(rec, echo.New()))
+	dlCtx.Params["id"] = artifact.SHA256
+	dlCtx.Params["file"] = "nonexistent/file.html"
+	err := ctrl.downloadArtifact(dlCtx)
+
+	// THEN it should return a not-found error
+	require.Error(t, err)
+}
+
+func Test_ShouldDownloadFileFromJobArtifact(t *testing.T) {
+	// GIVEN artifact controller with a zip artifact whose JobRequestID is stamped
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
+	webServer := web.NewStubWebServer()
+	ctrl := NewArtifactController(mgr, webServer)
+
+	var zipBuf bytes.Buffer
+	zw := zip.NewWriter(&zipBuf)
+	fw, err := zw.Create("reports/pr_audit_report.html")
+	require.NoError(t, err)
+	_, err = fw.Write([]byte("<html><body>job-report</body></html>"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	uploadReq := &http.Request{Body: io.NopCloser(bytes.NewReader(zipBuf.Bytes()))}
+	uploadCtx := web.NewStubContext(uploadReq)
+	require.NoError(t, ctrl.uploadArtifact(uploadCtx))
+	artifact := uploadCtx.Result.(*types.Artifact)
+
+	// Use the same empty QC that web.NewStubContext produces (no logged-in user).
+	qc := types.NewQueryContext(nil, "")
+	const jobID = "ctrl-job-001"
+	artifact.JobRequestID = jobID
+	_, err = mgr.UpdateArtifact(context.Background(), qc, artifact)
+	require.NoError(t, err)
+
+	// WHEN downloading by job ID with ?file=
+	rec := httptest.NewRecorder()
+	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
+	dlCtx.SetResponse(echo.NewResponse(rec, echo.New()))
+	dlCtx.Params["job_id"] = jobID
+	dlCtx.Params["file"] = "reports/pr_audit_report.html"
+	err = ctrl.downloadJobArtifact(dlCtx)
+
+	// THEN it should stream the file
+	require.NoError(t, err)
+	require.Contains(t, rec.Header().Get("Content-Disposition"), "pr_audit_report.html")
+}
+
+func Test_ShouldFailDownloadJobArtifactMissingFileParam(t *testing.T) {
+	// GIVEN artifact controller
+	mgr := newTestArtifactManager(config.TestServerConfig(), t)
+	webServer := web.NewStubWebServer()
+	ctrl := NewArtifactController(mgr, webServer)
+
+	// WHEN calling without ?file= param
+	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
+	dlCtx.Params["job_id"] = "any-job-id"
+	err := ctrl.downloadJobArtifact(dlCtx)
+
+	// THEN it should return an error
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "'file'")
 }
 
 func newTestArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manager.ArtifactManager {

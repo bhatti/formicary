@@ -428,9 +428,18 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 @ai-agent pr-audit https://github.com/ORG/REPO
 @ai-agent pr-audit https://github.com/ORG/REPO/pull/123
 @ai-agent pr-audit https://bitbucket.org/WS/REPO/pull-requests/456 --model claude-opus-5
+
+# Team/sprint filtering (new)
+@ai-agent pr-audit --team alice,bob               # scope to PRs by these GitHub logins/Jira display names
+@ai-agent pr-audit --milestone sprint-5            # GitHub: scope to milestone
+@ai-agent pr-audit --board <id>                    # Jira: scope to active sprint of board (numeric ID)
+@ai-agent pr-audit --board                         # Jira: use JIRA_BOARDS org config (no ID needed)
+@ai-agent pr-audit https://company.atlassian.net/.../boards/<id>   # Jira board URL also works
 ```
 
 When PR URLs are included in the Slack message, the audit fetches only those specific PRs instead of the last N. Model and focus can also be overridden inline: `audit last 30 prs focus skills --model claude-opus-5`.
+
+When `--team` is set, only PRs authored or reviewed by those logins/display-names are analyzed. When a Jira board ID is given, the active sprint's assignees are resolved automatically and used as the team filter.
 
 **Key job variables:**
 
@@ -439,7 +448,10 @@ When PR URLs are included in the Slack message, the audit fetches only those spe
 | `NPrs` | `50` | Number of PRs to analyze (ignored when `PrUrls` is set) |
 | `PrAuditFocus` | `all` | Focus: all, spec, design, skills, testing, process |
 | `PrUrls` | `""` | Optional: space/comma-separated PR URLs to audit specific PRs instead of last N |
-| `MaxTurnsPrAudit` | `120` | Max Claude turns for audit |
+| `PrAuditTeamMembers` | `""` | GitHub logins or Jira display names to filter PRs (comma-separated) |
+| `PrAuditGhMilestone` | `""` | GitHub milestone name/number to scope PRs (GH only) |
+| `PrAuditJiraBoards` | `""` | Jira board IDs to resolve active-sprint team filter (Jira only) |
+| `MaxTurnsAudit` | `120` | Max Claude turns for audit |
 | `MaxPrAuditSize` | `10485760` | Max bytes of code to analyze (10MB) |
 | `PollInterval` | `120` | Seconds between poll-pr checks |
 

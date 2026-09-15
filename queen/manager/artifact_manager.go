@@ -1,11 +1,15 @@
 package manager
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -181,6 +185,78 @@ func (am *ArtifactManager) DownloadArtifactBySHA256(
 		ctx,
 		art.ID)
 	return reader, art.Name, art.ContentType, err
+}
+
+// ExtractFileFromArtifact downloads an artifact zip and returns a single file from it.
+// filePath must match a path inside the zip (e.g. "reports/pr_audit_report.html").
+// The zip is buffered in memory; this is acceptable for the expected use case of small
+// HTML/JSON reports. Avoid calling with very large artifact archives (> 100 MB).
+func (am *ArtifactManager) ExtractFileFromArtifact(
+	ctx context.Context,
+	qc *common.QueryContext,
+	sha256 string,
+	filePath string) (io.ReadCloser, string, string, error) {
+	art, err := am.artifactRepository.GetBySHA256(qc, sha256)
+	if err != nil {
+		return nil, "", "", err
+	}
+	reader, err := am.artifactService.Get(ctx, art.ID)
+	if err != nil {
+		return nil, "", "", err
+	}
+	defer func() { _ = reader.Close() }()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to read artifact: %w", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, "", "", fmt.Errorf("artifact is not a valid zip: %w", err)
+	}
+
+	for _, f := range zr.File {
+		if f.Name == filePath {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to open %s in zip: %w", filePath, err)
+			}
+			name := filepath.Base(filePath)
+			ct := mime.TypeByExtension(filepath.Ext(filePath))
+			if ct == "" {
+				ct = "application/octet-stream"
+			}
+			return rc, name, ct, nil
+		}
+	}
+	return nil, "", "", common.NewNotFoundError(
+		fmt.Sprintf("file %s not found in artifact %s", filePath, sha256))
+}
+
+// ExtractFileFromJobArtifact finds the most recent artifact for a job request and
+// extracts a single file from it. jobRequestID is the Formicary job request ID
+// (known at script run time); filePath is the path inside the zip archive
+// (e.g. "reports/pr_audit_report.html"). Returns the file content, base name,
+// MIME content-type, and any error.
+func (am *ArtifactManager) ExtractFileFromJobArtifact(
+	ctx context.Context,
+	qc *common.QueryContext,
+	jobRequestID string,
+	filePath string) (io.ReadCloser, string, string, error) {
+	arts, _, err := am.artifactRepository.Query(
+		qc,
+		map[string]interface{}{"job_request_id": jobRequestID},
+		0, 1, []string{"-created_at"},
+	)
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(arts) == 0 {
+		return nil, "", "", common.NewNotFoundError(
+			fmt.Sprintf("no artifact found for job request %s", jobRequestID))
+	}
+	return am.ExtractFileFromArtifact(ctx, qc, arts[0].SHA256, filePath)
 }
 
 // GetArtifact - finds artifact by id

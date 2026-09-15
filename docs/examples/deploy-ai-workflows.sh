@@ -221,7 +221,7 @@ set_user_config() {
 
 # resolve_jira_project resolves the Jira project key from a board ID via the Agile API.
 # Mirrors the logic in test_pod_functional.py so both test and deploy use the same source.
-# Usage: key=$(resolve_jira_project "4161")
+# Usage: key=$(resolve_jira_project "123")
 resolve_jira_project() {
   local board_id="${1%%,*}"   # take first board ID if comma-separated
   [[ -z "$board_id" ]] && return 0
@@ -499,12 +499,12 @@ if [[ "$SET_SLACK_ROUTES" == true ]]; then
     {"triggers":["review","pr-review"],"job_type":"ai-jira-review","id_var":"PRUrl","tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"},"description":"Review PR"},
     {"triggers":["risk","risks"],"job_type":"ai-adhoc","params":{"Skill":"ygs-risk-scan"},"description":"Risk scan"},
     {"triggers":["prs","queue","pulls"],"job_type":"ai-adhoc","params":{"Skill":"ygs-pr-queue"},"description":"PR queue"},
-    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","description":"Post-merge codebase archaeology (hotspots, drift, silos)"},
-    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},"description":"Jira/BB codebase audit"},
-    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},"description":"GitHub codebase audit"},
-    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <id>. Tracker auto-detected from URL."},
-    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
-    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>]"},
+    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","description":"Post-merge codebase archaeology (hotspots, drift, silos). Add --full for complete Slack report (default: digest)"},
+    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},"description":"Jira/BB codebase audit [--full]"},
+    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},"description":"GitHub codebase audit [--full]"},
+    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <id> | @bot pr-audit --team alice,bob | @bot pr-audit --board <id> | @bot pr-audit --board | @bot pr-audit --milestone <name> | @bot pr-audit --full. Tracker auto-detected from URL. Default Slack output: digest; use --full for complete report."},
+    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--board <id>] [--board] [--full]"},
+    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--milestone <name>] [--full]"},
     {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"}
   ]'
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
