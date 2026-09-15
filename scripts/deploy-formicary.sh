@@ -45,7 +45,8 @@ SHOW_LOGS=false
 ROLLOUT_RESTART=false
 SYNC_SCRIPTS=false
 
-# Compute the image version the same way the Makefile does.
+# Image tag to deploy — matches the Makefile version scheme.
+# Override: FORMICARY_VERSION=latest bash scripts/deploy-formicary.sh
 FORMICARY_VERSION="${FORMICARY_VERSION:-0.1.$(git -C "${REPO_ROOT}" rev-list --count HEAD 2>/dev/null || echo 0)}"
 
 log()  { echo "▶ $*"; }
@@ -269,7 +270,15 @@ fi
 [[ -f "$MANIFEST" ]] || fail "Manifest not found: ${MANIFEST}"
 log "Applying $(basename "${MANIFEST}") with version ${FORMICARY_VERSION}"
 
-RENDERED_MANIFEST="$(sed "s|plexobject/formicary:FORMICARY_VERSION|plexobject/formicary:${FORMICARY_VERSION}|g" "${MANIFEST}")"
+# Resolve public URL once — used for manifest substitution and org config update below.
+_FURL="${FORMICARY_URL:-https://${QUEEN_IP:-localhost}.nip.io}"
+if [[ "$ALL_IN_ONE" != true && -z "${FORMICARY_URL:-}" && -z "${QUEEN_IP:-}" ]]; then
+  warn "FORMICARY_URL and QUEEN_IP are both unset — external_base_url will be https://localhost.nip.io (job links may be wrong)"
+fi
+RENDERED_MANIFEST="$(sed \
+  -e "s|plexobject/formicary:FORMICARY_VERSION|plexobject/formicary:${FORMICARY_VERSION}|g" \
+  -e "s|https://YOUR_QUEEN_IP.nip.io|${_FURL}|g" \
+  "${MANIFEST}")"
 
 if [[ -n "$QUEEN_IP" ]]; then
   echo "${RENDERED_MANIFEST}" | $SSH_CMD "KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f -"
@@ -285,7 +294,7 @@ kubectl get pods -l app=formicary
 
 # ── Step 4: Update org-level configs via API (optional) ──────────────────────
 FORMICARY_TOKEN="${FORMICARY_TOKEN:-}"
-_FURL="${FORMICARY_URL:-https://$(echo "${QUEEN_IP:-localhost}").nip.io}"
+# _FURL already set above during manifest rendering.
 if [[ -n "$FORMICARY_TOKEN" && -n "$SLACK_CHANNEL" ]]; then
   log "Updating org config SlackChannel=$SLACK_CHANNEL via API"
   _ORG_ID=$(python3 -c "

@@ -24,6 +24,7 @@ max_concurrency: 1
 skip_if: >-
   {{if ge (CountByJobTypeAndState "ai-gh-implement" "PENDING" "EXECUTING") 10}} true {{end}}
 
+  AiDevToolsDebug: ""
 tasks:
 - task_type: gather-issues
   method: KUBERNETES
@@ -48,7 +49,10 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.gh.issue_picker
   on_exit_code:
     2: COMPLETED    # No issues found — not an error
@@ -64,7 +68,10 @@ tasks:
     SUBMITTED_IDS: '{{if .IssuesJSON}}{{SubmitJobsFromJSON "ai-gh-implement" .IssuesJSON (printf "_parent_id=%s" .JobID)}}{{end}}'
     PENDING_COUNT: '{{CountByJobTypeAndState "ai-gh-implement" "PENDING"}}'
     ISSUES_JSON: '{{.IssuesJSON}}'
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "=== Issue Picker Submit ==="
     - echo "Issues found ${ISSUES_JSON:-none}, pending=${PENDING_COUNT}, submitted=${SUBMITTED_IDS:-none}"
 

@@ -90,7 +90,10 @@ tasks:
     CODEBASE_REPO_URL: "{{.CodebaseRepoUrl}}"
     GIT_BRANCH: "{{.GitBranch}}"
     AI_MODEL_OVERRIDE: "{{.AiModel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
       # Clone optional codebase repo — enables code-aware skills
       if [ -n "$CODEBASE_REPO_URL" ] && [ "$CODEBASE_REPO_URL" != "<no value>" ]; then
@@ -151,7 +154,10 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-adhoc"
     JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
   on_failed: done
@@ -181,7 +187,10 @@ tasks:
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "{{.Skill}}"
     MESSAGE: ":x: *{{.Skill}}* failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -190,6 +199,7 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "Ad-hoc skill complete"
 
 job_variables:
@@ -206,6 +216,7 @@ job_variables:
   MaxTurnsAdhoc: "50"
   MaxClaudeProcessTimeout: "1350"
   ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
   CodebaseRepoUrl: ""
   GitBranch: "main"
   AiModel: ""

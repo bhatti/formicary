@@ -88,7 +88,10 @@ tasks:
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
       REPO_ARG=""
       if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
@@ -147,7 +150,10 @@ tasks:
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "ygs-codebase-audit"
     MESSAGE: ":x: *Codebase Audit* failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
   on_failed: done
@@ -157,6 +163,7 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "Codebase audit complete"
 
 job_variables:
@@ -175,6 +182,7 @@ job_variables:
   DefaultTracker: ""
   MaxClaudeProcessTimeout: "3300"
   ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
   FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"

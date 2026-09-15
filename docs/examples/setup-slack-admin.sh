@@ -215,13 +215,13 @@ if [[ "$SET_ROUTES" == true ]]; then
      "description":"GitHub codebase audit. Add --full for complete Slack report (default: digest)"},
     {"triggers":["pr-audit","pr audit"],
      "job_type":"ai-gh-pr-audit",
-     "description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <model-id> | @bot pr-audit --team alice,bob | @bot pr-audit --board <id> | @bot pr-audit --board | @bot pr-audit --milestone <name> | @bot pr-audit --full (full report in Slack, default: digest). Tracker (GH vs Jira/BB) auto-detected from URL.",
+     "description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <model-id> | @bot pr-audit --team alice,bob (filter by logins/names) | @bot pr-audit --team MyTeam (filter by Jira team field / GH label — auto-detects your team from Jira account) | @bot pr-audit --milestone <name> | @bot pr-audit --filter label=X (GH label) | @bot pr-audit --filter field=value (Jira field) | @bot pr-audit --full (full report in Slack, default: digest). Tracker (GH vs Jira/BB) auto-detected from URL.",
      "id_var":"RepoUrl",
      "tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"}},
     {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl",
-     "description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--board <id>] [--board] [--full]"},
+     "description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (Jira Eng Scrum Team filter — auto-detects your team from Jira account)] [--filter field=value] [--full]"},
     {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl",
-     "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--milestone v2.5] [--full]"},
+     "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label filter)] [--milestone <name>] [--filter label=X] [--full]"},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"

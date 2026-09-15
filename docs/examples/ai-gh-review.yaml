@@ -74,7 +74,10 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
       SKILL="{{.Skill}}"
       if [ "{{.ReviewDepth}}" = "deep" ]; then SKILL="ygs-review-deep"; fi
@@ -113,7 +116,10 @@ tasks:
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.review.post_findings --findings reports/findings.json
   artifacts:
     paths:
@@ -148,7 +154,10 @@ tasks:
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     SKILL_NAME: "review"
     MESSAGE: ":x: GitHub review failed for <{{.PRUrl}}|PR>. {{.ERROR_REASON}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -157,12 +166,14 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "Review pipeline complete"
 
 job_variables:
   MaxTurnsReview: "100"
   MaxClaudeProcessTimeout: "1080"
   ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
   Skill: "ygs-review-pr"
   ReviewDepth: "standard"   # set to "deep" for 7-domain review (perf + testing + arch)
   SlackChannel: ""

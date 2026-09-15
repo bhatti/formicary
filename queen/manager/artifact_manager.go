@@ -236,17 +236,23 @@ func (am *ArtifactManager) ExtractFileFromArtifact(
 
 // ExtractFileFromJobArtifact finds the most recent artifact for a job request and
 // extracts a single file from it. jobRequestID is the Formicary job request ID
-// (known at script run time); filePath is the path inside the zip archive
-// (e.g. "reports/pr_audit_report.html"). Returns the file content, base name,
-// MIME content-type, and any error.
+// (known at script run time); taskType optionally filters by the task that
+// produced the artifact (e.g. "audit-prs"); filePath is the path inside the zip
+// archive (e.g. "reports/pr_audit_report.html"). Returns the file content, base
+// name, MIME content-type, and any error.
 func (am *ArtifactManager) ExtractFileFromJobArtifact(
 	ctx context.Context,
 	qc *common.QueryContext,
 	jobRequestID string,
+	taskType string,
 	filePath string) (io.ReadCloser, string, string, error) {
+	filter := map[string]interface{}{"job_request_id": jobRequestID}
+	if taskType != "" {
+		filter["task_type"] = taskType
+	}
 	arts, _, err := am.artifactRepository.Query(
 		qc,
-		map[string]interface{}{"job_request_id": jobRequestID},
+		filter,
 		0, 1, []string{"-created_at"},
 	)
 	if err != nil {

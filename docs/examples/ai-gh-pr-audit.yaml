@@ -5,10 +5,13 @@
 # then scripts.analyze.create_skill_pr to open a PR with improvements.
 #
 # Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <id>"
-#   "@bot pr-audit --team alice,bob"         filter to PRs by those GitHub logins
-#   "@bot pr-audit --board <id>"             filter to active sprint of Jira board (numeric ID)
+#   "@bot pr-audit --team alice,bob"         filter to PRs by those GitHub logins (comma = member list)
+#   "@bot pr-audit --team MyTeam"            filter by GH label matching team name (single word = label filter)
+#   "@bot pr-audit --board <id>"             filter to PRs referencing issues on this Jira board (requires Jira creds)
 #   "@bot pr-audit --board"                  use JIRA_BOARDS org config as default board
 #   "@bot pr-audit --milestone v2.5"         filter to PRs in that GitHub milestone
+#   "@bot pr-audit --filter label=security"  filter by GitHub label
+#   "@bot pr-audit --filter field=value"     filter by Jira field=value (requires Jira creds)
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
@@ -87,8 +90,10 @@ tasks:
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
     MAX_DEEP_REVIEWS: "{{.MaxDeepReviews}}"
     JIRA_BOARDS: "{{.JiraBoards}}"
+    JIRA_SPACE: "{{.JiraSpace}}"
     PR_AUDIT_TEAM_MEMBERS: "{{.PrAuditTeamMembers}}"
     PR_AUDIT_GH_MILESTONE: "{{.PrAuditGhMilestone}}"
+    PR_AUDIT_FILTER: "{{.PrAuditFilter}}"
     AUDIT_FULL_REPORT: "{{.AuditFullReport}}"
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
@@ -368,12 +373,16 @@ job_variables:
   NPrs: "50"
   PrAuditFocus: "all"
   # Team/sprint filtering (optional — leave empty to analyze all PRs)
-  # JiraBoards:        default board ID (from JIRA_BOARDS org config)   (@bot pr-audit --board uses this)
-  # PrAuditTeamMembers: comma-separated GitHub logins, e.g. "alice,bob" (@bot pr-audit --team alice,bob)
-  # PrAuditGhMilestone: GitHub milestone name, e.g. "v2.5"              (@bot pr-audit --milestone v2.5)
+  # JiraBoards:         board ID(s) — filters PRs referencing board issues     (@bot pr-audit --board <id>)
+  # JiraSpace:          team name — maps to GH label (GitHub) or Jira team     (@bot pr-audit --team <name>)
+  # PrAuditTeamMembers: comma-separated GitHub logins — author/reviewer filter (@bot pr-audit --team alice,bob)
+  # PrAuditGhMilestone: GitHub milestone name                                   (@bot pr-audit --milestone v2.5)
+  # PrAuditFilter:      label=X (GitHub) or field=value (Jira JQL)              (@bot pr-audit --filter f=v)
   JiraBoards: ""
+  JiraSpace: ""
   PrAuditTeamMembers: ""
   PrAuditGhMilestone: ""
+  PrAuditFilter: ""
   AuditFullReport: ""
   MaxTurnsAudit: "120"
   MaxTurnsPlan: "30"

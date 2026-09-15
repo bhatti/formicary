@@ -190,7 +190,12 @@ func Test_ShouldDownloadFileFromJobArtifact(t *testing.T) {
 	_, err = mgr.UpdateArtifact(context.Background(), qc, artifact)
 	require.NoError(t, err)
 
-	// WHEN downloading by job ID with ?file=
+	// Stamp with task type for task-filtered test
+	artifact.TaskType = "audit-prs"
+	_, err = mgr.UpdateArtifact(context.Background(), qc, artifact)
+	require.NoError(t, err)
+
+	// WHEN downloading by job ID with ?file= (no task filter)
 	rec := httptest.NewRecorder()
 	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
 	dlCtx.SetResponse(echo.NewResponse(rec, echo.New()))
@@ -201,6 +206,19 @@ func Test_ShouldDownloadFileFromJobArtifact(t *testing.T) {
 	// THEN it should stream the file
 	require.NoError(t, err)
 	require.Contains(t, rec.Header().Get("Content-Disposition"), "pr_audit_report.html")
+
+	// WHEN downloading with ?task= filter
+	rec2 := httptest.NewRecorder()
+	dlCtx2 := web.NewStubContext(&http.Request{URL: &url.URL{}})
+	dlCtx2.SetResponse(echo.NewResponse(rec2, echo.New()))
+	dlCtx2.Params["job_id"] = jobID
+	dlCtx2.Params["task"] = "audit-prs"
+	dlCtx2.Params["file"] = "reports/pr_audit_report.html"
+	err = ctrl.downloadJobArtifact(dlCtx2)
+
+	// THEN it should also stream the file
+	require.NoError(t, err)
+	require.Contains(t, rec2.Header().Get("Content-Disposition"), "pr_audit_report.html")
 }
 
 func Test_ShouldFailDownloadJobArtifactMissingFileParam(t *testing.T) {

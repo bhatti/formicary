@@ -61,6 +61,8 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   context_variables:
     - name: ISSUE_NUMBER
       value: "{{.IssueNumber}}"
@@ -69,6 +71,7 @@ tasks:
     - name: SELECTED_MODEL
       value: "{{.AnthropicSonnetModel}}"
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.jira.issue_picker --issue-id {{.IssueNumber}}
     - python -m scripts.jira.plan --issue-id {{.IssueNumber}}
   artifacts:
@@ -125,7 +128,10 @@ tasks:
     ANTHROPIC_COMPLEXITY_LOW_MODEL:  "{{.AnthropicComplexityLowModel}}"
     ANTHROPIC_COMPLEXITY_HIGH_MODEL: "{{.AnthropicComplexityHighModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.jira.clone_repo --issue-id {{.IssueNumber}}
     - |
       COMPLEXITY=$(cat /workspace/plan_complexity.txt 2>/dev/null || echo "medium")
@@ -187,7 +193,10 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.review.run --mode self-review --issue-id {{.IssueNumber}} --base-branch {{.GitBranch}}
   artifacts:
     paths:
@@ -240,7 +249,10 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.jira.build_pr --issue-id {{.IssueNumber}}
     - python -m scripts.jira.notify_pr --issue-id {{.IssueNumber}}
   artifacts:
@@ -291,7 +303,10 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.jira.check_pr_state --issue-id {{.IssueNumber}}
     - python -m scripts.jira.fetch_comments --issue-id {{.IssueNumber}}
     - python -m scripts.jira.respond_comments --issue-id {{.IssueNumber}}
@@ -327,7 +342,10 @@ tasks:
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JOB_TYPE: "ai-jira-implement"
     MESSAGE: ":x: Jira implement job failed."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -336,6 +354,7 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "Pipeline complete"
 
 job_variables:
@@ -344,6 +363,7 @@ job_variables:
   MaxTurnsFeedback: "20"
   MaxClaudeProcessTimeout: ""
   ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
   PollInterval: "120"
   GitUserName: "AI Agent"
   GitUserEmail: "ai-agent@noreply.local"

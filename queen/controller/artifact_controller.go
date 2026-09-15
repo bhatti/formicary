@@ -111,8 +111,8 @@ func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 
 // Download a single file from the artifact zip for a given job request ID.
 // The ?file=<path> query param is required (e.g. ?file=reports/pr_audit_report.html).
-// Use this when the artifact SHA256 is not yet known at request time (e.g. from inside
-// the job pod, where artifacts are uploaded after the pod exits).
+// The optional ?task=<task_type> param selects the artifact from a specific task
+// (e.g. ?task=audit-prs); when omitted the most recent artifact for the job is used.
 //
 // responses:
 //
@@ -121,10 +121,11 @@ func (ac *ArtifactController) downloadJobArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job_id")
 	filePath := c.QueryParam("file")
+	taskType := c.QueryParam("task")
 	if filePath == "" {
 		return fmt.Errorf("query param 'file' is required")
 	}
-	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, filePath)
+	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, taskType, filePath)
 	if err != nil {
 		return err
 	}

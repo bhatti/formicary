@@ -247,6 +247,7 @@ docker-run-queen: $(KUBECONFIG_PATCHED)
 		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
 		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
 		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
+		$(if $(FORMICARY_URL),-e COMMON_EXTERNAL_BASE_URL="$(FORMICARY_URL)") \
 		-v $(DATA_DIR):/data \
 		-v $(QUEEN_CONFIG_FILE):/config/formicary-queen.yaml:ro \
 		-v /var/run/docker.sock:/var/run/docker.sock \
@@ -265,6 +266,7 @@ docker-run: $(KUBECONFIG_PATCHED)
 		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
 		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
 		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
+		$(if $(FORMICARY_URL),-e COMMON_EXTERNAL_BASE_URL="$(FORMICARY_URL)") \
 		-v $(DATA_DIR):/data \
 		-v $(CONFIG_FILE):/config/formicary-queen.yaml:ro \
 		-v /var/run/docker.sock:/var/run/docker.sock \
@@ -311,6 +313,7 @@ run-queen: build bin/weed
 	COMMON_S3_LOCAL_DATA_DIR="./data/seaweedfs" \
 	COMMON_S3_LOCAL_WEED_BIN="./bin/weed" \
 	COMMON_PUBLIC_DIR="./public/" \
+	$(if $(FORMICARY_URL),COMMON_EXTERNAL_BASE_URL="$(FORMICARY_URL)") \
 	PATH="$(PWD)/bin:$(PATH)" ./"out/bin/${BINARY_NAME}" --config config/formicary-queen.yaml
 
 # Queen + embedded ant + embedded SeaweedFS in Docker (uses formicary-docker.yaml baked into image).
@@ -325,6 +328,7 @@ docker-run-embedded: $(KUBECONFIG_PATCHED)
 		-e COMMON_AUTH_GITHUB_CLIENT_ID="$(COMMON_AUTH_GITHUB_CLIENT_ID)" \
 		-e COMMON_AUTH_GITHUB_CLIENT_SECRET="$(COMMON_AUTH_GITHUB_CLIENT_SECRET)" \
 		-e COMMON_AUTH_GITHUB_CALLBACK_HOST="$(COMMON_AUTH_GITHUB_CALLBACK_HOST)" \
+		$(if $(FORMICARY_URL),-e COMMON_EXTERNAL_BASE_URL="$(FORMICARY_URL)") \
 		-v $(DATA_DIR):/data \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v $(KUBECONFIG_PATCHED):/home/formicary-user/.kube/config:ro \

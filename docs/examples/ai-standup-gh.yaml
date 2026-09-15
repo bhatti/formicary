@@ -40,6 +40,7 @@ job_variables:
   FormicaryPublicURL: ""
   # Optional: comma-separated list of extra skill repo URLs to clone before synthesize.
   ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
 
 tasks:
 
@@ -84,7 +85,10 @@ tasks:
     STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
     STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
     STANDUP_STALE_DAYS: "{{.StandupStaleDays}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.gather_gh
   artifacts:
     paths:
@@ -136,7 +140,10 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.synthesize
   artifacts:
     paths:
@@ -185,7 +192,10 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-standup-gh"
     JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.render_html
     - python -m scripts.standup.post
   artifacts:
@@ -218,7 +228,10 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     MESSAGE: ":x: Standup job failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -227,4 +240,5 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - echo "Standup brief complete"

@@ -47,6 +47,8 @@ job_variables:
   FormicaryPublicURL: ""
   # Optional: comma-separated list of extra skill repo URLs to clone before synthesize.
   ExtraSkillsRepos: ""
+  # Set AiDevToolsDebug=1 to clone latest ai-dev-tools from GitHub main instead of using image.
+  AiDevToolsDebug: ""
   # Injected via org/user configs (set by deploy script):
   #   JiraUrl, JiraProject                       (plain)
   #   SlackChannel, StandupTeamMembers           (plain, optional)
@@ -100,7 +102,9 @@ tasks:
     STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
     STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
     STANDUP_STALE_DAYS: "{{.StandupStaleDays}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.gather_jira
   artifacts:
     paths:
@@ -152,7 +156,9 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.synthesize
   artifacts:
     paths:
@@ -201,7 +207,9 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-standup-jira"
     JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.standup.render_html
     - python -m scripts.standup.post
   artifacts:

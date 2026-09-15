@@ -191,8 +191,8 @@ func Test_ShouldExtractFileFromJobArtifact(t *testing.T) {
 	_, err = mgr.UpdateArtifact(context.Background(), qc, art)
 	require.NoError(t, err)
 
-	// WHEN extracting by job ID
-	rc, name, ct, err := mgr.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "reports/pr_audit_report.html")
+	// WHEN extracting by job ID (no task filter)
+	rc, name, ct, err := mgr.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "", "reports/pr_audit_report.html")
 
 	// THEN it should return the file with correct metadata
 	require.NoError(t, err)
@@ -204,6 +204,51 @@ func Test_ShouldExtractFileFromJobArtifact(t *testing.T) {
 	require.Contains(t, string(content), "job-audit")
 }
 
+func Test_ShouldExtractFileFromJobArtifactWithTaskType(t *testing.T) {
+	// GIVEN artifact manager with a zip artifact stamped with job ID and task type
+	serverCfg := config.TestServerConfig()
+	require.NoError(t, serverCfg.Validate())
+	qc, err := repository.NewTestQC()
+	require.NoError(t, err)
+	mgr := newTestArtifactManager(t, err, serverCfg)
+
+	var zipBuf bytes.Buffer
+	zw := zip.NewWriter(&zipBuf)
+	fw, err := zw.Create("reports/pr_audit_report.html")
+	require.NoError(t, err)
+	_, err = fw.Write([]byte("<html><body>task-filtered</body></html>"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	in := io.NopCloser(bytes.NewReader(zipBuf.Bytes()))
+	art, err := mgr.UploadArtifact(context.Background(), qc, in, make(map[string]string))
+	require.NoError(t, err)
+
+	const jobID = "test-job-request-002"
+	art.JobRequestID = jobID
+	art.TaskType = "audit-prs"
+	_, err = mgr.UpdateArtifact(context.Background(), qc, art)
+	require.NoError(t, err)
+
+	// WHEN extracting by job ID with matching task type
+	rc, name, ct, err := mgr.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "audit-prs", "reports/pr_audit_report.html")
+
+	// THEN it should return the file
+	require.NoError(t, err)
+	defer rc.Close()
+	content, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	require.Equal(t, "pr_audit_report.html", name)
+	require.Contains(t, ct, "text/html")
+	require.Contains(t, string(content), "task-filtered")
+
+	// WHEN extracting with a non-matching task type
+	_, _, _, err = mgr.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "wrong-task", "reports/pr_audit_report.html")
+
+	// THEN it should return not-found
+	require.Error(t, err)
+}
+
 func Test_ShouldFailExtractJobArtifactNotFound(t *testing.T) {
 	// GIVEN artifact manager with no artifact for the given job ID
 	serverCfg := config.TestServerConfig()
@@ -213,7 +258,7 @@ func Test_ShouldFailExtractJobArtifactNotFound(t *testing.T) {
 	mgr := newTestArtifactManager(t, err, serverCfg)
 
 	// WHEN requesting a file for a non-existent job
-	_, _, _, err = mgr.ExtractFileFromJobArtifact(context.Background(), qc, "nonexistent-job-999", "reports/pr_audit_report.html")
+	_, _, _, err = mgr.ExtractFileFromJobArtifact(context.Background(), qc, "nonexistent-job-999", "", "reports/pr_audit_report.html")
 
 	// THEN it should return a not-found error
 	require.Error(t, err)

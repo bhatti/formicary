@@ -94,10 +94,11 @@ func (ac *ArtifactAdminController) downloadJobArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job_id")
 	filePath := c.QueryParam("file")
+	taskType := c.QueryParam("task")
 	if filePath == "" {
 		return fmt.Errorf("query param 'file' is required")
 	}
-	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, filePath)
+	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, taskType, filePath)
 	if err != nil {
 		return err
 	}
