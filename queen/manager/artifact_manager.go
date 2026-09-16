@@ -259,8 +259,11 @@ func (am *ArtifactManager) ExtractFileFromJobArtifact(
 		return nil, "", "", err
 	}
 	if len(arts) == 0 {
-		return nil, "", "", common.NewNotFoundError(
-			fmt.Sprintf("no artifact found for job request %s", jobRequestID))
+		msg := fmt.Sprintf("no artifact found for job request %s", jobRequestID)
+		if taskType != "" {
+			msg = fmt.Sprintf("no artifact found for job request %s with task_type %q", jobRequestID, taskType)
+		}
+		return nil, "", "", common.NewNotFoundError(msg)
 	}
 	return am.ExtractFileFromArtifact(ctx, qc, arts[0].SHA256, filePath)
 }

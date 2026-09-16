@@ -475,6 +475,7 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-gh-review.yaml"
   "${SCRIPT_DIR}/ai-jira-query.yaml"
   "${SCRIPT_DIR}/ai-adhoc.yaml"
+  "${SCRIPT_DIR}/ai-skill.yaml"
   "${SCRIPT_DIR}/ai-codebase-audit.yaml"
   "${SCRIPT_DIR}/ai-gh-pr-audit.yaml"
 )
@@ -505,7 +506,9 @@ if [[ "$SET_SLACK_ROUTES" == true ]]; then
     {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <id> | @bot pr-audit --team alice,bob (logins/names) | @bot pr-audit --team MyTeam (Jira team / GH label) | @bot pr-audit --board <id> | @bot pr-audit --board | @bot pr-audit --milestone <name> | @bot pr-audit --filter label=X | @bot pr-audit --filter field=value | @bot pr-audit --full. Tracker auto-detected from URL. Default Slack output: digest; use --full for complete report."},
     {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (Jira Eng Scrum Team)] [--board <id>] [--board] [--filter field=value] [--full]"},
     {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label)] [--milestone <name>] [--filter label=X] [--full]"},
-    {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"}
+    {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"},
+    {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
+     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]"}
   ]'
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
 fi

@@ -149,6 +149,7 @@ tasks:
     paths:
       - ./signals.json
       - ./standup_brief.md
+      - ./risk_report.md
       - ./synthesize_result.json
       - ./reports
       - ./logs

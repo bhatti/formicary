@@ -1,0 +1,236 @@
+# AI skill invocation: run any YGS skill against a repo with optional background service.
+#
+# Triggered from Slack via the "skill" verb or submitted via API.
+# The Python script parses RAW_ARGS to extract skill name, --repo, --branch,
+# --tracker, --model flags and additional instructions after --.
+#
+# Service support: when ServiceImage is non-empty, a sidecar container is
+# started alongside the main task. The skill can access it at localhost:<port>.
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+
+job_type: ai-skill
+description: "AI skill: run any YGS skill against a repo with optional service"
+max_concurrency: 20
+timeout: 3600s
+
+variables:
+  RawArgs:
+    type: STRING
+    required: true
+
+tasks:
+# --- RUN ---------------------------------------------------------------------
+- task_type: run
+  method: KUBERNETES
+  timeout: 25m
+  task_variables:
+    RAW_ARGS: "{{.RawArgs}}"
+    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
+    SELECTED_TRACKER: "{{.DefaultTracker}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+  context_variables:
+    - name: RAW_ARGS
+      value: "{{.RawArgs}}"
+    - name: SELECTED_MODEL
+      value: "{{.AnthropicSonnetModel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: AI_MODEL_OVERRIDE
+      value: "{{.AiModel}}"
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  {{if .ServiceImage}}
+  services:
+    - name: "{{default "skill-service" .ServiceName}}"
+      alias: "{{default "skill-service" .ServiceName}}"
+      image: "{{.ServiceImage}}"
+      ports:
+        - number: {{default "9000" .ServicePort}}
+      memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
+      cpu_request: "{{default "250m" .ServiceCpuRequest}}"
+      {{if .ServiceCommand}}
+      command: ["{{.ServiceCommand}}"]
+      {{end}}
+  {{end}}
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
+    JIRA_BASE_URL: "{{.JiraUrl}}"
+    JIRA_PROJECT: "{{.JiraProject}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    BB_REPO_BRANCH: "{{.BitbucketRepoBranch}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    STANDUP_TEAM_MEMBERS: "{{.StandupTeamMembers}}"
+    STANDUP_LOOKBACK_HOURS: "{{.StandupLookbackHours}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    RAW_ARGS: "{{.RawArgs}}"
+    CODEBASE_DIR: "{{.CodebaseDir}}"
+    CODEBASE_REPO_URL: "{{.CodebaseRepoUrl}}"
+    GIT_BRANCH: "{{.GitBranch}}"
+    MAX_TURNS_ADHOC: "{{.MaxTurnsAdhoc}}"
+    MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
+    EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    AI_MODEL_OVERRIDE: "{{.AiModel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+    SERVICE_IMAGE: "{{.ServiceImage}}"
+    SERVICE_NAME: "{{default "skill-service" .ServiceName}}"
+    SERVICE_PORT: "{{default "9000" .ServicePort}}"
+
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.skill.run_skill
+  artifacts:
+    paths:
+      - ./skill_result.json
+      - ./reports
+      - ./logs
+    expire_after: 24h
+  on_completed: post
+  on_failed: notify-error
+
+# --- POST --------------------------------------------------------------------
+- task_type: post
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - run
+  context_variables:
+    - name: RAW_ARGS
+      value: "{{.RawArgs}}"
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    MESSAGE: ":white_check_mark: Skill invocation completed."
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_TYPE: "ai-skill"
+    JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.standup.slack_client
+  on_completed: done
+  on_failed: done
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  context_variables:
+    - name: SLACK_CHANNEL
+      value: "{{.SlackChannel}}"
+    - name: SELECTED_TRACKER
+      value: "{{.DefaultTracker}}"
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    MESSAGE: ":x: Skill invocation failed. Check <{{.FormicaryPublicURL}}/dashboard/jobs/requests/{{.JobID}}|job logs> for details."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Skill invocation complete"
+
+job_variables:
+  RawArgs: ""
+  # Service customization (all optional — service only created when ServiceImage is non-empty)
+  ServiceImage: ""
+  ServiceName: "skill-service"
+  ServicePort: "9000"
+  ServiceCommand: ""
+  ServiceMemoryLimit: "2G"
+  ServiceCpuRequest: "250m"
+  # Standard defaults
+  SlackChannel: ""
+  SlackThreadTs: ""
+  StandupTeamMembers: ""
+  StandupLookbackHours: "26"
+  DefaultTracker: ""
+  CodebaseDir: ""
+  CodebaseRepoUrl: ""
+  GitBranch: ""
+  MaxTurnsAdhoc: "50"
+  MaxClaudeProcessTimeout: "1350"
+  ExtraSkillsRepos: ""
+  AiDevToolsDebug: ""
+  AiModel: ""
+  # GitHub — set via org configs
+  GitHubOrg: ""
+  GitHubRepo: ""
+  GitHubRepoBranch: "main"
+  # Bitbucket — set via org configs
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  BitbucketRepoBranch: "dev"
+  # Formicary UI
+  FormicaryPublicURL: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
