@@ -224,7 +224,7 @@ if [[ "$SET_ROUTES" == true ]]; then
      "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label filter)] [--milestone <name>] [--filter label=X] [--full]"},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}},
     {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]"}
+     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [<repo>] [<number>] [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]. Positional: first word after name = repo, first number = PR/issue ID."}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"
 fi

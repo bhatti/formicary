@@ -54,7 +54,7 @@ tasks:
       memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
       cpu_request: "{{default "250m" .ServiceCpuRequest}}"
       {{if .ServiceCommand}}
-      command: ["{{.ServiceCommand}}"]
+      command: ["/bin/sh", "-c", "{{.ServiceCommand}}"]
       {{end}}
   {{end}}
   container:

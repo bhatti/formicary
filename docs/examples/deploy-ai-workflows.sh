@@ -508,7 +508,7 @@ if [[ "$SET_SLACK_ROUTES" == true ]]; then
     {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label)] [--milestone <name>] [--filter label=X] [--full]"},
     {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"},
     {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]"}
+     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [<repo>] [<number>] [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]. Positional: first word after name = repo, first number = PR/issue ID."}
   ]'
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
 fi
