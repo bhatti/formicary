@@ -53,12 +53,17 @@ tasks:
         - number: {{default "9000" .ServicePort}}
       memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
       cpu_request: "{{default "250m" .ServiceCpuRequest}}"
+      {{if .ServiceEntrypoint}}
+      entrypoint: ["{{.ServiceEntrypoint}}"]
+      {{end}}
       {{if .ServiceCommand}}
-      command: ["/bin/sh", "-c", "{{.ServiceCommand}}"]
+      command: ["/bin/sh", "-c", "{{.ServiceCommand}}{{if .ServiceArgs}} {{.ServiceArgs}}{{end}}"]
+      {{else if .ServiceArgs}}
+      command: ["/bin/sh", "-c", "{{.ServiceArgs}}"]
       {{end}}
   {{end}}
   container:
-    image: plexobject/ai-dev-tools:latest
+    image: "{{default "plexobject/ai-dev-tools:latest" .RunImage}}"
     image_pull_policy: Always
     cpu_request: "500m"
     memory_limit: 4G
@@ -104,6 +109,9 @@ tasks:
     SERVICE_IMAGE: "{{.ServiceImage}}"
     SERVICE_NAME: "{{default "skill-service" .ServiceName}}"
     SERVICE_PORT: "{{default "9000" .ServicePort}}"
+    SERVICE_COMMAND: "{{.ServiceCommand}}"
+    SERVICE_ARGS: "{{.ServiceArgs}}"
+    SERVICE_ENTRYPOINT: "{{.ServiceEntrypoint}}"
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -147,17 +155,17 @@ tasks:
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    MESSAGE: ":white_check_mark: Skill invocation completed."
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    FORMICARY_URL: "{{.FormicaryPublicURL}}"
     JOB_TYPE: "ai-skill"
     JOB_ID: "{{.JobID}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.standup.slack_client
+    - python -m scripts.skill.post
   on_completed: done
-  on_failed: done
+  on_failed: notify-error
 
 # --- NOTIFY-ERROR ------------------------------------------------------------
 - task_type: notify-error
@@ -197,11 +205,19 @@ tasks:
 
 job_variables:
   RawArgs: ""
-  # Service customization (all optional — service only created when ServiceImage is non-empty)
+  # Override the run task container image (default: plexobject/ai-dev-tools:latest).
+  # Use node:22-bookworm for skills that need glibc + native Node modules (e.g. @swc/core, @esbuild).
+  RunImage: ""
+  # Service customization (all optional — service only created when ServiceImage is non-empty).
+  # From Slack: skill <name> --service <image> --service-port <port> --service-cmd "<cmd>" --service-args "<args>"
+  # Example: skill integ-tests --service plexobject/formicary:latest --service-cmd "formicary queen --standalone --no-auth" --service-port 7777
   ServiceImage: ""
   ServiceName: "skill-service"
   ServicePort: "9000"
-  ServiceCommand: ""
+  ServiceCommand: ""         # full command override (e.g. "formicary queen --no-auth")
+  ServiceArgs: ""            # extra args appended to ServiceCommand (e.g. "--standalone")
+  ServiceEntrypoint: ""      # override container entrypoint
+  # To inject env into the service, embed it in ServiceCommand: "env KEY=VAL formicary queen"
   ServiceMemoryLimit: "2G"
   ServiceCpuRequest: "250m"
   # Standard defaults
@@ -213,7 +229,7 @@ job_variables:
   CodebaseDir: ""
   CodebaseRepoUrl: ""
   GitBranch: ""
-  MaxTurnsAdhoc: "50"
+  MaxTurnsAdhoc: "100"
   MaxClaudeProcessTimeout: "1350"
   ExtraSkillsRepos: ""
   AiDevToolsDebug: ""
