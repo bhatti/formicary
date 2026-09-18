@@ -535,6 +535,16 @@ if ${_deploy_gh_workflows}; then
   ok "GitHub workflows deployed"
 fi
 
+# ── Slack admin setup (tokens + routes) ─────────────────────────────────────
+if [[ -n "${SLACK_BOT_TOKEN:-}" || -n "${SLACK_APP_TOKEN:-}" ]]; then
+  printf "\n"
+  log "Applying Slack admin config (tokens + routes)..."
+  bash "${EXAMPLES_DIR}/setup-slack-admin.sh" \
+    --server "${FORMICARY_URL}" \
+    || warn "Slack admin setup failed — check SLACK_BOT_TOKEN / SLACK_APP_TOKEN and re-run"
+  ok "Slack admin config applied"
+fi
+
 # ── Doctor ────────────────────────────────────────────────────────────────────
 doctor() {
   printf "\n"
