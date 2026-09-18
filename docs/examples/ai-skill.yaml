@@ -65,7 +65,7 @@ tasks:
   container:
     image: "{{default "plexobject/ai-dev-tools:latest" .RunImage}}"
     image_pull_policy: Always
-    cpu_request: "500m"
+    cpu_request: "2"
     memory_limit: 8G
     memory_request: 1G
     volumes:

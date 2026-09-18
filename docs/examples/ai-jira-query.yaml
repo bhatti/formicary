@@ -35,7 +35,7 @@ tasks:
 # --- QUERY -------------------------------------------------------------------
 - task_type: query
   method: KUBERNETES
-  timeout: 15m
+  timeout: 20m
   task_variables:
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"
@@ -59,9 +59,9 @@ tasks:
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256M
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512M
     volumes:
       empty_dir:
         - name: workspace
@@ -93,6 +93,8 @@ tasks:
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -198,8 +200,9 @@ job_variables:
   Issues: ""
   Query: ""
   JiraTeamField: "EngScrumTeam"
-  MaxClaudeProcessTimeout: ""
+  MaxClaudeProcessTimeout: "900"
   ExtraSkillsRepos: ""
+  FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
