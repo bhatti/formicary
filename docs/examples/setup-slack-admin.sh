@@ -224,10 +224,7 @@ if [[ "$SET_ROUTES" == true ]]; then
      "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label filter)] [--milestone <name>] [--filter label=X] [--full]"},
     {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}},
     {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "description":"Run any YGS skill. Usage: @bot skill <name> [--repo <url>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [--service-port <port>] [--service-cmd <cmd>] [--service-args <args>] [-- instructions]."},
-    {"triggers":["skill-node","node-skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "params":{"RunImage":"node:22-bookworm"},
-     "description":"Run any YGS skill in a Node.js 22 (Debian bookworm) container. Use when the skill needs native Node modules or a glibc environment. Usage: @bot skill-node <name> [--repo <url>] [--branch <name>] [-- instructions]. Add similar routes for other base images (e.g. skill-java, skill-python39) by setting params.RunImage to any OCI image."}
+     "description":"Run any YGS skill. Usage: @bot skill <name> [--repo <url>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [--service-port <port>] [--service-cmd <cmd>] [--service-args <args>] [-- instructions]."}
   ]'
   set_slack_routes "$SLACK_ROUTES_JSON"
 fi

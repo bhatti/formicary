@@ -66,7 +66,7 @@ tasks:
     image: "{{default "plexobject/ai-dev-tools:latest" .RunImage}}"
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 4G
+    memory_limit: 8G
     memory_request: 1G
     volumes:
       empty_dir:
@@ -114,8 +114,8 @@ tasks:
     SERVICE_ENTRYPOINT: "{{.ServiceEntrypoint}}"
 
   script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.skill.run_skill
+    - python3 -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python3 -m scripts.skill.run_skill
   artifacts:
     paths:
       - ./skill_result.json
@@ -162,8 +162,8 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
   script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.skill.post
+    - python3 -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python3 -m scripts.skill.post
   on_completed: done
   on_failed: notify-error
 
@@ -192,8 +192,8 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
   script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.standup.slack_client
+    - python3 -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python3 -m scripts.standup.slack_client
   on_completed: done
 
 # --- DONE --------------------------------------------------------------------
