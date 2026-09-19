@@ -40,7 +40,7 @@ tasks:
 # --- AUDIT-PRS ---------------------------------------------------------------
 - task_type: audit-prs
   method: KUBERNETES
-  timeout: 55m
+  timeout: 60m
   task_variables:
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "jira"

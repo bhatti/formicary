@@ -19,7 +19,7 @@
 job_type: ai-codebase-audit
 description: "AI codebase archaeology: analyze last N commits for hotspots, drift, test gaps, silos"
 max_concurrency: 5
-timeout: 3600s
+timeout: 4200s
 
 variables:
   RepoUrl:
@@ -30,7 +30,7 @@ tasks:
 # --- AUDIT -------------------------------------------------------------------
 - task_type: audit
   method: KUBERNETES
-  timeout: 55m
+  timeout: 60m
   task_variables:
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"

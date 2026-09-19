@@ -12,7 +12,7 @@
 job_type: ai-jira-query
 description: "Search open Jira/GitHub issues by free text OR analyze issues for root cause and fixes"
 max_concurrency: 10
-timeout: 600s
+timeout: 1800s
 
 variables:
   Query:
@@ -200,7 +200,7 @@ job_variables:
   Issues: ""
   Query: ""
   JiraTeamField: "EngScrumTeam"
-  MaxClaudeProcessTimeout: "900"
+  MaxClaudeProcessTimeout: "1080"
   ExtraSkillsRepos: ""
   FormicaryPublicURL: ""
   ClaudeUseBedrock: "1"

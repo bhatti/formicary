@@ -13,7 +13,7 @@
 job_type: ai-skill
 description: "AI skill: run any YGS skill against a repo with optional service"
 max_concurrency: 20
-timeout: 3600s
+timeout: 14400s
 
 variables:
   RawArgs:
@@ -24,7 +24,7 @@ tasks:
 # --- RUN ---------------------------------------------------------------------
 - task_type: run
   method: KUBERNETES
-  timeout: 25m
+  timeout: 230m
   task_variables:
     RAW_ARGS: "{{.RawArgs}}"
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
@@ -230,7 +230,7 @@ job_variables:
   CodebaseRepoUrl: ""
   GitBranch: ""
   MaxTurnsAdhoc: "100"
-  MaxClaudeProcessTimeout: "1350"
+  MaxClaudeProcessTimeout: "13500"
   ExtraSkillsRepos: ""
   AiDevToolsDebug: ""
   AiModel: ""

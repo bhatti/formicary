@@ -24,7 +24,7 @@ tasks:
 # --- REVIEW ------------------------------------------------------------------
 - task_type: review
   method: KUBERNETES
-  timeout: 20m
+  timeout: 45m
   task_variables:
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SKILL_NAME: "{{.Skill}}"
@@ -171,7 +171,7 @@ tasks:
 
 job_variables:
   MaxTurnsReview: "100"
-  MaxClaudeProcessTimeout: "1080"
+  MaxClaudeProcessTimeout: "2400"
   ExtraSkillsRepos: ""
   AiDevToolsDebug: ""
   Skill: "ygs-review-pr"

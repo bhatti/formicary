@@ -355,7 +355,7 @@ job_variables:
   MaxTurnsPlan: "50"
   MaxTurnsImplement: "200"
   MaxTurnsFeedback: "20"
-  MaxClaudeProcessTimeout: ""
+  MaxClaudeProcessTimeout: "5100"
   ExtraSkillsRepos: ""
   AiDevToolsDebug: ""
   PollInterval: "120"
