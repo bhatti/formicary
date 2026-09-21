@@ -322,6 +322,14 @@ func templateFuncs(querier JobTemplateHelper) template.FuncMap {
 		},
 		// urlquery percent-encodes a string for safe inclusion in URL query parameters.
 		"urlquery": url.QueryEscape,
+		// yamlq escapes a string for safe embedding inside a YAML double-quoted scalar.
+		// Backslashes are escaped first, then double-quotes, preserving correct YAML encoding.
+		// Use as: "{{.RawArgs | yamlq}}" in YAML job definitions.
+		"yamlq": func(s string) string {
+			s = strings.ReplaceAll(s, `\`, `\\`)
+			s = strings.ReplaceAll(s, `"`, `\"`)
+			return s
+		},
 	}
 }
 

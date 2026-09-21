@@ -31,12 +31,12 @@ tasks:
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
-    PROMPT: "{{.Prompt}}"
+    PROMPT: "{{.Prompt | yamlq}}"
   context_variables:
     - name: SKILL
       value: "{{.Skill}}"
     - name: PROMPT
-      value: "{{.Prompt}}"
+      value: "{{.Prompt | yamlq}}"
     - name: SELECTED_MODEL
       value: "{{.AnthropicSonnetModel}}"
     - name: SELECTED_TRACKER
@@ -82,7 +82,7 @@ tasks:
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     SKILL_NAME: "{{.Skill}}"
-    SKILL_PROMPT: "{{.Prompt}}"
+    SKILL_PROMPT: "{{.Prompt | yamlq}}"
     CODEBASE_DIR: "{{.CodebaseDir}}"
     MAX_TURNS_ADHOC: "{{.MaxTurnsAdhoc}}"
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"

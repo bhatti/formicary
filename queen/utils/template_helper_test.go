@@ -403,3 +403,49 @@ func Test_ShouldPickerJobDescriptionContainIssueInfo(t *testing.T) {
 	require.Contains(t, helper.submitted[0].description, "Add dark mode")
 	require.Equal(t, "42", helper.submitted[0].params["IssueNumber"])
 }
+
+// Test_YamlQEscapesQuotesForYAMLEmbedding verifies that the yamlq template function
+// produces output safe to embed inside a YAML double-quoted scalar.
+// Fixes: RAW_ARGS with quoted multi-word args (e.g. "Sprint Name") broke YAML rendering.
+func Test_YamlQEscapesQuotesForYAMLEmbedding(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawArgs  string
+		wantYAML string // the value YAML should parse back to
+	}{
+		{
+			name:     "double quotes in value",
+			rawArgs:  `my-skill "Q4 Roadmap" --dry-run --branch feature-branch`,
+			wantYAML: `my-skill "Q4 Roadmap" --dry-run --branch feature-branch`,
+		},
+		{
+			name:     "backslash in value",
+			rawArgs:  `my-skill C:\path\to\file`,
+			wantYAML: `my-skill C:\path\to\file`,
+		},
+		{
+			name:     "plain value unchanged",
+			rawArgs:  `ygs-analyze --repo myapp --branch main`,
+			wantYAML: `ygs-analyze --repo myapp --branch main`,
+		},
+		{
+			name:     "both backslash and quote",
+			rawArgs:  `skill \"quoted\"`,
+			wantYAML: `skill \"quoted\"`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := `RAW_ARGS: "{{.RawArgs | yamlq}}"`
+			rendered, err := ParseTemplate(tmpl, map[string]interface{}{"RawArgs": tc.rawArgs})
+			require.NoError(t, err, "template rendering should not fail")
+
+			// Parse the rendered YAML and verify the value round-trips correctly.
+			var out map[string]string
+			require.NoError(t, yaml.Unmarshal([]byte(rendered), &out),
+				"rendered YAML must be valid: %s", rendered)
+			require.Equal(t, tc.wantYAML, out["RAW_ARGS"],
+				"YAML value must round-trip to original")
+		})
+	}
+}

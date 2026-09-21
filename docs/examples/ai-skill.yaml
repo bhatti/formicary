@@ -26,13 +26,13 @@ tasks:
   method: KUBERNETES
   timeout: 230m
   task_variables:
-    RAW_ARGS: "{{.RawArgs}}"
+    RAW_ARGS: "{{.RawArgs | yamlq}}"
     SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
   context_variables:
     - name: RAW_ARGS
-      value: "{{.RawArgs}}"
+      value: "{{.RawArgs | yamlq}}"
     - name: SELECTED_MODEL
       value: "{{.AnthropicSonnetModel}}"
     - name: SELECTED_TRACKER
@@ -97,7 +97,7 @@ tasks:
     ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
     ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
-    RAW_ARGS: "{{.RawArgs}}"
+    RAW_ARGS: "{{.RawArgs | yamlq}}"
     CODEBASE_DIR: "{{.CodebaseDir}}"
     CODEBASE_REPO_URL: "{{.CodebaseRepoUrl}}"
     GIT_BRANCH: "{{.GitBranch}}"
@@ -145,7 +145,7 @@ tasks:
     - run
   context_variables:
     - name: RAW_ARGS
-      value: "{{.RawArgs}}"
+      value: "{{.RawArgs | yamlq}}"
     - name: SLACK_CHANNEL
       value: "{{.SlackChannel}}"
     - name: SELECTED_TRACKER
