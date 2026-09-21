@@ -1266,3 +1266,70 @@ func Test_ShouldRoundTripSubWorkflowViaJSON(t *testing.T) {
 	require.Equal(t, "etl_row_count", om["row_count"])
 	require.True(t, forkTask.SubWorkflow.WaitForCompletion)
 }
+
+// Test_ShouldParseAiSkillYAMLWithQuotedRawArgs loads the real ai-skill.yaml and exercises
+// GetDynamicTask("run") with a RawArgs value that contains quoted sub-strings (e.g.
+// `edge-sprint-prep "DistMgmt Sprint 203" --dry-run --branch edge-dm-norms-2`).
+// This is the definitive regression test for the "yaml: line 4: did not find expected key"
+// error that appeared in production when the Slack trigger passed quoted tokens in RawArgs.
+func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
+	b, err := ioutil.ReadFile("../../docs/examples/ai-skill.yaml")
+	require.NoError(t, err, "ai-skill.yaml must be readable")
+
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err, "ai-skill.yaml must load without error")
+	require.Equal(t, "ai-skill", job.JobType)
+
+	// Exactly the args that triggered the production error.
+	rawArgs := `edge-sprint-prep "DistMgmt Sprint 203" --dry-run --branch edge-dm-norms-2`
+	vars := map[string]common.VariableValue{
+		"JobRetry":                common.NewVariableValue(0, false),
+		"JobID":                   common.NewVariableValue("test-job-123", false),
+		"RawArgs":                 common.NewVariableValue(rawArgs, false),
+		"AnthropicSonnetModel":    common.NewVariableValue("us.anthropic.claude-sonnet-4-6", false),
+		"DefaultTracker":          common.NewVariableValue("jira", false),
+		"SlackChannel":            common.NewVariableValue("dev", false),
+		"AiModel":                 common.NewVariableValue("", false),
+		"SlackToken":              common.NewVariableValue("xoxb-test", false),
+		"SlackThreadTs":           common.NewVariableValue("", false),
+		"GitHubOrg":               common.NewVariableValue("myorg", false),
+		"GitHubRepo":              common.NewVariableValue("myrepo", false),
+		"GitHubRepoBranch":        common.NewVariableValue("main", false),
+		"JiraUrl":                 common.NewVariableValue("https://jira.example.com", false),
+		"JiraProject":             common.NewVariableValue("PROJ", false),
+		"BitbucketWorkspace":      common.NewVariableValue("", false),
+		"BitbucketRepo":           common.NewVariableValue("", false),
+		"BitbucketRepoBranch":     common.NewVariableValue("dev", false),
+		"StandupTeamMembers":      common.NewVariableValue("", false),
+		"StandupLookbackHours":    common.NewVariableValue("26", false),
+		"ClaudeUseBedrock":        common.NewVariableValue("1", false),
+		"AnthropicBedrockBaseUrl": common.NewVariableValue("http://ai/bedrock", false),
+		"ClaudeSkipBedrockAuth":   common.NewVariableValue("1", false),
+		"AnthropicOpusModel":      common.NewVariableValue("us.anthropic.claude-opus-4-6-v1", false),
+		"AnthropicHaikuModel":     common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
+		"CodebaseDir":             common.NewVariableValue("", false),
+		"CodebaseRepoUrl":         common.NewVariableValue("", false),
+		"GitBranch":               common.NewVariableValue("", false),
+		"MaxTurnsAdhoc":           common.NewVariableValue("100", false),
+		"MaxClaudeProcessTimeout": common.NewVariableValue("13500", false),
+		"ExtraSkillsRepos":        common.NewVariableValue("", false),
+		"AiDevToolsDebug":         common.NewVariableValue("", false),
+		"ServiceImage":            common.NewVariableValue("", false),
+		"ServiceName":             common.NewVariableValue("skill-service", false),
+		"ServicePort":             common.NewVariableValue("9000", false),
+		"ServiceCommand":          common.NewVariableValue("", false),
+		"ServiceArgs":             common.NewVariableValue("", false),
+		"ServiceEntrypoint":       common.NewVariableValue("", false),
+		"ServiceMemoryLimit":      common.NewVariableValue("2G", false),
+		"ServiceCpuRequest":       common.NewVariableValue("250m", false),
+		"FormicaryPublicURL":      common.NewVariableValue("https://formicary.example.com", false),
+		"RunImage":                common.NewVariableValue("", false),
+	}
+
+	runTask, runOpts, err := job.GetDynamicTask("run", vars)
+	require.NoError(t, err, "run task must parse without YAML error even when RawArgs contains double-quoted tokens")
+	require.NotNil(t, runTask)
+	require.NotNil(t, runOpts)
+	require.Contains(t, runOpts.Environment["RAW_ARGS"], "DistMgmt Sprint 203",
+		"RAW_ARGS must contain the unescaped sprint name after template rendering")
+}

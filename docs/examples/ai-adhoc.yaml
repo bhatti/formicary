@@ -91,6 +91,9 @@ tasks:
     GIT_BRANCH: "{{.GitBranch}}"
     AI_MODEL_OVERRIDE: "{{.AiModel}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_TYPE: "ai-adhoc"
+    JOB_ID: "{{.JobID}}"
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
