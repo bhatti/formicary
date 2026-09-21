@@ -304,7 +304,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - |
-      set -euo pipefail
+      set -eu
       # pr.json is at /workspace/pr.json (artifacts module uses workspace root directly).
       if [ ! -f ./pr.json ]; then
         echo "[poll-pr] pr.json not found — no PR created, skipping"
