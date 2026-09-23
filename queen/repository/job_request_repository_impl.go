@@ -282,6 +282,8 @@ func (jrr *JobRequestRepositoryImpl) SetReadyToExecute(
 		"job_state":             common.READY,
 		"job_execution_id":      jobExecutionID,
 		"last_job_execution_id": lastJobExecutionID,
+		"error_code":            "",
+		"error_message":         "",
 		"updated_at":            time.Now(),
 	})
 	if res.Error != nil {
@@ -655,23 +657,23 @@ func (jrr *JobRequestRepositoryImpl) Restart(
 	return nil
 }
 
-// IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready
+// IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready.
+// errorCode and errorMessage are stored so operators can see why a job is staying PENDING.
 func (jrr *JobRequestRepositoryImpl) IncrementScheduleAttempts(
 	id string,
 	scheduleSecs time.Duration,
 	decrPriority int,
+	errorCode string,
 	errorMessage string) error {
 	res := jrr.db.Exec(
 		"UPDATE formicary_job_requests SET schedule_attempts = schedule_attempts + 1, "+
-			"scheduled_at = ?, job_priority = job_priority - ?, error_message = ?, updated_at = ? WHERE id = ?",
-		time.Now().Add(scheduleSecs), decrPriority, errorMessage, time.Now(), id)
+			"scheduled_at = ?, job_priority = job_priority - ?, error_code = ?, error_message = ?, updated_at = ? "+
+			"WHERE id = ? AND job_state IN ('PENDING', 'PAUSED')",
+		time.Now().Add(scheduleSecs), decrPriority, errorCode, errorMessage, time.Now(), id)
 	if res.Error != nil {
 		return common.NewNotFoundError(res.Error)
 	}
-	if res.RowsAffected != 1 {
-		return common.NewNotFoundError(
-			fmt.Errorf("failed to update schedule_attempts for %s", id))
-	}
+	// Zero rows means the job already advanced past PENDING/PAUSED — safe to ignore.
 	return nil
 }
 

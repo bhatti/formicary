@@ -299,12 +299,13 @@ func (js *JobScheduler) scheduleJob(
 
 	// Check to make sure we have ants connected to execute job for task methods/tags
 	if err = jobStateMachine.CheckAntResourcesAndConcurrencyForJob(); err != nil {
+		errCode := common.ErrorCodeForScheduling(err)
 		if request.ScheduleAttempts+1 > js.serverCfg.Jobs.MaxScheduleAttempts {
 			// changing state from PENDING to FAILED
 			return jobStateMachine.ScheduleFailed(
 				ctx,
 				fmt.Errorf("allocation failed due to %w, max schedule attempts exceeded %d", err, request.ScheduleAttempts),
-				common.ErrorAntResources)
+				errCode)
 		}
 		decrPriority := 0
 		scheduleAttempts := request.ScheduleAttempts + 1
@@ -319,6 +320,7 @@ func (js *JobScheduler) scheduleJob(
 			request,
 			time.Duration(scheduleSecs)*time.Second,
 			decrPriority,
+			errCode,
 			err.Error())
 		// will try again
 		logrus.WithFields(logrus.Fields{
@@ -337,17 +339,39 @@ func (js *JobScheduler) scheduleJob(
 
 	// Reserve resources for tasks
 	if err = jobStateMachine.ReserveJobResources(); err != nil {
+		taskCount := 0
+		if jobStateMachine.JobDefinition != nil {
+			taskCount = len(jobStateMachine.JobDefinition.Tasks)
+		}
+		logrus.WithFields(logrus.Fields{
+			"Component":        "JobScheduler",
+			"RequestID":        request.ID,
+			"JobType":          request.JobType,
+			"Organization":     request.OrganizationID,
+			"TaskCount":        taskCount,
+			"ScheduleAttempts": request.ScheduleAttempts,
+			"Error":            err,
+		}).Warnf("failed to reserve ant resources for job with %d tasks", taskCount)
+		reserveErrCode := common.ErrorCodeForScheduling(err)
 		if request.ScheduleAttempts+1 > js.serverCfg.Jobs.MaxScheduleAttempts {
 			// changing state from PENDING to FAILED
 			return jobStateMachine.ScheduleFailed(
 				ctx,
-				fmt.Errorf("max schedule attempts exceeded %d", request.ScheduleAttempts),
-				common.ErrorAntResources,
+				fmt.Errorf("reservation failed for job with %d tasks: %w, max schedule attempts exceeded %d",
+					taskCount, err, request.ScheduleAttempts),
+				reserveErrCode,
 			)
 		}
+		scheduleSecs := math.Min(int(js.serverCfg.Jobs.NotReadyJobsMaxWait.Seconds()), (request.ScheduleAttempts+1)*5)
+		_ = js.jobManager.IncrementScheduleAttemptsForJobRequest(
+			request,
+			time.Duration(scheduleSecs)*time.Second,
+			0,
+			reserveErrCode,
+			err.Error())
 		// will try again
-		return fmt.Errorf("ant resources cannot be allocated for ID=%s, Kind=%s State=%s due to %v",
-			request.ID, request.JobType, request.JobState, err)
+		return fmt.Errorf("ant resources cannot be allocated for ID=%s, Kind=%s State=%s tasks=%d due to %v",
+			request.ID, request.JobType, request.JobState, taskCount, err)
 	}
 
 	// Creating a new job-execution

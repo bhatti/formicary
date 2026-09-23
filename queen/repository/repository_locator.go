@@ -312,6 +312,8 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "ant resources not available", "", "ERR_ANT_RESOURCES"))
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
+				"*", "no live ant for method", "", "ERR_NO_ANT_FOR_METHOD"))
+			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "fatal error", "", "ERR_FATAL"))
 			_, _ = errorCodeRepository.Save(qc, common.NewErrorCode(
 				"*", "resource quota exceeded", "", "ERR_QUOTA_EXCEEDED"))

@@ -1,0 +1,274 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# AI-driven parallel test execution with test-impact analysis.
+#
+# Pipeline: analyze → run-tests (fan-out) → report
+#
+# 1. analyze: Runs test-impact analysis, partitions affected tests into shards.
+# 2. run-tests: Fan-out — one task per shard, runs tests in parallel.
+# 3. report:  Aggregates shard results, posts summary to PR / Slack.
+#
+# Uses the ai-dev-tools scripts/mq/test_impact.py for impact analysis
+# and scripts/mq/run_scoped_ci.py for scoped test execution.
+#
+# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
+#     --gh-org YOUR_ORG --gh-repo YOUR_REPO
+
+job_type: ai-parallel-test
+description: "Run affected tests in parallel shards using test-impact analysis"
+max_concurrency: 10
+timeout: 3600s
+
+variables:
+  PRNumber:
+    type: STRING
+    required: true
+  BaseBranch:
+    type: STRING
+    required: false
+
+tasks:
+# --- ANALYZE -----------------------------------------------------------------
+# Determine which tests are affected by the PR diff.
+- task_type: analyze
+  method: KUBERNETES
+  timeout: 10m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    BASE_BRANCH: "{{.BaseBranch}}"
+    REPO_URL: "{{.Repo | yamlq}}"
+    BRANCH_OVERRIDE: "{{.Branch | yamlq}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      ARGS=""
+      [ -n "{{.PRNumber}}" ] && ARGS="$ARGS --pr-number {{.PRNumber}}"
+      [ -n "{{.Repo}}" ] && ARGS="$ARGS --repo {{.Repo}}"
+      [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
+      python -m scripts.mq.clone_pr $ARGS
+    - |
+      REF="{{.PRNumber}}"
+      [ -z "$REF" ] && REF="{{.Branch}}"
+      python -m scripts.mq.test_impact --pr-number "$REF"
+    - |
+      python3 -c "
+      import json, os
+      impact = json.load(open('/workspace/test_impact.json'))
+      shards = impact.get('shards', [])
+      json.dump(shards, open('/workspace/shards.json', 'w'))
+      print(f'Created {len(shards)} shards from {impact.get(\"selected_tests\", 0)} affected tests')
+      "
+    - |
+      SHARDS=$(cat /workspace/shards.json)
+      echo "::add-job-context TestShards::${SHARDS}"
+  artifacts:
+    paths:
+      - ./test_impact.json
+      - ./shards.json
+      - ./logs
+    expire_after: 24h
+  on_completed: run-tests
+  on_failed: notify-error
+
+# --- RUN-TESTS (fan-out) ----------------------------------------------------
+# One task per shard — runs tests in parallel across ant workers.
+- task_type: run-tests
+  method: KUBERNETES
+  timeout: 30m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "4000m"
+    memory_limit: 16G
+    memory_request: 4G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - analyze
+  fan_out:
+    source: TestShards
+    item_var: shard
+    max_parallel: "{{.MaxShards}}"
+    fail_fast: false
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    BASE_BRANCH: "{{.BaseBranch}}"
+    REPO_URL: "{{.Repo | yamlq}}"
+    BRANCH_OVERRIDE: "{{.Branch | yamlq}}"
+    CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      ARGS=""
+      [ -n "{{.PRNumber}}" ] && ARGS="$ARGS --pr-number {{.PRNumber}}"
+      [ -n "{{.Repo}}" ] && ARGS="$ARGS --repo {{.Repo}}"
+      [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
+      python -m scripts.mq.clone_pr $ARGS
+    - python -m scripts.mq.run_scoped_ci --shard '{{.shard}}'
+  artifacts:
+    paths:
+      - ./shard_result.json
+      - ./test_output.xml
+      - ./logs
+    expire_after: 24h
+  on_completed: report
+  on_failed: report
+
+# --- REPORT ------------------------------------------------------------------
+# Aggregate results from all shards and post summary.
+- task_type: report
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 512Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - analyze
+    - run-tests
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      python3 -c "
+      import json, glob, os
+      results = []
+      for f in glob.glob('/workspace/shard_result_*.json'):
+          results.append(json.load(open(f)))
+      passed = sum(r.get('passed', 0) for r in results)
+      failed = sum(r.get('failed', 0) for r in results)
+      skipped = sum(r.get('skipped', 0) for r in results)
+      total = passed + failed + skipped
+      duration = max((r.get('duration_s', 0) for r in results), default=0)
+      summary = {
+          'pr_number': os.environ.get('PR_NUMBER'),
+          'shards': len(results),
+          'total': total, 'passed': passed, 'failed': failed, 'skipped': skipped,
+          'wall_clock_s': round(duration, 1),
+          'status': 'PASS' if failed == 0 else 'FAIL',
+          'failures': [f for r in results for f in r.get('failures', [])]
+      }
+      json.dump(summary, open('/workspace/test_summary.json', 'w'), indent=2)
+      icon = ':white_check_mark:' if failed == 0 else ':x:'
+      print(f'{icon} {passed}/{total} tests passed across {len(results)} shards ({duration:.0f}s wall clock)')
+      "
+    - python -m scripts.mq.report
+  artifacts:
+    paths:
+      - ./test_summary.json
+      - ./reports
+    expire_after: 24h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-parallel-test"
+    MESSAGE: ":x: Parallel test job failed."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Parallel test pipeline complete"
+
+job_variables:
+  MaxShards: "8"
+  BaseBranch: "main"
+  Repo: ""
+  Branch: ""
+  AiDevToolsDebug: ""
+  FormicaryPublicURL: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

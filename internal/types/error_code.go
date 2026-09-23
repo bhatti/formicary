@@ -47,8 +47,10 @@ const (
 	ErrorValidation = "ERR_VALIDATION"
 	// ErrorFilteredJob error code
 	ErrorFilteredJob = "ERR_FILTERED_JOB"
-	// ErrorAntResources error code
+	// ErrorAntResources means ants exist for the method but all are at capacity (WARNING — transient).
 	ErrorAntResources = "ERR_ANT_RESOURCES"
+	// ErrorNoAntForMethod means no ant is registered/alive for the required method or tag (ERROR — configuration gap).
+	ErrorNoAntForMethod = "ERR_NO_ANT_FOR_METHOD"
 	// ErrorFatal error code
 	ErrorFatal = "ERR_FATAL"
 	// ErrorRestartJob error code

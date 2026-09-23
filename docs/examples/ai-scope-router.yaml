@@ -1,0 +1,238 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# AI-driven scope router for merge queue.
+#
+# Pipeline: classify → route
+#
+# 1. classify: Analyzes PR diff to determine scope (disjoint file sets = independent,
+#    overlapping = conflicting) and risk level (low/medium/high/critical).
+# 2. route:    Assigns the PR to the appropriate merge queue lane based on scope
+#              and risk. Emits routing decision as context variable for downstream jobs.
+#
+# This job is typically triggered by a webhook when a PR is labeled "ready-to-merge"
+# or submitted to the merge queue. The routing decision feeds into ai-merge-queue.
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+
+job_type: ai-scope-router
+description: "Classify PR scope and risk, route to appropriate merge queue lane"
+max_concurrency: 20
+timeout: 600s
+
+variables:
+  PRNumber:
+    type: STRING
+    required: true
+
+tasks:
+# --- CLASSIFY ----------------------------------------------------------------
+- task_type: classify
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    BASE_BRANCH: "{{.BaseBranch}}"
+    REPO_URL: "{{.Repo | yamlq}}"
+    BRANCH_OVERRIDE: "{{.Branch | yamlq}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      ARGS=""
+      [ -n "{{.PRNumber}}" ] && ARGS="$ARGS --pr-number {{.PRNumber}}"
+      [ -n "{{.Repo}}" ] && ARGS="$ARGS --repo {{.Repo}}"
+      [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
+      python -m scripts.mq.clone_pr $ARGS
+    - |
+      REF="{{.PRNumber}}"
+      [ -z "$REF" ] && REF="{{.Branch}}"
+      python -m scripts.mq.scope_router --pr-number "$REF"
+      python -m scripts.mq.risk_score --pr-number "$REF"
+  artifacts:
+    paths:
+      - ./scope.json
+      - ./risk_score.json
+      - ./logs
+    expire_after: 24h
+  on_completed: route
+  on_failed: notify-error
+
+# --- ROUTE -------------------------------------------------------------------
+- task_type: route
+  method: KUBERNETES
+  timeout: 3m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - classify
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    APPROVAL_THRESHOLD: "{{.ApprovalThreshold}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      python3 -c "
+      import json, os
+      scope = json.load(open('/workspace/scope.json'))
+      risk = json.load(open('/workspace/risk_score.json'))
+      threshold = int(os.environ.get('APPROVAL_THRESHOLD', '70'))
+      decision = {
+          'pr_number': os.environ['PR_NUMBER'],
+          'scope_key': scope['scope'],
+          'blast_radius': scope['blast_radius'],
+          'sensitive_paths': scope.get('touches', []),
+          'owners': scope.get('owners', []),
+          'risk_score': risk['score'],
+          'risk_tier': risk['tier'],
+          'requires_approval': risk.get('requires_human_approval', False) or risk['score'] >= threshold,
+          'lane': scope['scope'],
+          'batch_eligible': risk['score'] < 40 and scope.get('changed_files', 0) < 50
+      }
+      json.dump(decision, open('/workspace/route_decision.json', 'w'), indent=2)
+      print(f'PR #{decision[\"pr_number\"]}: scope={decision[\"scope_key\"]} risk={decision[\"risk_tier\"]}({decision[\"risk_score\"]}) lane={decision[\"lane\"]} approval={decision[\"requires_approval\"]}')
+      print(f'::add-job-context RouteDecision::{json.dumps(decision)}')
+      "
+  artifacts:
+    paths:
+      - ./route_decision.json
+    expire_after: 24h
+  on_completed: report
+  on_failed: notify-error
+
+# --- REPORT ------------------------------------------------------------------
+# Post scope + risk summary to Slack with HTML report.
+- task_type: report
+  method: KUBERNETES
+  timeout: 3m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - classify
+    - route
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.mq.report
+  artifacts:
+    paths:
+      - ./reports
+    expire_after: 24h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-scope-router"
+    MESSAGE: ":x: Scope router failed for PR #{{.PRNumber}}."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Scope routing complete"
+
+job_variables:
+  BaseBranch: "main"
+  ApprovalThreshold: "70"
+  Repo: ""
+  Branch: ""
+  AiDevToolsDebug: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  FormicaryPublicURL: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

@@ -457,6 +457,28 @@ When `--team` is set, only PRs authored or reviewed by those logins/display-name
 
 ---
 
+### Merge Queue Workflows
+
+Scope-aware merge queue for agent-scale PR throughput. Pairs test-impact analysis (run only affected tests) with parallel scope lanes.
+
+| Job | Purpose | Trigger |
+|-----|---------|---------|
+| `ai-scope-router` | Classify PR blast radius, compute risk tier, label by scope | `@bot scope <pr-or-branch> [--repo <url>]` |
+| `ai-review-with-approval` | AI review + risk-gated human approval (MANUAL task with SLA) | Chained from scope-router |
+| `ai-parallel-test` | Test-impact analysis → fan-out parallel test shards (4 CPU cores, 16G per shard) | `@bot parallel-test <pr-or-branch> [--repo <url>] [--branch <name>]` |
+| `ai-merge-queue` | Cron: collect ready PRs, group by scope, launch lane jobs | `@bot merge-queue` or cron `*/3 * * * *` |
+| `ai-mq-lane` | Per-scope lane: speculative batch → scoped CI → bisect on failure → merge | Forked by ai-merge-queue |
+| `ai-contract-test` | API contract validation + mutation testing via api-mock-service | `@bot contract-test <pr> [--service <image>]` |
+
+**Deploy:**
+```bash
+./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+```
+
+All 6 jobs are included in the unified deploy script. Backing scripts live in `ai-dev-tools/scripts/mq/`.
+
+---
+
 ### Variable Precedence (important)
 
 Formicary resolves `{{.VarName}}` in this order — highest wins:
@@ -642,6 +664,10 @@ Mention the bot in any channel it has been invited to:
 | `@bot pr-audit <repo-url>` | PR audit on a specific repo | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit <pr-url> [<pr-url2> ...]` | Audit specific PRs by URL (auto-detects GH vs BB) | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit ... --model <model-id>` | Override AI model for this audit run | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot scope <pr-number>` | Classify PR blast radius and risk tier | `ai-scope-router` |
+| `@bot merge-queue` | Run scope-aware merge queue: collect ready PRs, group by scope, parallel lanes | `ai-merge-queue` |
+| `@bot parallel-test <pr-number>` | Test-impact analysis + parallel shard execution | `ai-parallel-test` |
+| `@bot contract-test <pr-number> [--service <image>]` | API contract + mutation testing via api-mock-service | `ai-contract-test` |
 | `@bot adhoc <free-form prompt>` | Run any you-got-skills skill with a free-form prompt | `ai-adhoc` |
 
 Replace `@bot` with your bot's actual name (find it with `curl -s https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN" | python3 -m json.tool | grep '"user"'`).

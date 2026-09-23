@@ -1181,23 +1181,27 @@ func (jm *JobManager) FindMissingCronScheduledJobsByType(
 	return res, nil
 }
 
-// IncrementScheduleAttemptsForJobRequest bump schedule time and decrement priority for jobs that are not ready
+// IncrementScheduleAttemptsForJobRequest bump schedule time and decrement priority for jobs that are not ready.
+// errorCode is stored alongside errorMessage so operators can see why a job is staying PENDING.
 func (jm *JobManager) IncrementScheduleAttemptsForJobRequest(
 	req *types.JobRequestInfo,
 	scheduleSecs time.Duration,
 	decrPriority int,
+	errorCode string,
 	errorMessage string) (err error) {
 	jm.jobStatsRegistry.SetAntsAvailable(req, false, errorMessage)
 	if err = jm.jobRequestRepository.IncrementScheduleAttempts(
 		req.ID,
 		scheduleSecs,
 		decrPriority,
+		errorCode,
 		errorMessage); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"JobRequestID": req.ID,
 			"JobType":      req.JobType,
 			"ScheduleSecs": scheduleSecs,
 			"DecrPriority": decrPriority,
+			"ErrorCode":    errorCode,
 			"ErrorMessage": errorMessage,
 			"Error":        err,
 		}).Error("failed to increment schedule attempt for job request")

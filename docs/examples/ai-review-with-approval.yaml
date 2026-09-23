@@ -1,0 +1,309 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# AI-driven code review with risk-based human approval gate.
+#
+# Pipeline: review → gate-check → [approve (MANUAL)] → merge → done
+#                                  \→ auto-merge (low risk) ──→ done
+#
+# 1. review:      AI reviews the PR diff using Claude (via ygs-code-review skill).
+# 2. gate-check:  Evaluates risk score. Low-risk PRs skip approval; high-risk
+#                 PRs require MANUAL human approval before merge.
+# 3. approve:     MANUAL task — human reviews AI findings, approves or rejects.
+# 4. merge/auto-merge: Merges the PR after approval (or auto for low-risk).
+#
+# This pattern implements tiered review: lightweight AI pass for all PRs,
+# human gate only when risk warrants it. Reduces reviewer fatigue while
+# maintaining quality for critical changes.
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+
+job_type: ai-review-with-approval
+description: "AI review with risk-gated human approval before merge"
+max_concurrency: 10
+timeout: 86400s
+
+variables:
+  PRNumber:
+    type: STRING
+    required: true
+
+tasks:
+# --- REVIEW ------------------------------------------------------------------
+- task_type: review
+  method: KUBERNETES
+  timeout: 15m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    BASE_BRANCH: "{{.BaseBranch}}"
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
+    CODEBASE_DIR: /workspace/repo
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
+    - python -m scripts.review.run --pr-url {{.PRNumber}} --base-branch {{.BaseBranch}}
+    - python -m scripts.mq.risk_score --pr-number {{.PRNumber}}
+    - python -m scripts.mq.report
+  artifacts:
+    paths:
+      - ./review_result.json
+      - ./risk_score.json
+      - ./logs
+      - ./reports
+    expire_after: 24h
+  on_completed: gate-check
+  on_failed: notify-error
+
+# --- GATE-CHECK --------------------------------------------------------------
+# Routes to MANUAL approval or auto-merge based on risk score.
+- task_type: gate-check
+  method: KUBERNETES
+  timeout: 3m
+  report_stdout: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - review
+  environment:
+    WORKSPACE_DIR: /workspace
+    APPROVAL_THRESHOLD: "{{.ApprovalThreshold}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      python3 -c "
+      import json, os, sys
+      risk = json.load(open('/workspace/risk_score.json'))
+      review = json.load(open('/workspace/review_result.json'))
+      threshold = int(os.environ.get('APPROVAL_THRESHOLD', '70'))
+      score = risk['score']
+      has_critical = any(f.get('severity') == 'critical' for f in review.get('findings', []))
+      needs_approval = score >= threshold or has_critical
+      gate = {
+          'risk_score': score,
+          'risk_tier': risk['tier'],
+          'has_critical_findings': has_critical,
+          'findings_count': len(review.get('findings', [])),
+          'needs_approval': needs_approval,
+          'reason': 'critical findings' if has_critical else f'risk score {score} >= {threshold}' if needs_approval else f'risk score {score} < {threshold}'
+      }
+      json.dump(gate, open('/workspace/gate_result.json', 'w'), indent=2)
+      print(f'Gate decision: approval={needs_approval} reason={gate[\"reason\"]}')
+      if needs_approval:
+          sys.exit(0)  # on_completed → approve (MANUAL)
+      else:
+          sys.exit(3)  # on_exit_code 3 → auto-merge
+      "
+  artifacts:
+    paths:
+      - ./gate_result.json
+    expire_after: 24h
+  on_exit_code:
+    3: auto-merge
+  on_completed: approve
+  on_failed: notify-error
+
+# --- APPROVE (MANUAL) -------------------------------------------------------
+# Human approval gate — only reached for high-risk PRs or critical findings.
+- task_type: approve
+  method: MANUAL
+  approval_policy:
+    min_approvals: 1
+    sla_deadline: 4h
+    timeout_action: ESCALATE
+    escalation_recipients: "{{.EscalationRecipients}}"
+  dependencies:
+    - gate-check
+  on_completed: merge
+  on_failed: reject
+
+# --- AUTO-MERGE (low risk) ---------------------------------------------------
+- task_type: auto-merge
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - gate-check
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      echo "Auto-merging low-risk PR #{{.PRNumber}}"
+      cd /workspace/repo 2>/dev/null || true
+      gh pr merge {{.PRNumber}} --squash --auto --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
+  on_completed: done
+  on_failed: notify-error
+
+# --- MERGE (after human approval) -------------------------------------------
+- task_type: merge
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - approve
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      echo "Merging approved PR #{{.PRNumber}}"
+      cd /workspace/repo 2>/dev/null || true
+      gh pr merge {{.PRNumber}} --squash --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
+  on_completed: done
+  on_failed: notify-error
+
+# --- REJECT ------------------------------------------------------------------
+- task_type: reject
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    PR_NUMBER: "{{.PRNumber}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - |
+      echo ":no_entry: PR #{{.PRNumber}} rejected by reviewer"
+      gh pr comment {{.PRNumber}} --body ":no_entry: This PR was rejected during human review. Please address the findings and resubmit." --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
+  on_completed: done
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-review-with-approval"
+    MESSAGE: ":x: Review pipeline failed for PR #{{.PRNumber}}."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE --------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Review pipeline complete"
+
+job_variables:
+  BaseBranch: "main"
+  ApprovalThreshold: "70"
+  EscalationRecipients: ""
+  AiDevToolsDebug: ""
+  FormicaryPublicURL: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

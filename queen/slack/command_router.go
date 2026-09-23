@@ -140,6 +140,69 @@ func (r *CommandRouter) Routes() []config.SlackRouteConfig {
 	return out
 }
 
+// extractFlags splits "--key value" pairs from text, returning remaining positional
+// text and a map of flag names (PascalCase) to values. Flags without a following
+// value are ignored. This lets any route accept optional flags like --repo, --branch,
+// --model without per-route Go changes — the YAML accesses them as {{.Repo}} etc.
+func extractFlags(text string) (remaining string, flags map[string]string) {
+	flags = make(map[string]string)
+	words := strings.Fields(text)
+	var positional []string
+	for i := 0; i < len(words); i++ {
+		if strings.HasPrefix(words[i], "--") && i+1 < len(words) && !strings.HasPrefix(words[i+1], "--") {
+			key := strings.TrimPrefix(words[i], "--")
+			flags[flagToPascal(key)] = stripSlackURL(words[i+1])
+			i++
+		} else {
+			positional = append(positional, words[i])
+		}
+	}
+	return strings.Join(positional, " "), flags
+}
+
+// flagToPascal converts a kebab-case flag name to PascalCase for job param naming.
+// e.g., "repo" → "Repo", "base-branch" → "BaseBranch", "pr-number" → "PrNumber"
+func flagToPascal(s string) string {
+	parts := strings.Split(s, "-")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
+
+// stripSlackURL unwraps Slack mrkdwn link format from a single word.
+// "<https://example.com|example.com>" → "https://example.com"
+// "<https://example.com>" → "https://example.com"
+// Anything else is returned unchanged.
+func stripSlackURL(s string) string {
+	if strings.HasPrefix(s, "<") && strings.HasSuffix(s, ">") {
+		inner := s[1 : len(s)-1]
+		if idx := strings.Index(inner, "|"); idx >= 0 {
+			return inner[:idx]
+		}
+		return inner
+	}
+	return s
+}
+
+// reservedSlackParams are param names injected by the server that must not be
+// overwritten by user-supplied --flag values from Slack message text.
+var reservedSlackParams = map[string]bool{
+	"SlackChannel":  true,
+	"SlackThreadTs": true,
+	"SlackUserId":   true,
+	"UserTag":       true,
+}
+
+// isReservedSlackParam returns true if the PascalCase param name is reserved.
+func isReservedSlackParam(name string) bool {
+	return reservedSlackParams[name]
+}
+
 // normalize lowercases and strips leading/trailing punctuation from text.
 func normalize(s string) string {
 	s = strings.ToLower(strings.TrimFunc(s, func(r rune) bool {

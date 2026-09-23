@@ -478,6 +478,12 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-skill.yaml"
   "${SCRIPT_DIR}/ai-codebase-audit.yaml"
   "${SCRIPT_DIR}/ai-gh-pr-audit.yaml"
+  "${SCRIPT_DIR}/ai-scope-router.yaml"
+  "${SCRIPT_DIR}/ai-review-with-approval.yaml"
+  "${SCRIPT_DIR}/ai-parallel-test.yaml"
+  "${SCRIPT_DIR}/ai-merge-queue.yaml"
+  "${SCRIPT_DIR}/ai-mq-lane.yaml"
+  "${SCRIPT_DIR}/ai-contract-test.yaml"
 )
 
 echo ""
@@ -490,26 +496,11 @@ done
 # ── Optional: push Slack route table ──────────────────────────────────────────
 if [[ "$SET_SLACK_ROUTES" == true ]]; then
   log "Pushing Slack route table ..."
-  DEFAULT_SLACK_ROUTES='[
-    {"triggers":["standup","status","daily"],"job_type":"ai-standup-jira","description":"Daily standup brief"},
-    {"triggers":["analyze","analyse","jira-analyze","deep-dive"],"job_type":"ai-jira-query","id_var":"Query","params":{"Mode":"analyze"},"description":"Deep issue/code analysis"},
-    {"triggers":["gh-analyze","github-analyze"],"job_type":"ai-jira-query","id_var":"Query","params":{"Mode":"analyze","DefaultTracker":"github"},"description":"GitHub deep analysis"},
-    {"triggers":["jira-query","qjira","query","search","find"],"job_type":"ai-jira-query","id_var":"Query","description":"Search Jira issues"},
-    {"triggers":["gh-query","github-query"],"job_type":"ai-jira-query","id_var":"Query","params":{"DefaultTracker":"github"},"description":"Search GitHub issues"},
-    {"triggers":["implement"],"job_type":"ai-jira-implement","id_var":"IssueNumber","tracker_variants":{"github":"ai-gh-implement","jira":"ai-jira-implement"},"description":"Implement issue"},
-    {"triggers":["review","pr-review"],"job_type":"ai-jira-review","id_var":"PRUrl","tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"},"description":"Review PR"},
-    {"triggers":["risk","risks"],"job_type":"ai-adhoc","params":{"Skill":"ygs-risk-scan"},"description":"Risk scan"},
-    {"triggers":["prs","queue","pulls"],"job_type":"ai-adhoc","params":{"Skill":"ygs-pr-queue"},"description":"PR queue"},
-    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","description":"Post-merge codebase archaeology (hotspots, drift, silos). Add --full for complete Slack report (default: digest)"},
-    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},"description":"Jira/BB codebase audit [--full]"},
-    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},"description":"GitHub codebase audit [--full]"},
-    {"triggers":["pr-audit","pr audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"},"description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <id> | @bot pr-audit --team alice,bob (logins/names) | @bot pr-audit --team MyTeam (Jira team / GH label) | @bot pr-audit --board <id> | @bot pr-audit --board | @bot pr-audit --milestone <name> | @bot pr-audit --filter label=X | @bot pr-audit --filter field=value | @bot pr-audit --full. Tracker auto-detected from URL. Default Slack output: digest; use --full for complete report."},
-    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl","description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (Jira Eng Scrum Team)] [--board <id>] [--board] [--filter field=value] [--full]"},
-    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl","description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label)] [--milestone <name>] [--filter label=X] [--full]"},
-    {"triggers":["adhoc"],"job_type":"ai-adhoc","id_var":"Prompt","description":"Ad-hoc task"},
-    {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "description":"Run any YGS skill against a repo. Usage: @bot skill <name> [<repo>] [<number>] [--repo <url|name>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [-- extra instructions]. Positional: first word after name = repo, first number = PR/issue ID."}
-  ]'
+  ROUTES_FILE="${SCRIPT_DIR}/slack-routes.json"
+  if [[ ! -f "$ROUTES_FILE" ]]; then
+    fail "Slack routes file not found: $ROUTES_FILE"
+  fi
+  DEFAULT_SLACK_ROUTES=$(cat "$ROUTES_FILE")
   set_admin_slack_routes "$DEFAULT_SLACK_ROUTES"
 fi
 

@@ -62,7 +62,7 @@ VALUES ('00000000-0000-0000-0000-000000000016', '*', 'filtered scheduled job', '
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000017', '*', 'validation error', 'ERR_VALIDATION');
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
-VALUES ('00000000-0000-0000-0000-000000000018', '*', 'ant resources not avaialble', 'ERR_ANT_RESOURCES');
+VALUES ('00000000-0000-0000-0000-000000000018', '*', 'ant resources not available', 'ERR_ANT_RESOURCES');
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000019', '*', 'fatal error', 'ERR_FATAL');
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
@@ -71,5 +71,7 @@ INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000021', '*', 'manual approval required', 'ERR_MANUAL_APPROVAL_REQUIRED');
 INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
 VALUES ('00000000-0000-0000-0000-000000000022', '*', 'manual task was rejected', 'ERR_MANUAL_REJECTION');
+INSERT INTO formicary_error_codes (id, job_type, regex, error_code)
+VALUES ('00000000-0000-0000-0000-000000000023', '*', 'no live ant for method', 'ERR_NO_ANT_FOR_METHOD');
 -- +goose Down
 DROP TABLE IF EXISTS formicary_error_codes;

@@ -83,7 +83,7 @@ data:
         - HTTP_PUT_FORM
         - HTTP_PUT_JSON
         - HTTP_DELETE
-    max_capacity: 5
+    max_capacity: 20
     kubernetes:
         namespace: "default"
         allow_privilege_escalation: true

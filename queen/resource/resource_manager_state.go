@@ -98,8 +98,9 @@ func (s *State) reserve(
 			}
 		}
 		if len(orgCandidates) == 0 {
-			return nil, fmt.Errorf("no live ants available for org '%s', "+
-				"total-registered-ants=%d", orgID, len(s.antRegistrations))
+			return nil, common.NewSchedulingError(common.SchedulingErrNoAnt,
+				"no live ants available for org '%s', total-registered-ants=%d",
+				orgID, len(s.antRegistrations))
 		}
 	}
 
@@ -115,8 +116,8 @@ func (s *State) reserve(
 	}
 
 	if len(methodAnts) == 0 {
-		return nil, fmt.Errorf("no ants available for method '%s', "+
-			"ants-by-methods=%d, total-registered-ants=%d",
+		return nil, common.NewSchedulingError(common.SchedulingErrNoAnt,
+			"no ants available for method '%s', ants-by-methods=%d, total-registered-ants=%d",
 			method, len(s.antByMethod), len(s.antRegistrations))
 	}
 
@@ -129,8 +130,8 @@ func (s *State) reserve(
 
 		antIDs := s.antByTag[outerTag] // tag => [ant-id:true]
 		if antIDs == nil || len(antIDs) == 0 {
-			return nil, fmt.Errorf("no ants available for tag '%s', "+
-				"tags=%v, ants-by-tags=%d, total-registered-ants=%d",
+			return nil, common.NewSchedulingError(common.SchedulingErrNoAnt,
+				"no ants available for tag '%s', tags=%v, ants-by-tags=%d, total-registered-ants=%d",
 				outerTag, tags, len(s.antByTag), len(s.antRegistrations))
 		}
 
@@ -143,8 +144,8 @@ func (s *State) reserve(
 			}
 		}
 		if orgScopedTagCount == 0 && orgID != "" {
-			return nil, fmt.Errorf("no ants for tag '%s' in org '%s', "+
-				"global-ants-with-tag=%d, total-registered-ants=%d",
+			return nil, common.NewSchedulingError(common.SchedulingErrNoAnt,
+				"no ants for tag '%s' in org '%s', global-ants-with-tag=%d, total-registered-ants=%d",
 				outerTag, orgID, len(antIDs), len(s.antRegistrations))
 		}
 	}
@@ -192,9 +193,20 @@ func (s *State) reserve(
 
 	// reservations must be available to continue
 	if len(reservations) == 0 {
-		return nil, fmt.Errorf("no ants could be reserved for method=%s, tags=%v available=%v "+
-			"ants-by-methods=%d ants-by-tags=%d",
-			method, tags, availableAnts, len(s.antByMethod), len(s.antByTag))
+		// Build capacity summary for debugging
+		capacitySummary := make([]string, 0)
+		for antID := range methodAnts {
+			reg := s.antRegistrations[antID]
+			allocs := s.allocationsByAnt[antID]
+			if reg != nil {
+				capacitySummary = append(capacitySummary, fmt.Sprintf(
+					"ant=%s capacity=%d allocated=%d",
+					antID, reg.MaxCapacity, len(allocs)))
+			}
+		}
+		return nil, common.NewSchedulingError(common.SchedulingErrAtCapacity,
+			"no ants could be reserved for task=%s method=%s: all candidates at capacity [%s] ants-by-methods=%d",
+			taskType, method, strings.Join(capacitySummary, "; "), len(s.antByMethod))
 	}
 
 	if !dryRun {

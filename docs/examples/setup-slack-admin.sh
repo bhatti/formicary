@@ -179,53 +179,11 @@ set_sysconfig "SigningSecret" "${SLACK_SIGNING_SECRET:-}" "SLACK" "true"
 # ---------------------------------------------------------------------------
 if [[ "$SET_ROUTES" == true ]]; then
   log "Setting up Slack routes ..."
-  SLACK_ROUTES_JSON='[
-    {"triggers":["standup","daily","scrum","sync",
-                 "jira standup","jira daily","jira scrum",
-                 "gh standup","gh daily","github standup","github daily"],
-     "job_type":"ai-standup-jira","description":"Daily standup summary",
-     "tracker_variants":{"github":"ai-standup-gh","jira":"ai-standup-jira"}},
-
-    {"triggers":["query","search","find","jira query","jira search","jira find","jira-query","gh query","gh search","gh find","gh-query","github query","github search"],"job_type":"ai-jira-query","description":"Query issues","id_var":"Query"},
-    {"triggers":["analyze","analysis","jira analyze","jira analysis","jira-analyze","gh analyze","gh analysis","gh-analyze","github analyze","github analysis"],"job_type":"ai-jira-query","description":"Analyze issues","id_var":"Query","params":{"Mode":"analyze"}},
-
-    {"triggers":["pr comments","show pr comments","pr feedback","pr discussion"],"job_type":"ai-adhoc","description":"Show existing PR comments","id_var":"Prompt","params":{"Skill":"ygs-pr-comments"}},
-
-    {"triggers":["review","pr review","code review",
-                 "jira review","jira pr review",
-                 "gh review","gh pr review","github review"],"job_type":"ai-jira-review","description":"Review a PR","id_var":"PRUrl",
-     "tracker_variants":{"github":"ai-gh-review","jira":"ai-jira-review"}},
-
-    {"triggers":["implement","fix","create pr","open pr",
-                 "jira implement","jira fix",
-                 "gh implement","gh fix","github implement"],"job_type":"ai-jira-implement","description":"Implement an issue","id_var":"IssueNumber",
-     "tracker_variants":{"github":"ai-gh-implement","jira":"ai-jira-implement"}},
-
-    {"triggers":["risks","risk scan","security",
-                 "jira risks","jira risk scan",
-                 "gh risks","github risks"],"job_type":"ai-adhoc","description":"Security or risk scan","params":{"Skill":"ygs-risk-scan"}},
-    {"triggers":["prs","pr queue","open prs","list prs",
-                 "jira prs","jira pr queue","jira open prs",
-                 "gh prs","gh pr queue","github prs","github pr queue"],"job_type":"ai-adhoc","description":"List open PRs","params":{"Skill":"ygs-pr-queue"}},
-    {"triggers":["codebase-audit","code-audit","archaeology"],"job_type":"ai-codebase-audit",
-     "description":"Codebase archaeology — hotspots, drift, test gaps, silos. Usage: @bot codebase-audit | @bot codebase-audit <repo-url> | @bot codebase-audit -- last 200 commits, max size 2MB | @bot codebase-audit --full (full report in Slack)","id_var":"RepoUrl"},
-    {"triggers":["jira-code-audit","jira code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"jira"},
-     "description":"Jira/BB codebase audit. Add --full for complete Slack report (default: digest)"},
-    {"triggers":["gh-code-audit","github-code-audit","github code-audit"],"job_type":"ai-codebase-audit","id_var":"RepoUrl","params":{"DefaultTracker":"github"},
-     "description":"GitHub codebase audit. Add --full for complete Slack report (default: digest)"},
-    {"triggers":["pr-audit","pr audit"],
-     "job_type":"ai-gh-pr-audit",
-     "description":"PR audit — analyze PRs for spec/design/skills gaps. Usage: @bot pr-audit | @bot pr-audit <repo-url> | @bot pr-audit <pr-url> [<pr-url2>...] | @bot pr-audit ... --model <model-id> | @bot pr-audit --team alice,bob (filter by logins/names) | @bot pr-audit --team MyTeam (filter by Jira team field / GH label — auto-detects your team from Jira account) | @bot pr-audit --milestone <name> | @bot pr-audit --filter label=X (GH label) | @bot pr-audit --filter field=value (Jira field) | @bot pr-audit --full (full report in Slack, default: digest). Tracker (GH vs Jira/BB) auto-detected from URL.",
-     "id_var":"RepoUrl",
-     "tracker_variants":{"github":"ai-gh-pr-audit","jira":"ai-jira-pr-audit"}},
-    {"triggers":["jira-pr-audit","jira pr-audit"],"job_type":"ai-jira-pr-audit","id_var":"RepoUrl",
-     "description":"Jira/BB PR audit. Usage: @bot jira-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (Jira Eng Scrum Team filter — auto-detects your team from Jira account)] [--filter field=value] [--full]"},
-    {"triggers":["gh-pr-audit","github-pr-audit","github pr-audit"],"job_type":"ai-gh-pr-audit","id_var":"RepoUrl",
-     "description":"GitHub PR audit. Usage: @bot gh-pr-audit [<repo-url>|<pr-url>] [--model <id>] [--team alice,bob] [--team MyTeam (GH label filter)] [--milestone <name>] [--filter label=X] [--full]"},
-    {"triggers":["ask","question"],"job_type":"ai-adhoc","description":"Answer a question","id_var":"Prompt","params":{"Skill":"ygs-ask"}},
-    {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
-     "description":"Run any YGS skill. Usage: @bot skill <name> [--repo <url>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [--service-port <port>] [--service-cmd <cmd>] [--service-args <args>] [-- instructions]."}
-  ]'
+  ROUTES_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slack-routes.json"
+  if [[ ! -f "$ROUTES_FILE" ]]; then
+    fail "Slack routes file not found: $ROUTES_FILE"
+  fi
+  SLACK_ROUTES_JSON=$(cat "$ROUTES_FILE")
   set_slack_routes "$SLACK_ROUTES_JSON"
 fi
 

@@ -935,7 +935,7 @@ func Test_ShouldFindOrphanJobRequests(t *testing.T) {
 		}
 		// AND incrementing schedule attempts
 		err = repo.IncrementScheduleAttempts(
-			rec.ID, time.Duration(rand.Intn(100))*time.Second, rand.Intn(100), "blah")
+			rec.ID, time.Duration(rand.Intn(100))*time.Second, rand.Intn(100), "ERR_ANT_RESOURCES", "blah")
 
 		// THEN it should not fail
 		require.NoError(t, err)
@@ -1416,4 +1416,80 @@ func Test_ShouldTriggerCancelledCronSlot(t *testing.T) {
 	require.Equal(t, common.PENDING, reactivated.JobState, "CANCELLED cron slot must transition to PENDING on trigger")
 	require.NotEqual(t, originalUserKey, reactivated.UserKey, "user_key must be rotated so original slot is freed")
 	require.Equal(t, "recovery-channel", fmt.Sprintf("%v", reactivated.NameValueParams["SlackChannel"]))
+}
+
+// Test_ShouldIncrementScheduleAttemptsWithErrorCode verifies that IncrementScheduleAttempts
+// stores both error_code and error_message, which are visible in the UI while a job is PENDING.
+func Test_ShouldIncrementScheduleAttemptsWithErrorCode(t *testing.T) {
+	// GIVEN a PENDING job request
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "job-for-increment-error-code", "")
+	require.NoError(t, err)
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	saved, err := repo.Save(qc, req)
+	require.NoError(t, err)
+	require.Equal(t, common.PENDING, saved.JobState)
+
+	// WHEN incrementing schedule attempts with error code
+	err = repo.IncrementScheduleAttempts(saved.ID, 5*time.Second, 0, "ERR_ANT_RESOURCES", "no ants available")
+	require.NoError(t, err)
+
+	// THEN error_code and error_message are persisted
+	loaded, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, "ERR_ANT_RESOURCES", loaded.ErrorCode)
+	require.Equal(t, "no ants available", loaded.ErrorMessage)
+	require.Equal(t, 1, loaded.ScheduleAttempts)
+}
+
+
+// Test_ShouldClearScheduleErrorOnSetReadyToExecute verifies that SetReadyToExecute
+// clears scheduling errors written by IncrementScheduleAttempts while the job was PENDING.
+func Test_ShouldClearScheduleErrorOnSetReadyToExecute(t *testing.T) {
+	// GIVEN a PENDING job request with a scheduling error written by IncrementScheduleAttempts
+	repo, err := NewTestJobRequestRepository()
+	require.NoError(t, err)
+	repo.Clear()
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+	job, err := SaveTestJobDefinition(qc, "job-for-clear-schedule-error", "")
+	require.NoError(t, err)
+	req, err := types.NewJobRequestFromDefinition(job)
+	require.NoError(t, err)
+	req.UserID = qc.User.ID
+	req.OrganizationID = qc.User.OrganizationID
+	saved, err := repo.Save(qc, req)
+	require.NoError(t, err)
+
+	// Write a scheduling error while PENDING via IncrementScheduleAttempts
+	err = repo.IncrementScheduleAttempts(saved.ID, 5*time.Second, 0, "ERR_ANT_RESOURCES", "no ants")
+	require.NoError(t, err)
+	withError, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, "ERR_ANT_RESOURCES", withError.ErrorCode)
+
+	// Create a job execution to satisfy SetReadyToExecute FK check
+	exec := types.NewJobExecution(req)
+	execRepo, err := NewTestJobExecutionRepository()
+	require.NoError(t, err)
+	_, err = execRepo.Save(exec)
+	require.NoError(t, err)
+
+	// WHEN SetReadyToExecute transitions PENDING → READY
+	err = repo.SetReadyToExecute(saved.ID, exec.ID, "")
+	require.NoError(t, err)
+
+	// THEN error_code and error_message are cleared
+	ready, err := repo.Get(qc, saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, common.READY, ready.JobState)
+	require.Empty(t, ready.ErrorCode, "error_code must be cleared when job is successfully scheduled")
+	require.Empty(t, ready.ErrorMessage, "error_message must be cleared when job is successfully scheduled")
 }

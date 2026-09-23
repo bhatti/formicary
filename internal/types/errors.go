@@ -104,6 +104,41 @@ func NewConflictError(message ...interface{}) *ConflictError {
 	return &ConflictError{BaseError: NewBaseError(message...)}
 }
 
+// SchedulingErrorKind distinguishes WHY a job could not be scheduled.
+type SchedulingErrorKind int
+
+const (
+	// SchedulingErrNoAnt means no ant is registered/alive for the required method or tag.
+	// This is a configuration gap that will NOT resolve on its own without operator action.
+	SchedulingErrNoAnt SchedulingErrorKind = iota
+	// SchedulingErrAtCapacity means ants exist for the method but all slots are currently full.
+	// This is transient — retrying will likely succeed once load drops.
+	SchedulingErrAtCapacity
+)
+
+// SchedulingError carries the scheduling failure reason so callers can map it to the
+// right error code (ERR_NO_ANT_FOR_METHOD vs ERR_ANT_RESOURCES) without string-parsing.
+type SchedulingError struct {
+	Kind    SchedulingErrorKind
+	Message string
+}
+
+func (e *SchedulingError) Error() string { return e.Message }
+
+// NewSchedulingError creates a SchedulingError with the given kind and formatted message.
+func NewSchedulingError(kind SchedulingErrorKind, format string, args ...interface{}) *SchedulingError {
+	return &SchedulingError{Kind: kind, Message: fmt.Sprintf(format, args...)}
+}
+
+// ErrorCodeForScheduling maps a SchedulingError to the appropriate error-code constant.
+// Non-SchedulingError values always return ErrorAntResources so existing callers are unaffected.
+func ErrorCodeForScheduling(err error) string {
+	if se, ok := err.(*SchedulingError); ok && se.Kind == SchedulingErrNoAnt {
+		return ErrorNoAntForMethod
+	}
+	return ErrorAntResources
+}
+
 // Error makes it compatible with `error` interface.
 func (he *BaseError) Error() string {
 	if he.Internal == nil {

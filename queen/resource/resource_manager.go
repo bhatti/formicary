@@ -204,8 +204,9 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 				"Tags":    tags,
 				"OrgID":   orgID,
 				"Dump":    rm.state.dump(false),
-			}).Warnf("no live ant for method: %s", method)
-			return fmt.Errorf("no live ant for method='%s'", method)
+			}).Errorf("no live ant for method: %s", method)
+			return common.NewSchedulingError(common.SchedulingErrNoAnt,
+				"no live ant for method='%s'", method)
 		}
 	}
 
@@ -221,8 +222,9 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 				"Tags":    tags,
 				"OrgID":   orgID,
 				"Dump":    rm.state.dump(false),
-			}).Warnf("failed to find ant by tags: %s", tag)
-			return fmt.Errorf("no ant for tag='%s' ants-by-tags=%d", tag, totalAntsByTags)
+			}).Errorf("failed to find ant by tags: %s", tag)
+			return common.NewSchedulingError(common.SchedulingErrNoAnt,
+				"no ant for tag='%s' ants-by-tags=%d", tag, totalAntsByTags)
 		}
 
 		// Build the org-filtered candidate set for this tag using the same scoped→unscoped
@@ -230,6 +232,7 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 		orgMatchedIDs := rm.state.filterAntIDsByOrg(antIDs, orgID)
 
 		matched := false
+		anyAtCapacity := false
 		errors := make([]string, 0)
 		for _, antID := range orgMatchedIDs {
 			registration := rm.state.getRegistrationByAnt(antID)
@@ -245,6 +248,7 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 				matched = true
 				break
 			} else {
+				anyAtCapacity = true
 				errors = append(errors,
 					fmt.Sprintf("AntID=%s Tag=%s Capacity (%d) > Allocations (%d)",
 						antID, tag, registration.MaxCapacity, len(allocations)))
@@ -252,8 +256,12 @@ func (rm *ManagerImpl) HasAntsForJobTags(
 		}
 		if !matched {
 			orgCandidateCount := len(orgMatchedIDs)
-			return fmt.Errorf("no matching live ant for tag='%s' org='%s' "+
-				"org-candidate-ants=%d global-ants-with-tag=%d errors=%v",
+			kind := common.SchedulingErrNoAnt
+			if anyAtCapacity {
+				kind = common.SchedulingErrAtCapacity
+			}
+			return common.NewSchedulingError(kind,
+				"no matching live ant for tag='%s' org='%s' org-candidate-ants=%d global-ants-with-tag=%d errors=%v",
 				tag, orgID, orgCandidateCount, totalAntsByTags, errors)
 		}
 	}
@@ -475,8 +483,7 @@ func (rm *ManagerImpl) doReserveJobResources(
 	dryRun bool) (reservations map[string]*common.AntReservation, err error) {
 	reservations = make(map[string]*common.AntReservation)
 	var alloc *common.AntReservation
-	for _, task := range def.Tasks {
-		// reserve another ant
+	for i, task := range def.Tasks {
 		alloc, err = rm.doReserve(
 			requestID,
 			task.TaskType,
@@ -487,8 +494,19 @@ func (rm *ManagerImpl) doReserveJobResources(
 		if err == nil {
 			reservations[task.TaskType] = alloc
 		} else {
+			logrus.WithFields(logrus.Fields{
+				"Component":    "ResourceManager",
+				"RequestID":    requestID,
+				"JobType":      def.JobType,
+				"FailedTask":   task.TaskType,
+				"TaskIndex":    fmt.Sprintf("%d/%d", i+1, len(def.Tasks)),
+				"TaskMethod":   task.Method,
+				"ReservedSoFar": len(reservations),
+				"TotalTasks":   len(def.Tasks),
+				"Error":        err,
+			}).Warnf("failed to reserve ant for task %s — job has %d tasks but reservation failed at task %d",
+				task.TaskType, len(def.Tasks), i+1)
 			if !dryRun {
-				// release all allocations so far and return with error
 				_ = rm.ReleaseJobResources(requestID)
 			}
 			return

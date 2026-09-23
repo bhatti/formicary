@@ -74,11 +74,13 @@
           </dd>
           <dt class="col-5 text-secondary">Priority</dt>
           <dd class="col-7">{{.JobPriority}}</dd>
+          {{if .ErrorCode}}
           <dt class="col-5 text-secondary">Error Code</dt>
-          <dd class="col-7">{{.ErrorCode}}</dd>
-          {{if .Failed}}
+          <dd class="col-7"><span class="badge badge-warning">{{.ErrorCode}}</span></dd>
+          {{end}}
+          {{if .ErrorMessage}}
           <dt class="col-5 text-secondary">Error Message</dt>
-          <dd class="col-7 text-danger">{{.ErrorMessage}}</dd>
+          <dd class="col-7 text-danger small">{{.ErrorMessage}}</dd>
           {{end}}
           <dt class="col-5 text-secondary">Scheduled At</dt>
           <dd class="col-7">{{.ScheduledAt}}</dd>

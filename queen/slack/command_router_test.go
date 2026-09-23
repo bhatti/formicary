@@ -415,3 +415,107 @@ func Test_DetectTracker_Jira_Code_Audit_With_GH_URL_Returns_Github(t *testing.T)
 	tracker := DetectTracker("jira-code-audit github.com/org/repo")
 	require.Equal(t, "github", tracker)
 }
+
+// --- extractFlags tests ---
+
+func Test_ExtractFlags_No_Flags(t *testing.T) {
+	remaining, flags := extractFlags("42")
+	require.Equal(t, "42", remaining)
+	require.Empty(t, flags)
+}
+
+func Test_ExtractFlags_Single_Flag(t *testing.T) {
+	remaining, flags := extractFlags("--repo https://github.com/org/repo main")
+	require.Equal(t, "main", remaining)
+	require.Equal(t, "https://github.com/org/repo", flags["Repo"])
+}
+
+func Test_ExtractFlags_Multiple_Flags(t *testing.T) {
+	remaining, flags := extractFlags("--repo https://github.com/org/repo --branch develop main")
+	require.Equal(t, "main", remaining)
+	require.Equal(t, "https://github.com/org/repo", flags["Repo"])
+	require.Equal(t, "develop", flags["Branch"])
+}
+
+func Test_ExtractFlags_Kebab_Case_Flag(t *testing.T) {
+	remaining, flags := extractFlags("--base-branch develop 42")
+	require.Equal(t, "42", remaining)
+	require.Equal(t, "develop", flags["BaseBranch"])
+}
+
+func Test_ExtractFlags_Flag_At_End(t *testing.T) {
+	remaining, flags := extractFlags("42 --model sonnet")
+	require.Equal(t, "42", remaining)
+	require.Equal(t, "sonnet", flags["Model"])
+}
+
+func Test_ExtractFlags_Empty_Input(t *testing.T) {
+	remaining, flags := extractFlags("")
+	require.Equal(t, "", remaining)
+	require.Empty(t, flags)
+}
+
+func Test_ExtractFlags_Only_Flags_No_Positional(t *testing.T) {
+	remaining, flags := extractFlags("--repo https://github.com/org/repo --branch main")
+	require.Equal(t, "", remaining)
+	require.Equal(t, "https://github.com/org/repo", flags["Repo"])
+	require.Equal(t, "main", flags["Branch"])
+}
+
+func Test_ExtractFlags_Consecutive_Dashes_Skipped(t *testing.T) {
+	// --flag without a value (followed by another --flag) is treated as positional
+	remaining, flags := extractFlags("--repo --branch main")
+	require.Equal(t, "--repo", remaining)
+	require.Equal(t, "main", flags["Branch"])
+}
+
+func Test_ExtractFlags_Slack_Mrkdwn_URL_With_Display(t *testing.T) {
+	// Slack wraps typed URLs as <https://example.com|example.com> — must unwrap
+	remaining, flags := extractFlags("--repo <https://github.com/org/repo|github.com/org/repo> main")
+	require.Equal(t, "main", remaining)
+	require.Equal(t, "https://github.com/org/repo", flags["Repo"])
+}
+
+func Test_ExtractFlags_Slack_Mrkdwn_URL_Bare(t *testing.T) {
+	// Slack may also produce <https://example.com> without display text
+	remaining, flags := extractFlags("--repo <https://github.com/org/repo> main")
+	require.Equal(t, "main", remaining)
+	require.Equal(t, "https://github.com/org/repo", flags["Repo"])
+}
+
+func Test_StripSlackURL_With_Display(t *testing.T) {
+	require.Equal(t, "https://github.com/org/repo", stripSlackURL("<https://github.com/org/repo|github.com/org/repo>"))
+}
+
+func Test_StripSlackURL_Bare(t *testing.T) {
+	require.Equal(t, "https://github.com/org/repo", stripSlackURL("<https://github.com/org/repo>"))
+}
+
+func Test_StripSlackURL_Plain(t *testing.T) {
+	require.Equal(t, "https://github.com/org/repo", stripSlackURL("https://github.com/org/repo"))
+}
+
+func Test_IsReservedSlackParam_Blocked(t *testing.T) {
+	require.True(t, isReservedSlackParam("SlackChannel"))
+	require.True(t, isReservedSlackParam("SlackThreadTs"))
+	require.True(t, isReservedSlackParam("SlackUserId"))
+	require.True(t, isReservedSlackParam("UserTag"))
+}
+
+func Test_IsReservedSlackParam_Allowed(t *testing.T) {
+	require.False(t, isReservedSlackParam("Repo"))
+	require.False(t, isReservedSlackParam("Branch"))
+	require.False(t, isReservedSlackParam("Model"))
+	require.False(t, isReservedSlackParam("DefaultTracker"))
+}
+
+func Test_FlagToPascal_Simple(t *testing.T) {
+	require.Equal(t, "Repo", flagToPascal("repo"))
+	require.Equal(t, "Branch", flagToPascal("branch"))
+	require.Equal(t, "Model", flagToPascal("model"))
+}
+
+func Test_FlagToPascal_Kebab(t *testing.T) {
+	require.Equal(t, "BaseBranch", flagToPascal("base-branch"))
+	require.Equal(t, "PrNumber", flagToPascal("pr-number"))
+}

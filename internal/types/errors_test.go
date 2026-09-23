@@ -25,3 +25,18 @@ func Test_ShouldGetSetInternal(t *testing.T) {
 	require.NotNil(t, err.Unwrap())
 	require.Equal(t, "*types.BaseError: message=mesg, internal=error", err.Error())
 }
+
+func Test_SchedulingError_NoAnt_MapsToErrorNoAntForMethod(t *testing.T) {
+	err := NewSchedulingError(SchedulingErrNoAnt, "no ant for method='%s'", "KUBERNETES")
+	require.Equal(t, "no ant for method='KUBERNETES'", err.Error())
+	require.Equal(t, ErrorNoAntForMethod, ErrorCodeForScheduling(err))
+}
+
+func Test_SchedulingError_AtCapacity_MapsToErrorAntResources(t *testing.T) {
+	err := NewSchedulingError(SchedulingErrAtCapacity, "all ants at capacity")
+	require.Equal(t, ErrorAntResources, ErrorCodeForScheduling(err))
+}
+
+func Test_ErrorCodeForScheduling_NonSchedulingError_FallsBackToAntResources(t *testing.T) {
+	require.Equal(t, ErrorAntResources, ErrorCodeForScheduling(fmt.Errorf("some unrelated error")))
+}

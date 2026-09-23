@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -694,13 +695,29 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		cleanTrailing = extractSlackURL(result.Trailing)
 	}
 
+	// Extract --flag value pairs (e.g. --repo, --branch, --model) as job params.
+	// Remaining positional text stays in cleanTrailing for IdVar binding.
+	// Reserved names (injected by the server) are silently skipped — users must not
+	// be able to override SlackChannel/SlackUserId/SlackThreadTs via Slack message text.
+	var flags map[string]string
+	if cleanTrailing != "" {
+		cleanTrailing, flags = extractFlags(cleanTrailing)
+		for k, v := range flags {
+			if isReservedSlackParam(k) {
+				continue
+			}
+			if !addParam(k, v) {
+				return
+			}
+		}
+	}
+
 	// Bind trailing text to the named IdVar (e.g. PRUrl, IssueNumber, Prompt).
 	if result.IdVar != "" && cleanTrailing != "" {
 		if !addParam(result.IdVar, cleanTrailing) {
 			return
 		}
 	}
-
 
 	// Merge fixed params from the route config verbatim — no interpretation.
 	// These can be anything: Skill, Mode, Prompt templates, feature flags, etc.
@@ -875,6 +892,16 @@ func (s *SlackService) replyHelp(channel, threadTS string, api *slackapi.Client)
 	s.routerMu.RLock()
 	activeRoutes := s.router.Routes()
 	s.routerMu.RUnlock()
+	sort.Slice(activeRoutes, func(i, j int) bool {
+		ti, tj := "", ""
+		if len(activeRoutes[i].Triggers) > 0 {
+			ti = activeRoutes[i].Triggers[0]
+		}
+		if len(activeRoutes[j].Triggers) > 0 {
+			tj = activeRoutes[j].Triggers[0]
+		}
+		return ti < tj
+	})
 	if len(activeRoutes) == 0 {
 		lines = append(lines, "  _(no routes configured — ask your admin to set up Slack routes in the server config)_")
 	} else {
@@ -905,6 +932,7 @@ func (s *SlackService) replyHelp(channel, threadTS string, api *slackapi.Client)
 		"",
 		"*Tips*",
 		"• Commands with trailing text pass it as a _Prompt_ to the AI: `@bot adhoc explain this bug`",
+		"• Add `--flag value` to any command for optional params: `@bot parallel-test main --repo https://github.com/org/repo`",
 		"• Reply in a paused job's thread to continue a human-in-the-loop workflow.",
 		fmt.Sprintf("• View job status and history: %s/dashboard/jobs/requests", s.publicURL()),
 		"",

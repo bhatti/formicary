@@ -57,11 +57,13 @@ type JobRequestRepository interface {
 		id string,
 		jobExecutionID string,
 		lastJobExecutionID string) error
-	// IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready
+	// IncrementScheduleAttempts and optionally bump schedule time and decrement priority for jobs that are not ready.
+	// errorCode and errorMessage are stored so operators can see why a job is staying PENDING.
 	IncrementScheduleAttempts(
 		id string,
 		scheduleSecs time.Duration,
 		decrPriority int,
+		errorCode string,
 		errorMessage string) error
 	// JobCountsByDays calculates stats for all job-types/statuses/error-codes within days
 	JobCountsByDays(
