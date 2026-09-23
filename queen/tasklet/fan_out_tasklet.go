@@ -228,7 +228,19 @@ func (t *FanOutTasklet) dispatchTasksAndWait(
 			}
 			defer func() { <-sem }()
 
-			itemStr := fmt.Sprintf("%v", itm)
+			// JSON-serialize structured items (maps, slices) so scripts receive valid JSON
+			// rather than Go's default fmt.Sprintf map representation "map[key:value ...]".
+			var itemStr string
+			switch itm.(type) {
+			case map[string]interface{}, []interface{}:
+				if b, jerr := json.Marshal(itm); jerr == nil {
+					itemStr = string(b)
+				} else {
+					itemStr = fmt.Sprintf("%v", itm)
+				}
+			default:
+				itemStr = fmt.Sprintf("%v", itm)
+			}
 			resp, dispErr := t.dispatchSingleTask(execCtx, taskReq, fanOut, itemStr, idx)
 			results[idx] = fanOutResult{index: idx, itemVal: itemStr, response: resp, err: dispErr}
 

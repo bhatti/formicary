@@ -87,7 +87,7 @@ tasks:
       # Emits ::add-job-context TestShards:: (job-scoped) so fan_out.source can resolve it.
       REF="{{.PRNumber}}"
       [ -z "$REF" ] && REF="{{.Branch}}"
-      python -m scripts.mq.test_impact --pr-number "$REF"
+      python -m scripts.mq.test_impact --pr-number "$REF" --num-shards {{.MaxShards}}
   artifacts:
     paths:
       - ./test_impact.json
@@ -254,7 +254,7 @@ tasks:
     - echo "Parallel test pipeline complete"
 
 job_variables:
-  MaxShards: "8"
+  MaxShards: "2"
   BaseBranch: "main"
   Repo: ""
   Branch: ""

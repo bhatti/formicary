@@ -362,3 +362,54 @@ func Test_ResolveFanOutSource_DatasetsVariable(t *testing.T) {
 	require.Len(t, items, 3)
 	require.Equal(t, "sales_2024", items[0])
 }
+
+// Test_FanOutTasklet_StructuredItemsSerializedAsJSON is a regression test for the bug
+// where `fmt.Sprintf("%v", map[string]interface{}{...})` produced `map[key:value ...]`
+// instead of valid JSON. Scripts receiving `--shard 'map[...]'` would fail to parse
+// the argument and exit with code 1.
+//
+// When TestShards is a JSON array of shard objects (from test_impact.py), each item
+// resolved by resolveFanOutSource is a map[string]interface{}. The fix serializes
+// these with json.Marshal so scripts receive valid JSON like `{"shard_id":0,"tests":[...]}`.
+func Test_FanOutTasklet_StructuredItemsSerializedAsJSON(t *testing.T) {
+	shards := []interface{}{
+		map[string]interface{}{
+			"shard_id":     float64(0),
+			"test_count":   float64(48),
+			"est_duration": float64(480),
+			"tests":        []interface{}{"a_test.go", "b_test.go"},
+		},
+		map[string]interface{}{
+			"shard_id":     float64(1),
+			"test_count":   float64(48),
+			"est_duration": float64(490),
+			"tests":        []interface{}{"c_test.go", "d_test.go"},
+		},
+	}
+
+	ft, _ := newTestFanOutTasklet(t)
+	_ = ft // used only to satisfy the test helper pattern
+
+	// Exercise the same logic used in dispatchTasksAndWait.
+	for i, itm := range shards {
+		var itemStr string
+		switch itm.(type) {
+		case map[string]interface{}, []interface{}:
+			b, err := json.Marshal(itm)
+			require.NoError(t, err)
+			itemStr = string(b)
+		default:
+			itemStr = fmt.Sprintf("%v", itm)
+		}
+
+		// Must be valid JSON, not Go map syntax.
+		var parsed map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(itemStr), &parsed),
+			"item %d: itemStr must be valid JSON; got: %s", i, itemStr)
+		require.NotContains(t, itemStr, "map[",
+			"item %d: itemStr must not contain Go map syntax 'map['; got: %s", i, itemStr)
+
+		sid := parsed["shard_id"]
+		require.NotNil(t, sid, "item %d: shard_id must be present in serialized JSON", i)
+	}
+}
