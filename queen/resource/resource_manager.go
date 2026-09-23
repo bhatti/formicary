@@ -484,6 +484,9 @@ func (rm *ManagerImpl) doReserveJobResources(
 	reservations = make(map[string]*common.AntReservation)
 	var alloc *common.AntReservation
 	for i, task := range def.Tasks {
+		if task.Method.IsInternal() {
+			continue // in-process tasklets (FanOutTasklet, ForkJobTasklet, etc.) use synthetic reservations
+		}
 		alloc, err = rm.doReserve(
 			requestID,
 			task.TaskType,

@@ -100,13 +100,26 @@ func (tsm *TaskExecutionStateMachine) PrepareExecution(
 	}
 
 	if tsm.Reservation = tsm.Reservations[tsm.taskType]; tsm.Reservation == nil {
-		logrus.WithFields(tsm.LogFields(
-			"TaskExecutionStateMachine")).
-			Warnf("reservations not found for %s in %v",
-				tsm.taskType, tsm.Reservations)
-		return fmt.Errorf("no ant found to execute the task '%s' "+
-			" because matching ants not found in reservations (%d)",
-			tsm.taskType, len(tsm.Reservations))
+		// Internal methods (FAN_OUT_JOB, FORK_JOB, etc.) are handled by in-process tasklets
+		// that are never reserved via the normal ant reservation path. Create a synthetic
+		// reservation carrying the correct dispatch topic so invoke() can route correctly.
+		if tsm.TaskDefinition.Method.IsInternal() {
+			topic := tsm.serverCfg.Common.GetInternalTaskletTopic(tsm.TaskDefinition.Method)
+			tsm.Reservation = &common.AntReservation{
+				AntID:        tsm.serverCfg.Common.ID + "-" + string(tsm.TaskDefinition.Method),
+				AntTopic:     topic,
+				JobRequestID: tsm.Request.GetID(),
+				TaskType:     tsm.taskType,
+			}
+		} else {
+			logrus.WithFields(tsm.LogFields(
+				"TaskExecutionStateMachine")).
+				Warnf("reservations not found for %s in %v",
+					tsm.taskType, tsm.Reservations)
+			return fmt.Errorf("no ant found to execute the task '%s' "+
+				" because matching ants not found in reservations (%d)",
+				tsm.taskType, len(tsm.Reservations))
+		}
 	}
 
 	if err = tsm.Reservation.Validate(); err != nil {
@@ -465,6 +478,10 @@ func (tsm *TaskExecutionStateMachine) validateAntAllocation(
 	allocation *common.AntReservation) (_ *common.AntReservation, err error) {
 	if err = allocation.Validate(); err != nil {
 		return nil, err
+	}
+	// Internal methods use synthetic reservations with no real ant registration — skip liveness check.
+	if taskDefinition.Method.IsInternal() {
+		return allocation, nil
 	}
 	// verify ant is still connected
 	ant := tsm.ResourceManager.Registration(allocation.AntID)

@@ -393,6 +393,29 @@ func (c *CommonConfig) GetMessagingTaskletTopic() string {
 		"messaging-tasklet")
 }
 
+// GetInternalTaskletTopic returns the queue topic for a queen-internal task method.
+// Internal methods are handled by in-process tasklets that subscribe to dedicated topics.
+// Manual tasks are handled synchronously by invokeManual (no queue dispatch), so a
+// placeholder topic is returned to satisfy AntReservation.Validate().
+func (c *CommonConfig) GetInternalTaskletTopic(method TaskMethod) string {
+	switch method {
+	case FanOutJob:
+		return c.GetFanOutJobTaskletTopic()
+	case ForkJob:
+		return c.GetForkJobTaskletTopic()
+	case AwaitForkedJob:
+		return c.GetWaitForkJobTaskletTopic()
+	case ExpireArtifacts:
+		return c.GetExpireArtifactsTaskletTopic()
+	case Messaging:
+		return c.GetMessagingTaskletTopic()
+	case Manual:
+		return "queen-manual-approval" // placeholder; invokeManual never publishes to a queue
+	default:
+		return ""
+	}
+}
+
 // GetLogTopic topic
 func (c *CommonConfig) GetLogTopic() string {
 	return NonPersistentTopic(
