@@ -254,13 +254,24 @@ func (jsm *JobExecutionStateMachine) PrepareLaunch(jobExecutionID string) (err e
 		return fmt.Errorf("job-execution-id is not specified for prepare launch")
 	}
 
-	// verify allocations
-	if len(jsm.Reservations) != len(jsm.JobDefinition.Tasks) {
-		return fmt.Errorf("expected ant allocations %d to match tasks count %d",
-			len(jsm.Reservations), len(jsm.JobDefinition.Tasks))
+	// verify allocations — internal methods (FAN_OUT_JOB, FORK_JOB, etc.) are handled by in-process
+	// tasklets that register as ants; when running through the stub in tests they are skipped in
+	// doReserveJobResources, so count and per-task checks must also exclude them.
+	externalTaskCount := 0
+	for _, task := range jsm.JobDefinition.Tasks {
+		if !task.Method.IsInternal() {
+			externalTaskCount++
+		}
+	}
+	if len(jsm.Reservations) != externalTaskCount && len(jsm.Reservations) != len(jsm.JobDefinition.Tasks) {
+		return fmt.Errorf("expected ant allocations %d to match tasks count %d (external=%d)",
+			len(jsm.Reservations), len(jsm.JobDefinition.Tasks), externalTaskCount)
 	}
 
 	for _, task := range jsm.JobDefinition.Tasks {
+		if task.Method.IsInternal() {
+			continue
+		}
 		if jsm.Reservations[task.TaskType] == nil {
 			return common.NewJobRequeueError(
 				fmt.Errorf("no ant reservations found for the task '%s', total=%d",

@@ -222,6 +222,9 @@ func (rm *ManagerStub) doReserveJobResources(
 	reservations = make(map[string]*common.AntReservation)
 	var alloc *common.AntReservation
 	for _, task := range def.Tasks {
+		if task.Method.IsInternal() {
+			continue // in-process tasklets (FanOutTasklet, etc.) are not registered in the stub
+		}
 		// reserve another ant
 		alloc, err = rm.doReserve(
 			requestID,

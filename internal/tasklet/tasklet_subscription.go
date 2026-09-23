@@ -152,6 +152,17 @@ func (t *BaseTasklet) subscribeToTaskLifecycleEvent(ctx context.Context,
 func (t *BaseTasklet) startTickerForRegistration(
 	ctx context.Context) {
 	// use registration as a form of heart-beat along with current load so that server can load balance
+	// Send immediately so the resource manager sees this tasklet without waiting for the first tick.
+	// Without this, in-process tasklets (FanOutTasklet, ForkJobTasklet, etc.) are invisible for
+	// RegistrationInterval seconds after startup, causing "no live ant for method" on the first job.
+	if err := t.sendRegisterAntRequest(ctx); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component":    "BaseTasklet",
+			"Tasklet":      t.ID,
+			"RequestTopic": t.RequestTopic,
+			"Error":        err,
+		}).Warn("failed to send initial registration — will retry on first ticker tick")
+	}
 	t.registrationTicker = time.NewTicker(t.Config.RegistrationInterval)
 	go func() {
 		// continue sending registration while not shutdown
