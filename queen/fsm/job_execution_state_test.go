@@ -155,3 +155,45 @@ func Test_ShouldLoadOrgConfigsWhenUserIsNil(t *testing.T) {
 	require.Equal(t, "myorg", configs["GitHubOrg"].Value)
 	require.Equal(t, "myrepo", configs["GitHubRepo"].Value)
 }
+
+// Test_ShouldSkipAntCheckForInternalOnlyJob verifies that jobs whose tasks use only
+// queen-internal methods (FAN_OUT_JOB, FORK_JOB, etc.) pass CheckAntResourcesAndConcurrencyForJob
+// without requiring any registered ant. This is the root cause of the parallel-test failure
+// where FAN_OUT_JOB was incorrectly sent to HasAntsForJobTags.
+func Test_ShouldSkipAntCheckForInternalOnlyJob(t *testing.T) {
+	// GIVEN a job state machine with JobDefinition loaded
+	jsm, err := NewTestJobStateMachine()
+	require.NoError(t, err)
+	err = jsm.PrepareLaunch(jsm.JobExecution.ID)
+	require.NoError(t, err)
+
+	// AND a job definition whose only method is FAN_OUT_JOB (internal)
+	jsm.JobDefinition.Methods = string(common.FanOutJob)
+
+	// WHEN checking ant resources
+	err = jsm.CheckAntResourcesAndConcurrencyForJob()
+
+	// THEN it should succeed — no ant is needed for internal methods
+	require.NoError(t, err)
+}
+
+// Test_ShouldSkipAntCheckForMixedInternalAndExternal verifies that when a job mixes
+// internal (FAN_OUT_JOB) and external (KUBERNETES) methods, only the external ones
+// are passed to HasAntsForJobTags.
+func Test_ShouldSkipAntCheckForMixedInternalAndExternal(t *testing.T) {
+	// GIVEN a job state machine with a registered KUBERNETES ant (stub already has one)
+	jsm, err := NewTestJobStateMachine()
+	require.NoError(t, err)
+	err = jsm.PrepareLaunch(jsm.JobExecution.ID)
+	require.NoError(t, err)
+
+	// AND a job that has both FAN_OUT_JOB (internal) and KUBERNETES (external) methods
+	jsm.JobDefinition.Methods = string(common.FanOutJob) + ", " + string(common.Kubernetes)
+
+	// WHEN checking ant resources
+	err = jsm.CheckAntResourcesAndConcurrencyForJob()
+
+	// THEN it should succeed — KUBERNETES ant is registered in the stub, FAN_OUT_JOB is skipped
+	require.NoError(t, err)
+}
+

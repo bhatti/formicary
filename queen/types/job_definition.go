@@ -1365,8 +1365,6 @@ func (jd *JobDefinition) buildMethods() string {
 	for _, t := range jd.Tasks {
 		if t.Method != "" {
 			taskMethods[t.Method] = true
-		} else if t.Method != "" {
-			taskMethods[t.Method] = true
 		}
 	}
 	var buf strings.Builder

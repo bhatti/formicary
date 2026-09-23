@@ -570,8 +570,13 @@ func (jsm *JobExecutionStateMachine) CheckAntResourcesAndConcurrencyForJob() err
 	tags := utils.SplitTags(jsm.JobDefinition.Tags)
 	methods := make([]common.TaskMethod, 0)
 	for _, m := range strings.Split(jsm.JobDefinition.Methods, ",") {
-		m = strings.TrimSpace(m)
-		methods = append(methods, common.TaskMethod(m))
+		tm := common.TaskMethod(strings.TrimSpace(m))
+		if tm != "" && !tm.IsInternal() {
+			methods = append(methods, tm)
+		}
+	}
+	if len(methods) == 0 {
+		return nil // all tasks are queen-internal (FAN_OUT_JOB, FORK_JOB, etc.) — no ant needed
 	}
 	return jsm.ResourceManager.HasAntsForJobTags(methods, tags, jsm.Request.GetOrganizationID())
 }
