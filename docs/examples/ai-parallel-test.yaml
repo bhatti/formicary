@@ -4,14 +4,19 @@
 #
 # Pipeline: analyze → run-tests (fan-out) → report
 #
-# 1. analyze: Runs test-impact analysis, partitions affected tests into shards.
+# 1. analyze: Clones repo, runs test_impact.py (full suite by default, balanced shards).
+#             Emits ::add-job-context TestShards:: for fan-out source resolution.
 # 2. run-tests: Fan-out — one task per shard, runs tests in parallel.
+#              Reads TestShards from job context (job-scoped, not task-scoped).
 # 3. report:  Aggregates shard results, posts summary to PR / Slack.
 #
-# Uses the ai-dev-tools scripts/mq/test_impact.py for impact analysis
-# and scripts/mq/run_scoped_ci.py for scoped test execution.
+# test_impact.py behaviour:
+#   Default: always runs full test suite (reliable — never 0/0 tests).
+#   --diff-scope --head <base>: scope tests to changed files (opt-in).
+#   --diff-scope with numeric PR: auto-extracts base branch from GitHub API.
 #
-# Credentials are injected from the 'ai-dev-credentials' Kubernetes secret.
+# Uses scripts/mq/test_impact.py for analysis, scripts/mq/run_scoped_ci.py for execution.
+# Credentials injected from 'ai-dev-credentials' Kubernetes secret.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \
@@ -77,24 +82,15 @@ tasks:
       [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
       python -m scripts.mq.clone_pr $ARGS
     - |
+      # test_impact always runs the full suite by default (reliable — never 0/0 tests).
+      # Add --diff-scope --head <base> for diff-scoped execution on a branch PR.
+      # Emits ::add-job-context TestShards:: (job-scoped) so fan_out.source can resolve it.
       REF="{{.PRNumber}}"
       [ -z "$REF" ] && REF="{{.Branch}}"
       python -m scripts.mq.test_impact --pr-number "$REF"
-    - |
-      python3 -c "
-      import json, os
-      impact = json.load(open('/workspace/test_impact.json'))
-      shards = impact.get('shards', [])
-      json.dump(shards, open('/workspace/shards.json', 'w'))
-      print(f'Created {len(shards)} shards from {impact.get(\"selected_tests\", 0)} affected tests')
-      "
-    - |
-      SHARDS=$(cat /workspace/shards.json)
-      echo "::add-job-context TestShards::${SHARDS}"
   artifacts:
     paths:
       - ./test_impact.json
-      - ./shards.json
       - ./logs
     expire_after: 24h
   on_completed: run-tests
@@ -125,7 +121,7 @@ tasks:
   fan_out:
     source: TestShards
     item_var: shard
-    max_parallel: "{{.MaxShards}}"
+    max_parallel: {{.MaxShards}}
     fail_fast: false
   environment:
     WORKSPACE_DIR: /workspace

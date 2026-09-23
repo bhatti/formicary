@@ -864,7 +864,9 @@ echo "::add-job-context ISSUE_ID::PROJ-123"
 
 **Format:** `KEY::VALUE` — key must be non-empty; value may be empty or contain `::`.
 
-All ai-dev-tools scripts emit `::add-task-context` markers. The full set of skills-related keys emitted by every job that invokes `claude_runner.py`:
+> **Choose the right scope for fan-out sources.** `fan_out.source: SomeKey` resolves from `JobExecution.Contexts` (job-level). Any script that produces an array used as a fan-out source **must** write it with `::add-job-context` — not `::add-task-context`. Task-context markers are scoped to the emitting task and invisible to fan-out resolution in later tasks. The symptom of using the wrong marker: fan-out dispatches 0 items with no error.
+
+All ai-dev-tools scripts emit `::add-task-context` markers for metrics/reporting. The full set of skills-related keys emitted by every job that invokes `claude_runner.py`:
 
 | Key | Description |
 |-----|-------------|
@@ -880,6 +882,11 @@ All ai-dev-tools scripts emit `::add-task-context` markers. The full set of skil
 | `EXTRA_SKILLS_<SLUG>_INSTALLED` | Comma-separated skill names from each extra repo |
 | `SKILLS_INVOKED` | Skills Claude called during the session; `none` if none detected |
 | `FINDINGS_COUNT`, `PR_COUNT`, etc. | Counts of items processed (job-specific) |
+| `SELECTED_TESTS` | Tests selected by `test_impact.py` (task-context; `ai-parallel-test`) |
+| `TOTAL_TESTS` | Total tests in the repo (task-context; `ai-parallel-test`) |
+| `REDUCTION_PCT` | % of tests skipped by diff-scoped selection (task-context; `ai-parallel-test`) |
+| `SHARD_COUNT` | Number of shards created (task-context; `ai-parallel-test`) |
+| `TestShards` | JSON array of shard objects — written with `::add-job-context` for fan-out resolution (`ai-parallel-test`) |
 
 `SKILLS_INVOKED` is detected by scanning Claude's output for `/skill-name` patterns matching
 installed skills — it distinguishes sessions where Claude actively used a skill from those where

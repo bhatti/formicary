@@ -19,7 +19,7 @@
 
 job_type: ai-merge-queue
 description: "Scope-aware merge queue: group PRs by scope, test in parallel lanes, merge"
-cron_trigger: "*/3 * * * *"
+cron_trigger: "0 2 * * *"
 max_concurrency: 1
 timeout: 7200s
 
@@ -136,7 +136,7 @@ tasks:
   fan_out:
     source: LANE_GROUPS
     item_var: lane
-    max_parallel: "{{.MaxLanes}}"
+    max_parallel: {{.MaxLanes}}
     fail_fast: false
     fork_job_type: ai-mq-lane
     sub_workflow:

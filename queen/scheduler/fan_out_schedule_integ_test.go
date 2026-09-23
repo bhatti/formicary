@@ -115,7 +115,7 @@ tasks:
   fan_out:
     source: TestShards
     item_var: shard
-    max_parallel: "4"
+    max_parallel: 4
     fail_fast: false
   script:
     - echo "running shard {{.shard}}"

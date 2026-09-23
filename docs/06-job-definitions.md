@@ -40,6 +40,18 @@ job submission params  >  org configs  >  user configs  >  job_variables (YAML d
 
 **Do NOT** work around this by removing variables from the environment section or by reading them directly from secrets — the override chain is the intended design.
 
+> **`max_parallel` must be an unquoted integer in YAML.**
+>
+> When a `job_variable` or org-config value is injected via a template into a field that expects an `int` (e.g. `fan_out.max_parallel`), the template must render without quotes. YAML strict types cannot unmarshal `"4"` (string) into an `int` field and will produce `yaml: unmarshal errors: cannot unmarshal !!str '4' into int`.
+>
+> ```yaml
+> # ❌ Wrong — quotes survive template substitution → unmarshal error
+> max_parallel: "{{.MaxShards}}"
+>
+> # ✅ Correct — renders as bare integer
+> max_parallel: {{.MaxShards}}
+> ```
+
 ---
 
 ## Secrets vs Org Configs — What Goes Where

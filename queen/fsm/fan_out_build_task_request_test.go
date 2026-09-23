@@ -256,6 +256,64 @@ func Test_FanOut_BuildTaskRequest_FanOutTaskFixture(t *testing.T) {
 	require.Equal(t, "items", taskReq.ExecutorOpts.FanOut.Source)
 }
 
+// Test_FanOut_RawScriptCaptured_WithTemplateMaxParallel is a regression test for the bug
+// where `max_parallel: {{.MaxShards}}` (an unresolved int template) caused yaml.Unmarshal
+// to fail silently during the raw-script pre-parse, leaving RawScript nil. That caused the
+// FanOutTasklet to fall back to parentReq.Script (already rendered with "<no value>" for
+// item-var placeholders), so `{{.shard}}` was never substituted per-item.
+//
+// The fix: use a string-friendly struct for the raw pre-parse so numeric template
+// expressions don't block script extraction.
+func Test_FanOut_RawScriptCaptured_WithTemplateMaxParallel(t *testing.T) {
+	const jobYAML = `
+job_type: ai-parallel-test-rawscript
+max_concurrency: 10
+timeout: 3600s
+
+tasks:
+- task_type: run-tests
+  method: KUBERNETES
+  fan_out:
+    source: TestShards
+    item_var: shard
+    max_parallel: {{.MaxShards}}
+    fail_fast: false
+  script:
+    - echo "running shard {{.shard}}"
+  on_completed: done
+
+- task_type: done
+  method: SHELL
+  script:
+    - echo done
+
+job_variables:
+  MaxShards: "4"
+`
+	jsm := newFanOutJSM(t, jobYAML)
+
+	tsm, err := NewTaskExecutionStateMachine(jsm, "run-tests")
+	require.NoError(t, err)
+	taskReq, err := tsm.BuildTaskRequest()
+	require.NoError(t, err)
+
+	require.NotNil(t, taskReq.ExecutorOpts.FanOut,
+		"FanOut must be set on the task request")
+	require.Equal(t, "TestShards", taskReq.ExecutorOpts.FanOut.Source)
+	require.Equal(t, "shard", taskReq.ExecutorOpts.FanOut.ItemVar)
+
+	// The critical assertion: RawScript must be non-empty so FanOutTasklet can
+	// re-render per-item. When it's nil, the tasklet falls back to parentReq.Script
+	// which already has "<no value>" for {{.shard}}.
+	require.NotEmpty(t, taskReq.ExecutorOpts.FanOut.RawScript,
+		"FanOut.RawScript must be captured even when max_parallel uses a template expression "+
+			"({{.MaxShards}}); if empty, FanOutTasklet cannot render {{.shard}} per-item — "+
+			"all shards receive '<no value>' and run 0 tests")
+	require.Contains(t, taskReq.ExecutorOpts.FanOut.RawScript[0], "{{.shard}}",
+		"RawScript[0] must still contain the raw {{.shard}} template so FanOutTasklet can "+
+			"substitute the actual shard value per item")
+}
+
 // Test_FanOut_BuildTaskRequest_FanOutForkJobFixture loads fixtures/fan_out_job_fork_job.yaml.
 func Test_FanOut_BuildTaskRequest_FanOutForkJobFixture(t *testing.T) {
 	b, err := os.ReadFile("../../fixtures/fan_out_job_fork_job.yaml")

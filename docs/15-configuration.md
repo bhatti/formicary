@@ -404,6 +404,18 @@ echo "::add-job-context PR_URL::https://github.com/org/repo/pull/1"
 
 Use stdout markers for runtime values (counts, verdicts, model actually used) that aren't known at queue time.
 
+> **Fan-out source variables must use `::add-job-context`.**
+>
+> `fan_out.source: SomeKey` reads from `JobExecution.Contexts` (job-level). A variable written with `::add-task-context` lives only in `TaskExecution.Contexts` and is **not visible** to fan-out resolution in a later task. Always use `::add-job-context` for any value that will be referenced as a fan-out source. Writing the wrong marker produces no error — the fan-out simply dispatches 0 items.
+>
+> ```bash
+> # ✅ Correct — write fan-out source to job context
+> echo "::add-job-context TestShards::${SHARDS_JSON}"
+>
+> # ❌ Silent failure — task-scoped, fan-out cannot see this
+> echo "::add-task-context TestShards::${SHARDS_JSON}"
+> ```
+
 ---
 
 ## Slack Configuration

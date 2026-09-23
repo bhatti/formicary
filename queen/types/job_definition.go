@@ -32,6 +32,13 @@ const keyRequiredParams = "required_params"
 
 var rangeRegex, _ = regexp.Compile("{{[-\\s]*range")
 
+// bareTemplateValueRe matches a Go template expression that is the sole value of a YAML key,
+// e.g. `max_parallel: {{.MaxShards}}`. It does NOT match templates inside strings like
+// `echo "deploy {{.region}}"` because those have non-whitespace characters after `}}`.
+// This is used to sanitize YAML before raw-script extraction so yaml.Unmarshal doesn't
+// fail on numeric/boolean fields that contain unrendered template expressions.
+var bareTemplateValueRe = regexp.MustCompile(`(?m)(:\s*)\{\{[^}]*\}\}\s*$`)
+
 // BackoffPolicy configures exponential backoff for retries
 type BackoffPolicy struct {
 	Min    time.Duration `yaml:"min,omitempty" json:"min"`
@@ -416,20 +423,36 @@ func (jd *JobDefinition) GetDynamicTaskWithQuerier(
 	}
 
 	// For fan-out tasks, extract raw scripts BEFORE template rendering so that
-	// per-item placeholders ({{.region}}) survive for later per-item rendering
-	// by FanOutTasklet. Queen-side rendering only has job-level variables, not
-	// per-item ones, so item-var placeholders would become "<no value>" otherwise.
+	// per-item placeholders ({{.shard}}, {{.region}}) survive for later per-item
+	// rendering by FanOutTasklet. Queen-side rendering only has job-level variables,
+	// not per-item ones, so item-var placeholders would become "<no value>" otherwise.
 	//
-	// We always pre-parse to detect fan_out — avoids a brittle string heuristic.
-	// The parse is cheap (small YAML fragment). If it fails the main parse below
-	// will also fail and return an error, so silent ignore here is safe.
+	// We use a minimal string-only struct for parsing so that numeric fields containing
+	// unresolved template expressions (e.g. `max_parallel: {{.MaxShards}}`) do not
+	// cause yaml.Unmarshal to fail before we can extract the script lines.
+	// The full typed parse below (after template rendering) validates all fields properly.
 	var rawFanOutScripts, rawFanOutBeforeScripts, rawFanOutAfterScripts []string
 	{
-		rawTaskForScripts := NewTaskDefinition("", "")
-		if yamlErr := yaml.Unmarshal([]byte(serData), rawTaskForScripts); yamlErr == nil && rawTaskForScripts.FanOut != nil {
-			rawFanOutScripts = rawTaskForScripts.Script
-			rawFanOutBeforeScripts = rawTaskForScripts.BeforeScript
-			rawFanOutAfterScripts = rawTaskForScripts.AfterScript
+		type rawFanOutSnippet struct {
+			Script       []string               `yaml:"script"`
+			BeforeScript []string               `yaml:"before_script"`
+			AfterScript  []string               `yaml:"after_script"`
+			FanOut       map[string]interface{} `yaml:"fan_out"`
+		}
+		// Bare template expressions like `max_parallel: {{.MaxShards}}` are not valid YAML:
+		// YAML interprets a leading `{` as a flow-mapping start and fails to parse the line.
+		// Script lines are safe because `{{.shard}}` appears mid-string (after `echo ...`),
+		// not as the sole value of a key, so YAML treats the whole line as a scalar.
+		//
+		// The regex matches only `: {{...}}` at end-of-line — i.e. bare template values on
+		// numeric/boolean fields — and replaces them with `: 0`. Script lines are untouched,
+		// so {{.shard}} is preserved verbatim in snippet.Script for FanOutTasklet.
+		sanitized := bareTemplateValueRe.ReplaceAllString(serData, "${1}0")
+		var snippet rawFanOutSnippet
+		if yamlErr := yaml.Unmarshal([]byte(sanitized), &snippet); yamlErr == nil && snippet.FanOut != nil {
+			rawFanOutScripts = snippet.Script
+			rawFanOutBeforeScripts = snippet.BeforeScript
+			rawFanOutAfterScripts = snippet.AfterScript
 		}
 	}
 

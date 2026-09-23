@@ -211,12 +211,51 @@ Set `fork_job_type` inside `fan_out` to spawn a real child `JobRequest` per item
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `source` | ✅ | Name of the job execution context variable holding a JSON array. |
+| `source` | ✅ | Name of the **job-level** execution context variable holding a JSON array. Must be written with `::add-job-context` — see warning below. |
 | `item_var` | ✅ | Variable name injected into each child task or job. Available as `{{.item_var}}` in scripts and as a job param in child jobs. |
-| `max_parallel` | optional | Maximum concurrent children. `0` or absent means unlimited. |
+| `max_parallel` | optional | Maximum concurrent children. `0` or absent means unlimited. **Must be an unquoted integer** in YAML — `max_parallel: 4` not `max_parallel: "4"`. YAML strict types reject a quoted string into an `int` field. |
 | `fail_fast` | optional | `true` — cancel remaining siblings on first failure. `false` (default) — collect all results regardless of failures. |
 | `fork_job_type` | optional | Registered job type to spawn as child `JobRequest`s. Setting this activates job fan-out mode. |
 | `fork_job_version` | optional | Semver of the `fork_job_type` to instantiate (e.g. `"1.0"`). |
+
+> **Critical: `::add-job-context` vs `::add-task-context`**
+>
+> Fan-out source resolution reads from `JobExecution.Contexts` — the **job-level** context. A script that writes with `::add-task-context` writes to `TaskExecution.Contexts`, which is scoped to that task only and is **not visible** to `fan_out.source` resolution in subsequent tasks.
+>
+> ```bash
+> # ✅ Correct — job-scoped, visible to fan-out
+> echo "::add-job-context TestShards::${SHARDS_JSON}"
+>
+> # ❌ Wrong — task-scoped, invisible to fan-out
+> echo "::add-task-context TestShards::${SHARDS_JSON}"
+> ```
+>
+> The symptom of getting this wrong: the fan-out appears to succeed (no error) but dispatches 0 items — silently producing no parallel work.
+
+### Real-world example: `ai-parallel-test`
+
+The `docs/examples/ai-parallel-test.yaml` job uses a preceding `analyze` task that runs `scripts/mq/test_impact.py`. The script discovers which tests are affected, partitions them into balanced shards, writes `test_impact.json`, and emits `::add-job-context TestShards::` — placing the shard array in job context where the fan-out can find it:
+
+```yaml
+- task_type: analyze
+  method: KUBERNETES
+  script:
+    - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
+    # Writes test_impact.json and emits ::add-job-context TestShards::[...]
+    - python -m scripts.mq.test_impact --pr-number {{.PRNumber}}
+  on_completed: run-tests
+
+- task_type: run-tests
+  method: KUBERNETES
+  fan_out:
+    source: TestShards       # reads job context key set by analyze task above
+    item_var: shard
+    max_parallel: {{.MaxShards}}   # unquoted integer
+    fail_fast: false
+  script:
+    - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
+    - python -m scripts.mq.run_scoped_ci --shard '{{.shard}}'
+```
 
 ### Result aggregation
 
