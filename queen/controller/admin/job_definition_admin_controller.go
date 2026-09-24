@@ -80,11 +80,21 @@ func (jdaCtr *JobDefinitionAdminController) queryJobDefinitions(c web.APIContext
 	}
 	baseURL := fmt.Sprintf("/dashboard/jobs/definitions?%s", q)
 	pagination := controller.Pagination(page, pageSize, total, baseURL)
+	filterJobType := ""
+	if v, ok := params["job_type"]; ok && v != nil {
+		filterJobType = fmt.Sprintf("%v", v)
+	}
+	filterUserID := ""
+	if v, ok := params["user_id"]; ok && v != nil {
+		filterUserID = fmt.Sprintf("%v", v)
+	}
 	res := map[string]interface{}{
-		"Records":    recs,
-		"Pagination": pagination,
-		"BaseURL":    baseURL,
-		"Q":          qs,
+		"Records":       recs,
+		"Pagination":    pagination,
+		"BaseURL":       baseURL,
+		"Q":             qs,
+		"FilterJobType": filterJobType,
+		"FilterUserID":  filterUserID,
 	}
 	web.RenderDBUserFromSession(c, res)
 	return c.Render(http.StatusOK, "jobs/def/index", res)

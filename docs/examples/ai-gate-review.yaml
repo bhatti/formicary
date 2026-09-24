@@ -1,27 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# AI-driven code review with risk-based human approval gate.
+# Read-only AI gate-review: analyse a PR and report risk/findings — no PR changes.
 #
-# Pipeline: review → gate-check → [approve (MANUAL)] → merge → done
-#                                  \→ auto-merge (low risk) ──→ done
+# Pipeline: review → gate-check → done
 #
-# 1. review:      AI reviews the PR diff using Claude (via ygs-code-review skill).
-# 2. gate-check:  Evaluates risk score. Low-risk PRs skip approval; high-risk
-#                 PRs require MANUAL human approval before merge.
-# 3. approve:     MANUAL task — human reviews AI findings, approves or rejects.
-# 4. merge/auto-merge: Merges the PR after approval (or auto for low-risk).
+# 1. review:     Clone PR, run AI code review (ygs-code-review skill), compute risk score,
+#                generate HTML/MD report with findings, risk score, blast radius, gate decision.
+# 2. gate-check: Compute gate_result.json (needs_approval, risk_tier, critical findings).
+#                Read-only — writes no comments, makes no merge decisions.
 #
-# This pattern implements tiered review: lightweight AI pass for all PRs,
-# human gate only when risk warrants it. Reduces reviewer fatigue while
-# maintaining quality for critical changes.
+# The report tells the human: "safe to merge" or "needs approval — here's why."
+# All actual PR approval/merge actions stay in the normal GitHub/Bitbucket review process.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
 
-job_type: ai-review-with-approval
-description: "AI review with risk-gated human approval before merge"
+job_type: ai-gate-review
+description: "Read-only AI review: risk score, blast radius, findings — no PR changes"
 max_concurrency: 10
-timeout: 86400s
+timeout: 3600s
 
 variables:
   PRNumber:
@@ -30,6 +27,7 @@ variables:
 
 tasks:
 # --- REVIEW ------------------------------------------------------------------
+# Clones the PR, runs AI review, computes risk score, generates full report.
 - task_type: review
   method: KUBERNETES
   timeout: 15m
@@ -70,10 +68,13 @@ tasks:
     CODEBASE_DIR: /workspace/repo
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
+    TASK_TYPE: "review"
+    REPORT_TITLE: "PR Review Report"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
+    - python -m scripts.mq.scope_router --pr-number {{.PRNumber}} || true
     - python -m scripts.review.run --pr-url {{.PRNumber}} --base-branch {{.BaseBranch}}
     - python -m scripts.mq.risk_score --pr-number {{.PRNumber}}
     - python -m scripts.mq.report
@@ -88,7 +89,7 @@ tasks:
   on_failed: notify-error
 
 # --- GATE-CHECK --------------------------------------------------------------
-# Routes to MANUAL approval or auto-merge based on risk score.
+# Computes gate_result.json and emits context keys — read-only, no PR changes.
 - task_type: gate-check
   method: KUBERNETES
   timeout: 3m
@@ -132,135 +133,17 @@ tasks:
           'reason': 'critical findings' if has_critical else f'risk score {score} >= {threshold}' if needs_approval else f'risk score {score} < {threshold}'
       }
       json.dump(gate, open('/workspace/gate_result.json', 'w'), indent=2)
-      print(f'Gate decision: approval={needs_approval} reason={gate[\"reason\"]}')
-      if needs_approval:
-          sys.exit(0)  # on_completed → approve (MANUAL)
-      else:
-          sys.exit(3)  # on_exit_code 3 → auto-merge
+      label = 'needs-approval' if needs_approval else 'safe-to-merge'
+      print(f'Gate: {label} — {gate[\"reason\"]}')
+      print(f'::add-task-context GATE_LABEL::{label}')
+      print(f'::add-task-context GATE_REASON::{gate[\"reason\"]}')
       "
   artifacts:
     paths:
       - ./gate_result.json
     expire_after: 24h
-  on_exit_code:
-    3: auto-merge
-  on_completed: approve
-  on_failed: notify-error
-
-# --- APPROVE (MANUAL) -------------------------------------------------------
-# Human approval gate — only reached for high-risk PRs or critical findings.
-- task_type: approve
-  method: MANUAL
-  approval_policy:
-    min_approvals: 1
-    sla_deadline: 4h
-    timeout_action: ESCALATE
-    escalation_recipients: "{{.EscalationRecipients}}"
-  dependencies:
-    - gate-check
-  on_completed: merge
-  on_failed: reject
-
-# --- AUTO-MERGE (low risk) ---------------------------------------------------
-- task_type: auto-merge
-  method: KUBERNETES
-  timeout: 5m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256Mi
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - gate-check
-  environment:
-    WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
-    SLACK_BOT_TOKEN: "{{.SlackToken}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      echo "Auto-merging low-risk PR #{{.PRNumber}}"
-      cd /workspace/repo 2>/dev/null || true
-      gh pr merge {{.PRNumber}} --squash --auto --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
   on_completed: done
   on_failed: notify-error
-
-# --- MERGE (after human approval) -------------------------------------------
-- task_type: merge
-  method: KUBERNETES
-  timeout: 5m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256Mi
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - approve
-  environment:
-    WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
-    SLACK_BOT_TOKEN: "{{.SlackToken}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      echo "Merging approved PR #{{.PRNumber}}"
-      cd /workspace/repo 2>/dev/null || true
-      gh pr merge {{.PRNumber}} --squash --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
-  on_completed: done
-  on_failed: notify-error
-
-# --- REJECT ------------------------------------------------------------------
-- task_type: reject
-  method: KUBERNETES
-  timeout: 5m
-  report_stdout: true
-  host_network: true
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    env_from:
-      - secret_ref: ai-dev-credentials
-  environment:
-    SLACK_BOT_TOKEN: "{{.SlackToken}}"
-    SLACK_CHANNEL: "{{.SlackChannel}}"
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      echo ":no_entry: PR #{{.PRNumber}} rejected by reviewer"
-      gh pr comment {{.PRNumber}} --body ":no_entry: This PR was rejected during human review. Please address the findings and resubmit." --repo "{{.GitHubOrg}}/{{.GitHubRepo}}"
-  on_completed: done
 
 # --- NOTIFY-ERROR ------------------------------------------------------------
 - task_type: notify-error
@@ -278,8 +161,8 @@ tasks:
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
-    JOB_TYPE: "ai-review-with-approval"
-    MESSAGE: ":x: Review pipeline failed for PR #{{.PRNumber}}."
+    JOB_TYPE: "ai-gate-review"
+    MESSAGE: ":x: Gate-review failed for PR {{.PRNumber}}."
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -291,16 +174,20 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
-    - echo "Review pipeline complete"
+    - echo "Gate-review complete — check report in artifacts"
 
 job_variables:
   BaseBranch: "main"
   ApprovalThreshold: "70"
-  EscalationRecipients: ""
   AiDevToolsDebug: ""
   FormicaryPublicURL: ""
   SlackChannel: ""
   SlackThreadTs: ""
+  DefaultTracker: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"

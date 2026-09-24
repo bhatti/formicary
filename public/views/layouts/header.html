@@ -176,17 +176,70 @@
     </div><!-- /.container-fluid -->
   </aside>
 
+  <script>
+  (function() {
+    var path = window.location.pathname;
+    var search = window.location.search;
+    document.querySelectorAll('aside .nav-link').forEach(function(a) {
+      var href = a.getAttribute('href');
+      if (!href || href === '#' || href === 'javascript:void(0)') return;
+      try {
+        var url = new URL(a.href, window.location.origin);
+        if (url.pathname !== path) return;
+        var sp = url.searchParams;
+        var match = false;
+        if (sp.toString() === '') {
+          match = true;
+        } else {
+          var cur = new URLSearchParams(search);
+          var allMatch = true;
+          sp.forEach(function(v, k) { if (cur.get(k) !== v) allMatch = false; });
+          match = allMatch;
+        }
+        if (match) {
+          a.classList.add('active');
+          var parent = a.closest('ul.navbar-nav.ps-4');
+          if (parent) parent.style.display = 'block';
+        }
+      } catch(e) {}
+    });
+  })();
+  </script>
+
   <!-- Top bar -->
   <header class="navbar navbar-expand-md d-print-none border-bottom">
     <div class="container-xl">
-      <div class="d-flex gap-2 align-items-center">
+      <div class="d-flex gap-2 align-items-center flex-wrap">
         <i class="ti ti-search text-muted"></i>
-        <input id="q" name="q" value="{{.Q}}" type="text" class="form-control form-control-sm border-0 shadow-none"
-               style="width:240px" placeholder="Search jobs…"
-               onkeypress="if(event.key==='Enter'){window.location='/dashboard/jobs/requests?q='+encodeURIComponent(this.value)}">
+        <input id="topq" value="{{.Q}}" type="text" class="form-control form-control-sm border-0 shadow-none"
+               style="width:180px" placeholder="Search jobs…"
+               onkeypress="if(event.key==='Enter'){doTopSearch()}">
+        <select id="topJobState" class="form-select form-select-sm border-0" style="width:130px">
+          <option value="">All States</option>
+          <option value="RUNNING">Running</option>
+          <option value="WAITING">Pending</option>
+          <option value="DONE">History</option>
+        </select>
+        <select id="topJobType" class="form-select form-select-sm border-0" style="width:150px">
+          <option value="">All Types</option>
+          {{range .JobTypes}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" onclick="doTopSearch()"><i class="ti ti-search"></i></button>
       </div>
     </div>
   </header>
+  <script>
+  function doTopSearch() {
+    var q = document.getElementById('topq').value;
+    var state = document.getElementById('topJobState').value;
+    var jtype = document.getElementById('topJobType').value;
+    var url = '/dashboard/jobs/requests?';
+    if (q) url += 'q=' + encodeURIComponent(q) + '&';
+    if (state) url += 'job_state=' + state + '&';
+    if (jtype) url += 'job_type=' + encodeURIComponent(jtype) + '&';
+    window.location = url;
+  }
+  </script>
 
   <!-- Page content wrapper — footer.html closes this -->
   <div class="page-wrapper">

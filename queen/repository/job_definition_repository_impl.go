@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"plexobject.com/formicary/queen/types"
 )
 
@@ -112,7 +113,12 @@ func (jdr *JobDefinitionRepositoryImpl) GetByType(
 
 	var res *gorm.DB
 	if semVersion == "" {
-		res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).First(job)
+		// Prioritize the caller's own job first, then org-shared, then any visible job.
+		// This ensures that when multiple owners share the same job_type, the user sees
+		// their own definition rather than a random one selected by DB insertion order.
+		res = tx.Where("active = ?", true).Where(scopeCond, scopeArg).
+			Order(ownerPriorityExpr(qc)).
+			First(job)
 	} else {
 		res = tx.Where("sem_version = ? AND public_plugin = ?", semVersion, true).First(job)
 		if res.Error != nil {
@@ -479,10 +485,14 @@ func (jdr *JobDefinitionRepositoryImpl) Query(
 	tx = jdr.addQuery(params, tx)
 
 	if len(order) == 0 {
-		order = []string{"job_type"}
-	}
-	for _, ord := range order {
-		tx = tx.Order(ord)
+		// Sort caller-owned rows first, then same-org rows, then alphabetically by job_type.
+		// For non-admin users this is a no-op (AddOrgElseUserWhere already scoped the result),
+		// but for admins it surfaces the jobs they own before shared/org definitions.
+		tx = tx.Order(ownerPriorityExpr(qc)).Order("job_type")
+	} else {
+		for _, ord := range order {
+			tx = tx.Order(ord)
+		}
 	}
 	res := tx.Find(&jobs)
 	if res.Error != nil {
@@ -561,6 +571,19 @@ func (jdr *JobDefinitionRepositoryImpl) addQuery(params map[string]interface{}, 
 			qs, qs, qs, qs, q, q)
 	}
 	return addQueryParamsWhere(filterParams(params, "q"), tx)
+}
+
+// ownerPriorityExpr returns a parameterized CASE WHEN expression (clause.Expr) that
+// surfaces the caller's own definitions first (0), then same-org (1), then others (2).
+// Safe to pass directly to gorm's .Order() which accepts clause.Expr. Works on SQLite,
+// PostgreSQL, and MySQL (ANSI SQL CASE WHEN).
+func ownerPriorityExpr(qc *common.QueryContext) clause.Expr {
+	uid := qc.GetUserID()
+	oid := qc.GetOrganizationID()
+	return gorm.Expr(
+		"CASE WHEN user_id = ? THEN 0 WHEN organization_id = ? AND ? != '' THEN 1 ELSE 2 END",
+		uid, oid, oid,
+	)
 }
 
 func (jdr *JobDefinitionRepositoryImpl) postProcessJob(

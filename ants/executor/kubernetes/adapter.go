@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
@@ -922,12 +923,16 @@ func (u *Utils) GetRuntimeInfo(
 	return sb.String()
 }
 
-// Stop stops container
+// Stop stops container — idempotent, treats 404 as success
 func (u *Utils) Stop(
 	ctx context.Context,
 	containerID string) error {
-	return u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).
+	err := u.cli.CoreV1().Pods(u.config.Kubernetes.Namespace).
 		Delete(ctx, containerID, metav1.DeleteOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 // Dispose disposes kubernetes client

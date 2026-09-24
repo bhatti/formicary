@@ -464,7 +464,7 @@ Scope-aware merge queue for agent-scale PR throughput. Pairs test-impact analysi
 | Job | Purpose | Trigger |
 |-----|---------|---------|
 | `ai-scope-router` | Classify PR blast radius, compute risk tier, label by scope | `@bot scope <pr-or-branch> [--repo <url>]` |
-| `ai-review-with-approval` | AI review + risk-gated human approval (MANUAL task with SLA) | Chained from scope-router |
+| `ai-gate-review` | Read-only AI review: risk score, blast radius, findings report — no PR changes | Triggered by `@bot gate-review <pr-url>` |
 | `ai-parallel-test` | Test-impact analysis → fan-out parallel test shards (4 CPU cores, 16G per shard) | `@bot parallel-test <pr-or-branch> [--repo <url>] [--branch <name>]` |
 | `ai-merge-queue` | Cron: collect ready PRs, group by scope, launch lane jobs | `@bot merge-queue` or cron `*/3 * * * *` |
 | `ai-mq-lane` | Per-scope lane: speculative batch → scoped CI → bisect on failure → merge | Forked by ai-merge-queue |

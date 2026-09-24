@@ -612,7 +612,9 @@ func (s *State) terminateContainer(
 			Props:    make(map[string]string),
 			Timeout:  taskTimeout,
 		}
-		if res, err := s.queueClient.SendReceive(ctx, req); err == nil {
+		var res *queue.SendReceiveResponse
+		res, err = s.queueClient.SendReceive(ctx, req)
+		if err == nil {
 			defer res.Ack() // auto-ack
 			taskResp, err = common.UnmarshalTaskResponse(registration.EncryptionKey, res.Event.Payload)
 			if err == nil && taskResp.Status.Failed() {

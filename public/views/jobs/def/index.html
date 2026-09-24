@@ -7,12 +7,6 @@
       <div class="text-secondary small">Define graphs of tasks executed by ant workers using Docker, Kubernetes, shell, or APIs.</div>
     </div>
     <div class="col-auto d-flex gap-2 flex-wrap align-items-center">
-      <form action="/dashboard/jobs/definitions" method="GET">
-        <div class="input-group input-group-sm">
-          <input type="text" class="form-control" name="q" id="q" value="{{ .Q }}" placeholder="Search jobs">
-          <button type="submit" class="btn btn-sm btn-primary">Search</button>
-        </div>
-      </form>
       <form action="/dashboard/jobs/definitions/upload" method="POST" enctype="multipart/form-data" class="d-flex gap-1 align-items-center">
         <input type="file" name="files" multiple class="form-control form-control-sm" style="width:auto">
         <input type="submit" class="btn btn-sm btn-secondary" value="Upload">
@@ -22,6 +16,24 @@
       </form>
     </div>
   </div>
+</div>
+
+<!-- Filter bar -->
+<div class="mb-3">
+  <form class="row g-2 align-items-end" action="/dashboard/jobs/definitions" method="GET">
+    <div class="col-auto">
+      <input type="text" class="form-control form-control-sm" name="job_type"
+             placeholder="Filter by job type" value="{{ .FilterJobType }}">
+    </div>
+    <div class="col-auto">
+      <input type="text" class="form-control form-control-sm" name="user_id"
+             placeholder="Filter by user" value="{{ .FilterUserID }}">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+      <a href="/dashboard/jobs/definitions" class="btn btn-sm btn-outline-secondary">Clear</a>
+    </div>
+  </form>
 </div>
 
 <div class="card">

@@ -1130,3 +1130,50 @@ func Test_FanOut_FanOutTaskJobVariablesSurviveDbRoundTrip(t *testing.T) {
 	require.NotNil(t, opts.FanOut)
 	require.Equal(t, "items", opts.FanOut.Source)
 }
+
+// GetByType should return the caller's own definition first when multiple owners share the same job_type
+func Test_ShouldGetByTypeReturnsUserOwnedFirst(t *testing.T) {
+	// GIVEN two users sharing the same job_type
+	repo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+	qc1, err := NewTestQC()
+	require.NoError(t, err)
+	qc2, err := NewTestQC()
+	require.NoError(t, err)
+
+	jobType := "io.formicary.test.shared-type"
+
+	// User1 saves their definition first
+	job1 := NewTestJobDefinition(qc1.User, "shared-type")
+	job1.JobType = jobType
+	_, err = repo.Save(qc1, job1)
+	require.NoError(t, err)
+
+	// User2 saves their definition second
+	job2 := NewTestJobDefinition(qc2.User, "shared-type")
+	job2.JobType = jobType
+	_, err = repo.Save(qc2, job2)
+	require.NoError(t, err)
+
+	// Admin QC owns neither
+	adminQC := qc1.WithAdmin()
+
+	// WHEN user2 looks up by type
+	found2, err := repo.GetByType(qc2, jobType)
+	require.NoError(t, err)
+	// THEN they see their own definition
+	require.Equal(t, qc2.User.ID, found2.UserID)
+
+	// WHEN user1 looks up by type
+	found1, err := repo.GetByType(qc1, jobType)
+	require.NoError(t, err)
+	// THEN they see their own definition
+	require.Equal(t, qc1.User.ID, found1.UserID)
+
+	// WHEN admin lists definitions, their own (none here) would come first, then alphabetical
+	// Just verify admin can query without error and both records are visible
+	recs, total, err := repo.Query(adminQC, map[string]interface{}{"job_type": jobType}, 0, 10, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), total)
+	require.Len(t, recs, 2)
+}

@@ -84,17 +84,18 @@ func (r *RequestRegistryImpl) Cancel(
 	return nil
 }
 
-// CancelJob cancels the request by job ID
+// CancelJob cancels all tasks belonging to the given job request ID.
+// Sets Cancelled=true so postProcess skips artifact upload, matching Cancel() behaviour.
+// Returns nil when no tasks are found — the job may have already completed normally.
 func (r *RequestRegistryImpl) CancelJob(
 	requestID string) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	for _, req := range r.requests {
 		if req.JobRequestID == requestID && req.Cancel != nil {
-			//debug.PrintStack()
 			req.Cancel()
+			req.Cancelled = true
 			delete(r.requests, req.Key())
-			break
 		}
 	}
 	return nil

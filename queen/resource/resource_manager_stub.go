@@ -15,9 +15,10 @@ import (
 
 // ManagerStub for resources
 type ManagerStub struct {
-	mu       sync.Mutex
-	Registry map[string]*common.AntRegistration
-	Events   []*events.ContainerLifecycleEvent
+	mu             sync.Mutex
+	Registry       map[string]*common.AntRegistration
+	Events         []*events.ContainerLifecycleEvent
+	TerminateError error // set to simulate termination failures in tests
 }
 
 // NewStub - creates new stub implementation
@@ -151,7 +152,7 @@ func (rm *ManagerStub) Release(reservation *common.AntReservation) (err error) {
 // TerminateContainer for remote ant
 func (rm *ManagerStub) TerminateContainer(
 	_ context.Context, _ string, _ string, _ common.TaskMethod) (err error) {
-	return nil
+	return rm.TerminateError
 }
 
 // CountContainerEvents returns counts of events

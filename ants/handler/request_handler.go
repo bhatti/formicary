@@ -3,10 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
+	"time"
 
 	"plexobject.com/formicary/internal/ant_config"
+	"plexobject.com/formicary/internal/events"
 
 	"github.com/sirupsen/logrus"
 	"plexobject.com/formicary/ants/executor/utils"
@@ -131,14 +132,17 @@ func (rh *RequestHandler) Execute(
 func (rh *RequestHandler) TerminateContainer(
 	ctx context.Context,
 	taskReq *types.TaskRequest) (taskResp *types.TaskResponse, err error) {
+	// Look up the registry entry to use for lifecycle event, but do NOT bail out if missing.
+	// The container may have already been removed from the registry (e.g. after a job cancel)
+	// while the pod is still running in Kubernetes — we must still attempt the actual deletion.
 	container := rh.containerRegistry.GetContainerEvent(taskReq.ExecutorOpts.Method, taskReq.ExecutorOpts.Name)
 	if container == nil {
-		taskResp = types.NewTaskResponse(taskReq)
-		taskResp.Status = types.FAILED
-		taskResp.ErrorCode = types.ErrorContainerNotFound
-		taskResp.ErrorMessage = fmt.Sprintf("failed to find container for %s method %s",
-			taskReq.ExecutorOpts.Name, taskReq.ExecutorOpts.Method)
-		return
+		logrus.WithFields(logrus.Fields{
+			"Component": "RequestHandler",
+			"AntID":     rh.antCfg.Common.ID,
+			"Name":      taskReq.ExecutorOpts.Name,
+			"Method":    taskReq.ExecutorOpts.Method,
+		}).Warn("container not in registry, attempting direct pod deletion anyway")
 	}
 
 	if err = utils.StopContainer(
@@ -156,6 +160,11 @@ func (rh *RequestHandler) TerminateContainer(
 
 	taskResp = types.NewTaskResponse(taskReq)
 	taskResp.Status = types.COMPLETED
+
+	// Always publish a CANCELLED lifecycle event so the queen removes this entry from its
+	// registry. If we have the full registry entry use it; otherwise synthesize a minimal
+	// event from the executor options so the queen can still clean up by key.
+	eventInfo := containerInfo(container, taskReq, rh.antCfg.Common.ID)
 	if sendErr := sendContainerEvent(
 		ctx,
 		rh.antCfg,
@@ -163,16 +172,40 @@ func (rh *RequestHandler) TerminateContainer(
 		taskReq.UserID,
 		taskReq.ExecutorOpts.Method,
 		types.CANCELLED,
-		container); sendErr != nil {
+		eventInfo); sendErr != nil {
 		logrus.WithFields(
 			logrus.Fields{
 				"Component": "RequestHandler",
 				"AntID":     rh.antCfg.Common.ID,
-				"Container": container,
+				"Name":      taskReq.ExecutorOpts.Name,
 				"Error":     sendErr,
 			}).Warnf("failed to send stop lifecycle event container by request-handler")
 	}
 	return
+}
+
+// containerInfo returns the registry event if available, or a minimal synthetic event
+// built from executor options so the queen can always remove the entry by key.
+func containerInfo(
+	container *events.ContainerLifecycleEvent,
+	taskReq *types.TaskRequest,
+	antID string) *events.ContainerLifecycleEvent {
+	if container != nil {
+		return container
+	}
+	now := time.Now()
+	return events.NewContainerLifecycleEvent(
+		"RequestHandler",
+		taskReq.UserID,
+		antID,
+		taskReq.ExecutorOpts.Method,
+		taskReq.ExecutorOpts.Name,
+		taskReq.ExecutorOpts.Name,
+		types.CANCELLED,
+		make(map[string]string),
+		now,
+		&now,
+	)
 }
 
 // ListContainers list containers

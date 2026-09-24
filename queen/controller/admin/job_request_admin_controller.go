@@ -107,13 +107,24 @@ func (jraCtr *JobRequestAdminController) queryJobRequests(c web.APIContext) erro
 		title = "Jobs History"
 	}
 
+	filterJobType := ""
+	if v, ok := params["job_type"]; ok && v != nil {
+		filterJobType = fmt.Sprintf("%v", v)
+	}
+	filterUserID := ""
+	if v, ok := params["user_id"]; ok && v != nil {
+		filterUserID = fmt.Sprintf("%v", v)
+	}
 	res := map[string]interface{}{
-		"Records":    recs,
-		"Pagination": pagination,
-		"Title":      title,
-		"JobTypes":   jraCtr.getJobTypes(c),
-		"BaseURL":    baseURL,
-		"Q":          qs,
+		"Records":         recs,
+		"Pagination":      pagination,
+		"Title":           title,
+		"JobTypes":        jraCtr.getJobTypes(c),
+		"BaseURL":         baseURL,
+		"Q":               qs,
+		"CurrentJobState": c.QueryParam("job_state"),
+		"FilterJobType":   filterJobType,
+		"FilterUserID":    filterUserID,
 	}
 	res["IsTerminal"] = false
 	res["Pending"] = false

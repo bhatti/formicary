@@ -283,6 +283,22 @@ FanOutSource = regions
 FanOutMode = task
 ```
 
+### Pipeline diagram (Mermaid)
+
+Fan-out tasks appear as **hexagons** in the pipeline diagram (accessible from the job request or job
+definition detail page). The hexagon label shows the task type, the source array variable, and the
+`max_parallel` cap (when set):
+
+```
+run_tests{{"run-tests
+⊕ fan-out(TestShards)
+max:2"}}
+```
+
+A regular transition arrow connects the preceding task to the fan-out hexagon, and another connects
+it to the following task — reflecting that the fan-out runs as a single logical step that expands
+internally into parallel children whose results are aggregated before the pipeline continues.
+
 ### Deploying the examples
 
 ```bash

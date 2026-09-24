@@ -181,6 +181,15 @@ func (mg *MermaidGenerator) getNodeShape(node *Node) string {
 		return fmt.Sprintf("[/\"%s\"\\]", label) // Trapezoid
 	} else if node.task.Method == "ForkedJob" {
 		return fmt.Sprintf("((\"%s\"))", label) // Circle
+	} else if node.task.Method == common.FanOutJob {
+		fanLabel := label
+		if node.task.FanOut != nil {
+			fanLabel = fmt.Sprintf("%s\n⊕ fan-out(%s)", label, node.task.FanOut.Source)
+			if node.task.FanOut.MaxParallel > 0 {
+				fanLabel = fmt.Sprintf("%s\nmax:%d", fanLabel, node.task.FanOut.MaxParallel)
+			}
+		}
+		return fmt.Sprintf("{{\"%s\"}}", fanLabel) // Hexagon for fan-out
 	} else if node.task.Method == common.Manual {
 		return fmt.Sprintf("[\"%s\n🔒\"]", label) // Manual approval icon
 	} else {

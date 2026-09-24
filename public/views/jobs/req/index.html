@@ -1,9 +1,9 @@
 {{ template "layouts/header" . }}
 
-<div class="page-header mb-4">
+<div class="page-header mb-3">
   <div class="row align-items-center">
     <div class="col">
-      <h2 class="page-title">{{.Title}}</h2>
+      <h2 class="page-title">{{if .Title}}{{.Title}}{{else}}All Jobs{{end}}</h2>
     </div>
     <div class="col-auto">
       <form action="/dashboard/jobs/requests/new" method="GET">
@@ -12,6 +12,47 @@
     </div>
   </div>
 </div>
+
+<!-- State tabs -->
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link{{if eq .CurrentJobState ""}} active{{end}}" href="/dashboard/jobs/requests">All</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link{{if eq .CurrentJobState "RUNNING"}} active{{end}}" href="/dashboard/jobs/requests?job_state=RUNNING">Running</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link{{if eq .CurrentJobState "WAITING"}} active{{end}}" href="/dashboard/jobs/requests?job_state=WAITING">Pending</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link{{if eq .CurrentJobState "DONE"}} active{{end}}" href="/dashboard/jobs/requests?job_state=DONE">History</a>
+  </li>
+</ul>
+
+<!-- Filter bar -->
+<form class="row g-2 align-items-end mb-3" method="GET" action="/dashboard/jobs/requests">
+  {{if .CurrentJobState}}<input type="hidden" name="job_state" value="{{.CurrentJobState}}">{{end}}
+  <div class="col-auto">
+    <input type="text" class="form-control form-control-sm" name="q" placeholder="Search…" value="{{.Q}}">
+  </div>
+  <div class="col-auto">
+    <select class="form-select form-select-sm" name="job_type">
+      <option value="">All Types</option>
+      {{range .JobTypes}}<option value="{{.}}"{{if eq . $.FilterJobType}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </div>
+  <div class="col-auto">
+    <input type="text" class="form-control form-control-sm" name="user_id" placeholder="User ID" value="{{.FilterUserID}}">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+    {{if .CurrentJobState}}
+    <a href="/dashboard/jobs/requests?job_state={{.CurrentJobState}}" class="btn btn-sm btn-outline-secondary">Clear</a>
+    {{else}}
+    <a href="/dashboard/jobs/requests" class="btn btn-sm btn-outline-secondary">Clear</a>
+    {{end}}
+  </div>
+</form>
 
 <p class="error_id text-danger text-center"></p>
 

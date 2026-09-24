@@ -72,15 +72,15 @@ func (eca *ExecutionContainerAdminController) deleteExecutionContainer(c web.API
 	if method == "" {
 		return fmt.Errorf("failed to find method")
 	}
-	err := eca.resourceManager.TerminateContainer(context.Background(), id, antID, types.TaskMethod(method))
-	if err != nil {
+	if err := eca.resourceManager.TerminateContainer(context.Background(), id, antID, types.TaskMethod(method)); err != nil {
 		logrus.WithFields(logrus.Fields{
-			"Component": "JobLauncher",
+			"Component": "ExecutionContainerAdminController",
 			"ID":        id,
 			"AntID":     antID,
 			"Method":    method,
 			"Error":     err,
 		}).Warn("failed to terminate container")
+		return err
 	}
 	return c.Redirect(http.StatusFound, "/dashboard/executors")
 }

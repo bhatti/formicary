@@ -372,3 +372,26 @@ func Test_ShouldValidateMermaidSyntax(t *testing.T) {
 	require.Greater(t, classDefCount, 0, "Should have class definitions")
 	require.Greater(t, classAssignCount, 0, "Should have class assignments")
 }
+
+func Test_ShouldCreateMermaidForFanOutJob(t *testing.T) {
+	// GIVEN job definition with a fan_out task loaded from yaml
+	b, err := os.ReadFile("../../docs/examples/ai-parallel-test.yaml")
+	require.NoError(t, err)
+	definition, err := types.NewJobDefinitionFromYaml(b)
+	require.NoError(t, err)
+
+	// WHEN mermaid config is generated for definition only (no execution)
+	generator, err := NewMermaid(definition, nil)
+	require.NoError(t, err)
+	mermaidConf, err := generator.GenerateMermaid()
+
+	// THEN a valid mermaid config is created
+	require.NoError(t, err)
+	require.Contains(t, mermaidConf, "flowchart TD")
+	// fan-out task uses mermaid hexagon shape: nodeId{{"label"}}
+	require.Contains(t, mermaidConf, `run_tests{{"run-tests`)
+	require.Contains(t, mermaidConf, "fan-out(TestShards)")
+	// transitions to/from fan-out task are preserved
+	require.Contains(t, mermaidConf, "analyze --> run_tests")
+	require.Contains(t, mermaidConf, "run_tests --> report")
+}
