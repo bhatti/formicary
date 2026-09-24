@@ -699,8 +699,11 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 	// Remaining positional text stays in cleanTrailing for IdVar binding.
 	// Reserved names (injected by the server) are silently skipped — users must not
 	// be able to override SlackChannel/SlackUserId/SlackThreadTs via Slack message text.
+	//
+	// Routes with PassThroughArgs=true skip extraction entirely: the target script
+	// owns its own flag parser and must receive the full args string unmodified.
 	var flags map[string]string
-	if cleanTrailing != "" {
+	if cleanTrailing != "" && !result.PassThroughArgs {
 		cleanTrailing, flags = extractFlags(cleanTrailing)
 		for k, v := range flags {
 			if isReservedSlackParam(k) {

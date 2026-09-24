@@ -74,6 +74,7 @@ type RouteResult struct {
 	Params          map[string]string // fixed params merged verbatim from route config
 	Description     string            // human-readable label from route config (used as job description)
 	TrackerVariants map[string]string // tracker name → job type override (e.g. "github" → "ai-gh-implement")
+	PassThroughArgs bool              // when true, trailing text is bound to IdVar verbatim (no flag extraction)
 }
 
 // ResolveJobType returns the job type for the given tracker, falling back to JobType
@@ -127,6 +128,7 @@ func (r *CommandRouter) Route(text string) (result *RouteResult, isBuiltin bool,
 				Params:          route.Params,
 				Description:     route.Description,
 				TrackerVariants: route.TrackerVariants,
+				PassThroughArgs: route.PassThroughArgs,
 			}, false, nil
 		}
 	}

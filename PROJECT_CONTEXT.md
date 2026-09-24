@@ -186,6 +186,28 @@ Route table managed via `setup-slack-admin.sh` (SET_ROUTES=true default).
 causing GH jobs to use Jira and vice versa. Hardcode the tracker in each YAML variant:
 `DEFAULT_TRACKER: "github"` in `ai-gh-*.yaml`, `DEFAULT_TRACKER: "jira"` in `ai-jira-*.yaml`.
 
+### `pass_through_args` — When to use it
+
+Routes where the *target script* owns its own flag parser must set `pass_through_args: true`
+in `slack-routes.json`. Without it, `service.go`'s `extractFlags()` strips every `--key value`
+pair from the trailing text before binding it to `IdVar`, and the target script never sees them.
+
+```json
+{"triggers":["skill"],"job_type":"ai-skill","id_var":"RawArgs","pass_through_args":true, ...}
+```
+
+**Set `pass_through_args: true` when:**
+- The route's `id_var` is `RawArgs` (or similar "pass everything as-is")
+- The target script (e.g. `run_skill.py`) calls its own `parse_skill_flags()` / `argparse`
+- Any `--head`, `--base`, `--branch` or other domain flags must reach the script verbatim
+
+**Leave `pass_through_args` unset (defaults false) when:**
+- The route wants formicary to extract `--repo`, `--branch`, `--model` into job params
+  automatically (most routes: implement, review, pr-audit, etc.)
+
+The flag is propagated: `SlackRouteConfig.PassThroughArgs` → `RouteResult.PassThroughArgs`
+→ `service.go` skips `extractFlags` for that request.
+
 ---
 
 ## AI Workflows
@@ -244,6 +266,26 @@ code (board filter, branch selection, PR fetch dispatch) sees the same value.
 - ✅ Parse `--tracker` in `_parse_slack_flags` so prompts can always override
 - ❌ NEVER check `config.get("DEFAULT_TRACKER")` before resolving effective tracker from prompt
 - ❌ NEVER gate a filter/flag on a tracker value derived only from the YAML default
+
+### `resolve_tracker` URL Override — `scripts/mq/_shared.py`
+
+`scripts/mq/_shared.py:resolve_tracker(config, repo_url="")` resolves the effective
+tracker for MQ scripts (clone, PR fetch, etc.) using the same priority as above:
+
+```python
+# URL domain overrides DEFAULT_TRACKER from config
+tracker = resolve_tracker(config, repo_url=repo or "")
+# → "github" if repo_url contains "github.com"
+# → "bitbucket" if repo_url contains "bitbucket.org"
+# → from config["DEFAULT_TRACKER"] otherwise
+```
+
+**Always pass `repo_url` when a `--repo` flag is present.** Without it, a config with
+`DEFAULT_TRACKER=jira` will call `clone_by_tracker` with "bitbucket" even for a GitHub URL,
+cloning the wrong org's repo.
+
+This mirrors `scripts/skill/flags.py:resolve_tracker(flags, config)` — the pattern is DRY
+across both paths. The MQ version takes `(config, repo_url)` to match its calling convention.
 
 ### Pod / Docker / Entrypoint
 - ❌ Formicary overrides Docker ENTRYPOINT — `entrypoint.sh` never runs in pods
@@ -335,7 +377,7 @@ numeric PR ID before calling any Bitbucket PR API.
 
 ---
 
-## Current Open Work (as of 2026-09-08)
+## Current Open Work (as of 2026-09-24)
 
 ### Pending — PR Audit
 1. Fix `poll-pr` directory structure for pr-audit — add pre-step creating `/workspace/pr-audit/`
@@ -358,6 +400,27 @@ numeric PR ID before calling any Bitbucket PR API.
 ### Pending — Post-Merge PR Health Check (see we-are-working-on-serene-cosmos.md)
 - Extend `jira/learn.py` and `gh/learn.py` to fetch single PR context and run Phase 0
   health check before ygs-learn; post combined report back to PR and issue
+
+### Completed — ai-skill / ai-parallel-test Fan-Out Fixes (2026-09-24)
+
+Two bugs fixed in the fan-out workflow:
+
+**Bug 1 — Wrong tracker for `--repo` GitHub URL (`scripts/mq/_shared.py`)**
+- Root cause: `DEFAULT_TRACKER=jira` caused `resolve_tracker()` to return "bitbucket",
+  so `clone_by_tracker` cloned a Bitbucket org repo instead of the GitHub URL given.
+- Fix: `resolve_tracker(config, repo_url="")` — URL domain overrides config value.
+  Pass `repo_url=repo` in `clone_pr.py:main()`.
+- Tests: `tests/test_mq_shared.py::TestResolveTracker` (6 URL override cases)
+          `tests/test_mq_clone_pr.py::TestTrackerOverrideFromRepoUrl`
+
+**Bug 2 — `extractFlags` stripping skill args before `RAW_ARGS` (`queen/slack/service.go`)**
+- Root cause: `extractFlags()` (added in `1bbf2aa`) consumed ALL `--key value` pairs from
+  any route's trailing text, including `--head`, `--base`, `--branch` needed by `run_skill.py`.
+  These flags were extracted into job params (unknown keys → discarded) before `RawArgs` was set.
+- Fix: `pass_through_args: true` on the `ai-skill` route; `service.go` skips `extractFlags`
+  when `result.PassThroughArgs` is true, binding full trailing text to `IdVar` verbatim.
+- Tests: `queen/slack/command_router_test.go::Test_PassThroughArgs_Propagated_From_Route_Config`
+          `queen/slack/command_router_test.go::Test_PassThroughArgs_False_By_Default`
 
 ### Pending — Slack URL Routing
 - `implement https://github.com/...` still falls to `ai-jira-implement` (no keyword)
@@ -464,7 +527,7 @@ ServiceCommand: "sh -c 'printf \"common:\\n  http_port: 7777\\nembedded_ant:\\n 
 
 ## ai-skill Workflow (added 2026-09)
 
-Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--service <image>] [-- instructions]`
+Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--tracker github|jira] [--model <id>] [--service <image>] [-- instructions]`
 
 **Task pipeline:** `run` → `post` → `done` (on failure: `notify-error`)
 
@@ -474,6 +537,12 @@ Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--servic
 - `ai-dev-tools/scripts/skill/flags.py` — Flag parser (`--service`, `--service-port`, `--service-cmd`, `--service-args`)
 - `ai-dev-tools/scripts/skill/post.py` — Post task: reads `skill_result.json` + `reports/report.md`, posts HTML report to Slack
 - `ai-dev-tools/.claude/skills/integ-tests/SKILL.md` — Integration test skill (service health check + test runner discovery)
+- `formicary/docs/examples/slack-routes.json` — Route entry has `"pass_through_args": true`
+
+**`pass_through_args: true` is MANDATORY on this route.** `run_skill.py` owns its own flag
+parser via `scripts/skill/flags.py`. All args (including `--head`, `--base`, `--branch`,
+`--repo`, custom flags) must reach `RAW_ARGS` verbatim. If this is removed, skill-specific
+flags will be consumed by formicary and lost before `run_skill.py` sees them.
 
 **integ-tests skill lives in `ai-dev-tools/.claude/skills/`, NOT you-got-skills.**
 It is infrastructure, not a general-purpose skill. Copied into pods via `_DIRS_TO_COPY`.

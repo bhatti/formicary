@@ -57,7 +57,7 @@ func BuildToken(
 		"BundleID":       user.BundleID,
 		"PictureURL":     user.PictureURL,
 		"AuthProvider":   user.AuthProvider,
-	}).Infof("logged in")
+	}).Debugf("token issued")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	strToken, err = token.SignedString([]byte(secret))

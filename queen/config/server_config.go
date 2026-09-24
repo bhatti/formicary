@@ -36,6 +36,10 @@ type SlackRouteConfig struct {
 	// Use this for any fixed values the job needs: Skill, Mode, Prompt templates,
 	// or anything else — Formicary passes them through without interpretation.
 	Params      map[string]string `yaml:"params"            mapstructure:"params"            json:"params,omitempty"`
+	// PassThroughArgs skips flag extraction: the full trailing text is bound to
+	// IdVar verbatim. Set this when the target script owns its own flag parser
+	// (e.g. ai-skill passes RAW_ARGS to run_skill.py).
+	PassThroughArgs bool `yaml:"pass_through_args" mapstructure:"pass_through_args" json:"pass_through_args,omitempty"`
 }
 
 // SlackConfig holds Socket Mode credentials and the command routing table.

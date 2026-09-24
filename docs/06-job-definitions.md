@@ -54,6 +54,26 @@ job submission params  >  org configs  >  user configs  >  job_variables (YAML d
 
 ---
 
+## Auto-injected System Variables
+
+These template variables are automatically available in every task regardless of job configuration.
+They are injected by the formicary queen at task-dispatch time and cannot be overridden by user-defined
+variables (a warning is logged if a user-defined variable has the same name).
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `JobID` | string | Job request ID |
+| `JobType` | string | Job type name |
+| `JobRetry` | int | Current retry count (0 for first attempt) |
+| `JobElapsedSecs` | uint64 | Seconds elapsed since job started |
+| `UserID` | string | ID of the user who submitted the job |
+| `OrganizationID` | string | Org ID (empty for personal accounts) |
+| `JobAPIToken` | string (secret) | Short-lived JWT for calling the Formicary REST API from inside a task. Absent when auth is disabled (`jwt_secret` not configured). TTL = clamp(job.timeout × (job.retry + 1), 4h, 24h). Use as `Authorization: Bearer {{.JobAPIToken}}` in scripts or set `FORMICARY_TOKEN: "{{.JobAPIToken}}"` in `environment`. |
+
+> **`JobAPIToken` is a reserved name.** Do not define a job variable, org config, or job context entry with this name — it will be replaced by the system-generated token and a warning will be logged.
+
+---
+
 ## Secrets vs Org Configs — What Goes Where
 
 This distinction is critical. Getting it wrong causes silent failures where empty template values override k8s secret values.

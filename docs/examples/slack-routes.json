@@ -43,7 +43,7 @@
                "gh risks","github risks"],"job_type":"ai-adhoc","description":"Security or risk scan","params":{"Skill":"ygs-risk-scan"}},
   {"triggers":["scope","scope-router"],"job_type":"ai-scope-router","id_var":"PRNumber",
    "description":"Classify PR blast radius and risk tier. Usage: @bot scope <pr-or-branch> [--repo <url>] [--branch <name>]"},
-  {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs",
+  {"triggers":["skill","run skill","invoke skill"],"job_type":"ai-skill","id_var":"RawArgs","pass_through_args":true,
    "description":"Run any YGS skill. Usage: @bot skill <name> [--repo <url>] [--branch <name>] [--tracker github|jira] [--model <id>] [--service <image:tag>] [--service-port <port>] [--service-cmd <cmd>] [--service-args <args>] [-- instructions]."},
   {"triggers":["standup","daily","scrum","sync",
                "jira standup","jira daily","jira scrum",

@@ -1060,6 +1060,8 @@ func (jsm *JobExecutionStateMachine) buildJobAPIToken() string {
 	if timeout == 0 {
 		timeout = time.Hour
 	}
+	// Retry is the max configured retries (not the current attempt via Request.GetRetried()).
+	// The token must outlive the entire job including all retry attempts.
 	retry := jsm.JobDefinition.Retry
 	ttl := timeout * time.Duration(retry+1)
 	if ttl < jobAPITokenMinTTL {
@@ -1115,7 +1117,12 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 	}
 	// Inject a short-lived API token so tasks can call the Formicary API.
 	// secret=true ensures the value is redacted in logs and UI.
+	// JobAPIToken is a reserved system variable — warn if a user-defined variable shadows it.
 	if token := jsm.buildJobAPIToken(); token != "" {
+		if _, exists := res["JobAPIToken"]; exists {
+			logrus.WithField("JobID", jsm.Request.GetID()).Warn(
+				"buildDynamicParams: overriding user-defined JobAPIToken with system-generated token; rename your variable to avoid this conflict")
+		}
 		res["JobAPIToken"] = common.NewVariableValue(token, true)
 	}
 	return res

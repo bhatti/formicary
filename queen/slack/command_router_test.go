@@ -416,6 +416,37 @@ func Test_DetectTracker_Jira_Code_Audit_With_GH_URL_Returns_Github(t *testing.T)
 	require.Equal(t, "github", tracker)
 }
 
+// --- PassThroughArgs tests ---
+
+func Test_PassThroughArgs_Propagated_From_Route_Config(t *testing.T) {
+	// GIVEN a route with pass_through_args: true
+	routes := []config.SlackRouteConfig{
+		{
+			Triggers:        []string{"skill"},
+			JobType:         "ai-skill",
+			IdVar:           "RawArgs",
+			PassThroughArgs: true,
+		},
+	}
+	router := NewCommandRouter(routes)
+
+	// WHEN routing a skill command with skill-specific flags
+	result, _, err := router.Route("skill edge-review-ready --head origin/feature --base stage --branch dev")
+	require.NoError(t, err)
+
+	// THEN PassThroughArgs is set on the result
+	require.True(t, result.PassThroughArgs)
+	// AND the full trailing text is preserved verbatim
+	require.Equal(t, "edge-review-ready --head origin/feature --base stage --branch dev", result.Trailing)
+}
+
+func Test_PassThroughArgs_False_By_Default(t *testing.T) {
+	router := NewCommandRouter(testRoutes())
+	result, _, err := router.Route("review https://github.com/org/repo/pull/1 --branch main")
+	require.NoError(t, err)
+	require.False(t, result.PassThroughArgs)
+}
+
 // --- extractFlags tests ---
 
 func Test_ExtractFlags_No_Flags(t *testing.T) {

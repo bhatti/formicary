@@ -17,6 +17,8 @@
 #
 # Uses scripts/mq/test_impact.py for analysis, scripts/mq/run_scoped_ci.py for execution.
 # Credentials injected from 'ai-dev-credentials' Kubernetes secret.
+# Formicary auto-injects JobAPIToken (short-lived JWT, secret) for report task's API access.
+# See docs/06-job-definitions.md#auto-injected-system-variables for the full variable list.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs \

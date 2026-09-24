@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
 	common "plexobject.com/formicary/internal/types"
+	"plexobject.com/formicary/internal/web"
 	qtypes "plexobject.com/formicary/queen/types"
 )
 
@@ -212,30 +214,83 @@ func Test_BuildJobAPIToken_EmptyWhenNoSecret(t *testing.T) {
 	require.Empty(t, token, "expected empty token when JWTSecret is not set")
 }
 
+// parseJobAPIToken parses a JWT string signed with the given secret and returns its claims.
+func parseJobAPIToken(t *testing.T, tokenStr, secret string) *web.JwtClaims {
+	t.Helper()
+	parsed, err := jwt.ParseWithClaims(tokenStr, &web.JwtClaims{}, func(_ *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+	require.NoError(t, err, "JWT must be parseable with the known secret")
+	claims, ok := parsed.Claims.(*web.JwtClaims)
+	require.True(t, ok, "claims must be *web.JwtClaims")
+	return claims
+}
+
 // Test_BuildJobAPIToken_InjectedAsSecretVar verifies the full happy path:
-// when JWTSecret is set, buildJobAPIToken returns a non-empty JWT, and
-// buildDynamicParams injects it as a secret variable named JobAPIToken.
+// when JWTSecret is set, buildJobAPIToken returns a non-empty JWT, injects it
+// as a secret variable, and the TTL clamp is enforced at both the 4h floor and
+// the 24h ceiling.
 func Test_BuildJobAPIToken_InjectedAsSecretVar(t *testing.T) {
-	jsm, err := NewTestJobStateMachine()
-	require.NoError(t, err)
-	// PrepareLaunch loads JobDefinition; without it JobDefinition is nil.
-	err = jsm.PrepareLaunch(jsm.JobExecution.ID)
-	require.NoError(t, err)
+	const jwtSecret = "test-jwt-secret-32-bytes-padding!!"
 
-	// Set a JWT secret so the token can be generated.
-	jsm.serverCfg.Common.Auth.JWTSecret = "test-jwt-secret-32-bytes-padding!!"
-	// Give the job a known timeout so we can verify the TTL lower bound.
-	jsm.JobDefinition.Timeout = 30 * time.Minute
-	jsm.JobDefinition.Retry = 1
+	setup := func(t *testing.T) *JobExecutionStateMachine {
+		t.Helper()
+		jsm, err := NewTestJobStateMachine()
+		require.NoError(t, err)
+		require.NoError(t, jsm.PrepareLaunch(jsm.JobExecution.ID))
+		jsm.serverCfg.Common.Auth.JWTSecret = jwtSecret
+		return jsm
+	}
 
-	token := jsm.buildJobAPIToken()
-	require.NotEmpty(t, token, "expected a JWT token when JWTSecret is set")
+	t.Run("4h floor: timeout*retries < 4h is clamped up", func(t *testing.T) {
+		jsm := setup(t)
+		jsm.JobDefinition.Timeout = 30 * time.Minute
+		jsm.JobDefinition.Retry = 1 // 30min * 2 = 1h < 4h → clamp to 4h
 
-	// The token must appear in buildDynamicParams as a secret variable.
-	params := jsm.buildDynamicParams(nil)
-	v, ok := params["JobAPIToken"]
-	require.True(t, ok, "JobAPIToken must be present in dynamic params")
-	require.True(t, v.Secret, "JobAPIToken must be marked as secret so it is never logged")
-	require.NotEmpty(t, v.Value, "JobAPIToken value must not be empty")
+		token := jsm.buildJobAPIToken()
+		require.NotEmpty(t, token)
+
+		claims := parseJobAPIToken(t, token, jwtSecret)
+		require.WithinDuration(t, time.Now().Add(4*time.Hour), claims.ExpiresAt.Time, 2*time.Minute,
+			"1h computed TTL must be clamped up to 4h minimum")
+	})
+
+	t.Run("24h ceiling: timeout*retries > 24h is clamped down", func(t *testing.T) {
+		jsm := setup(t)
+		jsm.JobDefinition.Timeout = 24 * time.Hour
+		jsm.JobDefinition.Retry = 10 // 24h * 11 = 264h → clamp to 24h
+
+		token := jsm.buildJobAPIToken()
+		require.NotEmpty(t, token)
+
+		claims := parseJobAPIToken(t, token, jwtSecret)
+		require.WithinDuration(t, time.Now().Add(24*time.Hour), claims.ExpiresAt.Time, 2*time.Minute,
+			"264h computed TTL must be clamped down to 24h maximum")
+	})
+
+	t.Run("nominal: timeout*retries within [4h,24h] is unchanged", func(t *testing.T) {
+		jsm := setup(t)
+		jsm.JobDefinition.Timeout = 2 * time.Hour
+		jsm.JobDefinition.Retry = 2 // 2h * 3 = 6h — in range
+
+		token := jsm.buildJobAPIToken()
+		require.NotEmpty(t, token)
+
+		claims := parseJobAPIToken(t, token, jwtSecret)
+		require.WithinDuration(t, time.Now().Add(6*time.Hour), claims.ExpiresAt.Time, 2*time.Minute,
+			"6h computed TTL must be kept as-is")
+	})
+
+	t.Run("injected as secret in buildDynamicParams", func(t *testing.T) {
+		jsm := setup(t)
+		jsm.JobDefinition.Timeout = 30 * time.Minute
+		jsm.JobDefinition.Retry = 1
+
+		params := jsm.buildDynamicParams(nil)
+		v, ok := params["JobAPIToken"]
+		require.True(t, ok, "JobAPIToken must be present in dynamic params")
+		require.True(t, v.Secret, "JobAPIToken must be marked as secret so it is never logged")
+		require.NotEmpty(t, v.Value)
+	})
 }
 
