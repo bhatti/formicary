@@ -212,31 +212,44 @@
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <i class="ti ti-search text-muted"></i>
         <input id="topq" value="{{.Q}}" type="text" class="form-control form-control-sm border-0 shadow-none"
-               style="width:180px" placeholder="Search jobs…"
+               style="width:160px" placeholder="Search jobs…"
                onkeypress="if(event.key==='Enter'){doTopSearch()}">
-        <select id="topJobState" class="form-select form-select-sm border-0" style="width:130px">
+        <select id="topJobState" class="form-select form-select-sm border-0" style="width:120px">
           <option value="">All States</option>
           <option value="RUNNING">Running</option>
           <option value="WAITING">Pending</option>
           <option value="DONE">History</option>
         </select>
-        <select id="topJobType" class="form-select form-select-sm border-0" style="width:150px">
+        <select id="topJobType" class="form-select form-select-sm border-0" style="width:140px">
           <option value="">All Types</option>
           {{range .JobTypes}}<option value="{{.}}">{{.}}</option>{{end}}
         </select>
+        <input id="topUserId" value="{{.FilterUserID}}" type="text" class="form-control form-control-sm border-0 shadow-none"
+               style="width:110px" placeholder="User ID"
+               onkeypress="if(event.key==='Enter'){doTopSearch()}">
         <button class="btn btn-sm btn-outline-secondary" onclick="doTopSearch()"><i class="ti ti-search"></i></button>
       </div>
     </div>
   </header>
   <script>
+  (function initTopSearch() {
+    var p = new URLSearchParams(window.location.search);
+    var stateEl = document.getElementById('topJobState');
+    var typeEl  = document.getElementById('topJobType');
+    if (stateEl && p.get('job_state')) stateEl.value = p.get('job_state');
+    if (typeEl  && p.get('job_type'))  typeEl.value  = p.get('job_type');
+  })();
+
   function doTopSearch() {
-    var q = document.getElementById('topq').value;
+    var q     = document.getElementById('topq').value;
     var state = document.getElementById('topJobState').value;
     var jtype = document.getElementById('topJobType').value;
+    var uid   = document.getElementById('topUserId').value;
     var url = '/dashboard/jobs/requests?';
-    if (q) url += 'q=' + encodeURIComponent(q) + '&';
-    if (state) url += 'job_state=' + state + '&';
-    if (jtype) url += 'job_type=' + encodeURIComponent(jtype) + '&';
+    if (q)     url += 'q='         + encodeURIComponent(q)     + '&';
+    if (state) url += 'job_state=' + encodeURIComponent(state) + '&';
+    if (jtype) url += 'job_type='  + encodeURIComponent(jtype) + '&';
+    if (uid)   url += 'user_id='   + encodeURIComponent(uid)   + '&';
     window.location = url;
   }
   </script>

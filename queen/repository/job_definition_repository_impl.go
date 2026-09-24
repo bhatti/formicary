@@ -565,10 +565,10 @@ func (jdr *JobDefinitionRepositoryImpl) encryptionKey(
 
 func (jdr *JobDefinitionRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 	q := params["q"]
-	if q != nil {
-		qs := fmt.Sprintf("%%%s%%", q)
+	if qs, ok := q.(string); ok && qs != "" {
+		like := fmt.Sprintf("%%%s%%", qs)
 		tx = tx.Where("raw_yaml LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR job_type = ? OR platform = ?",
-			qs, qs, qs, qs, q, q)
+			like, like, like, like, qs, qs)
 	}
 	return addQueryParamsWhere(filterParams(params, "q"), tx)
 }

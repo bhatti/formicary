@@ -1165,11 +1165,11 @@ func (jrr *JobRequestRepositoryImpl) Count(
 
 func (jrr *JobRequestRepositoryImpl) addQuery(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 	q := params["q"]
-	if q != nil {
-		reqID, _ := strconv.ParseInt(fmt.Sprintf("%s", q), 10, 64)
-		qs := fmt.Sprintf("%%%s%%", q)
+	if qs, ok := q.(string); ok && qs != "" {
+		reqID, _ := strconv.ParseInt(qs, 10, 64)
+		like := fmt.Sprintf("%%%s%%", qs)
 		tx = tx.Where("id = ? OR job_type LIKE ? OR description LIKE ? OR user_id LIKE ? OR organization_id LIKE ? OR quick_search LIKE ?",
-			reqID, qs, qs, qs, qs, qs)
+			reqID, like, like, like, like, like)
 	}
 	jobState := params["job_state"]
 	if jobState != nil {

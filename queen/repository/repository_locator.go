@@ -450,6 +450,12 @@ func migrate(db *gorm.DB) error {
 // add where clause to query from generic params
 func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 	for k, v := range params {
+		// Skip empty-string values so that URL params like "job_type=" are treated
+		// as "no filter" rather than generating a "WHERE job_type = ''" clause that
+		// returns zero rows.
+		if s, ok := v.(string); ok && s == "" {
+			continue
+		}
 		k = strcase.ToSnake(k)
 		keyParts := strings.Split(k, ":")
 		// Validate the column name against the allowlist to prevent SQL injection.
