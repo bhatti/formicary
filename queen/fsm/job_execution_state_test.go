@@ -3,6 +3,7 @@ package fsm
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/require"
@@ -195,5 +196,46 @@ func Test_ShouldSkipAntCheckForMixedInternalAndExternal(t *testing.T) {
 
 	// THEN it should succeed — KUBERNETES ant is registered in the stub, FAN_OUT_JOB is skipped
 	require.NoError(t, err)
+}
+
+// Test_BuildJobAPIToken_EmptyWhenNoSecret verifies that buildJobAPIToken returns ""
+// when JWTSecret is not configured (the default in test configs — auth disabled).
+// This is the safe-fallback path: no token injected means tasks won't have JobAPIToken.
+func Test_BuildJobAPIToken_EmptyWhenNoSecret(t *testing.T) {
+	jsm, err := NewTestJobStateMachine()
+	require.NoError(t, err)
+	// TestServerConfig has Auth.JWTSecret == "" (auth disabled in tests).
+	require.Empty(t, jsm.serverCfg.Common.Auth.JWTSecret,
+		"precondition: test config must not have a JWTSecret")
+
+	token := jsm.buildJobAPIToken()
+	require.Empty(t, token, "expected empty token when JWTSecret is not set")
+}
+
+// Test_BuildJobAPIToken_InjectedAsSecretVar verifies the full happy path:
+// when JWTSecret is set, buildJobAPIToken returns a non-empty JWT, and
+// buildDynamicParams injects it as a secret variable named JobAPIToken.
+func Test_BuildJobAPIToken_InjectedAsSecretVar(t *testing.T) {
+	jsm, err := NewTestJobStateMachine()
+	require.NoError(t, err)
+	// PrepareLaunch loads JobDefinition; without it JobDefinition is nil.
+	err = jsm.PrepareLaunch(jsm.JobExecution.ID)
+	require.NoError(t, err)
+
+	// Set a JWT secret so the token can be generated.
+	jsm.serverCfg.Common.Auth.JWTSecret = "test-jwt-secret-32-bytes-padding!!"
+	// Give the job a known timeout so we can verify the TTL lower bound.
+	jsm.JobDefinition.Timeout = 30 * time.Minute
+	jsm.JobDefinition.Retry = 1
+
+	token := jsm.buildJobAPIToken()
+	require.NotEmpty(t, token, "expected a JWT token when JWTSecret is set")
+
+	// The token must appear in buildDynamicParams as a secret variable.
+	params := jsm.buildDynamicParams(nil)
+	v, ok := params["JobAPIToken"]
+	require.True(t, ok, "JobAPIToken must be present in dynamic params")
+	require.True(t, v.Secret, "JobAPIToken must be marked as secret so it is never logged")
+	require.NotEmpty(t, v.Value, "JobAPIToken value must not be empty")
 }
 

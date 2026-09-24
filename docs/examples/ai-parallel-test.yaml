@@ -30,7 +30,7 @@ timeout: 3600s
 variables:
   PRNumber:
     type: STRING
-    required: true
+    required: false
   BaseBranch:
     type: STRING
     required: false
@@ -60,7 +60,7 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
+    PR_NUMBER: "{{if .PRNumber}}{{.PRNumber}}{{end}}"
     BASE_BRANCH: "{{.BaseBranch}}"
     REPO_URL: "{{.Repo | yamlq}}"
     BRANCH_OVERRIDE: "{{.Branch | yamlq}}"
@@ -77,16 +77,20 @@ tasks:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
       ARGS=""
-      [ -n "{{.PRNumber}}" ] && ARGS="$ARGS --pr-number {{.PRNumber}}"
-      [ -n "{{.Repo}}" ] && ARGS="$ARGS --repo {{.Repo}}"
-      [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
+      {{- if .PRNumber}}
+      ARGS="$ARGS --pr-number {{.PRNumber}}"
+      {{- end}}
+      {{- if .Repo}}
+      ARGS="$ARGS --repo {{.Repo}}"
+      {{- end}}
+      {{- if .Branch}}
+      ARGS="$ARGS --branch {{.Branch}}"
+      {{- end}}
       python -m scripts.mq.clone_pr $ARGS
     - |
       # test_impact always runs the full suite by default (reliable — never 0/0 tests).
-      # Add --diff-scope --head <base> for diff-scoped execution on a branch PR.
       # Emits ::add-job-context TestShards:: (job-scoped) so fan_out.source can resolve it.
-      REF="{{.PRNumber}}"
-      [ -z "$REF" ] && REF="{{.Branch}}"
+      REF="{{if .PRNumber}}{{.PRNumber}}{{else}}{{.Branch}}{{end}}"
       python -m scripts.mq.test_impact --pr-number "$REF" --num-shards {{.MaxShards}}
   artifacts:
     paths:
@@ -107,9 +111,9 @@ tasks:
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
-    cpu_request: "4000m"
-    memory_limit: 16G
-    memory_request: 4G
+    cpu_request: "2000m"
+    memory_limit: 8G
+    memory_request: 2G
     volumes:
       empty_dir:
         - name: workspace
@@ -127,7 +131,7 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
+    PR_NUMBER: "{{if .PRNumber}}{{.PRNumber}}{{end}}"
     BASE_BRANCH: "{{.BaseBranch}}"
     REPO_URL: "{{.Repo | yamlq}}"
     BRANCH_OVERRIDE: "{{.Branch | yamlq}}"
@@ -137,14 +141,20 @@ tasks:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - |
       ARGS=""
-      [ -n "{{.PRNumber}}" ] && ARGS="$ARGS --pr-number {{.PRNumber}}"
-      [ -n "{{.Repo}}" ] && ARGS="$ARGS --repo {{.Repo}}"
-      [ -n "{{.Branch}}" ] && ARGS="$ARGS --branch {{.Branch}}"
+      {{- if .PRNumber}}
+      ARGS="$ARGS --pr-number {{.PRNumber}}"
+      {{- end}}
+      {{- if .Repo}}
+      ARGS="$ARGS --repo {{.Repo}}"
+      {{- end}}
+      {{- if .Branch}}
+      ARGS="$ARGS --branch {{.Branch}}"
+      {{- end}}
       python -m scripts.mq.clone_pr $ARGS
     - python -m scripts.mq.run_scoped_ci --shard '{{.shard}}'
   artifacts:
     paths:
-      - ./shard_result.json
+      - ./shard_result_*.json
       - ./test_output.xml
       - ./logs
     expire_after: 24h
@@ -179,6 +189,7 @@ tasks:
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_TOKEN: "{{.JobAPIToken}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
@@ -186,33 +197,10 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
+    PR_NUMBER: "{{if .PRNumber}}{{.PRNumber}}{{end}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      python3 -c "
-      import json, glob, os
-      results = []
-      for f in glob.glob('/workspace/shard_result_*.json'):
-          results.append(json.load(open(f)))
-      passed = sum(r.get('passed', 0) for r in results)
-      failed = sum(r.get('failed', 0) for r in results)
-      skipped = sum(r.get('skipped', 0) for r in results)
-      total = passed + failed + skipped
-      duration = max((r.get('duration_s', 0) for r in results), default=0)
-      summary = {
-          'pr_number': os.environ.get('PR_NUMBER'),
-          'shards': len(results),
-          'total': total, 'passed': passed, 'failed': failed, 'skipped': skipped,
-          'wall_clock_s': round(duration, 1),
-          'status': 'PASS' if failed == 0 else 'FAIL',
-          'failures': [f for r in results for f in r.get('failures', [])]
-      }
-      json.dump(summary, open('/workspace/test_summary.json', 'w'), indent=2)
-      icon = ':white_check_mark:' if failed == 0 else ':x:'
-      print(f'{icon} {passed}/{total} tests passed across {len(results)} shards ({duration:.0f}s wall clock)')
-      "
     - python -m scripts.mq.report
   artifacts:
     paths:

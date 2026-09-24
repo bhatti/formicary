@@ -13,12 +13,14 @@ import (
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/repository"
 	"plexobject.com/formicary/queen/resource"
+	"plexobject.com/formicary/queen/security"
 
 	"plexobject.com/formicary/internal/events"
 
 	"plexobject.com/formicary/internal/queue"
 	"plexobject.com/formicary/internal/tracing"
 	"plexobject.com/formicary/internal/utils"
+	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/config"
 
 	"github.com/sirupsen/logrus"
@@ -1034,6 +1036,55 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 	return res
 }
 
+// jobAPITokenMinTTL is the floor so a fresh token always outlasts network delays and queue lag.
+const jobAPITokenMinTTL = 4 * time.Hour
+
+// jobAPITokenMaxTTL is the ceiling so tokens from long-running jobs don't persist for days.
+const jobAPITokenMaxTTL = 24 * time.Hour
+
+// buildJobAPIToken generates a short-lived API JWT for the job's user so tasks can
+// call the Formicary API during execution (e.g. to read fan-out shard results).
+// TTL = clamp(job.Timeout × (job.Retry+1), 4h, 24h):
+//   - 4h minimum covers unexpected delays and queue lag without a tight deadline.
+//   - 24h maximum prevents stale tokens from long-running or highly-retried jobs.
+//
+// Returns "" if the user is nil, auth is disabled, or token signing fails.
+func (jsm *JobExecutionStateMachine) buildJobAPIToken() string {
+	if jsm.User == nil || jsm.serverCfg.Common.Auth.JWTSecret == "" {
+		return ""
+	}
+	timeout := jsm.JobDefinition.Timeout
+	if timeout == 0 {
+		timeout = jsm.serverCfg.Common.MaxJobTimeout
+	}
+	if timeout == 0 {
+		timeout = time.Hour
+	}
+	retry := jsm.JobDefinition.Retry
+	ttl := timeout * time.Duration(retry+1)
+	if ttl < jobAPITokenMinTTL {
+		ttl = jobAPITokenMinTTL
+	}
+	if ttl > jobAPITokenMaxTTL {
+		ttl = jobAPITokenMaxTTL
+	}
+	token, _, err := security.BuildToken(
+		jsm.User,
+		jsm.serverCfg.Common.Auth.JWTSecret,
+		ttl,
+		web.TokenTypeAPI,
+	)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobExecutionStateMachine",
+			"JobID":     jsm.Request.GetID(),
+			"TTL":       ttl,
+		}).WithError(err).Warn("buildJobAPIToken: failed to generate job API token")
+		return ""
+	}
+	return token
+}
+
 // buildDynamicParams builds job params
 func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string]common.VariableValue) map[string]common.VariableValue {
 	res := jsm.buildDynamicConfigs()
@@ -1061,6 +1112,11 @@ func (jsm *JobExecutionStateMachine) buildDynamicParams(taskDefParams map[string
 				res[next.Name] = vv
 			}
 		}
+	}
+	// Inject a short-lived API token so tasks can call the Formicary API.
+	// secret=true ensures the value is redacted in logs and UI.
+	if token := jsm.buildJobAPIToken(); token != "" {
+		res["JobAPIToken"] = common.NewVariableValue(token, true)
 	}
 	return res
 }

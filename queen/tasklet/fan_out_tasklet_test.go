@@ -4,6 +4,7 @@ package tasklet
 
 import (
 	"context"
+	"sync"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -21,7 +22,9 @@ import (
 	"plexobject.com/formicary/queen/resource"
 )
 
-func newTestFanOutTasklet(t *testing.T) (*FanOutTasklet, *manager.JobManager) {
+// newTestFanOutTasklet creates a FanOutTasklet wired to an in-process queue.
+// If sendReceive is non-nil it replaces the default COMPLETED stub callback.
+func newTestFanOutTasklet(t *testing.T, sendReceive queue.SendReceivePayloadFunc) (*FanOutTasklet, *manager.JobManager) {
 	t.Helper()
 	jobManager := manager.AssertTestJobManager(nil, t)
 	cfg := config.TestServerConfig()
@@ -37,26 +40,29 @@ func newTestFanOutTasklet(t *testing.T) (*FanOutTasklet, *manager.JobManager) {
 	}
 	requestRegistry := tasklet.NewRequestRegistry(&cfg.Common, metrics.New())
 
-	// Wire the queue client to return COMPLETED for any TaskRequest sent via SendReceive.
 	if channelClient, ok := queueClient.(*queue.ClientChannel); ok {
-		channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
-			var req common.TaskRequest
-			if err := json.Unmarshal(inReq.Payload, &req); err != nil {
-				return nil, err
-			}
-			resp := common.NewTaskResponse(&req)
-			resp.AntID = "ant-1"
-			resp.Host = "test"
-			resp.Status = common.COMPLETED
-			// Echo the item_var back as a context variable so callers can verify injection.
-			if v, ok := req.Variables["region"]; ok {
-				resp.AddContext("deployed_region", v.Value)
-			}
-			if v, ok := req.Variables["dataset"]; ok {
-				resp.AddContext("processed_dataset", v.Value)
-			}
-			return json.Marshal(resp)
-		})
+		if sendReceive != nil {
+			channelClient.SetSendReceivePayloadFunc(sendReceive)
+		} else {
+			// Default stub: echo item_var values back as context so callers can verify injection.
+			channelClient.SetSendReceivePayloadFunc(func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+				var req common.TaskRequest
+				if err := json.Unmarshal(inReq.Payload, &req); err != nil {
+					return nil, err
+				}
+				resp := common.NewTaskResponse(&req)
+				resp.AntID = "ant-1"
+				resp.Host = "test"
+				resp.Status = common.COMPLETED
+				if v, ok := req.Variables["region"]; ok {
+					resp.AddContext("deployed_region", v.Value)
+				}
+				if v, ok := req.Variables["dataset"]; ok {
+					resp.AddContext("processed_dataset", v.Value)
+				}
+				return json.Marshal(resp)
+			})
+		}
 	}
 
 	ft := NewFanOutTasklet(cfg, requestRegistry, resourceManager, jobManager, queueClient, "fan-out-topic")
@@ -90,18 +96,18 @@ func buildFanOutTaskRequest(regions []string) *common.TaskRequest {
 }
 
 func Test_FanOutTasklet_TerminateContainerReturnsError(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	_, err := ft.TerminateContainer(context.Background(), nil)
 	require.Error(t, err)
 }
 
 func Test_FanOutTasklet_PreExecuteReturnsTrue(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	require.True(t, ft.PreExecute(context.Background(), nil))
 }
 
 func Test_FanOutTasklet_ListContainersReturnsCompleted(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	req := &common.TaskRequest{ExecutorOpts: common.NewExecutorOptions("", common.FanOutJob)}
 	resp, err := ft.ListContainers(context.Background(), req)
 	require.NoError(t, err)
@@ -109,7 +115,7 @@ func Test_FanOutTasklet_ListContainersReturnsCompleted(t *testing.T) {
 }
 
 func Test_FanOutTasklet_MissingFanOutConfigFails(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	req := &common.TaskRequest{
 		JobType:      "test",
 		TaskType:     "deploy",
@@ -123,7 +129,7 @@ func Test_FanOutTasklet_MissingFanOutConfigFails(t *testing.T) {
 }
 
 func Test_FanOutTasklet_EmptySourceCompletesImmediately(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	req := buildFanOutTaskRequest([]string{}) // empty list
 	resp, err := ft.Execute(context.Background(), req)
 	require.NoError(t, err)
@@ -132,7 +138,7 @@ func Test_FanOutTasklet_EmptySourceCompletesImmediately(t *testing.T) {
 }
 
 func Test_FanOutTasklet_TaskFanOut_AllItemsDispatched(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	regions := []string{"us-east-1", "us-west-2", "eu-west-1"}
 	req := buildFanOutTaskRequest(regions)
 
@@ -148,7 +154,7 @@ func Test_FanOutTasklet_TaskFanOut_AllItemsDispatched(t *testing.T) {
 }
 
 func Test_FanOutTasklet_TaskFanOut_ItemVarInjected(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	regions := []string{"ap-southeast-1"}
 	req := buildFanOutTaskRequest(regions)
 
@@ -160,7 +166,7 @@ func Test_FanOutTasklet_TaskFanOut_ItemVarInjected(t *testing.T) {
 }
 
 func Test_FanOutTasklet_TaskFanOut_MissingSourceVariableFails(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	req := &common.TaskRequest{
 		JobType:         "test",
 		TaskType:        "deploy",
@@ -184,7 +190,7 @@ func Test_FanOutTasklet_TaskFanOut_MissingSourceVariableFails(t *testing.T) {
 }
 
 func Test_FanOutTasklet_TaskFanOut_FanOutModeInContext(t *testing.T) {
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	req := buildFanOutTaskRequest([]string{"us-east-1"})
 	resp, err := ft.Execute(context.Background(), req)
 	require.NoError(t, err)
@@ -193,7 +199,7 @@ func Test_FanOutTasklet_TaskFanOut_FanOutModeInContext(t *testing.T) {
 }
 
 func Test_FanOutTasklet_JobFanOut_SpawnsChildJobs(t *testing.T) {
-	ft, jobManager := newTestFanOutTasklet(t)
+	ft, jobManager := newTestFanOutTasklet(t, nil)
 	user := common.NewUser("", "fanout@formicary.io", "fan-out", "", acl.NewRoles(""))
 	user.ID = "fanout-user"
 	qc := common.NewQueryContext(user, "")
@@ -277,6 +283,51 @@ check:
 			}
 		}
 		require.True(t, found, "expected child job for dataset %s", ds)
+	}
+}
+
+// Test_FanOutTasklet_UniqueContainerNamesPerChild is a regression test for the bug
+// where all fan-out children cloned the parent's ExecutorOpts.Name unchanged.
+// When two children had the same pod name, k8s returned "already exists" on the second
+// concurrent pod creation, causing the fan-out task to fail.
+func Test_FanOutTasklet_UniqueContainerNamesPerChild(t *testing.T) {
+	var mu sync.Mutex
+	capturedNames := make([]string, 0)
+
+	ft, _ := newTestFanOutTasklet(t, func(_ context.Context, inReq *queue.SendReceiveRequest) ([]byte, error) {
+		var req common.TaskRequest
+		if err := json.Unmarshal(inReq.Payload, &req); err != nil {
+			return nil, err
+		}
+		// Capture the pod name assigned to each child so we can verify uniqueness.
+		mu.Lock()
+		capturedNames = append(capturedNames, req.ExecutorOpts.Name)
+		mu.Unlock()
+		resp := common.NewTaskResponse(&req)
+		resp.AntID = "ant-1"
+		resp.Host = "test"
+		resp.Status = common.COMPLETED
+		return json.Marshal(resp)
+	})
+
+	regions := []string{"us-east-1", "us-west-2", "eu-west-1"}
+	req := buildFanOutTaskRequest(regions)
+	// Give the parent a known container name so we can confirm children differ from it.
+	req.ExecutorOpts.Name = "frm-parent-pod-original"
+
+	resp, err := ft.Execute(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, common.COMPLETED, resp.Status)
+	require.Equal(t, len(regions), resp.TaskContext["FanOutItemCount"])
+
+	require.Len(t, capturedNames, len(regions), "expected one pod name per fan-out child")
+	// All pod names must be unique — no "already exists" collisions possible.
+	seen := make(map[string]bool)
+	for _, name := range capturedNames {
+		require.NotEmpty(t, name, "child pod name must not be empty")
+		require.False(t, seen[name], "duplicate pod name detected: %s — fan-out children must have unique names", name)
+		require.NotEqual(t, "frm-parent-pod-original", name, "child must not reuse parent pod name")
+		seen[name] = true
 	}
 }
 
@@ -387,7 +438,7 @@ func Test_FanOutTasklet_StructuredItemsSerializedAsJSON(t *testing.T) {
 		},
 	}
 
-	ft, _ := newTestFanOutTasklet(t)
+	ft, _ := newTestFanOutTasklet(t, nil)
 	_ = ft // used only to satisfy the test helper pattern
 
 	// Exercise the same logic used in dispatchTasksAndWait.

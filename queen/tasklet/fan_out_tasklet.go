@@ -18,6 +18,7 @@ import (
 	"plexobject.com/formicary/internal/tasklet"
 	"plexobject.com/formicary/internal/tracing"
 	common "plexobject.com/formicary/internal/types"
+	iutils "plexobject.com/formicary/internal/utils"
 	"plexobject.com/formicary/queen/config"
 	"plexobject.com/formicary/queen/manager"
 	"plexobject.com/formicary/queen/resource"
@@ -521,6 +522,13 @@ func (t *FanOutTasklet) dispatchSingleTask(
 	childOpts := cloneExecutorOpts(parentReq.ExecutorOpts)
 	childOpts.Method = method
 	childOpts.FanOut = nil // prevent recursion
+	// Each fan-out child needs a unique pod name. The parent's Name is reused from the
+	// original TaskRequest — if multiple children share it, k8s returns "already exists".
+	// TaskExecutionID is a ULID that is unique per execution attempt (changes on retry),
+	// and childTaskType encodes the item index, so the combination is collision-free
+	// across children and across retries without any randomness.
+	childOpts.Name = iutils.MakeDNS1123Compatible(
+		fmt.Sprintf("frm-%s-%s", parentReq.TaskExecutionID, childTaskType))
 
 	childReq := &common.TaskRequest{
 		JobDefinitionID: parentReq.JobDefinitionID,

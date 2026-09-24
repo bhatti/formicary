@@ -449,3 +449,72 @@ func Test_YamlQEscapesQuotesForYAMLEmbedding(t *testing.T) {
 		})
 	}
 }
+
+// Test_OptionalVarNoValue verifies that Go template {{if .Var}} guards prevent
+// "<no value>" from leaking into bash scripts when optional job variables are unset.
+//
+// Root cause: bash conditionals like `[ -n "{{.PRNumber}}" ]` render to
+// `[ -n "<no value>" ]` when PRNumber is absent — which is always TRUE, causing
+// the script to pass a literal "<no value>" string to the next command.
+// Fix: use {{if .Var}}...{{end}} so unset vars produce no output at all.
+func Test_OptionalVarNoValue(t *testing.T) {
+	tests := []struct {
+		name           string
+		tmpl           string
+		vars           map[string]interface{}
+		mustNotContain string
+		mustContain    string
+	}{
+		{
+			name: "unset PRNumber omitted from ARGS via if-guard",
+			tmpl: `ARGS=""
+{{- if .PRNumber}}
+ARGS="$ARGS --pr-number {{.PRNumber}}"
+{{- end}}
+{{- if .Repo}}
+ARGS="$ARGS --repo {{.Repo}}"
+{{- end}}
+python -m scripts.mq.clone_pr $ARGS`,
+			vars:           map[string]interface{}{"Repo": "https://github.com/org/repo"},
+			mustNotContain: "<no value>",
+			mustContain:    "--repo https://github.com/org/repo",
+		},
+		{
+			name: "set PRNumber included in ARGS via if-guard",
+			tmpl: `ARGS=""
+{{- if .PRNumber}}
+ARGS="$ARGS --pr-number {{.PRNumber}}"
+{{- end}}
+python -m scripts.mq.clone_pr $ARGS`,
+			vars:           map[string]interface{}{"PRNumber": "42"},
+			mustNotContain: "<no value>",
+			mustContain:    "--pr-number 42",
+		},
+		{
+			name: "REF falls back to Branch when PRNumber unset",
+			tmpl: `REF="{{if .PRNumber}}{{.PRNumber}}{{else}}{{.Branch}}{{end}}"
+python -m scripts.mq.test_impact --pr-number "$REF"`,
+			vars:           map[string]interface{}{"Branch": "main"},
+			mustNotContain: "<no value>",
+			mustContain:    `REF="main"`,
+		},
+		{
+			name: "REF uses PRNumber when set",
+			tmpl: `REF="{{if .PRNumber}}{{.PRNumber}}{{else}}{{.Branch}}{{end}}"
+python -m scripts.mq.test_impact --pr-number "$REF"`,
+			vars:           map[string]interface{}{"PRNumber": "99", "Branch": "main"},
+			mustNotContain: "<no value>",
+			mustContain:    `REF="99"`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rendered, err := ParseTemplate(tc.tmpl, tc.vars)
+			require.NoError(t, err)
+			require.NotContains(t, rendered, tc.mustNotContain,
+				"rendered script must not contain Go template sentinel '<no value>': %s", rendered)
+			require.Contains(t, rendered, tc.mustContain,
+				"rendered script must contain expected text: %s", rendered)
+		})
+	}
+}
