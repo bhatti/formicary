@@ -101,3 +101,76 @@ tasks:
 	require.Equal(t, "Always", opts.MainContainer.ImagePullPolicy,
 		"ImagePullPolicy should survive ParseYamlTag + Unmarshal round-trip")
 }
+
+// Test_ShouldParseTaskWithTemplateConditional verifies that a task containing a
+// {{if}}...{{end}} block at column 0 (common for optional services blocks) is fully
+// extracted by ParseYamlTag — specifically that fields AFTER the conditional block
+// (container, script, environment) are included in the output.
+func Test_ShouldParseTaskWithTemplateConditional(t *testing.T) {
+	jobYaml := `job_type: ai-contract-test
+tasks:
+- task_type: record
+  method: KUBERNETES
+  timeout: 15m
+  host_network: true
+  working_dir: /workspace
+{{if .ServiceImage}}
+  services:
+    - name: svc
+      image: "{{.ServiceImage}}"
+{{end}}
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    memory_limit: 4G
+  environment:
+    PR_NUMBER: "{{.PRNumber}}"
+  script:
+    - python -m scripts.mq.clone_pr
+    - python -m scripts.contract.record
+  on_completed: fuzz
+- task_type: done
+  method: SHELL
+  script:
+    - echo done
+`
+	// ParseYamlTag must include the template conditional block AND all fields that
+	// follow it (container, environment, script) — not terminate at {{if .ServiceImage}}.
+	ser := ParseYamlTag(jobYaml, "task_type: record")
+	require.NotEmpty(t, ser)
+	require.Contains(t, ser, "script", "script must be extracted even when preceded by {{if}} block")
+	require.Contains(t, ser, "container", "container must be extracted even when preceded by {{if}} block")
+	require.Contains(t, ser, "{{if .ServiceImage}}", "template directive must be preserved verbatim")
+	require.Contains(t, ser, "{{end}}", "{{end}} directive must be preserved verbatim")
+
+	// The extracted fragment must not include the next task.
+	require.NotContains(t, ser, "task_type: done")
+}
+
+// Test_ShouldNotTerminateTaskExtractionOnTemplateEnd verifies that a lone {{end}}
+// at column 0 does not prematurely stop extraction.
+func Test_ShouldNotTerminateTaskExtractionOnTemplateEnd(t *testing.T) {
+	jobYaml := `job_type: test
+tasks:
+- task_type: worker
+  method: KUBERNETES
+  host_network: true
+{{if .UseCache}}
+  cache:
+    key: deps
+    paths: [vendor/]
+{{end}}
+  container:
+    image: alpine:latest
+  script:
+    - echo hello
+- task_type: done
+  method: SHELL
+  script:
+    - echo done
+`
+	ser := ParseYamlTag(jobYaml, "task_type: worker")
+	require.Contains(t, ser, "script")
+	require.Contains(t, ser, "container")
+	require.NotContains(t, ser, "task_type: done")
+}

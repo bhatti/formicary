@@ -2,24 +2,20 @@
 #
 # AI-driven contract + fuzz testing via api-mock-service.
 #
-# Pipeline: record → generate-contracts → fuzz → report → done
+# Pipeline: record → fuzz → report → done
 #
-# 1. record:              Runs the test suite through the api-mock-service proxy
-#                         to capture API interactions as recordings.
-# 2. generate-contracts:  Derives OpenAPI contracts from recordings, validates
-#                         against existing contracts for breaking changes.
-# 3. fuzz:                Generates mutated requests (7 field-level + 4 sequence-level
-#                         strategies), runs them against the service, applies delta
-#                         debugging shrink to minimize failing cases.
-# 4. report:              Aggregates findings, exports JUnit XML, posts to PR/Slack.
-#
-# Requires api-mock-service running as a sidecar or pre-deployed.
+# 1. record  — clone repo, drive API through api-mock-service recording proxy
+# 2. fuzz    — replay contracts, discover endpoints, run security probes
+# 3. report  — aggregate findings, export JUnit XML, post to Slack
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+#
+# Trigger:
+#   @bot contract-test https://github.com/OWASP/wrongsecrets --service jeroenwillemsen/wrongsecrets:latest-no-vault
 
 job_type: ai-contract-test
-description: "Contract validation + fuzz testing via api-mock-service proxy"
+description: "Contract validation + security fuzzing via api-mock-service proxy"
 max_concurrency: 5
 timeout: 3600s
 
@@ -36,41 +32,35 @@ variables:
 
 tasks:
 # --- RECORD ------------------------------------------------------------------
-# Run test suite through api-mock-service proxy to capture interactions.
 - task_type: record
   method: KUBERNETES
   timeout: 15m
   report_stdout: true
   host_network: true
   working_dir: /workspace
-  {{if or .Service .ServiceImage}}
+{{if .ServiceImage}}
   services:
     - name: "{{default "service-under-test" .ServiceName}}"
       alias: "{{default "service-under-test" .ServiceName}}"
-      image: "{{or .Service .ServiceImage}}"
-      ports:
-        - number: {{default "8080" .ServicePort}}
+      image: "{{.ServiceImage}}"
       memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
       cpu_request: "{{default "250m" .ServiceCpuRequest}}"
-      {{if .ServiceCommand}}
-      command: ["/bin/sh", "-c", "{{.ServiceCommand}}"]
-      {{end}}
     - name: api-mock-service
       alias: api-mock-service
       image: plexobject/api-mock-service:latest
       ports:
-        - number: {{default "8081" .MockServicePort}}
+        - number: 8081
       memory_limit: "512Mi"
       cpu_request: "100m"
       command: ["/app/api-mock-service"]
       args:
         - "--httpPort"
-        - "{{default "8081" .MockServicePort}}"
+        - "8081"
         - "--proxyPort"
-        - "{{default "8082" .ProxyPort}}"
+        - "8082"
         - "--dataDir"
         - "/workspace/recordings"
-  {{end}}
+{{end}}
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
@@ -100,101 +90,20 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.mq.clone_pr --pr-number "${PR_NUMBER}"
-    - |
-      python3 - <<'PYEOF'
-      import json, subprocess, os, time, urllib.request, urllib.error
-
-      service_port = os.environ.get('SERVICE_PORT', '8080')
-      service_url = os.environ.get('SERVICE_URL', '').strip() or f'http://localhost:{service_port}'
-      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
-      proxy_port = os.environ.get('PROXY_PORT', '8082')
-      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
-
-      os.makedirs(f'{ws}/recordings', exist_ok=True)
-
-      # api-mock-service runs as a Kubernetes sidecar (started before this task).
-      # Wait for it to be ready (up to 30s). Treat 4xx as alive — /_health returns 404.
-      ams_url = f'http://localhost:{mock_port}/_health'
-      ams_ready = False
-      for _ in range(15):
-          try:
-              urllib.request.urlopen(ams_url, timeout=2)
-              ams_ready = True
-              break
-          except urllib.error.HTTPError as e:
-              if e.code < 500:
-                  ams_ready = True
-                  break
-              time.sleep(2)
-          except Exception:
-              time.sleep(2)
-
-      if ams_ready:
-          print(f'[record] api-mock-service ready at localhost:{mock_port}')
-          # Run the repo test suite through the recording proxy (best-effort).
-          env = os.environ.copy()
-          env['HTTP_PROXY'] = f'http://localhost:{proxy_port}'
-          env['HTTPS_PROXY'] = f'http://localhost:{proxy_port}'
-          env['NO_PROXY'] = ''
-          result = subprocess.run(
-              ['make', 'test'], cwd=f'{ws}/repo',
-              env=env, capture_output=True, text=True, timeout=1800
-          )
-          test_exit = result.returncode
-          proxy_used = True
-          print(f'[record] test suite exit={test_exit}')
-          if result.stdout:
-              print(result.stdout[-2000:])
-          if result.stderr:
-              print(result.stderr[-1000:], file=__import__('sys').stderr)
-
-          # Also drive the API directly through the proxy.
-          # Ensures recording happens even when the repo has no test suite or make test fails.
-          os.environ.pop('no_proxy', None)
-          os.environ.pop('NO_PROXY', None)
-          proxy_handler = urllib.request.ProxyHandler({'http': f'http://localhost:{proxy_port}'})
-          opener = urllib.request.build_opener(proxy_handler)
-          for probe_path in ['/', '/health', '/api', '/api/Challenges', '/api/challenges',
-                              '/docs', '/swagger', '/openapi.json', '/v1']:
-              try:
-                  req = urllib.request.Request(f'{service_url}{probe_path}')
-                  try:
-                      resp = opener.open(req, timeout=5)
-                      print(f'[record] probe {probe_path} → {resp.status}')
-                  except urllib.error.HTTPError as e:
-                      print(f'[record] probe {probe_path} → {e.code}')
-              except Exception as ex:
-                  pass
-      else:
-          print(f'[record] WARNING: api-mock-service not reachable at localhost:{mock_port} — recording skipped')
-          test_exit = 0
-          proxy_used = False
-
-      record_result = {
-          'test_exit_code': test_exit,
-          'recordings_dir': f'{ws}/recordings',
-          'proxy_used': proxy_used,
-          'service_url': service_url,
-          'mock_service_url': f'http://localhost:{mock_port}',
-      }
-      json.dump(record_result, open(f'{ws}/record_result.json', 'w'), indent=2)
-      print(f'[record] complete: proxy_used={proxy_used} test_exit={test_exit}')
-      PYEOF
+    - python -m scripts.mq.clone_pr
+    - python -m scripts.contract.record
   artifacts:
     paths:
       - ./record_result.json
       - ./recordings
-      - ./logs
     expire_after: 24h
-  on_completed: generate-contracts
+  on_completed: fuzz
   on_failed: notify-error
 
-# --- GENERATE-CONTRACTS ------------------------------------------------------
-# Derive contracts from recordings, check for breaking changes.
-- task_type: generate-contracts
+# --- FUZZ --------------------------------------------------------------------
+- task_type: fuzz
   method: KUBERNETES
-  timeout: 10m
+  timeout: 20m
   report_stdout: true
   host_network: true
   working_dir: /workspace
@@ -202,8 +111,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 2G
-    memory_request: 512Mi
+    memory_limit: 4G
+    memory_request: 1G
     volumes:
       empty_dir:
         - name: workspace
@@ -214,307 +123,24 @@ tasks:
     - record
   environment:
     WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
-    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
-    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
-    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    CODEBASE_DIR: /workspace/repo
-    MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      python3 - <<'PYEOF'
-      import json, glob, os, time, urllib.request, urllib.error
-
-      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
-      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
-      recordings_dir = f'{ws}/recordings'
-      contracts_dir = f'{ws}/contracts'
-      os.makedirs(contracts_dir, exist_ok=True)
-
-      # Check if api-mock-service sidecar is running
-      ams_base = f'http://localhost:{mock_port}'
-      ams_ready = False
-      for _ in range(5):
-          try:
-              urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
-              ams_ready = True
-              break
-          except urllib.error.HTTPError as e:
-              if e.code < 500:
-                  ams_ready = True
-                  break
-              time.sleep(2)
-          except Exception:
-              time.sleep(2)
-
-      if ams_ready:
-          # api-mock-service already has recordings from the record task (shared workspace volume).
-          # Export the derived OpenAPI contract via its REST API.
-          try:
-              resp = urllib.request.urlopen(f'{ams_base}/_oapi', timeout=30)
-              spec_yaml = resp.read()
-              with open(f'{contracts_dir}/generated_openapi.yaml', 'wb') as f:
-                  f.write(spec_yaml)
-              print(f'[contracts] exported OpenAPI spec from api-mock-service ({len(spec_yaml)} bytes)')
-          except Exception as e:
-              print(f'[contracts] OpenAPI export failed (non-fatal): {e}')
-      else:
-          # Fallback: derive minimal contract map from recording JSON files
-          recordings = []
-          for f in sorted(glob.glob(f'{recordings_dir}/**/*.json', recursive=True)):
-              try:
-                  recordings.append(json.load(open(f)))
-              except Exception:
-                  pass
-          endpoints = {}
-          for r in recordings:
-              key = f'{r.get("method", "GET")} {r.get("path", "/")}'
-              if key not in endpoints:
-                  endpoints[key] = {'request_samples': [], 'response_samples': []}
-              endpoints[key]['request_samples'].append(r.get('request_body'))
-              endpoints[key]['response_samples'].append({
-                  'status': r.get('status_code'), 'body': r.get('response_body')
-              })
-          json.dump(endpoints, open(f'{contracts_dir}/derived_contracts.json', 'w'), indent=2)
-          print(f'[contracts] derived {len(endpoints)} endpoints from {len(recordings)} recordings (fallback)')
-
-      # Breaking-change diff: compare generated spec against baseline if committed in repo.
-      # Requires oasdiff: https://github.com/oasdiff/oasdiff
-      breaking_changes = []
-      baseline = f'{ws}/repo/openapi/openapi.yaml'
-      generated = f'{contracts_dir}/generated_openapi.yaml'
-      if os.path.exists(baseline) and os.path.exists(generated):
-          import subprocess
-          diff = subprocess.run(
-              ['oasdiff', 'breaking', baseline, generated, '--format', 'json'],
-              capture_output=True, text=True
-          )
-          if diff.returncode == 0 and diff.stdout.strip():
-              try:
-                  breaking_changes = json.loads(diff.stdout)
-              except Exception:
-                  breaking_changes = [{'raw': diff.stdout[:500]}]
-          print(f'[contracts] oasdiff: {len(breaking_changes)} breaking changes')
-      elif not os.path.exists(baseline):
-          print(f'[contracts] no baseline contract at {baseline} — skipping breaking-change diff')
-
-      result = {
-          'contracts_generated': True,
-          'contracts_dir': contracts_dir,
-          'breaking_changes': breaking_changes,
-          'has_breaking_changes': len(breaking_changes) > 0,
-          'ams_used': ams_ready,
-      }
-      json.dump(result, open(f'{ws}/contract_result.json', 'w'), indent=2)
-      print(f'[contracts] complete: {len(breaking_changes)} breaking changes, ams_used={ams_ready}')
-      PYEOF
-  artifacts:
-    paths:
-      - ./contract_result.json
-      - ./contracts
-    expire_after: 24h
-  on_completed: fuzz
-  on_failed: notify-error
-
-# --- FUZZ --------------------------------------------------------------------
-# Generate mutated requests using 7 field-level + 4 sequence-level strategies.
-- task_type: fuzz
-  method: KUBERNETES
-  timeout: 20m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "1000m"
-    memory_limit: 4G
-    memory_request: 2G
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - generate-contracts
-  environment:
-    WORKSPACE_DIR: /workspace
     SERVICE_URL: "{{.ServiceURL}}"
     SERVICE_PORT: "{{default "8080" .ServicePort}}"
     MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
-    MAX_FUZZ_ITERATIONS: "{{.MaxFuzzIterations}}"
-    FUZZ_TIMEOUT: "{{.FuzzTimeout}}"
+    PR_NUMBER: "{{.PRNumber}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      python3 - <<'PYEOF'
-      import json, os, time, urllib.request, urllib.error
-
-      ws = os.environ.get('WORKSPACE_DIR', '/workspace')
-      service_port = os.environ.get('SERVICE_PORT', '8080')
-      service_url = os.environ.get('SERVICE_URL', '').strip() or f'http://localhost:{service_port}'
-      mock_port = os.environ.get('MOCK_SERVICE_PORT', '8081')
-      max_iterations = int(os.environ.get('MAX_FUZZ_ITERATIONS', '100'))
-      fuzz_timeout = int(os.environ.get('FUZZ_TIMEOUT', '600'))
-
-      # api-mock-service runs as a Kubernetes sidecar. Check if it's reachable.
-      ams_base = f'http://localhost:{mock_port}'
-      ams_ready = False
-      for _ in range(10):
-          try:
-              urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
-              ams_ready = True
-              break
-          except urllib.error.HTTPError as e:
-              if e.code < 500:
-                  ams_ready = True
-                  break
-              time.sleep(2)
-          except Exception:
-              time.sleep(2)
-
-      if ams_ready:
-          print(f'[fuzz] api-mock-service reachable at {ams_base}')
-          # 1. Upload OpenAPI spec if present (enables spec-driven fuzzing)
-          openapi_spec = f'{ws}/repo/openapi/openapi.yaml'
-          if os.path.exists(openapi_spec):
-              with open(openapi_spec, 'rb') as f:
-                  req = urllib.request.Request(
-                      f'{ams_base}/_oapi',
-                      data=f.read(),
-                      headers={'Content-Type': 'application/yaml'},
-                      method='POST'
-                  )
-                  try:
-                      urllib.request.urlopen(req, timeout=10)
-                      print(f'[fuzz] uploaded OpenAPI spec from {openapi_spec}')
-                  except Exception as e:
-                      print(f'[fuzz] OpenAPI upload failed (non-fatal): {e}')
-
-          # 2. Run contract tests via POST /_contracts/{group}
-          # Request: {"base_url": str, "execution_times": int}
-          # Response: {"succeeded": int, "failed": int, "errors": {...}, "results": {...}}
-          contract_body = json.dumps({'base_url': service_url, 'execution_times': 3}).encode()
-          req = urllib.request.Request(
-              f'{ams_base}/_contracts/default',
-              data=contract_body, method='POST',
-              headers={'Content-Type': 'application/json'})
-          try:
-              resp = urllib.request.urlopen(req, timeout=120)
-              contract_resp = json.loads(resp.read())
-              print(f'[fuzz] contracts: succeeded={contract_resp.get("succeeded",0)} '
-                    f'failed={contract_resp.get("failed",0)}')
-          except urllib.error.HTTPError as e:
-              contract_resp = {'succeeded': 0, 'failed': 0, 'error': str(e)}
-              print(f'[fuzz] contract test HTTP {e.code}: {e.read().decode()[:300]}')
-          except Exception as e:
-              contract_resp = {'succeeded': 0, 'failed': 0, 'error': str(e)}
-              print(f'[fuzz] contract test error: {e}')
-
-          # 3. Discover endpoints from recording directory structure, then inject security payloads.
-          # api-mock-service stores recordings as: recordings/api_contracts/{path...}/{METHOD}/*.yaml
-          # Parse the directory tree to get actual (method, path) pairs — no hardcoded endpoints.
-          import glob, urllib.parse
-          recording_base = f'{ws}/recordings/api_contracts'
-          discovered = []
-          seen = set()
-          for yaml_file in glob.glob(f'{recording_base}/**/*.yaml', recursive=True):
-              rel = os.path.dirname(yaml_file)[len(recording_base):]
-              parts = [p for p in rel.strip('/').split('/') if p]
-              if parts and parts[-1] == parts[-1].upper() and parts[-1].isalpha():
-                  method = parts[-1]
-                  api_path = '/' + '/'.join(parts[:-1])
-                  key = (method, api_path)
-                  if key not in seen:
-                      seen.add(key)
-                      discovered.append(key)
-          print(f'[fuzz] discovered {len(discovered)} endpoints: {discovered}')
-
-          sqli_val = "' OR '1'='1"
-          xss_val = '<script>alert(1)</script>'
-          security_probes = []
-          for method, api_path in discovered[:10]:
-              encoded_sqli = urllib.parse.quote(sqli_val, safe='')
-              if method == 'GET':
-                  security_probes.append(
-                      (f'sqli_get:{api_path}', 'GET',
-                       f'{service_url}{api_path}?q={encoded_sqli}', None))
-                  security_probes.append(
-                      (f'path_trav:{api_path}', 'GET',
-                       f'{service_url}{api_path}/../../etc/passwd', None))
-              elif method in ('POST', 'PUT', 'PATCH'):
-                  security_probes.append(
-                      (f'sqli_body:{api_path}', method,
-                       f'{service_url}{api_path}', {'input': sqli_val}))
-                  security_probes.append(
-                      (f'xss_body:{api_path}', method,
-                       f'{service_url}{api_path}', {'input': xss_val}))
-                  security_probes.append(
-                      (f'long_input:{api_path}', method,
-                       f'{service_url}{api_path}', {'input': 'A' * 5000}))
-          if not security_probes:
-              print('[fuzz] no endpoints discovered from recordings — skipping injection probes')
-          findings = []
-          security = {'sql_injection': 0, 'xss': 0, 'path_traversal': 0, 'server_errors': 0}
-          for probe_name, method, url, body in security_probes:
-              data = json.dumps(body).encode() if body is not None else None
-              req_probe = urllib.request.Request(
-                  url, data=data, method=method,
-                  headers={'Content-Type': 'application/json'} if data else {})
-              try:
-                  r = urllib.request.urlopen(req_probe, timeout=10)
-                  status, resp_body = r.status, r.read().decode()[:500]
-              except urllib.error.HTTPError as e:
-                  status, resp_body = e.code, e.read().decode()[:500]
-              except Exception as ex:
-                  status, resp_body = -1, str(ex)
-              # 5xx on injection input = possible vuln; SQL keywords in body = confirmed
-              sqli_leak = any(kw in resp_body.lower() for kw in
-                              ['sql', 'syntax error', 'pg_', 'mysql', 'sqlite'])
-              is_finding = status >= 500 or sqli_leak
-              if is_finding:
-                  severity = 'critical' if sqli_leak else 'medium'
-                  findings.append({'probe': probe_name, 'status': status,
-                                   'severity': severity, 'sqli_leak': sqli_leak})
-                  if status >= 500:
-                      security['server_errors'] += 1
-                  if sqli_leak:
-                      security['sql_injection'] += 1
-              print(f'[security] {probe_name}: status={status} finding={is_finding}')
-          print(f'[security] {len(security_probes)} probes, {len(findings)} findings')
-
-          fuzz = {
-              'iterations': len(security_probes),
-              'findings': findings,
-              'contract_results': contract_resp,
-              'security_summary': security,
-              'ams_used': True,
-          }
-      else:
-          print(f'[fuzz] WARNING: api-mock-service not reachable at {ams_base} — skipping fuzz')
-          fuzz = {'iterations': 0, 'findings': [], 'ams_used': False,
-                  'note': 'api-mock-service sidecar not reachable; re-run with --service flag'}
-
-      json.dump(fuzz, open(f'{ws}/fuzz_result.json', 'w'), indent=2)
-      critical = sum(1 for f in fuzz['findings'] if f.get('severity') == 'critical')
-      print(f'[fuzz] complete: iterations={fuzz["iterations"]} findings={len(fuzz["findings"])} critical={critical}')
-      PYEOF
+    - python -m scripts.contract.fuzz
   artifacts:
     paths:
       - ./fuzz_result.json
+      - ./fuzz_results.xml
+      - ./contract_test_summary.json
     expire_after: 24h
   on_completed: report
   on_failed: report
 
 # --- REPORT ------------------------------------------------------------------
-# Aggregate contract + fuzz findings, export JUnit XML, post summary.
 - task_type: report
   method: KUBERNETES
   timeout: 5m
@@ -534,7 +160,6 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
-    - generate-contracts
     - fuzz
   environment:
     WORKSPACE_DIR: /workspace
@@ -544,53 +169,12 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
-    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     PR_NUMBER: "{{.PRNumber}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - |
-      python3 -c "
-      import json, os
-      from xml.etree.ElementTree import Element, SubElement, tostring
-
-      contract = json.load(open('/workspace/contract_result.json')) if os.path.exists('/workspace/contract_result.json') else {}
-      fuzz = json.load(open('/workspace/fuzz_result.json')) if os.path.exists('/workspace/fuzz_result.json') else {}
-
-      # Build JUnit XML
-      suite = Element('testsuite', name='contract-fuzz-tests')
-      suite.set('tests', str(fuzz.get('iterations', 0)))
-      suite.set('failures', str(len(fuzz.get('findings', []))))
-
-      for i, finding in enumerate(fuzz.get('findings', [])):
-          tc = SubElement(suite, 'testcase',
-                          name=f'fuzz-{i}-{finding.get(\"mutation\", \"unknown\")}',
-                          classname=finding.get('endpoint', 'unknown'))
-          failure = SubElement(tc, 'failure',
-                              message=finding.get('mutation', ''),
-                              type=finding.get('severity', 'medium'))
-          failure.text = json.dumps(finding, indent=2)
-
-      with open('/workspace/fuzz_results.xml', 'wb') as f:
-          f.write(b'<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')
-          f.write(tostring(suite))
-
-      # Summary
-      summary = {
-          'pr_number': os.environ.get('PR_NUMBER'),
-          'contract_breaking_changes': len(contract.get('breaking_changes', [])),
-          'fuzz_iterations': fuzz.get('iterations', 0),
-          'fuzz_findings': len(fuzz.get('findings', [])),
-          'critical_findings': sum(1 for f in fuzz.get('findings', []) if f.get('severity') == 'critical'),
-          'status': 'FAIL' if contract.get('has_breaking_changes') or any(f.get('severity') == 'critical' for f in fuzz.get('findings', [])) else 'PASS'
-      }
-      json.dump(summary, open('/workspace/contract_test_summary.json', 'w'), indent=2)
-      icon = ':white_check_mark:' if summary['status'] == 'PASS' else ':x:'
-      print(f'{icon} Contract+Fuzz: {summary[\"fuzz_iterations\"]} iterations, {summary[\"fuzz_findings\"]} findings ({summary[\"critical_findings\"]} critical), {summary[\"contract_breaking_changes\"]} breaking changes')
-      "
     - python -m scripts.mq.report
   artifacts:
     paths:
@@ -637,17 +221,11 @@ job_variables:
   MockServicePort: "8081"
   ProxyPort: "8082"
   ServiceURL: ""
-  # Service sidecar (optional — only created when ServiceImage is non-empty).
-  # From Slack: @bot contract-test 1 --service <image> --service-port <port>
-  # Example: @bot contract-test https://github.com/OWASP/wrongsecrets --service jeroenwillemsen/wrongsecrets:latest-no-vault
   ServiceImage: ""
   ServiceName: "service-under-test"
   ServicePort: "8080"
-  ServiceCommand: ""
   ServiceMemoryLimit: "2G"
   ServiceCpuRequest: "250m"
-  MaxFuzzIterations: "100"
-  FuzzTimeout: "600"
   AiDevToolsDebug: ""
   FormicaryPublicURL: ""
   SlackChannel: ""

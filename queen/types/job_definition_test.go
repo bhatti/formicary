@@ -1333,3 +1333,92 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 	require.Contains(t, runOpts.Environment["RAW_ARGS"], "DistMgmt Sprint 203",
 		"RAW_ARGS must contain the unescaped sprint name after template rendering")
 }
+
+// Test_ShouldLoadAiContractTestYaml is an integration test that loads the production
+// ai-contract-test.yaml file and verifies:
+//
+//  1. Without ServiceImage: the record task parses and has a non-empty Script.
+//  2. With ServiceImage set: the record task still has a non-empty Script, and the
+//     rendered executor options include two services (wrongsecrets + api-mock-service).
+//
+// This test catches the class of bug where a {{if}}...{{end}} block at column 0
+// causes ParseYamlTag to stop extracting the task before reaching the script: field.
+func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
+	b, err := ioutil.ReadFile("../../docs/examples/ai-contract-test.yaml")
+	require.NoError(t, err, "ai-contract-test.yaml must exist at docs/examples/")
+
+	job, err := NewJobDefinitionFromYaml(b)
+	require.NoError(t, err, "ai-contract-test.yaml must parse without error")
+	require.Equal(t, "ai-contract-test", job.JobType)
+
+	baseVars := map[string]common.VariableValue{
+		"PRNumber":           common.NewVariableValue("https://github.com/OWASP/wrongsecrets", false),
+		"BaseBranch":         common.NewVariableValue("main", false),
+		"GitHubOrg":          common.NewVariableValue("OWASP", false),
+		"GitHubRepo":         common.NewVariableValue("wrongsecrets", false),
+		"DefaultTracker":     common.NewVariableValue("github", false),
+		"ServiceURL":         common.NewVariableValue("", false),
+		"ServiceImage":       common.NewVariableValue("", false),
+		"ServiceName":        common.NewVariableValue("service-under-test", false),
+		"ServicePort":        common.NewVariableValue("8080", false),
+		"MockServicePort":    common.NewVariableValue("8081", false),
+		"ProxyPort":          common.NewVariableValue("8082", false),
+		"ServiceMemoryLimit": common.NewVariableValue("2G", false),
+		"ServiceCpuRequest":  common.NewVariableValue("250m", false),
+		"AiDevToolsDebug":    common.NewVariableValue("", false),
+		"FormicaryPublicURL": common.NewVariableValue("", false),
+		"SlackChannel":       common.NewVariableValue("", false),
+		"SlackThreadTs":      common.NewVariableValue("", false),
+		"SlackToken":         common.NewVariableValue("", false),
+		"BitbucketWorkspace": common.NewVariableValue("", false),
+		"BitbucketRepo":      common.NewVariableValue("", false),
+		"JobID":              common.NewVariableValue("test-job-id", false),
+		"ClaudeUseBedrock":   common.NewVariableValue("1", false),
+		"AnthropicBedrockBaseUrl":  common.NewVariableValue("http://ai/bedrock", false),
+		"ClaudeSkipBedrockAuth":    common.NewVariableValue("1", false),
+		"AnthropicSonnetModel":     common.NewVariableValue("us.anthropic.claude-sonnet-4-6", false),
+		"AnthropicOpusModel":       common.NewVariableValue("us.anthropic.claude-opus-4-6-v1", false),
+		"AnthropicHaikuModel":      common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
+	}
+
+	t.Run("without ServiceImage", func(t *testing.T) {
+		task, opts, err := job.GetDynamicTask("record", baseVars)
+		require.NoError(t, err, "record task must parse when ServiceImage is empty")
+		require.NotNil(t, task)
+		require.NotEmpty(t, task.Script, "record task Script must not be empty when ServiceImage is unset")
+		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.record")
+		// No services expected when ServiceImage is empty
+		require.Empty(t, opts.Services, "no services expected when ServiceImage is empty")
+	})
+
+	t.Run("with ServiceImage set", func(t *testing.T) {
+		varsWithService := make(map[string]common.VariableValue)
+		for k, v := range baseVars {
+			varsWithService[k] = v
+		}
+		varsWithService["ServiceImage"] = common.NewVariableValue("jeroenwillemsen/wrongsecrets:latest-no-vault", false)
+
+		task, opts, err := job.GetDynamicTask("record", varsWithService)
+		require.NoError(t, err, "record task must parse when ServiceImage is set")
+		require.NotNil(t, task)
+		require.NotEmpty(t, task.Script,
+			"record task Script must not be empty when ServiceImage is set — "+
+				"a {{if}}...{{end}} block at column 0 must not truncate ParseYamlTag extraction")
+		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.record")
+		require.Len(t, opts.Services, 2,
+			"two services expected: the service-under-test and api-mock-service")
+		serviceImages := make([]string, 0, len(opts.Services))
+		for _, svc := range opts.Services {
+			serviceImages = append(serviceImages, svc.Image)
+		}
+		require.Contains(t, serviceImages, "jeroenwillemsen/wrongsecrets:latest-no-vault")
+		require.Contains(t, serviceImages, "plexobject/api-mock-service:latest")
+	})
+
+	t.Run("fuzz task has script", func(t *testing.T) {
+		task, _, err := job.GetDynamicTask("fuzz", baseVars)
+		require.NoError(t, err)
+		require.NotEmpty(t, task.Script)
+		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.fuzz")
+	})
+}

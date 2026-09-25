@@ -32,6 +32,15 @@ func ParseYamlTag(input string, tag string) string {
 			continue
 		}
 		if offsetMarker >= 0 {
+			trimmed := strings.TrimSpace(line)
+			// Template directive lines ({{if}}, {{end}}, {{range}}, etc.) appear at column 0
+			// but are not YAML structural boundaries. Include them verbatim so the template
+			// engine can evaluate them; do not treat them as a task-block terminator.
+			if strings.HasPrefix(trimmed, "{{") {
+				currentBuf.WriteString(trimmed)
+				currentBuf.WriteString("\n")
+				continue
+			}
 			startingIndex, _ := startIndexForNonWhitespace(line)
 			if startingIndex < offsetMarker || (line[startingIndex] != '-' && startingIndex <= parentOffsetMarker) {
 				break
