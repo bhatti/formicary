@@ -476,14 +476,14 @@ func addQueryParamsWhere(params map[string]interface{}, tx *gorm.DB) *gorm.DB {
 				tx = tx.Where(fmt.Sprintf("%v IN ?", keyParts[0]), strings.Split(v.(string), ","))
 			} else if strings.HasPrefix(keyParts[1], "!") || strings.HasPrefix(keyParts[1], "<>") {
 				tx = tx.Where(fmt.Sprintf("%v <> ?", keyParts[0]), strings.Split(v.(string), ","))
-			} else if strings.HasPrefix(keyParts[1], "<") {
-				tx = tx.Where(fmt.Sprintf("%v < ?", keyParts[0]), v)
 			} else if strings.HasPrefix(keyParts[1], "<=") {
 				tx = tx.Where(fmt.Sprintf("%v <= ?", keyParts[0]), v)
-			} else if strings.HasPrefix(keyParts[1], ">") {
-				tx = tx.Where(fmt.Sprintf("%v > ?", keyParts[0]), v)
+			} else if strings.HasPrefix(keyParts[1], "<") {
+				tx = tx.Where(fmt.Sprintf("%v < ?", keyParts[0]), v)
 			} else if strings.HasPrefix(keyParts[1], ">=") {
 				tx = tx.Where(fmt.Sprintf("%v >= ?", keyParts[0]), v)
+			} else if strings.HasPrefix(keyParts[1], ">") {
+				tx = tx.Where(fmt.Sprintf("%v > ?", keyParts[0]), v)
 			} else {
 				tx = tx.Where(fmt.Sprintf("%v = ?", keyParts[0]), v)
 			}

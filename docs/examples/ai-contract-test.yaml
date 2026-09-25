@@ -43,11 +43,11 @@ tasks:
   report_stdout: true
   host_network: true
   working_dir: /workspace
-  {{if .ServiceImage}}
+  {{if or .Service .ServiceImage}}
   services:
     - name: "{{default "service-under-test" .ServiceName}}"
       alias: "{{default "service-under-test" .ServiceName}}"
-      image: "{{.ServiceImage}}"
+      image: "{{or .Service .ServiceImage}}"
       ports:
         - number: {{default "8080" .ServicePort}}
       memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
@@ -94,13 +94,13 @@ tasks:
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     SERVICE_URL: "{{.ServiceURL}}"
     SERVICE_PORT: "{{default "8080" .ServicePort}}"
-    MOCK_SERVICE_PORT: "{{.MockServicePort}}"
-    PROXY_PORT: "{{.ProxyPort}}"
+    MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
+    PROXY_PORT: "{{default "8082" .ProxyPort}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
+    - python -m scripts.mq.clone_pr --pr-number "${PR_NUMBER}"
     - |
       python3 - <<'PYEOF'
       import json, subprocess, os, time, urllib.request, urllib.error
@@ -114,7 +114,7 @@ tasks:
       os.makedirs(f'{ws}/recordings', exist_ok=True)
 
       # api-mock-service runs as a Kubernetes sidecar (started before this task).
-      # Wait for it to be ready (up to 30s).
+      # Wait for it to be ready (up to 30s). Treat 4xx as alive — /_health returns 404.
       ams_url = f'http://localhost:{mock_port}/_health'
       ams_ready = False
       for _ in range(15):
@@ -122,12 +122,17 @@ tasks:
               urllib.request.urlopen(ams_url, timeout=2)
               ams_ready = True
               break
+          except urllib.error.HTTPError as e:
+              if e.code < 500:
+                  ams_ready = True
+                  break
+              time.sleep(2)
           except Exception:
               time.sleep(2)
 
       if ams_ready:
           print(f'[record] api-mock-service ready at localhost:{mock_port}')
-          # Run the repo test suite through the recording proxy
+          # Run the repo test suite through the recording proxy (best-effort).
           env = os.environ.copy()
           env['HTTP_PROXY'] = f'http://localhost:{proxy_port}'
           env['HTTPS_PROXY'] = f'http://localhost:{proxy_port}'
@@ -143,6 +148,24 @@ tasks:
               print(result.stdout[-2000:])
           if result.stderr:
               print(result.stderr[-1000:], file=__import__('sys').stderr)
+
+          # Also drive the API directly through the proxy.
+          # Ensures recording happens even when the repo has no test suite or make test fails.
+          os.environ.pop('no_proxy', None)
+          os.environ.pop('NO_PROXY', None)
+          proxy_handler = urllib.request.ProxyHandler({'http': f'http://localhost:{proxy_port}'})
+          opener = urllib.request.build_opener(proxy_handler)
+          for probe_path in ['/', '/health', '/api', '/api/Challenges', '/api/challenges',
+                              '/docs', '/swagger', '/openapi.json', '/v1']:
+              try:
+                  req = urllib.request.Request(f'{service_url}{probe_path}')
+                  try:
+                      resp = opener.open(req, timeout=5)
+                      print(f'[record] probe {probe_path} → {resp.status}')
+                  except urllib.error.HTTPError as e:
+                      print(f'[record] probe {probe_path} → {e.code}')
+              except Exception as ex:
+                  pass
       else:
           print(f'[record] WARNING: api-mock-service not reachable at localhost:{mock_port} — recording skipped')
           test_exit = 0
@@ -221,6 +244,11 @@ tasks:
               urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
               ams_ready = True
               break
+          except urllib.error.HTTPError as e:
+              if e.code < 500:
+                  ams_ready = True
+                  break
+              time.sleep(2)
           except Exception:
               time.sleep(2)
 
@@ -344,6 +372,11 @@ tasks:
               urllib.request.urlopen(f'{ams_base}/_health', timeout=2)
               ams_ready = True
               break
+          except urllib.error.HTTPError as e:
+              if e.code < 500:
+                  ams_ready = True
+                  break
+              time.sleep(2)
           except Exception:
               time.sleep(2)
 
@@ -385,16 +418,49 @@ tasks:
               contract_resp = {'succeeded': 0, 'failed': 0, 'error': str(e)}
               print(f'[fuzz] contract test error: {e}')
 
-          # 3. Security injection probes: SQL injection, XSS, path traversal
-          import urllib.parse
-          security_probes = [
-              ('sqli_query',  'GET',  f'{service_url}/todos?id=' + urllib.parse.quote("1' OR '1'='1"), None),
-              ('sqli_body',   'POST', f'{service_url}/todos',  {'title': "'; DROP TABLE todos;--"}),
-              ('xss_body',    'POST', f'{service_url}/todos',  {'title': '<script>alert(1)</script>'}),
-              ('path_trav',   'GET',  f'{service_url}/todos/../../etc/passwd', None),
-              ('null_title',  'POST', f'{service_url}/todos',  {'title': None}),
-              ('long_input',  'POST', f'{service_url}/todos',  {'title': 'A' * 5000}),
-          ]
+          # 3. Discover endpoints from recording directory structure, then inject security payloads.
+          # api-mock-service stores recordings as: recordings/api_contracts/{path...}/{METHOD}/*.yaml
+          # Parse the directory tree to get actual (method, path) pairs — no hardcoded endpoints.
+          import glob, urllib.parse
+          recording_base = f'{ws}/recordings/api_contracts'
+          discovered = []
+          seen = set()
+          for yaml_file in glob.glob(f'{recording_base}/**/*.yaml', recursive=True):
+              rel = os.path.dirname(yaml_file)[len(recording_base):]
+              parts = [p for p in rel.strip('/').split('/') if p]
+              if parts and parts[-1] == parts[-1].upper() and parts[-1].isalpha():
+                  method = parts[-1]
+                  api_path = '/' + '/'.join(parts[:-1])
+                  key = (method, api_path)
+                  if key not in seen:
+                      seen.add(key)
+                      discovered.append(key)
+          print(f'[fuzz] discovered {len(discovered)} endpoints: {discovered}')
+
+          sqli_val = "' OR '1'='1"
+          xss_val = '<script>alert(1)</script>'
+          security_probes = []
+          for method, api_path in discovered[:10]:
+              encoded_sqli = urllib.parse.quote(sqli_val, safe='')
+              if method == 'GET':
+                  security_probes.append(
+                      (f'sqli_get:{api_path}', 'GET',
+                       f'{service_url}{api_path}?q={encoded_sqli}', None))
+                  security_probes.append(
+                      (f'path_trav:{api_path}', 'GET',
+                       f'{service_url}{api_path}/../../etc/passwd', None))
+              elif method in ('POST', 'PUT', 'PATCH'):
+                  security_probes.append(
+                      (f'sqli_body:{api_path}', method,
+                       f'{service_url}{api_path}', {'input': sqli_val}))
+                  security_probes.append(
+                      (f'xss_body:{api_path}', method,
+                       f'{service_url}{api_path}', {'input': xss_val}))
+                  security_probes.append(
+                      (f'long_input:{api_path}', method,
+                       f'{service_url}{api_path}', {'input': 'A' * 5000}))
+          if not security_probes:
+              print('[fuzz] no endpoints discovered from recordings — skipping injection probes')
           findings = []
           security = {'sql_injection': 0, 'xss': 0, 'path_traversal': 0, 'server_errors': 0}
           for probe_name, method, url, body in security_probes:
@@ -568,8 +634,8 @@ tasks:
 
 job_variables:
   BaseBranch: "main"
-  MockServicePort: "8080"
-  ProxyPort: "8081"
+  MockServicePort: "8081"
+  ProxyPort: "8082"
   ServiceURL: ""
   # Service sidecar (optional — only created when ServiceImage is non-empty).
   # From Slack: @bot contract-test 1 --service <image> --service-port <port>

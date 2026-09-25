@@ -300,6 +300,76 @@ func Test_ShouldFilterJobDefinitionsByType(t *testing.T) {
 	require.True(t, found, "empty user_id must not suppress results when job_type matches")
 }
 
+// Test_ShouldQueryWithLEAndGEOperators verifies that the <= and >= comparison
+// operators work correctly. Before the fix, HasPrefix("<") matched "<=" first
+// so "<=" was dead code and always emitted "< ?" instead of "<= ?".
+func Test_ShouldQueryWithLEAndGEOperators(t *testing.T) {
+	defRepo, err := NewTestJobDefinitionRepository()
+	require.NoError(t, err)
+
+	qc, err := NewTestQC()
+	require.NoError(t, err)
+
+	prefix := fmt.Sprintf("io.formicary.optest.%s", qc.User.ID[:8])
+	// Create 5 definitions with distinct job_types that sort lexicographically.
+	jobTypes := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		jt := fmt.Sprintf("%s.%d", prefix, i)
+		jobTypes[i] = jt
+		job := NewTestJobDefinition(qc.User, jt)
+		job.JobType = jt
+		_, err = defRepo.Save(qc, job)
+		require.NoError(t, err)
+	}
+	// jobTypes[0..4] are sorted: prefix.0 < prefix.1 < ... < prefix.4
+
+	adminQC := common.NewQueryContext(nil, "")
+
+	// WHEN querying with <= prefix.2 — should return prefix.0, prefix.1, prefix.2 (3 records)
+	params := map[string]interface{}{"job_type:<=": jobTypes[2]}
+	_, total, err := defRepo.Query(adminQC, params, 0, 100, nil)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, total, int64(3), "<= operator must include the boundary value")
+
+	// Verify it includes the boundary: exact count within our prefix
+	count := int64(0)
+	recs, _, _ := defRepo.Query(adminQC, params, 0, 100, nil)
+	for _, r := range recs {
+		if r.JobType == jobTypes[2] {
+			count++
+		}
+	}
+	require.Equal(t, int64(1), count, "<= must include records equal to the boundary")
+
+	// WHEN querying with < prefix.2 — boundary record must NOT appear
+	params = map[string]interface{}{"job_type:<": jobTypes[2]}
+	recs, _, err = defRepo.Query(adminQC, params, 0, 100, nil)
+	require.NoError(t, err)
+	for _, r := range recs {
+		require.NotEqual(t, jobTypes[2], r.JobType, "< must exclude the boundary value")
+	}
+
+	// WHEN querying with >= prefix.2 — should include prefix.2, prefix.3, prefix.4
+	params = map[string]interface{}{"job_type:>=": jobTypes[2]}
+	recs, _, err = defRepo.Query(adminQC, params, 0, 100, nil)
+	require.NoError(t, err)
+	found := false
+	for _, r := range recs {
+		if r.JobType == jobTypes[2] {
+			found = true
+		}
+	}
+	require.True(t, found, ">= must include records equal to the boundary")
+
+	// WHEN querying with > prefix.2 — boundary record must NOT appear
+	params = map[string]interface{}{"job_type:>": jobTypes[2]}
+	recs, _, err = defRepo.Query(adminQC, params, 0, 100, nil)
+	require.NoError(t, err)
+	for _, r := range recs {
+		require.NotEqual(t, jobTypes[2], r.JobType, "> must exclude the boundary value")
+	}
+}
+
 // SaveTestJobDefinitionWithType creates a job definition with the given exact
 // job_type string (not the "io.formicary.test." prefix applied by SaveTestJobDefinition).
 func SaveTestJobDefinitionWithType(qc *common.QueryContext, jobType string) (*types.JobDefinition, error) {

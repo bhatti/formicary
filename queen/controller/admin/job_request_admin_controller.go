@@ -289,15 +289,22 @@ func (jraCtr *JobRequestAdminController) newJobRequest(c web.APIContext) error {
 }
 
 func (jraCtr *JobRequestAdminController) getJobTypes(c web.APIContext) []string {
-	jobTypes := make([]string, 0)
 	qc := web.BuildQueryContext(c)
-	if c.FormValue("jobType") != "" {
-		jobTypes = []string{c.FormValue("jobType")}
-	} else {
-		if all, err := jraCtr.jobManager.GetJobTypesAsArray(qc); err == nil {
-			for _, next := range all {
-				jobTypes = append(jobTypes, next.JobType)
-			}
+	if jt := c.FormValue("jobType"); jt != "" {
+		return []string{jt}
+	}
+	all, err := jraCtr.jobManager.GetJobTypesAsArray(qc)
+	if err != nil {
+		return nil
+	}
+	// Deduplicate: admin sees definitions from multiple users sharing the same
+	// job_type — keep the first occurrence (list is already sorted by job_type).
+	seen := make(map[string]struct{}, len(all))
+	jobTypes := make([]string, 0, len(all))
+	for _, jt := range all {
+		if _, exists := seen[jt.JobType]; !exists {
+			seen[jt.JobType] = struct{}{}
+			jobTypes = append(jobTypes, jt.JobType)
 		}
 	}
 	return jobTypes
