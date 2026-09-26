@@ -363,13 +363,17 @@ func downloadDependentArtifacts(
 		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading dependent artifact %s", id))
 	} // downloaded all files
 
-	// Copy all dependent artifacts into the current working folder.
-	// Use a shell loop instead of `cp -R {} .` because POSIX cp nests a directory
-	// inside an existing destination: if /workspace/recordings/ already exists (e.g.
-	// created by an AMS sidecar at pod startup), `cp -R recordings .` creates
-	// /workspace/recordings/recordings/ instead of merging. The loop below uses
-	// `cp -R src/. dst/` which always merges contents regardless of whether dst exists.
+	// Copy all dependent artifacts into the working directory.
+	// Two subtleties:
+	// 1. kubectl exec does NOT inherit the container's workingDir — cd explicitly.
+	// 2. POSIX `cp -R src dst` nests when dst already exists (e.g. AMS pre-creates
+	//    /workspace/recordings/). Use `cp -R src/. dst/` to always merge instead.
+	wd := taskReq.ExecutorOpts.WorkingDirectory
+	if wd == "" {
+		wd = "."
+	}
 	cmd := fmt.Sprintf(`
+cd "%s"
 for _src in "%s"/*; do
   [ -e "$_src" ] || continue
   _name=$(basename "$_src")
@@ -380,7 +384,7 @@ for _src in "%s"/*; do
     cp "$_src" .
   fi
 done
-find "%s" | head -10`, extractedDir, extractedDir)
+find "%s" | head -10`, wd, extractedDir, extractedDir)
 	stdout, stderr, _, _, copyErr := execute(ctx, cmd, false)
 	if copyErr != nil {
 		msg := fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s", copyErr, string(stderr))
@@ -388,8 +392,11 @@ find "%s" | head -10`, extractedDir, extractedDir)
 		_ = traceWriter.WriteTraceError(ctx, copyErr.Error())
 		return copyErr
 	}
+	// stdout comes from `find extractedDir` — it is non-empty whenever extractedDir has any
+	// content, regardless of whether the cp loop succeeded.  An empty extractedDir means
+	// DownloadArtifact wrote nothing, which is always an error.
 	if len(stdout) == 0 {
-		msg := fmt.Sprintf("dependent artifact extraction produced no output in %s — files may not have copied", extractedDir)
+		msg := fmt.Sprintf("dependent artifact extraction produced no output in %s — artifact may be empty", extractedDir)
 		taskResp.AdditionalError(msg, false)
 		_ = traceWriter.WriteTraceError(ctx, msg)
 		return fmt.Errorf("%s", msg)
