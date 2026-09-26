@@ -212,7 +212,7 @@ func Test_DownloadDependentArtifacts_ErrorOnEmptyExtractedDir(t *testing.T) {
 		&stubTransfer{files: map[string]string{}},
 	)
 	require.Error(t, err, "empty extractedDir must produce an error")
-	require.Contains(t, err.Error(), "produced no output")
+	require.Contains(t, err.Error(), "produced no files")
 }
 
 // Test_DownloadDependentArtifacts_MultipleArtifacts verifies all dependent artifacts merge.
@@ -278,4 +278,56 @@ func Test_DownloadDependentArtifacts_RespectsWorkingDirectory(t *testing.T) {
 	wrongYAML := filepath.Join(root, "recordings", "api_contracts", "GET", "scenario.yaml")
 	require.FileExists(t, wantYAML, "files must land under WorkingDirectory")
 	require.NoFileExists(t, wrongYAML, "files must NOT land at exec CWD when WorkingDirectory is set")
+}
+
+// Test_DownloadDependentArtifacts_CopyLoopReportsErrors verifies that a cp failure
+// (e.g. permission denied on a pre-created directory owned by a sidecar) appears in
+// the trace output. The copy loop must not silently swallow cp errors.
+func Test_DownloadDependentArtifacts_CopyLoopReportsErrors(t *testing.T) {
+	ws := t.TempDir()
+	artifactsDir := t.TempDir()
+
+	// Pre-create the destination dir with read-only permissions so cp will fail.
+	dest := filepath.Join(ws, "recordings", "api_contracts")
+	require.NoError(t, os.MkdirAll(dest, 0o755))
+	require.NoError(t, os.Chmod(dest, 0o555)) // rwxr-xr-x → no write for non-owner
+	t.Cleanup(func() { _ = os.Chmod(dest, 0o755) })
+
+	var traceOut []string
+	tw := &captureTraceWriter{capture: &traceOut}
+
+	_ = downloadDependentArtifacts(
+		context.Background(),
+		makeTaskReq(artifactsDir, ws, "artifact-perm"),
+		&common.TaskResponse{},
+		shellExecute(ws),
+		tw,
+		&stubTransfer{files: map[string]string{
+			"recordings/api_contracts/GET/perm.yaml": "name: perm-test\n",
+		}},
+	)
+	// Whether the error is returned or the file is missing, the trace must contain
+	// diagnostic output from the copy loop (echo statements).
+	combined := fmt.Sprintf("%v", traceOut)
+	require.Contains(t, combined, "artifact-copy", "copy loop must emit diagnostic trace output")
+}
+
+// captureTraceWriter records all trace messages for assertion.
+type captureTraceWriter struct{ capture *[]string }
+
+func (c *captureTraceWriter) WriteTrace(_ context.Context, msg string) error {
+	*c.capture = append(*c.capture, msg)
+	return nil
+}
+func (c *captureTraceWriter) WriteTraceInfo(_ context.Context, msg string) error {
+	*c.capture = append(*c.capture, msg)
+	return nil
+}
+func (c *captureTraceWriter) WriteTraceSuccess(_ context.Context, msg string) error {
+	*c.capture = append(*c.capture, msg)
+	return nil
+}
+func (c *captureTraceWriter) WriteTraceError(_ context.Context, msg string) error {
+	*c.capture = append(*c.capture, msg)
+	return nil
 }

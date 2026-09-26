@@ -719,6 +719,21 @@ func (re *RequestExecutorImpl) updateResponseContext(
 	if sha := container.GetHelperImageSHA(); sha != "" {
 		taskResp.AddContext("HelperImageSHA", sha)
 	}
+	// Ant worker image info — set FORMICARY_ANT_IMAGE / FORMICARY_ANT_IMAGE_SHA in the
+	// ant deployment (e.g. via Kubernetes downward API) to make every task traceable
+	// back to the exact ant binary that processed it.
+	if img := os.Getenv("FORMICARY_ANT_IMAGE"); img != "" {
+		taskResp.AddContext("AntImage", img)
+	}
+	if sha := os.Getenv("FORMICARY_ANT_IMAGE_SHA"); sha != "" {
+		taskResp.AddContext("AntImageSHA", sha)
+	}
+	if re.antCfg.Common.Version != nil {
+		taskResp.AddContext("AntVersion", re.antCfg.Common.Version.Version)
+		if re.antCfg.Common.Version.Commit != "" {
+			taskResp.AddContext("AntCommit", re.antCfg.Common.Version.Commit)
+		}
+	}
 	if taskReq.ExecutorOpts.Method == types.Kubernetes {
 		taskResp.AddContext("Namespace", re.antCfg.Kubernetes.Namespace)
 		if re.antCfg.Kubernetes.Host != "" {

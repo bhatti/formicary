@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"plexobject.com/formicary/internal/ant_config"
 	"plexobject.com/formicary/internal/tracing"
 	"time"
@@ -267,13 +268,15 @@ func SetupCacheAndDownloadArtifacts(
 	// HTTP does not support dependent artifacts
 	if taskReq.ExecutorOpts.Method.SupportsDependentArtifacts() &&
 		len(taskReq.ExecutorOpts.DependentArtifactIDs) > 0 {
-		err = downloadDependentArtifacts(
+		if err = downloadDependentArtifacts(
 			ctx,
 			taskReq,
 			taskResp,
 			execute,
 			traceWriter,
-			transferService)
+			transferService); err != nil {
+			return err
+		}
 	}
 
 	// Downloading Cache for npm, yarn, gradle, etc. (only for docker/kubernetes)
@@ -373,36 +376,48 @@ func downloadDependentArtifacts(
 		wd = "."
 	}
 	cmd := fmt.Sprintf(`
-cd "%s"
+echo "[artifact-copy] wd=%s extractedDir=%s"
+cd "%s" || { echo "[artifact-copy] ERROR: cd failed for wd=%s"; exit 1; }
+echo "[artifact-copy] after-cd cwd=$(pwd)"
+echo "[artifact-copy] extracted-dir-contents:"
+ls -la "%s" 2>&1 || true
+_copy_errors=0
 for _src in "%s"/*; do
   [ -e "$_src" ] || continue
   _name=$(basename "$_src")
+  echo "[artifact-copy] copying $_src -> $(pwd)/$_name"
   if [ -d "$_src" ]; then
     mkdir -p "$_name"
-    cp -R "$_src/." "$_name/"
+    cp -R "$_src/." "$_name/" 2>&1 || { echo "[artifact-copy] ERROR: cp -R $_src/. $_name/ failed (exit $?)"; _copy_errors=$((_copy_errors+1)); }
   else
-    cp "$_src" .
+    cp "$_src" . 2>&1 || { echo "[artifact-copy] ERROR: cp $_src . failed (exit $?)"; _copy_errors=$((_copy_errors+1)); }
   fi
 done
-find "%s" | head -10`, wd, extractedDir, extractedDir)
-	stdout, stderr, _, _, copyErr := execute(ctx, cmd, false)
+echo "[artifact-copy] copy_errors=$_copy_errors"
+echo "[artifact-copy] destination contents after copy:"
+find "$(pwd)" -maxdepth 4 -name "*.yaml" 2>/dev/null | head -20 || true
+_artifact_count=$(find "%s" -mindepth 1 | wc -l | tr -d ' ')
+echo "ARTIFACT_FILE_COUNT=${_artifact_count}"`, wd, extractedDir, wd, wd, extractedDir, extractedDir, extractedDir)
+	// Run the copy in the helper container (root user) so it can write into
+	// directories pre-created by sidecar containers (e.g. AMS uid=100 drwxr-xr-x).
+	stdout, stderr, _, _, copyErr := execute(ctx, cmd, true)
+	_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 artifact-copy output: %s", string(stdout)))
+	if len(stderr) > 0 {
+		_ = traceWriter.WriteTraceError(ctx, fmt.Sprintf("artifact-copy stderr: %s", string(stderr)))
+	}
 	if copyErr != nil {
 		msg := fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s", copyErr, string(stderr))
 		taskResp.AdditionalError(msg, true)
 		_ = traceWriter.WriteTraceError(ctx, copyErr.Error())
 		return copyErr
 	}
-	// stdout comes from `find extractedDir` — it is non-empty whenever extractedDir has any
-	// content, regardless of whether the cp loop succeeded.  An empty extractedDir means
-	// DownloadArtifact wrote nothing, which is always an error.
-	if len(stdout) == 0 {
-		msg := fmt.Sprintf("dependent artifact extraction produced no output in %s — artifact may be empty", extractedDir)
+	// Check the sentinel line emitted by the shell: ARTIFACT_FILE_COUNT=0 means
+	// DownloadArtifact wrote nothing into extractedDir — always an error.
+	if strings.Contains(string(stdout), "ARTIFACT_FILE_COUNT=0") {
+		msg := fmt.Sprintf("dependent artifact extraction produced no files in %s — artifact may be empty", extractedDir)
 		taskResp.AdditionalError(msg, false)
 		_ = traceWriter.WriteTraceError(ctx, msg)
 		return fmt.Errorf("%s", msg)
-	}
-	if taskReq.ExecutorOpts.Debug {
-		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 extracted dependent artifact %s", stdout))
 	}
 	return nil
 }
