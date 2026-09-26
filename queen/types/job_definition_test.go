@@ -1337,8 +1337,8 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 // Test_ShouldLoadAiContractTestYaml is an integration test that loads the production
 // ai-contract-test.yaml file and verifies:
 //
-//  1. Without ServiceImage: the record task parses and has a non-empty Script.
-//  2. With ServiceImage set: the record task still has a non-empty Script, and the
+//  1. Without Service: the record task parses and has a non-empty Script.
+//  2. With Service set: the record task still has a non-empty Script, and the
 //     rendered executor options include two services (wrongsecrets + api-mock-service).
 //
 // This test catches the class of bug where a {{if}}...{{end}} block at column 0
@@ -1358,7 +1358,7 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		"GitHubRepo":         common.NewVariableValue("wrongsecrets", false),
 		"DefaultTracker":     common.NewVariableValue("github", false),
 		"ServiceURL":         common.NewVariableValue("", false),
-		"ServiceImage":       common.NewVariableValue("", false),
+		"Service":            common.NewVariableValue("", false),
 		"ServiceName":        common.NewVariableValue("service-under-test", false),
 		"ServicePort":        common.NewVariableValue("8080", false),
 		"MockServicePort":    common.NewVariableValue("8081", false),
@@ -1381,28 +1381,28 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		"AnthropicHaikuModel":      common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
 	}
 
-	t.Run("without ServiceImage", func(t *testing.T) {
+	t.Run("without Service", func(t *testing.T) {
 		task, opts, err := job.GetDynamicTask("record", baseVars)
-		require.NoError(t, err, "record task must parse when ServiceImage is empty")
+		require.NoError(t, err, "record task must parse when Service is empty")
 		require.NotNil(t, task)
-		require.NotEmpty(t, task.Script, "record task Script must not be empty when ServiceImage is unset")
+		require.NotEmpty(t, task.Script, "record task Script must not be empty when Service is unset")
 		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.record")
-		// No services expected when ServiceImage is empty
-		require.Empty(t, opts.Services, "no services expected when ServiceImage is empty")
+		// No services expected when Service is empty
+		require.Empty(t, opts.Services, "no services expected when Service is empty")
 	})
 
-	t.Run("with ServiceImage set", func(t *testing.T) {
+	t.Run("with Service set", func(t *testing.T) {
 		varsWithService := make(map[string]common.VariableValue)
 		for k, v := range baseVars {
 			varsWithService[k] = v
 		}
-		varsWithService["ServiceImage"] = common.NewVariableValue("jeroenwillemsen/wrongsecrets:latest-no-vault", false)
+		varsWithService["Service"] = common.NewVariableValue("jeroenwillemsen/wrongsecrets:latest-no-vault", false)
 
 		task, opts, err := job.GetDynamicTask("record", varsWithService)
-		require.NoError(t, err, "record task must parse when ServiceImage is set")
+		require.NoError(t, err, "record task must parse when Service is set")
 		require.NotNil(t, task)
 		require.NotEmpty(t, task.Script,
-			"record task Script must not be empty when ServiceImage is set — "+
+			"record task Script must not be empty when Service is set — "+
 				"a {{if}}...{{end}} block at column 0 must not truncate ParseYamlTag extraction")
 		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.record")
 		require.Len(t, opts.Services, 2,
@@ -1413,12 +1413,82 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		}
 		require.Contains(t, serviceImages, "jeroenwillemsen/wrongsecrets:latest-no-vault")
 		require.Contains(t, serviceImages, "plexobject/api-mock-service:latest")
+
+		// AMS service MUST have the workspace emptyDir volume so recordings are
+		// visible to the main container.  Without this, AMS writes to its own
+		// container filesystem and the main container sees 0 scenario files.
+		var amsSvc *common.Service
+		for i := range opts.Services {
+			if opts.Services[i].Image == "plexobject/api-mock-service:latest" {
+				amsSvc = &opts.Services[i]
+				break
+			}
+		}
+		require.NotNil(t, amsSvc, "api-mock-service service must be present")
+		require.NotNil(t, amsSvc.Volumes,
+			"api-mock-service service must declare volumes so workspace is shared with main container")
+		wsVols := amsSvc.Volumes.EmptyDirs
+		require.NotEmpty(t, wsVols,
+			"api-mock-service service must declare at least one emptyDir volume (workspace)")
+		var found bool
+		for _, v := range wsVols {
+			if v.Name == "workspace" && v.MountPath == "/workspace" {
+				found = true
+				break
+			}
+		}
+		require.True(t, found,
+			"api-mock-service must declare emptyDir volume name=workspace mount_path=/workspace")
 	})
 
-	t.Run("fuzz task has script", func(t *testing.T) {
-		task, _, err := job.GetDynamicTask("fuzz", baseVars)
+	t.Run("fuzz task has script without Service", func(t *testing.T) {
+		task, opts, err := job.GetDynamicTask("fuzz", baseVars)
 		require.NoError(t, err)
 		require.NotEmpty(t, task.Script)
 		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.fuzz")
+		require.Empty(t, opts.Services, "no services expected when Service is empty")
+	})
+
+	t.Run("fuzz task has script and two services with Service set", func(t *testing.T) {
+		varsWithService := make(map[string]common.VariableValue)
+		for k, v := range baseVars {
+			varsWithService[k] = v
+		}
+		varsWithService["Service"] = common.NewVariableValue("jeroenwillemsen/wrongsecrets:latest-no-vault", false)
+
+		task, opts, err := job.GetDynamicTask("fuzz", varsWithService)
+		require.NoError(t, err)
+		require.NotEmpty(t, task.Script,
+			"fuzz task Script must not be empty when Service is set")
+		require.Contains(t, strings.Join(task.Script, "\n"), "scripts.contract.fuzz")
+		require.Len(t, opts.Services, 2,
+			"two services expected for fuzz task: service-under-test and api-mock-service")
+		serviceImages := make([]string, 0, len(opts.Services))
+		for _, svc := range opts.Services {
+			serviceImages = append(serviceImages, svc.Image)
+		}
+		require.Contains(t, serviceImages, "jeroenwillemsen/wrongsecrets:latest-no-vault")
+		require.Contains(t, serviceImages, "plexobject/api-mock-service:latest")
+
+		// Fuzz task's AMS service also needs workspace volume for contract replay.
+		var amsSvcFuzz *common.Service
+		for i := range opts.Services {
+			if opts.Services[i].Image == "plexobject/api-mock-service:latest" {
+				amsSvcFuzz = &opts.Services[i]
+				break
+			}
+		}
+		require.NotNil(t, amsSvcFuzz, "api-mock-service service must be present in fuzz task")
+		require.NotNil(t, amsSvcFuzz.Volumes,
+			"api-mock-service in fuzz task must declare volumes")
+		var foundFuzz bool
+		for _, v := range amsSvcFuzz.Volumes.EmptyDirs {
+			if v.Name == "workspace" && v.MountPath == "/workspace" {
+				foundFuzz = true
+				break
+			}
+		}
+		require.True(t, foundFuzz,
+			"api-mock-service in fuzz task must declare emptyDir name=workspace mount_path=/workspace")
 	})
 }

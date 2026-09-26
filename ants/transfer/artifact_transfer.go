@@ -363,11 +363,24 @@ func downloadDependentArtifacts(
 		_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 downloading dependent artifact %s", id))
 	} // downloaded all files
 
-	// Copy all dependent artifacts to current working folder, then verify files landed.
-	// Use find -exec instead of glob (* fails on empty dir; touch ignore creates a sentinel
-	// that cp tries to write to the root dir, causing permission errors with working_dir:/).
-	cmd := fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec cp -R {} . \\; && find %s | head -10",
-		extractedDir, extractedDir)
+	// Copy all dependent artifacts into the current working folder.
+	// Use a shell loop instead of `cp -R {} .` because POSIX cp nests a directory
+	// inside an existing destination: if /workspace/recordings/ already exists (e.g.
+	// created by an AMS sidecar at pod startup), `cp -R recordings .` creates
+	// /workspace/recordings/recordings/ instead of merging. The loop below uses
+	// `cp -R src/. dst/` which always merges contents regardless of whether dst exists.
+	cmd := fmt.Sprintf(`
+for _src in "%s"/*; do
+  [ -e "$_src" ] || continue
+  _name=$(basename "$_src")
+  if [ -d "$_src" ]; then
+    mkdir -p "$_name"
+    cp -R "$_src/." "$_name/"
+  else
+    cp "$_src" .
+  fi
+done
+find "%s" | head -10`, extractedDir, extractedDir)
 	stdout, stderr, _, _, copyErr := execute(ctx, cmd, false)
 	if copyErr != nil {
 		msg := fmt.Sprintf("failed to extract dependent artifact due to %v, stderr=%s", copyErr, string(stderr))

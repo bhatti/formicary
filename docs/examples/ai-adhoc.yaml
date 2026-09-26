@@ -97,6 +97,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - |
       # Clone optional codebase repo — enables code-aware skills
       if [ -n "$CODEBASE_REPO_URL" ] && [ "$CODEBASE_REPO_URL" != "<no value>" ]; then
@@ -161,6 +162,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
   on_failed: done
@@ -194,6 +196,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -203,6 +206,7 @@ tasks:
   report_stdout: true
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - echo "Ad-hoc skill complete"
 
 job_variables:

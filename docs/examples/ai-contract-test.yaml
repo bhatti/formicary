@@ -22,11 +22,11 @@ timeout: 3600s
 variables:
   PRNumber:
     type: STRING
-    required: true
+    required: false
   ServiceURL:
     type: STRING
     required: false
-  ServiceImage:
+  Service:
     type: STRING
     required: false
 
@@ -38,12 +38,12 @@ tasks:
   report_stdout: true
   host_network: true
   working_dir: /workspace
-{{if .ServiceImage}}
+{{if .Service}}
   services:
     - name: "{{default "service-under-test" .ServiceName}}"
       alias: "{{default "service-under-test" .ServiceName}}"
-      image: "{{.ServiceImage}}"
-      memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
+      image: "{{.Service}}"
+      memory_limit: "{{default "4G" .ServiceMemoryLimit}}"
       cpu_request: "{{default "250m" .ServiceCpuRequest}}"
     - name: api-mock-service
       alias: api-mock-service
@@ -52,21 +52,18 @@ tasks:
         - number: 8081
       memory_limit: "512Mi"
       cpu_request: "100m"
-      command: ["/app/api-mock-service"]
-      args:
-        - "--httpPort"
-        - "8081"
-        - "--proxyPort"
-        - "8082"
-        - "--dataDir"
-        - "/workspace/recordings"
+      command: ["/api-mock-service", "--httpPort", "8081", "--proxyPort", "8082", "--dataDir", "/workspace/recordings"]
+      volumes:
+        empty_dir:
+          - name: workspace
+            mount_path: /workspace
 {{end}}
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
-    cpu_request: "500m"
-    memory_limit: 4G
-    memory_request: 1G
+    cpu_request: "250m"
+    memory_limit: 512Mi
+    memory_request: 256Mi
     volumes:
       empty_dir:
         - name: workspace
@@ -75,22 +72,14 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    PR_NUMBER: "{{.PRNumber}}"
-    BASE_BRANCH: "{{.BaseBranch}}"
-    DEFAULT_TRACKER: "{{.DefaultTracker}}"
-    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     SERVICE_URL: "{{.ServiceURL}}"
     SERVICE_PORT: "{{default "8080" .ServicePort}}"
     MOCK_SERVICE_PORT: "{{default "8081" .MockServicePort}}"
     PROXY_PORT: "{{default "8082" .ProxyPort}}"
-    CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - python -m scripts.mq.clone_pr
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.contract.record
   artifacts:
     paths:
@@ -107,12 +96,32 @@ tasks:
   report_stdout: true
   host_network: true
   working_dir: /workspace
+{{if .Service}}
+  services:
+    - name: "{{default "service-under-test" .ServiceName}}"
+      alias: "{{default "service-under-test" .ServiceName}}"
+      image: "{{.Service}}"
+      memory_limit: "{{default "4G" .ServiceMemoryLimit}}"
+      cpu_request: "{{default "250m" .ServiceCpuRequest}}"
+    - name: api-mock-service
+      alias: api-mock-service
+      image: plexobject/api-mock-service:latest
+      ports:
+        - number: 8081
+      memory_limit: "512Mi"
+      cpu_request: "100m"
+      command: ["/api-mock-service", "--httpPort", "8081", "--proxyPort", "8082", "--dataDir", "/workspace/recordings"]
+      volumes:
+        empty_dir:
+          - name: workspace
+            mount_path: /workspace
+{{end}}
   container:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 4G
-    memory_request: 1G
+    memory_limit: 2G
+    memory_request: 512Mi
     volumes:
       empty_dir:
         - name: workspace
@@ -130,6 +139,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.contract.fuzz
   artifacts:
     paths:
@@ -172,14 +182,14 @@ tasks:
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     PR_NUMBER: "{{.PRNumber}}"
+    TASK_TYPE: report
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.mq.report
   artifacts:
     paths:
-      - ./contract_test_summary.json
-      - ./fuzz_results.xml
       - ./reports
     expire_after: 24h
   on_completed: done
@@ -206,6 +216,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -221,10 +232,10 @@ job_variables:
   MockServicePort: "8081"
   ProxyPort: "8082"
   ServiceURL: ""
-  ServiceImage: ""
+  Service: ""
   ServiceName: "service-under-test"
   ServicePort: "8080"
-  ServiceMemoryLimit: "2G"
+  ServiceMemoryLimit: "4G"
   ServiceCpuRequest: "250m"
   AiDevToolsDebug: ""
   FormicaryPublicURL: ""

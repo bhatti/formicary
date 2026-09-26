@@ -59,6 +59,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.mq.collect_ready --label "{{.ReadyLabel}}"
   artifacts:
     paths:
@@ -103,6 +104,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.mq.group_by_scope
   artifacts:
     paths:
@@ -190,6 +192,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - |
       python3 -c "
       import json, glob, os
@@ -240,6 +243,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 

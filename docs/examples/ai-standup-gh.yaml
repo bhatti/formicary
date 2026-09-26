@@ -89,6 +89,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.gather_gh
   artifacts:
     paths:
@@ -144,6 +145,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.synthesize
   artifacts:
     paths:
@@ -197,6 +199,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.render_html
     - python -m scripts.standup.post
   artifacts:
@@ -233,6 +236,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -242,4 +246,5 @@ tasks:
   report_stdout: true
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - echo "Standup brief complete"

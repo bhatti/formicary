@@ -73,6 +73,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
     - python -m scripts.mq.scope_router --pr-number {{.PRNumber}} || true
     - python -m scripts.review.run --pr-url {{.PRNumber}} --base-branch {{.BaseBranch}}
@@ -115,6 +116,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - |
       python3 -c "
       import json, os, sys
@@ -166,6 +168,7 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 

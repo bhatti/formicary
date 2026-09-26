@@ -53,6 +53,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.gh.issue_picker
   on_exit_code:
     2: COMPLETED    # No issues found — not an error
@@ -72,6 +73,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - echo "=== Issue Picker Submit ==="
     - echo "Issues found ${ISSUES_JSON:-none}, pending=${PENDING_COUNT}, submitted=${SUBMITTED_IDS:-none}"
 

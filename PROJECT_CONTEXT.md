@@ -377,6 +377,108 @@ numeric PR ID before calling any Bitbucket PR API.
 
 ---
 
+## ai-contract-test Workflow (added 2026-09)
+
+Contract recording + fuzzing pipeline via api-mock-service proxy.
+Slack: `contract-test <repo-url> --service <docker-image>`
+
+**Task pipeline:** `record` → `fuzz` → `report` → `done` (on failure: `notify-error`)
+
+**Key files:**
+- `formicary/docs/examples/ai-contract-test.yaml` — Job definition
+- `ai-dev-tools/scripts/contract/record.py` — Wait for AMS + service, drive endpoints through proxy
+- `ai-dev-tools/scripts/contract/fuzz.py` — Replay contracts, run security probes, write JUnit XML
+- `ai-dev-tools/scripts/contract/_shared.py` — `wait_for_service`, `probe_through_proxy`, `run_security_probes`, `discover_endpoints`
+
+**Bugs found and fixed during setup (2026-09-25/26):**
+
+**Bug 1 — `ServiceImage` vs `Service` param mismatch (`proxy_used: false`)**
+- `--service <image>` → `flagToPascal("service")` = `"Service"`, not `"ServiceImage"`
+- All `{{.ServiceImage}}` references in YAML + Go test used wrong name → services never spawned → AMS never started → proxy_used always false
+- Fix: renamed `ServiceImage` → `Service` everywhere in YAML and Go test
+
+**Bug 2 — `challenge_` keyword false positive in cred_leak check**
+- `"challenge_"` substring matched `challenge_id`, `challenge_name` in `/api/Challenges` response
+- WrongSecrets normal challenge listing flagged as credential exposure
+- Fix: replaced `"challenge_"` with `"challenge_answer"` and `"wrongsecrets_flag"` in `_shared.py`
+
+**Bug 3 — Bootstrap double clone → pod OOM (root cause took 4 days)**
+The bootstrap step calls `ensure_debug_mode()` via `python -c "..."`. When `AI_DEV_TOOLS_DEBUG=1`,
+`ensure_debug_mode()` calls `os.execv(sys.executable, [sys.executable] + sys.argv)` to re-exec.
+From a `-c` invocation, `sys.argv = ["-c"]` so the re-exec becomes `python -c` (no code) → fails silently.
+This means the marker in `bootstrap.py` (written before `os.execv`) IS written — but only in the
+new bootstrap.py. The OLD docker image runs OLD `bootstrap.py` (no marker logic), clones the code,
+then os.execv fails. `/app/scripts` is updated but marker is never written.
+When the next script step (`python -m scripts.contract.record`) runs, it calls `ensure_debug_mode()`
+again via `load_config()` — `DEBUG=1`, no marker → clones AGAIN → two concurrent clones + JVM
+startup = OOM → pod evicted.
+
+**Wrong fixes attempted:**
+- ❌ Inline `.touch()` after `ensure_debug_mode()` in the `-c` command: `os.execv` replaces
+  the process — the `.touch()` is dead code and never executes
+- ❌ Increasing `ServiceMemoryLimit` to 3G without fixing the double clone: pod still OOMed
+
+**Correct fix:**
+Add a SEPARATE script line `touch /tmp/.adt_bootstrap_done` AFTER the bootstrap line.
+Formicary spawns each script line as an independent process — the touch runs in a new process
+unaffected by `os.execv` in the previous step. All 17 other YAMLs updated the same way.
+
+```yaml
+script:
+  - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+  - touch /tmp/.adt_bootstrap_done   # ← this is a separate process; os.execv in step above cannot kill it
+  - python -m scripts.contract.record
+```
+
+**Bug 4 — record.py probed WrongSecrets before JVM was ready → OOM**
+- record.py waited for AMS (fast Go binary) but NOT for WrongSecrets (Spring Boot JVM, 30-90s startup)
+- Once AMS was ready, `probe_through_proxy` hit WrongSecrets during peak startup memory → OOM
+- Fix: added `wait_for_service(service_url, "service-under-test", retries=45, delay=2.0)` in
+  `record.py` after the AMS wait — ensures WrongSecrets is serving before any probes start
+
+**Memory budget (final):**
+- WrongSecrets service: `4G` limit (Spring Boot peaks at 2-2.5G at startup; 4G gives headroom)
+- AMS service: `512Mi` (Go binary)
+- Record main container: `512Mi` (pure HTTP — was 2G, wasted node memory WrongSecrets needed)
+- Fuzz main container: `2G` (HTTP + YAML processing — was 4G)
+- Total record pod: ~5G; fuzz pod: ~6.5G
+
+**Bug 5 — AMS service cannot write recordings to main container's workspace (pod test passes, e2e fails)**
+
+This is the most dangerous class of bug: pod functional tests pass but the real Kubernetes job is silently broken.
+
+**Root cause:** In the pod functional test (`_POD_MANIFEST_WITH_SERVICES`), all containers (`main`, `wrongsecrets`, `api-mock-service`) explicitly mount the same `workspace` emptyDir at `/workspace`. AMS writes recordings to `/workspace/recordings` and the main container reads them — works fine.
+
+In the formicary YAML, `volumes:` is only defined under `container:` (main container). Services get their volume mounts from `adapter.go` as:
+```go
+volumeMounts := service.GetKubernetesVolumes().AddVolumeMounts(u.config.Kubernetes.Volumes.GetVolumeMounts())
+```
+This starts from the ant config's global volumes + the service's OWN declared volumes. It does NOT include the main container's volumes. So the AMS container starts without `/workspace` mounted, writes recordings to its own local overlay filesystem, and the main container's `/workspace/recordings` stays empty.
+
+The fuzz task then downloads an empty recordings directory, discovers 0 endpoints, runs 0 probes, and always reports `findings=0` regardless of what the service exposes.
+
+**Fix:** Add `volumes:` to the AMS service definition in the YAML. `addVolumes` deduplicates by name (no-op if `workspace` already exists in pod spec from main container), but `AddVolumeMounts` still adds the mount to the AMS container — both share the same emptyDir.
+
+```yaml
+    - name: api-mock-service
+      ...
+      volumes:
+        empty_dir:
+          - name: workspace        # same name as main container's workspace
+            mount_path: /workspace # AMS now shares /workspace with main container
+```
+
+**Lesson:** The pod test manifest MUST mirror the formicary YAML's volume configuration exactly. If the pod test shares volumes that the YAML doesn't, the pod test gives a false green.
+
+**Key gotchas:**
+- `args:` under services in YAML is silently ignored — no `Args` field in formicary `Service` struct. Only `Command []string` is passed to `ToContainer`. AMS works without args because it uses default ports.
+- `env:` on services also not supported — no `Env` field. To pass JVM flags, increase memory limit instead.
+- Template `{{default "2G" .ServiceMemoryLimit}}` and `job_variables.ServiceMemoryLimit` must be kept in sync or the `default` fallback creates confusion (variable wins, but inconsistency is misleading).
+- `Service` struct in `internal/types/service.go` only passes `Command` to the Kubernetes container — `Args`, `Env`, `WorkingDirectory` are parsed but NOT passed through in `ToContainer`.
+- **Service containers do NOT automatically inherit the main container's volumes.** Always add `volumes:` to any service that needs to share a filesystem with the main container.
+
+---
+
 ## Current Open Work (as of 2026-09-24)
 
 ### Pending — PR Audit

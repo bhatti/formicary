@@ -72,6 +72,7 @@ tasks:
       value: "{{.AnthropicSonnetModel}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.jira.issue_picker --issue-id {{.IssueNumber}}
     - python -m scripts.jira.plan --issue-id {{.IssueNumber}}
   artifacts:
@@ -132,6 +133,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.jira.clone_repo --issue-id {{.IssueNumber}}
     - |
       COMPLEXITY=$(cat /workspace/plan_complexity.txt 2>/dev/null || echo "medium")
@@ -197,6 +199,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.review.run --mode self-review --issue-id {{.IssueNumber}} --base-branch {{.GitBranch}}
   artifacts:
     paths:
@@ -253,6 +256,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.jira.build_pr --issue-id {{.IssueNumber}}
     - python -m scripts.jira.notify_pr --issue-id {{.IssueNumber}}
   artifacts:
@@ -307,6 +311,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.jira.check_pr_state --issue-id {{.IssueNumber}}
     - python -m scripts.jira.fetch_comments --issue-id {{.IssueNumber}}
     - python -m scripts.jira.respond_comments --issue-id {{.IssueNumber}}
@@ -346,6 +351,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -355,6 +361,7 @@ tasks:
   report_stdout: true
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - echo "Pipeline complete"
 
 job_variables:

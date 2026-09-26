@@ -78,6 +78,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - |
       SKILL="{{.Skill}}"
       if [ "{{.ReviewDepth}}" = "deep" ]; then SKILL="ygs-review-deep"; fi
@@ -120,6 +121,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.review.post_findings --findings reports/findings.json
   artifacts:
     paths:
@@ -158,6 +160,7 @@ tasks:
 
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - python -m scripts.standup.slack_client
   on_completed: done
 
@@ -167,6 +170,7 @@ tasks:
   report_stdout: true
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
     - echo "Review pipeline complete"
 
 job_variables:
