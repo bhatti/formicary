@@ -550,3 +550,18 @@ func Test_FlagToPascal_Kebab(t *testing.T) {
 	require.Equal(t, "BaseBranch", flagToPascal("base-branch"))
 	require.Equal(t, "PrNumber", flagToPascal("pr-number"))
 }
+
+func Test_ExtractFlags_TargetAlias(t *testing.T) {
+	// --target is a short alias for --target-branch; must produce TargetBranch job var
+	remaining, flags := extractFlags("--target stage some-repo")
+	require.Equal(t, "some-repo", remaining)
+	require.Equal(t, "stage", flags["TargetBranch"])
+	require.Empty(t, flags["Target"], "--target must not also set Target")
+}
+
+func Test_ExtractFlags_TargetBranchFull(t *testing.T) {
+	// --target-branch long form still works
+	remaining, flags := extractFlags("--target-branch prod")
+	require.Equal(t, "", remaining)
+	require.Equal(t, "prod", flags["TargetBranch"])
+}

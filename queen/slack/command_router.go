@@ -142,10 +142,17 @@ func (r *CommandRouter) Routes() []config.SlackRouteConfig {
 	return out
 }
 
+// flagAliases maps short/alternate flag names to their canonical kebab-case equivalents.
+// Add entries here when a new short-form alias is needed without changing YAML job variables.
+var flagAliases = map[string]string{
+	"target": "target-branch",
+}
+
 // extractFlags splits "--key value" pairs from text, returning remaining positional
 // text and a map of flag names (PascalCase) to values. Flags without a following
 // value are ignored. This lets any route accept optional flags like --repo, --branch,
 // --model without per-route Go changes — the YAML accesses them as {{.Repo}} etc.
+// Short aliases (e.g. --target → --target-branch) are resolved via flagAliases.
 func extractFlags(text string) (remaining string, flags map[string]string) {
 	flags = make(map[string]string)
 	words := strings.Fields(text)
@@ -153,6 +160,9 @@ func extractFlags(text string) (remaining string, flags map[string]string) {
 	for i := 0; i < len(words); i++ {
 		if strings.HasPrefix(words[i], "--") && i+1 < len(words) && !strings.HasPrefix(words[i+1], "--") {
 			key := strings.TrimPrefix(words[i], "--")
+			if canonical, ok := flagAliases[key]; ok {
+				key = canonical
+			}
 			flags[flagToPascal(key)] = stripSlackURL(words[i+1])
 			i++
 		} else {

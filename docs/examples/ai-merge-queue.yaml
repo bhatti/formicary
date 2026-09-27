@@ -1,34 +1,29 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# AI-driven merge queue orchestrator with scope-aware parallel lanes.
+# AI-driven merge queue: read-only risk analysis for open PRs.
 #
-# Pipeline: collect → group → launch-lanes (fan-out) → reconcile → done
+# Pipeline: collect → group → analyze → report → done
 #
-# 1. collect:       Gathers all PRs labeled "ready-to-merge" from the repo.
-# 2. group:         Groups PRs by scope (disjoint file sets) into lanes.
-#                   PRs touching disjoint directories can merge in parallel.
-# 3. launch-lanes:  Fan-out — forks one ai-mq-lane child job per scope lane.
-#                   Each lane does: speculative batch → test → bisect on failure → merge.
-# 4. reconcile:     Aggregates lane results, reports summary, updates labels.
+# 1. collect:  Gathers all open PRs from the configured repo (no label required).
+#              Optional --label filter for GitHub; --repo overrides GH_ORG/GH_REPO.
+# 2. group:    Groups PRs by scope (disjoint file sets) into lanes.
+# 3. analyze:  Claude with ygs-merge-queue skill: per-lane risk, blast-radius,
+#              conflict detection, human-review flags.
+# 4. report:   Posts Slack summary with per-lane risk table.
 #
-# This is a cron-triggered job that runs periodically to drain the merge queue.
-# Individual lane execution is handled by the ai-mq-lane job (fork_job_type).
+# READ-ONLY: no merges, no label writes, no PR mutations of any kind.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
 
 job_type: ai-merge-queue
-description: "Scope-aware merge queue: group PRs by scope, test in parallel lanes, merge"
+description: "Scope-aware merge queue analysis: group open PRs by scope, assess blast-radius and risk per lane"
 cron_trigger: "0 2 * * *"
 max_concurrency: 1
-timeout: 7200s
-
-skip_if: >-
-  {{if ge (CountByJobTypeAndState "ai-mq-lane" "PENDING" "EXECUTING") 5}} true {{end}}
+timeout: 3600s
 
 tasks:
 # --- COLLECT -----------------------------------------------------------------
-# Gather all PRs ready to merge.
 - task_type: collect
   method: KUBERNETES
   timeout: 5m
@@ -54,13 +49,14 @@ tasks:
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    REPO_URL: "{{.RepoUrl}}"
     READY_LABEL: "{{.ReadyLabel}}"
-    BASE_BRANCH: "{{.BaseBranch}}"
+    TARGET_BRANCH: "{{.TargetBranch}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - touch /tmp/.adt_bootstrap_done
-    - python -m scripts.mq.collect_ready --label "{{.ReadyLabel}}"
+    - python -m scripts.mq.collect_ready --repo "$REPO_URL" --label "$READY_LABEL"
   artifacts:
     paths:
       - ./ready_prs.json
@@ -70,7 +66,6 @@ tasks:
   on_failed: notify-error
 
 # --- GROUP -------------------------------------------------------------------
-# Group PRs by scope into lanes for parallel processing.
 - task_type: group
   method: KUBERNETES
   timeout: 5m
@@ -96,11 +91,6 @@ tasks:
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     MAX_LANES: "{{.MaxLanes}}"
-    MAX_BATCH_SIZE: "{{.MaxBatchSize}}"
-    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
-    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
-    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicHaikuModel}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -111,15 +101,63 @@ tasks:
       - ./lane_groups.json
       - ./logs
     expire_after: 24h
-  on_completed: launch-lanes
+  on_completed: analyze
   on_failed: notify-error
 
-# --- LAUNCH-LANES (fan-out with fork_job_type) -------------------------------
-# Forks one ai-mq-lane child job per scope lane.
-- task_type: launch-lanes
+# --- ANALYZE -----------------------------------------------------------------
+# Claude reads lane_groups.json + ready_prs.json via ygs-merge-queue skill.
+# Writes queue_summary.json with per-lane risk analysis.
+- task_type: analyze
   method: KUBERNETES
-  timeout: 60m
+  timeout: 10m
   report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 2G
+    memory_request: 512Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - collect
+    - group
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    REPORT_TITLE: "Merge Queue Analysis"
+    TASK_TYPE: analyze
+    AI_MODEL: "{{.AnthropicSonnetModel}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.mq.analyze --skill ygs-merge-queue
+  artifacts:
+    paths:
+      - ./queue_summary.json
+      - ./logs
+    expire_after: 24h
+  on_completed: report
+  on_failed: report
+
+# --- REPORT ------------------------------------------------------------------
+- task_type: report
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
   working_dir: /workspace
   container:
     image: plexobject/ai-dev-tools:latest
@@ -134,49 +172,9 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
+    - collect
     - group
-  fan_out:
-    source: LANE_GROUPS
-    item_var: lane
-    max_parallel: {{.MaxLanes}}
-    fail_fast: false
-    fork_job_type: ai-mq-lane
-    sub_workflow:
-      input_vars:
-        - LaneData: "{{.lane}}"
-        - GitHubOrg: "{{.GitHubOrg}}"
-        - GitHubRepo: "{{.GitHubRepo}}"
-        - BaseBranch: "{{.BaseBranch}}"
-      output_vars:
-        - lane_result
-  script:
-    - echo "Launched lane for scope {{.lane}}"
-  on_completed: reconcile
-  on_failed: reconcile
-
-# --- RECONCILE ---------------------------------------------------------------
-# Aggregate results from all lanes.
-- task_type: reconcile
-  method: KUBERNETES
-  timeout: 5m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 512Mi
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - group
-    - launch-lanes
+    - analyze
   environment:
     WORKSPACE_DIR: /workspace
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
@@ -185,38 +183,18 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
-    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
+    REPORT_TITLE: "Merge Queue Analysis"
+    TASK_TYPE: report
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - touch /tmp/.adt_bootstrap_done
-    - |
-      python3 -c "
-      import json, glob, os
-      lanes = []
-      for f in sorted(glob.glob('/workspace/lane_*_result.json')):
-          lanes.append(json.load(open(f)))
-      merged = sum(1 for l in lanes if l.get('status') == 'merged')
-      failed = sum(1 for l in lanes if l.get('status') == 'failed')
-      bisected = sum(1 for l in lanes if l.get('bisected'))
-      total_prs = sum(len(l.get('prs', [])) for l in lanes)
-      summary = {
-          'lanes': len(lanes),
-          'total_prs': total_prs,
-          'merged': merged,
-          'failed': failed,
-          'bisected': bisected
-      }
-      json.dump(summary, open('/workspace/queue_summary.json', 'w'), indent=2)
-      print(f'Merge queue: {len(lanes)} lanes, {total_prs} PRs, {merged} merged, {failed} failed, {bisected} bisected')
-      "
+    - mkdir -p /workspace/reports
     - python -m scripts.mq.report
   artifacts:
     paths:
-      - ./queue_summary.json
       - ./reports
     expire_after: 24h
   on_completed: done
@@ -239,7 +217,7 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JOB_TYPE: "ai-merge-queue"
-    MESSAGE: ":x: Merge queue orchestrator failed."
+    MESSAGE: ":x: Merge queue analysis failed."
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -252,17 +230,24 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
-    - echo "Merge queue cycle complete"
+    - echo "Merge queue analysis complete"
 
 job_variables:
-  ReadyLabel: "ready-to-merge"
+  RepoUrl: ""
+  ReadyLabel: ""
+  TargetBranch: ""
   BaseBranch: "main"
   MaxLanes: "4"
-  MaxBatchSize: "5"
+  DefaultTracker: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
   AiDevToolsDebug: ""
   FormicaryPublicURL: ""
   SlackChannel: ""
   SlackThreadTs: ""
+  SlackToken: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"

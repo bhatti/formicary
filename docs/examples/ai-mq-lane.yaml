@@ -1,26 +1,25 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Merge queue lane — processes one scope lane of PRs.
+# Merge queue lane — read-only per-lane risk analysis.
 #
-# Forked by ai-merge-queue via fan_out.fork_job_type.
-# Each lane receives a set of PRs that touch disjoint file scopes.
+# Forked by ai-merge-queue via fan_out.fork_job_type (optional deep-dive mode).
+# Each lane receives a set of PRs that touch the same scope.
 #
-# Pipeline: prepare → speculative-test → evaluate → merge / bisect → done
+# Pipeline: analyze-lane → report → done
 #
-# 1. prepare:          Sets up the speculative merge branch combining all PRs in the lane.
-# 2. speculative-test: Runs the full test suite on the combined branch.
-# 3. evaluate:         Checks test results. Pass → merge all. Fail → bisect.
-# 4. merge:            Fast-forward merges all PRs in the lane.
-# 5. bisect:           Binary search for the failing PR, merge the good ones,
-#                      eject the bad one back to draft.
+# 1. analyze-lane: Fetches risk score for each PR in the lane, computes
+#                  conflict risk (overlapping file paths), and writes lane_result.json.
+# 2. report:       Posts per-lane Slack summary.
+#
+# READ-ONLY: no merges, no label writes, no PR mutations.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
 
 job_type: ai-mq-lane
-description: "Single merge queue lane: speculative batch test, bisect on failure"
+description: "Single merge queue lane: read-only risk analysis per PR, conflict detection"
 max_concurrency: 8
-timeout: 3600s
+timeout: 1800s
 
 variables:
   LaneData:
@@ -28,9 +27,8 @@ variables:
     required: true
 
 tasks:
-# --- PREPARE -----------------------------------------------------------------
-# Create speculative merge branch combining all PRs in the lane.
-- task_type: prepare
+# --- ANALYZE-LANE ------------------------------------------------------------
+- task_type: analyze-lane
   method: KUBERNETES
   timeout: 10m
   report_stdout: true
@@ -40,8 +38,8 @@ tasks:
     image: plexobject/ai-dev-tools:latest
     image_pull_policy: Always
     cpu_request: "500m"
-    memory_limit: 4G
-    memory_request: 1G
+    memory_limit: 2G
+    memory_request: 512Mi
     volumes:
       empty_dir:
         - name: workspace
@@ -52,6 +50,9 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     BASE_BRANCH: "{{.BaseBranch}}"
     LANE_DATA: "{{.LaneData}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
@@ -60,341 +61,82 @@ tasks:
     - touch /tmp/.adt_bootstrap_done
     - |
       python3 -c "
-      import json, subprocess, os, sys
+      import json, os, sys
+      from pathlib import Path
+
       lane = json.loads(os.environ['LANE_DATA'])
-      org = os.environ['GH_ORG']
-      repo = os.environ['GH_REPO']
-      base = os.environ['BASE_BRANCH']
-      ws = '/workspace/repo'
+      scope_key = lane.get('lane_id', 'default')
+      prs = lane.get('prs', [])
+      ws = Path('/workspace')
+      ws.mkdir(parents=True, exist_ok=True)
 
-      # Clone and setup
-      subprocess.run(['gh', 'repo', 'clone', f'{org}/{repo}', ws, '--', '--depth=50'], check=True)
-      os.chdir(ws)
-      subprocess.run(['git', 'checkout', base], check=True)
-
-      # Create speculative merge branch
-      branch_name = f'mq/lane-{lane[\"scope_key\"]}'
-      subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
-
-      # Merge each PR in order
-      merged_prs = []
-      for pr in lane['prs']:
-          pr_num = pr['number']
-          print(f'Merging PR #{pr_num} into speculative branch...')
-          result = subprocess.run(
-              ['gh', 'pr', 'diff', str(pr_num), '--repo', f'{org}/{repo}'],
-              capture_output=True, text=True
-          )
-          if result.returncode != 0:
-              print(f'Failed to get diff for PR #{pr_num}: {result.stderr}')
-              continue
-          apply_result = subprocess.run(
-              ['git', 'apply', '--3way', '-'],
-              input=result.stdout, capture_output=True, text=True
-          )
-          if apply_result.returncode == 0:
-              subprocess.run(['git', 'add', '-A'], check=True)
-              subprocess.run(['git', 'commit', '-m', f'Speculative merge PR #{pr_num}', '--allow-empty'], check=True)
-              merged_prs.append(pr_num)
+      # Collect file paths per PR to detect overlapping changes (conflict risk)
+      pr_files: dict = {}
+      risk_tiers: dict = {}
+      for pr in prs:
+          pr_num = pr.get('pr_number') or pr.get('number') or str(pr)
+          # Read per-PR risk_score if pre-computed, otherwise use blast_radius from ready_prs
+          risk_path = ws / f'risk_score_{pr_num}.json'
+          if risk_path.exists():
+              rd = json.loads(risk_path.read_text())
+              risk_tiers[str(pr_num)] = rd.get('tier', 'MEDIUM')
           else:
-              print(f'Conflict merging PR #{pr_num}: {apply_result.stderr}')
-              pr['conflict'] = True
+              blast = pr.get('blast_radius', 'medium').upper()
+              risk_tiers[str(pr_num)] = {'LOW': 'LOW', 'MEDIUM': 'MEDIUM', 'HIGH': 'HIGH'}.get(blast, 'MEDIUM')
+          # Collect changed file top-level paths for conflict detection
+          files = pr.get('files', [])
+          pr_files[str(pr_num)] = {f.get('path', '').split('/')[0] for f in files if f.get('path')}
 
-      result = {'scope_key': lane['scope_key'], 'prs': lane['prs'], 'merged_prs': merged_prs, 'branch': branch_name}
-      json.dump(result, open('/workspace/prepare_result.json', 'w'), indent=2)
-      print(f'Prepared speculative branch with {len(merged_prs)} PRs')
-      "
-  artifacts:
-    paths:
-      - ./prepare_result.json
-      - ./logs
-    expire_after: 24h
-  on_completed: speculative-test
-  on_failed: notify-error
+      # Conflict risk: any two PRs in the lane share top-level paths
+      all_pr_ids = list(pr_files.keys())
+      conflict_pairs = []
+      for i in range(len(all_pr_ids)):
+          for j in range(i + 1, len(all_pr_ids)):
+              shared = pr_files[all_pr_ids[i]] & pr_files[all_pr_ids[j]]
+              if shared:
+                  conflict_pairs.append({'pr_a': all_pr_ids[i], 'pr_b': all_pr_ids[j], 'shared_paths': list(shared)})
 
-# --- SPECULATIVE-TEST --------------------------------------------------------
-# Run full test suite on the combined speculative branch.
-- task_type: speculative-test
-  method: KUBERNETES
-  timeout: 30m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "1000m"
-    memory_limit: 4G
-    memory_request: 2G
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - prepare
-  environment:
-    WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    CODEBASE_DIR: /workspace/repo
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - touch /tmp/.adt_bootstrap_done
-    - |
-      python3 -c "
-      import subprocess, json, os, time
-      repo = os.environ.get('CODEBASE_DIR', '/workspace/repo')
-      start = time.monotonic()
-      result = subprocess.run(['make', 'test'], capture_output=True, text=True, cwd=repo, timeout=1800)
-      duration = time.monotonic() - start
-      status = 'passed' if result.returncode == 0 else 'failed'
-      import re
-      passed = int(m.group(1)) if (m := re.search(r'(\d+) passed', result.stdout + result.stderr)) else 0
-      failed = int(m.group(1)) if (m := re.search(r'(\d+) failed', result.stdout + result.stderr)) else 0
-      test_result = {'passed': passed, 'failed': failed, 'status': status, 'duration_s': round(duration, 1)}
-      json.dump(test_result, open('/workspace/test_result.json', 'w'), indent=2)
-      print(f'Speculative test: {status} ({passed} passed, {failed} failed, {duration:.0f}s)')
-      for line in (result.stdout + result.stderr).splitlines()[-15:]:
-          print(f'  {line}')
-      exit(result.returncode)
-      "
-  artifacts:
-    paths:
-      - ./test_result.json
-      - ./test_output.xml
-      - ./logs
-    expire_after: 24h
-  on_exit_code:
-    1: evaluate
-  on_completed: evaluate
-  on_failed: evaluate
+      highest_risk = 'LOW'
+      for t in risk_tiers.values():
+          if t == 'HIGH':
+              highest_risk = 'HIGH'
+              break
+          if t == 'MEDIUM':
+              highest_risk = 'MEDIUM'
 
-# --- EVALUATE ----------------------------------------------------------------
-# Check test results: all pass → merge, any fail → bisect.
-- task_type: evaluate
-  method: KUBERNETES
-  timeout: 3m
-  report_stdout: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256Mi
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-  dependencies:
-    - speculative-test
-  environment:
-    WORKSPACE_DIR: /workspace
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - touch /tmp/.adt_bootstrap_done
-    - |
-      python3 -c "
-      import json, sys
-      try:
-          test = json.load(open('/workspace/test_result.json'))
-      except FileNotFoundError:
-          print('No test results — treating as failure')
-          sys.exit(1)
-      if test.get('failed', 0) == 0 and test.get('status') != 'error':
-          print(f'All {test.get(\"passed\", 0)} tests passed — proceeding to merge')
-          sys.exit(0)
-      else:
-          print(f'{test.get(\"failed\", 0)} tests failed — proceeding to bisect')
-          sys.exit(1)
-      "
-  on_completed: merge
-  on_failed: bisect
-
-# --- MERGE -------------------------------------------------------------------
-# All tests passed — merge all PRs in the lane.
-- task_type: merge
-  method: KUBERNETES
-  timeout: 10m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "200m"
-    memory_limit: 1G
-    memory_request: 256Mi
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - evaluate
-  environment:
-    WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - touch /tmp/.adt_bootstrap_done
-    - |
-      python3 -c "
-      import json, subprocess, os
-      prepare = json.load(open('/workspace/prepare_result.json'))
-      org = os.environ['GH_ORG']
-      repo = os.environ['GH_REPO']
-      merged = []
-      for pr_num in prepare['merged_prs']:
-          print(f'Merging PR #{pr_num}...')
-          result = subprocess.run(
-              ['gh', 'pr', 'merge', str(pr_num), '--squash', '--repo', f'{org}/{repo}'],
-              capture_output=True, text=True
-          )
-          if result.returncode == 0:
-              merged.append(pr_num)
-              print(f'  Merged PR #{pr_num}')
-          else:
-              print(f'  Failed to merge PR #{pr_num}: {result.stderr}')
-      lane_result = {
-          'scope_key': prepare['scope_key'],
-          'prs': prepare['merged_prs'],
-          'status': 'merged',
-          'merged_count': len(merged),
-          'bisected': False
-      }
-      json.dump(lane_result, open('/workspace/lane_result.json', 'w'), indent=2)
-      print(f'Lane {prepare[\"scope_key\"]}: merged {len(merged)}/{len(prepare[\"merged_prs\"])} PRs')
-      "
-  artifacts:
-    paths:
-      - ./lane_result.json
-    expire_after: 24h
-  on_completed: report
-  on_failed: notify-error
-
-# --- BISECT ------------------------------------------------------------------
-# Binary search for the failing PR, merge good ones, eject bad one.
-- task_type: bisect
-  method: KUBERNETES
-  timeout: 45m
-  report_stdout: true
-  host_network: true
-  working_dir: /workspace
-  container:
-    image: plexobject/ai-dev-tools:latest
-    image_pull_policy: Always
-    cpu_request: "1000m"
-    memory_limit: 4G
-    memory_request: 2G
-    volumes:
-      empty_dir:
-        - name: workspace
-          mount_path: /workspace
-    env_from:
-      - secret_ref: ai-dev-credentials
-  dependencies:
-    - evaluate
-  environment:
-    WORKSPACE_DIR: /workspace
-    GH_ORG: "{{.GitHubOrg}}"
-    GH_REPO: "{{.GitHubRepo}}"
-    BASE_BRANCH: "{{.BaseBranch}}"
-    CODEBASE_DIR: /workspace/repo
-    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
-  script:
-    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
-    - touch /tmp/.adt_bootstrap_done
-    - |
-      python3 -c "
-      import json, subprocess, os, math
-
-      prepare = json.load(open('/workspace/prepare_result.json'))
-      org = os.environ['GH_ORG']
-      repo = os.environ['GH_REPO']
-      base = os.environ['BASE_BRANCH']
-      prs = prepare['merged_prs']
-
-      def test_subset(pr_subset):
-          '''Create speculative branch with subset and run tests.'''
-          ws = '/workspace/repo'
-          os.chdir(ws)
-          subprocess.run(['git', 'checkout', base], check=True)
-          subprocess.run(['git', 'checkout', '-b', f'mq/bisect-{len(pr_subset)}'], check=True)
-          for pr_num in pr_subset:
-              diff = subprocess.run(['gh', 'pr', 'diff', str(pr_num), '--repo', f'{org}/{repo}'],
-                                    capture_output=True, text=True)
-              subprocess.run(['git', 'apply', '--3way', '-'], input=diff.stdout, capture_output=True)
-              subprocess.run(['git', 'add', '-A'])
-              subprocess.run(['git', 'commit', '-m', f'bisect PR #{pr_num}', '--allow-empty'])
-          result = subprocess.run(['make', 'test'], capture_output=True, text=True, cwd=ws, timeout=1800)
-          subprocess.run(['git', 'checkout', base], check=True)
-          subprocess.run(['git', 'branch', '-D', f'mq/bisect-{len(pr_subset)}'])
-          return result.returncode == 0
-
-      # Binary search
-      good_prs = []
-      bad_prs = []
-      remaining = list(prs)
-
-      while len(remaining) > 1:
-          mid = len(remaining) // 2
-          first_half = remaining[:mid]
-          if test_subset(first_half):
-              good_prs.extend(first_half)
-              remaining = remaining[mid:]
-          else:
-              remaining = first_half
-
-      # Single PR left — test it alone
-      if remaining:
-          if test_subset(remaining):
-              good_prs.extend(remaining)
-          else:
-              bad_prs.extend(remaining)
-
-      # Merge good PRs
-      merged = []
-      for pr_num in good_prs:
-          result = subprocess.run(['gh', 'pr', 'merge', str(pr_num), '--squash', '--repo', f'{org}/{repo}'],
-                                  capture_output=True, text=True)
-          if result.returncode == 0:
-              merged.append(pr_num)
-
-      # Eject bad PRs back to draft
-      for pr_num in bad_prs:
-          subprocess.run(['gh', 'pr', 'ready', str(pr_num), '--undo', '--repo', f'{org}/{repo}'])
-          subprocess.run(['gh', 'pr', 'comment', str(pr_num), '--body',
-                          ':warning: Ejected from merge queue — tests failed during bisection. Please fix and re-queue.',
-                          '--repo', f'{org}/{repo}'])
+      needs_human_review = [pr_num for pr_num, tier in risk_tiers.items() if tier == 'HIGH']
 
       lane_result = {
-          'scope_key': prepare['scope_key'],
+          'scope_key': scope_key,
           'prs': prs,
-          'status': 'bisected',
-          'merged_count': len(merged),
-          'ejected': bad_prs,
-          'bisected': True
+          'pr_count': len(prs),
+          'risk_tiers': risk_tiers,
+          'highest_risk': highest_risk,
+          'conflict_risk': 'HIGH' if conflict_pairs else 'NONE',
+          'conflict_pairs': conflict_pairs,
+          'needs_human_review': needs_human_review,
+          'status': 'analyzed',
       }
-      json.dump(lane_result, open('/workspace/lane_result.json', 'w'), indent=2)
-      print(f'Bisect complete: merged {len(merged)}, ejected {len(bad_prs)}')
+      # Sanitize scope_key for filename: replace '/' with '__' so
+      # 'org/branches/FOO/unknown' becomes 'org__branches__FOO__unknown'
+      safe_key = scope_key.replace('/', '__')
+      out = ws / f'lane_{safe_key}_result.json'
+      out.write_text(json.dumps(lane_result, indent=2))
+      print(f'[analyze-lane] scope={scope_key} prs={len(prs)} highest_risk={highest_risk} conflicts={len(conflict_pairs)}', flush=True)
+      print(f'::add-task-context LANE_SCOPE::{scope_key}', flush=True)
+      print(f'::add-task-context LANE_HIGHEST_RISK::{highest_risk}', flush=True)
+      conflict_label = 'HIGH' if conflict_pairs else 'NONE'
+      print(f'::add-task-context LANE_CONFLICT_RISK::{conflict_label}', flush=True)
       "
   artifacts:
     paths:
-      - ./lane_result.json
+      - ./lane_*_result.json
+      - ./logs
     expire_after: 24h
   on_completed: report
   on_failed: notify-error
 
 # --- REPORT ------------------------------------------------------------------
-# Post lane results to Slack with HTML report.
 - task_type: report
   method: KUBERNETES
   timeout: 3m
@@ -414,9 +156,7 @@ tasks:
     env_from:
       - secret_ref: ai-dev-credentials
   dependencies:
-    - prepare
-    - merge
-    - bisect
+    - analyze-lane
   environment:
     WORKSPACE_DIR: /workspace
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
@@ -425,8 +165,6 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
-    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
-    BITBUCKET_REPO: "{{.BitbucketRepo}}"
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
     REPORT_TITLE: "Merge Queue Lane"
@@ -459,7 +197,7 @@ tasks:
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
     JOB_TYPE: "ai-mq-lane"
-    MESSAGE: ":x: Merge queue lane failed."
+    MESSAGE: ":x: Merge queue lane analysis failed."
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -472,17 +210,22 @@ tasks:
   method: SHELL
   report_stdout: true
   script:
-    - echo "Merge queue lane complete"
+    - echo "Merge queue lane analysis complete"
 
 job_variables:
   BaseBranch: "main"
-  AiDevToolsDebug: ""
-  FormicaryPublicURL: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
+  DefaultTracker: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  SlackToken: ""
   SlackChannel: ""
   SlackThreadTs: ""
+  FormicaryPublicURL: ""
+  JobID: ""
+  AiDevToolsDebug: ""
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
   AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
