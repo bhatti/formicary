@@ -26,7 +26,7 @@ tasks:
 # --- COLLECT -----------------------------------------------------------------
 - task_type: collect
   method: KUBERNETES
-  timeout: 5m
+  timeout: 10m
   report_stdout: true
   host_network: true
   working_dir: /workspace
@@ -53,10 +53,11 @@ tasks:
     READY_LABEL: "{{.ReadyLabel}}"
     TARGET_BRANCH: "{{.TargetBranch}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+    DIFFSTAT_WORKERS: "{{.DiffstatWorkers}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - touch /tmp/.adt_bootstrap_done
-    - python -m scripts.mq.collect_ready --repo "$REPO_URL" --label "$READY_LABEL"
+    - python -m scripts.mq.collect_ready --repo "$REPO_URL" --label "$READY_LABEL" --target-branch "$TARGET_BRANCH"
   artifacts:
     paths:
       - ./ready_prs.json
@@ -187,6 +188,7 @@ tasks:
     GH_REPO: "{{.GitHubRepo}}"
     REPORT_TITLE: "Merge Queue Analysis"
     TASK_TYPE: report
+    DEPLOYMENT_PROFILE: "{{.DeploymentProfile}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -243,6 +245,8 @@ job_variables:
   GitHubRepo: ""
   BitbucketWorkspace: ""
   BitbucketRepo: ""
+  DeploymentProfile: ""
+  DiffstatWorkers: "8"
   AiDevToolsDebug: ""
   FormicaryPublicURL: ""
   SlackChannel: ""

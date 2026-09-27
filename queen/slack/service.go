@@ -1051,6 +1051,14 @@ func (s *SlackService) triggerExistingJobRequest(
 		"SlackChannel":  channel,
 		"SlackThreadTs": threadTS,
 	}
+	// Forward all user-supplied params (flags, IdVar, route params) so the
+	// triggered cron job picks up --target-branch, --repo, etc. from the
+	// Slack message instead of running with stale/empty defaults.
+	for k, v := range req.NameValueParams {
+		if _, reserved := slackParams[k]; !reserved {
+			slackParams[k] = v
+		}
+	}
 
 	// 1. Pre-run waiting slot — trigger immediately.
 	if jobs := findCronJobs("WAITING"); len(jobs) > 0 {

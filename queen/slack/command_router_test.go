@@ -40,6 +40,12 @@ func testRoutes() []config.SlackRouteConfig {
 			Description: "Risk scan",
 			Params:      map[string]string{"Skill": "ygs-risk-scan"},
 		},
+		{
+			Triggers:    []string{"merge-queue", "mq"},
+			JobType:     "ai-merge-queue",
+			IdVar:       "RepoUrl",
+			Description: "Merge queue analysis",
+		},
 	}
 }
 
@@ -564,4 +570,61 @@ func Test_ExtractFlags_TargetBranchFull(t *testing.T) {
 	remaining, flags := extractFlags("--target-branch prod")
 	require.Equal(t, "", remaining)
 	require.Equal(t, "prod", flags["TargetBranch"])
+}
+
+func Test_ExtractFlags_SlackURLWithTargetBranch(t *testing.T) {
+	// Simulates actual Slack message: URL already unwrapped by extractSlackURL,
+	// followed by --target-branch flag
+	remaining, flags := extractFlags("https://bitbucket.org/ws/repo/src/dev/ --target-branch stage")
+	require.Equal(t, "https://bitbucket.org/ws/repo/src/dev/", remaining)
+	require.Equal(t, "stage", flags["TargetBranch"])
+}
+
+func Test_ExtractFlags_SlackWrappedURLWithTargetBranch(t *testing.T) {
+	// Simulates raw Slack mrkdwn URL + flags (extractSlackURL didn't unwrap because
+	// the string doesn't start+end with angle brackets)
+	remaining, flags := extractFlags("<https://bitbucket.org/ws/repo/src/dev/|bitbucket.org/ws/repo/src/dev/> --target-branch stage")
+	require.Equal(t, "<https://bitbucket.org/ws/repo/src/dev/|bitbucket.org/ws/repo/src/dev/>", remaining)
+	require.Equal(t, "stage", flags["TargetBranch"])
+}
+
+func Test_MQ_Route_TargetBranch_EndToEnd(t *testing.T) {
+	// Simulates the full Slack flow for: @bot mq <url> --target-branch stage
+	// After stripMention, the text is: mq <https://bitbucket.org/ws/repo/src/dev/> --target-branch stage
+	router := NewCommandRouter(testRoutes())
+
+	text := "mq <https://bitbucket.org/ws/repo/src/dev/> --target-branch stage"
+	result, isBuiltin, err := router.Route(text)
+	require.NoError(t, err)
+	require.False(t, isBuiltin)
+	require.Equal(t, "ai-merge-queue", result.JobType)
+	require.Equal(t, "RepoUrl", result.IdVar)
+
+	// Simulate service.go lines 694-716: extractSlackURL then extractFlags
+	cleanTrailing := extractSlackURL(result.Trailing)
+	remaining, flags := extractFlags(cleanTrailing)
+
+	// TargetBranch must be extracted
+	require.Equal(t, "stage", flags["TargetBranch"], "TargetBranch must be extracted from --target-branch")
+
+	// Remaining text (positional) becomes the RepoUrl via IdVar binding
+	// stripSlackURL should unwrap the angle-bracket URL
+	repoUrl := stripSlackURL(remaining)
+	require.Equal(t, "https://bitbucket.org/ws/repo/src/dev/", repoUrl, "RepoUrl must be the unwrapped URL")
+}
+
+func Test_MQ_Route_TargetAlias_EndToEnd(t *testing.T) {
+	// Same flow but with --target alias
+	router := NewCommandRouter(testRoutes())
+
+	text := "mq <https://bitbucket.org/ws/repo/src/dev/> --target stage"
+	result, _, err := router.Route(text)
+	require.NoError(t, err)
+
+	cleanTrailing := extractSlackURL(result.Trailing)
+	remaining, flags := extractFlags(cleanTrailing)
+
+	require.Equal(t, "stage", flags["TargetBranch"], "--target alias must produce TargetBranch")
+	repoUrl := stripSlackURL(remaining)
+	require.Equal(t, "https://bitbucket.org/ws/repo/src/dev/", repoUrl)
 }
