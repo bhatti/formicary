@@ -396,10 +396,18 @@ done
 echo "[artifact-copy] copy_errors=$_copy_errors"
 echo "[artifact-copy] destination contents after copy:"
 find "$(pwd)" -maxdepth 4 -name "*.yaml" 2>/dev/null | head -20 || true
+chmod -R a+rwX "$(pwd)" 2>/dev/null || true
+echo "[artifact-copy] chmod done"
 _artifact_count=$(find "%s" -mindepth 1 | wc -l | tr -d ' ')
 echo "ARTIFACT_FILE_COUNT=${_artifact_count}"`, wd, extractedDir, wd, wd, extractedDir, extractedDir, extractedDir)
-	// Run the copy in the helper container (root user) so it can write into
-	// directories pre-created by sidecar containers (e.g. AMS uid=100 drwxr-xr-x).
+	// CRITICAL: Run the copy AND chmod in the helper container (UID 0).
+	// The copy must run as root to write into directories pre-created by sidecar
+	// containers (e.g. AMS uid=100 drwxr-xr-x).
+	// BUG INTRODUCED in commit 36f278f: changing execute() from false→true (main→helper
+	// container) fixed the sidecar case but caused all extracted files/dirs to be owned
+	// by root (UID 0). Subsequent tasks running as UID 1000 could not write to those
+	// directories. FIX: chmod -R a+rwX after copy (still in helper/root) makes all
+	// extracted artifacts world-writable before the main container task starts.
 	stdout, stderr, _, _, copyErr := execute(ctx, cmd, true)
 	_ = traceWriter.WriteTraceInfo(ctx, fmt.Sprintf("🌟 artifact-copy output: %s", string(stdout)))
 	if len(stderr) > 0 {
