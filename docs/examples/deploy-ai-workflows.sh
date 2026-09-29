@@ -484,6 +484,7 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-merge-queue.yaml"
   "${SCRIPT_DIR}/ai-mq-lane.yaml"
   "${SCRIPT_DIR}/ai-contract-test.yaml"
+  "${SCRIPT_DIR}/ai-open-prs.yaml"
 )
 
 echo ""

@@ -112,6 +112,7 @@ tasks:
     GH_REPO: "{{.GitHubRepo}}"
     PR_NUMBER: "{{.PRNumber}}"
     APPROVAL_THRESHOLD: "{{.ApprovalThreshold}}"
+    TASK_TYPE: "route"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -181,6 +182,7 @@ tasks:
     BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
     BITBUCKET_REPO: "{{.BitbucketRepo}}"
     PR_NUMBER: "{{.PRNumber}}"
+    TASK_TYPE: "report"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true

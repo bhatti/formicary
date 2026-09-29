@@ -1,0 +1,179 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Open PR Dashboard: fetch all open PRs and build a rich analytics report.
+#
+# Pipeline: open-prs → post-open-prs → done
+#
+# 1. open-prs:      Fetch open PRs, enrich with category/risk/blast/CI/age metadata,
+#                   generate full dashboard report (HTML + MD).
+# 2. post-open-prs: Post summary to Slack with HTML artifact link.
+#
+# Triggered via Slack:
+#   "@bot open-prs"
+#   "@bot open-prs <repo-url>"
+#   "@bot open-prs --repo <url> [--target-branch <branch>] [--label <label>]"
+#
+# The report shows:
+#   - Per-PR metrics: Status | Category | Type | Blast | Risk | LOC | CI | Age | Reviewers | Issues
+#   - Grouped by risk tier (high → medium → low)
+#   - Stale PRs (>7d)
+#   - Category breakdown, work-type distribution
+#   - Metrics dashboard (CI pass rate, review coverage, rubber-stamp rate, avg age, etc.)
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+
+job_type: ai-open-prs
+description: "Open PR Dashboard: fetch and analyze all open PRs with rich metadata, risk, and metrics"
+max_concurrency: 5
+timeout: 3600s
+
+variables:
+  RepoUrl:
+    type: STRING
+    required: false
+
+tasks:
+# --- OPEN-PRS -----------------------------------------------------------------
+# Fetch and enrich all open PRs, generate HTML/MD report.
+- task_type: open-prs
+  method: KUBERNETES
+  timeout: 20m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    CODEBASE_REPO_URL: "{{.RepoUrl}}"
+    BASE_BRANCH: "{{.BaseBranch}}"
+    SLACK_MESSAGE: "{{.SlackMessage}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
+    ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    TASK_TYPE: "open-prs"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.analyze.run_open_prs
+  artifacts:
+    paths:
+      - ./reports
+      - ./logs
+    expire_after: 72h
+  on_completed: post-open-prs
+  on_failed: notify-error
+
+# --- POST-OPEN-PRS ------------------------------------------------------------
+# Post summary to Slack with HTML artifact link.
+- task_type: post-open-prs
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - open-prs
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    TASK_TYPE: "open-prs"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.analyze.post_open_prs
+  artifacts:
+    paths:
+      - ./reports/post_open_prs_result.json
+    expire_after: 72h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR ------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-open-prs"
+    MESSAGE: ":x: Open PR dashboard job failed."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE ---------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "Open PR dashboard complete — check report in artifacts"
+
+job_variables:
+  BaseBranch: "main"
+  RepoUrl: ""
+  SlackMessage: ""
+  AiDevToolsDebug: ""
+  FormicaryPublicURL: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  DefaultTracker: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
+  SlackToken: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
+  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
+  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
