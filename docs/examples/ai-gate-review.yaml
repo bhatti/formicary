@@ -69,14 +69,14 @@ tasks:
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     TASK_TYPE: "review"
-    REPORT_TITLE: "PR Review Report"
+    REPORT_TITLE: "Scope & Blast Radius"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - touch /tmp/.adt_bootstrap_done
     - python -m scripts.mq.clone_pr --pr-number {{.PRNumber}}
     - python -m scripts.mq.scope_router --pr-number {{.PRNumber}} || true
-    - python -m scripts.review.run --pr-url {{.PRNumber}} --base-branch {{.BaseBranch}}
+    - python -m scripts.review.run --pr-url {{.PRNumber}} --base-branch {{.BaseBranch}} --skill ygs-gate-review
     - python -m scripts.mq.risk_score --pr-number {{.PRNumber}}
     - python -m scripts.mq.report
   artifacts:
