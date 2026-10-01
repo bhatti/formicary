@@ -262,6 +262,48 @@ message QueryJobSubmissionsResponse {
   int32 total_pages = 5;
 }
 
+// LogRecord represents a single archived log line for a job request.
+message LogRecord {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "LogRecord"
+      description: "A single archived log line emitted during job execution."
+    }
+  };
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Log record ID (ULID)."}];
+  string created_at = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "RFC3339 timestamp when the log line was recorded."}];
+  string message = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Log message text (may contain ANSI escape codes)."}];
+  string level = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Log level: info, warn, or error."}];
+  string task_type = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Task type that produced this log line."}];
+  string ant_id = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Ant worker ID that executed the task."}];
+}
+
+// GetJobRequestLogsRequest carries filter params for fetching archived logs for a job request.
+message GetJobRequestLogsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetJobRequestLogsRequest"
+      description: "Filter parameters for fetching archived log lines for a job request."
+    }
+  };
+  string id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Job request ID (ULID)."}
+  ];
+  // since filters logs to those created after this RFC3339 timestamp.
+  string since = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "RFC3339 timestamp — return only logs created after this time."}];
+  // limit caps the number of records returned (1–2000, default 500).
+  int32 limit = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Maximum records to return (1–2000, default 500)."}];
+  // level filters to the given severity and above (info, warn, error).
+  string level = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Minimum log level to return: info, warn, or error."}];
+}
+
+// GetJobRequestLogsResponse returns a page of archived log records.
+message GetJobRequestLogsResponse {
+  repeated LogRecord records = 1;
+  int64 total = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Total matching records (may exceed len(records) if limit was applied)."}];
+}
+
 // JobExecutionService manages the submission and lifecycle of job executions.
 service JobExecutionService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
@@ -511,6 +553,21 @@ service JobExecutionService {
       responses: {
         key: "200"
         value: {description: "Paginated job submission summary list."}
+      }
+    };
+  }
+
+  // GetJobRequestLogs returns archived log lines for a job request from the queen DB.
+  // Ordered by created_at ascending. Supports since/limit/level filters.
+  rpc GetJobRequestLogs(GetJobRequestLogsRequest) returns (GetJobRequestLogsResponse) {
+    option (google.api.http) = {get: "/api/v1/jobs/requests/{id}/logs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get job request logs"
+      description: "Returns archived log lines emitted during job execution, stored in the queen DB. Supports filtering by time range and log level."
+      tags: ["job-executions"]
+      responses: {
+        key: "200"
+        value: {description: "Paginated log records ordered by created_at ascending."}
       }
     };
   }

@@ -145,6 +145,13 @@ func (r *LeaseRegistry) Notify(userID string, eventType string, eventScope strin
 	// notify asynchronously
 	leases := r.getLeasesByUserAndEventTypeScope(userID, eventType, eventScope)
 
+	// When auth is disabled, leases are registered with an empty userID but events
+	// carry the real user ID from the job. Fall back to anonymous leases so events
+	// are always delivered regardless of whether auth is enabled.
+	if len(leases) == 0 && userID != "" {
+		leases = r.getLeasesByUserAndEventTypeScope("", eventType, eventScope)
+	}
+
 	if len(leases) == 0 {
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			logrus.WithFields(logrus.Fields{

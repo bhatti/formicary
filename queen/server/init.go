@@ -593,6 +593,7 @@ func startControllers(
 	controller.NewSystemConfigController(repoFactory.SystemConfigRepository, webServer)
 	controller.NewErrorCodeController(repoFactory.ErrorCodeRepository, webServer)
 	controller.NewJobRequestController(jobManager, webServer)
+	controller.NewLogEventController(repoFactory.LogEventRepository, webServer)
 	controller.NewAntRegistrationController(resourceManager, webServer)
 	controller.NewArtifactController(artifactManager, webServer)
 	controller.NewContainerExecutionController(resourceManager, webServer)

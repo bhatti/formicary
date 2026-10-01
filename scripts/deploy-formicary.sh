@@ -8,6 +8,7 @@
 #   ./scripts/deploy-formicary.sh --restart  # pull latest image, redeploy queen + refresh DNAT
 #   ./scripts/deploy-formicary.sh --status   # show pod status
 #   ./scripts/deploy-formicary.sh --logs     # tail queen logs
+#   ./scripts/deploy-formicary.sh --apply-db-migration  # apply source index to SQLite DB
 #
 # What it does:
 #   1. Create/update 'formicary-auth' k8s secret from env vars
@@ -44,6 +45,7 @@ SHOW_STATUS=false
 SHOW_LOGS=false
 ROLLOUT_RESTART=false
 SYNC_SCRIPTS=false
+APPLY_DB_MIGRATION=false
 
 # Image tag to deploy — matches the Makefile version scheme.
 # Override: FORMICARY_VERSION=latest bash scripts/deploy-formicary.sh
@@ -63,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --logs)           SHOW_LOGS=true;      shift ;;
     --restart|--rollout-restart) ROLLOUT_RESTART=true; shift ;;
     --sync-scripts)   SYNC_SCRIPTS=true;  shift ;;
+    --apply-db-migration) APPLY_DB_MIGRATION=true; shift ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
@@ -120,6 +123,20 @@ if [[ -n "$QUEEN_IP" ]]; then
     $SSH_CMD "KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl${quoted}"
   }
 fi
+
+# ── EC2 DB migration helper ───────────────────────────────────────────────────
+apply_source_index() {
+  local pod
+  log "Applying source column index to formicary SQLite DB..."
+  pod=$(kubectl get pods -l app=formicary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -z "$pod" ]]; then
+    fail "No running formicary pod found — start the pod first with --restart"
+  fi
+  # Copy the helper script into the pod and run it
+  kubectl cp "${REPO_ROOT}/scripts/apply-source-index.sh" "$pod":/tmp/apply-source-index.sh
+  kubectl exec "$pod" -- bash /tmp/apply-source-index.sh
+  ok "Source index migration complete"
+}
 
 # ── Sync scripts/k8s manifests to remote host ────────────────────────────────
 if [[ "$SYNC_SCRIPTS" == true ]]; then
@@ -375,6 +392,11 @@ except Exception as e:
     echo "  ⚠ Route check HTTP ${_ROUTES_CODE} — verify manually at ${_FURL}/dashboard/slack/routes"
   fi
   rm -f /tmp/fq-routes.json
+fi
+
+# ── Optional: apply EC2 DB migration ─────────────────────────────────────────
+if $APPLY_DB_MIGRATION; then
+  apply_source_index
 fi
 
 echo ""

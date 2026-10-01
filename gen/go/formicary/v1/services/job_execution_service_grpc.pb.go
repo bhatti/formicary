@@ -38,6 +38,7 @@ const (
 	JobExecutionService_GetJobRequestMermaid_FullMethodName = "/formicary.v1.services.JobExecutionService/GetJobRequestMermaid"
 	JobExecutionService_GetJobStats_FullMethodName          = "/formicary.v1.services.JobExecutionService/GetJobStats"
 	JobExecutionService_QueryJobSubmissions_FullMethodName  = "/formicary.v1.services.JobExecutionService/QueryJobSubmissions"
+	JobExecutionService_GetJobRequestLogs_FullMethodName    = "/formicary.v1.services.JobExecutionService/GetJobRequestLogs"
 )
 
 // JobExecutionServiceClient is the client API for JobExecutionService service.
@@ -79,6 +80,9 @@ type JobExecutionServiceClient interface {
 	GetJobStats(ctx context.Context, in *QueryJobRequestsRequest, opts ...grpc.CallOption) (*JobRequestStatsResponse, error)
 	// QueryJobSubmissions returns job submission summaries grouped by user/org/job-type.
 	QueryJobSubmissions(ctx context.Context, in *QueryJobSubmissionsRequest, opts ...grpc.CallOption) (*QueryJobSubmissionsResponse, error)
+	// GetJobRequestLogs returns archived log lines for a job request from the queen DB.
+	// Ordered by created_at ascending. Supports since/limit/level filters.
+	GetJobRequestLogs(ctx context.Context, in *GetJobRequestLogsRequest, opts ...grpc.CallOption) (*GetJobRequestLogsResponse, error)
 }
 
 type jobExecutionServiceClient struct {
@@ -249,6 +253,16 @@ func (c *jobExecutionServiceClient) QueryJobSubmissions(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *jobExecutionServiceClient) GetJobRequestLogs(ctx context.Context, in *GetJobRequestLogsRequest, opts ...grpc.CallOption) (*GetJobRequestLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetJobRequestLogsResponse)
+	err := c.cc.Invoke(ctx, JobExecutionService_GetJobRequestLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // JobExecutionServiceServer is the server API for JobExecutionService service.
 // All implementations should embed UnimplementedJobExecutionServiceServer
 // for forward compatibility.
@@ -288,6 +302,9 @@ type JobExecutionServiceServer interface {
 	GetJobStats(context.Context, *QueryJobRequestsRequest) (*JobRequestStatsResponse, error)
 	// QueryJobSubmissions returns job submission summaries grouped by user/org/job-type.
 	QueryJobSubmissions(context.Context, *QueryJobSubmissionsRequest) (*QueryJobSubmissionsResponse, error)
+	// GetJobRequestLogs returns archived log lines for a job request from the queen DB.
+	// Ordered by created_at ascending. Supports since/limit/level filters.
+	GetJobRequestLogs(context.Context, *GetJobRequestLogsRequest) (*GetJobRequestLogsResponse, error)
 }
 
 // UnimplementedJobExecutionServiceServer should be embedded to have
@@ -344,6 +361,9 @@ func (UnimplementedJobExecutionServiceServer) GetJobStats(context.Context, *Quer
 }
 func (UnimplementedJobExecutionServiceServer) QueryJobSubmissions(context.Context, *QueryJobSubmissionsRequest) (*QueryJobSubmissionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryJobSubmissions not implemented")
+}
+func (UnimplementedJobExecutionServiceServer) GetJobRequestLogs(context.Context, *GetJobRequestLogsRequest) (*GetJobRequestLogsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetJobRequestLogs not implemented")
 }
 func (UnimplementedJobExecutionServiceServer) testEmbeddedByValue() {}
 
@@ -653,6 +673,24 @@ func _JobExecutionService_QueryJobSubmissions_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JobExecutionService_GetJobRequestLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetJobRequestLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobExecutionServiceServer).GetJobRequestLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: JobExecutionService_GetJobRequestLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobExecutionServiceServer).GetJobRequestLogs(ctx, req.(*GetJobRequestLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // JobExecutionService_ServiceDesc is the grpc.ServiceDesc for JobExecutionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -723,6 +761,10 @@ var JobExecutionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueryJobSubmissions",
 			Handler:    _JobExecutionService_QueryJobSubmissions_Handler,
+		},
+		{
+			MethodName: "GetJobRequestLogs",
+			Handler:    _JobExecutionService_GetJobRequestLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

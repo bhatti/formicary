@@ -11,7 +11,15 @@ function load_logs(btn, logs, url) {
   var logsRef = document.getElementById(logs);
   logsRef.hidden = true;
   fetch(url).then(function(r){ return r.text(); }).then(function(data) {
-    logsRef.textContent = data;
+    // Render ANSI escape codes if ansispan is available, otherwise fall back to plain text
+    if (typeof ansispan === 'function') {
+      const escHtml = function(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      };
+      logsRef.innerHTML = ansispan(escHtml(data));
+    } else {
+      logsRef.textContent = data;
+    }
     logsRef.hidden = false;
     logsRef.focus();
   });

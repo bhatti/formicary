@@ -94,6 +94,10 @@
           <dd class="col-7">{{.CronTriggered}}</dd>
           <dt class="col-5 text-secondary">User Key</dt>
           <dd class="col-7 text-secondary small">{{.UserKey}}</dd>
+          <dt class="col-5 text-secondary">Logs</dt>
+          <dd class="col-7">
+            <a href="/dashboard/reports/logs?q={{.ID}}" target="_blank" title="View archived log events for this job">System Logs</a>
+          </dd>
         </dl>
       </div>
     </div>

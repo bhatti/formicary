@@ -22,6 +22,16 @@ import (
 	"plexobject.com/formicary/queen/types"
 )
 
+// jobTaskState is the per-task summary returned by getTaskStates, used by the
+// job detail view to update tab badges without a full page reload.
+type jobTaskState struct {
+	ID        string `json:"id"`
+	TaskType  string `json:"task_type"`
+	Completed bool   `json:"completed"`
+	Failed    bool   `json:"failed"`
+	Running   bool   `json:"running"`
+}
+
 // JobRequestAdminController structure
 type JobRequestAdminController struct {
 	jobManager *manager.JobManager
@@ -45,6 +55,7 @@ func NewJobRequestAdminController(
 	webserver.GET("/dashboard/jobs/trigger", jraCtr.triggerCronJobForm, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_cron_job_form"
 	webserver.POST("/dashboard/jobs/requests/:id/trigger", jraCtr.triggerJobRequest, acl.NewPermission(acl.JobRequest, acl.Trigger)).Name = "trigger_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id", jraCtr.getJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_job_requests"
+	webserver.GET("/dashboard/jobs/requests/:id/task-states", jraCtr.getTaskStates, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_admin_task_states"
 	webserver.GET("/dashboard/jobs/requests/:id/wait_time", jraCtr.getWaitTimeJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "get_wait_time_admin_job_requests"
 	webserver.GET("/dashboard/jobs/requests/:id/mermaid", jraCtr.mermaidJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "mermaid_job_request"
 	webserver.GET("/dashboard/jobs/requests/:id/dot", jraCtr.dotJobRequest, acl.NewPermission(acl.JobRequest, acl.View)).Name = "dot_job_request"
@@ -436,4 +447,34 @@ func buildRequestParams(c web.APIContext, request *types.JobRequest) error {
 		return err
 	}
 	return nil
+}
+
+// getTaskStates returns a lightweight JSON summary of task execution states for a job,
+// used by the job detail view to update tab badges without a full page reload.
+func (jraCtr *JobRequestAdminController) getTaskStates(c web.APIContext) error {
+	id := c.Param("id")
+	qc := web.BuildQueryContext(c)
+	request, err := jraCtr.jobManager.GetJobRequest(qc, id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	tasks := make([]jobTaskState, 0)
+	if request.Execution != nil {
+		for _, t := range request.Execution.Tasks {
+			tasks = append(tasks, jobTaskState{
+				ID:        t.ID,
+				TaskType:  t.TaskType,
+				Completed: t.Completed(),
+				Failed:    t.Failed(),
+				Running:   t.NotTerminal(),
+			})
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"terminal": request.IsTerminal(),
+		"state":    string(request.JobState),
+		"tasks":    tasks,
+	})
 }

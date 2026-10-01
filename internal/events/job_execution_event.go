@@ -96,6 +96,10 @@ type JobExecutionLifecycleEvent struct {
 	JobState types.RequestState `json:"job_state"`
 	// JobPriority
 	JobPriority int `json:"job_priority"`
+	// ElapsedTime human-readable duration since job started (e.g. "2m30s")
+	ElapsedTime string `json:"elapsed_time,omitempty"`
+	// UpdatedAt is the job's last-updated timestamp in RFC3339 format
+	UpdatedAt string `json:"updated_at,omitempty"`
 	// Contexts defines context variables of job
 	Contexts map[string]interface{} `json:"contexts"`
 }
@@ -125,6 +129,16 @@ func NewJobExecutionLifecycleEvent(
 		JobPriority:    jobPriority,
 		Contexts:       contexts,
 	}
+}
+
+// WithElapsed populates ElapsedTime and UpdatedAt from the job execution's timing.
+// Call this after constructing the event when timing data is available.
+func (e *JobExecutionLifecycleEvent) WithElapsed(elapsedDuration string, updatedAt time.Time) *JobExecutionLifecycleEvent {
+	e.ElapsedTime = elapsedDuration
+	if !updatedAt.IsZero() {
+		e.UpdatedAt = updatedAt.Format(time.RFC3339)
+	}
+	return e
 }
 
 // String format

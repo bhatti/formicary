@@ -86,34 +86,114 @@
 <script src="/js/graph.js"></script>
 {{if .Request.NotTerminal}}
 <div class="card mt-3">
-  <div class="card-header"><h3 class="card-title">Streaming Events</h3></div>
-  <div class="card-body">
-    <pre id="logs" class="mb-0" style="font-size:.82rem;max-height:400px;overflow-y:auto"></pre>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">Streaming Logs</h3>
+    <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">Clear</button>
+  </div>
+  <div class="card-body p-0">
+    <pre id="logs" class="mb-0 p-2" style="font-size:.82rem;max-height:500px;overflow-y:auto;background:#1e1e1e;color:#d4d4d4;border-radius:0 0 4px 4px;"></pre>
   </div>
 </div>
 <script>
+(function() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
-  const ws = new WebSocket(uri);
-  ws.onopen = function() {
-    const requestID = document.getElementById('requestID').innerText;
-    const send = () => {
-      ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
-      ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
+  const wsURI = protocol + '//' + window.location.host + '/ws/subscriptions';
+  const requestID = document.getElementById('requestID').innerText.trim();
+  const logsEl = document.getElementById('logs');
+  // Track seen log IDs to deduplicate between replay and live stream
+  const seenIDs = new Set();
+  let reconnectTimer = null;
+  let heartbeatTimer = null;
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function appendLog(id, message) {
+    if (id && seenIDs.has(id)) return;
+    if (id) seenIDs.add(id);
+    const span = document.createElement('span');
+    span.innerHTML = ansispan(escapeHtml(message));
+    logsEl.appendChild(span);
+    logsEl.appendChild(document.createTextNode('\n'));
+    logsEl.scrollTop = logsEl.scrollHeight;
+  }
+
+  function clearLogs() {
+    logsEl.innerHTML = '';
+    seenIDs.clear();
+  }
+  window.clearLogs = clearLogs;
+
+  // Fetch archived logs from DB to backfill after page load or reconnect
+  async function fetchRecentLogs() {
+    try {
+      const resp = await fetch('/api/v1/jobs/requests/' + requestID + '/logs?limit=500');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      (data.records || []).forEach(function(r) { appendLog(r.id, r.message); });
+    } catch (e) { console.warn('formicary ws:', e); }
+  }
+
+  // Update task tab badges without a full page reload
+  async function updateTaskBadges() {
+    try {
+      const resp = await fetch('/dashboard/jobs/requests/' + requestID + '/task-states');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      // If job reached terminal state, reload once to show final state
+      if (data.terminal) {
+        window.location.reload(false);
+        return;
+      }
+      (data.tasks || []).forEach(function(t) {
+        const tab = document.getElementById('job-tab-' + t.id);
+        if (!tab) return;
+        tab.className = tab.className.replace(/text-(success|danger|info|warning)/g, '');
+        if (t.completed) tab.classList.add('text-success');
+        else if (t.failed) tab.classList.add('text-danger');
+        else if (t.running) tab.classList.add('text-info');
+      });
+    } catch (e) { console.warn('formicary ws:', e); }
+  }
+
+  function connectWS() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    const ws = new WebSocket(wsURI);
+
+    ws.onopen = function() {
+      const send = function() {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({"event_type": "LogEvent", "event_scope": requestID}));
+        ws.send(JSON.stringify({"event_type": "TaskExecutionLifecycleEvent", "event_scope": requestID}));
+      };
+      heartbeatTimer = setInterval(send, 15000);
+      send();
+      // Backfill any logs missed before this connection (or on reconnect)
+      fetchRecentLogs();
     };
-    setInterval(send, 15000);
-    send();
-  };
-  ws.onmessage = function(evt) {
-    const event = JSON.parse(evt.data);
-    if (event.event_type === 'LogEvent') {
-      const logs = document.getElementById('logs');
-      logs.innerText += event.message + '\n';
-      logs.scrollTop = logs.scrollHeight;
-    } else if (event.event_type === 'TaskExecutionLifecycleEvent') {
-      window.location.reload(false);
-    }
-  };
+
+    ws.onmessage = function(evt) {
+      try {
+        const event = JSON.parse(evt.data);
+        if (event.event_type === 'LogEvent') {
+          appendLog(event.id, event.message);
+        } else if (event.event_type === 'TaskExecutionLifecycleEvent') {
+          updateTaskBadges();
+        }
+      } catch (e) { console.warn('formicary ws:', e); }
+    };
+
+    ws.onclose = function() {
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      reconnectTimer = setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = function() { ws.close(); };
+  }
+
+  connectWS();
+})();
 </script>
 {{end}}
 

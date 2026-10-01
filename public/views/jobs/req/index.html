@@ -18,7 +18,8 @@
 
 <div class="card">
   <div class="table-responsive">
-    <table id="jobs_table" class="table table-vcenter table-hover table-sm card-table">
+    <table id="jobs_table" class="table table-vcenter table-hover table-sm card-table"
+           data-has-elapsed="{{if .IsTerminal}}1{{else}}0{{end}}">
       <thead>
         <tr>
           <th>ID</th>
@@ -99,23 +100,26 @@
 {{ template "layouts/pagination" .Pagination }}
 
 <script>
+(function() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const uri = protocol + '//' + window.location.host + '/ws/subscriptions';
-  const ws = new WebSocket(uri);
+  const wsURI = protocol + '//' + window.location.host + '/ws/subscriptions';
 
-  ws.onopen = function() {
-    setInterval(() => ws.send('{"event_type": "JobExecutionLifecycleEvent"}'), 15000);
-    ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
-  };
+  const table = document.getElementById('jobs_table');
+  const hasElapsed = table && table.dataset.hasElapsed === '1';
 
-  const formatDate = (str) => {
+  const formatDate = function(str) {
+    if (!str) return '';
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const d = new Date(Date.parse(str));
-    return months[d.getMonth()] + " " + d.getDate() + ", " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+    if (isNaN(d.getTime())) return str;
+    return months[d.getMonth()] + " " + d.getDate() + ", " +
+      String(d.getHours()).padStart(2,'0') + ":" +
+      String(d.getMinutes()).padStart(2,'0') + ":" +
+      String(d.getSeconds()).padStart(2,'0');
   };
 
-  const stateBadge = (state) => {
-    const s = state.toLowerCase();
+  const stateBadge = function(state) {
+    const s = (state || '').toLowerCase();
     if (s === 'completed' || s === 'succeeded') return `<span class="badge badge-success">${state}</span>`;
     if (s === 'failed' || s === 'cancelled') return `<span class="badge badge-failed">${state}</span>`;
     if (s === 'started' || s === 'executing' || s === 'running') return `<span class="badge badge-running">${state}</span>`;
@@ -123,53 +127,89 @@
     return `<span class="badge badge-pending">${state}</span>`;
   };
 
-  ws.onmessage = function(evt) {
-    const event = JSON.parse(evt.data);
-    if (event.event_type === "ErrorEvent") {
-      const el = document.querySelector('.error_id');
-      if (el) el.innerText = event.message;
-      return;
-    }
-    const row = document.getElementById(`jobs_row_${event.job_request_id}`);
-    if (row == null) {
-      const tbody = document.getElementById('jobs_table').getElementsByTagName('tbody')[0];
-      const newRow = tbody.insertRow();
-      newRow.id = `jobs_row_${event.job_request_id}`;
-      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}" title="${event.job_request_id}">${event.job_request_id.substring(0, 6)}</a>`;
-      newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/definitions/${event.job_type}" title="${event.job_type}">${event.job_type.length > 12 ? event.job_type.substring(0, 12) + '...' : event.job_type}</a>`;
-      newRow.insertCell().innerHTML = '';
-      newRow.insertCell().innerHTML = event.user_id;
-      const statusCell = newRow.insertCell();
-      statusCell.id = `jobs_status_${event.job_request_id}`;
-      statusCell.innerHTML = stateBadge(event.job_state);
-      newRow.insertCell().innerHTML = event.job_priority;
-      const updatedCell = newRow.insertCell();
-      updatedCell.id = `jobs_updated_${event.job_request_id}`;
-      updatedCell.innerHTML = formatDate(event.created_at);
-      newRow.insertCell().innerHTML = event.elapsed_time || '';
-      newRow.insertCell().innerHTML = '';
-      const actionCell = newRow.insertCell();
-      actionCell.id = `jobs_action_${event.job_request_id}`;
-      actionCell.innerHTML = `
-        <div class="d-flex gap-1">
-          <form action="/dashboard/jobs/requests/${event.job_request_id}" method="GET">
-            <input type="submit" class="btn btn-sm btn-primary" value="View">
-          </form>
-          <form action="/dashboard/jobs/requests/${event.job_request_id}/cancel" method="POST" encType="multipart/form-data"
-            onSubmit="return confirm('Please confirm cancelling this request (' + this[\'id\'].value + ')?');">
-            <input type="submit" class="btn btn-sm btn-danger" value="Cancel">
-            <input type="hidden" name="id" value="${event.job_request_id}">
-          </form>
-        </div>`;
-    } else {
-      const status = document.getElementById(`jobs_status_${event.job_request_id}`);
-      if (status) status.innerHTML = stateBadge(event.job_state);
-      const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
-      if (updated) updated.innerHTML = formatDate(event.created_at);
-      const elapsed = document.getElementById(`jobs_elapsed_${event.job_request_id}`);
-      if (elapsed) elapsed.innerHTML = event.elapsed_time || '';
-    }
-  };
+  let heartbeatTimer = null;
+  let reconnectTimer = null;
+
+  function connectWS() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    const ws = new WebSocket(wsURI);
+
+    ws.onopen = function() {
+      const send = function() {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        ws.send('{"event_type": "JobExecutionLifecycleEvent"}');
+      };
+      heartbeatTimer = setInterval(send, 15000);
+      send();
+    };
+
+    ws.onclose = function() {
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      reconnectTimer = setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = function() { ws.close(); };
+
+    ws.onmessage = function(evt) {
+      try {
+        const event = JSON.parse(evt.data);
+        if (event.event_type === "ErrorEvent") {
+          const el = document.querySelector('.error_id');
+          if (el) el.innerText = event.message;
+          return;
+        }
+        // Use updated_at from the event if available, fall back to created_at
+        const displayDate = event.updated_at || event.created_at;
+        const row = document.getElementById(`jobs_row_${event.job_request_id}`);
+        if (row == null) {
+          const tbody = table && table.getElementsByTagName('tbody')[0];
+          if (!tbody) return;
+          const newRow = tbody.insertRow(0);
+          newRow.id = `jobs_row_${event.job_request_id}`;
+          newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/requests/${event.job_request_id}" title="${event.job_request_id}">${event.job_request_id.substring(0, 6)}</a>`;
+          newRow.insertCell().innerHTML = `<a href="/dashboard/jobs/definitions/${event.job_type}" title="${event.job_type}">${(event.job_type||'').length > 12 ? event.job_type.substring(0, 12) + '...' : event.job_type}</a>`;
+          newRow.insertCell().innerHTML = '';
+          newRow.insertCell().innerHTML = event.user_id || '';
+          const statusCell = newRow.insertCell();
+          statusCell.id = `jobs_status_${event.job_request_id}`;
+          statusCell.innerHTML = stateBadge(event.job_state);
+          newRow.insertCell().innerHTML = event.job_priority || '';
+          const updatedCell = newRow.insertCell();
+          updatedCell.id = `jobs_updated_${event.job_request_id}`;
+          updatedCell.innerHTML = formatDate(displayDate);
+          if (hasElapsed) {
+            const elCell = newRow.insertCell();
+            elCell.id = `jobs_elapsed_${event.job_request_id}`;
+            elCell.innerHTML = event.elapsed_time || '';
+          }
+          newRow.insertCell().innerHTML = '';
+          const actionCell = newRow.insertCell();
+          actionCell.id = `jobs_action_${event.job_request_id}`;
+          actionCell.innerHTML = `
+            <div class="d-flex gap-1">
+              <form action="/dashboard/jobs/requests/${event.job_request_id}" method="GET">
+                <input type="submit" class="btn btn-sm btn-primary" value="View">
+              </form>
+              <form action="/dashboard/jobs/requests/${event.job_request_id}/cancel" method="POST" encType="multipart/form-data"
+                onSubmit="return confirm('Please confirm cancelling this request (' + this['id'].value + ')?');">
+                <input type="submit" class="btn btn-sm btn-danger" value="Cancel">
+                <input type="hidden" name="id" value="${event.job_request_id}">
+              </form>
+            </div>`;
+        } else {
+          const status = document.getElementById(`jobs_status_${event.job_request_id}`);
+          if (status) status.innerHTML = stateBadge(event.job_state);
+          const updated = document.getElementById(`jobs_updated_${event.job_request_id}`);
+          if (updated) updated.innerHTML = formatDate(displayDate);
+          const elapsed = document.getElementById(`jobs_elapsed_${event.job_request_id}`);
+          if (elapsed && event.elapsed_time) elapsed.innerHTML = event.elapsed_time;
+        }
+      } catch (e) { console.warn('formicary ws:', e); }
+    };
+  }
+
+  connectWS();
+})();
 </script>
 
 {{ template "layouts/footer" }}

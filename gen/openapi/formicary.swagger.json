@@ -3329,6 +3329,93 @@
         ]
       }
     },
+    "/api/v1/jobs/requests/{id}/logs": {
+      "get": {
+        "summary": "Get job request logs",
+        "description": "Returns archived log lines emitted during job execution, stored in the queen DB. Supports filtering by time range and log level.",
+        "operationId": "JobExecutionService_GetJobRequestLogs",
+        "responses": {
+          "200": {
+            "description": "Paginated log records ordered by created_at ascending.",
+            "schema": {
+              "$ref": "#/definitions/servicesGetJobRequestLogsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request — invalid parameters or request body",
+            "schema": {}
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT token",
+            "schema": {}
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "schema": {}
+          },
+          "404": {
+            "description": "Not found",
+            "schema": {}
+          },
+          "409": {
+            "description": "Conflict — duplicate resource",
+            "schema": {}
+          },
+          "412": {
+            "description": "Precondition failed — validation error",
+            "schema": {}
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "Job request ID (ULID).",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "since",
+            "description": "RFC3339 timestamp — return only logs created after this time.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "description": "Maximum records to return (1–2000, default 500).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "level",
+            "description": "Minimum log level to return: info, warn, or error.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "job-executions"
+        ]
+      }
+    },
     "/api/v1/jobs/requests/{id}/mermaid": {
       "get": {
         "summary": "Get Mermaid diagram for request",
@@ -8664,6 +8751,24 @@
       },
       "description": "GetJobExecutionResponse wraps a single job execution.\nThe mermaid field is populated only by the GetJobRequestMermaid RPC."
     },
+    "servicesGetJobRequestLogsResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/servicesLogRecord"
+          }
+        },
+        "total": {
+          "type": "string",
+          "format": "int64",
+          "description": "Total matching records (may exceed len(records) if limit was applied)."
+        }
+      },
+      "description": "GetJobRequestLogsResponse returns a page of archived log records."
+    },
     "servicesGetJobRequestResponse": {
       "type": "object",
       "properties": {
@@ -8994,6 +9099,37 @@
           }
         }
       }
+    },
+    "servicesLogRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Log record ID (ULID)."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "RFC3339 timestamp when the log line was recorded."
+        },
+        "message": {
+          "type": "string",
+          "description": "Log message text (may contain ANSI escape codes)."
+        },
+        "level": {
+          "type": "string",
+          "description": "Log level: info, warn, or error."
+        },
+        "task_type": {
+          "type": "string",
+          "description": "Task type that produced this log line."
+        },
+        "ant_id": {
+          "type": "string",
+          "description": "Ant worker ID that executed the task."
+        }
+      },
+      "description": "A single archived log line emitted during job execution.",
+      "title": "LogRecord"
     },
     "servicesLoginRequest": {
       "type": "object",

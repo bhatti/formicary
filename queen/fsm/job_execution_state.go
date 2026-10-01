@@ -1149,7 +1149,7 @@ func (jsm *JobExecutionStateMachine) sendJobExecutionLifecycleEvent(ctx context.
 		jsm.JobExecution.JobState,
 		jsm.Request.GetJobPriority(),
 		jsm.JobExecution.ContextMap(),
-	)
+	).WithElapsed(jsm.JobExecution.ElapsedDuration(), jsm.JobExecution.UpdatedAt)
 	jsm.publishJobWebhook(ctx, event)
 	var payload []byte
 	if payload, err = event.Marshal(); err != nil {

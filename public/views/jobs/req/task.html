@@ -52,7 +52,11 @@
           <dt class="col-5 text-secondary">Failure Retries</dt>
           <dd class="col-7">{{.Task.Retried}}</dd>
           <dt class="col-5 text-secondary">Ant ID</dt>
-          <dd class="col-7">{{.Task.AntID}}</dd>
+          <dd class="col-7">
+            {{if .Task.AntID}}
+            <a href="/dashboard/ants/{{.Task.AntID}}/logs?q={{.Request.ID}}" target="_blank" title="View ant worker logs for this job">{{.Task.AntID}}</a>
+            {{else}}{{.Task.AntID}}{{end}}
+          </dd>
           <dt class="col-5 text-secondary">Ant Host</dt>
           <dd class="col-7">{{.Task.AntHost}}</dd>
           <dt class="col-5 text-secondary">Started</dt>

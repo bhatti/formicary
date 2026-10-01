@@ -23,9 +23,11 @@
     CREATE INDEX formicary_log_events_task_execution_id_ndx ON formicary_log_events(task_execution_id);
     CREATE INDEX formicary_log_events_created_ndx ON formicary_log_events(created_at);
     CREATE INDEX formicary_log_events_level_ndx ON formicary_log_events(level);
-    -- EC2 manual ALTER (existing DB):
+    CREATE INDEX IF NOT EXISTS formicary_log_events_source_ndx ON formicary_log_events(source);
+    -- EC2 manual ALTER (existing DB — goose already ran this migration):
     -- ALTER TABLE formicary_log_events ADD COLUMN level VARCHAR(10) NOT NULL DEFAULT 'info';
     -- CREATE INDEX formicary_log_events_level_ndx ON formicary_log_events(level);
+    -- kubectl exec deploy/formicary -- bash /usr/local/bin/apply-source-index.sh
 
 -- +goose Down
     DROP TABLE IF EXISTS formicary_log_events;
