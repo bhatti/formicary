@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
+	"path/filepath"
+	"strings"
+
 	"plexobject.com/formicary/internal/acl"
 	"plexobject.com/formicary/internal/types"
 	"plexobject.com/formicary/internal/web"
 	"plexobject.com/formicary/queen/manager"
-	"regexp"
 )
 
 // ArtifactController structure
@@ -28,9 +31,8 @@ func NewArtifactController(
 		webserver:       webserver,
 	}
 	webserver.GET("/api/artifacts", ac.queryArtifacts, acl.NewPermission(acl.Artifact, acl.Query)).Name = "query_artifacts"
-	// Static segment "by-job" must be registered before the parametric "/:id" routes so that
-	// Echo's radix-tree router never interprets "by-job" as an artifact SHA256 value.
-	webserver.GET("/api/artifacts/by-job/:job_id/download", ac.downloadJobArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_job_artifact"
+	// Static "by-job" segment must be registered before parametric "/:id" routes.
+	webserver.GET("/api/artifacts/by-job/:job_id/download/raw", ac.downloadJobRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_job_raw_artifact"
 	webserver.GET("/api/artifacts/:id", ac.getArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "get_artifact"
 	webserver.GET("/api/artifacts/:id/download", ac.downloadArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_artifact"
 	webserver.GET("/api/artifacts/:id/download/raw", ac.downloadRawArtifact, acl.NewPermission(acl.Artifact, acl.View)).Name = "download_raw_artifact"
@@ -109,43 +111,80 @@ func (ac *ArtifactController) downloadArtifact(c web.APIContext) error {
 	return c.Stream(http.StatusOK, contentType, reader)
 }
 
-// Download a single file from the artifact zip for a given job request ID.
-// The ?file=<path> query param is required (e.g. ?file=reports/pr_audit_report.html).
-// The optional ?task=<task_type> param selects the artifact from a specific task
-// (e.g. ?task=audit-prs); when omitted the most recent artifact for the job is used.
+// Download and render a single file from the most recent artifact ZIP for a given job.
+// The required ?file=<path> param selects the file within the zip (e.g. ?file=reports/index.html).
+// HTML files are served inline with relative URL rewriting; Markdown is converted to HTML.
+// Binary assets (images, CSS) referenced from HTML reports are served as-is.
 //
 // responses:
 //
 //	200: byteResponse
-func (ac *ArtifactController) downloadJobArtifact(c web.APIContext) error {
+func (ac *ArtifactController) downloadJobRawArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	jobID := c.Param("job_id")
 	filePath := c.QueryParam("file")
-	taskType := c.QueryParam("task")
 	if filePath == "" {
 		return fmt.Errorf("query param 'file' is required")
 	}
-	reader, name, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, taskType, filePath)
+	cleanPath := path.Clean(filePath)
+	if strings.HasPrefix(cleanPath, "..") || strings.HasPrefix(cleanPath, "/") {
+		return types.NewValidationError("invalid file path")
+	}
+	reader, _, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "", cleanPath)
 	if err != nil {
 		return err
 	}
-	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
-	return c.Stream(http.StatusOK, contentType, reader)
+	defer func() { _ = reader.Close() }()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	reportBase := "/api/artifacts/by-job/" + jobID + "/download/raw"
+	return ServeReportFile(c, data, contentType, cleanPath, reportBase, ac.artifactManager)
 }
 
-// Download artifact by its id
+// Download artifact by its id. When ?file=<path> is provided, extracts and
+// renders that file from the artifact ZIP inline (HTML with URL rewriting,
+// Markdown converted to HTML, other types served raw). Without ?file=, the
+// full artifact is served inline when it is a text/HTML type.
+//
 // responses:
-//   200: byteResponse
+//
+//	200: byteResponse
 func (ac *ArtifactController) downloadRawArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)
 	id := c.Param("id")
+	filePath := c.QueryParam("file")
+
+	if filePath != "" {
+		cleanPath := path.Clean(filePath)
+		if strings.HasPrefix(cleanPath, "..") || strings.HasPrefix(cleanPath, "/") {
+			return types.NewValidationError("invalid file path")
+		}
+		reader, _, contentType, err := ac.artifactManager.ExtractFileFromArtifact(context.Background(), qc, id, cleanPath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = reader.Close() }()
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return err
+		}
+		reportBase := "/api/artifacts/" + id + "/download/raw"
+		return ServeReportFile(c, data, contentType, cleanPath, reportBase, ac.artifactManager)
+	}
+
+	// No ?file= — serve the full artifact inline (existing behaviour)
 	reader, name, contentType, err := ac.artifactManager.DownloadArtifactBySHA256(context.Background(), qc, id)
 	if err != nil {
 		return err
 	}
-	matchedName, _ := regexp.Match("(txt|csv|text|html)", []byte(name))
-	matchedContent, _ := regexp.Match("(txt|csv|text|html|plain)", []byte(contentType))
-	if matchedName || matchedContent {
+	lower := strings.ToLower(name)
+	isText := strings.Contains(lower, "txt") || strings.Contains(lower, "csv") ||
+		strings.Contains(lower, "text") || strings.Contains(lower, "html") ||
+		strings.Contains(contentType, "text") || strings.Contains(contentType, "html") ||
+		strings.Contains(contentType, "plain")
+	if isText {
 		buf := new(bytes.Buffer)
 		if _, err = buf.ReadFrom(reader); err != nil {
 			return err
@@ -155,6 +194,34 @@ func (ac *ArtifactController) downloadRawArtifact(c web.APIContext) error {
 		return c.Blob(http.StatusOK, contentType, buf.Bytes())
 	}
 	return types.NewValidationError(fmt.Sprintf("cannot return artifact %s of content-type %s", name, contentType))
+}
+
+// ServeReportFile serves a file extracted from an artifact ZIP with appropriate
+// inline rendering: HTML with URL rewriting, Markdown converted to HTML, binary as-is.
+// Exported so the admin dashboard controller can reuse the same logic.
+func ServeReportFile(c web.APIContext, data []byte, contentType, cleanPath, reportBase string, am *manager.ArtifactManager) error {
+	lower := strings.ToLower(cleanPath)
+	csp := "default-src 'self'; script-src 'none'; object-src 'none'"
+	switch {
+	case strings.HasSuffix(lower, ".html"), strings.HasSuffix(lower, ".htm"):
+		rewritten := am.RewriteHTMLReport(data, reportBase, cleanPath)
+		c.Response().Header().Set("Content-Security-Policy", csp)
+		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+		return c.Blob(http.StatusOK, "text/html; charset=utf-8", rewritten)
+	case strings.HasSuffix(lower, ".md"), strings.HasSuffix(lower, ".markdown"):
+		rendered, err := am.RenderMarkdownReport(data, filepath.Base(cleanPath))
+		if err != nil {
+			return err
+		}
+		c.Response().Header().Set("Content-Security-Policy", csp)
+		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+		return c.Blob(http.StatusOK, "text/html; charset=utf-8", rendered)
+	default:
+		if contentType == "" {
+			contentType = http.DetectContentType(data)
+		}
+		return c.Blob(http.StatusOK, contentType, data)
+	}
 }
 
 // Deletes artifact by its id

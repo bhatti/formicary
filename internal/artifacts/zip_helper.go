@@ -111,7 +111,12 @@ func addFileToZip(zipWriter *zip.Writer, filename string) error {
 		return err
 	}
 
-	header.Name = filename
+	// Store relative paths in the zip (strip any leading /) so that extraction
+	// via ExtractFileFromArtifact matches the path the caller stored in ReportFile.Path.
+	header.Name = filepath.ToSlash(filename)
+	if len(header.Name) > 0 && header.Name[0] == '/' {
+		header.Name = header.Name[1:]
+	}
 	header.Method = zip.Deflate
 	writer, err := zipWriter.CreateHeader(header)
 	if err != nil {

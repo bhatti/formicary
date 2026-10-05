@@ -4,10 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// ReportFile describes a single HTML or Markdown file embedded in an artifact ZIP.
+// Detected at ant upload time; stored as JSON in ReportFilesSerialized.
+type ReportFile struct {
+	// Path is the zip-relative path, e.g. "reports/index.html"
+	Path string `json:"path"`
+	// Title is extracted from <title>, first H1, or file basename
+	Title string `json:"title"`
+	// MIMEType is "text/html" or "text/markdown"
+	MIMEType string `json:"mime_type"`
+}
 
 // ArtifactKindLogs for logs
 const ArtifactKindLogs = "LOGS"
@@ -76,6 +88,10 @@ type Artifact struct {
 	Metadata map[string]string `json:"metadata" gorm:"-"`
 	Tags     map[string]string `json:"tags" gorm:"-"`
 	URL      string            `json:"url" gorm:"-"`
+	// ReportFilesSerialized stores JSON-encoded []ReportFile in the DB; not in JSON API output
+	ReportFilesSerialized string `json:"-"`
+	// ReportFiles is the deserialized list of renderable HTML/MD files inside this artifact ZIP
+	ReportFiles []ReportFile `json:"report_files" gorm:"-"`
 }
 
 // TableName overrides default table name
@@ -192,6 +208,13 @@ func (a *Artifact) ValidateBeforeSave() error {
 		}
 		a.TagsSerialized = string(b)
 	}
+	if len(a.ReportFiles) > 0 {
+		b, err := json.Marshal(a.ReportFiles)
+		if err != nil {
+			return err
+		}
+		a.ReportFilesSerialized = string(b)
+	}
 	return nil
 }
 
@@ -209,7 +232,29 @@ func (a *Artifact) AfterLoad() error {
 			return fmt.Errorf("failed to parse '%v' due to %w", a.TagsSerialized, err)
 		}
 	}
+	if len(a.ReportFilesSerialized) > 0 {
+		err := json.Unmarshal([]byte(a.ReportFilesSerialized), &a.ReportFiles)
+		if err != nil {
+			return fmt.Errorf("failed to parse report_files '%v' due to %w", a.ReportFilesSerialized, err)
+		}
+	}
 	return nil
+}
+
+// HasReports returns true when the artifact contains renderable HTML/MD report files.
+func (a *Artifact) HasReports() bool {
+	return len(a.ReportFiles) > 0
+}
+
+// RawReportURL returns the dashboard inline viewer URL for a specific report file
+// inside this artifact. Requires JobRequestID to be set (populated after DB save).
+// Returns "" when JobRequestID is not available.
+func (a *Artifact) RawReportURL(filePath string) string {
+	if a.JobRequestID == "" {
+		return ""
+	}
+	return "/dashboard/artifacts/by-job/" + url.PathEscape(a.JobRequestID) +
+		"/download/raw?file=" + url.QueryEscape(filePath)
 }
 
 // DashboardURL link to download artifact

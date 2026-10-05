@@ -32,6 +32,33 @@ You define artifacts within a task using the `artifacts` key.
       - report.txt
 ```
 
+### Report Files (HTML and Markdown)
+
+When a task produces `.html`, `.htm`, `.md`, or `.markdown` files as artifacts, Formicary automatically detects them at upload time and stores their metadata as **report files** on the artifact record. These are surfaced in the job summary page as a "Reports" card with **View** buttons that open each report inline in a modal iframe.
+
+**How it works:**
+- Any `.html`/`.htm` file in `artifacts.paths` has its `<title>` tag extracted automatically.
+- Any `.md`/`.markdown` file is registered as a Markdown report (rendered to HTML on view).
+- Multiple report files per artifact are fully supported.
+- Reports are served via the inline viewer endpoint: `GET /dashboard/artifacts/by-job/:job_id/download/raw?file=<path>`
+- HTML reports have relative URLs (images, stylesheets) automatically rewritten to load through the same endpoint, so multi-file report sites render correctly.
+- A restrictive Content Security Policy (`default-src 'self'; script-src 'none'; object-src 'none'`) is set on all inline report responses.
+
+**Example:**
+```yaml
+- task_type: audit-prs
+  script:
+    - ./generate_report.sh   # writes reports/pr_audit_report.html
+  artifacts:
+    when: always
+    paths:
+      - reports/pr_audit_report.html
+      - reports/summary.md
+      - reports/images/  # images referenced from the HTML are also served inline
+```
+
+After the job completes, the job summary page shows a "Reports" card with "PR Audit Report" and "summary.md" View buttons.
+
 ### Using Artifacts in Downstream Tasks
 
 To use artifacts from a previous task, a downstream task must declare a `dependency`. Formicary will automatically download and extract the artifacts from all dependent tasks into the current task's working directory before the `script` runs.

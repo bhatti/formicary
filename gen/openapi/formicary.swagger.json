@@ -8410,6 +8410,18 @@
         },
         "url": {
           "type": "string"
+        },
+        "report_files_serialized": {
+          "type": "string",
+          "description": "report_files_serialized stores JSON-encoded []ReportFile in the DB column; not exposed in API responses."
+        },
+        "report_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/resourceReportFile"
+          },
+          "description": "report_files is the deserialized list of renderable report files; transient, not stored directly."
         }
       },
       "description": "Artifact defines metadata for an artifact uploaded during job execution (logs, results, cache, etc.)."
@@ -8442,6 +8454,24 @@
       ],
       "default": "METHOD_HEALTH_STATUS_UNSPECIFIED",
       "description": "MethodHealthStatus reports the liveness of a method's backend (k8s cluster, Docker daemon, etc.)."
+    },
+    "resourceReportFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "title": "path is the zip-relative path, e.g. \"reports/index.html\""
+        },
+        "title": {
+          "type": "string",
+          "title": "title is extracted from \u003ctitle\u003e, first H1, or file basename"
+        },
+        "mime_type": {
+          "type": "string",
+          "title": "mime_type is \"text/html\" or \"text/markdown\""
+        }
+      },
+      "description": "ReportFile describes a single HTML or Markdown file embedded in an artifact ZIP.\nDetected at ant upload time from artifact paths; stored serialized in the artifact DB record."
     },
     "rpcStatus": {
       "type": "object",

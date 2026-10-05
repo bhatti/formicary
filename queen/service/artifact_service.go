@@ -106,17 +106,34 @@ func toProtoArtifact(a *commonTypes.Artifact) *protoResource.Artifact {
 		ContentType:        a.ContentType,
 		ContentLength:      a.ContentLength,
 		Permissions:        a.Permissions,
-		MetadataSerialized: a.MetadataSerialized,
-		TagsSerialized:     a.TagsSerialized,
-		Active:             a.Active,
-		Metadata:           a.Metadata,
-		Tags:               a.Tags,
-		Url:                a.URL,
-		ExpiresAt:          timestamppb.New(a.ExpiresAt),
-		CreatedAt:          timestamppb.New(a.CreatedAt),
-		UpdatedAt:          timestamppb.New(a.UpdatedAt),
+		MetadataSerialized:    a.MetadataSerialized,
+		TagsSerialized:        a.TagsSerialized,
+		Active:                a.Active,
+		Metadata:              a.Metadata,
+		Tags:                  a.Tags,
+		Url:                   a.URL,
+		ExpiresAt:             timestamppb.New(a.ExpiresAt),
+		CreatedAt:             timestamppb.New(a.CreatedAt),
+		UpdatedAt:             timestamppb.New(a.UpdatedAt),
+		ReportFilesSerialized: a.ReportFilesSerialized,
+		ReportFiles:           toProtoReportFiles(a.ReportFiles),
 	}
 	return p
+}
+
+func toProtoReportFiles(rfs []commonTypes.ReportFile) []*protoResource.ReportFile {
+	if len(rfs) == 0 {
+		return nil
+	}
+	out := make([]*protoResource.ReportFile, 0, len(rfs))
+	for _, rf := range rfs {
+		out = append(out, &protoResource.ReportFile{
+			Path:     rf.Path,
+			Title:    rf.Title,
+			MimeType: rf.MIMEType,
+		})
+	}
+	return out
 }
 
 func toProtoArtifacts(arts []*commonTypes.Artifact) []*protoResource.Artifact {

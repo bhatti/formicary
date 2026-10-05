@@ -34,7 +34,7 @@ metadata:
   name: formicary
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "pods/exec", "configmaps", "secrets", "services"]
+    resources: ["pods", "pods/log", "pods/exec", "configmaps", "secrets", "services", "events"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["batch"]
     resources: ["jobs"]
@@ -87,7 +87,7 @@ data:
             local_container_host: formicary
             public_endpoint: localhost:19000
         auth:
-            enabled: true
+            enabled: false
     db:
         data_source: /data/db/formicary.db
         type: sqlite

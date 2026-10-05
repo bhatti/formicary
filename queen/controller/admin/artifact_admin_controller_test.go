@@ -48,30 +48,18 @@ func Test_ShouldDownloadFileFromJobArtifactAdmin(t *testing.T) {
 	_, err = mgr.UpdateArtifact(context.Background(), qc, artifact)
 	require.NoError(t, err)
 
-	// WHEN downloading by job ID (no task filter)
+	// WHEN downloading by job ID via the inline report endpoint
 	rec := httptest.NewRecorder()
 	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
 	dlCtx.SetResponse(echo.NewResponse(rec, echo.New()))
 	dlCtx.Params["job_id"] = jobID
 	dlCtx.Params["file"] = "reports/pr_audit_report.html"
-	err = ctrl.downloadJobArtifact(dlCtx)
+	err = ctrl.downloadJobRawArtifact(dlCtx)
 
-	// THEN it should stream the HTML file
+	// THEN it should serve inline HTML with CSP header
 	require.NoError(t, err)
-	require.Contains(t, rec.Header().Get("Content-Disposition"), "pr_audit_report.html")
-
-	// WHEN downloading with ?task= filter
-	rec2 := httptest.NewRecorder()
-	dlCtx2 := web.NewStubContext(&http.Request{URL: &url.URL{}})
-	dlCtx2.SetResponse(echo.NewResponse(rec2, echo.New()))
-	dlCtx2.Params["job_id"] = jobID
-	dlCtx2.Params["task"] = "audit-prs"
-	dlCtx2.Params["file"] = "reports/pr_audit_report.html"
-	err = ctrl.downloadJobArtifact(dlCtx2)
-
-	// THEN it should also stream the HTML file
-	require.NoError(t, err)
-	require.Contains(t, rec2.Header().Get("Content-Disposition"), "pr_audit_report.html")
+	require.Equal(t, "default-src 'self'; script-src 'none'; object-src 'none'",
+		rec.Header().Get("Content-Security-Policy"))
 }
 
 func Test_ShouldFailDownloadJobArtifactMissingFileParamAdmin(t *testing.T) {
@@ -83,11 +71,24 @@ func Test_ShouldFailDownloadJobArtifactMissingFileParamAdmin(t *testing.T) {
 	// WHEN calling without ?file= param
 	dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
 	dlCtx.Params["job_id"] = "any-job-id"
-	err := ctrl.downloadJobArtifact(dlCtx)
+	err := ctrl.downloadJobRawArtifact(dlCtx)
 
 	// THEN it should return an error
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "'file'")
+}
+
+func Test_ShouldRejectPathTraversalInAdminJobRawArtifact(t *testing.T) {
+	mgr := newTestAdminArtifactManager(config.TestServerConfig(), t)
+	ctrl := NewArtifactAdminController(mgr, web.NewStubWebServer())
+
+	for _, badPath := range []string{"../etc/passwd", "/etc/passwd", "../../secrets"} {
+		dlCtx := web.NewStubContext(&http.Request{URL: &url.URL{}})
+		dlCtx.Params["job_id"] = "any-job-id"
+		dlCtx.Params["file"] = badPath
+		err := ctrl.downloadJobRawArtifact(dlCtx)
+		require.Error(t, err, "expected error for path: %s", badPath)
+	}
 }
 
 func newTestAdminArtifactManager(serverCfg *config.ServerConfig, t *testing.T) *manager.ArtifactManager {

@@ -151,3 +151,26 @@ Open [http://localhost:7777](http://localhost:7777).
 1. Open [http://localhost:7777](http://localhost:7777) — you should see the dashboard.
 2. Upload and run the hello-world example from the [Quick Start](./03-quick-start.md) guide.
 3. For AI workflows, see [AI Agents](./ai-agents.md) and the deploy scripts in `docs/examples/`.
+
+---
+
+## Database Schema Migrations
+
+Formicary uses GORM AutoMigrate to add new columns automatically on fresh installs. For **existing production databases** (e.g., a running EC2 instance), new columns must be added manually.
+
+### report_files_serialized column (added in report-viewer feature)
+
+For an existing SQLite database on EC2, run once after deploying the new queen image:
+
+```bash
+kubectl exec -n default <queen-pod-name> -- sqlite3 /data/formicary.db \
+  "ALTER TABLE formicary_artifacts ADD COLUMN report_files_serialized TEXT;"
+```
+
+For MySQL/PostgreSQL:
+
+```sql
+ALTER TABLE formicary_artifacts ADD COLUMN report_files_serialized TEXT;
+```
+
+New instances and fresh deployments do not need this step — AutoMigrate handles it automatically.

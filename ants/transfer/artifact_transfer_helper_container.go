@@ -100,6 +100,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	expiration time.Time,
 	dir string) (artifact *types.Artifact, err error) {
 	var names strings.Builder
+	reportPairs := make([]reportFilePair, 0, len(paths))
 
 	for _, p := range paths {
 		var cmd string
@@ -135,6 +136,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			}
 		} else {
 			names.WriteString(zipName + " ")
+			reportPairs = append(reportPairs, reportFilePair{diskPath: p, zipPath: zipName})
 		}
 	}
 
@@ -220,6 +222,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 		Metadata:      make(map[string]string),
 		Tags:          make(map[string]string),
 		ExpiresAt:     expiration,
+		ReportFiles:   detectReportFilesFromPairs(reportPairs),
 	}
 
 	return artifact, nil

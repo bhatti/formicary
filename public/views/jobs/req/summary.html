@@ -229,20 +229,60 @@
   </div>
 </div>
 
-{{$hasMd := false}}{{range .Tasks}}{{range .Artifacts}}{{if hasSuffix .Name ".md"}}{{$hasMd = true}}{{end}}{{end}}{{end}}
-{{if $hasMd}}
-<div class="card mb-3 border-primary">
+{{$hasReports := false}}{{range .Tasks}}{{range .Artifacts}}{{if .HasReports}}{{$hasReports = true}}{{end}}{{end}}{{end}}
+{{if $hasReports}}
+<div class="card mb-3 border-primary" id="reports">
   <div class="card-header bg-primary-subtle"><h3 class="card-title">Reports</h3></div>
   <div class="card-body">
     <div class="d-flex flex-wrap gap-2">
-    {{range .Tasks}}{{range .Artifacts}}{{if hasSuffix .Name ".md"}}
-      <a href="{{.DashboardURL}}" class="btn btn-outline-primary btn-sm">
-        <i class="ti ti-file-text me-1"></i>{{.Name}}
-      </a>
+    {{range .Tasks}}{{range $artifact := .Artifacts}}{{range $artifact.ReportFiles}}
+      <button type="button" class="btn btn-outline-primary btn-sm"
+              data-bs-toggle="modal" data-bs-target="#reportModal"
+              data-report-url="{{$artifact.RawReportURL .Path}}"
+              data-report-title="{{.Title}}">
+        <i class="ti ti-file-text me-1"></i>{{.Title}}
+      </button>
     {{end}}{{end}}{{end}}
     </div>
   </div>
 </div>
+
+<!-- Report viewer modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reportModalLabel">Report</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="reportIframe" sandbox="allow-same-origin allow-forms"
+                style="width:100%;height:70vh;border:none;" src=""></iframe>
+      </div>
+      <div class="modal-footer">
+        <a id="reportDownloadLink" href="#" class="btn btn-secondary btn-sm" target="_blank">Open in new tab</a>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  var modal = document.getElementById('reportModal');
+  if (!modal) return;
+  modal.addEventListener('show.bs.modal', function(e) {
+    var btn = e.relatedTarget;
+    var url = btn.getAttribute('data-report-url');
+    var title = btn.getAttribute('data-report-title');
+    document.getElementById('reportModalLabel').textContent = title || 'Report';
+    document.getElementById('reportIframe').src = url;
+    document.getElementById('reportDownloadLink').href = url;
+  });
+  modal.addEventListener('hide.bs.modal', function() {
+    document.getElementById('reportIframe').src = '';
+  });
+})();
+</script>
 {{end}}
 
 {{range .Tasks}}

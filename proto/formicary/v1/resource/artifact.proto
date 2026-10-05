@@ -8,6 +8,17 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "plexobject.com/formicary/gen/go/formicary/v1/resource;resource";
 
+// ReportFile describes a single HTML or Markdown file embedded in an artifact ZIP.
+// Detected at ant upload time from artifact paths; stored serialized in the artifact DB record.
+message ReportFile {
+  // path is the zip-relative path, e.g. "reports/index.html"
+  string path      = 1 [(formicary.v1.tags) = "json:\"path\""];
+  // title is extracted from <title>, first H1, or file basename
+  string title     = 2 [(formicary.v1.tags) = "json:\"title\""];
+  // mime_type is "text/html" or "text/markdown"
+  string mime_type = 3 [(formicary.v1.tags) = "json:\"mime_type\""];
+}
+
 // Artifact defines metadata for an artifact uploaded during job execution (logs, results, cache, etc.).
 message Artifact {
   // ID is the primary key (ULID).
@@ -45,4 +56,8 @@ message Artifact {
   map<string, string> metadata = 24 [(formicary.v1.tags) = "json:\"metadata\" gorm:\"-\""];
   map<string, string> tags = 25 [(formicary.v1.tags) = "json:\"tags\" gorm:\"-\""];
   string url = 26 [(formicary.v1.tags) = "json:\"url\" gorm:\"-\""];
+  // report_files_serialized stores JSON-encoded []ReportFile in the DB column; not exposed in API responses.
+  string report_files_serialized = 27 [(formicary.v1.tags) = "json:\"-\""];
+  // report_files is the deserialized list of renderable report files; transient, not stored directly.
+  repeated ReportFile report_files = 28 [(formicary.v1.tags) = "json:\"report_files\" gorm:\"-\""];
 }

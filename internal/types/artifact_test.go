@@ -106,3 +106,49 @@ func Test_ShouldArtifactWithoutContentLength(t *testing.T) {
 	art.ContentLength = 1024
 	require.Equal(t, "1024 B", art.LengthString())
 }
+
+func Test_ShouldRoundTripReportFiles(t *testing.T) {
+	art := NewArtifact("bucket", "name", "group", "kind", ulid.Make().String(), "sha256abc", 100)
+	art.ID = ulid.Make().String()
+	art.UserID = ulid.Make().String()
+	art.ContentType = "application/zip"
+	art.ExpiresAt = time.Now().Add(24 * time.Hour)
+	art.ReportFiles = []ReportFile{
+		{Path: "reports/index.html", Title: "My Report", MIMEType: "text/html"},
+		{Path: "reports/README.md", Title: "README.md", MIMEType: "text/markdown"},
+	}
+
+	// WHEN ValidateBeforeSave serializes ReportFiles
+	require.NoError(t, art.ValidateBeforeSave())
+	require.NotEmpty(t, art.ReportFilesSerialized)
+
+	// Simulate DB round-trip: clear in-memory slice, reload from serialized
+	art.ReportFiles = nil
+	require.NoError(t, art.AfterLoad())
+
+	// THEN ReportFiles should be restored
+	require.Len(t, art.ReportFiles, 2)
+	require.Equal(t, "reports/index.html", art.ReportFiles[0].Path)
+	require.Equal(t, "My Report", art.ReportFiles[0].Title)
+	require.Equal(t, "text/html", art.ReportFiles[0].MIMEType)
+	require.True(t, art.HasReports())
+}
+
+func Test_ShouldHaveNoReportsWhenEmpty(t *testing.T) {
+	art := NewArtifact("bucket", "name", "group", "kind", ulid.Make().String(), "sha256abc", 100)
+	require.False(t, art.HasReports())
+}
+
+func Test_ShouldBuildRawReportURL(t *testing.T) {
+	art := NewArtifact("bucket", "name", "group", "kind", ulid.Make().String(), "sha256abc", 100)
+	art.JobRequestID = "job-abc-123"
+
+	u := art.RawReportURL("reports/index.html")
+	require.Equal(t, "/dashboard/artifacts/by-job/job-abc-123/download/raw?file=reports%2Findex.html", u)
+}
+
+func Test_ShouldReturnEmptyRawReportURLWhenNoJobID(t *testing.T) {
+	// Create artifact with empty JobRequestID by clearing it after construction
+	art := NewArtifact("bucket", "name", "group", "kind", "", "sha256abc", 100)
+	require.Equal(t, "", art.RawReportURL("reports/index.html"))
+}

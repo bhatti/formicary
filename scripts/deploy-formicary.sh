@@ -8,7 +8,8 @@
 #   ./scripts/deploy-formicary.sh --restart  # pull latest image, redeploy queen + refresh DNAT
 #   ./scripts/deploy-formicary.sh --status   # show pod status
 #   ./scripts/deploy-formicary.sh --logs     # tail queen logs
-#   ./scripts/deploy-formicary.sh --apply-db-migration  # apply source index to SQLite DB
+#   ./scripts/deploy-formicary.sh --apply-db-migration          # apply source index to SQLite DB
+#   ./scripts/deploy-formicary.sh --apply-report-files-migration # add report_files_serialized column
 #
 # What it does:
 #   1. Create/update 'formicary-auth' k8s secret from env vars
@@ -46,6 +47,7 @@ SHOW_LOGS=false
 ROLLOUT_RESTART=false
 SYNC_SCRIPTS=false
 APPLY_DB_MIGRATION=false
+APPLY_REPORT_FILES_MIGRATION=false
 
 # Image tag to deploy — matches the Makefile version scheme.
 # Override: FORMICARY_VERSION=latest bash scripts/deploy-formicary.sh
@@ -66,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --restart|--rollout-restart) ROLLOUT_RESTART=true; shift ;;
     --sync-scripts)   SYNC_SCRIPTS=true;  shift ;;
     --apply-db-migration) APPLY_DB_MIGRATION=true; shift ;;
+    --apply-report-files-migration) APPLY_REPORT_FILES_MIGRATION=true; shift ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
@@ -136,6 +139,20 @@ apply_source_index() {
   kubectl cp "${REPO_ROOT}/scripts/apply-source-index.sh" "$pod":/tmp/apply-source-index.sh
   kubectl exec "$pod" -- bash /tmp/apply-source-index.sh
   ok "Source index migration complete"
+}
+
+# ── EC2 report_files column migration ────────────────────────────────────────
+apply_report_files_migration() {
+  local pod
+  log "Adding report_files_serialized column to formicary SQLite DB..."
+  pod=$(kubectl get pods -l app=formicary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -z "$pod" ]]; then
+    fail "No running formicary pod found — start the pod first with --restart"
+  fi
+  kubectl exec "$pod" -- sqlite3 /data/db/formicary.db \
+    "ALTER TABLE formicary_artifacts ADD COLUMN report_files_serialized TEXT;" 2>/dev/null \
+    && ok "Column report_files_serialized added" \
+    || ok "Column report_files_serialized already exists (skipping)"
 }
 
 # ── Sync scripts/k8s manifests to remote host ────────────────────────────────
@@ -394,9 +411,13 @@ except Exception as e:
   rm -f /tmp/fq-routes.json
 fi
 
-# ── Optional: apply EC2 DB migration ─────────────────────────────────────────
+# ── Optional: apply EC2 DB migrations ────────────────────────────────────────
 if $APPLY_DB_MIGRATION; then
   apply_source_index
+fi
+
+if $APPLY_REPORT_FILES_MIGRATION; then
+  apply_report_files_migration
 fi
 
 echo ""

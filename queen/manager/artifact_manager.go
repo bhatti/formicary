@@ -327,6 +327,18 @@ func (am *ArtifactManager) UpdateURL(
 	}
 }
 
+// RewriteHTMLReport rewrites relative references in an HTML report so they route
+// back through reportBase (the /download/raw endpoint URL without query params).
+// currentFile is the zip-relative path of the page being served.
+func (am *ArtifactManager) RewriteHTMLReport(src []byte, reportBase, currentFile string) []byte {
+	return rewriteHTMLRefs(src, reportBase, currentFile)
+}
+
+// RenderMarkdownReport converts Markdown source to a complete HTML page.
+func (am *ArtifactManager) RenderMarkdownReport(src []byte, title string) ([]byte, error) {
+	return renderMarkdownToHTML(src, title)
+}
+
 // GetResourceUsage - Finds usage between time
 func (am *ArtifactManager) GetResourceUsage(
 	qc *common.QueryContext,

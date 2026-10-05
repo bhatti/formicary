@@ -326,13 +326,21 @@ tasks via artifacts:
 - `JOB_ID: "{{.JobID}}"` — used to build artifact download URLs
 - Both must also be declared in `job_variables:` with empty defaults
 
-**Artifact link filename MUST match the actual file written, not a display name:**
-- The `filename` param in `post_report()` is used by BOTH Slack file upload AND the
-  fallback artifact URL (`build_artifact_links` in `upload_html_report`).
-- If the script writes `reports/report.html` but passes `filename="mq_report.html"`,
-  the fallback link becomes `file=reports/mq_report.html` → 404.
-- Rule: `filename` in `post_report()` must equal the basename of the file written to
-  `reports/` dir. E.g., write `reports/report.html` → `filename="report.html"`.
+**Report viewer — inline HTML/MD in Formicary dashboard:**
+- HTML and Markdown files in `artifacts.paths` are auto-detected at upload time and stored
+  as `report_files` metadata on the artifact. The job summary page shows a "Reports" card.
+- Reports are served inline via: `GET /dashboard/artifacts/by-job/:id/download/raw?file=<path>`
+- Relative image/CSS references in HTML are rewritten to route through the same endpoint.
+- Markdown is rendered to HTML with GFM extensions (tables, task lists).
+- CSP: `default-src 'self'; script-src 'none'; object-src 'none'` on all report responses.
+- New EC2 installs: GORM AutoMigrate adds `report_files_serialized` column automatically.
+  Existing EC2 DB: `ALTER TABLE formicary_artifacts ADD COLUMN report_files_serialized TEXT;`
+
+**Slack report links — `build_artifact_links()` in `slack_format.py`:**
+- Returns `({job_url}#reports, {job_url})` — a single link to the job's Reports card.
+- `post_report()` appends `📎 <url|View reports>` to the Slack message.
+- No HTML file upload to Slack; users click the link to view reports in the browser.
+- `filename`, `task_type` params are accepted for backwards-compatibility but ignored.
 - Existing patterns: standup→`report.html`, audit→`audit_report.html`,
   pr-audit→`pr_audit_report.html`, mq-report→`report.html`.
 

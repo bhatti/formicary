@@ -198,6 +198,10 @@ func uploadArtifacts(
 	}
 
 	artifact.Kind = types.ArtifactKindTask
+	// Detect HTML/MD files in the artifact paths and store them as report metadata.
+	if reports := detectReportFiles(paths); len(reports) > 0 {
+		artifact.ReportFiles = reports
+	}
 	if err = artifact.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate artifact %v due to %w", artifact, err)
 	}
