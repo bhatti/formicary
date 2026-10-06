@@ -187,8 +187,13 @@ func (r *ConfigRepositoryImpl) strictScopedDB(qc *common.QueryContext, readonly 
 
 // scopedOrgDB restricts to org-owned configs only.
 // Non-admins may only query configs for their own org.
+// Admin + empty orgID means "all orgs" — only reachable when auth is disabled
+// (auth-enabled paths always supply a non-empty orgID or return early).
 func (r *ConfigRepositoryImpl) scopedOrgDB(qc *common.QueryContext, orgID string) *gorm.DB {
 	if qc.IsAdmin() {
+		if orgID == "" {
+			return r.db.Where("configurable_type = ?", common.ConfigurableTypeOrg)
+		}
 		return r.db.Where("configurable_type = ? AND configurable_id = ?",
 			common.ConfigurableTypeOrg, orgID)
 	}

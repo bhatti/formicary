@@ -15,51 +15,59 @@ This guide covers how to get Formicary up and running. The recommended method is
 
 Running inside Kubernetes gives the server in-cluster credentials automatically — no kubeconfig mount or address rewriting needed. The same cluster is used to schedule job pods.
 
-### Steps
+### 1a: All-in-one local deployment (Docker Desktop)
 
-**1. Create the auth secret**
+The fastest way to get a fully functional local instance — queen, embedded ant, and artifact storage in a single pod:
 
 ```bash
-# With Google OAuth (set env vars first):
-# export COMMON_AUTH_GOOGLE_CLIENT_ID="<id>.apps.googleusercontent.com"
-# export COMMON_AUTH_GOOGLE_CLIENT_SECRET="<secret>"
+git clone https://github.com/bhatti/formicary.git
+cd formicary
+
+# Set required env vars (add to ~/.zshrc)
+export COMMON_AUTH_JWT_SECRET="$(openssl rand -hex 32)"
+# Optional Slack tokens:
+# export SLACK_APP_TOKEN="xapp-..."
+# export SLACK_BOT_TOKEN="xoxb-..."
+
+source ~/.zshrc
+bash scripts/install.sh --local
+```
+
+Open [http://localhost:7777](http://localhost:7777). The script:
+1. Creates Kubernetes secrets (`formicary-auth`, `formicary-slack`, `ai-dev-credentials`)
+2. Deploys `k8s/formicary-all-in-one.yaml` to docker-desktop
+3. Port-forwards 7777 and 19000 in the background
+4. Deploys AI workflow YAMLs and pushes Slack routes once `FORMICARY_TOKEN` is set
+
+> **First login:** With `auth.enabled: false` (default for `--local`) no OAuth is needed — register at [http://localhost:7777/dashboard](http://localhost:7777/dashboard), then copy your API token and add `export FORMICARY_TOKEN="<token>"` to `~/.zshrc`. Re-run `install.sh --local` to finish deploying workflows.
+
+Stop: `kill $(cat /tmp/formicary-pf.pid)` then `kubectl delete -f k8s/formicary-all-in-one.yaml`.
+
+### 1b: Manual Kubernetes steps
+
+```bash
+# With Google OAuth:
 kubectl create secret generic formicary-auth \
   --from-literal=jwt-secret="$(openssl rand -base64 32)" \
   --from-literal=google-client-id="${COMMON_AUTH_GOOGLE_CLIENT_ID}" \
   --from-literal=google-client-secret="${COMMON_AUTH_GOOGLE_CLIENT_SECRET}"
-```
 
-Without OAuth (local testing):
-```bash
+# Without OAuth (local testing):
 kubectl create secret generic formicary-auth \
   --from-literal=jwt-secret="$(openssl rand -base64 32)"
-```
 
-**2. Deploy**
-
-```bash
-kubectl apply -f k8s.yaml
-```
-
-**3. Access**
-
-```bash
+kubectl apply -f k8s/formicary-all-in-one.yaml
+kubectl rollout status deployment/formicary --timeout=120s
 kubectl port-forward svc/formicary 7777:7777 19000:19000
 ```
 
 Open [http://localhost:7777](http://localhost:7777).
 
-Google OAuth callback URL to register in Cloud Console:
-```
-http://localhost:7777/auth/google/callback
-```
-
-**4. Stop / remove**
-
+Stop / remove:
 ```bash
-kubectl delete -f k8s.yaml
+kubectl delete -f k8s/formicary-all-in-one.yaml
 kubectl delete secret formicary-auth
-kubectl delete pvc formicary-data   # also deletes all persistent data
+kubectl delete pvc formicary-data
 ```
 
 ### What `k8s.yaml` creates
@@ -129,6 +137,23 @@ docker compose up -d
 ---
 
 ## Option 4: Run from Source
+
+### Via install script (recommended for dev iteration)
+
+```bash
+git clone https://github.com/bhatti/formicary.git
+cd formicary
+source ~/.zshrc
+
+# Build and run the binary directly — no Docker image rebuild needed
+bash scripts/install.sh --local-dev
+```
+
+`--local-dev` builds `./out/bin/formicary` via `make build`, starts it with `auth.enabled=false` (no OAuth needed), SQLite at `./formicary_db.sqlite`, and local SeaweedFS. Deploys AI workflow YAMLs if `FORMICARY_TOKEN` is set. Logs to `/tmp/formicary-dev.log`. Workflow pods still run on docker-desktop Kubernetes. Use this to test Go code changes immediately without pushing a Docker image.
+
+Stop: `kill $(cat /tmp/formicary-dev.pid)`
+
+### Via Makefile directly
 
 ```bash
 git clone https://github.com/bhatti/formicary.git

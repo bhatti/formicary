@@ -157,7 +157,7 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 			zipFile, zipCmd, err, string(stderr))
 	}
 
-	shaCmd := fmt.Sprintf("sha256sum %s && ls -l %s && python3 -m zipfile -l %s|head -10",
+	shaCmd := fmt.Sprintf("sha256sum %s && ls -l %s && python3 -m zipfile -l %s",
 		zipFile, zipFile, zipFile)
 
 	if stdout, stderr, _, _, err = t.execute(
@@ -209,6 +209,31 @@ func (t *ArtifactTransferHelperContainer) uploadArtifacts(
 	if uploadStdout, uploadStderr, _, _, err = t.execute(ctx, uploadCmd, true); err != nil {
 		return nil, fmt.Errorf("failed to upload %s due to %w, stdout=%s stderr=%s",
 			id, err, string(uploadStdout), string(uploadStderr))
+	}
+
+	// Supplement reportPairs from the zip listing output: paths specified as
+	// directories (e.g. "./reports") are copied as a whole and zipped, but only
+	// the directory name ends up in reportPairs — not the individual files inside.
+	// Parse the zip listing to catch HTML/MD files nested in those directories.
+	knownZipPaths := make(map[string]bool, len(reportPairs))
+	for _, rp := range reportPairs {
+		knownZipPaths[rp.zipPath] = true
+	}
+	for _, line := range strings.Split(string(stdout), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		entry := fields[0]
+		lower := strings.ToLower(entry)
+		if !strings.HasSuffix(lower, ".html") && !strings.HasSuffix(lower, ".htm") &&
+			!strings.HasSuffix(lower, ".md") && !strings.HasSuffix(lower, ".markdown") {
+			continue
+		}
+		if !knownZipPaths[entry] {
+			reportPairs = append(reportPairs, reportFilePair{diskPath: entry, zipPath: entry})
+			knownZipPaths[entry] = true
+		}
 	}
 
 	// Add artifacts to response

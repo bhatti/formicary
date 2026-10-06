@@ -3,7 +3,6 @@
 package manager
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,13 +13,13 @@ const reportBase = "/api/artifacts/abc123/download/raw"
 func Test_RewriteHTMLRefs_RelativeRef(t *testing.T) {
 	src := []byte(`<html><body><img src="images/chart.png"/></body></html>`)
 	out := rewriteHTMLRefs(src, reportBase, "reports/index.html")
-	require.Contains(t, string(out), `src="/api/artifacts/abc123/download/raw?file=reports/images/chart.png"`)
+	require.Contains(t, string(out), `src="/api/artifacts/abc123/download/raw?file=reports%2Fimages%2Fchart.png"`)
 }
 
 func Test_RewriteHTMLRefs_AbsolutePathRef(t *testing.T) {
 	src := []byte(`<html><body><a href="/styles/main.css">link</a></body></html>`)
 	out := rewriteHTMLRefs(src, reportBase, "reports/index.html")
-	require.Contains(t, string(out), `href="/api/artifacts/abc123/download/raw?file=styles/main.css"`)
+	require.Contains(t, string(out), `href="/api/artifacts/abc123/download/raw?file=styles%2Fmain.css"`)
 }
 
 func Test_RewriteHTMLRefs_ExternalRefUnchanged(t *testing.T) {
@@ -44,7 +43,7 @@ func Test_RewriteHTMLRefs_HashRefUnchanged(t *testing.T) {
 func Test_RewriteHTMLRefs_CSSURLInStyle(t *testing.T) {
 	src := []byte(`<html><body><div style="background:url(img/bg.png)"></div></body></html>`)
 	out := rewriteHTMLRefs(src, reportBase, "reports/index.html")
-	require.Contains(t, string(out), `url(/api/artifacts/abc123/download/raw?file=reports/img/bg.png)`)
+	require.Contains(t, string(out), `url(/api/artifacts/abc123/download/raw?file=reports%2Fimg%2Fbg.png)`)
 }
 
 func Test_RewriteHTMLRefs_PathTraversalLeftUnchanged(t *testing.T) {
@@ -58,7 +57,7 @@ func Test_RewriteHTMLRefs_PathTraversalLeftUnchanged(t *testing.T) {
 func Test_RewriteHTMLRefs_NestedRelativePath(t *testing.T) {
 	src := []byte(`<html><body><img src="../shared/logo.png"/></body></html>`)
 	out := rewriteHTMLRefs(src, reportBase, "reports/sub/page.html")
-	require.Contains(t, string(out), `src="/api/artifacts/abc123/download/raw?file=reports/shared/logo.png"`)
+	require.Contains(t, string(out), `src="/api/artifacts/abc123/download/raw?file=reports%2Fshared%2Flogo.png"`)
 }
 
 func Test_RewriteRef_EmptyRefUnchanged(t *testing.T) {
@@ -68,5 +67,5 @@ func Test_RewriteRef_EmptyRefUnchanged(t *testing.T) {
 
 func Test_RewriteCSSURLs_QuotedURL(t *testing.T) {
 	result := rewriteCSSURLs(`background: url("img/foo.png")`, reportBase, "reports")
-	require.True(t, strings.Contains(result, `url(/api/artifacts/abc123/download/raw?file=reports/img/foo.png)`))
+	require.Contains(t, result, `url(/api/artifacts/abc123/download/raw?file=reports%2Fimg%2Ffoo.png)`)
 }

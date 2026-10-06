@@ -468,13 +468,17 @@ func (m *UserManager) DeleteOrganization(
 }
 
 // GetOrgConfigs returns all org-scoped configs for the given org ID.
-// Used by the job FSM to populate template variables.
-// The org is loaded to derive the correct per-org encryption salt; if the org
-// cannot be found the query still runs with an empty salt (configs saved without
-// encryption will still be readable).
+// When auth is disabled orgID is always empty (anonymous user), so we query with
+// admin + empty org which returns all org configs regardless of org ID.
 func (m *UserManager) GetOrgConfigs(orgID string) ([]*common.Config, error) {
 	if orgID == "" {
-		return nil, nil
+		if m.serverCfg.Common.Auth.Enabled {
+			return nil, nil
+		}
+		// Admin + empty orgID → scopedOrgDB returns all org configs (no org filter).
+		adminQC := common.NewQueryContextFromIDs("", "").WithAdmin()
+		recs, _, err := m.configRepository.QueryOrgConfigs(adminQC, "", 0, 1000)
+		return recs, err
 	}
 	// Load the org so we get its Salt for correct encryption key derivation.
 	adminQC := common.NewQueryContextFromIDs("", orgID).WithAdmin()

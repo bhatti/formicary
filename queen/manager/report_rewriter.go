@@ -5,6 +5,7 @@ package manager
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"path"
 	"regexp"
 	"strings"
@@ -67,7 +68,7 @@ func rewriteRef(ref, reportBase, currentDir string) string {
 	if strings.HasPrefix(zipPath, "..") {
 		return ref
 	}
-	return fmt.Sprintf("%s?file=%s", reportBase, zipPath)
+	return fmt.Sprintf("%s?file=%s", reportBase, url.QueryEscape(zipPath))
 }
 
 func isExternalRef(ref string) bool {

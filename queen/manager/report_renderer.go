@@ -8,12 +8,10 @@ import (
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
-	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
 )
 
 var mdParser = goldmark.New(
 	goldmark.WithExtensions(extension.GFM, extension.Table),
-	goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
 )
 
 // renderMarkdownToHTML converts Markdown source bytes to a complete HTML page.

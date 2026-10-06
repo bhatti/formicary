@@ -248,13 +248,29 @@ func (a *Artifact) HasReports() bool {
 
 // RawReportURL returns the dashboard inline viewer URL for a specific report file
 // inside this artifact. Requires JobRequestID to be set (populated after DB save).
-// Returns "" when JobRequestID is not available.
+// Includes task= so the server extracts from the correct task artifact, not the
+// most-recently-uploaded one. Returns "" when JobRequestID is not available.
 func (a *Artifact) RawReportURL(filePath string) string {
 	if a.JobRequestID == "" {
 		return ""
 	}
-	return "/dashboard/artifacts/by-job/" + url.PathEscape(a.JobRequestID) +
+	u := "/dashboard/artifacts/by-job/" + url.PathEscape(a.JobRequestID) +
 		"/download/raw?file=" + url.QueryEscape(filePath)
+	if a.TaskType != "" {
+		u += "&task=" + url.QueryEscape(a.TaskType)
+	}
+	return u
+}
+
+// DownloadReportURL returns the dashboard attachment-download URL for a specific
+// report file inside this artifact ZIP, reusing DashboardURL() as the base.
+// Returns "" when URL is not available.
+func (a *Artifact) DownloadReportURL(filePath string) string {
+	base := a.DashboardURL() // /dashboard/artifacts/<id>/download
+	if base == "" {
+		return ""
+	}
+	return base + "?file=" + url.QueryEscape(filePath)
 }
 
 // DashboardURL link to download artifact

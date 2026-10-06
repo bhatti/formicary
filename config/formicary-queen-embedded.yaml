@@ -42,6 +42,7 @@ embedded_ant:
       host: "unix:///var/run/docker.sock"
     kubernetes:
       namespace: "default"
+      cluster_name: "docker-desktop"
       allow_privilege_escalation: true
       default_resources:
         cpuRequest: "500m"

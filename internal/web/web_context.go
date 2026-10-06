@@ -181,6 +181,7 @@ func RenderDBUserFromSession(c APIContext, res map[string]interface{}) {
 		res[DBUserOrg] = ""
 		res["Admin"] = true
 		res["ReadAdmin"] = true
+		res["OrgAdmin"] = true
 	}
 }
 

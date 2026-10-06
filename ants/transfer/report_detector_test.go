@@ -87,11 +87,9 @@ func Test_DetectReportFiles_Mixed(t *testing.T) {
 	}())
 }
 
-func Test_ExtractHTMLTitle_FallsBackToH1(t *testing.T) {
+func Test_ExtractHTMLTitle_FallsBackToBasenameWhenNoTitle(t *testing.T) {
 	html := strings.NewReader("<html><body><h1>Section One</h1></body></html>")
 	title := extractHTMLTitle(html, "fallback.html")
-	// No <title> present, but <h1> is not used as fallback in current implementation (basename is)
-	// The implementation falls back to basename when no <title> is found.
 	require.Equal(t, "fallback.html", title)
 }
 

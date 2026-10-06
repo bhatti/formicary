@@ -104,7 +104,8 @@ func (ac *ArtifactAdminController) downloadJobRawArtifact(c web.APIContext) erro
 	if strings.HasPrefix(cleanPath, "..") || strings.HasPrefix(cleanPath, "/") {
 		return common.NewValidationError("invalid file path")
 	}
-	reader, _, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, "", cleanPath)
+	taskType := c.QueryParam("task")
+	reader, _, contentType, err := ac.artifactManager.ExtractFileFromJobArtifact(context.Background(), qc, jobID, taskType, cleanPath)
 	if err != nil {
 		return err
 	}
@@ -164,7 +165,6 @@ func (ac *ArtifactAdminController) downloadRawArtifact(c web.APIContext) error {
 	}
 	return common.NewValidationError(fmt.Sprintf("cannot return artifact %s of content-type %s", name, contentType))
 }
-
 
 func (ac *ArtifactAdminController) getArtifact(c web.APIContext) error {
 	qc := web.BuildQueryContext(c)

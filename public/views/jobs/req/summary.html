@@ -236,12 +236,17 @@
   <div class="card-body">
     <div class="d-flex flex-wrap gap-2">
     {{range .Tasks}}{{range $artifact := .Artifacts}}{{range $artifact.ReportFiles}}
-      <button type="button" class="btn btn-outline-primary btn-sm"
-              data-bs-toggle="modal" data-bs-target="#reportModal"
-              data-report-url="{{$artifact.RawReportURL .Path}}"
-              data-report-title="{{.Title}}">
-        <i class="ti ti-file-text me-1"></i>{{.Title}}
-      </button>
+      <div class="d-inline-flex align-items-center gap-1 me-2 mb-1">
+        <button type="button" class="btn btn-outline-primary btn-sm"
+                data-bs-toggle="modal" data-bs-target="#reportModal"
+                data-report-url="{{$artifact.RawReportURL .Path}}"
+                data-report-title="{{if $artifact.TaskType}}[{{$artifact.TaskType}}] {{end}}{{.Title}}">
+          <i class="ti ti-eye me-1"></i>{{if $artifact.TaskType}}<span class="text-muted me-1">[{{$artifact.TaskType}}]</span>{{end}}{{.Title}}
+        </button>
+        <a href="{{$artifact.DownloadReportURL .Path}}" class="btn btn-outline-secondary btn-sm" title="Download {{.Title}}" download>
+          <i class="ti ti-download"></i>
+        </a>
+      </div>
     {{end}}{{end}}{{end}}
     </div>
   </div>

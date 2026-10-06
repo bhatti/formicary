@@ -32,6 +32,8 @@ func NewOrganizationConfigAdminController(
 		configRepository:      configRepository,
 		webserver:             webserver,
 	}
+	// Auth-disabled (single-tenant) path: no org in URL; lists all org configs.
+	webserver.GET("/dashboard/org-configs", c.queryOrganizationConfigs, acl.NewPermission(acl.OrgConfig, acl.View)).Name = "query_admin_org_configs_all"
 	webserver.GET("/dashboard/orgs/:org/configs", c.queryOrganizationConfigs, acl.NewPermission(acl.OrgConfig, acl.View)).Name = "query_admin_org_configs"
 	webserver.GET("/dashboard/orgs/:org/configs/new", c.newOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Update)).Name = "new_admin_org_configs"
 	webserver.POST("/dashboard/orgs/:org/configs", c.createOrganizationConfig, acl.NewPermission(acl.OrgConfig, acl.Create)).Name = "create_admin_org_configs"
@@ -46,8 +48,9 @@ func (c *OrganizationConfigAdminController) queryOrganizationConfigs(ctx web.API
 	_, _, page, pageSize, q, qs := controller.ParseParams(ctx)
 	qc := web.BuildQueryContext(ctx)
 	orgID := qc.GetOrganizationID()
-	configs, total, err := c.configRepository.QueryOrgConfigs(
-		common.NewQueryContextFromIDs("", orgID), orgID, page, pageSize)
+	// Use qc directly: when auth is disabled qc is already admin (via anonAdminUser),
+	// and scopedOrgDB with admin + empty orgID returns all org configs.
+	configs, total, err := c.configRepository.QueryOrgConfigs(qc, orgID, page, pageSize)
 	if err != nil {
 		return err
 	}
@@ -82,17 +85,20 @@ func (c *OrganizationConfigAdminController) createOrganizationConfig(ctx web.API
 		return ctx.Render(http.StatusOK, "orgs/configs/new", res)
 	}
 	_, _ = c.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
-	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), cfg.ID))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", cfg.ConfigurableID, cfg.ID))
 }
 
 func (c *OrganizationConfigAdminController) updateOrganizationConfig(ctx web.APIContext) error {
 	qc := web.BuildQueryContext(ctx)
+	orig, err := c.configRepository.Get(qc, ctx.Param("id"))
+	if err != nil {
+		return err
+	}
 	secret := ctx.FormValue("secret") == "on"
 	value := ctx.FormValue("value")
-	cfg, err := common.NewOrgConfig(qc.GetOrganizationID(), ctx.FormValue("name"), value, secret)
+	cfg, err := common.NewOrgConfig(orig.ConfigurableID, ctx.FormValue("name"), value, secret)
 	if err == nil {
 		cfg.ID = ctx.Param("id")
-		// Preserve the stored encrypted value when the form shows the masked placeholder.
 		if secret && value == "****" {
 			var existing *common.Config
 			existing, err = c.configRepository.Get(qc, cfg.ID)
@@ -113,7 +119,7 @@ func (c *OrganizationConfigAdminController) updateOrganizationConfig(ctx web.API
 		return ctx.Render(http.StatusOK, "orgs/configs/edit", res)
 	}
 	_, _ = c.auditRecordRepository.Save(types.NewAuditRecordFromConfig(cfg, qc))
-	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", qc.GetOrganizationID(), cfg.ID))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs/%s", orig.ConfigurableID, cfg.ID))
 }
 
 func (c *OrganizationConfigAdminController) newOrganizationConfig(ctx web.APIContext) error {
@@ -161,5 +167,9 @@ func (c *OrganizationConfigAdminController) deleteOrganizationConfig(ctx web.API
 	if err := c.configRepository.Delete(qc, ctx.Param("id")); err != nil {
 		return err
 	}
-	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", qc.GetOrganizationID()))
+	orgID := qc.GetOrganizationID()
+	if orgID == "" {
+		return ctx.Redirect(http.StatusFound, "/dashboard/org-configs")
+	}
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/dashboard/orgs/%s/configs", orgID))
 }

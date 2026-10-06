@@ -988,21 +988,21 @@ func (jsm *JobExecutionStateMachine) buildDynamicConfigs() map[string]common.Var
 	if orgID == "" && jsm.User != nil && jsm.User.OrganizationID != "" {
 		orgID = jsm.User.OrganizationID
 	}
-	if orgID != "" {
-		if orgConfigs, err := jsm.userManager.GetOrgConfigs(orgID); err == nil {
-			for _, v := range orgConfigs {
-				if vv, err := v.GetVariableValue(); err == nil {
-					res[v.Name] = vv
-				}
+	// GetOrgConfigs handles orgID=="" by falling back to the first org in the system
+	// so that local / auth-disabled deployments still resolve template variables.
+	if orgConfigs, err := jsm.userManager.GetOrgConfigs(orgID); err == nil {
+		for _, v := range orgConfigs {
+			if vv, err := v.GetVariableValue(); err == nil {
+				res[v.Name] = vv
 			}
-		} else {
-			logrus.WithFields(logrus.Fields{
-				"Component": "JobExecutionStateMachine",
-				"OrgID":     orgID,
-				"JobID":     jsm.Request.GetID(),
-				"Error":     err,
-			}).Warnf("failed to load org configs for job")
 		}
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"Component": "JobExecutionStateMachine",
+			"OrgID":     orgID,
+			"JobID":     jsm.Request.GetID(),
+			"Error":     err,
+		}).Warnf("failed to load org configs for job")
 	}
 
 	// --- user configs (override layer) ---

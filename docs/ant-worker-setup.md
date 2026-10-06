@@ -4,7 +4,85 @@ Connect your personal ant worker to the shared Formicary queen. Your ant runs
 on your laptop, registers over WebSocket, and executes job pods locally so your
 work stays isolated from teammates'.
 
-**Time to complete:** ~5 minutes after the queen is up.
+**Time to complete:** ~10 minutes.
+
+---
+
+## Quick Start
+
+### 1. Sign up on the server
+
+Open `${FORMICARY_URL}/dashboard` and register an account.
+
+### 2. Create an API token
+
+- Click your email in the bottom-left navigation
+- Select **API Tokens**
+- Generate a token and save it — you will add it to your `.env` below
+
+### 3. Create a private Slack channel and invite the bot
+
+Create a private Slack channel for yourself (e.g. `#your-name-bot`) and invite `@<bot-name>` to it.
+
+### 4. Connect your Slack account
+
+- Click your email in the bottom-left navigation, select **Connect Slack**
+- Copy the one-time code shown on that page
+- In your private Slack channel, type:
+  ```
+  @<bot-name> setup <your-one-time-code>
+  ```
+
+### 5. Create a `.env` file
+
+```bash
+# Required
+FORMICARY_URL=https://<your-queen-host>
+FORMICARY_TOKEN=<your-formicary-api-token>
+
+# Tracker defaults
+DEFAULT_TRACKER=jira
+BB_REPO_BRANCH=dev
+
+# Jira (optional — skip if not using Jira)
+JIRA_BASE_URL=https://yourorg.atlassian.net
+JIRA_HOST=yourorg.atlassian.net
+JIRA_EMAIL=you@company.com
+JIRA_API_TOKEN=<your-jira-api-token>
+JIRA_BOARDS=99
+
+# Bitbucket (optional)
+BITBUCKET_TOKEN=<your-bitbucket-token>
+BITBUCKET_REPO=your-repo
+BITBUCKET_USERNAME=you@company.com
+BITBUCKET_WORKSPACE=your-workspace
+
+# Slack
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL=your-slack-channel-id
+```
+
+### 6. Deploy the ant worker
+
+```bash
+git clone https://github.com/bhatti/formicary.git
+cd formicary
+
+set -a; source .env; set +a
+bash scripts/setup-ant-worker.sh jira bb
+```
+
+Pass the trackers you use: `github`, `jira`, `bb` (Bitbucket), or a combination. Omit `--local` to connect to the shared queen at `FORMICARY_URL`.
+
+### 7. Use
+
+In your private Slack channel:
+
+```
+@<bot-name> help
+```
+
+Lists all available commands. Try `@<bot-name> standup` for your first job.
 
 ---
 
@@ -12,7 +90,7 @@ work stays isolated from teammates'.
 
 - Docker Desktop (or k3s / Rancher Desktop) running locally
 - `kubectl` pointing at your local cluster (`kubectl get nodes` returns your machine)
-- Credentials exported in `~/.zshrc` (see Step 1)
+- Credentials exported in `~/.zshrc` (see Step 1 below for the full list)
 
 ---
 
