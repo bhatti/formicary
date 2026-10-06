@@ -9,7 +9,6 @@
 #   ./scripts/deploy-formicary.sh --status   # show pod status
 #   ./scripts/deploy-formicary.sh --logs     # tail queen logs
 #   ./scripts/deploy-formicary.sh --apply-db-migration          # apply source index to SQLite DB
-#   ./scripts/deploy-formicary.sh --apply-report-files-migration # add report_files_serialized column
 #
 # What it does:
 #   1. Create/update 'formicary-auth' k8s secret from env vars
@@ -47,7 +46,6 @@ SHOW_LOGS=false
 ROLLOUT_RESTART=false
 SYNC_SCRIPTS=false
 APPLY_DB_MIGRATION=false
-APPLY_REPORT_FILES_MIGRATION=false
 
 # Image tag to deploy — matches the Makefile version scheme.
 # Override: FORMICARY_VERSION=latest bash scripts/deploy-formicary.sh
@@ -68,7 +66,6 @@ while [[ $# -gt 0 ]]; do
     --restart|--rollout-restart) ROLLOUT_RESTART=true; shift ;;
     --sync-scripts)   SYNC_SCRIPTS=true;  shift ;;
     --apply-db-migration) APPLY_DB_MIGRATION=true; shift ;;
-    --apply-report-files-migration) APPLY_REPORT_FILES_MIGRATION=true; shift ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
@@ -129,30 +126,46 @@ fi
 
 # ── EC2 DB migration helper ───────────────────────────────────────────────────
 apply_source_index() {
-  local pod
-  log "Applying source column index to formicary SQLite DB..."
-  pod=$(kubectl get pods -l app=formicary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-  if [[ -z "$pod" ]]; then
-    fail "No running formicary pod found — start the pod first with --restart"
-  fi
-  # Copy the helper script into the pod and run it
-  kubectl cp "${REPO_ROOT}/scripts/apply-source-index.sh" "$pod":/tmp/apply-source-index.sh
-  kubectl exec "$pod" -- bash /tmp/apply-source-index.sh
-  ok "Source index migration complete"
-}
+  # SQLite DDL must never run while the app has the DB open — an external schema
+  # change bumps SQLite's schema cookie, staling GORM's prepared-statement cache
+  # and causing silent query failures (e.g. Slack user lookups returning no rows).
+  # Safe pattern: scale to 0 → wait for pod gone → DDL on host DB → scale to 1.
+  log "Applying source column index (scale-down → migrate → scale-up)..."
 
-# ── EC2 report_files column migration ────────────────────────────────────────
-apply_report_files_migration() {
-  local pod
-  log "Adding report_files_serialized column to formicary SQLite DB..."
-  pod=$(kubectl get pods -l app=formicary -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-  if [[ -z "$pod" ]]; then
-    fail "No running formicary pod found — start the pod first with --restart"
+  # 1. Scale down; wait until the pod is fully gone (file locks released).
+  kubectl scale deployment/formicary --replicas=0
+  log "Waiting for formicary pod to terminate (up to 90s)..."
+  if ! kubectl wait pod -l app=formicary --for=delete --timeout=90s 2>/dev/null; then
+    fail "Formicary pod did not terminate within 90s — aborting migration to avoid DB corruption"
   fi
-  kubectl exec "$pod" -- sqlite3 /data/db/formicary.db \
-    "ALTER TABLE formicary_artifacts ADD COLUMN report_files_serialized TEXT;" 2>/dev/null \
-    && ok "Column report_files_serialized added" \
-    || ok "Column report_files_serialized already exists (skipping)"
+
+  # 2. Apply DDL directly on the host DB file using sqlite3.
+  #    Raw sqlite3 is used (not goose) because goose is only available inside the container.
+  if [[ -n "$QUEEN_IP" ]]; then
+    $SSH_CMD "$(cat <<'REMOTE'
+      set -euo pipefail
+      DB=$(sudo find /var/lib/rancher/k3s/storage -name 'formicary.db' 2>/dev/null | head -1)
+      [[ -z "$DB" ]] && { echo 'ERROR: formicary.db not found on host'; exit 1; }
+      echo "  DB: $DB"
+      sudo sqlite3 "$DB" \
+        'CREATE INDEX IF NOT EXISTS formicary_log_events_source_ndx ON formicary_log_events(source);'
+      echo '  Index applied'
+REMOTE
+    )" || fail "Source index migration failed on remote host"
+  else
+    local db
+    db=$(find /var/lib/rancher/k3s/storage -name 'formicary.db' 2>/dev/null | head -1 || true)
+    [[ -z "$db" ]] && fail "formicary.db not found under /var/lib/rancher/k3s/storage"
+    sqlite3 "$db" \
+      'CREATE INDEX IF NOT EXISTS formicary_log_events_source_ndx ON formicary_log_events(source);'
+  fi
+  ok "Source index applied"
+
+  # 3. Scale back up; wait for healthy rollout; refresh DNAT (pod IP changed).
+  kubectl scale deployment/formicary --replicas=1
+  kubectl rollout status deployment/formicary --timeout=120s
+  refresh_dnat
+  ok "Migration complete"
 }
 
 # ── Sync scripts/k8s manifests to remote host ────────────────────────────────
@@ -414,10 +427,6 @@ fi
 # ── Optional: apply EC2 DB migrations ────────────────────────────────────────
 if $APPLY_DB_MIGRATION; then
   apply_source_index
-fi
-
-if $APPLY_REPORT_FILES_MIGRATION; then
-  apply_report_files_migration
 fi
 
 echo ""
