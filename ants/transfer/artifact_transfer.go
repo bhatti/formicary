@@ -198,9 +198,14 @@ func uploadArtifacts(
 	}
 
 	artifact.Kind = types.ArtifactKindTask
-	// Detect HTML/MD files in the artifact paths and store them as report metadata.
-	if reports := detectReportFiles(paths); len(reports) > 0 {
-		artifact.ReportFiles = reports
+	// Detect HTML/MD files and store as report metadata. Only run when the transfer
+	// service did not already populate ReportFiles (helper container sets them from
+	// the actual zip listing; overwriting would produce wrong paths like
+	// "reports/skill_update_plan.md" instead of the zip entry "skill_update_plan.md").
+	if len(artifact.ReportFiles) == 0 {
+		if reports := detectReportFiles(paths); len(reports) > 0 {
+			artifact.ReportFiles = reports
+		}
 	}
 	if err = artifact.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate artifact %v due to %w", artifact, err)
