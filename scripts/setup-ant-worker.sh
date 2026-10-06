@@ -151,7 +151,7 @@ for _cred_var in QUEEN_IP FORMICARY_TOKEN FORMICARY_URL \
                  GH_TOKEN GH_ORG GH_REPO SSH_PRIVATE_KEY \
                  JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_HOST \
                  BITBUCKET_TOKEN BITBUCKET_USERNAME BITBUCKET_WORKSPACE \
-                 SLACK_BOT_TOKEN DEFAULT_TRACKER; do
+                 SLACK_BOT_TOKEN DEFAULT_TRACKER KUBE_CONTEXT; do
   _autodetect_var "$_cred_var"
 done
 
@@ -277,6 +277,35 @@ fi
 # If --check-only was passed, skip all deployment steps.
 ${CHECK_ONLY} && { printf "\nCredential check complete.\n"; exit 0; }
 
+# ── K8s API preflight ─────────────────────────────────────────────────────────
+# After a cluster reset the API server takes time to become ready.
+# Fail fast with a clear message rather than confusing "server rejected" errors.
+_wait_for_k8s_api() {
+  local _deadline=$(( $(date +%s) + 90 ))
+  local _attempt=0
+  log "Checking Kubernetes API server reachability..."
+  while [[ $(date +%s) -lt $_deadline ]]; do
+    (( _attempt++ )) || true
+    if kubectl get --raw /livez --request-timeout=5s &>/dev/null; then
+      ok "Kubernetes API server is ready (attempt ${_attempt})"
+      return 0
+    fi
+    if [[ $_attempt -eq 1 ]]; then
+      warn "  API server not responding yet — retrying for up to 90s..."
+      warn "  (If you just reset the cluster, wait ~30s and re-run)"
+    fi
+    sleep 5
+  done
+  fail "Kubernetes API server did not become ready after 90s.
+       Run: kubectl get nodes --context=${KUBE_CONTEXT:-$(command kubectl config current-context 2>/dev/null || echo default)}
+       to diagnose."
+}
+
+if ! ${SKIP_WORKER} && ! ${DRY_RUN}; then
+  printf "\n"
+  _wait_for_k8s_api
+fi
+
 # ── Worker deploy ─────────────────────────────────────────────────────────────
 if ! ${SKIP_WORKER}; then
 
@@ -293,7 +322,7 @@ if ! ${SKIP_WORKER}; then
   if ${DRY_RUN}; then
     log "[dry-run] would apply formicary-ant-credentials secret"
   else
-    "${_secret_cmd[@]}" | kubectl apply -f - --validate=false
+    "${_secret_cmd[@]}" | kubectl apply -f -
     ok "secret updated"
   fi
 
@@ -382,7 +411,7 @@ if ! ${SKIP_WORKER}; then
     kubectl wait pod --for=delete --selector=app=formicary-ant --namespace="${NAMESPACE}" \
       --timeout=30s 2>/dev/null || true
 
-    _K8S_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
+    _K8S_CONTEXT="${KUBE_CONTEXT:-$(command kubectl config current-context 2>/dev/null || echo "")}"
     if [[ "${_K8S_CONTEXT}" == *"docker-desktop"* ]]; then
       log "  docker-desktop: removing all plexobject/* images from Docker daemon..."
       _PO_IMAGES=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
@@ -441,7 +470,10 @@ crictl images 2>/dev/null | grep plexobject || echo "(none — all removed)"
 
     # Scale ant back up — imagePullPolicy=Always forces fresh pull from registry
     log "  Scaling ant back to 1 replica (fresh image pull)..."
-    kubectl scale deployment/formicary-ant --replicas=1 --namespace "${NAMESPACE}"
+    if ! kubectl scale deployment/formicary-ant --replicas=1 --namespace "${NAMESPACE}"; then
+      warn "  Deployment gone after prune (cluster may have been reset) — re-applying manifest..."
+      kubectl apply -f "${_rendered}" --namespace "${NAMESPACE}" --validate=false
+    fi
 
     log "  Waiting for ant pod to become ready after image refresh (up to 120s)..."
     _FLUSH_DEADLINE=$(( $(date +%s) + 120 ))
