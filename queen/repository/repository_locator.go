@@ -367,7 +367,7 @@ var allowedQueryColumns = map[string]bool{
 	// artifacts
 	"artifact_id": true, "sha256": true, "kind": true, "name": true, "content_type": true,
 	// configs
-	"scope": true, "value": true,
+	"scope": true, "value": true, "configurable_type": true, "configurable_id": true,
 	// users
 	"username": true, "email": true, "verified": true, "active": true, "locked": true,
 	// orgs

@@ -54,15 +54,21 @@ func (r *UserRegistry) LookupBySlackID(_ context.Context, slackUserID string) (*
 	// Use an admin context to search across all users for this Slack ID.
 	adminQC := common.NewQueryContextFromIDs("", "").WithAdmin()
 
-	configs, _, err := r.configRepo.Query(adminQC, map[string]interface{}{
-		"name":  configKeySlackUserID,
-		"value": slackUserID,
+	queryParams := map[string]interface{}{
+		"name":              configKeySlackUserID,
+		"value":             slackUserID,
 		"configurable_type": common.ConfigurableTypeUser,
-	}, 0, 2, nil)
+	}
+
+	configs, _, err := r.configRepo.Query(adminQC, queryParams, 0, 2, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("slack user lookup: %w", err)
 	}
 	if len(configs) == 0 {
+		logrus.WithFields(logrus.Fields{
+			"Component":   "UserRegistry",
+			"SlackUserID": slackUserID,
+		}).Warnf("LookupBySlackID: no config found for slack_user_id — user not registered")
 		return nil, "", nil
 	}
 
