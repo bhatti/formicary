@@ -205,7 +205,7 @@ func Test_ShouldDownloadFileFromJobArtifact(t *testing.T) {
 
 	// THEN it should serve inline HTML with CSP header
 	require.NoError(t, err)
-	require.Equal(t, "default-src 'self'; script-src 'none'; object-src 'none'",
+	require.Equal(t, "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'none'; object-src 'none'",
 		rec.Header().Get("Content-Security-Policy"))
 }
 

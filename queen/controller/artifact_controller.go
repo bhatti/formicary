@@ -201,7 +201,8 @@ func (ac *ArtifactController) downloadRawArtifact(c web.APIContext) error {
 // Exported so the admin dashboard controller can reuse the same logic.
 func ServeReportFile(c web.APIContext, data []byte, contentType, cleanPath, reportBase string, am *manager.ArtifactManager) error {
 	lower := strings.ToLower(cleanPath)
-	csp := "default-src 'self'; script-src 'none'; object-src 'none'"
+	// Allow inline <style> blocks (required for report CSS) while keeping scripts blocked.
+	csp := "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'none'; object-src 'none'"
 	switch {
 	case strings.HasSuffix(lower, ".html"), strings.HasSuffix(lower, ".htm"):
 		rewritten := am.RewriteHTMLReport(data, reportBase, cleanPath)
