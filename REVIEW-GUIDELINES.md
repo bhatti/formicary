@@ -2,6 +2,10 @@
 
 Review all changes as a principal engineer/architect who must approve for production. Every item is a MUST.
 
+## 0. Plan completion
+- Make sure plan is fully implemented with prod grade quality, docs/*md, readme for you-got-skills, ai-dev-tools, docs/examples (under formicary) is updated, as well slack routes help/docs and configs are updated with the new prompt; make sure everything is fully tested, documented and reviewed. Make sure no PII, creds/tokens, private repo/internal projects are in public github repos.
+
+
 ## 1. Three-Repo Alignment & Design
 
 - MUST follow the edit order: `you-got-skills → ai-dev-tools → formicary` — skill protocol first, then scripts, then job YAMLs

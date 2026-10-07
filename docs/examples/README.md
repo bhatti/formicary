@@ -457,6 +457,61 @@ When `--team` is set, only PRs authored or reviewed by those logins/display-name
 
 ---
 
+### PR Resync (`ai-resync-prs`)
+
+Merges the base branch into each of your open PRs, verifies diff integrity (before/after snapshot within 5% threshold), and pushes if clean. Reports per-PR status: synced, up-to-date, conflict, or error — with diff lines, CI status, and reviewer health.
+
+**Safety guarantees:**
+- Author guard in auto-discover mode: only processes PRs authored by the current user
+- Explicit PR URLs/numbers bypass the author guard (you're targeting those PRs intentionally)
+- Snapshot diff before AND after merge — aborts if file set changes or diff grows/shrinks >5%
+- `git merge --abort` on conflict; `git reset --hard` on diff mismatch — never pushes bad state
+- `--dry-run` runs the full check and produces the report but never pushes
+
+**Deploy:**
+```bash
+cd docs/examples
+./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+```
+
+**Trigger via Slack:**
+```
+@ai-agent resync-prs                                       # auto-discover your open PRs, resync all
+@ai-agent resync-prs --dry-run                            # dry-run: report what would change
+@ai-agent resync-prs https://github.com/ORG/REPO/pull/42  # resync specific PR by URL
+@ai-agent resync-prs 42 101 --dry-run                     # resync specific PRs by number
+@ai-agent resync-prs --tracker jira                        # force Bitbucket tracker
+@ai-agent sync-prs                                         # alias
+```
+
+**Trigger via curl:**
+```bash
+curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"job_type\":\"ai-resync-prs\",\"params\":{\"SlackMessage\":\"resync-prs --dry-run\",\"SlackChannel\":\"$SLACK_CHANNEL\"}}"
+```
+
+**Key job variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DryRun` | `false` | `true` = verify but never push |
+| `RepoUrl` | `""` | Optional repo URL override |
+| `DefaultTracker` | `""` | `github` or `jira` (auto-detected from URLs if omitted) |
+
+**Pipeline:** `resync-prs` → `post-resync-prs` → `done` (failures route to `notify-error`)
+
+**Artifacts (72h):**
+
+| File | Description |
+|------|-------------|
+| `reports/resync_prs_report.md` | Full Markdown report |
+| `reports/resync_prs_report.html` | Rendered HTML (opened from Slack artifact link) |
+| `reports/resync_prs_summary.json` | Structured per-PR results |
+
+---
+
 ### Merge Queue Workflows
 
 Scope-aware merge queue for agent-scale PR throughput. Pairs test-impact analysis (run only affected tests) with parallel scope lanes.
@@ -645,8 +700,10 @@ Mention the bot in any channel it has been invited to:
 | `@bot status` | Same as standup | `ai-standup-jira` |
 | `@bot risk` / `@bot risks` | Ranked sprint risks: stale work, PR bottlenecks, dependency chains | `ai-adhoc` |
 | `@bot prs` | Open PRs grouped by author vs reviewer, sorted by age | `ai-adhoc` |
-| `@bot open prs` | Same as prs | `ai-adhoc` |
+| `@bot open prs` / `@bot open-prs` / `@bot pr dashboard` | Full open-PR dashboard with risk tiers, CI, blast radius, age, reviewer health | `ai-open-prs` |
 | `@bot review queue` | Same as prs | `ai-adhoc` |
+| `@bot resync-prs` / `@bot sync-prs` | Merge base into your open PRs, verify diff, push if clean. `--dry-run` to report without pushing | `ai-resync-prs` |
+| `@bot resync-prs <pr-url\|#>` | Resync a specific PR by URL or number (bypasses author guard) | `ai-resync-prs` |
 | `@bot pr comments <url>` | All comments, inline feedback, and open tasks for a PR | `ai-adhoc` |
 | `@bot review <github-pr-url>` | Full PR review: correctness, security, API, SRE | `ai-gh-review` |
 | `@bot review <bitbucket-pr-url>` | Same for Bitbucket | `ai-jira-review` |
@@ -961,6 +1018,49 @@ cat /tmp/pr_queue_test/pr_queue.json | python3 -m json.tool | head -40
 ```
 
 Expected: `pr_count` > 0 and each PR entry has `jira_key`, `url`, `approved_by`, `reviewers`.
+
+---
+
+### Test PR resync
+
+**Dry-run (safe — never pushes):**
+```bash
+curl -s -X POST "$BASE/api/v1/jobs/requests" \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"job_type\":\"ai-resync-prs\",\"params\":{\"SlackMessage\":\"resync-prs --dry-run\",\"SlackChannel\":\"$SLACK_CHANNEL\",\"DryRun\":true}}" \
+  | python3 -c "import json,sys; print('id:', json.load(sys.stdin).get('job_request',{}).get('id'))"
+```
+
+**Resync all your open PRs (live — pushes if clean):**
+```bash
+curl -s -X POST "$BASE/api/v1/jobs/requests" \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"job_type\":\"ai-resync-prs\",\"params\":{\"SlackMessage\":\"resync-prs\",\"SlackChannel\":\"$SLACK_CHANNEL\"}}" \
+  | python3 -c "import json,sys; print('id:', json.load(sys.stdin).get('job_request',{}).get('id'))"
+```
+
+**Resync a specific PR by URL:**
+```bash
+curl -s -X POST "$BASE/api/v1/jobs/requests" \
+  -H "Authorization: Bearer $FORMICARY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"job_type\":\"ai-resync-prs\",\"params\":{\"SlackMessage\":\"resync-prs https://github.com/$GH_ORG/$GH_REPO/pull/42\",\"SlackChannel\":\"$SLACK_CHANNEL\",\"DryRun\":true}}" \
+  | python3 -c "import json,sys; print('id:', json.load(sys.stdin).get('job_request',{}).get('id'))"
+```
+
+**Pod functional test (no full deploy needed):**
+```bash
+source ~/.zshrc
+cd /path/to/ai-dev-tools
+python3 tests/test_pod_functional.py --tests resync-prs-dry-run
+```
+
+The job produces an HTML report in artifacts and posts a per-PR digest to Slack. Check:
+- `reports/resync_prs_report.html` — rendered report
+- `reports/resync_prs_summary.json` — per-PR results (`status`, `diff_verified`, `dry_run`)
+- Each PR entry shows: status, diff lines before→after, CI status, reviewer health
 
 ---
 

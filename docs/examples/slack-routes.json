@@ -22,6 +22,8 @@
    "description":"Read-only merge queue analysis: group open PRs by scope lane, score blast-radius and risk. Usage: @bot mq [<repo-url>] [--target-branch <branch>] [--target <branch>] [--label <filter>]. Example: @bot mq --target stage"},
   {"triggers":["open-prs","open prs dashboard","pr dashboard"],"job_type":"ai-open-prs","id_var":"RepoUrl",
    "description":"Open PR Dashboard: fetch and analyze all open PRs with rich metadata — risk, blast radius, CI status, age, reviewers, category/type breakdown, metrics dashboard. Usage: @bot open-prs [<repo-url>] [--target-branch <branch>] [--label <label>]"},
+  {"triggers":["resync-prs","resync prs","sync-prs","sync prs"],"job_type":"ai-resync-prs","id_var":"RepoUrl",
+   "description":"Resync open PRs: merge base branch into each of your open PRs, verify diff integrity, push if clean. Usage: @bot resync-prs [PR-URL...] [PR#...] [--dry-run] [--tracker github|jira]. Author guard active in auto-discover mode; bypassed for explicit PR URLs/numbers."},
   {"triggers":["parallel-test","test-shards"],"job_type":"ai-parallel-test","id_var":"PRNumber",
    "description":"Parallel test execution with test-impact analysis. Usage: @bot parallel-test <pr-url-or-number-or-branch> — e.g. @bot parallel-test https://github.com/org/repo/pull/24 OR @bot parallel-test main --repo https://github.com/org/repo"},
   {"triggers":["pr comments","show pr comments","pr feedback","pr discussion"],"job_type":"ai-adhoc","description":"Show existing PR comments","id_var":"Prompt","params":{"Skill":"ygs-pr-comments"}},

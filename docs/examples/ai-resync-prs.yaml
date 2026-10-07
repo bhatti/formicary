@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Resync open PRs with their base branch.
+#
+# Pipeline: resync-prs → post-resync-prs → done
+#
+# 1. resync-prs:      Fetch the user's open PRs, merge base into each,
+#                     verify diff integrity, push if clean.
+# 2. post-resync-prs: Post per-PR summary to Slack with HTML artifact link.
+#
+# Safety guarantees:
+#   - Author guard (auto-discover): only processes PRs authored by current user
+#   - Explicit PR URLs/numbers: bypasses author guard
+#   - Diff snapshot before and after merge — must match within 5% threshold
+#   - Aborts and reports instead of pushing on conflict or diff mismatch
+#   - --dry-run never pushes anything
+#
+# Triggered via Slack:
+#   "@bot resync-prs"
+#   "@bot resync-prs --dry-run"
+#   "@bot resync-prs https://github.com/org/repo/pull/42"
+#   "@bot resync-prs #42 #101 --dry-run"
+#   "@bot resync-prs --tracker jira"
+#
+# Deploy:
+#   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
+
+job_type: ai-resync-prs
+description: "Resync open PRs: merge base branch into each open PR, verify diff, push if clean"
+max_concurrency: 3
+timeout: 3600s
+
+variables:
+  RepoUrl:
+    type: STRING
+    required: false
+  DryRun:
+    type: BOOLEAN
+    required: false
+
+tasks:
+# --- RESYNC-PRS ---------------------------------------------------------------
+# Clone repo, merge base into each open PR branch, verify diff, push if clean.
+- task_type: resync-prs
+  method: KUBERNETES
+  timeout: 30m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "500m"
+    memory_limit: 4G
+    memory_request: 1G
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    WORKSPACE_DIR: /workspace
+    GH_ORG: "{{.GitHubOrg}}"
+    GH_REPO: "{{.GitHubRepo}}"
+    CODEBASE_REPO_URL: "{{.RepoUrl}}"
+    SLACK_MESSAGE: "{{.SlackMessage}}"
+    DEFAULT_TRACKER: "{{.DefaultTracker}}"
+    BITBUCKET_WORKSPACE: "{{.BitbucketWorkspace}}"
+    BITBUCKET_REPO: "{{.BitbucketRepo}}"
+    DRY_RUN: "{{.DryRun}}"
+    RESYNC_PR_URLS: "{{.ResyncPrUrls}}"
+    GIT_USER_NAME: "AI Resync Bot"
+    GIT_USER_EMAIL: "ai-resync@noreply.local"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    TASK_TYPE: "resync-prs"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.resync.run_resync_prs
+  artifacts:
+    paths:
+      - ./reports
+      - ./logs
+    expire_after: 72h
+  on_completed: post-resync-prs
+  on_failed: notify-error
+
+# --- POST-RESYNC-PRS ----------------------------------------------------------
+# Post per-PR digest to Slack with HTML artifact link.
+- task_type: post-resync-prs
+  method: KUBERNETES
+  timeout: 5m
+  report_stdout: true
+  host_network: true
+  working_dir: /workspace
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    cpu_request: "200m"
+    memory_limit: 1G
+    memory_request: 256Mi
+    volumes:
+      empty_dir:
+        - name: workspace
+          mount_path: /workspace
+    env_from:
+      - secret_ref: ai-dev-credentials
+  dependencies:
+    - resync-prs
+  environment:
+    WORKSPACE_DIR: /workspace
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
+    JOB_ID: "{{.JobID}}"
+    TASK_TYPE: "resync-prs"
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.resync.post_resync_prs
+  artifacts:
+    paths:
+      - ./reports/post_resync_prs_result.json
+    expire_after: 72h
+  on_completed: done
+  on_failed: notify-error
+
+# --- NOTIFY-ERROR -------------------------------------------------------------
+- task_type: notify-error
+  method: KUBERNETES
+  report_stdout: true
+  always_run: true
+  host_network: true
+  timeout: 5m
+  container:
+    image: plexobject/ai-dev-tools:latest
+    image_pull_policy: Always
+    env_from:
+      - secret_ref: ai-dev-credentials
+  environment:
+    SLACK_BOT_TOKEN: "{{.SlackToken}}"
+    SLACK_CHANNEL: "{{.SlackChannel}}"
+    SLACK_THREAD_TS: "{{.SlackThreadTs}}"
+    JOB_TYPE: "ai-resync-prs"
+    MESSAGE: ":x: PR resync job failed — check logs for details."
+    AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
+  script:
+    - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
+    - touch /tmp/.adt_bootstrap_done
+    - python -m scripts.standup.slack_client
+  on_completed: done
+
+# --- DONE ---------------------------------------------------------------------
+- task_type: done
+  method: SHELL
+  report_stdout: true
+  script:
+    - echo "PR resync complete — check report in artifacts"
+
+job_variables:
+  RepoUrl: ""
+  DryRun: ""
+  ResyncPrUrls: ""
+  SlackMessage: ""
+  AiDevToolsDebug: ""
+  FormicaryPublicURL: ""
+  SlackChannel: ""
+  SlackThreadTs: ""
+  DefaultTracker: ""
+  BitbucketWorkspace: ""
+  BitbucketRepo: ""
+  GitHubOrg: ""
+  GitHubRepo: ""
+  SlackToken: ""
+  ClaudeUseBedrock: "1"
+  AnthropicBedrockBaseUrl: "http://ai/bedrock"
+  ClaudeSkipBedrockAuth: "1"
+  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
