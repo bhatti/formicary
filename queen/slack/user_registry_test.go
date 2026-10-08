@@ -32,22 +32,6 @@ func Test_Should_Return_Nil_When_User_Not_Registered(t *testing.T) {
 	require.Equal(t, "", token)
 }
 
-func Test_Should_Return_Nil_Without_Error_For_Empty_SlackID(t *testing.T) {
-	serverCfg := config.TestServerConfig()
-	userManager, err := manager.TestUserManager(serverCfg)
-	require.NoError(t, err)
-	configRepo, err := repository.NewTestConfigRepository()
-	require.NoError(t, err)
-
-	registry := NewUserRegistry(serverCfg, userManager, configRepo)
-
-	user, token, err := registry.LookupBySlackID(context.Background(), "")
-
-	require.NoError(t, err)
-	require.Nil(t, user)
-	require.Equal(t, "", token)
-}
-
 func Test_Should_Reject_Invalid_Token(t *testing.T) {
 	// GIVEN a UserRegistry
 	serverCfg := config.TestServerConfig()

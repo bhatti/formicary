@@ -48,7 +48,6 @@ func NewUserRegistry(
 // Returns nil, "", nil when the Slack user is not registered.
 func (r *UserRegistry) LookupBySlackID(_ context.Context, slackUserID string) (*common.User, string, error) {
 	if slackUserID == "" {
-		logrus.WithField("Component", "UserRegistry").Warnf("LookupBySlackID called with empty slackUserID")
 		return nil, "", nil
 	}
 
@@ -66,10 +65,6 @@ func (r *UserRegistry) LookupBySlackID(_ context.Context, slackUserID string) (*
 		return nil, "", fmt.Errorf("slack user lookup: %w", err)
 	}
 	if len(configs) == 0 {
-		logrus.WithFields(logrus.Fields{
-			"Component":   "UserRegistry",
-			"SlackUserID": slackUserID,
-		}).Warnf("LookupBySlackID: no config found for slack_user_id — user not registered")
 		return nil, "", nil
 	}
 

@@ -421,15 +421,6 @@ func (s *SlackService) handleAppMention(evt slackevents.AppMentionEvent, api *sl
 		logrus.WithField("Component", "SlackService").Debugf("handleAppMention: ignoring bot message BotID=%s", evt.BotID)
 		return
 	}
-	if evt.User == "" {
-		logrus.WithFields(logrus.Fields{
-			"Component": "SlackService",
-			"Channel":   evt.Channel,
-			"RawText":   evt.Text,
-			"BotID":     evt.BotID,
-		}).Warnf("handleAppMention: ignoring event with empty User field")
-		return
-	}
 	text := stripMention(evt.Text)
 	logrus.WithFields(logrus.Fields{
 		"Component": "SlackService",
@@ -588,19 +579,6 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 	// Reload routes from DB if TTL has expired — no restart needed after route config changes.
 	s.maybeReloadRoutes()
 	text = strings.TrimSpace(text)
-
-	// Guard: empty user ID means a malformed Slack event (e.g. during Socket
-	// Mode reconnection or from non-user event sources). Drop it silently —
-	// no builtin or job should run without a known caller.
-	if slackUserID == "" {
-		logrus.WithFields(logrus.Fields{
-			"Component": "SlackService",
-			"Channel":   channel,
-			"Text":      text,
-			"ThreadTS":  threadTS,
-		}).Warnf("dispatch: slackUserID is empty — ignoring malformed event")
-		return
-	}
 
 	logrus.WithFields(logrus.Fields{
 		"Component": "SlackService",

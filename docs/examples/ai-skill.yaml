@@ -72,6 +72,10 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
+      host_path:
+        - name: docker-sock
+          host_path: /var/run/docker.sock
+          mount_path: /var/run/docker.sock
     env_from:
       - secret_ref: ai-dev-credentials
   environment:

@@ -80,14 +80,8 @@ func NewLocator(serverCfg *config.ServerConfig) (locator *Locator, err error) {
 		"DataSourceName": maskRegex.ReplaceAllString(serverCfg.DB.DataSource, "*****"),
 	}).Infof("Connecting...")
 	var db *gorm.DB
-	// PrepareStmt caches *sql.Stmt per connection. Safe for MySQL/Postgres, but
-	// dangerous with SQLite: any schema change (AutoMigrate, external DDL) bumps
-	// SQLite's schema cookie and silently invalidates cached statements — queries
-	// return 0 rows instead of an error (root cause of transient Slack "user not
-	// registered" false positives).
-	usePrep := serverCfg.DB.Type != "sqlite"
 	opts := &gorm.Config{
-		PrepareStmt: usePrep,
+		PrepareStmt: true,
 		Logger:      logger.Default.LogMode(logger.Silent),
 	}
 	if serverCfg.DB.Type == "mysql" {

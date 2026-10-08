@@ -263,9 +263,7 @@ if [[ "$ROLLOUT_RESTART" == true ]]; then
   else
     echo "  ⚠ Set FORMICARY_TOKEN to auto-push Slack routes after restart"
   fi
-  _HC_ARGS=(-sk -o /dev/null -w "%{http_code}")
-  [[ -n "${FORMICARY_TOKEN:-}" ]] && _HC_ARGS+=(-H "Authorization: Bearer ${FORMICARY_TOKEN}")
-  _HC=$(curl "${_HC_ARGS[@]}" "${_FURL}/api/health" 2>/dev/null) || _HC="000"
+  _HC=$(curl -sk -o /dev/null -w "%{http_code}" "${_FURL}/api/health" 2>/dev/null) || _HC="000"
   [[ "$_HC" == "200" ]] && ok "Health check passed" || echo "  ⚠ Health HTTP ${_HC} — queen may still be starting"
   echo ""
   echo "  Verify routes: ${_FURL}/dashboard/slack/routes"
@@ -389,9 +387,8 @@ fi
 
 # ── Step 7: Smoke test ───────────────────────────────────────────────────────
 log "Smoke test: verifying queen health and Slack route config"
-_HEALTH_ARGS=(-sk -o /tmp/fq-health.json -w "%{http_code}")
-[[ -n "${FORMICARY_TOKEN:-}" ]] && _HEALTH_ARGS+=(-H "Authorization: Bearer ${FORMICARY_TOKEN}")
-_HEALTH_CODE=$(curl "${_HEALTH_ARGS[@]}" "${_FURL}/api/health" 2>/dev/null) || _HEALTH_CODE="000"
+_HEALTH_CODE=$(curl -sk -o /tmp/fq-health.json -w "%{http_code}" \
+  "${_FURL}/api/health" 2>/dev/null) || _HEALTH_CODE="000"
 case "$_HEALTH_CODE" in
   200) ok "Health check passed (HTTP 200)" ;;
   000) echo "  ⚠ Cannot reach ${_FURL}/api/health — queen may still be starting; check with --status or --logs" ;;
