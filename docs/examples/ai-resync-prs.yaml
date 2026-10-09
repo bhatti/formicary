@@ -9,18 +9,22 @@
 # 2. post-resync-prs: Post per-PR summary to Slack with HTML artifact link.
 #
 # Safety guarantees:
-#   - Author guard (auto-discover): only processes PRs authored by current user
-#   - Explicit PR URLs/numbers: bypasses author guard
+#   - --me mode: author guard ensures only PRs authored by current user are synced
+#   - Explicit PR URLs/numbers: no author guard — processes the exact PRs specified
+#   - No target + no --me: immediate error exit — prevents accidental mass sync
 #   - Diff snapshot before and after merge — must match within 5% threshold
 #   - Aborts and reports instead of pushing on conflict or diff mismatch
 #   - --dry-run never pushes anything
 #
-# Triggered via Slack:
-#   "@bot resync-prs"
-#   "@bot resync-prs --dry-run"
+# Triggered via Slack — target is REQUIRED (URL, number, or --me):
 #   "@bot resync-prs https://github.com/org/repo/pull/42"
+#   "@bot resync-prs https://bitbucket.org/ws/repo/pull-requests/48239/overview --dry-run"
 #   "@bot resync-prs #42 #101 --dry-run"
-#   "@bot resync-prs --tracker jira"
+#   "@bot resync-prs 48239 48240 --dry-run"
+#   "@bot resync-prs --me --dry-run"    ← sync ALL your open PRs (explicit opt-in)
+#   "@bot resync-prs --me --tracker jira"
+#
+# Omitting both a PR target AND --me is an error — prevents accidental mass sync.
 #
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs

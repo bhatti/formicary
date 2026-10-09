@@ -81,6 +81,8 @@ Key skills:
 - `skills/shared/review-scaffold.md` — Severity, finding format, quality bar
 - `skills/shared/ownership-principles.md` — Review ownership protocol
 - `skills/shared/tracker.md` — Credential gates + tracker abstraction
+- `skills/shared/design-principles.md` — SOLID checklist, package cohesion (CCP/CRP/REP), stability metrics (I/A/D), hotspot coupling analysis, readability scoring (5 sub-dimensions)
+- `skills/shared/design-metrics-table.md` — Canonical 8-row Design Quality Metrics table shared across all 5 review skills (SRP/DIP/ADP/layer/instability/hotspot/readability/ISP)
 
 ---
 
@@ -637,14 +639,14 @@ ServiceCommand: "sh -c 'printf \"common:\\n  http_port: 7777\\nembedded_ant:\\n 
 
 ## ai-skill Workflow (added 2026-09)
 
-Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--tracker github|jira] [--model <id>] [--service <image>] [-- instructions]`
+Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--tracker github|jira] [--model <id>] [--service <image>] [--dind] [-- instructions]`
 
 **Task pipeline:** `run` → `post` → `done` (on failure: `notify-error`)
 
 **Key files:**
 - `formicary/docs/examples/ai-skill.yaml` — Job definition with service sidecar support
 - `ai-dev-tools/scripts/skill/run_skill.py` — Parses RAW_ARGS, clones repo, runs Claude, writes reports
-- `ai-dev-tools/scripts/skill/flags.py` — Flag parser (`--service`, `--service-port`, `--service-cmd`, `--service-args`)
+- `ai-dev-tools/scripts/skill/flags.py` — Flag parser (`--service`, `--service-port`, `--service-cmd`, `--service-args`, `--dind`)
 - `ai-dev-tools/scripts/skill/post.py` — Post task: reads `skill_result.json` + `reports/report.md`, posts HTML report to Slack
 - `ai-dev-tools/.claude/skills/integ-tests/SKILL.md` — Integration test skill (service health check + test runner discovery)
 - `formicary/docs/examples/slack-routes.json` — Route entry has `"pass_through_args": true`
@@ -668,6 +670,8 @@ by the formicary k8s executor (no `Env` field on the `Service` struct). Workarou
 
 **Quoted multi-word flags:** `--service-cmd "formicary queen"` works — the regex in
 `flags.py` matches `"[^"]*"|\S+` and strips surrounding quotes.
+
+**Docker-in-Docker (DinD):** Use `--dind` from Slack, or set `DockerEnabled=true` at API submission time, when a skill needs to build or run containers. A `docker:dind` sidecar starts alongside the task (8G memory, `privileged: true`). `DOCKER_HOST=tcp://localhost:2375` and `DOCKER_TLS_CERTDIR=""` are injected automatically. The YAML detects the flag two ways: (1) `DockerEnabled` job variable, (2) ` --dind` substring in `RawArgs` via `contains`. The Python flag parser uses exact token match to avoid false-positives. Claude is given a `## Docker Daemon` context block so it knows docker commands are available.
 
 **Container image override (`RunImage`):** The `run` task defaults to `plexobject/ai-dev-tools:latest`.
 Override at job submission by passing `RunImage` as a job param:

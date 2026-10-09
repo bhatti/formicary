@@ -7,6 +7,11 @@
 # Service support: when ServiceImage is non-empty, a sidecar container is
 # started alongside the main task. The skill can access it at localhost:<port>.
 #
+# Docker support: set DockerEnabled=true to start a Docker-in-Docker (DinD) daemon
+# as a sidecar. The skill can run docker commands via DOCKER_HOST=tcp://localhost:2375.
+# Required for skills that spin up Docker containers (e.g. qa-regression/bleat hedge).
+# DindMemoryLimit controls the DinD daemon memory (default 8G).
+#
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
 
@@ -44,14 +49,27 @@ tasks:
   report_stdout: true
   host_network: true
   working_dir: /workspace
-  {{if .ServiceImage}}
+  {{if or .DockerEnabled (contains .RawArgs " --dind")}}
+  privileged: true
+  {{end}}
+  {{if or .ServiceImage .DockerEnabled (contains .RawArgs " --dind")}}
   services:
+    {{if or .DockerEnabled (contains .RawArgs " --dind")}}
+    - name: docker-dind
+      alias: docker
+      image: docker:dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+      memory_limit: "{{default "8G" .DindMemoryLimit}}"
+      cpu_request: "500m"
+    {{end}}
+    {{if .ServiceImage}}
     - name: "{{default "skill-service" .ServiceName}}"
       alias: "{{default "skill-service" .ServiceName}}"
       image: "{{.ServiceImage}}"
       ports:
         - number: {{default "9000" .ServicePort}}
-      memory_limit: "{{default "2G" .ServiceMemoryLimit}}"
+      memory_limit: "{{default "8G" .ServiceMemoryLimit}}"
       cpu_request: "{{default "250m" .ServiceCpuRequest}}"
       {{if .ServiceEntrypoint}}
       entrypoint: ["{{.ServiceEntrypoint}}"]
@@ -61,6 +79,7 @@ tasks:
       {{else if .ServiceArgs}}
       command: ["/bin/sh", "-c", "{{.ServiceArgs}}"]
       {{end}}
+    {{end}}
   {{end}}
   container:
     image: "{{default "plexobject/ai-dev-tools:latest" .RunImage}}"
@@ -72,10 +91,6 @@ tasks:
       empty_dir:
         - name: workspace
           mount_path: /workspace
-      host_path:
-        - name: docker-sock
-          host_path: /var/run/docker.sock
-          mount_path: /var/run/docker.sock
     env_from:
       - secret_ref: ai-dev-credentials
   environment:
@@ -116,6 +131,10 @@ tasks:
     SERVICE_COMMAND: "{{.ServiceCommand}}"
     SERVICE_ARGS: "{{.ServiceArgs}}"
     SERVICE_ENTRYPOINT: "{{.ServiceEntrypoint}}"
+    {{if or .DockerEnabled (contains .RawArgs " --dind")}}
+    DOCKER_HOST: tcp://localhost:2375
+    {{end}}
+    DOCKER_TLS_CERTDIR: ""
 
   script:
     - python3 -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
@@ -222,8 +241,13 @@ job_variables:
   ServiceArgs: ""            # extra args appended to ServiceCommand (e.g. "--standalone")
   ServiceEntrypoint: ""      # override container entrypoint
   # To inject env into the service, embed it in ServiceCommand: "env KEY=VAL formicary queen"
-  ServiceMemoryLimit: "2G"
+  ServiceMemoryLimit: "8G"
   ServiceCpuRequest: "250m"
+  # Docker-in-Docker support (all optional).
+  # From Slack: skill <name> --dind
+  # Set DockerEnabled=true to start a Docker daemon sidecar; skill can run docker commands.
+  DockerEnabled: ""
+  DindMemoryLimit: "8G"
   # Standard defaults
   SlackChannel: ""
   SlackThreadTs: ""
