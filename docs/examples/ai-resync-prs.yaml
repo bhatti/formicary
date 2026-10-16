@@ -184,4 +184,3 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"

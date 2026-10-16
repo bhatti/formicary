@@ -60,8 +60,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
   script:
     - python -m scripts.check_connectivity
   artifacts:
@@ -80,7 +78,6 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
   # Injected via org configs:
   #   GitHubOrg, GitHubRepo              (plain, optional)
   #   JiraUrl, JiraProject               (plain, optional)

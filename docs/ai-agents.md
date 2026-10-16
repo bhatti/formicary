@@ -870,7 +870,7 @@ All ai-dev-tools scripts emit `::add-task-context` markers for metrics/reporting
 
 | Key | Description |
 |-----|-------------|
-| `SELECTED_MODEL` | Claude model used (resolved from `AI_MODEL` env) |
+| `SELECTED_MODEL` | Claude model used (emitted by the task after resolving `--model` / `AI_MODEL` / tier / the `models.json` default) |
 | `SELECTED_TRACKER` | `jira` or `github` |
 | `SKILL` | Skill name loaded for this task (e.g. `ygs-review-pr`) |
 | `SKILL_LOADED` | `yes` if skill's `SKILL.md` was found; `no` if fallback used |
@@ -901,8 +901,6 @@ Declare values directly in the YAML task definition. They are rendered through G
 tasks:
   - task_type: synthesize
     context_variables:
-      - name: SELECTED_MODEL
-        value: "{{.AnthropicSonnetModel}}"
       - name: SELECTED_TRACKER
         value: jira
       - name: MAX_TURNS

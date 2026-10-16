@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1286,7 +1287,6 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 		"JobRetry":                common.NewVariableValue(0, false),
 		"JobID":                   common.NewVariableValue("test-job-123", false),
 		"RawArgs":                 common.NewVariableValue(rawArgs, false),
-		"AnthropicSonnetModel":    common.NewVariableValue("us.anthropic.claude-sonnet-4-6", false),
 		"DefaultTracker":          common.NewVariableValue("jira", false),
 		"SlackChannel":            common.NewVariableValue("dev", false),
 		"AiModel":                 common.NewVariableValue("", false),
@@ -1376,7 +1376,6 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		"ClaudeUseBedrock":   common.NewVariableValue("1", false),
 		"AnthropicBedrockBaseUrl":  common.NewVariableValue("http://ai/bedrock", false),
 		"ClaudeSkipBedrockAuth":    common.NewVariableValue("1", false),
-		"AnthropicSonnetModel":     common.NewVariableValue("us.anthropic.claude-sonnet-4-6", false),
 		"AnthropicOpusModel":       common.NewVariableValue("us.anthropic.claude-opus-4-6-v1", false),
 		"AnthropicHaikuModel":      common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
 	}
@@ -1491,4 +1490,23 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		require.True(t, foundFuzz,
 			"api-mock-service in fuzz task must declare emptyDir name=workspace mount_path=/workspace")
 	})
+}
+
+// Test_AIWorkflowsDoNotDefineModels guards the single-source rule: Claude model ids live in
+// ai-dev-tools scripts/common/models.json, never in a workflow definition.
+func Test_AIWorkflowsDoNotDefineModels(t *testing.T) {
+	files, err := filepath.Glob("../../docs/examples/ai-*.yaml")
+	require.NoError(t, err)
+	require.NotEmpty(t, files)
+	banned := []string{"AnthropicSonnetModel", "AnthropicOpusModel", "AnthropicHaikuModel", "AnthropicComplexity",
+		"ANTHROPIC_DEFAULT_", "ANTHROPIC_COMPLEXITY_", "claude-sonnet", "claude-opus", "claude-haiku", "AI_MODEL: "}
+	for _, f := range files {
+		b, err := ioutil.ReadFile(f)
+		require.NoError(t, err)
+		_, err = NewJobDefinitionFromYaml(b)
+		require.NoErrorf(t, err, "%s must still load after model removal", filepath.Base(f))
+		for _, word := range banned {
+			require.NotContainsf(t, string(b), word, "%s must not define models (%q); use scripts/common/models.json", filepath.Base(f), word)
+		}
+	}
 }

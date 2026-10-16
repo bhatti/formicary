@@ -81,8 +81,8 @@ This distinction is critical. Getting it wrong causes silent failures where empt
 | Category | Where to store | Examples |
 |----------|---------------|---------|
 | **Actual secrets** (tokens, passwords, private keys) | k8s secret (`ai-dev-credentials`) | `BITBUCKET_TOKEN`, `GH_TOKEN`, `SLACK_BOT_TOKEN`, `SSH_PRIVATE_KEY`, `ANTHROPIC_API_KEY` |
-| **Normal config** (workspace, repo, usernames, branches, URLs, model IDs) | Org configs (`deploy-ai-workflows.sh --set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch` |
-| **YAML defaults** (safe fallbacks when no org config is set) | `job_variables` in YAML | Default model names, empty-string placeholders for optional fields |
+| **Normal config** (workspace, repo, usernames, branches, URLs) | Org configs (`deploy-ai-workflows.sh --set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch` |
+| **YAML defaults** (safe fallbacks when no org config is set) | `job_variables` in YAML | Empty-string placeholders for optional fields (Claude models are not configured in YAML: they live in ai-dev-tools `scripts/common/models.json`) |
 
 ### Why this matters — Kubernetes env precedence
 

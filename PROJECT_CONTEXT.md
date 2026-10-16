@@ -86,6 +86,16 @@ Key skills:
 
 ---
 
+## Claude Model Defaults (single source)
+
+Model ids are defined once, in `ai-dev-tools/scripts/common/models.json` (default `sonnet` = `us.anthropic.claude-sonnet-5-5`, tiers `low` = haiku 4.5, `default`, `high` = opus 4.6, plus aliases). Workflow YAMLs, org configs and `models.env` no longer define models (a Go test, `Test_AIWorkflowsDoNotDefineModels`, enforces it). `scripts/common/models.py` is the only resolver: `--model <alias|id>` / `AiModel` param > `AI_MODEL` env > `AI_MODEL_TIER` (`low` for the router/classifier, set from `plan_complexity.txt` in implement) > the file's default. Unknown names fail fast with the alias list. Edit the JSON and push to `main`; pods with `AI_DEV_TOOLS_DEBUG=1` pick it up without an image rebuild. `python3 -m scripts.common.models --table` shows the effective values.
+
+## Pod parity gotchas (entrypoint.sh does not run in Formicary tasks)
+- Formicary overrides the container ENTRYPOINT, so anything `entrypoint.sh` sets up is absent in job pods. The acli/jira CLI profiles are therefore written by `scripts/common/atlassian_cli.write_cli_configs` (called from `run_skill._setup_environment` and from the entrypoint); a repo-local skill that runs `acli -p bitbucket ...` failed with "profile not found" before this.
+- The model's Bash gets only the variables in `claude_runner.CLAUDE_ENV_VARS`. A variable a skill or script needs (DOCKER_HOST, DEFAULT_TRACKER, BITBUCKET_APP_PASSWORD...) must be listed there.
+- Credentials come from the `ai-dev-credentials` secret (`env_from`). Add more with `EXTRA_SECRET_VARS` / `QA_*` / `SKILL_ENV_PASSTHROUGH` when running `deploy-ai-workflows.sh --create-k8s-secret` (see `docs/examples/secret-extras.sh`); `claude_runner` forwards `QA_*` and the names in `SKILL_ENV_PASSTHROUGH` to the skill shell.
+- Extra-skills repo clones resolve credentials with `git_utils.host_clone_auth`, the same rules as the target-repo clone (ATATT tokens need the `x-token-auth` username, not the email).
+
 ## Data Flow
 
 ```
@@ -639,7 +649,7 @@ ServiceCommand: "sh -c 'printf \"common:\\n  http_port: 7777\\nembedded_ant:\\n 
 
 ## ai-skill Workflow (added 2026-09)
 
-Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--tracker github|jira] [--model <id>] [--service <image>] [--dind] [-- instructions]`
+Generic skill invocation job. Slack: `skill <name> [--repo] [--branch] [--tracker github|jira] [--model <alias|id>] [--service <image>] [--dind] [-- instructions]`
 
 **Task pipeline:** `run` → `post` → `done` (on failure: `notify-error`)
 
@@ -672,6 +682,16 @@ by the formicary k8s executor (no `Env` field on the `Service` struct). Workarou
 `flags.py` matches `"[^"]*"|\S+` and strips surrounding quotes.
 
 **Docker-in-Docker (DinD):** Use `--dind` from Slack, or set `DockerEnabled=true` at API submission time, when a skill needs to build or run containers. A `docker:dind` sidecar starts alongside the task (8G memory, `privileged: true`). `DOCKER_HOST=tcp://localhost:2375` and `DOCKER_TLS_CERTDIR=""` are injected automatically. The YAML detects the flag two ways: (1) `DockerEnabled` job variable, (2) ` --dind` substring in `RawArgs` via `contains`. The Python flag parser uses exact token match to avoid false-positives. Claude is given a `## Docker Daemon` context block so it knows docker commands are available.
+
+**Docker preflight (2026-10-15):** `run_skill.py` checks the Docker daemon before running Claude when `--dind` is passed or the instructions use `--image` / `--baseline-image` / `--compose`. With `--dind` it probes `DOCKER_HOST` (default `tcp://localhost:2375`, where the sidecar listens) for up to 90s; otherwise it waits 10s. If the daemon is unreachable the job fails fast with `skill_result.json` `{"status":"ERROR","signal":"BLOCKED"}` and a reason ("re-run with `--dind`" when it was not requested, "check the docker-dind sidecar" when it was). An ambient `DOCKER_HOST` alone never blocks a skill that does not need Docker. Previously a missing daemon let the skill run to the end and report CLEAN with 0 tests. `--dind` is still required: nothing infers it, because the sidecar must be in the pod spec at submission time. Pod tests: `skill-dind-flag` asserts the BLOCKED path (it used to fake `DOCKER_HOST`); `skill-dind-real` and `qa-regression-docker` run in a pod that mirrors the Formicary spec (host network, privileged main container, `DOCKER_HOST`, `docker:dind` sidecar via `env -u DOCKER_HOST dockerd-entrypoint.sh`). hostNetwork makes port 2375 node-wide: run them when no `--dind` job is running (the tests check).
+
+**QA and flaky-test skills** (`ygs-qa`, `ygs-flaky-test` in you-got-skills; tooling in `ai-dev-tools/scripts/{flaky,qa}` and `scripts/common/{pr_context,redact,env_scrub,report_bundle,docker_check}.py`; docs in `ai-dev-tools/docs/qa-and-flaky-skills.md`):
+- `skill ygs-flaky-test <test | ticket-url>` reruns the test, gives a verdict with statistics and diagnoses likely causes; no code changes. Tracker comments only with `--comment`.
+- `skill ygs-qa <pr-url | issue-key> [--url U] [--baseline-url U | --baseline-image I --image I --dind] (a baseline flag switches verify to regression)` derives test cases from the PR/issue acceptance criteria, runs API (curl) and UI (Playwright) checks and reports an AC traceability matrix. Environment tiers: deployed URL, container image/compose (needs `--dind`), git worktree + start command. API and UI run inside one `env_manager run` wrapper per side.
+- A PR/issue URL as the first argument names the repo (`flags.infer_repo_url`); a link inside free text never changes it. Slack `<url|label>` wrappers are stripped in `parse_skill_flags`.
+- Bitbucket access uses REST (`BITBUCKET_USERNAME`/`BITBUCKET_TOKEN`) first; `acli` is only an optional fallback (`scripts/common/acli_fallback.py`) when those tokens are absent and an acli profile works. Only planned cases count: a run that executed none is BLOCKED, and `ERROR`/`BLOCKED` fails the job instead of printing CLEAN.
+- Safety: PR text is untrusted. Code under test (reruns, build/start commands, test scripts, installs via `python3 -m scripts.common.env_scrub -- <cmd>`) runs without credentials: platform tokens and any variable named like one are removed from its environment (`env_scrub`, `--keep NAME` to allow one), and the clone's origin URL no longer carries the token (`git_utils.drop_stored_credentials`; a repo-local credential helper reads the token from the environment of whoever runs git); API helpers refuse other hosts and non-GET methods; the UI runner aborts other origins; reports and evidence are redacted and HTML-escaped.
+- New skills are cloned from `you-got-skills` `main` in the pod: push before an e2e run; scripts come from `ai-dev-tools` main at run time. UI checks need Chromium: the Dockerfile now installs it to `/opt/ms-playwright` (**rebuild needed**; older images self-install on first use, slower).
 
 **Container image override (`RunImage`):** The `run` task defaults to `plexobject/ai-dev-tools:latest`.
 Override at job submission by passing `RunImage` as a job param:

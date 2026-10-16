@@ -136,7 +136,6 @@ tasks:
     DEFAULT_TRACKER: "{{.DefaultTracker}}"
     REPORT_TITLE: "Merge Queue Analysis"
     TASK_TYPE: analyze
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
@@ -255,6 +254,3 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

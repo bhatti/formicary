@@ -146,6 +146,9 @@ func (r *CommandRouter) Routes() []config.SlackRouteConfig {
 // Add entries here when a new short-form alias is needed without changing YAML job variables.
 var flagAliases = map[string]string{
 	"target": "target-branch",
+	// --model reaches workflows as the AiModel job parameter (AI_MODEL_OVERRIDE); ai-dev-tools resolves the
+	// alias or id through scripts/common/models.json.
+	"model": "ai-model",
 }
 
 // extractFlags splits "--key value" pairs from text, returning remaining positional

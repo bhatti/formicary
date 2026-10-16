@@ -377,8 +377,6 @@ Declare static or template-rendered key/value pairs in a task definition. They a
 tasks:
   - task_type: synthesize
     context_variables:
-      - name: SELECTED_MODEL
-        value: "{{.AnthropicSonnetModel}}"
       - name: SELECTED_TRACKER
         value: jira
 ```

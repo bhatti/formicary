@@ -88,7 +88,7 @@ type TaskDefinition struct {
 	NameValueVariables interface{} `yaml:"variables,omitempty" json:"variables" gorm:"-"`
 	// ContextVariables defines key/value pairs that are injected into the task execution
 	// context so they appear in the dashboard. Values may use template expressions
-	// (e.g. {{.AnthropicSonnetModel}}) which are rendered before the task runs.
+	// (e.g. {{.SlackChannel}}) which are rendered before the task runs.
 	ContextVariables interface{} `yaml:"context_variables,omitempty" json:"context_variables" gorm:"-"`
 	// Header defines HTTP headers
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers" gorm:"-"`

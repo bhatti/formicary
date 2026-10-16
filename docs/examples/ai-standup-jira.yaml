@@ -39,9 +39,6 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   # Optional: set FormicaryPublicURL to your Formicary UI base URL (e.g. https://formicary.example.com)
   # so the Slack message includes a direct link to the job's artifacts (HTML report).
   FormicaryPublicURL: ""
@@ -63,7 +60,6 @@ tasks:
   method: KUBERNETES
   timeout: 10m
   task_variables:
-    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     JIRA_PROJECT: "{{.JiraProject}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
   context_variables:
@@ -119,11 +115,8 @@ tasks:
   method: KUBERNETES
   timeout: 15m
   task_variables:
-    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     MAX_TURNS: "{{.MaxTurnsStandup}}"
   context_variables:
-    - name: SELECTED_MODEL
-      value: "{{.AnthropicSonnetModel}}"
     - name: MAX_TURNS
       value: "{{.MaxTurnsStandup}}"
     - name: SELECTED_TRACKER
@@ -153,10 +146,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true

@@ -37,7 +37,6 @@ tasks:
   method: KUBERNETES
   timeout: 20m
   task_variables:
-    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     QUERY: "{{.Query}}"
@@ -49,8 +48,6 @@ tasks:
       value: "{{.Mode}}"
     - name: SELECTED_TRACKER
       value: "{{.DefaultTracker}}"
-    - name: SELECTED_MODEL
-      value: "{{.AnthropicSonnetModel}}"
     - name: SLACK_CHANNEL
       value: "{{.SlackChannel}}"
   report_stdout: true
@@ -87,10 +84,6 @@ tasks:
     MODE: "{{.Mode}}"
     MAX_RESULTS: "{{.MaxResults}}"
     JIRA_TEAM_FIELD: "{{.JiraTeamField}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
@@ -117,7 +110,6 @@ tasks:
       [ "$JIRA_PROJECT"     = "<no value>" ] && JIRA_PROJECT=""
       [ "$JIRA_SPACE"       = "<no value>" ] && JIRA_SPACE=""
       [ "$JIRA_TEAM_FIELD"  = "<no value>" ] && JIRA_TEAM_FIELD="EngScrumTeam"
-      [ "$AI_MODEL"         = "<no value>" ] && AI_MODEL=""
       # Debug: log key env presence (lengths, not values) to help diagnose clone issues
       echo "[env-check] BITBUCKET_WORKSPACE=${#BITBUCKET_WORKSPACE} BITBUCKET_REPO=${#BITBUCKET_REPO} SSH_KEY_LEN=${#SSH_PRIVATE_KEY} BB_TOKEN_LEN=${#BITBUCKET_TOKEN}"
 
@@ -206,9 +198,6 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   BitbucketUsername: ""
   GitHubOrg: ""
   GitHubRepo: ""

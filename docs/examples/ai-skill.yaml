@@ -9,7 +9,7 @@
 #
 # Docker support: set DockerEnabled=true to start a Docker-in-Docker (DinD) daemon
 # as a sidecar. The skill can run docker commands via DOCKER_HOST=tcp://localhost:2375.
-# Required for skills that spin up Docker containers (e.g. qa-regression/bleat hedge).
+# Required for skills that spin up Docker containers (e.g. ygs-qa with --image/--compose).
 # DindMemoryLimit controls the DinD daemon memory (default 8G).
 #
 # Deploy:
@@ -32,14 +32,11 @@ tasks:
   timeout: 230m
   task_variables:
     RAW_ARGS: "{{.RawArgs | yamlq}}"
-    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "{{.DefaultTracker}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
   context_variables:
     - name: RAW_ARGS
       value: "{{.RawArgs | yamlq}}"
-    - name: SELECTED_MODEL
-      value: "{{.AnthropicSonnetModel}}"
     - name: SELECTED_TRACKER
       value: "{{.DefaultTracker}}"
     - name: SLACK_CHANNEL
@@ -112,10 +109,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     RAW_ARGS: "{{.RawArgs | yamlq}}"
     CODEBASE_DIR: "{{.CodebaseDir}}"
     CODEBASE_REPO_URL: "{{.CodebaseRepoUrl}}"
@@ -275,6 +268,3 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"

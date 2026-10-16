@@ -4,7 +4,7 @@
 # Uses scripts.analyze.run_pr_audit and scripts.analyze.post_pr_audit for analysis,
 # then scripts.analyze.create_skill_pr to open a PR with improvements.
 #
-# Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <id>"
+# Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <alias|id>"
 #   "@bot pr-audit --team alice,bob"         filter to PRs by those GitHub logins (comma = member list)
 #   "@bot pr-audit --team MyTeam"            filter by GH label matching team name (single word = label filter)
 #   "@bot pr-audit --board <id>"             filter to PRs referencing issues on this Jira board (requires Jira creds)
@@ -42,12 +42,9 @@ tasks:
   method: KUBERNETES
   timeout: 60m
   task_variables:
-    SELECTED_MODEL: "{{.AnthropicSonnetModel}}"
     SELECTED_TRACKER: "github"
     SLACK_CHANNEL: "{{.SlackChannel}}"
   context_variables:
-    - name: SELECTED_MODEL
-      value: "{{.AnthropicSonnetModel}}"
     - name: SELECTED_TRACKER
       value: "github"
     - name: SLACK_CHANNEL
@@ -69,6 +66,7 @@ tasks:
       - secret_ref: ai-dev-credentials
   environment:
     WORKSPACE_DIR: /workspace
+    AI_MODEL_OVERRIDE: "{{.AiModel}}"
     SLACK_BOT_TOKEN: "{{.SlackToken}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
     SLACK_THREAD_TS: "{{.SlackThreadTs}}"
@@ -78,10 +76,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
     N_PRS: "{{.NPrs}}"
     PR_AUDIT_FOCUS: "{{.PrAuditFocus}}"
@@ -181,14 +175,10 @@ tasks:
     WORKSPACE_DIR: /workspace
     GH_ORG: "{{.GitHubOrg}}"
     GH_REPO: "{{.GitHubRepo}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
     MAX_TURNS_PLAN: "{{.MaxTurnsPlan}}"
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
@@ -243,10 +233,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     GH_REPO_BRANCH: "{{.GitHubRepoBranch}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
     JOB_ID: "{{.JobID}}"
@@ -296,10 +282,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
@@ -365,6 +347,8 @@ tasks:
 
 job_variables:
   RepoUrl: ""
+  # Slack --model <alias|id> (queen maps the flag to this parameter); empty = scripts/common/models.json default
+  AiModel: ""
   PrUrls: ""
   # Branch defaults — overridden at runtime by org configs BitbucketRepoBranch / GitHubRepoBranch.
   # Formicary variable resolution: job params > org configs > job_variables (defaults).
@@ -402,9 +386,6 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
   NeedsHumanLabel: "needs-human"
   GitHubOrg: ""
   GitHubRepo: ""

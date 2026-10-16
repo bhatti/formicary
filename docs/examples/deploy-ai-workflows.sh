@@ -52,16 +52,9 @@ set -euo pipefail
 FORMICARY_URL="${FORMICARY_URL:-http://localhost:7777}"
 TOKEN="${FORMICARY_TOKEN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/secret-extras.sh"
 
-# Model ID defaults — override via env or by editing models.env.
-ANTHROPIC_SONNET_MODEL="${ANTHROPIC_SONNET_MODEL:-us.anthropic.claude-sonnet-4-6}"
-ANTHROPIC_OPUS_MODEL="${ANTHROPIC_OPUS_MODEL:-us.anthropic.claude-opus-4-6-v1}"
-ANTHROPIC_HAIKU_MODEL="${ANTHROPIC_HAIKU_MODEL:-us.anthropic.claude-haiku-4-5-20251001-v1:0}"
-# Complexity-tier defaults — can be overridden by models.env or env vars.
-ANTHROPIC_COMPLEXITY_LOW_MODEL="${ANTHROPIC_COMPLEXITY_LOW_MODEL:-${ANTHROPIC_HAIKU_MODEL}}"
-ANTHROPIC_COMPLEXITY_HIGH_MODEL="${ANTHROPIC_COMPLEXITY_HIGH_MODEL:-${ANTHROPIC_OPUS_MODEL}}"
-# models.env can override the above defaults (sourced after so it wins).
-[[ -f "$SCRIPT_DIR/models.env" ]] && source "$SCRIPT_DIR/models.env"
+# Claude models are not configured here: defaults live in ai-dev-tools scripts/common/models.json.
 
 SET_CONFIGS=false
 SETUP_LABELS=false
@@ -139,6 +132,7 @@ create_k8s_secret() {
   log "Creating/updating 'ai-dev-credentials' Kubernetes secret ..."
   [[ -n "$GH_TOKEN" ]] || fail "GITHUB_TOKEN / GH_TOKEN is required for --create-k8s-secret"
 
+  extra_secret_args || exit 1
   kubectl create secret generic ai-dev-credentials \
     --from-literal=JIRA_BASE_URL="${JIRA_BASE_URL:-}" \
     --from-literal=JIRA_EMAIL="${JIRA_EMAIL:-}" \
@@ -153,6 +147,7 @@ create_k8s_secret() {
     --from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}" \
     --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_KEY:-}" \
     --from-literal=SSH_PRIVATE_KEY="${SSH_KEY:-}" \
+    ${EXTRA_SECRET_ARGS[@]+"${EXTRA_SECRET_ARGS[@]}"} \
     --save-config --dry-run=client -o yaml | kubectl apply -f - --validate=false
   ok "Secret 'ai-dev-credentials' created/updated."
 }
@@ -360,13 +355,6 @@ if [[ "$SET_CONFIGS" == true ]]; then
     set_org_config "ClaudeSkipBedrockAuth"   "1"
     set_org_config "AnthropicBedrockBaseUrl" "$BEDROCK_URL"
   fi
-  # Push model IDs from models.env (single source of truth — overrides YAML job_variables).
-  set_org_config "AnthropicSonnetModel" "${ANTHROPIC_SONNET_MODEL}" "false"
-  set_org_config "AnthropicOpusModel"   "${ANTHROPIC_OPUS_MODEL}"   "false"
-  set_org_config "AnthropicHaikuModel"  "${ANTHROPIC_HAIKU_MODEL}"  "false"
-  # Complexity-tiered model selection (used by implement task based on plan_complexity.txt).
-  set_org_config "AnthropicComplexityLowModel"  "${ANTHROPIC_COMPLEXITY_LOW_MODEL}"  "false"
-  set_org_config "AnthropicComplexityHighModel" "${ANTHROPIC_COMPLEXITY_HIGH_MODEL}" "false"
   [[ -n "$GIT_USER_NAME" ]]  && set_org_config "GitUserName"      "$GIT_USER_NAME"
   [[ -n "$GIT_USER_EMAIL" ]] && set_org_config "GitUserEmail"     "$GIT_USER_EMAIL"
   [[ -n "${BITBUCKET_WORKSPACE:-}" ]] && set_org_config "BitbucketWorkspace" "$BITBUCKET_WORKSPACE"

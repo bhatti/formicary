@@ -56,10 +56,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
@@ -68,8 +64,6 @@ tasks:
       value: "{{.IssueNumber}}"
     - name: SELECTED_TRACKER
       value: jira
-    - name: SELECTED_MODEL
-      value: "{{.AnthropicSonnetModel}}"
   script:
     - python -c "from scripts.common.bootstrap import ensure_debug_mode; ensure_debug_mode()" 2>/dev/null || true
     - touch /tmp/.adt_bootstrap_done
@@ -122,12 +116,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
-    ANTHROPIC_COMPLEXITY_LOW_MODEL:  "{{.AnthropicComplexityLowModel}}"
-    ANTHROPIC_COMPLEXITY_HIGH_MODEL: "{{.AnthropicComplexityHighModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
@@ -136,15 +124,11 @@ tasks:
     - touch /tmp/.adt_bootstrap_done
     - python -m scripts.jira.clone_repo --issue-id {{.IssueNumber}}
     - |
+      # Model tier (low|medium|high) comes from the plan; scripts/common/models.json maps it to a model.
       COMPLEXITY=$(cat /workspace/plan_complexity.txt 2>/dev/null || echo "medium")
-      if [ "$COMPLEXITY" = "high" ] && [ -n "$ANTHROPIC_COMPLEXITY_HIGH_MODEL" ] && [ "$ANTHROPIC_COMPLEXITY_HIGH_MODEL" != "<no value>" ]; then
-        export AI_MODEL="$ANTHROPIC_COMPLEXITY_HIGH_MODEL"
-        export ANTHROPIC_DEFAULT_SONNET_MODEL="$ANTHROPIC_COMPLEXITY_HIGH_MODEL"
-      elif [ "$COMPLEXITY" = "low" ] && [ -n "$ANTHROPIC_COMPLEXITY_LOW_MODEL" ] && [ "$ANTHROPIC_COMPLEXITY_LOW_MODEL" != "<no value>" ]; then
-        export AI_MODEL="$ANTHROPIC_COMPLEXITY_LOW_MODEL"
-        export ANTHROPIC_DEFAULT_SONNET_MODEL="$ANTHROPIC_COMPLEXITY_LOW_MODEL"
-      fi
-      echo "[implement] complexity=$COMPLEXITY AI_MODEL=$AI_MODEL"
+      case "$COMPLEXITY" in low|medium|high) ;; *) COMPLEXITY=medium ;; esac
+      export AI_MODEL_TIER="$COMPLEXITY"
+      echo "[implement] complexity=$COMPLEXITY model=$(AI_MODEL= python -m scripts.common.models --tier "$COMPLEXITY")"
     - python -m scripts.jira.run_implement --issue-id {{.IssueNumber}}
     - python -m scripts.jira.push_impl --issue-id {{.IssueNumber}}
   artifacts:
@@ -190,10 +174,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
@@ -247,10 +227,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
@@ -302,10 +278,6 @@ tasks:
     CLAUDE_CODE_USE_BEDROCK: "{{.ClaudeUseBedrock}}"
     ANTHROPIC_BEDROCK_BASE_URL: "{{.AnthropicBedrockBaseUrl}}"
     CLAUDE_CODE_SKIP_BEDROCK_AUTH: "{{.ClaudeSkipBedrockAuth}}"
-    AI_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_SONNET_MODEL: "{{.AnthropicSonnetModel}}"
-    ANTHROPIC_DEFAULT_OPUS_MODEL: "{{.AnthropicOpusModel}}"
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "{{.AnthropicHaikuModel}}"
     CODEBASE_DIR: /workspace/repo
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
 
@@ -384,16 +356,9 @@ job_variables:
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
   ClaudeSkipBedrockAuth: "1"
-  AnthropicSonnetModel: "us.anthropic.claude-sonnet-4-6"
-  AnthropicOpusModel: "us.anthropic.claude-opus-4-6-v1"
-  AnthropicHaikuModel: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-  # Complexity-tiered model selection (set via deploy-ai-jira-workflows.sh --set-configs):
-  AnthropicComplexityLowModel: ""   # empty = use Haiku default from org config
-  AnthropicComplexityHighModel: ""  # empty = use Opus default from org config
   # Injected via org configs (set via deploy-ai-jira-workflows.sh --set-configs):
   #   JiraUrl, JiraProject, BitbucketWorkspace, BitbucketRepo  (plain)
   #   SlackChannel             (plain, optional — Slack notifications)
-  #   AnthropicComplexityLowModel, AnthropicComplexityHighModel (from models.env)
   # Injected from the 'ai-dev-credentials' K8s secret:
   #   JIRA_EMAIL, JIRA_API_TOKEN, BITBUCKET_USERNAME, BITBUCKET_TOKEN
   #   SSH_PRIVATE_KEY, ANTHROPIC_API_KEY (optional)

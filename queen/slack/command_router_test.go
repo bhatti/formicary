@@ -455,6 +455,13 @@ func Test_PassThroughArgs_False_By_Default(t *testing.T) {
 
 // --- extractFlags tests ---
 
+func TestExtractFlags_ModelBecomesAiModelParam(t *testing.T) {
+	remaining, flags := extractFlags("--model high what is new")
+	require.Equal(t, "what is new", remaining)
+	require.Equal(t, map[string]string{"AiModel": "high"}, flags)
+}
+
+
 func Test_ExtractFlags_No_Flags(t *testing.T) {
 	remaining, flags := extractFlags("42")
 	require.Equal(t, "42", remaining)
@@ -483,7 +490,7 @@ func Test_ExtractFlags_Kebab_Case_Flag(t *testing.T) {
 func Test_ExtractFlags_Flag_At_End(t *testing.T) {
 	remaining, flags := extractFlags("42 --model sonnet")
 	require.Equal(t, "42", remaining)
-	require.Equal(t, "sonnet", flags["Model"])
+	require.Equal(t, "sonnet", flags["AiModel"])
 }
 
 func Test_ExtractFlags_Empty_Input(t *testing.T) {
