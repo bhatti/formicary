@@ -544,9 +544,7 @@ curl http://localhost:7777/api/artifacts?job_id=<id> -H 'Authorization: Bearer <
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PlanModel` | `opus` | Claude model for planning phase |
-| `ImplementModel` | `sonnet` | Claude model for implementation |
-| `ReviewModel` | `opus` | Claude model for self-review |
+| `AiModel` | `""` | Optional per-run model (alias or id). Models are not job variables: defaults and the `low`/`default`/`high` tiers live in ai-dev-tools `scripts/common/models.json`, and the implement task selects the tier from the plan's complexity (`AI_MODEL_TIER`) |
 | `FormicaryURL` | `http://localhost:7777` | Formicary queen URL |
 
 ### `ai-gh-issue-picker` job_variables
@@ -603,7 +601,7 @@ Insert between `review` and `create-pr`:
       #!/bin/bash
       source meta.env
       cd "$WS/repo"
-      claude --print --model "{{.ReviewModel}}" --max-turns 20 \
+      claude --print --model "$SELECTED_MODEL" --max-turns 20 \
         --output-format json \
         "Run ygs-security-review on the changes in this branch.
          Check OWASP top 10, auth, injection, secrets exposure.

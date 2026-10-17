@@ -1305,8 +1305,6 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 		"ClaudeUseBedrock":        common.NewVariableValue("1", false),
 		"AnthropicBedrockBaseUrl": common.NewVariableValue("http://ai/bedrock", false),
 		"ClaudeSkipBedrockAuth":   common.NewVariableValue("1", false),
-		"AnthropicOpusModel":      common.NewVariableValue("us.anthropic.claude-opus-4-6-v1", false),
-		"AnthropicHaikuModel":     common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
 		"CodebaseDir":             common.NewVariableValue("", false),
 		"CodebaseRepoUrl":         common.NewVariableValue("", false),
 		"GitBranch":               common.NewVariableValue("", false),
@@ -1376,8 +1374,6 @@ func Test_ShouldLoadAiContractTestYaml(t *testing.T) {
 		"ClaudeUseBedrock":   common.NewVariableValue("1", false),
 		"AnthropicBedrockBaseUrl":  common.NewVariableValue("http://ai/bedrock", false),
 		"ClaudeSkipBedrockAuth":    common.NewVariableValue("1", false),
-		"AnthropicOpusModel":       common.NewVariableValue("us.anthropic.claude-opus-4-6-v1", false),
-		"AnthropicHaikuModel":      common.NewVariableValue("us.anthropic.claude-haiku-4-5-20251001-v1:0", false),
 	}
 
 	t.Run("without Service", func(t *testing.T) {
@@ -1498,7 +1494,8 @@ func Test_AIWorkflowsDoNotDefineModels(t *testing.T) {
 	files, err := filepath.Glob("../../docs/examples/ai-*.yaml")
 	require.NoError(t, err)
 	require.NotEmpty(t, files)
-	banned := []string{"AnthropicSonnetModel", "AnthropicOpusModel", "AnthropicHaikuModel", "AnthropicComplexity",
+	banned := []string{
+		"AnthropicSonnetModel", "AnthropicOpusModel", "AnthropicHaikuModel", "AnthropicComplexity", // retired names
 		"ANTHROPIC_DEFAULT_", "ANTHROPIC_COMPLEXITY_", "claude-sonnet", "claude-opus", "claude-haiku", "AI_MODEL: "}
 	for _, f := range files {
 		b, err := ioutil.ReadFile(f)

@@ -3,6 +3,8 @@
 package slack
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -634,4 +636,25 @@ func Test_MQ_Route_TargetAlias_EndToEnd(t *testing.T) {
 	require.Equal(t, "stage", flags["TargetBranch"], "--target alias must produce TargetBranch")
 	repoUrl := stripSlackURL(remaining)
 	require.Equal(t, "https://bitbucket.org/ws/repo/src/dev/", repoUrl)
+}
+
+// TestShippedRoutes_PrRisk loads the real docs/examples/slack-routes.json: pr-risk (and its scope aliases) run
+// ai-pr-risk; the retired gate-review names are not routes any more.
+func TestShippedRoutes_PrRisk(t *testing.T) {
+	b, err := os.ReadFile("../../docs/examples/slack-routes.json")
+	require.NoError(t, err)
+	var routes []config.SlackRouteConfig
+	require.NoError(t, json.Unmarshal(b, &routes))
+	router := NewCommandRouter(routes)
+	for _, text := range []string{"pr-risk https://github.com/org/repo/pull/24", "scope 24", "scope-router 24"} {
+		res, builtin, err := router.Route(text)
+		require.NoError(t, err, text)
+		require.False(t, builtin)
+		require.Equal(t, "ai-pr-risk", res.JobType, text)
+		require.Equal(t, "PRNumber", res.IdVar, text)
+	}
+	for _, text := range []string{"gate-review 24", "review-gate 24"} { // retired names
+		_, _, err := router.Route(text)
+		require.ErrorIs(t, err, ErrUnknownCommand, text)
+	}
 }

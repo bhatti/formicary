@@ -467,7 +467,7 @@ YAMLS=(
   "${SCRIPT_DIR}/ai-codebase-audit.yaml"
   "${SCRIPT_DIR}/ai-gh-pr-audit.yaml"
   "${SCRIPT_DIR}/ai-scope-router.yaml"
-  "${SCRIPT_DIR}/ai-gate-review.yaml"
+  "${SCRIPT_DIR}/ai-pr-risk.yaml"
   "${SCRIPT_DIR}/ai-parallel-test.yaml"
   "${SCRIPT_DIR}/ai-merge-queue.yaml"
   "${SCRIPT_DIR}/ai-mq-lane.yaml"

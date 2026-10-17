@@ -59,6 +59,13 @@ tasks:
       command: ["dockerd-entrypoint.sh"]
       memory_limit: "{{default "8G" .DindMemoryLimit}}"
       cpu_request: "500m"
+      # The daemon runs in this container, so a bind mount such as `docker run -v /workspace/x:/data` or a kind/compose
+      # extra mount resolves on ITS filesystem. Without the shared workspace those paths are empty root-owned directories
+      # (EACCES for any non-root container) instead of the files the skill prepared.
+      volumes:
+        empty_dir:
+          - name: workspace
+            mount_path: /workspace
     {{end}}
     {{if .ServiceImage}}
     - name: "{{default "skill-service" .ServiceName}}"

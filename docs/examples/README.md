@@ -132,11 +132,17 @@ The secret is idempotent — re-running `--create-k8s-secret` updates it in plac
 | Store | What belongs here |
 |-------|------------------|
 | k8s secret (`ai-dev-credentials`) | `BITBUCKET_TOKEN`, `GH_TOKEN`, `SLACK_BOT_TOKEN`, `SSH_PRIVATE_KEY`, `ANTHROPIC_API_KEY` |
-| Org configs (`--set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch`, model IDs, Slack channel, Jira URL |
+| Org configs (`--set-configs`) | `BitbucketWorkspace`, `BitbucketRepo`, `BitbucketUsername`, `GH_ORG`, `GH_REPO`, `DefaultTracker`, `BitbucketRepoBranch`, `GitHubRepoBranch`, Slack channel, Jira URL |
 
 **Why it matters**: In a Kubernetes pod, explicit `env:` entries override `envFrom: secretRef:` for the same key. If a YAML template `{{.BitbucketWorkspace}}` renders to `""` (because no org config is set), it silently overwrites the `BITBUCKET_WORKSPACE=xxx` value from the secret. The script then sees an empty workspace and fails. Always set non-secret config via org configs so templates render the correct values.
 
 See [Job Definitions — Secrets vs Org Configs](../06-job-definitions.md#secrets-vs-org-configs--what-goes-where) for details.
+
+**Models are not configured here.** Claude model ids (default, `low`/`high` tiers, aliases such as `sonnet`/`opus`/`haiku`) live in one file, `ai-dev-tools/scripts/common/models.json`; no workflow or org config defines them. Override one run with `--model <alias|id>` on the `skill`, `adhoc` and `pr-audit` routes (the queen passes it as the `AiModel` parameter), or `AI_MODEL` / `AI_MODEL_TIER` on a job. Details: [ai-dev-tools configuration](https://github.com/bhatti/ai-dev-tools/blob/main/docs/configuration.md).
+
+**More credentials for skills.** Extra variables a skill needs (the app under test for `ygs-qa`, a private registry token, ...) go into the same secret: before `--create-k8s-secret` set `QA_USERNAME` / `QA_PASSWORD` / `QA_AUTH_HEADER` (stored automatically), `BITBUCKET_APP_PASSWORD`, or list other variable names in `EXTRA_SECRET_VARS="NPM_TOKEN FOO"` (see `secret-extras.sh`). `QA_*` and the names in `SKILL_ENV_PASSTHROUGH` are forwarded to the skill's shell; platform tokens are never given to the code under test.
+
+**Review metrics.** PR reports (`pr-risk`, `pr-audit`, `mq`, `open-prs`, `prs`, `review`) read comments, tasks, reviewers and commits through the tracker APIs with the same `GH_TOKEN` / Bitbucket credentials (no extra scope). `PR_SIGNALS=off` disables it for very large repos; `BITBUCKET_API_BASE` points the PR-metrics/context/queue Bitbucket calls at a proxy; `DIFFSTAT_WORKERS` (default 8, max 20) sets how many per-PR calls run concurrently. See [PR metrics](https://github.com/bhatti/ai-dev-tools/blob/main/docs/pr-metrics.md).
 
 ---
 
@@ -427,7 +433,7 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 @ai-agent pr-audit
 @ai-agent pr-audit https://github.com/ORG/REPO
 @ai-agent pr-audit https://github.com/ORG/REPO/pull/123
-@ai-agent pr-audit https://bitbucket.org/WS/REPO/pull-requests/456 --model claude-opus-5
+@ai-agent pr-audit https://bitbucket.org/WS/REPO/pull-requests/456 --model opus-5
 
 # Team/sprint filtering (new)
 @ai-agent pr-audit --team alice,bob               # scope to PRs by these GitHub logins/Jira display names
@@ -437,7 +443,7 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 @ai-agent pr-audit https://company.atlassian.net/.../boards/<id>   # Jira board URL also works
 ```
 
-When PR URLs are included in the Slack message, the audit fetches only those specific PRs instead of the last N. Model and focus can also be overridden inline: `audit last 30 prs focus skills --model claude-opus-5`.
+When PR URLs are included in the Slack message, the audit fetches only those specific PRs instead of the last N. Model and focus can also be overridden inline: `audit last 30 prs focus skills --model opus-5`.
 
 When `--team` is set, only PRs authored or reviewed by those logins/display-names are analyzed. When a Jira board ID is given, the active sprint's assignees are resolved automatically and used as the team filter.
 
@@ -518,8 +524,8 @@ Scope-aware merge queue for agent-scale PR throughput. Pairs test-impact analysi
 
 | Job | Purpose | Trigger |
 |-----|---------|---------|
-| `ai-scope-router` | Classify PR blast radius, compute risk tier, label by scope | `@bot scope <pr-or-branch> [--repo <url>]` |
-| `ai-gate-review` | Read-only AI review: risk score, blast radius, findings report — no PR changes | Triggered by `@bot gate-review <pr-url>` |
+| `ai-scope-router` | Classify PR blast radius, compute risk tier, label by scope (not routed from Slack: `@bot scope` runs `ai-pr-risk`) | job API |
+| `ai-pr-risk` | Read-only AI PR risk review: risk score, blast radius, findings, one metrics table — no PR changes | `@bot pr-risk <pr-url>` (alias `@bot scope <pr-url>`) |
 | `ai-parallel-test` | Test-impact analysis → fan-out parallel test shards (4 CPU cores, 16G per shard) | `@bot parallel-test <pr-or-branch> [--repo <url>] [--branch <name>]` |
 | `ai-merge-queue` | Cron: collect ready PRs, group by scope, launch lane jobs | `@bot merge-queue` or cron `*/3 * * * *` |
 | `ai-mq-lane` | Per-scope lane: speculative batch → scoped CI → bisect on failure → merge | Forked by ai-merge-queue |
@@ -721,7 +727,7 @@ Mention the bot in any channel it has been invited to:
 | `@bot pr-audit <repo-url>` | PR audit on a specific repo | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit <pr-url> [<pr-url2> ...]` | Audit specific PRs by URL (auto-detects GH vs BB) | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit ... --model <model-id>` | Override AI model for this audit run | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
-| `@bot scope <pr-number>` | Classify PR blast radius and risk tier | `ai-scope-router` |
+| `@bot pr-risk <pr-url>` / `@bot scope <pr-url>` | PR risk review: blast radius, risk tier, findings, metrics | `ai-pr-risk` |
 | `@bot merge-queue` | Run scope-aware merge queue: collect ready PRs, group by scope, parallel lanes | `ai-merge-queue` |
 | `@bot parallel-test <pr-number>` | Test-impact analysis + parallel shard execution | `ai-parallel-test` |
 | `@bot contract-test <pr-number> [--service <image>]` | API contract + mutation testing via api-mock-service | `ai-contract-test` |
@@ -1365,7 +1371,7 @@ kubectl logs -l app=formicary --tail=50 | grep -i slack
 
 ## Further Reading
 
-- [Architecture](../architecture.md)
+- [Architecture](../04-architecture.md)
 - [Job YAML schema](../06-job-definitions.md)
 - [Executors (Kubernetes, Docker, Shell)](../07-executors.md)
 - [Scheduling and triggers](../08-scheduling-and-triggers.md)
