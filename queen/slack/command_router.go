@@ -75,6 +75,12 @@ type RouteResult struct {
 	Description     string            // human-readable label from route config (used as job description)
 	TrackerVariants map[string]string // tracker name → job type override (e.g. "github" → "ai-gh-implement")
 	PassThroughArgs bool              // when true, trailing text is bound to IdVar verbatim (no flag extraction)
+	ArgsPrefix      string            // placed before the trailing text when it is bound to IdVar (a shortcut route's skill name)
+}
+
+// BoundArgs is the value bound to IdVar: ArgsPrefix followed by the trailing text, either of which may be empty.
+func (r *RouteResult) BoundArgs(trailing string) string {
+	return strings.TrimSpace(r.ArgsPrefix + " " + trailing)
 }
 
 // ResolveJobType returns the job type for the given tracker, falling back to JobType
@@ -117,7 +123,8 @@ func (r *CommandRouter) Route(text string) (result *RouteResult, isBuiltin bool,
 			if normalized == t {
 				trailing = ""
 			} else if strings.HasPrefix(normalized, t+" ") {
-				trailing = strings.TrimSpace(text[len(t):])
+				lead := len(text) - len(strings.TrimLeftFunc(text, isPunctOrSpace)) // normalize() dropped this much before the trigger
+				trailing = strings.TrimSpace(text[lead+len(t):])
 			} else {
 				continue
 			}
@@ -129,6 +136,7 @@ func (r *CommandRouter) Route(text string) (result *RouteResult, isBuiltin bool,
 				Description:     route.Description,
 				TrackerVariants: route.TrackerVariants,
 				PassThroughArgs: route.PassThroughArgs,
+				ArgsPrefix:      route.ArgsPrefix,
 			}, false, nil
 		}
 	}
@@ -219,9 +227,8 @@ func isReservedSlackParam(name string) bool {
 }
 
 // normalize lowercases and strips leading/trailing punctuation from text.
+func isPunctOrSpace(r rune) bool { return unicode.IsPunct(r) || unicode.IsSpace(r) }
+
 func normalize(s string) string {
-	s = strings.ToLower(strings.TrimFunc(s, func(r rune) bool {
-		return unicode.IsPunct(r) || unicode.IsSpace(r)
-	}))
-	return s
+	return strings.ToLower(strings.TrimFunc(s, isPunctOrSpace))
 }

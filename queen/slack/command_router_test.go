@@ -439,13 +439,13 @@ func Test_PassThroughArgs_Propagated_From_Route_Config(t *testing.T) {
 	router := NewCommandRouter(routes)
 
 	// WHEN routing a skill command with skill-specific flags
-	result, _, err := router.Route("skill edge-review-ready --head origin/feature --base stage --branch dev")
+	result, _, err := router.Route("skill my-skill --head origin/feature --base stage --branch dev")
 	require.NoError(t, err)
 
 	// THEN PassThroughArgs is set on the result
 	require.True(t, result.PassThroughArgs)
 	// AND the full trailing text is preserved verbatim
-	require.Equal(t, "edge-review-ready --head origin/feature --base stage --branch dev", result.Trailing)
+	require.Equal(t, "my-skill --head origin/feature --base stage --branch dev", result.Trailing)
 }
 
 func Test_PassThroughArgs_False_By_Default(t *testing.T) {
@@ -453,6 +453,41 @@ func Test_PassThroughArgs_False_By_Default(t *testing.T) {
 	result, _, err := router.Route("review https://github.com/org/repo/pull/1 --branch main")
 	require.NoError(t, err)
 	require.False(t, result.PassThroughArgs)
+}
+
+// --- ArgsPrefix tests ---
+
+func Test_ArgsPrefix_Propagated_And_Joined_With_The_Trailing_Text(t *testing.T) {
+	// GIVEN a shortcut route for one skill
+	router := NewCommandRouter([]config.SlackRouteConfig{{
+		Triggers: []string{"sprint-ready"}, JobType: "ai-skill", IdVar: "RawArgs", PassThroughArgs: true, ArgsPrefix: "ygs-sprint-ready",
+	}})
+
+	// WHEN routing the shortcut with quoted flag values
+	result, _, err := router.Route(`sprint-ready --sprint "Sprint 12" --dry-run`)
+	require.NoError(t, err)
+
+	// THEN the prefix is carried and the trailing text is untouched
+	require.Equal(t, "ygs-sprint-ready", result.ArgsPrefix)
+	require.Equal(t, `--sprint "Sprint 12" --dry-run`, result.Trailing)
+	require.Equal(t, `ygs-sprint-ready --sprint "Sprint 12" --dry-run`, result.BoundArgs(result.Trailing))
+}
+
+func Test_Trailing_Text_Survives_Leading_Punctuation_Around_The_Trigger(t *testing.T) {
+	router := NewCommandRouter([]config.SlackRouteConfig{{
+		Triggers: []string{"enrich"}, JobType: "ai-skill", IdVar: "RawArgs", PassThroughArgs: true, ArgsPrefix: "ygs-enrich-ticket",
+	}})
+	for _, text := range []string{`"enrich PROJ-123 --apply`, "'enrich PROJ-123 --apply", "  \u201cenrich PROJ-123 --apply", "enrich PROJ-123 --apply"} {
+		result, _, err := router.Route(text)
+		require.NoError(t, err, text)
+		require.Equal(t, "ygs-enrich-ticket PROJ-123 --apply", result.BoundArgs(result.Trailing), text)
+	}
+}
+
+func Test_BoundArgs_Handles_Missing_Prefix_And_Missing_Trailing(t *testing.T) {
+	require.Equal(t, "just the trailing", (&RouteResult{}).BoundArgs("just the trailing"))
+	require.Equal(t, "ygs-enrich-ticket", (&RouteResult{ArgsPrefix: "ygs-enrich-ticket"}).BoundArgs(""))
+	require.Equal(t, "", (&RouteResult{}).BoundArgs(""))
 }
 
 // --- extractFlags tests ---
@@ -636,6 +671,37 @@ func Test_MQ_Route_TargetAlias_EndToEnd(t *testing.T) {
 	require.Equal(t, "stage", flags["TargetBranch"], "--target alias must produce TargetBranch")
 	repoUrl := stripSlackURL(remaining)
 	require.Equal(t, "https://bitbucket.org/ws/repo/src/dev/", repoUrl)
+}
+
+// TestShippedRoutes_TicketSkills loads the real docs/examples/slack-routes.json: the sprint-ready and enrich shortcuts run the
+// ai-skill job with the right skill name in front of the user's arguments, for each tracker.
+func TestShippedRoutes_TicketSkills(t *testing.T) {
+	b, err := os.ReadFile("../../docs/examples/slack-routes.json")
+	require.NoError(t, err)
+	var routes []config.SlackRouteConfig
+	require.NoError(t, json.Unmarshal(b, &routes))
+	router := NewCommandRouter(routes)
+
+	cases := []struct{ text, skill, tracker string }{
+		{`sprint-ready --sprint "Sprint 12" --dry-run`, "ygs-sprint-ready", ""},
+		{`sprint ready --sprint "Sprint 12"`, "ygs-sprint-ready", ""},
+		{`gh sprint-ready --milestone "Sprint 12"`, "ygs-sprint-ready", "github"},
+		{`jira sprint-ready --sprint "Sprint 12" --apply`, "ygs-sprint-ready", "jira"},
+		{`enrich PROJ-123 --apply`, "ygs-enrich-ticket", ""},
+		{`enrich-ticket https://github.com/acme/widgets/issues/42`, "ygs-enrich-ticket", ""},
+		{`gh enrich 42 --repo acme/widgets`, "ygs-enrich-ticket", "github"},
+		{`jira enrich PROJ-123`, "ygs-enrich-ticket", "jira"},
+	}
+	for _, c := range cases {
+		result, builtin, err := router.Route(c.text)
+		require.NoError(t, err, c.text)
+		require.False(t, builtin, c.text)
+		require.Equal(t, "ai-skill", result.JobType, c.text)
+		require.Equal(t, "RawArgs", result.IdVar, c.text)
+		require.True(t, result.PassThroughArgs, c.text)
+		require.Equal(t, c.skill, result.ArgsPrefix, c.text)
+		require.Equal(t, c.tracker, result.Params["DefaultTracker"], c.text)
+	}
 }
 
 // TestShippedRoutes_PrRisk loads the real docs/examples/slack-routes.json: pr-risk (and its scope aliases) run

@@ -40,6 +40,10 @@ type SlackRouteConfig struct {
 	// IdVar verbatim. Set this when the target script owns its own flag parser
 	// (e.g. ai-skill passes RAW_ARGS to run_skill.py).
 	PassThroughArgs bool `yaml:"pass_through_args" mapstructure:"pass_through_args" json:"pass_through_args,omitempty"`
+	// ArgsPrefix is placed before the trailing text when it is bound to IdVar. It turns a route into a
+	// shortcut for one skill of the generic ai-skill job: prefix "ygs-sprint-ready" makes
+	// "@bot sprint-ready --sprint X" run with RawArgs "ygs-sprint-ready --sprint X".
+	ArgsPrefix string `yaml:"args_prefix" mapstructure:"args_prefix" json:"args_prefix,omitempty"`
 }
 
 // SlackConfig holds Socket Mode credentials and the command routing table.

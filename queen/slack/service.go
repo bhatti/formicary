@@ -716,9 +716,9 @@ func (s *SlackService) dispatch(ctx context.Context, slackUserID, text, channel,
 		}
 	}
 
-	// Bind trailing text to the named IdVar (e.g. PRUrl, IssueNumber, Prompt).
-	if result.IdVar != "" && cleanTrailing != "" {
-		if !addParam(result.IdVar, cleanTrailing) {
+	// Bind trailing text (behind the route's ArgsPrefix, if any) to the named IdVar (e.g. PRUrl, IssueNumber, Prompt, RawArgs).
+	if bound := result.BoundArgs(cleanTrailing); result.IdVar != "" && bound != "" {
+		if !addParam(result.IdVar, bound) {
 			return
 		}
 	}

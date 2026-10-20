@@ -1270,7 +1270,7 @@ func Test_ShouldRoundTripSubWorkflowViaJSON(t *testing.T) {
 
 // Test_ShouldParseAiSkillYAMLWithQuotedRawArgs loads the real ai-skill.yaml and exercises
 // GetDynamicTask("run") with a RawArgs value that contains quoted sub-strings (e.g.
-// `edge-sprint-prep "DistMgmt Sprint 203" --dry-run --branch edge-dm-norms-2`).
+// `ygs-sprint-ready --sprint "Team Sprint 203" --dry-run --branch feature-branch`).
 // This is the definitive regression test for the "yaml: line 4: did not find expected key"
 // error that appeared in production when the Slack trigger passed quoted tokens in RawArgs.
 func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
@@ -1282,7 +1282,7 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 	require.Equal(t, "ai-skill", job.JobType)
 
 	// Exactly the args that triggered the production error.
-	rawArgs := `edge-sprint-prep "DistMgmt Sprint 203" --dry-run --branch edge-dm-norms-2`
+	rawArgs := `ygs-sprint-ready --sprint "Team Sprint 203" --dry-run --branch feature-branch`
 	vars := map[string]common.VariableValue{
 		"JobRetry":                common.NewVariableValue(0, false),
 		"JobID":                   common.NewVariableValue("test-job-123", false),
@@ -1328,7 +1328,7 @@ func Test_ShouldParseAiSkillYAMLWithQuotedRawArgs(t *testing.T) {
 	require.NoError(t, err, "run task must parse without YAML error even when RawArgs contains double-quoted tokens")
 	require.NotNil(t, runTask)
 	require.NotNil(t, runOpts)
-	require.Contains(t, runOpts.Environment["RAW_ARGS"], "DistMgmt Sprint 203",
+	require.Contains(t, runOpts.Environment["RAW_ARGS"], "Team Sprint 203",
 		"RAW_ARGS must contain the unescaped sprint name after template rendering")
 }
 
