@@ -19,7 +19,7 @@ you-got-skills  →  ai-dev-tools  →  formicary
 ```
 
 ### 1. `formicary` — Job Orchestrator
-**Path:** `/Users/sbhatti/workplace/formicary`
+**Path:** `<workspace>/formicary`
 **Role:** Kubernetes-native workflow engine. Accepts YAML job definitions, dispatches to ant workers running in K8s pods.
 
 Key paths:
@@ -36,7 +36,7 @@ inside Python scripts.
 
 **Job variables:** `{{.VarName}}` template syntax injected at submit time.
 **Credentials:** Come from `ai-dev-credentials` K8s secret (mounted via `env_from`).
-**Tailscale:** Task pods use `host_network: true` → access to `http://ai/bedrock`.
+**Private network:** Task pods use `host_network: true`, which is how they reach the internal LLM gateway (its address is configured in the org config, not listed here).
 
 **Known bug — `max_limits` ignored:** `MaxLimits` in kubernetes_config.go uses
 `resource.Quantity` which mapstructure can't deserialize from YAML strings. The
@@ -44,7 +44,7 @@ inside Python scripts.
 `Validate()` as workaround.
 
 ### 2. `ai-dev-tools` — Python Workflow Scripts + Docker Image
-**Path:** `/Users/sbhatti/workplace/ai-dev-tools`
+**Path:** `<workspace>/ai-dev-tools`
 **Role:** Python scripts running inside Formicary task pods. Each script implements one
 workflow step.
 
@@ -64,13 +64,13 @@ Docker image: `plexobject/ai-dev-tools:latest` (multi-arch amd64+arm64, Docker H
 Version file: `VERSION`
 
 ### 3. `you-got-skills` — Claude Skill Library
-**Path:** `/Users/sbhatti/workplace/you-got-skills`
+**Path:** `<workspace>/you-got-skills`
 **Repo:** `https://github.com/bhatti/you-got-skills.git`
 **Role:** Markdown SKILL.md files providing Claude with task-specific protocols.
 Cloned into `~/.claude/skills/` inside every task pod by `_ensure_ygs_skills()`.
 
 ⚠️ **NEVER edit `~/.claude/skills/` — it is a read-only symlink cache.**
-Always edit `/Users/sbhatti/workplace/you-got-skills/` then push.
+Always edit `<workspace>/you-got-skills/` then push.
 
 Key skills:
 - `skills/ygs-review-pr/SKILL.md` — PR review (4 domains)
@@ -135,21 +135,23 @@ overrides take priority over the generic `ygs-review-pr`.
 
 ```
 1. Unit tests (fast, no network, no K8s)
-   cd /Users/sbhatti/workplace/ai-dev-tools
+   cd <workspace>/ai-dev-tools
    python3 -m pytest tests/test_<module>.py -v
 
 2. Pod functional tests (real K8s pod, local scripts injected over image)
    source ~/.zshrc
-   cd /Users/sbhatti/workplace/ai-dev-tools
+   cd <workspace>/ai-dev-tools
    PYTHONPATH=. python3 tests/test_pod_functional.py --tests <test-name>
    # Add --list to see all test names
    # SKIP_COPY=1 to test scripts from the docker image (no local inject)
 
 3. E2E job (full formicary job submission, slow)
    source ~/.zshrc
-   bash /Users/sbhatti/workplace/formicary/docs/examples/deploy-ai-workflows.sh --set-configs
+   bash <workspace>/formicary/docs/examples/deploy-ai-workflows.sh --set-configs
    # then submit job via API
 ```
+
+**Local Python:** the system `python3` may be a newer interpreter without `pytest`, and a repo `.venv` can dangle after an upgrade. Create a throwaway venv with a supported Python (3.12) outside the repo, install `requirements*.txt` and run `python -m pytest tests/<file> -p no:cacheprovider` from it.
 
 **Pod test mechanics:** Creates pod → copies local scripts over image → runs steps via
 kubectl exec → parses `::add-task-context KEY::VALUE` markers → asserts → deletes pod.
@@ -161,7 +163,7 @@ Each test is self-contained and cleans up after itself.
 
 ```bash
 # 1. Rebuild ai-dev-tools image (when scripts change)
-cd /Users/sbhatti/workplace/ai-dev-tools
+cd <workspace>/ai-dev-tools
 make docker-build NO_CACHE=1       # forces full rebuild, ~15 min, multi-arch
 
 # 2. Restart ant (picks up new image — Always pull policy)
@@ -170,11 +172,11 @@ kubectl rollout status deployment/formicary-ant -n default --timeout=120s
 
 # 3. Redeploy workflows (when YAML job definitions change)
 source ~/.zshrc
-bash /Users/sbhatti/workplace/formicary/docs/examples/deploy-ai-workflows.sh \
+bash <workspace>/formicary/docs/examples/deploy-ai-workflows.sh \
   --create-k8s-secret --set-configs
 
 # 4. Validate with pod tests (no Docker rebuild needed — copies local scripts)
-cd /Users/sbhatti/workplace/ai-dev-tools
+cd <workspace>/ai-dev-tools
 PYTHONPATH=. python3 tests/test_pod_functional.py \
   --tests review-skill-loading,jira-query,gh-query
 ```
@@ -183,6 +185,21 @@ PYTHONPATH=. python3 tests/test_pod_functional.py \
 image — no docker rebuild needed. Only rebuild when:
 - New dependencies added to requirements.txt
 - New files added that aren't injected by pod tests
+
+---
+
+## Sprint Load, Lanes and Standup Points (2026-10-26)
+
+Story points are shown the same way in sprint prep (`ygs-sprint-ready`) and the standup (`ygs-standup`): one lane model, **pending** (not started, or blocked) / **in progress** / **review** / **done**, in `ai-dev-tools/scripts/common/sprint_load.py`. The tracker's status category decides pending / in progress / done and the status name splits review (In Review, Code Complete, QA, ...) out of in progress; other workflow names are listed once in `.ygs/readiness.yml` (`lanes:`) or `SPRINT_LANES` (JSON; malformed is an error). Totals are computed by the tools and quoted by the model, never added by it: sub-tasks are excluded (their points live on the parent), unpointed tickets are named per lane (also done), and points the tracker could not return are unknown, never 0.
+- Sprint prep: `scripts.tickets.fetch` reads finished tickets for a sprint/milestone scope (graded only with `--include-done`), computes carry-over (Jira Sprint field history; GitHub has none and says so) and hidden rollover (unfinished in the active sprint of the same series, absent from a future target); `readiness --capacity N` compares the open load with capacity. `fetch --check` verifies credentials first. Report: lane table, carry-over, rollover, decisions to take, owner action items. Docs: `ai-dev-tools/docs/ticket-readiness.md`.
+- Standup: `scripts/standup/points.py`; `gather_jira.py` / `gather_gh.py` add `lane`, `story_points`, `points_known` to each issue (and `done_issues` for GitHub) to `signals.json`; the tables and the prompt compute the totals from them; `post.py` and `render_html.py` show a per-lane board table and a points-by-person table; the synthesis prompt carries the computed totals ("STORY POINTS"). GitHub has no sprint board: one "Current scope" row; closed milestone issues are counted as done (signals `done_issues`, kept out of the stale/silence logic) only when `GH_MILESTONE` is set (`GHMilestone` job variable of `ai-standup-gh`).
+- Skill side (`you-got-skills`): `shared/ticket-readiness.md` (lanes, flags, questions with recommendations, still-needed check), `shared/ac-format.md`, `ygs-sprint-ready`, `ygs-enrich-ticket`, `ygs-standup`. Keep private-repo specifics (names, test runners, ticket keys) out of all three repos.
+
+---
+
+## PR Report Consistency (2026-10-27)
+
+All PR reports (`pr-risk`, `prs`, `open-prs`, `mq`, `pr-audit`, `code-audit`) render through `pr_metrics` (per-PR table and single-PR table) and `pr_classify.build_metrics_dashboard` (the one multi-PR dashboard). Rules: no Title/description column in per-PR tables (the title is the hover text of the PR link, the Jira summary that of the Jira link: `[#12](url "title")`); the DORA rows are always present and say `n/a` + why without 3+ merged PRs (open-PR reports never have them; they get Defect Rate (proxy) and Feature:Bug instead); a `null` model-assessed metric is "not assessed" (`—`), never 0 and never dropped. Gotchas: `code-audit` used to skip the PR-level dashboard rows whenever the model wrote its own dashboard table (it is now stripped and regenerated, like pr-audit); `design_metrics` nulls used to render as green zeros; verbosity/erosion thresholds live in `you-got-skills/skills/shared/sloppiness-metrics.md` and the audit scripts must follow it. Bug/CFR numbers separate escaped (post-release) from pre-release defects: `scripts/common/defect_origin.py` assumes a defect fix fixes released code (confidence low, "assumed") unless labels, branch names, wording or a feature-branch target say otherwise, and reports show the confidence counts; CFR counts escaped merged defects only. Single-PR reports take `sloppiness` (`verbosity_pct`, `high_cc_functions`) from `findings.json`. Docs: `ai-dev-tools/docs/pr-metrics.md`.
 
 ---
 
@@ -236,9 +253,11 @@ The flag is propagated: `SlackRouteConfig.PassThroughArgs` → `RouteResult.Pass
 | Review | `ai-gh-review`, `ai-jira-review` | PR review using ygs-review-pr skill |
 | PR Audit | `ai-gh-pr-audit`, `ai-jira-pr-audit` | Cross-PR audit: spec/design/skills/practices gaps |
 | Codebase Audit | `ai-gh-codebase-audit`, `ai-jira-codebase-audit` | Codebase health and technical debt |
-| Standup | `ai-standup` | Daily standup brief from Jira/GitHub + Slack |
+| Standup | `ai-standup-jira`, `ai-standup-gh` | Daily standup brief from Jira/GitHub + Slack; story points per lane (pending / in progress / review / done) per sprint and per person |
 | Query | `ai-jira-query`, `ai-gh-query` | Ad-hoc queries against Jira/GitHub |
 | Adhoc | `ai-adhoc` | Run any skill with `--skill` and `--prompt` args |
+| PR risk / merge queue | `ai-pr-risk`, `ai-merge-queue`, `ai-mq-lane`, `ai-scope-router` | Read-only PR risk review, merge-queue lanes |
+| Contract test | `ai-contract-test` | Record and fuzz an API through api-mock-service |
 | Skill | `ai-skill` | Generic skill invocation with flag parsing, repo cloning, optional services. Slack: `skill <name> [--repo] [--branch] [--tracker] [--model] [--service] [-- instructions]` |
 
 **PR Audit feedback loop:**
@@ -253,7 +272,7 @@ audit N merged PRs → findings report → create PR with skill improvements
 
 ### Skills
 - ❌ **NEVER edit `~/.claude/skills/`** — it's a symlink cache, edits are lost on next sync
-- ✅ Always edit `/Users/sbhatti/workplace/you-got-skills/` and push
+- ✅ Always edit `<workspace>/you-got-skills/` and push
 - ❌ **NEVER invoke skills via the Skill tool in scripts** — use `_load_skill_md()` to read
   SKILL.md directly and embed in the Claude prompt
 - ✅ Use `_inline_shared_refs()` to resolve `read shared/X.md` refs before passing to Claude
@@ -369,7 +388,7 @@ tasks via artifacts:
 - `GH_ORG: "{{.GitHubOrg}}"` / `GH_REPO: "{{.GitHubRepo}}"`
 
 **PRNumber with Jira tracker:** When `DefaultTracker=jira`, Slack routes set PRNumber
-to a Jira ticket ID (e.g. `PROJ-40913`), not a numeric PR number. Scripts must call
+to a Jira ticket ID (e.g. `PROJ-913`), not a numeric PR number. Scripts must call
 `resolve_pr_number()` from `scripts.mq._shared` to search Bitbucket for the actual
 numeric PR ID before calling any Bitbucket PR API.
 
@@ -395,7 +414,7 @@ numeric PR ID before calling any Bitbucket PR API.
 ## Infrastructure
 
 - **Formicary queen + ant:** Running on EC2 (K3s cluster)
-- **Bedrock endpoint:** `http://ai/bedrock` (Tailscale address on EC2)
+- **LLM gateway:** an internal address reachable from the task pods (set in the org config / `ai-dev-credentials`; not listed here)
 - **K8s credentials secret:** `ai-dev-credentials` (all tokens: Jira, Bitbucket, Slack, GitHub)
 - **SQLite location:** `/var/lib/rancher/k3s/storage/pvc-*/formicary.db`
 - **Settings.json:** Written by `_ensure_ygs_skills()` if missing (Bedrock config + permissions)
@@ -505,29 +524,15 @@ The fuzz task then downloads an empty recordings directory, discovers 0 endpoint
 
 ---
 
-## Current Open Work (as of 2026-09-24)
+## Open Work (reviewed 2026-10-26)
 
-### Pending — PR Audit
-1. Fix `poll-pr` directory structure for pr-audit — add pre-step creating `/workspace/pr-audit/`
-   and copying `pr.json`, `poll_state.json`, etc.
-2. Verify `create_skill_pr.py` on GitHub main has `clone_by_tracker` + `sys.exit(1)` on clone failure
-3. Rebuild docker image + restart ant after fixes
-4. Re-run pod tests (4 tests: pr-audit-gh-fetch, pr-audit-gh-full, gh-query, jira-query)
-5. Deploy workflows and run e2e for both GH and Jira
-6. Verify report quality: PR IDs, skill assessment, recommended skill updates
-
-### Pending — PR Audit Quality Improvements (see we-added-support-for-tranquil-sky.md)
-1. **Data quality:** Fix `review_decision` (derive from `reviews` array, not null `reviewDecision`)
-2. **Bot split:** Separate CI bots from code-review bots in `classify_comments()` (3 buckets)
-3. **Raw artifacts:** Save `pr_data_raw.json` and `pr_reviews_raw.json` for debugging
-4. **Cross-team learning:** `create_ygs_pr.py` — creates PR against you-got-skills when
-   evidence cites 3+ PRs for same gap pattern
-5. **Targeted deep review:** Phase 2.5 in ygs-pr-audit SKILL.md — invoke ygs-security-review
-   on security-sensitive PRs, ygs-review-deep on large under-reviewed PRs
-
-### Pending — Post-Merge PR Health Check (see we-are-working-on-serene-cosmos.md)
-- Extend `jira/learn.py` and `gh/learn.py` to fetch single PR context and run Phase 0
-  health check before ygs-learn; post combined report back to PR and issue
+The September pending lists were checked against the code: the PR-audit data-quality items are done (`review_decision` is derived from the reviews, `create_skill_pr.py` clones through `clone_by_tracker` and exits non-zero on failure, `create_ygs_pr.py` exists, and `jira/learn.py` / `gh/learn.py` fetch the single-PR context for the post-merge health check). Still open or unverified, in the order they matter:
+- `poll-pr` expects `/workspace/{issue_id}/pr.json`; pr-audit does not create that directory (verify with the pr-audit e2e before relying on the feedback loop)
+- `implement https://github.com/...` without a `gh` keyword still falls to `ai-jira-implement`; needs URL-based routing in `router.py`, not Go logic
+- S3/seaweedfs port 4443 DNAT does not forward to pods
+- `synthesize.py` loads `ygs-standup` without `inline_shared_refs` (`scripts/common/skills.py`); the skill's `shared/` reads are not inlined into the standup prompt
+- E2E through Formicary of the ticket-readiness and standup-points changes (pod tests and unit tests pass; the model steps need the pushed skills and a rebuilt image)
+- Replace `MaxLimits api.ResourceList` with a string-based `ResourceConfig` (see the `max_limits` bug above)
 
 ### Completed — ai-skill / ai-parallel-test Fan-Out Fixes (2026-09-24)
 
@@ -549,14 +554,6 @@ Two bugs fixed in the fan-out workflow:
   when `result.PassThroughArgs` is true, binding full trailing text to `IdVar` verbatim.
 - Tests: `queen/slack/command_router_test.go::Test_PassThroughArgs_Propagated_From_Route_Config`
           `queen/slack/command_router_test.go::Test_PassThroughArgs_False_By_Default`
-
-### Pending — Slack URL Routing
-- `implement https://github.com/...` still falls to `ai-jira-implement` (no keyword)
-- Need URL-content-based routing in router.py without hardcoded Go logic
-
-### Pending — Infrastructure
-- S3/seaweedfs port 4443 DNAT not forwarding to pods
-- `_inline_shared_refs` should also be applied in `synthesize.py` for ygs-standup
 
 ---
 
@@ -714,18 +711,18 @@ The image must be set at submission time (before the container starts); it canno
 ```bash
 # Pod functional tests
 source ~/.zshrc
-cd /Users/sbhatti/workplace/ai-dev-tools
+cd <workspace>/ai-dev-tools
 PYTHONPATH=. python3 tests/test_pod_functional.py --list
 PYTHONPATH=. python3 tests/test_pod_functional.py --tests review-skill-loading
 PYTHONPATH=. python3 tests/test_pod_functional.py --tests pr-audit-gh-fetch,gh-query,jira-query
 
 # E2E functional tests
-PYTHONPATH=/Users/sbhatti/workplace/ai-dev-tools \
-  python3 /Users/sbhatti/workplace/ai-dev-tools/tests/test_functional_workflows.py \
+PYTHONPATH=<workspace>/ai-dev-tools \
+  python3 <workspace>/ai-dev-tools/tests/test_functional_workflows.py \
   --tests standup --timeout 900
 
 # Docker rebuild
-cd /Users/sbhatti/workplace/ai-dev-tools
+cd <workspace>/ai-dev-tools
 make docker-build NO_CACHE=1
 
 # Ant restart
@@ -733,7 +730,7 @@ kubectl rollout restart deployment/formicary-ant -n default
 
 # Deploy workflows
 source ~/.zshrc
-bash /Users/sbhatti/workplace/formicary/docs/examples/deploy-ai-workflows.sh \
+bash <workspace>/formicary/docs/examples/deploy-ai-workflows.sh \
   --create-k8s-secret --set-configs
 
 # Submit e2e job via API (example: pr audit)

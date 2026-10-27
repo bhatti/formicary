@@ -25,3 +25,6 @@ profiles
 .env.local
 *.env.local
 certs/
+
+# macOS
+.DS_Store

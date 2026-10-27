@@ -11,6 +11,8 @@
 #   ./deploy-ai-standup-gh.sh --set-configs \
 #       --gh-org myorg --gh-repo myrepo --slack-channel standup \
 #       --team-members "alice,bob,charlie"
+#   ./deploy-ai-standup-gh.sh --set-configs --gh-org myorg --gh-repo myrepo --slack-channel standup \
+#       --gh-milestone "Sprint 12"   # the milestone that is the sprint (closed issues count as done in the points)
 #   ./deploy-ai-standup-gh.sh --server http://host:7777 --set-configs \
 #       --gh-org myorg --gh-repo myrepo --slack-channel standup
 #
@@ -50,6 +52,7 @@ GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 SLACK_TOKEN="${SLACK_BOT_TOKEN:-}"
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 STANDUP_TEAM_MEMBERS="${STANDUP_TEAM_MEMBERS:-}"
+GH_MILESTONE="${GH_MILESTONE:-}"
 ANTHROPIC_KEY="${ANTHROPIC_API_KEY:-}"
 USE_BEDROCK="${CLAUDE_CODE_USE_BEDROCK:-}"
 BEDROCK_URL="${ANTHROPIC_BEDROCK_BASE_URL:-http://ai/bedrock}"
@@ -64,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     --gh-repo)       GH_REPO="$2";             shift 2 ;;
     --slack-channel) SLACK_CHANNEL="$2";        shift 2 ;;
     --team-members)  STANDUP_TEAM_MEMBERS="$2"; shift 2 ;;
+    --gh-milestone)  GH_MILESTONE="$2";         shift 2 ;;
     --bedrock)       USE_BEDROCK="1";           shift ;;
     --no-bedrock)    USE_BEDROCK="0";           shift ;;
     --bedrock-url)   BEDROCK_URL="$2";          shift 2 ;;
@@ -193,6 +197,7 @@ if [[ "$SET_CONFIGS" == true ]]; then
   set_org_config "SlackChannel" "$SLACK_CHANNEL" "false"
   [[ -n "$SLACK_TOKEN" ]] && set_org_config "SlackToken" "$SLACK_TOKEN" "true"
   [[ -n "$STANDUP_TEAM_MEMBERS" ]] && set_org_config "StandupTeamMembers" "$STANDUP_TEAM_MEMBERS" "false"
+  [[ -n "$GH_MILESTONE" ]] && set_org_config "GHMilestone" "$GH_MILESTONE" "false"
   if [[ -n "$USE_BEDROCK" ]]; then
     set_org_config "ClaudeUseBedrock"        "$USE_BEDROCK" "false"
     set_org_config "ClaudeSkipBedrockAuth"   "1"            "false"

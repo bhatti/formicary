@@ -140,7 +140,7 @@ See [Job Definitions — Secrets vs Org Configs](../06-job-definitions.md#secret
 
 **Models are not configured here.** Claude model ids (default, `low`/`high` tiers, aliases such as `sonnet`/`opus`/`haiku`) live in one file, `ai-dev-tools/scripts/common/models.json`; no workflow or org config defines them. Override one run with `--model <alias|id>` on the `skill`, `adhoc` and `pr-audit` routes (the queen passes it as the `AiModel` parameter), or `AI_MODEL` / `AI_MODEL_TIER` on a job. Details: [ai-dev-tools configuration](https://github.com/bhatti/ai-dev-tools/blob/main/docs/configuration.md).
 
-**Ticket skills.** `@bot sprint-ready --sprint "<name>" --dry-run` (Jira) or `@bot gh sprint-ready --milestone "<name>"` grades every ticket and reports what is missing; `@bot enrich <url|KEY>` previews acceptance criteria and a plan, `--apply` writes them. These are shortcut routes (`args_prefix`) for the generic `ai-skill` job; the report goes to Slack as a short summary with a link to the full HTML/Markdown report. Details: `ai-dev-tools/docs/ticket-readiness.md`.
+**Ticket skills.** `@bot sprint-ready --sprint "<name>" --dry-run` (Jira) or `@bot gh sprint-ready --milestone "<name>"` grades every ticket and reports what is missing; `@bot enrich <url|KEY>` previews acceptance criteria and a plan, `--apply` writes them. These are shortcut routes (`args_prefix`) for the generic `ai-skill` job; the report goes to Slack as a short summary with a link to the full HTML/Markdown report. The sprint report also shows story points per lane (pending, in progress, review, done), carry-over and rollover; add `--capacity <points>` to compare the open load with the team's capacity. The standup shows the same lanes per sprint and per person. Details: `ai-dev-tools/docs/ticket-readiness.md`.
 
 **More credentials for skills.** Extra variables a skill needs (the app under test for `ygs-qa`, a private registry token, ...) go into the same secret: before `--create-k8s-secret` set `QA_USERNAME` / `QA_PASSWORD` / `QA_AUTH_HEADER` (stored automatically), `BITBUCKET_APP_PASSWORD`, or list other variable names in `EXTRA_SECRET_VARS="NPM_TOKEN FOO"` (see `secret-extras.sh`). `QA_*` and the names in `SKILL_ENV_PASSTHROUGH` are forwarded to the skill's shell; platform tokens are never given to the code under test.
 
@@ -458,6 +458,7 @@ When `--team` is set, only PRs authored or reviewed by those logins/display-name
 | `PrUrls` | `""` | Optional: space/comma-separated PR URLs to audit specific PRs instead of last N |
 | `PrAuditTeamMembers` | `""` | GitHub logins or Jira display names to filter PRs (comma-separated) |
 | `PrAuditGhMilestone` | `""` | GitHub milestone name/number to scope PRs (GH only) |
+| `GHMilestone` | `""` | `ai-standup-gh` only: the milestone that is the sprint; its closed issues count as done in the story-point totals (`deploy-ai-standup-gh.sh --gh-milestone`) |
 | `PrAuditJiraBoards` | `""` | Jira board IDs to resolve active-sprint team filter (Jira only) |
 | `MaxTurnsAudit` | `120` | Max Claude turns for audit |
 | `MaxPrAuditSize` | `10485760` | Max bytes of code to analyze (10MB) |

@@ -10,7 +10,8 @@
 # Required org configs (set via deploy-ai-standup-gh.sh --set-configs):
 #   GHOrg, GHRepo, SlackChannel
 # Optional org configs:
-#   StandupTeamMembers (comma-separated GitHub logins), StandupLookbackHours
+#   StandupTeamMembers (comma-separated GitHub logins), StandupLookbackHours,
+#   GHMilestone (the milestone that is the sprint: scopes open issues and counts its closed issues as done in the story-point totals)
 #
 # Deploy (with Formicary running in Kubernetes via k8s.yaml):
 #   ./deploy-ai-standup-gh.sh --create-k8s-secret --set-configs \
@@ -28,6 +29,7 @@ job_variables:
   StandupTeamMembers: ""
   StandupLookbackHours: "26"
   StandupStaleDays: "2"
+  GHMilestone: ""   # sprint equivalent; when set, closed issues of the milestone count as done in the story-point totals
   MaxTurnsStandup: "30"
   ClaudeUseBedrock: "1"
   AnthropicBedrockBaseUrl: "http://ai/bedrock"
@@ -48,6 +50,7 @@ tasks:
   task_variables:
     GH_ORG: "{{.GHOrg}}"
     GH_REPO: "{{.GHRepo}}"
+    GH_MILESTONE: "{{.GHMilestone}}"
     SLACK_CHANNEL: "{{.SlackChannel}}"
   context_variables:
     - name: SELECTED_TRACKER
