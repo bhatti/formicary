@@ -16,6 +16,7 @@ Review all changes as a principal engineer/architect who must approve for produc
 - MUST encapsulate internal logic with clean, minimal interfaces — principle of least surprise
 - MUST not create circular imports
 - MUST keep code/scripts/docs/skills DRY, concise, and modular across all three repos
+- MUST all code be prod grade/modular/DRY not brittle hacky verbose, duplicated.
 
 ## 2. Tracker & Routing Correctness
 

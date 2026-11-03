@@ -11,6 +11,7 @@
 #   ./scripts/deploy-formicary.sh --apply-db-migration          # apply source index to SQLite DB
 #
 # What it does:
+#   0. Prepare the k3s host (remote only): keep Traefik off ports 443/4443 (scripts/k3s-host-prep.sh, idempotent)
 #   1. Create/update 'formicary-auth' k8s secret from env vars
 #   2. Create/update 'formicary-slack' k8s secret (skipped if SLACK_APP_TOKEN unset)
 #   3. Apply k8s/formicary-leader.yaml
@@ -27,6 +28,8 @@
 # Optional env vars:
 #   QUEEN_SSH_KEY                       SSH key path (default: uses SSH agent)
 #   QUEEN_SSH_USER                      SSH user (default: no explicit user — uses SSH config)
+#   SKIP_HOST_PREP=1                    do not run the k3s host preparation (step 0)
+#   ROLLOUT_TIMEOUT                     how long to wait for the queen to become ready (default 180s)
 #   COMMON_AUTH_GOOGLE_CLIENT_ID / SECRET / CALLBACK_HOST
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN / SLACK_SIGNING_SECRET / SLACK_CHANNEL
 #   FORMICARY_TOKEN                     JWT token — required for org config API updates
@@ -207,6 +210,41 @@ if [[ "$SHOW_LOGS" == true ]]; then
   exit 0
 fi
 
+# ── Host preparation ─────────────────────────────────────────────────────────
+# After a k3s (re)start k3s can deploy its bundled Traefik; its ServiceLB pod then holds hostPort 443 and the queen
+# (hostPorts 443/4443) stays Pending. k3s-host-prep.sh disables Traefik, restarts k3s only if it had to change the
+# configuration, and waits until the ports are free.
+ensure_host_ready() {
+  [[ -n "$QUEEN_IP" ]] || return 0
+  if [[ "${SKIP_HOST_PREP:-}" == 1 ]]; then
+    echo "  ⚠ SKIP_HOST_PREP=1 — not checking the k3s host"
+    return 0
+  fi
+  log "Checking the k3s host (nothing else may hold ports 443/4443)"
+  $SSH_CMD "sudo bash -s" < "${SCRIPT_DIR}/k3s-host-prep.sh" || fail "k3s host preparation failed — see the output above"
+  ok "k3s host ready"
+}
+
+# Waits for the queen; on failure prints why (pod events, and which pods hold the queen's host ports) instead of
+# only "timed out waiting for the condition".
+wait_for_rollout() {
+  kubectl rollout status deployment/formicary --timeout="${ROLLOUT_TIMEOUT:-180s}" && return 0
+  echo "" >&2
+  echo "  ✗ formicary did not become ready. Pod state and events:" >&2
+  kubectl get pods -l app=formicary -o wide >&2 || true
+  kubectl describe pods -l app=formicary 2>&1 | sed -n '/^Events:/,$p' >&2 || true
+  if [[ -n "$QUEEN_IP" ]]; then
+    local holders
+    holders="$($SSH_CMD "sudo bash -s -- --check-ports" < "${SCRIPT_DIR}/k3s-host-prep.sh" 2>/dev/null)" || true
+    if [[ -n "$holders" ]]; then
+      echo "  Pods holding hostPort 443/4443 (the queen needs both):" >&2
+      echo "$holders" | sed 's/^/    /' >&2
+      echo "  Re-run this script: the host preparation removes them (or run scripts/k3s-host-prep.sh on the host)." >&2
+    fi
+  fi
+  fail "rollout of deployment/formicary failed"
+}
+
 # ── DNAT refresh ─────────────────────────────────────────────────────────────
 # Pod IP changes on every rollout restart. This refreshes iptables rules so
 # port 443 → pod:7777 (HTTPS/WSS) and port 4443 → pod:19000 (S3) stay correct.
@@ -233,6 +271,8 @@ refresh_dnat() {
   "
   ok "DNAT rules updated — https://${QUEEN_IP}.nip.io should be reachable"
 }
+
+ensure_host_ready
 
 if [[ "$ROLLOUT_RESTART" == true ]]; then
   [[ -n "$QUEEN_IP" ]] || fail "--restart requires QUEEN_IP (or --queen-ip)"
@@ -333,7 +373,7 @@ else
   echo "${RENDERED_MANIFEST}" | kubectl apply -f -
 fi
 
-kubectl rollout status deployment/formicary --timeout=120s
+wait_for_rollout
 refresh_dnat
 ok "Formicary deployed"
 echo ""

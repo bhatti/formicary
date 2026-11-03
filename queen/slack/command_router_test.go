@@ -724,3 +724,30 @@ func TestShippedRoutes_PrRisk(t *testing.T) {
 		require.ErrorIs(t, err, ErrUnknownCommand, text)
 	}
 }
+
+// TestShippedRoutes_PrAudit loads the real docs/examples/slack-routes.json: every pr-audit route hands the whole text
+// after the trigger to the workflow unmodified (run_pr_audit owns its flag parser), so --reviewers, --dry-run and
+// friends are never split into job params or lost.
+func TestShippedRoutes_PrAudit(t *testing.T) {
+	b, err := os.ReadFile("../../docs/examples/slack-routes.json")
+	require.NoError(t, err)
+	var routes []config.SlackRouteConfig
+	require.NoError(t, json.Unmarshal(b, &routes))
+	router := NewCommandRouter(routes)
+
+	args := "https://github.com/org/repo --reviewers alice,bob --n-prs 20 --dry-run"
+	cases := []struct{ text, jobType string }{
+		{"pr-audit " + args, "ai-gh-pr-audit"},
+		{"gh-pr-audit " + args, "ai-gh-pr-audit"},
+		{"jira-pr-audit " + args, "ai-jira-pr-audit"},
+	}
+	for _, c := range cases {
+		res, builtin, err := router.Route(c.text)
+		require.NoError(t, err, c.text)
+		require.False(t, builtin, c.text)
+		require.Equal(t, c.jobType, res.JobType, c.text)
+		require.Equal(t, "RepoUrl", res.IdVar, c.text)
+		require.True(t, res.PassThroughArgs, c.text)
+		require.Equal(t, args, res.Trailing, c.text)
+	}
+}

@@ -14,7 +14,8 @@
 #   sudo bash /path/to/bootstrap-ec2-remote.sh
 #
 # What it does:
-#   1. Installs k3s (skipped if already running)
+#   1. Installs k3s (skipped if already running) and keeps Traefik off ports 80/443 (scripts/k3s-host-prep.sh),
+#      which the queen needs as hostPorts 443/4443
 #   2. Creates /data/{seaweed,formicary} persistent dirs with correct perms
 #   3. Installs iptables-restore systemd service (persists rules across reboots)
 #   4. Configures CoreDNS to forward external queries to 8.8.8.8/1.1.1.1
@@ -46,6 +47,11 @@ SSH_CMD="ssh${QUEEN_SSH_KEY:+ -i $QUEEN_SSH_KEY} -o StrictHostKeyChecking=no -o 
 $SSH_CMD "echo ok" > /dev/null 2>&1 || fail "Cannot SSH to ${_ssh_host}"
 ok "SSH verified"
 
+# Same preparation deploy-formicary.sh runs: writes the k3s config that disables Traefik. On a fresh host it only
+# writes the file (k3s reads it at install); on an existing one it also restarts k3s if it had to change it.
+log "Preparing k3s configuration on ${QUEEN_IP} ..."
+$SSH_CMD 'sudo bash -s' < "${SCRIPT_DIR}/k3s-host-prep.sh" || fail "k3s host preparation failed"
+
 log "Running bootstrap on ${QUEEN_IP} ..."
 
 $SSH_CMD 'sudo bash -s' << 'REMOTE_SCRIPT'
@@ -60,8 +66,8 @@ if systemctl is-active --quiet k3s 2>/dev/null; then
   ok "k3s already running — skipping install"
 else
   log "Installing k3s ..."
-  # --disable traefik: we don't need the ingress controller
-  curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik" sh -
+  # Traefik stays disabled through /etc/rancher/k3s/config.yaml.d/10-formicary.yaml, written by k3s-host-prep.sh above.
+  curl -sfL https://get.k3s.io | sh -
   systemctl enable k3s
   # Wait for API server
   for i in $(seq 1 30); do

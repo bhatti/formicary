@@ -13,6 +13,11 @@
 #   "@bot pr-audit --filter label=security"  filter by GitHub label
 #   "@bot pr-audit --filter field=value"     filter by Jira field=value (requires Jira creds)
 #
+#   "@bot pr-audit --n-prs 40"                max PRs to analyze (default NPrs = 50)
+#   "@bot pr-audit --reviewers alice,bob"     learn what these reviewers look for: only PRs they reviewed, all their comments in
+#                                             full; writes review_learnings.md + a review-knowledge skill (checklists by category)
+#   "@bot pr-audit --dry-run"                 produce every report and the would-be files (reports/dry_run/) but create no PR
+#
 # Deploy:
 #   ./deploy-ai-workflows.sh --create-k8s-secret --set-configs
 #
@@ -88,6 +93,13 @@ tasks:
     PR_AUDIT_TEAM_MEMBERS: "{{.PrAuditTeamMembers}}"
     PR_AUDIT_GH_MILESTONE: "{{.PrAuditGhMilestone}}"
     PR_AUDIT_FILTER: "{{.PrAuditFilter}}"
+    PR_AUDIT_REVIEWERS: "{{.PrAuditReviewers}}"
+    PR_AUDIT_DRY_RUN: "{{.PrAuditDryRun}}"
+    PR_AUDIT_CONTEXT_CHARS: "{{.PrAuditContextChars}}"
+    # The route passes the text after "pr-audit" through unmodified (pass_through_args); run_pr_audit parses the repo URL,
+    # PR URLs, board URL and every flag from it (one parser). yamlq makes it safe inside this YAML string.
+    SLACK_MESSAGE: "{{.RepoUrl | yamlq}}"
+    PR_URLS: "{{.PrUrls | yamlq}}"
     AUDIT_FULL_REPORT: "{{.AuditFullReport}}"
     EXTRA_SKILLS_REPOS: "{{.ExtraSkillsRepos}}"
     FORMICARY_PUBLIC_URL: "{{.FormicaryPublicURL}}"
@@ -95,35 +107,9 @@ tasks:
     AI_DEV_TOOLS_DEBUG: "{{.AiDevToolsDebug}}"
   script:
     - |
-      REPO_ARG=""
-      if [ -n "{{.RepoUrl}}" ] && [ "{{.RepoUrl}}" != "<no value>" ]; then
-        # Route trailing Slack text: PR URL → PR_URLS, git repo URL → REPO_ARG,
-        # filter flags / board URLs → SLACK_MESSAGE for run_pr_audit to parse.
-        case "{{.RepoUrl}}" in
-          */pull/*|*/pull-requests/*)
-            export PR_URLS="{{.RepoUrl}}"
-            ;;
-          *atlassian.net*/boards/*)
-            # Jira board URL — extract board ID via SLACK_MESSAGE
-            export SLACK_MESSAGE="${SLACK_MESSAGE:+$SLACK_MESSAGE }{{.RepoUrl}}"
-            ;;
-          http://*|https://*)
-            # Plain git repo URL (GitHub, Bitbucket, GitLab)
-            REPO_ARG="--repo-url {{.RepoUrl}}"
-            ;;
-          *)
-            # Filter flags: --team alice,bob | --board <id> | --milestone <name> | free-form
-            export SLACK_MESSAGE="${SLACK_MESSAGE:+$SLACK_MESSAGE }{{.RepoUrl}}"
-            ;;
-        esac
-      fi
-      if [ -n "{{.PrUrls}}" ] && [ "{{.PrUrls}}" != "<no value>" ]; then
-        export PR_URLS="${PR_URLS:+$PR_URLS }{{.PrUrls}}"
-      fi
       mkdir -p ./logs ./reports
       # Output goes directly to stdout so Formicary captures ::add-task-context markers in real time.
       python -m scripts.analyze.run_pr_audit \
-        $REPO_ARG \
         --n-prs "{{.NPrs}}" \
         --focus "{{.PrAuditFocus}}"
       RC=$?
@@ -191,7 +177,10 @@ tasks:
   artifacts:
     paths:
       - ./reports/skill_update_plan.md
+      - ./reports/skill_update_plan.html
       - ./reports/skill_update_plan_result.json
+      - ./reports/skill_improvements_refined.json
+      - ./reports/review_learnings_refined.json
       - ./logs
     expire_after: 72h
   on_completed: create-skill-pr
@@ -221,6 +210,8 @@ tasks:
     - plan-skill-updates
   environment:
     WORKSPACE_DIR: /workspace
+    PR_AUDIT_DRY_RUN: "{{.PrAuditDryRun}}"
+    PR_AUDIT_REVIEWERS: "{{.PrAuditReviewers}}"
     GIT_USER_NAME: "{{.GitUserName}}"
     GIT_USER_EMAIL: "{{.GitUserEmail}}"
     DEFAULT_TRACKER: "github"
@@ -242,6 +233,9 @@ tasks:
   artifacts:
     paths:
       - ./pr.json
+      - ./reports/dry_run
+      - ./reports/skill_updates_report.md
+      - ./reports/skill_updates_report.html
       - ./logs
     expire_after: 72h
   on_completed: poll-pr
@@ -367,6 +361,10 @@ job_variables:
   PrAuditTeamMembers: ""
   PrAuditGhMilestone: ""
   PrAuditFilter: ""
+  # Review learnings / dry run (Slack: --reviewers a,b  --dry-run  — the queen maps them to these variables)
+  PrAuditReviewers: ""
+  PrAuditDryRun: ""
+  PrAuditContextChars: ""
   AuditFullReport: ""
   MaxTurnsAudit: "120"
   MaxTurnsPlan: "30"

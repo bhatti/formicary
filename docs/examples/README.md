@@ -401,7 +401,9 @@ Deployed automatically by both `deploy-ai-workflows.sh` and `deploy-ai-jira-work
 
 ### PR Audit (`ai-gh-pr-audit` / `ai-jira-pr-audit`)
 
-Analyzes the last N pull requests for spec/design/skills gaps, then creates a skill-improvement PR with fixes. The pipeline runs: `audit-prs` (analyze PRs) -> `create-skill-pr` (open improvement PR) -> `poll-pr` (wait for merge/close).
+Analyzes the last N pull requests for spec/design/skills gaps, then creates a skill-improvement PR with fixes. The pipeline runs: `audit-prs` (analyze PRs) -> `plan-skill-updates` -> `create-skill-pr` (open improvement PR) -> `poll-pr` (wait for merge/close).
+
+Besides the gap findings, the audit **learns from review comments**: a review-learnings pass classifies the substantive human comments by category (architecture, security, SRE, testing, API compatibility, correctness, performance, style, spec) and keeps each rule *with its reason* and trigger. The result is `review_learnings.md` and, in the improvement PR, a modular `review-knowledge` skill in the audited repo (`.claude/skills/review-knowledge/`: an index, one short checklist per category, and with `--reviewers` one profile per reviewer). Existing items are never rewritten, only new ones are added.
 
 **Deploy (GitHub):**
 ```bash
@@ -440,12 +442,21 @@ curl -s -X POST "$FORMICARY_URL/api/jobs/requests" \
 # Team/sprint filtering (new)
 @ai-agent pr-audit --team alice,bob               # scope to PRs by these GitHub logins/Jira display names
 @ai-agent pr-audit --milestone sprint-5            # GitHub: scope to milestone
+@ai-agent pr-audit --n-prs 40                      # max PRs to analyze (default NPrs = 50)
+@ai-agent pr-audit https://github.com/ORG/REPO --reviewers alice,bob --n-prs 40 --dry-run   # flags in any order; learn what these senior reviewers look for (see below)
+@ai-agent pr-audit --reviewers alice --dry-run     # same, but create no PR: reports + would-be files only
 @ai-agent pr-audit --board <id>                    # Jira: scope to active sprint of board (numeric ID)
 @ai-agent pr-audit --board                         # Jira: use JIRA_BOARDS org config (no ID needed)
 @ai-agent pr-audit https://company.atlassian.net/.../boards/<id>   # Jira board URL also works
 ```
 
 When PR URLs are included in the Slack message, the audit fetches only those specific PRs instead of the last N. Model and focus can also be overridden inline: `audit last 30 prs focus skills --model opus-5`.
+
+**`--reviewers a,b`** (GitHub logins; Bitbucket nicknames, account ids or display names, case-insensitive, comma-delimited; quote names with spaces: `--reviewers "Alice Smith,Bob Jones"`) narrows the audit to PRs those people reviewed (commented, approved or were assigned), filtered **on the tracker**, so only matching PRs are fetched and enriched: GitHub uses search qualifiers per login (`reviewed-by:`, `commenter:`, author excluded; names must be logins); Bitbucket uses a BBQL query on assigned reviewers (nickname, account id or uuid, matched case-insensitively by the server), and only if that yields fewer than `--n-prs` it also scans PRs that have comments (bounded to 10x `--n-prs`) and matches commenters, which also accepts display names. Rate limits (429) and 5xx are retried with backoff. Their comments are given to the model in full (up to 4000 characters each) instead of the default ranked excerpt, and a profile ("what X looks for": focus areas by category, signature concerns, example feedback) is written for each. Names with no activity are listed in the report so typos are visible. The PR's own author does not count as a reviewer of it.
+
+**`--dry-run`** runs the whole pipeline (audit, plan, files) but creates no branch, push or PR. Artifacts: `reports/review_learnings.md`, `reports/skill_update_plan.md`, and `reports/dry_run/` (`files/` = the exact tree that would be committed, `pr_body.md`, `diff.patch`, `files.txt`). The Slack digest says "dry run"; `poll-pr` is skipped because no PR exists.
+
+**Artifacts (`reports/`, md + html where listed):** `pr_audit_report`, `review_learnings` (what reviewers look for, by category, plus per-reviewer profiles; `.json` too), `skill_update_plan`, `skill_updates_report` (every skill/knowledge file created or updated, with full content; written in dry-run and normal mode, the PR link is added when one exists), `skill_improvements.json`, `run_options.json` (flags handed to the later tasks, which run in separate pods). The comment budget per audit grows with `PrAuditContextChars` (default 250000 characters, 400000 with `--reviewers`).
 
 When `--team` is set, only PRs authored or reviewed by those logins/display-names are analyzed. When a Jira board ID is given, the active sprint's assignees are resolved automatically and used as the team filter.
 
@@ -730,6 +741,8 @@ Mention the bot in any channel it has been invited to:
 | `@bot pr-audit <repo-url>` | PR audit on a specific repo | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit <pr-url> [<pr-url2> ...]` | Audit specific PRs by URL (auto-detects GH vs BB) | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-audit ... --model <model-id>` | Override AI model for this audit run | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot pr-audit --reviewers a,b [--n-prs N]` | Learn what these reviewers look for; writes review learnings and a `review-knowledge` skill | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
+| `@bot pr-audit ... --dry-run` | Produce all reports and the would-be files as artifacts; create no PR | `ai-gh-pr-audit` / `ai-jira-pr-audit` |
 | `@bot pr-risk <pr-url>` / `@bot scope <pr-url>` | PR risk review: blast radius, risk tier, findings, metrics | `ai-pr-risk` |
 | `@bot merge-queue` | Run scope-aware merge queue: collect ready PRs, group by scope, parallel lanes | `ai-merge-queue` |
 | `@bot parallel-test <pr-number>` | Test-impact analysis + parallel shard execution | `ai-parallel-test` |

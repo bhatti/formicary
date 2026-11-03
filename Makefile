@@ -379,6 +379,12 @@ ifeq ($(EXPORT_RESULT), true)
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > junit-report.xml)
 endif
 	$(GOTEST) -v $(TEST_RACE_PROCESS) ./... $(OUTPUT_OPTIONS)
+	$(MAKE) test-scripts
+
+# Deploy/bootstrap script tests (fake host, no cluster needed).
+test-scripts:
+	bash scripts/tests/test-k3s-host-prep.sh
+	bash scripts/tests/test-deploy-formicary.sh
 
 # deploy-ant: deploy the ant worker to the local k8s cluster pointing at a remote queen.
 # Requires: FORMICARY_URL and FORMICARY_TOKEN env vars (same as deploy-ai-workflows.sh).
@@ -504,7 +510,7 @@ gen-tls-certs:
 	@echo "  kubectl create secret tls formicary-tls \\"
 	@echo "    --cert=certs/tls.crt --key=certs/tls.key"
 
-.PHONY: vendor build test tag-release bump-patch bump-minor bump-major \
+.PHONY: vendor build test test-scripts tag-release bump-patch bump-minor bump-major \
         docker-run docker-run-embedded docker-run-queen \
         ant ant-remote ant-docker gen-tls-certs \
         docker-builder docker-builder-reset \
