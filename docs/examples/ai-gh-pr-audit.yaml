@@ -5,6 +5,8 @@
 # then scripts.analyze.create_skill_pr to open a PR with improvements.
 #
 # Triggered via Slack: "@bot pr-audit" | "@bot pr-audit <repo-url>" | "@bot pr-audit <pr-url> [<pr-url2>...]" | "@bot pr-audit ... --model <alias|id>"
+#   Team filtering is OFF unless --team is given (org-config defaults JiraSpace/JiraBoards/PrAuditTeamMembers are ignored by the audit):
+#   "@bot pr-audit --team"                    your default Jira team (looked up from your Slack e-mail)
 #   "@bot pr-audit --team alice,bob"         filter to PRs by those GitHub logins (comma = member list)
 #   "@bot pr-audit --team MyTeam"            filter by GH label matching team name (single word = label filter)
 #   "@bot pr-audit --board <id>"             filter to PRs referencing issues on this Jira board (requires Jira creds)
@@ -16,6 +18,8 @@
 #   "@bot pr-audit --n-prs 40"                max PRs to analyze (default NPrs = 50)
 #   "@bot pr-audit --reviewers alice,bob"     learn what these reviewers look for: only PRs they reviewed, all their comments in
 #                                             full; writes review_learnings.md + a review-knowledge skill (checklists by category)
+#   "@bot pr-audit --breaking-diffs 40"       how many risky PRs get their diff read for the Changelog & Blast Radius section (default 25; 0 = paths only)
+#   "@bot pr-audit --no-changelog"            skip the Changelog & Blast Radius section
 #   "@bot pr-audit --dry-run"                 produce every report and the would-be files (reports/dry_run/) but create no PR
 #
 # Deploy:
@@ -96,6 +100,10 @@ tasks:
     PR_AUDIT_REVIEWERS: "{{.PrAuditReviewers}}"
     PR_AUDIT_DRY_RUN: "{{.PrAuditDryRun}}"
     PR_AUDIT_CONTEXT_CHARS: "{{.PrAuditContextChars}}"
+    PR_AUDIT_CHANGELOG: "{{.PrAuditChangelog}}"
+    # The Slack user (e-mail): a bare "--team" means that person's default Jira team
+    SLACK_USER_TAG: "{{.UserTag}}"
+    PR_AUDIT_DIFF_PRS: "{{.PrAuditDiffPrs}}"
     # The route passes the text after "pr-audit" through unmodified (pass_through_args); run_pr_audit parses the repo URL,
     # PR URLs, board URL and every flag from it (one parser). yamlq makes it safe inside this YAML string.
     SLACK_MESSAGE: "{{.RepoUrl | yamlq}}"
@@ -365,6 +373,10 @@ job_variables:
   PrAuditReviewers: ""
   PrAuditDryRun: ""
   PrAuditContextChars: ""
+  # Changelog & Blast Radius: PrAuditChangelog "0" turns it off (Slack: --no-changelog); PrAuditDiffPrs = risky PRs whose diff is read (Slack: --breaking-diffs N)
+  PrAuditChangelog: ""
+  UserTag: ""
+  PrAuditDiffPrs: ""
   AuditFullReport: ""
   MaxTurnsAudit: "120"
   MaxTurnsPlan: "30"
