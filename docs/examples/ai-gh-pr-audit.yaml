@@ -18,7 +18,7 @@
 #   "@bot pr-audit --n-prs 40"                max PRs to analyze (default NPrs = 50)
 #   "@bot pr-audit --reviewers alice,bob"     learn what these reviewers look for: only PRs they reviewed, all their comments in
 #                                             full; writes review_learnings.md + a review-knowledge skill (checklists by category)
-#   "@bot pr-audit --breaking-diffs 40"       how many risky PRs get their diff read for the Changelog & Blast Radius section (default 25; 0 = paths only)
+#   "@bot pr-audit --breaking-diffs 40"       how many of the riskiest PRs get their diff read for the Changelog & Blast Radius section (default 60; 0 = paths only)
 #   "@bot pr-audit --no-changelog"            skip the Changelog & Blast Radius section
 #   "@bot pr-audit --dry-run"                 produce every report and the would-be files (reports/dry_run/) but create no PR
 #
@@ -49,7 +49,8 @@ tasks:
 # --- AUDIT-PRS ---------------------------------------------------------------
 - task_type: audit-prs
   method: KUBERNETES
-  timeout: 60m
+  # Gap audit, then the review-learnings blocks and the changelog as separate model runs (each bounded by MaxClaudeProcessTimeout)
+  timeout: 150m
   task_variables:
     SELECTED_TRACKER: "github"
     SLACK_CHANNEL: "{{.SlackChannel}}"
@@ -89,6 +90,9 @@ tasks:
     N_PRS: "{{.NPrs}}"
     PR_AUDIT_FOCUS: "{{.PrAuditFocus}}"
     MAX_TURNS_AUDIT: "{{.MaxTurnsAudit}}"
+    # The review learnings and the changelog are their own model runs (the gap audit has no room for 500 PRs of comments and facts)
+    MAX_TURNS_LEARNINGS: "{{.MaxTurnsLearnings}}"
+    MAX_TURNS_CHANGELOG: "{{.MaxTurnsChangelog}}"
     MAX_PR_AUDIT_SIZE: "{{.MaxPrAuditSize}}"
     MAX_CLAUDE_PROCESS_TIMEOUT: "{{.MaxClaudeProcessTimeout}}"
     MAX_DEEP_REVIEWS: "{{.MaxDeepReviews}}"
@@ -379,6 +383,8 @@ job_variables:
   PrAuditDiffPrs: ""
   AuditFullReport: ""
   MaxTurnsAudit: "120"
+  MaxTurnsLearnings: "10"
+  MaxTurnsChangelog: "15"
   MaxTurnsPlan: "30"
   MaxPrAuditSize: "10485760"
   MaxTurnsFeedback: "20"

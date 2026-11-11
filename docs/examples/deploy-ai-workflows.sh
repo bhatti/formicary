@@ -384,6 +384,8 @@ if [[ "$SET_CONFIGS" == true ]]; then
   set_org_config "AuditFocus"         "${AUDIT_FOCUS:-all}"            "false"
   set_org_config "MaxAuditSize"       "${MAX_AUDIT_SIZE:-10485760}"    "false"
   set_org_config "MaxTurnsAudit"      "${MAX_TURNS_AUDIT:-120}"        "false"
+  set_org_config "MaxTurnsLearnings"  "${MAX_TURNS_LEARNINGS:-10}"     "false"
+  set_org_config "MaxTurnsChangelog"  "${MAX_TURNS_CHANGELOG:-15}"     "false"
   set_org_config "NPrs"               "${N_PRS:-50}"                   "false"
   set_org_config "PrAuditFocus"       "${PR_AUDIT_FOCUS:-all}"         "false"
   # FormicaryPublicURL: base URL for artifact links in Slack messages.

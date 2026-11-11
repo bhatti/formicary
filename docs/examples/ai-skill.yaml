@@ -56,7 +56,9 @@ tasks:
       alias: docker
       image: docker:dind
       entrypoint: ["env", "-u", "DOCKER_HOST"]
-      command: ["dockerd-entrypoint.sh"]
+      # Classic overlay2 image store. docker:dind (Docker 29+) defaults to the containerd store, whose `docker save` of a
+      # multi-arch image omits the other platforms' blobs, so `kind`/`ctr images import` fails with "content digest ... not found".
+      command: ["dockerd-entrypoint.sh", "--feature", "containerd-snapshotter=false"]
       memory_limit: "{{default "8G" .DindMemoryLimit}}"
       cpu_request: "500m"
       # The daemon runs in this container, so a bind mount such as `docker run -v /workspace/x:/data` or a kind/compose
